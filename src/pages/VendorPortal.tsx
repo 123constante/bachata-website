@@ -5,7 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import type { VendorDashboardFormState, VendorProduct, VendorRow } from "@/modules/vendor/types";
+import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorPromoDiscountType } from "@/modules/vendor/types";
 import {
   isRlsError,
   normalizeProducts,
@@ -55,7 +55,7 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   id: vendor.id,
   business_name: vendor.business_name || "",
   city: vendor.city || "",
-  country: vendor.country || "",
+  country: (vendor as any).country || "",
   photo_url: normalizeStringArray(vendor.photo_url),
   products: normalizeProducts(vendor.products),
   product_categories: normalizeStringArray(vendor.product_categories),
@@ -65,7 +65,7 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   promo_discount_value:
     typeof vendor.promo_discount_value === "number" ? String(vendor.promo_discount_value) : "",
   email: vendor.email || "",
-  phone: vendor.phone || "",
+  phone: (vendor as any).phone || "",
   whatsapp: vendor.whatsapp || "",
   website: vendor.website || "",
   instagram: vendor.instagram || "",
@@ -1214,7 +1214,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3"
                 value={form.promo_discount_type}
-                onChange={(e) => setForm((prev) => ({ ...prev, promo_discount_type: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, promo_discount_type: e.target.value as VendorPromoDiscountType }))}
               >
                 <option value="percent">percent</option>
                 <option value="fixed">fixed</option>

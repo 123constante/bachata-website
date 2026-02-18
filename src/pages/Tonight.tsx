@@ -115,7 +115,7 @@ const Tonight = () => {
         description: 'Tonight\'s bachata event in your city.',
         organizer: 'Bachata Calendar',
         leadFollowRatio: 0.5,
-        liveStatus: 'starting-soon',
+        liveStatus: 'starting-soon' as const,
       }));
     },
     enabled: !!citySlug,

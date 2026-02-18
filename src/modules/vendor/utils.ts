@@ -47,7 +47,7 @@ export const normalizeProducts = (value: unknown): VendorProduct[] => {
         image_url: imageUrl || undefined,
       } satisfies VendorProduct;
     })
-    .filter((item): item is VendorProduct => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => item != null && Boolean(item.name)) as VendorProduct[];
 };
 
 export const normalizePromoDiscountType = (value: unknown): VendorPromoDiscountType => {

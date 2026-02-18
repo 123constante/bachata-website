@@ -128,8 +128,8 @@ const EditProfile = () => {
             partner_search_role: data.partner_search_role || '',
             partner_search_level: data.partner_search_level || [],
             partner_practice_goals: data.partner_practice_goals || [],
-            partner_details: parsePartnerDetails(data.partner_details),
-            festival_plans: data.festival_plans || [],
+            partner_details: parsePartnerDetails(data.partner_details as any),
+            festival_plans: (Array.isArray(data.festival_plans) ? data.festival_plans : []) as string[],
             website: data.website || '',
           };
 
@@ -206,7 +206,7 @@ const EditProfile = () => {
           website: form.website || null,
           partner_practice_goals: form.partner_practice_goals || null,
           photo_url: serializePhotoValue(form.photo_url),
-          partner_details: serializePartnerDetails(form.partner_details),
+          partner_details: serializePartnerDetails(form.partner_details) as any,
           festival_plans: form.festival_plans.length > 0 ? form.festival_plans : null,
         })
         .eq('id', dancerId);

@@ -80,6 +80,8 @@ export type VendorDashboardFormState = {
   id: string | null;
   business_name: string;
   city: string;
+  country?: string;
+  phone?: string;
   photo_url: string[];
   products: VendorProduct[];
   product_categories: string[];

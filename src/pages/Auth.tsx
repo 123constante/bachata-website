@@ -556,7 +556,7 @@ const Auth = () => {
       }
 
       trackAnalyticsEvent("signup_step_completed", { step: 2, role: selectedRole });
-      trackAnalyticsEvent("signup_completed", { role: selectedRole, verification: "otp_code" });
+      trackAnalyticsEvent("signup_completed", { role: selectedRole, verification: "email_confirmation" });
       triggerGlobalConfetti();
       clearSignupDraft();
       navigate(resolvedRoute === "returning" ? signupReturnTo : signupReturnTo);

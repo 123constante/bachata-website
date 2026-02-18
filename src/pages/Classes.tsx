@@ -336,7 +336,7 @@ const Classes = () => {
                  </p>
                </div>
                
-               <Button size="xl" className="bg-festival-pink hover:bg-festival-pink/90 text-white shadow-lg shadow-festival-pink/20 group-hover:scale-105 transition-all text-lg h-14 px-8">
+               <Button size="lg" className="bg-festival-pink hover:bg-festival-pink/90 text-white shadow-lg shadow-festival-pink/20 group-hover:scale-105 transition-all text-lg h-14 px-8">
                  Find a Party
                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                </Button>
