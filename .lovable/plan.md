@@ -1,53 +1,35 @@
 
 
-## Problem
+## Redesign the "Partner Intent" Card into a Fun "Practice Buddy" Section
 
-When a signed-in user visits `/profile` and has **no profiles yet** (e.g., fresh signup), `ProfileEntryRouter` shows the `ManageProfilesHub` in full "card" mode -- a big "Choose your role" screen listing all 6 roles. This is redundant because:
+### Goal
+Replace the current partner-intent card (section 4, lines 227-260) with a vibrant, fun "Practice Buddy" section that feels energetic and sport-like -- not like a dating profile.
 
-1. The user **already chose a role** during the signup flow (`ProfileEntryFlow`) -- stored in `localStorage` as `profile_entry_role`
-2. A dancer profile should have been auto-created via `ensureDancerProfile` during signup, but timing issues or errors can cause `useUserIds` to return empty on the first render
+### What Changes
 
-The result is a confusing duplicate role-selection screen.
+**File: `src/components/profile/DancerProfileGrid.tsx`**
 
-## Proposed Solution
+1. **Rename and restyle the section** -- replace the Heart icon and "Open to Partnering" language with dance-practice-focused branding:
+   - Header: a fun emoji-based title like "Practice Buddy" with a `Zap` or `Users` icon (no hearts)
+   - Background: gradient using teal/cyan tones (energetic, sporty) instead of the current subtle card
 
-Streamline the zero-roles state in `ProfileEntryRouter` so that instead of showing the full role picker, it:
+2. **Expand `hasPartnerIntent`** (line 86) to also check `partnerSearchLevel.length > 0` and `partnerDetailsText`
 
-1. **Checks `localStorage` for `profile_entry_role`** -- if the user already chose a role during signup, auto-redirect them to the appropriate create-profile page (e.g., `/create-dancers-profile`, `/create-organiser-profile`)
-2. **If no stored role exists**, auto-create a dancer profile (the default/base role) using `ensureDancerProfile`, then refresh roles -- the user lands directly on the Dancer Dashboard
-3. **Only show the ManageProfilesHub role picker as a fallback** if both of the above fail
+3. **New card layout (full 2-col span)**:
+   - **Status badge**: Green "Down to Practice!" when `lookingForPartner` is true, or gray "Not right now" -- styled as a fun pill
+   - **Preferred role**: Show `partnerSearchRole` as a small labeled chip (e.g., "Looking for: Leader")
+   - **Level preferences**: Show `partnerSearchLevel` entries as colored badges (e.g., teal "Beginner", cyan "Advanced") labeled "Vibes with:"
+   - **Practice goals**: Keep existing `partnerPracticeGoals` chips but restyle with energetic colors (green/teal borders)
+   - **Details note**: Render `partnerDetailsText` as a short italic muted paragraph (max 3 lines, line-clamp) if non-empty
 
-This eliminates the redundant "Choose your role" screen entirely for the normal flow.
+4. **Remove the Heart icon** in the top-right corner; replace with a playful dancing-related icon (`Zap` or `Sparkles`)
 
-## Technical Details
+### Visual Tone
+- Teal/green/cyan palette (energetic, sporty)
+- No hearts or pink tones in this section
+- Zap/Sparkles icons to convey energy
+- Copy like "Down to Practice!", "Vibes with:", "Goals:" -- casual and fun
 
-### File: `src/components/profile/ProfileEntryRouter.tsx`
-
-**Changes:**
-- Import `ensureDancerProfile` and `useAuth` (to get user details for auto-creation)
-- In the `availableRoles.length === 0` branch (lines 82-96):
-  - Add a `useEffect` that runs once when `availableRoles` is empty and user is authenticated:
-    1. Read `profile_entry_role` from `localStorage`
-    2. If a role is stored and it's not `dancer`, navigate to the corresponding create-profile page (e.g., `/create-organiser-profile`) and clear the stored role
-    3. If the role is `dancer` or no role is stored, call `ensureDancerProfile()` with the user's info, then call `onRefreshRoles()` to re-fetch IDs -- this will cause the component to re-render with `dancerId` populated, skipping the zero-roles state entirely
-    4. If everything fails, fall through to showing `ManageProfilesHub` as before
-  - Show a loading spinner during this auto-resolution instead of the role picker
-  - Add a route map constant for role-to-create-page mapping
-
-### Route Map
-
-```text
-dancer     -> auto-create via ensureDancerProfile (no redirect needed)
-organiser  -> /create-organiser-profile
-teacher    -> /create-teacher-profile
-dj         -> /create-dj-profile
-videographer -> /create-videographer-profile
-vendor     -> /create-vendor-profile
-```
-
-### Edge Cases
-
-- If `ensureDancerProfile` fails (network error, RLS issue), fall back to showing ManageProfilesHub
-- Clear `profile_entry_role` from localStorage after consuming it to prevent redirect loops
-- If user navigates directly to `/profile` without going through signup (no stored role), auto-create dancer profile as the sensible default
+### No Other File Changes
+All data fields (`partnerSearchLevel`, `partnerDetailsText`, `lookingForPartner`, `partnerPracticeGoals`, `partnerSearchRole`) are already available in the `DancerPublicViewModel` passed to this component.
 
