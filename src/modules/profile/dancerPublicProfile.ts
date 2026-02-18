@@ -29,7 +29,6 @@ export type DancerPublicRecord = Pick<
   | "is_public"
   | "email"
   | "verified"
-  | "goals"
   | "dancing_start_date"
   | "festival_plans"
 >;
@@ -132,7 +131,7 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
     partnerPracticeGoals: normalizeStringArray(record.partner_practice_goals),
     partnerDetailsText,
     isVerified: Boolean(record.verified),
-    goals: normalizeStringArray(record.goals),
+    goals: [],
     festivalPlanIds: normalizeStringArray(record.festival_plans),
     connectLinks: {
       instagram: normalizeUrl(record.instagram, "instagram"),
