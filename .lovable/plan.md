@@ -1,34 +1,85 @@
 
 
-## Fix: Navigation Buttons Freeze After Sign-Out
+## Logic Refinement: localStorage Clearing Order and Fallback Safety
 
-### Root Cause
+Two targeted adjustments to the previously approved auth flow plan. No UI, styling, database, or RLS changes.
 
-When you sign out, Supabase fires the `SIGNED_OUT` event through `onAuthStateChange`. The current `useAuth` hook sets `isLoading(false)` inside that callback (line 32), which triggers a cascade of re-renders across the entire app tree. Combined with `AnimatePresence mode="wait"` in the router (which blocks new page renders until exit animations finish), these rapid re-renders restart the animation cycle, making navigation appear completely frozen until a manual page refresh.
+### Adjustment 1: Clear localStorage AFTER Navigation Decision
 
-### Solution
-
-One change to `src/hooks/useAuth.tsx`:
-
-- `onAuthStateChange` will update `session` and `user` only -- it will NOT touch `isLoading`
-- `isLoading` will only be set to `false` once, after the initial `getSession()` call resolves
-- An `isMounted` guard prevents state updates after unmount
+In both `AuthCallback.tsx` and `Onboarding.tsx`, the order of operations must be strictly:
 
 ```text
-Current (problematic):
-  onAuthStateChange --> setSession, setUser, setIsLoading(false)  // fires on every auth event
-  getSession        --> setSession, setUser, setIsLoading(false)
-
-Fixed:
-  onAuthStateChange --> setSession, setUser                       // no isLoading touch
-  getSession        --> setSession, setUser, setIsLoading(false)  // one-time initial load
+1. Read pendingRole from localStorage
+2. Decide route based on pendingRole
+3. Navigate to chosen route
+4. Clear localStorage keys (pending_profile_role, profile_entry_role, etc.)
 ```
 
-This ensures that sign-out (and sign-in) auth events update the user/session cleanly without causing `isLoading` flip-flops that restart page transitions.
+This applies to:
 
-### Why This Fixes the Problem
+**AuthCallback.tsx** -- when dancer EXISTS and pendingRole is set:
+```text
+const pendingRole = localStorage.getItem("pending_profile_role")
+// decide route
+if (pendingRole && pendingRole !== "dancer") {
+  navigate(`/create-${pendingRole}-profile`, { replace: true })
+} else {
+  navigate("/profile", { replace: true })
+}
+// clear AFTER navigate call
+localStorage.removeItem("pending_profile_role")
+```
 
-- Sign-out fires one `onAuthStateChange` event setting `user` to `null` -- no `isLoading` change, no animation restart
-- The app re-renders once (to reflect logged-out state), AnimatePresence completes normally
-- Navigation works immediately without needing a page refresh
+**Onboarding.tsx** -- post-submission navigation:
+```text
+const pendingRole = localStorage.getItem("pending_profile_role")
+// decide route
+if (pendingRole && pendingRole !== "dancer") {
+  navigate(`/create-${pendingRole}-profile`, { replace: true })
+} else {
+  navigate("/profile", { replace: true })
+}
+// clear AFTER navigate call
+localStorage.removeItem("pending_profile_role")
+localStorage.removeItem("profile_entry_role")
+localStorage.removeItem("auth_signup_draft_v1")
+localStorage.removeItem("auth_last_email")
+localStorage.removeItem("profile_last_active_role")
+```
+
+### Adjustment 2: Safety Fallback in AuthCallback
+
+Add a catch-all case for when no dancer exists AND no pending role is found. This protects against cleared localStorage, manual URL visits, or disabled browser storage.
+
+**Updated AuthCallback decision tree:**
+
+```text
+1. Wait for authenticated user
+2. Query: SELECT id FROM dancers WHERE user_id = auth.uid()
+3. Read: pendingRole = localStorage.getItem("pending_profile_role")
+
+IF dancer EXISTS:
+  IF pendingRole AND pendingRole !== "dancer":
+    -> navigate("/create-{pendingRole}-profile")
+    -> clear pending_profile_role
+  ELSE:
+    -> navigate("/profile")
+    -> clear pending_profile_role (if set)
+
+IF dancer DOES NOT EXIST:
+  -> navigate("/onboarding")
+  (keep pending_profile_role for onboarding to read later)
+  This fires regardless of whether pendingRole exists or not.
+```
+
+The key addition: the "no dancer" path always goes to `/onboarding`, even if `pendingRole` is null. The onboarding page handles both cases -- if a role is remembered it routes accordingly after submission, if not it defaults to `/profile`.
+
+### Files Affected
+
+| File | What Changes |
+|------|-------------|
+| `src/pages/AuthCallback.tsx` | Move localStorage clear after navigate; add fallback for no-dancer + no-role |
+| `src/pages/Onboarding.tsx` | Move localStorage clear after navigate |
+
+All other files from the previous plan remain unchanged. No database, trigger, RLS, or styling modifications.
 
