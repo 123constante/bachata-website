@@ -9,6 +9,7 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import MagicLinkConfirmation from '@/components/MagicLinkConfirmation';
 import { supabase } from '@/integrations/supabase/client';
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from '@/lib/devAuthBypass';
 
@@ -154,7 +155,6 @@ const MobileBottomNav = () => {
       if (error) throw error;
 
       setMagicLinkSent(true);
-      toast({ title: 'Check your email', description: 'We sent you a magic link to sign in.' });
     } catch (error: any) {
       toast({ title: 'Unable to send link', description: error?.message || 'Please try again.', variant: 'destructive' });
     } finally {
@@ -294,12 +294,11 @@ const MobileBottomNav = () => {
           </DialogHeader>
 
           {magicLinkSent ? (
-            <div className="space-y-3 text-center py-2">
-              <p className="text-sm text-foreground/90">Check your email for a magic link to sign in.</p>
-              <Button variant="ghost" className="w-full" onClick={() => setMagicLinkSent(false)}>
-                Use a different email
-              </Button>
-            </div>
+            <MagicLinkConfirmation
+              email={signInEmail}
+              onResend={handleSendMagicLink}
+              onChangeEmail={() => setMagicLinkSent(false)}
+            />
           ) : (
             <div className="space-y-3">
               <div className="grid w-full grid-cols-2 rounded-md border border-border p-1">
