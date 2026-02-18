@@ -192,7 +192,7 @@ export const PeopleFocusSection = () => {
           viewport={{ once: true }}
         >
           <p className="text-muted-foreground text-lg mb-6">
-            Every person has a story. Every dance has a heart. \u{1F496}
+            Every person has a story. Every dance has a heart. {'\u{1F496}'}
           </p>
           <motion.button
             className="px-8 py-4 bg-primary/10 text-primary border border-primary/30 rounded-full font-bold inline-flex items-center gap-3"
