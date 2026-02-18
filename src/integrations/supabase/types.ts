@@ -2157,6 +2157,13 @@ export type Database = {
         Returns: boolean
       }
       can_manage_connectivity: { Args: never; Returns: boolean }
+      claim_dancer_profile: { Args: { p_dancer_id: string }; Returns: string }
+      claim_dj_profile: { Args: { p_dj_id: string }; Returns: string }
+      claim_organiser_profile: {
+        Args: { p_organiser_id: string }
+        Returns: string
+      }
+      claim_teacher_profile: { Args: { p_teacher_id: string }; Returns: string }
       claim_vendor_profile_for_current_user: {
         Args: { p_vendor_id: string }
         Returns: string

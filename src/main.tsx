@@ -3,6 +3,17 @@ import App from "./App.tsx";
 import "./index.css";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+// Escape HTML to prevent XSS in error handlers
+function escapeHtml(str: unknown): string {
+  const s = String(str ?? '');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Global error handler for non-React errors (Async, Event Handlers, etc.)
 window.onerror = function (message, source, lineno, colno, error) {
   // Alert first to ensure visibility
@@ -23,9 +34,9 @@ window.onerror = function (message, source, lineno, colno, error) {
   
   errorContainer.innerHTML = `
     <h3>Application Crash (Global Error)</h3>
-    <p><strong>Message:</strong> ${message}</p>
-    <p><strong>Source:</strong> ${source}:${lineno}:${colno}</p>
-    <pre>${error?.stack || "No stack trace"}</pre>
+    <p><strong>Message:</strong> ${escapeHtml(message)}</p>
+    <p><strong>Source:</strong> ${escapeHtml(source)}:${escapeHtml(lineno)}:${escapeHtml(colno)}</p>
+    <pre>${escapeHtml(error?.stack || "No stack trace")}</pre>
     <button onclick="window.location.reload()" style="padding: 8px 16px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">Reload App</button>
   `;
   
@@ -49,7 +60,7 @@ window.onunhandledrejection = function (event) {
     
     errorContainer.innerHTML = `
       <h3>Unhandled Promise Rejection</h3>
-      <p><strong>Reason:</strong> ${event.reason}</p>
+      <p><strong>Reason:</strong> ${escapeHtml(event.reason)}</p>
       <button onclick="window.location.reload()" style="padding: 8px 16px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">Reload App</button>
     `;
     
