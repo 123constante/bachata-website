@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DancerDashboard } from '@/components/profile/DancerDashboard';
 import { OrganiserDashboard } from '@/components/profile/OrganiserDashboard';
@@ -11,6 +11,16 @@ import { ManageProfilesHub } from '@/components/profile/ManageProfilesHub';
 import { UserRole } from '@/hooks/useUserIds';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ensureDancerProfile } from '@/lib/ensureDancerProfile';
+import type { User } from '@supabase/supabase-js';
+
+const ROLE_CREATE_ROUTES: Record<string, string> = {
+  organiser: '/create-organiser-profile',
+  teacher: '/create-teacher-profile',
+  dj: '/create-dj-profile',
+  videographer: '/create-videographer-profile',
+  vendor: '/create-vendor-profile',
+};
 
 interface ProfileEntryIds {
   dancerId: string | null;
@@ -44,11 +54,52 @@ export const ProfileEntryRouter = ({
 }: ProfileEntryRouterProps) => {
   const navigate = useNavigate();
 
+  const [autoResolving, setAutoResolving] = useState(false);
+  const [autoResolveFailed, setAutoResolveFailed] = useState(false);
+  const autoResolveRan = useRef(false);
+
   const handleSelectRole = (role: UserRole, source: 'selector' = 'selector') => {
     trackAnalyticsEvent('profile_role_switched', { role, source });
     onSelectRole(role);
   };
 
+  // Auto-resolve zero-roles state
+  useEffect(() => {
+    if (loading || !user || availableRoles.length > 0 || autoResolveRan.current) return;
+    autoResolveRan.current = true;
+
+    const resolve = async () => {
+      setAutoResolving(true);
+      const storedRole = localStorage.getItem('profile_entry_role');
+      localStorage.removeItem('profile_entry_role');
+
+      // If user chose a non-dancer role during signup, redirect to create page
+      if (storedRole && storedRole !== 'dancer' && ROLE_CREATE_ROUTES[storedRole]) {
+        navigate(ROLE_CREATE_ROUTES[storedRole], { replace: true });
+        return;
+      }
+
+      // Otherwise auto-create dancer profile
+      try {
+        const typedUser = user as User;
+        await ensureDancerProfile({
+          userId: typedUser.id,
+          email: typedUser.email,
+          firstName: typedUser.user_metadata?.first_name || null,
+          surname: typedUser.user_metadata?.surname || null,
+          city: typedUser.user_metadata?.city || null,
+        });
+        onRefreshRoles();
+      } catch (err) {
+        console.error('Auto-create dancer profile failed:', err);
+        setAutoResolveFailed(true);
+      } finally {
+        setAutoResolving(false);
+      }
+    };
+
+    resolve();
+  }, [loading, user, availableRoles.length]);
   useEffect(() => {
     if (loading) return;
     trackAnalyticsEvent('profile_entry_opened', { source: 'profile_page' });
@@ -80,6 +131,18 @@ export const ProfileEntryRouter = ({
   }
 
   if (availableRoles.length === 0) {
+    // Show loading while auto-resolving, fallback to hub only if it fails
+    if (autoResolving || !autoResolveFailed) {
+      return (
+        <div className='min-h-screen pt-20 px-4'>
+          <div className='max-w-md mx-auto space-y-4'>
+            <Skeleton className='h-12 w-full' />
+            <Skeleton className='h-64 w-full' />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className='min-h-screen bg-background relative overflow-hidden'>
         <div className='pointer-events-none absolute top-16 -left-16 h-56 w-56 rounded-full bg-festival-teal/20 blur-3xl' />
@@ -89,7 +152,6 @@ export const ProfileEntryRouter = ({
             <h1 className='text-3xl font-bold'>Set up your profile</h1>
             <p className='text-muted-foreground'>Choose what you want to do on Bachata Calendar.</p>
           </div>
-
           <ManageProfilesHub ids={ids} onRefreshRoles={onRefreshRoles} onSignOut={onSignOut} />
         </div>
       </div>
