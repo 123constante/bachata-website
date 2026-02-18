@@ -1,85 +1,81 @@
 
 
-## Logic Refinement: localStorage Clearing Order and Fallback Safety
+## Celebration Confirmation After Magic Link Submission
 
-Two targeted adjustments to the previously approved auth flow plan. No UI, styling, database, or RLS changes.
+### Problem
 
-### Adjustment 1: Clear localStorage AFTER Navigation Decision
+Both the MobileBottomNav modal and the Auth page show a plain, minimal "Check your email" message after submitting. The modal version is especially bare -- just one line of text and a button. Plus, both fire a redundant toast notification on top. This feels generic and unhelpful.
 
-In both `AuthCallback.tsx` and `Onboarding.tsx`, the order of operations must be strictly:
+### Solution
 
-```text
-1. Read pendingRole from localStorage
-2. Decide route based on pendingRole
-3. Navigate to chosen route
-4. Clear localStorage keys (pending_profile_role, profile_entry_role, etc.)
-```
+Replace the post-submission confirmation in both surfaces with a celebratory, informative experience:
 
-This applies to:
+1. **Animated entrance** with confetti burst (using existing `triggerMicroConfetti` from `src/lib/confetti.ts`)
+2. **Show the email address** the link was sent to
+3. **Resend countdown timer** (30 seconds) -- disabled "Resend" button that counts down, then enables
+4. **Remove the redundant toast** -- the inline confirmation is the feedback
+5. **Framer Motion animations** for smooth transitions
 
-**AuthCallback.tsx** -- when dancer EXISTS and pendingRole is set:
-```text
-const pendingRole = localStorage.getItem("pending_profile_role")
-// decide route
-if (pendingRole && pendingRole !== "dancer") {
-  navigate(`/create-${pendingRole}-profile`, { replace: true })
-} else {
-  navigate("/profile", { replace: true })
-}
-// clear AFTER navigate call
-localStorage.removeItem("pending_profile_role")
-```
+### Files to Change
 
-**Onboarding.tsx** -- post-submission navigation:
-```text
-const pendingRole = localStorage.getItem("pending_profile_role")
-// decide route
-if (pendingRole && pendingRole !== "dancer") {
-  navigate(`/create-${pendingRole}-profile`, { replace: true })
-} else {
-  navigate("/profile", { replace: true })
-}
-// clear AFTER navigate call
-localStorage.removeItem("pending_profile_role")
-localStorage.removeItem("profile_entry_role")
-localStorage.removeItem("auth_signup_draft_v1")
-localStorage.removeItem("auth_last_email")
-localStorage.removeItem("profile_last_active_role")
-```
+#### 1. `src/components/MobileBottomNav.tsx`
 
-### Adjustment 2: Safety Fallback in AuthCallback
+**Replace the `magicLinkSent` confirmation block** (lines 296-302) with:
 
-Add a catch-all case for when no dancer exists AND no pending role is found. This protects against cleared localStorage, manual URL visits, or disabled browser storage.
+- Animated mail icon with a scale-in + glow effect (framer-motion)
+- Heading: "Magic link sent!" with a sparkle emoji
+- Subtext showing: "We sent a link to **{signInEmail}**. Check your inbox and click to continue."
+- Resend timer: a `useState` countdown from 30 to 0, displayed as "Resend in {n}s" (disabled), becomes "Resend magic link" button when timer hits 0
+- "Use a different email" ghost button (already exists, keep it)
+- Fire `triggerMicroConfetti` once when `magicLinkSent` becomes true
 
-**Updated AuthCallback decision tree:**
+**Remove the toast** on line 157 (`toast({ title: 'Check your email' ...})`). The inline UI replaces it.
+
+**Add state**: `resendCountdown` (number), reset to 30 when magic link is sent, decremented by `setInterval`.
+
+#### 2. `src/pages/Auth.tsx`
+
+**Replace the `magicLinkSent` confirmation card** (lines 128-154) with the same celebratory pattern:
+
+- Animated mail icon with entrance animation
+- "Magic link sent!" heading
+- Shows the email address
+- Resend countdown timer (30s) with resend button
+- "Use a different email" and "Continue browsing" buttons (already exist)
+- Fire `triggerMicroConfetti` on mount of this view
+
+**Remove the toast** on line 92. The full-page confirmation replaces it.
+
+**Add state**: `resendCountdown` with the same countdown logic.
+
+### Resend Logic (both files)
 
 ```text
-1. Wait for authenticated user
-2. Query: SELECT id FROM dancers WHERE user_id = auth.uid()
-3. Read: pendingRole = localStorage.getItem("pending_profile_role")
+When magicLinkSent becomes true:
+  1. Set resendCountdown = 30
+  2. Start interval decrementing every 1s
+  3. Fire triggerMicroConfetti at center of mail icon
 
-IF dancer EXISTS:
-  IF pendingRole AND pendingRole !== "dancer":
-    -> navigate("/create-{pendingRole}-profile")
-    -> clear pending_profile_role
-  ELSE:
-    -> navigate("/profile")
-    -> clear pending_profile_role (if set)
-
-IF dancer DOES NOT EXIST:
-  -> navigate("/onboarding")
-  (keep pending_profile_role for onboarding to read later)
-  This fires regardless of whether pendingRole exists or not.
+Resend button:
+  - While countdown > 0: disabled, shows "Resend in {countdown}s"
+  - When countdown === 0: enabled, shows "Resend magic link"
+  - On click: calls handleSendMagicLink again, resets countdown to 30
 ```
 
-The key addition: the "no dancer" path always goes to `/onboarding`, even if `pendingRole` is null. The onboarding page handles both cases -- if a role is remembered it routes accordingly after submission, if not it defaults to `/profile`.
+### Visual Design (Lovable handles styling)
 
-### Files Affected
+- Mail icon: gradient background circle (festival-teal to cyan), animated scale-in
+- Checkmark or sparkle particle animation around the icon
+- Heading uses slightly larger text with a warm tone
+- Email address displayed in bold
+- Timer text in muted foreground, transitions smoothly when it hits 0
+- Overall: warm, celebratory, clear -- not clinical
 
-| File | What Changes |
-|------|-------------|
-| `src/pages/AuthCallback.tsx` | Move localStorage clear after navigate; add fallback for no-dancer + no-role |
-| `src/pages/Onboarding.tsx` | Move localStorage clear after navigate |
+### What Does NOT Change
 
-All other files from the previous plan remain unchanged. No database, trigger, RLS, or styling modifications.
+- No routing logic changes
+- No database/RLS changes
+- No changes to the sign-in/sign-up form UI itself
+- No changes to AuthCallback or Onboarding
+- Dev tools remain untouched
 
