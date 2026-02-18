@@ -48,6 +48,8 @@ import VendorDashboardPage from "./pages/VendorDashboardPage";
 import Vendors from "./pages/Vendors";
 import VendorDetail from "./pages/VendorDetail";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
+import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import EditEvent from "./pages/EditEvent";
@@ -160,6 +162,12 @@ const AnimatedRoutes = () => {
         } />
 
         <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+        <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />
+        <Route path="/onboarding" element={
+          <AuthGuard>
+            <PageTransition><Onboarding /></PageTransition>
+          </AuthGuard>
+        } />
         <Route path="/debug" element={<PageTransition><Debug /></PageTransition>} />
         <Route path="/debug/dashboard-patterns" element={<PageTransition><DashboardPatternsDemo /></PageTransition>} />
         

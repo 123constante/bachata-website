@@ -39,19 +39,9 @@ const MobileBottomNav = () => {
   const [isAuthGateOpen, setIsAuthGateOpen] = useState(false);
   const [authGateTab, setAuthGateTab] = useState<'signin' | 'signup'>('signin');
   const [signInEmail, setSignInEmail] = useState('');
-  const [signInCode, setSignInCode] = useState('');
-  const [isSignInCodeSent, setIsSignInCodeSent] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
   const [isSigningIn, setIsSigningIn] = useState(false);
-
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = window.setInterval(() => {
-      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [resendCooldown]);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('dancer');
 
   const createRoleOptions = useMemo(
     () => [
@@ -138,73 +128,35 @@ const MobileBottomNav = () => {
 
   const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
-  const handleInlineSendCode = async () => {
-    if (!isValidEmail(signInEmail)) {
-      toast({
-        title: 'Enter a valid email',
-        description: 'Use your account email to receive a sign-in code.',
-        variant: 'destructive',
-      });
+  const handleSendMagicLink = async () => {
+    const normalizedEmail = signInEmail.trim().toLowerCase();
+    if (!isValidEmail(normalizedEmail)) {
+      toast({ title: 'Enter a valid email', description: 'Use a valid email to receive a magic link.', variant: 'destructive' });
       return;
+    }
+
+    const isCreateAccount = authGateTab === 'signup';
+    if (isCreateAccount) {
+      localStorage.setItem('pending_profile_role', selectedRole);
     }
 
     setIsSigningIn(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email: signInEmail,
+        email: normalizedEmail,
         options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/auth?mode=signin&returnTo=/profile`,
+          shouldCreateUser: isCreateAccount,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: isCreateAccount ? { user_type: selectedRole } : undefined,
         },
       });
 
       if (error) throw error;
 
-      setIsSignInCodeSent(true);
-      setResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
-      toast({
-        title: 'Code sent',
-        description: 'Check your email for a short sign-in code.',
-      });
+      setMagicLinkSent(true);
+      toast({ title: 'Check your email', description: 'We sent you a magic link to sign in.' });
     } catch (error: any) {
-      toast({
-        title: 'Unable to send code',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const handleInlineVerifyCode = async () => {
-    if (!isValidEmail(signInEmail) || !signInCode.trim()) {
-      toast({
-        title: 'Enter email and code',
-        description: 'Add your email and the code from your inbox.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSigningIn(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: signInEmail.trim().toLowerCase(),
-        token: signInCode.trim(),
-        type: 'email',
-      });
-
-      if (error) throw error;
-
-      setIsAuthGateOpen(false);
-      navigate('/profile');
-    } catch (error: any) {
-      toast({
-        title: 'Invalid code',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Unable to send link', description: error?.message || 'Please try again.', variant: 'destructive' });
     } finally {
       setIsSigningIn(false);
     }
@@ -332,7 +284,7 @@ const MobileBottomNav = () => {
         </div>
       </nav>
 
-      <Dialog open={isAuthGateOpen} onOpenChange={setIsAuthGateOpen}>
+      <Dialog open={isAuthGateOpen} onOpenChange={(open) => { setIsAuthGateOpen(open); if (!open) setMagicLinkSent(false); }}>
         <DialogContent className="z-[220] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Open Profile</DialogTitle>
@@ -341,6 +293,14 @@ const MobileBottomNav = () => {
             </DialogDescription>
           </DialogHeader>
 
+          {magicLinkSent ? (
+            <div className="space-y-3 text-center py-2">
+              <p className="text-sm text-foreground/90">Check your email for a magic link to sign in.</p>
+              <Button variant="ghost" className="w-full" onClick={() => setMagicLinkSent(false)}>
+                Use a different email
+              </Button>
+            </div>
+          ) : (
             <div className="space-y-3">
               <div className="grid w-full grid-cols-2 rounded-md border border-border p-1">
                 <button
@@ -348,151 +308,99 @@ const MobileBottomNav = () => {
                   className={`h-9 rounded-sm text-sm font-medium transition ${authGateTab === 'signin' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   onClick={() => setAuthGateTab('signin')}
                 >
-                Sign in
+                  Sign in
                 </button>
                 <button
                   type="button"
                   className={`h-9 rounded-sm text-sm font-medium transition ${authGateTab === 'signup' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   onClick={() => setAuthGateTab('signup')}
                 >
-                Create account
+                  Create account
                 </button>
               </div>
 
               {authGateTab === 'signin' && (
                 <div className="space-y-3 mt-0">
-                <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground/90">
-                  Continue with your email code.
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="auth-gate-email" className="text-xs">Email</Label>
-                <Input
-                  id="auth-gate-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="bg-background"
-                  value={signInEmail}
-                  onChange={(event) => {
-                    setSignInEmail(event.target.value);
-                    setIsSignInCodeSent(false);
-                    setSignInCode('');
-                    setResendCooldown(0);
-                  }}
-                />
-              </div>
-
-              {!isSignInCodeSent ? (
-                <Button
-                  className="w-full font-semibold"
-                  onClick={handleInlineSendCode}
-                  disabled={isSigningIn}
-                >
-                  {isSigningIn ? 'Sending code...' : 'Send sign-in code'}
-                </Button>
-              ) : (
-                <>
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground/90">
+                    Enter your email to receive a magic link.
+                  </div>
                   <div className="space-y-2">
-                    <Label htmlFor="auth-gate-code" className="text-xs">Email code</Label>
+                    <Label htmlFor="auth-gate-email" className="text-xs">Email</Label>
                     <Input
-                      id="auth-gate-code"
-                      type="text"
+                      id="auth-gate-email"
+                      type="email"
+                      placeholder="you@example.com"
                       className="bg-background"
-                      placeholder="Enter code"
-                      value={signInCode}
-                      onChange={(event) => setSignInCode(event.target.value)}
+                      value={signInEmail}
+                      onChange={(event) => setSignInEmail(event.target.value)}
                     />
                   </div>
-                  <Button
-                    className="w-full font-semibold"
-                    onClick={handleInlineVerifyCode}
-                    disabled={isSigningIn}
-                  >
-                    {isSigningIn ? 'Verifying...' : 'Verify code'}
+                  <Button className="w-full font-semibold" onClick={handleSendMagicLink} disabled={isSigningIn}>
+                    {isSigningIn ? 'Sending…' : 'Send magic link'}
                   </Button>
                   <button
                     type="button"
                     className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={handleInlineSendCode}
-                    disabled={isSigningIn || resendCooldown > 0}
-                  >
-                    {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => {
-                      setIsSignInCodeSent(false);
-                      setSignInCode('');
-                      setResendCooldown(0);
+                      setIsAuthGateOpen(false);
+                      navigate('/auth?mode=signin&returnTo=/profile');
                     }}
                   >
-                    Use different email
+                    Open full sign-in page
                   </button>
-                </>
+                  {import.meta.env.DEV && (
+                    <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground" onClick={() => void handleDevQuickLogin()} disabled={isSigningIn}>
+                      Dev quick login
+                    </button>
+                  )}
+                  {import.meta.env.DEV && (
+                    <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground" onClick={() => void handleCreateRandomDevAccount()} disabled={isSigningIn}>
+                      Create random test account
+                    </button>
+                  )}
+                </div>
               )}
 
-              <button
-                type="button"
-                className="w-full text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setIsAuthGateOpen(false);
-                  navigate('/auth?mode=signin&returnTo=/profile');
-                }}
-              >
-                Open full sign-in page
-              </button>
-              {import.meta.env.DEV && (
-                <button
-                  type="button"
-                  className="w-full text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => void handleDevQuickLogin()}
-                  disabled={isSigningIn}
-                >
-                  Dev quick login
-                </button>
+              {authGateTab === 'signup' && (
+                <div className="space-y-3 mt-0">
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground/90">
+                    Choose your role, then enter your email.
+                  </div>
+                  <div className="grid gap-2">
+                    {createRoleOptions.map((role) => {
+                      const Icon = role.icon;
+                      const isActive = selectedRole === role.value;
+                      return (
+                        <Button
+                          key={role.value}
+                          variant="outline"
+                          className={`w-full justify-start text-foreground ${isActive ? 'border-cyan-300/85 bg-festival-teal/28' : role.buttonClass}`}
+                          onClick={() => setSelectedRole(role.value)}
+                        >
+                          <Icon className={`w-4 h-4 mr-2 ${role.iconClass}`} />
+                          {role.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="auth-gate-signup-email" className="text-xs">Email</Label>
+                    <Input
+                      id="auth-gate-signup-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      className="bg-background"
+                      value={signInEmail}
+                      onChange={(event) => setSignInEmail(event.target.value)}
+                    />
+                  </div>
+                  <Button className="w-full font-semibold" onClick={handleSendMagicLink} disabled={isSigningIn}>
+                    {isSigningIn ? 'Sending…' : 'Send magic link'}
+                  </Button>
+                </div>
               )}
-              {import.meta.env.DEV && (
-                <button
-                  type="button"
-                  className="w-full text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => void handleCreateRandomDevAccount()}
-                  disabled={isSigningIn}
-                >
-                  Create random test account
-                </button>
-              )}
-              </div>
-            )}
-
-            {authGateTab === 'signup' && (
-              <div className="space-y-3 mt-0">
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground/90">
-                Choose your first profile.
-              </div>
-              <div className="grid gap-2">
-                {createRoleOptions.map((role) => {
-                  const Icon = role.icon;
-                  return (
-                    <Button
-                      key={role.value}
-                      variant="outline"
-                      className={`w-full justify-start text-foreground ${role.buttonClass}`}
-                      onClick={() => {
-                        localStorage.setItem('profile_entry_role', role.value);
-                        localStorage.removeItem('auth_signup_draft_v1');
-                        setIsAuthGateOpen(false);
-                        navigate(`/auth?mode=signup&returnTo=/profile&userType=${encodeURIComponent(role.value)}`);
-                      }}
-                    >
-                      <Icon className={`w-4 h-4 mr-2 ${role.iconClass}`} />
-                      Create {role.label} profile
-                    </Button>
-                  );
-                })}
-              </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

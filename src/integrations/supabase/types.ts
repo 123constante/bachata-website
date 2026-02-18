@@ -162,11 +162,10 @@ export type Database = {
       dancers: {
         Row: {
           achievements: string[] | null
-          city: string | null
-          city_id: string | null
+          city: string
+          city_id: string
           created_at: string | null
           dancing_start_date: string | null
-          email: string | null
           facebook: string | null
           favorite_songs: string[] | null
           favorite_styles: string[] | null
@@ -187,7 +186,7 @@ export type Database = {
           partner_search_role: string | null
           photo_url: string[] | null
           surname: string | null
-          user_id: string | null
+          user_id: string
           verified: boolean | null
           website: string | null
           whatsapp: string | null
@@ -195,11 +194,10 @@ export type Database = {
         }
         Insert: {
           achievements?: string[] | null
-          city?: string | null
-          city_id?: string | null
+          city: string
+          city_id: string
           created_at?: string | null
           dancing_start_date?: string | null
-          email?: string | null
           facebook?: string | null
           favorite_songs?: string[] | null
           favorite_styles?: string[] | null
@@ -220,7 +218,7 @@ export type Database = {
           partner_search_role?: string | null
           photo_url?: string[] | null
           surname?: string | null
-          user_id?: string | null
+          user_id: string
           verified?: boolean | null
           website?: string | null
           whatsapp?: string | null
@@ -228,11 +226,10 @@ export type Database = {
         }
         Update: {
           achievements?: string[] | null
-          city?: string | null
-          city_id?: string | null
+          city?: string
+          city_id?: string
           created_at?: string | null
           dancing_start_date?: string | null
-          email?: string | null
           facebook?: string | null
           favorite_songs?: string[] | null
           favorite_styles?: string[] | null
@@ -253,7 +250,7 @@ export type Database = {
           partner_search_role?: string | null
           photo_url?: string[] | null
           surname?: string | null
-          user_id?: string | null
+          user_id?: string
           verified?: boolean | null
           website?: string | null
           whatsapp?: string | null
