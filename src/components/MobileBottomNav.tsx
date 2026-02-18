@@ -298,6 +298,7 @@ const MobileBottomNav = () => {
               email={signInEmail}
               onResend={handleSendMagicLink}
               onChangeEmail={() => setMagicLinkSent(false)}
+              role={authGateTab === 'signup' ? selectedRole : undefined}
             />
           ) : (
             <div className="space-y-3">
