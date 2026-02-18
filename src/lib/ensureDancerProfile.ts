@@ -52,7 +52,7 @@ export const ensureDancerProfile = async ({
 
   const { data: existing, error: existingError } = await supabase
     .from("dancers")
-    .select("id, first_name, email, city")
+    .select("id, first_name, city")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -61,7 +61,6 @@ export const ensureDancerProfile = async ({
   if (existing?.id) {
     const updatePayload: Record<string, unknown> = {};
     if (!normalizeText(existing.first_name)) updatePayload.first_name = safeFirstName;
-    if (!normalizeText(existing.email) && safeEmail) updatePayload.email = safeEmail;
     if (!normalizeText(existing.city) && safeCity) updatePayload.city = safeCity;
 
     if (Object.keys(updatePayload).length > 0) {
@@ -84,8 +83,8 @@ export const ensureDancerProfile = async ({
     user_id: userId,
     first_name: safeFirstName,
     surname: safeSurname,
-    email: safeEmail,
-    city: safeCity,
+    city: safeCity!,
+    city_id: "", // caller must provide valid city_id
     verified: false,
     is_public: false,
     hide_surname: false,

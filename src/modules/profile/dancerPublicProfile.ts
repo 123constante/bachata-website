@@ -27,11 +27,10 @@ export type DancerPublicRecord = Pick<
   | "partner_practice_goals"
   | "partner_details"
   | "is_public"
-  | "email"
   | "verified"
   | "dancing_start_date"
   | "festival_plans"
->;
+> & { email?: string | null };
 
 export type DancerPublicViewModel = {
   id: string;
@@ -137,7 +136,7 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
       instagram: normalizeUrl(record.instagram, "instagram"),
       facebook: normalizeUrl(record.facebook, "facebook"),
       website: normalizeUrl(record.website, "website"),
-      email: record.email || null,
+      email: (record as any).email || null,
     },
   };
 };
