@@ -772,24 +772,25 @@ const Auth = () => {
                   New here? Create an account
                 </button>
                 {import.meta.env.DEV && (
-                  <button
-                    type="button"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => void handleDevQuickLogin(returnTo)}
-                    disabled={isSubmitting}
-                  >
-                    Dev quick login
-                  </button>
-                )}
-                {import.meta.env.DEV && (
-                  <button
-                    type="button"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => void handleCreateRandomDevAccount(returnTo)}
-                    disabled={isSubmitting}
-                  >
-                    Create random test account
-                  </button>
+                  <div className="space-y-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
+                    <p className="text-xs font-semibold text-yellow-300">🛠 Dev Tools</p>
+                    <Button
+                      variant="outline"
+                      className="w-full border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20"
+                      onClick={() => void handleCreateRandomDevAccount(returnTo)}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Creating account..." : "⚡ Instant Dev Login (random account)"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-xs text-yellow-300/70 hover:text-yellow-200"
+                      onClick={() => void handleDevQuickLogin(returnTo)}
+                      disabled={isSubmitting}
+                    >
+                      Dev login (env credentials)
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -807,13 +808,25 @@ const Auth = () => {
                   </p>
                 )}
                 {import.meta.env.DEV && (
-                  <button
-                    type="button"
-                    className="self-start text-xs text-muted-foreground hover:text-foreground"
-                    onClick={handleMockFillSignup}
-                  >
-                    Mock fill signup
-                  </button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20 text-xs"
+                      onClick={handleMockFillSignup}
+                    >
+                      🎲 Mock fill signup
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20 text-xs"
+                      onClick={() => void handleCreateRandomDevAccount(signupReturnTo, selectedRole)}
+                      disabled={isSubmitting}
+                    >
+                      ⚡ Instant Dev Login
+                    </Button>
+                  </div>
                 )}
               </CardHeader>
               <CardContent className="space-y-5">
@@ -989,24 +1002,17 @@ const Auth = () => {
                             Use different email
                           </button>
                           {import.meta.env.DEV && (
-                            <button
-                              type="button"
-                              className="w-full text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => void handleDevQuickLogin(signupReturnTo)}
-                              disabled={isSubmitting}
-                            >
-                              Dev quick login
-                            </button>
-                          )}
-                          {import.meta.env.DEV && (
-                            <button
-                              type="button"
-                              className="w-full text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => void handleCreateRandomDevAccount(signupReturnTo, selectedRole)}
-                              disabled={isSubmitting}
-                            >
-                              Create random test account
-                            </button>
+                            <div className="space-y-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
+                              <p className="text-xs font-semibold text-yellow-300">🛠 Dev Tools</p>
+                              <Button
+                                variant="outline"
+                                className="w-full border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20"
+                                onClick={() => void handleCreateRandomDevAccount(signupReturnTo, selectedRole)}
+                                disabled={isSubmitting}
+                              >
+                                {isSubmitting ? "Creating account..." : "⚡ Instant Dev Login (random account)"}
+                              </Button>
+                            </div>
                           )}
                         </>
                       )}
