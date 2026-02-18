@@ -369,13 +369,27 @@ export const AuthStepper = ({
         {title && <h3 className="text-xl font-semibold">{title}</h3>}
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         {import.meta.env.DEV && (
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            onClick={handleMockFillSignup}
-          >
-            Mock fill signup
-          </button>
+          <div className="flex gap-2 justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20 text-xs"
+              onClick={handleMockFillSignup}
+            >
+              🎲 Mock fill
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20 text-xs"
+              onClick={() => void handleCreateRandomDevAccount()}
+              disabled={isLoading}
+            >
+              ⚡ Instant login
+            </Button>
+          </div>
         )}
       </div>
 
@@ -554,27 +568,27 @@ export const AuthStepper = ({
           </Button>
 
           {import.meta.env.DEV && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => void handleDevQuickLogin()}
-              disabled={isLoading}
-            >
-              Dev quick login
-            </Button>
-          )}
-
-          {import.meta.env.DEV && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => void handleCreateRandomDevAccount()}
-              disabled={isLoading}
-            >
-              Create random test account
-            </Button>
+            <div className="space-y-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
+              <p className="text-xs font-semibold text-yellow-300">🛠 Dev Tools</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-yellow-500/40 text-yellow-200 hover:bg-yellow-500/20"
+                onClick={() => void handleCreateRandomDevAccount()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Creating account..." : "⚡ Instant Dev Login (random account)"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs text-yellow-300/70 hover:text-yellow-200"
+                onClick={() => void handleDevQuickLogin()}
+                disabled={isLoading}
+              >
+                Dev login (env credentials)
+              </Button>
+            </div>
           )}
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
