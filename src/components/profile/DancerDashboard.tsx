@@ -36,7 +36,7 @@ interface DancerProfile {
   id: string;
   first_name: string;
   surname: string | null;
-  email: string | null;
+  
   city: string | null;
   nationality: string | null;
   favorite_styles: string[] | null;

@@ -804,12 +804,13 @@ const CreateProfile = () => {
             const dancerPayload = {
                 first_name: trimmedFirstName,
                 surname: trimmedSurname || null,
-                email: user.email || null,
+                
                 verified: false,
         photo_url: serializePhotoValue(data.photo_url),
         is_public: data.is_public,
                 hide_surname: false,
             city: canonicalCity.cityName,
+        city_id: canonicalCity.cityId,
         nationality: data.nationality || null,
         dancing_start_date: data.dancing_start_date || null,
         years_dancing: resolvedYears,
