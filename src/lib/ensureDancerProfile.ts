@@ -76,6 +76,10 @@ export const ensureDancerProfile = async ({
     return { dancerId: existing.id, created: false };
   }
 
+  if (!safeCity) {
+    throw new Error("City is required to create a profile");
+  }
+
   const insertPayload = {
     user_id: userId,
     first_name: safeFirstName,

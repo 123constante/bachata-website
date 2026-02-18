@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Mail, User } from "lucide-react";
+import { CheckCircle, Mail, MapPin, User } from "lucide-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { CityPicker } from "@/components/ui/city-picker";
 
 type AuthIntent = "returning" | "new";
 
@@ -60,12 +61,14 @@ export const AuthStepper = ({
   const [resendCooldown, setResendCooldown] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
+  const [city, setCity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     code?: string;
     firstName?: string;
+    city?: string;
   }>({});
   const shakeControls = useAnimationControls();
 
@@ -222,6 +225,15 @@ export const AuthStepper = ({
       return;
     }
 
+    if (intent === "new" && !city.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        city: "City is required.",
+      }));
+      triggerValidationFeedback();
+      return;
+    }
+
     setIsLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/auth?returnTo=${encodeURIComponent(resolvedReturnTo)}${userType ? `&userType=${encodeURIComponent(userType)}` : ""}`;
@@ -236,6 +248,7 @@ export const AuthStepper = ({
           data: {
             ...(intent === "new" ? { first_name: trimmedFirstName } : {}),
             ...(intent === "new" ? { surname: trimmedSurname || null } : {}),
+            ...(intent === "new" ? { city: city.trim() } : {}),
             ...(userType ? { user_type: userType } : {}),
           },
         },
@@ -495,6 +508,27 @@ export const AuthStepper = ({
               onChange={(event) => setSurname(event.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <Label className={fieldErrors.city ? "text-destructive" : undefined}>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
+                Your city
+              </span>
+            </Label>
+            <CityPicker
+              value={city}
+              onChange={(val) => {
+                setCity(val);
+                if (fieldErrors.city) {
+                  setFieldErrors((prev) => ({ ...prev, city: undefined }));
+                }
+              }}
+              placeholder="Select your city..."
+            />
+            {fieldErrors.city && (
+              <p className="text-xs text-destructive">{fieldErrors.city}</p>
+            )}
+          </div>
           <Button
             type="button"
             className="w-full h-9 text-xs"
@@ -507,7 +541,15 @@ export const AuthStepper = ({
                 triggerValidationFeedback();
                 return;
               }
-              setFieldErrors((prev) => ({ ...prev, firstName: undefined }));
+              if (!city.trim()) {
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  city: "City is required.",
+                }));
+                triggerValidationFeedback();
+                return;
+              }
+              setFieldErrors((prev) => ({ ...prev, firstName: undefined, city: undefined }));
               setStage("code");
             }}
           >
