@@ -236,7 +236,7 @@ export const AuthStepper = ({
 
     setIsLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/auth?returnTo=${encodeURIComponent(resolvedReturnTo)}${userType ? `&userType=${encodeURIComponent(userType)}` : ""}`;
+      const redirectUrl = `${window.location.origin}/auth/callback`;
       const trimmedFirstName = firstName.trim();
       const trimmedSurname = surname.trim();
 
