@@ -173,7 +173,6 @@ export type Database = {
           festival_plans: Json | null
           first_name: string
           gallery_urls: string[] | null
-          goals: string[] | null
           hide_surname: boolean | null
           id: string
           instagram: string | null
@@ -184,7 +183,6 @@ export type Database = {
           partner_details: Json | null
           partner_practice_goals: string[] | null
           partner_role: string | null
-          partner_search_gender: string | null
           partner_search_level: string[] | null
           partner_search_role: string | null
           photo_url: string[] | null
@@ -208,7 +206,6 @@ export type Database = {
           festival_plans?: Json | null
           first_name: string
           gallery_urls?: string[] | null
-          goals?: string[] | null
           hide_surname?: boolean | null
           id?: string
           instagram?: string | null
@@ -219,7 +216,6 @@ export type Database = {
           partner_details?: Json | null
           partner_practice_goals?: string[] | null
           partner_role?: string | null
-          partner_search_gender?: string | null
           partner_search_level?: string[] | null
           partner_search_role?: string | null
           photo_url?: string[] | null
@@ -243,7 +239,6 @@ export type Database = {
           festival_plans?: Json | null
           first_name?: string
           gallery_urls?: string[] | null
-          goals?: string[] | null
           hide_surname?: boolean | null
           id?: string
           instagram?: string | null
@@ -254,7 +249,6 @@ export type Database = {
           partner_details?: Json | null
           partner_practice_goals?: string[] | null
           partner_role?: string | null
-          partner_search_gender?: string | null
           partner_search_level?: string[] | null
           partner_search_role?: string | null
           photo_url?: string[] | null

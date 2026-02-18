@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   Instagram, Facebook, Globe, Mail, MapPin, 
-  User, Calendar, Music, Heart, Disc, Sparkles, CheckCircle2, Trophy 
+  User, Calendar, Music, Zap, Disc, Sparkles, CheckCircle2, Trophy 
 } from "lucide-react";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import { useFestivalEvents } from "@/hooks/useFestivalEvents";
@@ -86,7 +86,9 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
   const hasPartnerIntent = 
     dancer.lookingForPartner || 
     dancer.partnerSearchRole || 
-    dancer.partnerPracticeGoals.length > 0;
+    dancer.partnerPracticeGoals.length > 0 ||
+    dancer.partnerSearchLevel.length > 0 ||
+    !!dancer.partnerDetailsText;
 
   const experienceDuration = calculateDuration(dancer.dancingStartDate);
   const experienceYears = experienceDuration?.years ?? (dancer.yearsDancing ? Number(dancer.yearsDancing) : null);
@@ -224,35 +226,72 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
         </Card>
       </motion.div>
 
-      {/* 4. Partner Intent (2x1) */}
+      {/* 4. Practice Buddy (2x1) */}
       {hasPartnerIntent && (
         <motion.div variants={itemVariants} className="col-span-2 md:col-span-2 row-span-1">
-          <Card className="h-full p-6 border-white/10 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm transition-all hover:scale-[1.02] hover:border-primary/20 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
-                <Heart className={`w-12 h-12 ${dancer.lookingForPartner ? 'text-pink-500 fill-pink-500/20' : 'text-gray-500'}`} />
+          <Card className="h-full p-6 border-teal-500/20 bg-gradient-to-br from-teal-500/10 via-cyan-500/5 to-card/50 backdrop-blur-sm transition-all hover:scale-[1.02] hover:border-teal-400/30 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:opacity-60 transition-opacity">
+              <Zap className="w-12 h-12 text-teal-400" />
             </div>
             
-            <div className="relative z-10 h-full flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant={dancer.lookingForPartner ? "default" : "secondary"} className="text-sm px-3 py-1">
-                  {dancer.lookingForPartner ? "Open to Partnering" : "Not Looking"}
+            <div className="relative z-10 h-full flex flex-col gap-3">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-teal-400" />
+                <span className="text-sm font-bold uppercase tracking-wider text-teal-300">Practice Buddy</span>
+              </div>
+
+              {/* Status + Role */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge 
+                  variant="outline" 
+                  className={`text-sm px-3 py-1 font-semibold ${
+                    dancer.lookingForPartner 
+                      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' 
+                      : 'border-muted-foreground/30 bg-muted/20 text-muted-foreground'
+                  }`}
+                >
+                  {dancer.lookingForPartner ? "⚡ Down to Practice!" : "Not right now"}
                 </Badge>
                 {dancer.partnerSearchRole && (
-                    <span className="text-sm font-medium text-muted-foreground">as {dancer.partnerSearchRole}</span>
+                  <span className="text-xs font-medium text-muted-foreground bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded-md">
+                    Looking for: <span className="text-teal-300">{dancer.partnerSearchRole}</span>
+                  </span>
                 )}
               </div>
-              
-              {dancer.partnerPracticeGoals.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {dancer.partnerPracticeGoals.slice(0, 3).map(goal => (
-                        <span key={goal} className="text-xs bg-white/5 border border-white/10 px-2 py-1 rounded-md text-white/80">
-                            {goal}
-                        </span>
-                    ))}
-                    {dancer.partnerPracticeGoals.length > 3 && (
-                        <span className="text-xs text-muted-foreground self-center">+{dancer.partnerPracticeGoals.length - 3} more</span>
-                    )}
+
+              {/* Level preferences */}
+              {dancer.partnerSearchLevel.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vibes with:</span>
+                  {dancer.partnerSearchLevel.map(level => (
+                    <Badge key={level} variant="outline" className="text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+                      {level}
+                    </Badge>
+                  ))}
                 </div>
+              )}
+
+              {/* Practice goals */}
+              {dancer.partnerPracticeGoals.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Goals:</span>
+                  {dancer.partnerPracticeGoals.slice(0, 4).map(goal => (
+                    <span key={goal} className="text-xs bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded-md text-teal-200">
+                      {goal}
+                    </span>
+                  ))}
+                  {dancer.partnerPracticeGoals.length > 4 && (
+                    <span className="text-xs text-muted-foreground">+{dancer.partnerPracticeGoals.length - 4} more</span>
+                  )}
+                </div>
+              )}
+
+              {/* Details note */}
+              {dancer.partnerDetailsText && (
+                <p className="text-sm italic text-muted-foreground line-clamp-3 mt-1">
+                  {dancer.partnerDetailsText}
+                </p>
               )}
             </div>
           </Card>

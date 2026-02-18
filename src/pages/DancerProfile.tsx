@@ -26,7 +26,7 @@ const DancerProfile = () => {
       try {
         const { data, error } = await supabase
           .from("dancers")
-          .select("id, first_name, surname, city, nationality, years_dancing, dancing_start_date, favorite_styles, partner_role, looking_for_partner, instagram, facebook, photo_url, hide_surname, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, is_public, email, verified, goals, festival_plans")
+          .select("id, first_name, surname, city, nationality, years_dancing, dancing_start_date, favorite_styles, partner_role, looking_for_partner, instagram, facebook, photo_url, hide_surname, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, is_public, email, verified, festival_plans")
           .eq("id", id)
           .maybeSingle();
 
