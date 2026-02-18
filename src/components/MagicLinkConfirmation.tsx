@@ -1,20 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail } from 'lucide-react';
+import { Mail, Calendar, GraduationCap, Music, Camera, ShoppingBag, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { triggerMicroConfetti } from '@/lib/confetti';
+
+const ROLE_META: Record<string, { label: string; icon: typeof User }> = {
+  dancer: { label: 'Dancer', icon: User },
+  organiser: { label: 'Organiser', icon: Calendar },
+  teacher: { label: 'Teacher', icon: GraduationCap },
+  dj: { label: 'DJ', icon: Music },
+  videographer: { label: 'Videographer', icon: Camera },
+  vendor: { label: 'Vendor', icon: ShoppingBag },
+};
 
 interface MagicLinkConfirmationProps {
   email: string;
   onResend: () => Promise<void>;
   onChangeEmail: () => void;
+  /** Optional role key to display, e.g. "dancer" */
+  role?: string;
   /** Optional extra action, e.g. "Continue browsing" */
   extraAction?: { label: string; onClick: () => void };
 }
 
 const COOLDOWN = 30;
 
-const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, extraAction }: MagicLinkConfirmationProps) => {
+const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, role, extraAction }: MagicLinkConfirmationProps) => {
+  const roleMeta = role ? ROLE_META[role] : undefined;
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
   const iconRef = useRef<HTMLDivElement>(null);
@@ -95,6 +107,12 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, extraAction }: 
           We sent a link to <strong className="text-foreground">{email}</strong>.
           <br />Check your inbox and click to continue.
         </p>
+        {roleMeta && (
+          <div className="inline-flex items-center gap-1.5 mx-auto mt-1 px-3 py-1 rounded-full border border-festival-teal/30 bg-festival-teal/10 text-xs text-foreground/90">
+            <roleMeta.icon className="w-3.5 h-3.5 text-cyan-300" />
+            <span>Signing up as <strong>{roleMeta.label}</strong></span>
+          </div>
+        )}
       </motion.div>
 
       {/* Resend button with countdown */}
