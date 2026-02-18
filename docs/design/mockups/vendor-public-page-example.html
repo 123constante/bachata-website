@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Public Page Mockup — Fully Clickable</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0f1729;
+      --panel-soft: #121b30;
+      --text: #e8edf7;
+      --muted: #9ca8bf;
+      --teal: #25e0cf;
+      --cyan: #56b6ff;
+      --line: rgba(255,255,255,.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 10%, rgba(37,224,207,.15), transparent 35%),
+                  radial-gradient(circle at 80% 20%, rgba(86,182,255,.16), transparent 40%),
+                  var(--bg);
+    }
+    .frame { max-width: 1180px; margin: 0 auto; padding: 28px 20px 48px; }
+    .top-nav { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .nav-link { border:1px solid var(--line); border-radius:999px; padding:6px 10px; color:#cfe2ff; text-decoration:none; font-size:12px; background:rgba(255,255,255,.03); }
+    .nav-link:hover { border-color: rgba(86,182,255,.55); background: rgba(86,182,255,.08); }
+    .pill { font-size: 12px; color: #002a27; background: linear-gradient(90deg, var(--teal), #86ffe8); padding: 6px 10px; border-radius: 999px; font-weight: 700; display:inline-block; text-decoration:none; }
+    .hero {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(130deg, rgba(18,27,48,.95), rgba(9,14,26,.95));
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      min-height: 320px;
+    }
+    .hero:hover { border-color: rgba(86,182,255,.55); }
+    .hero-copy { padding: 30px; }
+    h1 { margin: 6px 0 8px; font-size: 42px; line-height: 1.05; }
+    .section-title-link { color: inherit; text-decoration: none; }
+    .section-title-link:hover { text-decoration: underline; }
+    .sub { color: var(--muted); max-width: 70ch; line-height: 1.5; }
+    .sub-link { color: #bfe9ff; text-decoration: underline; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 20px; }
+    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #c9d5eb; background: rgba(255,255,255,.03); text-decoration:none; display:inline-block; }
+    .chip:hover { border-color: rgba(86,182,255,.55); background: rgba(86,182,255,.08); }
+    .ctas { display: flex; gap: 10px; }
+    .field-actions { margin-top: 12px; display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; }
+    .btn { border: 1px solid var(--line); color: #d6e4ff; background: rgba(255,255,255,.03); padding: 10px 14px; border-radius: 10px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: .15s ease; cursor:pointer; }
+    .btn:hover { transform: translateY(-1px); border-color: rgba(86,182,255,.55); }
+    .btn.sm { font-size: 12px; padding: 8px 10px; min-height: 34px; }
+    .btn.primary { background: linear-gradient(90deg, var(--teal), var(--cyan)); color: #041821; border: none; }
+    .hero-media {
+      border-left: 1px solid var(--line);
+      background: linear-gradient(160deg, rgba(37,224,207,.18), rgba(86,182,255,.07));
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+    .logo-link { text-decoration: none; }
+    .logo {
+      width: 160px; height: 160px; border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.25);
+      background: #13253f;
+      display: grid; place-items: center;
+      font-size: 54px; font-weight: 800; color: #84f8e8;
+      box-shadow: 0 18px 50px rgba(0,0,0,.4);
+    }
+    .stats {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 10px;
+    }
+    .stat {
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--panel-soft); padding: 10px 12px;
+      text-decoration: none; color: inherit; display: block;
+      cursor:pointer;
+    }
+    .stat:hover { border-color: rgba(86,182,255,.55); }
+    .stat b { font-size: 18px; }
+    .stat span { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+      transition:.15s ease;
+      cursor:pointer;
+    }
+    .card:hover { border-color: rgba(86,182,255,.55); transform: translateY(-1px); }
+    .card h3 { margin: 0 0 10px; font-size: 15px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .offer {
+      border: 1px solid rgba(255,192,77,.45);
+      background: linear-gradient(120deg, rgba(255,192,77,.13), rgba(255,192,77,.04));
+      color: #ffe7b8;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    .offer a { color: #ffe7b8; font-weight: 700; text-decoration: underline; }
+    .catalog {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+    }
+    .catalog-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 10px;
+    }
+    .product {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0d1627;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      cursor:pointer;
+    }
+    .product:hover { border-color: rgba(86,182,255,.5); transform: translateY(-1px); transition: .15s ease; }
+    .img { height: 98px; background: linear-gradient(140deg,#193156,#0f2038); }
+    .meta { padding: 8px; font-size: 12px; }
+    .meta .price { color: #8ef8d9; font-weight: 700; }
+    .faq {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+    }
+    .team {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+    }
+    .team-grid { margin-top: 8px; display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+    .qa { border-top: 1px dashed rgba(255,255,255,.16); padding: 10px 0; }
+    .qa:first-child { border-top: 0; padding-top: 0; }
+    .qa a { color: #cfe2ff; text-decoration: none; display:block; }
+    .qa a:hover { text-decoration: underline; }
+    .sticky-cta {
+      margin-top: 12px;
+      border: 1px solid rgba(38,208,124,.45);
+      border-radius: 14px;
+      background: linear-gradient(90deg, rgba(38,208,124,.12), rgba(37,224,207,.08));
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+    }
+    .mini { font-size: 12px; color: var(--muted); }
+    .tag { padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-decoration:none; display:inline-block; }
+    .tag.live { color: #052316; background: #78f4ba; }
+    [data-href] { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <nav class="top-nav">
+      <a class="nav-link" href="/">Home</a>
+      <a class="nav-link" href="/vendors">Vendors</a>
+      <a class="nav-link" href="/events">Events</a>
+      <a class="nav-link" href="/discover">Discover</a>
+    </nav>
+
+    <a class="pill" href="/vendors?layout=dashboard-synced">Vendor Public Page — Fully Clickable Mockup</a>
+
+    <section class="hero" data-href="/vendors/luna-bachata-wear">
+      <div class="hero-copy">
+        <a class="tag live" href="/vendors/luna-bachata-wear?status=optimized">Optimized</a>
+        <h1><a class="section-title-link" href="/vendors/luna-bachata-wear">Luna Bachata Wear</a></h1>
+        <p class="sub">Premium dancewear for socials, festivals, and performance nights. Built from dashboard modules: identity, catalog, offer, events, trust, and CTA. <a class="sub-link" href="/vendors/luna-bachata-wear/about">Learn brand story</a></p>
+
+        <div class="chips">
+          <a class="chip" href="/vendors?city=London">London</a>
+          <a class="chip" href="/vendors?shipping=international">Ships Internationally</a>
+          <a class="chip" href="/vendors/luna-bachata-wear#catalog">7 Products</a>
+          <a class="chip" href="/vendors/luna-bachata-wear#events">2 Upcoming Events</a>
+        </div>
+
+        <div class="ctas">
+          <a class="btn primary" href="/contact/vendor/luna-bachata-wear?channel=whatsapp&intent=order">Message on WhatsApp</a>
+          <a class="btn" href="/vendors/luna-bachata-wear/store">View Store</a>
+          <a class="btn" href="#catalog">Browse Products</a>
+        </div>
+
+        <div class="field-actions">
+          <a class="btn sm" href="/discover?tag=dancewear">Dancewear</a>
+          <a class="btn sm" href="/vendors/luna-bachata-wear/store">lunawear.com</a>
+          <a class="btn sm" href="/vendors/luna-bachata-wear/social?network=instagram">@lunabachatawear</a>
+          <a class="btn sm" href="/vendors/luna-bachata-wear/social?network=facebook">Luna Bachata Wear</a>
+          <a class="btn sm" href="/contact/vendor/luna-bachata-wear?channel=email">hello@lunawear.com</a>
+          <a class="btn sm" href="/vendors?city=London">London</a>
+          <a class="btn sm" href="/vendors/luna-bachata-wear/products">7 Products</a>
+          <a class="btn sm" href="/vendors/luna-bachata-wear/events">2 Upcoming Events</a>
+          <a class="btn sm" href="/contact/vendor/luna-bachata-wear?channel=whatsapp">+44 7700 900123</a>
+          <a class="btn sm" href="/contact/vendor/luna-bachata-wear?channel=whatsapp&promo=BACHATA15">BACHATA15</a>
+          <a class="btn sm" href="#team">Ana · Marco · Sara</a>
+        </div>
+
+        <div class="stats">
+          <a class="stat" href="/vendors/luna-bachata-wear/insights?metric=promo_ctr"><b>+24%</b><span>CTR with promo</span></a>
+          <a class="stat" href="/vendors/luna-bachata-wear/reviews"><b>4.8/5</b><span>Buyer sentiment</span></a>
+          <a class="stat" href="/vendors/luna-bachata-wear/insights?metric=dwell_time"><b>2m 18s</b><span>Avg dwell</span></a>
+          <a class="stat" href="/vendors/luna-bachata-wear/insights?metric=cta_engagement"><b>68%</b><span>CTA engagement</span></a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <a class="logo-link" href="/vendors/luna-bachata-wear/gallery"><div class="logo">LW</div></a>
+      </div>
+    </section>
+
+    <section class="grid" id="modules">
+      <article class="card" data-href="/vendors/luna-bachata-wear/offers">
+        <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/offers">Offer Snapshot</a></h3>
+        <p class="muted">Active categories and conversion levers synced from Dashboard.</p>
+        <div class="chips">
+          <a class="chip" href="/discover?tag=dancewear">Dancewear</a>
+          <a class="chip" href="/discover?tag=heels">Heels</a>
+          <a class="chip" href="/discover?tag=accessories">Accessories</a>
+        </div>
+        <div class="offer">Limited Offer: <a href="/contact/vendor/luna-bachata-wear?channel=whatsapp&promo=BACHATA15">Use BACHATA15</a> for 15% off festival orders</div>
+      </article>
+
+      <article class="card" id="events" data-href="/vendors/luna-bachata-wear/events">
+        <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/events">Event Presence</a></h3>
+        <p class="muted">Social proof from linked events.</p>
+        <div class="qa"><a href="/events/london-sensual-weekender"><b>London Sensual Weekender</b><div class="mini">22 Feb • Featured vendor</div></a></div>
+        <div class="qa"><a href="/events/bachata-exchange"><b>Bachata Exchange</b><div class="mini">09 Mar • Pop-up booth</div></a></div>
+      </article>
+
+      <article class="card" data-href="/vendors/luna-bachata-wear/contact">
+        <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/contact">Trust Signals</a></h3>
+        <p class="muted">Public contact and social channels (dashboard-controlled).</p>
+        <div class="qa"><a href="/contact/vendor/luna-bachata-wear?channel=whatsapp"><b>WhatsApp:</b> Start chat</a></div>
+        <div class="qa"><a href="/contact/vendor/luna-bachata-wear?channel=email"><b>Email:</b> Send message</a></div>
+        <div class="qa"><a href="/vendors/luna-bachata-wear/social"><b>Social:</b> Website • Instagram • Facebook</a></div>
+      </article>
+    </section>
+
+    <section id="catalog" class="catalog" data-href="/vendors/luna-bachata-wear/products">
+      <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/products">Product Highlights</a></h3>
+      <p class="muted">Top products shown first for conversion; full catalog below fold.</p>
+      <div class="catalog-grid">
+        <a class="product" href="/vendors/luna-bachata-wear/products/performance-bodysuit"><div class="img"></div><div class="meta"><b>Performance Bodysuit</b><br><span class="price">£79</span><br><span class="mini">Dancewear</span></div></a>
+        <a class="product" href="/vendors/luna-bachata-wear/products/festival-heels"><div class="img"></div><div class="meta"><b>Festival Heels</b><br><span class="price">£95</span><br><span class="mini">Heels</span></div></a>
+        <a class="product" href="/vendors/luna-bachata-wear/products/practice-set"><div class="img"></div><div class="meta"><b>Practice Set</b><br><span class="price">£58</span><br><span class="mini">Practice Wear</span></div></a>
+        <a class="product" href="/vendors/luna-bachata-wear/products/accessories-bundle"><div class="img"></div><div class="meta"><b>Accessories Bundle</b><br><span class="price">£32</span><br><span class="mini">Accessories</span></div></a>
+      </div>
+    </section>
+
+    <section class="faq" id="faq" data-href="/vendors/luna-bachata-wear/faq">
+      <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/faq">FAQ (Trust Layer)</a></h3>
+      <div class="qa"><a href="/vendors/luna-bachata-wear/faq#shipping"><b>Do you ship internationally?</b><div class="mini">Yes — tracked shipping across EU, UK, and North America.</div></a></div>
+      <div class="qa"><a href="/vendors/luna-bachata-wear/faq#event-pickup"><b>Can I pick up at events?</b><div class="mini">Yes. Select event pickup in checkout.</div></a></div>
+      <div class="qa"><a href="/vendors/luna-bachata-wear/faq#promo-codes"><b>How do I use promo codes?</b><div class="mini">Use promo flow in checkout or WhatsApp intent.</div></a></div>
+    </section>
+
+    <section class="team" id="team" data-href="/vendors/luna-bachata-wear/team">
+      <h3><a class="section-title-link" href="/vendors/luna-bachata-wear/team">Team</a></h3>
+      <p class="muted">Tap a person to open their profile page inside your website.</p>
+      <div class="team-grid">
+        <a class="btn sm" href="/people/ana-torres">Ana Torres (Leader)</a>
+        <a class="btn sm" href="/people/marco-lane">Marco Lane</a>
+        <a class="btn sm" href="/people/sara-rivera">Sara Rivera</a>
+      </div>
+    </section>
+
+    <section class="sticky-cta" data-href="/vendors/luna-bachata-wear/checkout">
+      <div>
+        <a class="section-title-link" href="/vendors/luna-bachata-wear/checkout"><b>Ready to order?</b></a>
+        <div class="mini"><a class="section-title-link" href="/vendors/luna-bachata-wear/checkout">Conversion rail: one primary action, one backup action.</a></div>
+      </div>
+      <div class="ctas">
+        <a class="btn primary" href="/contact/vendor/luna-bachata-wear?channel=whatsapp&intent=checkout">Message Now</a>
+        <a class="btn" href="/vendors/luna-bachata-wear/checkout">Open Checkout</a>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    document.querySelectorAll('[data-href]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        if (event.target.closest('a')) return;
+        const href = el.getAttribute('data-href');
+        if (!href) return;
+        window.location.href = href;
+      });
+
+      el.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (event.target.closest('a')) return;
+        const href = el.getAttribute('data-href');
+        if (!href) return;
+        event.preventDefault();
+        window.location.href = href;
+      });
+
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+      if (!el.hasAttribute('role')) el.setAttribute('role', 'link');
+    });
+  </script>
+</body>
+</html>
