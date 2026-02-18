@@ -150,8 +150,8 @@ const EventDetail = () => {
   if (!event || (isDraft && !canEdit)) return <NotFound />;
 
   // Computed Values
-  const hasClass = event.class_start && event.class_end;
-  const hasSocial = event.social_start && event.social_end;
+  const hasClass = (event as any).class_start && (event as any).class_end;
+  const hasSocial = (event as any).social_start && (event as any).social_end;
   const venueName = venueEntity?.name || venueDetails?.name || 'TBA';
   const displayAddress = venueEntity?.city || venueDetails?.address || 'Location details coming soon';
   const attendeeCount = attendees?.length || 0;
@@ -171,14 +171,14 @@ const EventDetail = () => {
   }
 
   // Get Good to Know info
-  const paymentMethods = event.payment_methods || venueDetails?.payment_methods; 
-  const transportInfo = venueDetails?.transport || venueEntity?.closest_transport;
+  const paymentMethods = event.payment_methods || (venueDetails as any)?.payment_methods; 
+  const transportInfo = venueDetails?.transport || (venueEntity as any)?.closest_transport;
   const parkingInfo = venueDetails?.parking;
   const venueRules = venueDetails?.rules && Array.isArray(venueDetails.rules) ? venueDetails.rules.join('. ') : venueDetails?.rules;
 
   return (
     <div className="min-h-screen pb-32 pt-20">
-      <PageBreadcrumb items={[{ label: 'Events', href: '/events' }, { label: event.name }]} />
+      <PageBreadcrumb items={[{ label: 'Events', path: '/events' }, { label: event.name }]} />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6">
         
@@ -235,7 +235,7 @@ const EventDetail = () => {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium uppercase tracking-wider">
-                    {event.type || (event.social_start ? 'Social' : 'Class')} 
+                    {event.type || ((event as any).social_start ? 'Social' : 'Class')} 
                     </span>
                     {isDraft && <span className="text-amber-500 font-bold text-xs uppercase border border-amber-500 px-2 rounded-full">Draft</span>}
                 </div>
@@ -304,7 +304,7 @@ const EventDetail = () => {
                       <Clock className="w-5 h-5 text-orange-500" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{formatTime(event.class_start)} - {formatTime(event.class_end)}</p>
+                      <p className="font-semibold text-sm">{formatTime((event as any).class_start)} - {formatTime((event as any).class_end)}</p>
                       <p className="text-xs text-muted-foreground">Classes</p>
                     </div>
                   </div>
@@ -315,7 +315,7 @@ const EventDetail = () => {
                       <Clock className="w-5 h-5 text-purple-500" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{formatTime(event.social_start)} - {formatTime(event.social_end)}</p>
+                      <p className="font-semibold text-sm">{formatTime((event as any).social_start)} - {formatTime((event as any).social_end)}</p>
                       <p className="text-xs text-muted-foreground">Social</p>
                     </div>
                   </div>

@@ -24,7 +24,7 @@ type Dancer = {
   surname: string | null;
   favorite_styles: string[] | null;
   years_dancing: string | null;
-  photo_url: string | null;
+  photo_url: string[] | null;
   looking_for_partner: boolean | null;
   city: string | null;
   nationality: string | null;

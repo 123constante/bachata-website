@@ -63,7 +63,7 @@ export const ComingUpSection = ({ className, title = "Coming Up" }: ComingUpSect
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="min-w-[140px] cursor-pointer"
-                onClick={() => navigate(/event/)}
+                onClick={() => navigate(`/event/${event.id}`)}
               >
                 <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/30 transition-all">
                   <h4 className="font-semibold text-foreground text-xs truncate">{event.name}</h4>

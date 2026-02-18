@@ -13,6 +13,7 @@ import {
   type VendorDashboardSection,
   type VendorProduct,
   type VendorRow,
+  type VendorPromoDiscountType,
 } from "@/modules/vendor/types";
 import {
   isRlsError,
@@ -1208,6 +1209,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       products: true,
       email: true,
       website: true,
+      whatsapp: true,
     });
 
     const businessName = form.business_name.trim();
@@ -1578,8 +1580,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                 <Label>City *</Label>
                 <CityPicker
                   value={form.city}
-                  onChange={(city) => setForm((prev) => ({ ...prev, city }))}
-                  onBlur={() => setTouched((prev) => ({ ...prev, city: true }))}
+                  onChange={(city) => { setForm((prev) => ({ ...prev, city })); setTouched((prev) => ({ ...prev, city: true })); }}
                   placeholder="Select city..."
                 />
                 {showCityError && (
@@ -1797,7 +1798,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3"
                 value={form.promo_discount_type}
-                onChange={(e) => setForm((prev) => ({ ...prev, promo_discount_type: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, promo_discount_type: e.target.value as VendorPromoDiscountType }))}
               >
                 <option value="percent">percent</option>
                 <option value="fixed">fixed</option>
