@@ -12,8 +12,6 @@ import { ManageProfilesHub } from '@/components/profile/ManageProfilesHub';
 import { UserRole } from '@/hooks/useUserIds';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ensureDancerProfile } from '@/lib/ensureDancerProfile';
-import type { User } from '@supabase/supabase-js';
 
 const ROLE_CREATE_ROUTES: Record<string, string> = {
   organiser: '/create-organiser-profile',
@@ -64,46 +62,12 @@ export const ProfileEntryRouter = ({
     onSelectRole(role);
   };
 
-  // Auto-resolve zero-roles state
+  // Auto-resolve zero-roles state: redirect to onboarding
   useEffect(() => {
     if (loading || !user || availableRoles.length > 0 || autoResolveRan.current) return;
     autoResolveRan.current = true;
-
-    const resolve = async () => {
-      setAutoResolving(true);
-      const storedRole = localStorage.getItem('profile_entry_role');
-      localStorage.removeItem('profile_entry_role');
-
-      // If user chose a non-dancer role during signup, redirect to create page
-      if (storedRole && storedRole !== 'dancer' && ROLE_CREATE_ROUTES[storedRole]) {
-        navigate(ROLE_CREATE_ROUTES[storedRole], { replace: true });
-        return;
-      }
-
-      // Otherwise auto-create dancer profile
-      try {
-        const typedUser = user as User;
-        await ensureDancerProfile({
-          userId: typedUser.id,
-          email: typedUser.email,
-          firstName: typedUser.user_metadata?.first_name || null,
-          surname: typedUser.user_metadata?.surname || null,
-          city: typedUser.user_metadata?.city || null,
-        });
-        onRefreshRoles();
-      } catch (err) {
-        console.error('Auto-create dancer profile failed:', err);
-        // Retry fetching -- profile may already exist
-        onRefreshRoles();
-        await new Promise(r => setTimeout(r, 800));
-        setAutoResolveFailed(true);
-      } finally {
-        setAutoResolving(false);
-      }
-    };
-
-    resolve();
-  }, [loading, user, availableRoles.length]);
+    navigate('/onboarding', { replace: true });
+  }, [loading, user, availableRoles.length, navigate]);
   useEffect(() => {
     if (loading) return;
     trackAnalyticsEvent('profile_entry_opened', { source: 'profile_page' });
