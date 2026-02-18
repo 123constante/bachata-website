@@ -858,10 +858,9 @@ const CreateProfile = () => {
 
             // 2. Claim Dancer profile if selected
       if (data.claim_entity_id) {
-        const { error: claimError } = await supabase
-                    .from('dancers')
-                    .update({ user_id: user.id })
-          .eq('id', data.claim_entity_id);
+        const { error: claimError } = await supabase.rpc('claim_dancer_profile' as any, {
+          p_dancer_id: data.claim_entity_id,
+        } as any);
 
         if (claimError) {
           console.error('Error claiming entity:', claimError);

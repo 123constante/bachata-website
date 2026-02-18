@@ -149,17 +149,24 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     void run();
   }, [claimOpen, claimQuery, claimType]);
 
+  const CLAIM_RPC_MAP: Record<ClaimableEntityType, string> = {
+    organiser: 'claim_organiser_profile',
+    teacher: 'claim_teacher_profile',
+    dj: 'claim_dj_profile',
+  };
+
   const claimEntity = async (entityId: string) => {
     if (!user?.id) return;
 
     setClaimPending(true);
     setClaimError(null);
 
-    const { error } = await (supabase as any)
-      .from(CLAIM_TABLE_MAP[claimType])
-      .update({ user_id: user.id })
-      .eq("id", entityId)
-      .is("user_id", null);
+    const rpcName = CLAIM_RPC_MAP[claimType];
+    const paramKey = `p_${claimType === 'dj' ? 'dj' : claimType === 'teacher' ? 'teacher' : 'organiser'}_id`;
+
+    const { error } = await supabase.rpc(rpcName as any, {
+      [paramKey]: entityId,
+    } as any);
 
     if (error) {
       setClaimError(error.message || "Failed to claim profile.");
