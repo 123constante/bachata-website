@@ -363,7 +363,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOtp({
         email: candidateEmail,
         options: {
-          shouldCreateUser: false,
+          
           emailRedirectTo: `${window.location.origin}/auth?mode=signin&returnTo=${encodeURIComponent(returnTo)}`,
         },
       });
