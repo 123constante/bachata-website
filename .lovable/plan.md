@@ -1,55 +1,34 @@
 
 
-## Fix: Remove the "Set up your profile" Dead End and Make Auto-Resolve Resilient
+## Fix: Navigation Buttons Freeze After Sign-Out
 
-### Problem
+### Root Cause
 
-You're seeing "Set up your profile" even though you already have a dancer profile. The root cause is a chain of failures:
+When you sign out, Supabase fires the `SIGNED_OUT` event through `onAuthStateChange`. The current `useAuth` hook sets `isLoading(false)` inside that callback (line 32), which triggers a cascade of re-renders across the entire app tree. Combined with `AnimatePresence mode="wait"` in the router (which blocks new page renders until exit animations finish), these rapid re-renders restart the animation cycle, making navigation appear completely frozen until a manual page refresh.
 
-1. `useUserIds` finds your dancer profile, but something in the parallel queries (or the vendor-claim logic) throws an exception, which catches ALL results and sets every ID to null
-2. `ProfileEntryRouter` sees zero roles and tries `ensureDancerProfile`
-3. `ensureDancerProfile` calls the RPC (fails because the DB trigger rejects null city in metadata), falls back to a SELECT (which should find the existing profile), but the fallback also fails
-4. `autoResolveFailed` is set to true, showing the "Set up your profile" hub
+### Solution
 
-### Solution (3 changes)
+One change to `src/hooks/useAuth.tsx`:
 
-#### 1. Make `useUserIds` resilient -- don't lose already-fetched IDs on vendor-claim failure
+- `onAuthStateChange` will update `session` and `user` only -- it will NOT touch `isLoading`
+- `isLoading` will only be set to `false` once, after the initial `getSession()` call resolves
+- An `isMounted` guard prevents state updates after unmount
 
-**File: `src/hooks/useUserIds.tsx`**
+```text
+Current (problematic):
+  onAuthStateChange --> setSession, setUser, setIsLoading(false)  // fires on every auth event
+  getSession        --> setSession, setUser, setIsLoading(false)
 
-The vendor-claim block (lines 91-124) can throw and wipe out ALL already-fetched IDs (dancer, organiser, etc.) because the entire thing is in one big try/catch. Wrap the vendor-claim section in its own try/catch so that if it fails, the dancer/organiser/teacher/dj/videographer IDs are still preserved.
-
-#### 2. Add retry + better fallback in `ProfileEntryRouter`
-
-**File: `src/components/profile/ProfileEntryRouter.tsx`**
-
-In the auto-resolve catch block (line 93-95):
-- After `ensureDancerProfile` fails, call `onRefreshRoles()` and wait 800ms before giving up
-- This handles the case where the dancer profile exists but just wasn't found on the first attempt
-
-```
-catch (err) {
-  console.error('Auto-create dancer profile failed:', err);
-  // Retry fetching -- profile may already exist
-  onRefreshRoles();
-  await new Promise(r => setTimeout(r, 800));
-  setAutoResolveFailed(true);
-}
+Fixed:
+  onAuthStateChange --> setSession, setUser                       // no isLoading touch
+  getSession        --> setSession, setUser, setIsLoading(false)  // one-time initial load
 ```
 
-#### 3. Remove the "Set up your profile" page as a permanent destination
+This ensures that sign-out (and sign-in) auth events update the user/session cleanly without causing `isLoading` flip-flops that restart page transitions.
 
-**File: `src/components/profile/ProfileEntryRouter.tsx`**
+### Why This Fixes the Problem
 
-When `autoResolveFailed` is true and `availableRoles` is still empty after retry, instead of showing the full ManageProfilesHub with "Set up your profile" heading, show a simpler error/retry screen:
-- A short message: "Something went wrong loading your profile"
-- A "Try Again" button that calls `onRefreshRoles()` and resets `autoResolveFailed`
-- A "Sign Out" button as escape hatch
+- Sign-out fires one `onAuthStateChange` event setting `user` to `null` -- no `isLoading` change, no animation restart
+- The app re-renders once (to reflect logged-out state), AnimatePresence completes normally
+- Navigation works immediately without needing a page refresh
 
-This eliminates the confusing "Set up your profile" screen entirely for existing users. The ManageProfilesHub "add extra profiles" functionality remains accessible from the dashboard strip at the bottom (it's already there in `mode='strip'`).
-
-### What this achieves
-
-- Users with existing profiles will never see "Set up your profile" again
-- If there's a temporary network or DB error, users get a clear retry option instead of a confusing role-selection page
-- The vendor-claim failure no longer wipes out all profile IDs
