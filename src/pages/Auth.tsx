@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
+import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 
 type EntryRole = "dancer" | "vendor" | "organiser" | "teacher" | "dj" | "videographer";
 
@@ -89,7 +90,6 @@ const Auth = () => {
 
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
-      toast({ title: "Check your email", description: "We sent you a magic link to sign in." });
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
     } catch (error: any) {
       toast({ title: "Unable to send link", description: error.message || "Please try again.", variant: "destructive" });
@@ -129,24 +129,15 @@ const Auth = () => {
     return (
       <div className="min-h-screen pt-[95px] pb-24 px-4 relative overflow-hidden">
         <div className="pointer-events-none absolute top-10 -left-20 h-64 w-64 rounded-full bg-festival-teal/20 blur-3xl" />
-        <div className="w-full max-w-xl mx-auto space-y-4 relative z-10">
+        <div className="w-full max-w-xl mx-auto relative z-10">
           <Card className="border-festival-teal/45 bg-background/88 backdrop-blur-xl shadow-2xl">
-            <CardHeader className="space-y-2 text-center">
-              <div className="mx-auto inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-festival-teal/30 to-cyan-400/30 border border-festival-teal/35 text-cyan-300">
-                <Mail className="w-6 h-6" />
-              </div>
-              <CardTitle className="text-xl">Check your email</CardTitle>
-              <p className="text-sm text-foreground/80">
-                We sent a magic link to <strong className="text-foreground">{email}</strong>. Click it to continue.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="ghost" className="w-full" onClick={() => setMagicLinkSent(false)}>
-                Use a different email
-              </Button>
-              <Button variant="ghost" className="w-full" onClick={() => navigate(returnTo)}>
-                Continue browsing
-              </Button>
+            <CardContent className="pt-6">
+              <MagicLinkConfirmation
+                email={email}
+                onResend={handleSendMagicLink}
+                onChangeEmail={() => setMagicLinkSent(false)}
+                extraAction={{ label: 'Continue browsing', onClick: () => navigate(returnTo) }}
+              />
             </CardContent>
           </Card>
         </div>
