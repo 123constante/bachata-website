@@ -21,7 +21,10 @@ export const VideographerDashboard = () => {
               <p className='text-xs text-muted-foreground'>Tabbed bento layout with role-specific actions.</p>
             </div>
           </div>
-          <Button size='sm' className='h-7 text-[11px]' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.addItem}</Button>
+          <div className='flex items-center gap-2'>
+            <Button size='sm' variant='ghost' className='h-7 text-[10px] text-muted-foreground hover:text-foreground' onClick={() => navigate('/create-videographer-profile')}>Use wizard</Button>
+            <Button size='sm' className='h-7 text-[11px]' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.addItem}</Button>
+          </div>
         </div>
 
         <Tabs defaultValue='overview' className='space-y-2'>

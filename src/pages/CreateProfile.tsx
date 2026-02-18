@@ -69,6 +69,12 @@ const GamifiedSongSelector = ({ value, onChange }: { value?: string, onChange: (
   const [activeSlot, setActiveSlot] = React.useState<number | null>(songs.length < 3 ? songs.length : null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
+    React.useEffect(() => {
+        const nextSongs = (value || '').split('\n').filter(Boolean);
+        setSongs(nextSongs);
+        setActiveSlot(nextSongs.length < 3 ? nextSongs.length : null);
+    }, [value]);
+
   const getSlotLabel = (index: number) => {
     switch(index) {
           case 0: return { icon: '1️⃣', label: 'My Forever Favorite', color: 'bg-amber-100 border-amber-300 text-amber-800' };
@@ -319,6 +325,10 @@ const AchievementWall = ({ value, onChange }: { value?: string, onChange: (val: 
   const [awardRank, setAwardRank] = React.useState<string | null>(null);
   const [awardEvent, setAwardEvent] = React.useState('');
     const [awardYear, setAwardYear] = React.useState('');
+
+    React.useEffect(() => {
+        setState(parseState(value || ''));
+    }, [value]);
 
   const updateParent = (newState: { certs: string[], awards: string[] }) => {
     let text = '';
@@ -660,6 +670,48 @@ const CreateProfile = () => {
         }
     }, [user, step]);
 
+    // Pre-fill form with existing dancer data so the wizard doesn't overwrite it
+    React.useEffect(() => {
+        if (!user) return;
+        const loadExisting = async () => {
+            const { data } = await supabase
+                .from('dancers')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (!data) return;
+
+            const achievements = Array.isArray(data.achievements) ? data.achievements.filter(Boolean).join('\n') : '';
+            const favSongs = Array.isArray(data.favorite_songs) ? data.favorite_songs.filter(Boolean).join('\n') : '';
+
+            form.reset({
+                photo_url: Array.isArray(data.photo_url) ? (data.photo_url[0] || '') : (data.photo_url || ''),
+                is_public: data.is_public ?? true,
+                city: data.city || '',
+                nationality: data.nationality || '',
+                experience_level: '',
+                dancing_start_date: data.dancing_start_date || '',
+                favorite_styles: Array.isArray(data.favorite_styles) ? data.favorite_styles : [],
+                partner_role: data.partner_role || '',
+                favorite_songs_text: favSongs,
+                achievements_text: achievements,
+                festival_plans: Array.isArray(data.festival_plans) ? (data.festival_plans as string[]) : [],
+                gallery_urls: Array.isArray(data.gallery_urls) ? data.gallery_urls : [],
+                looking_for_partner: data.looking_for_partner ?? false,
+                partner_search_role: data.partner_search_role || '',
+                partner_search_level: Array.isArray(data.partner_search_level) ? data.partner_search_level : [],
+                partner_practice_goals: Array.isArray(data.partner_practice_goals) ? data.partner_practice_goals : [],
+                partner_details: typeof data.partner_details === 'string' ? data.partner_details : '',
+                instagram: data.instagram || '',
+                facebook: data.facebook || '',
+                whatsapp: data.whatsapp || '',
+                website: data.website || '',
+                claim_entity_id: '',
+            });
+        };
+        loadExisting();
+    }, [user]);
+
   // Debounced search for existing dancer profiles (Step 3 Logic)
     React.useEffect(() => {
         const searchEntities = async () => {
@@ -890,6 +942,43 @@ const CreateProfile = () => {
     }
   };
 
+        const fillMockData = () => {
+                const sampleStyles = FAVORITE_STYLE_OPTIONS.slice(0, 3);
+                const samplePartnerRole = PARTNER_ROLE_OPTIONS[0] || 'Leader';
+                const sampleSearchRole = PARTNER_SEARCH_ROLE_OPTIONS[0] || 'Follower';
+                const sampleSearchLevels = PARTNER_SEARCH_LEVEL_OPTIONS.slice(0, 2);
+                const samplePracticeGoals = PARTNER_PRACTICE_GOAL_OPTIONS.slice(0, 2);
+
+                form.setValue('city', 'London', { shouldDirty: true, shouldValidate: true });
+                form.setValue('nationality', 'United Kingdom', { shouldDirty: true });
+                form.setValue('experience_level', 'Intermediate', { shouldDirty: true });
+                form.setValue('dancing_start_date', '2019-01-01', { shouldDirty: true, shouldValidate: true });
+                form.setValue('favorite_styles', sampleStyles, { shouldDirty: true });
+                form.setValue('partner_role', samplePartnerRole, { shouldDirty: true });
+                form.setValue('favorite_songs_text', 'Me Rehúso - Danny Ocean\nInmortal - Aventura\nBachata en Fukuoka - Juan Luis Guerra', { shouldDirty: true });
+                form.setValue('achievements_text', 'Regional Social Night Finalist 2024\nCommunity Showcase Winner 2023', { shouldDirty: true });
+                form.setValue('festival_plans', [], { shouldDirty: true });
+                form.setValue('gallery_urls', ['https://images.unsplash.com/photo-1508804185872-d7badad00f7d'], { shouldDirty: true });
+
+                form.setValue('instagram', 'https://instagram.com/mock.dancer', { shouldDirty: true });
+                form.setValue('facebook', 'https://facebook.com/mock.dancer', { shouldDirty: true });
+                form.setValue('whatsapp', '+44 7700 900123', { shouldDirty: true });
+                form.setValue('website', 'https://mockdancer.example.com', { shouldDirty: true });
+
+                form.setValue('looking_for_partner', true, { shouldDirty: true });
+                form.setValue('partner_search_role', sampleSearchRole, { shouldDirty: true });
+                form.setValue('partner_search_level', sampleSearchLevels, { shouldDirty: true });
+                form.setValue('partner_practice_goals', samplePracticeGoals, { shouldDirty: true });
+                form.setValue('partner_details', 'Looking for weekly social practice in London evenings.', { shouldDirty: true });
+
+                form.setValue('is_public', true, { shouldDirty: true });
+
+                toast({
+                        title: 'Mock data loaded',
+                        description: 'Development sample values have been filled in.',
+                });
+        };
+
     return (
         <div className='auth-bright min-h-screen pb-24 relative overflow-hidden'>
             <div className='absolute inset-0 bg-[radial-gradient(circle_at_top,_#FFF3D8,_transparent_60%)]' />
@@ -914,6 +1003,13 @@ const CreateProfile = () => {
             <div className='relative z-10 container max-w-xl p-4'>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
+                        {import.meta.env.DEV && (
+                            <div className='flex justify-end'>
+                                <Button type='button' variant='outline' size='sm' onClick={fillMockData}>
+                                    Fill mock data
+                                </Button>
+                            </div>
+                        )}
                         {profileError && (
                             <div className='rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3'>
                                 <div className='flex items-start gap-3'>

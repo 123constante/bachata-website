@@ -2,6 +2,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { resolveEventImage } from '@/lib/utils';
@@ -31,6 +32,55 @@ import PageBreadcrumb from '@/components/PageBreadcrumb';
 
 // Default fallback image for events without a cover
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=1200&h=600&fit=crop';
+
+/** Shape of the event object returned inside get_event_detail RPC */
+interface RpcEvent {
+  id: string;
+  name: string;
+  description: string | null;
+  date: string;
+  photo_url: string[] | null;
+  cover_image_url: string | null;
+  created_by: string | null;
+  is_published: boolean | null;
+  key_times: string | null;
+  meta_data: Record<string, unknown> | null;
+  venue_id: string | null;
+  class_start?: string | null;
+  class_end?: string | null;
+  social_start?: string | null;
+  social_end?: string | null;
+}
+
+interface RpcVenue {
+  name: string;
+  address: string | null;
+  transport: string | null;
+  parking: string | null;
+}
+
+interface RpcVenueEntity {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+}
+
+interface RpcProfileStub {
+  id: string;
+  name: string | null;
+  photo_url: string[] | null;
+  avatar_url: string | null;
+}
+
+interface EventDetailPayload {
+  event: RpcEvent;
+  venue: RpcVenue | null;
+  organisers: RpcProfileStub[];
+  teachers: RpcProfileStub[];
+  djs: RpcProfileStub[];
+  venue_entity: RpcVenueEntity | null;
+}
 
 // Format time from HH:MM:SS to readable format
 const formatTime = (time: string | null) => {
@@ -63,48 +113,50 @@ const EventDetail = () => {
     queryFn: async () => {
       if (!id) throw new Error('Event ID is required');
 
-      const { data, error } = await supabase.rpc('get_event_detail' as any, {
+      const { data, error } = await supabase.rpc('get_event_detail', {
         p_event_id: id,
       });
 
       if (error) throw error;
-      const payload = Array.isArray(data) ? data[0] : data;
-      if (!payload?.event) throw new Error('Event not found');
+      const raw = Array.isArray(data) ? data[0] : data;
+      if (!raw?.event) throw new Error('Event not found');
 
-      return payload;
+      return raw as unknown as EventDetailPayload;
     },
     enabled: !!id,
   });
 
-  const event = detailPayload?.event ?? null;
-  const venue = detailPayload?.venue ?? null;
+  const event: RpcEvent | null = detailPayload?.event ?? null;
+  const venue: RpcVenue | null = detailPayload?.venue ?? null;
   const venueLoading = false;
-  const organisers = detailPayload?.organisers ?? [];
-  const teachers = detailPayload?.teachers ?? [];
-  const djs = detailPayload?.djs ?? [];
-  const venueEntity = detailPayload?.venue_entity ?? null;
+  const organisers: RpcProfileStub[] = Array.isArray(detailPayload?.organisers) ? detailPayload.organisers : [];
+  const teachers: RpcProfileStub[] = Array.isArray(detailPayload?.teachers) ? detailPayload.teachers : [];
+  const djs: RpcProfileStub[] = Array.isArray(detailPayload?.djs) ? detailPayload.djs : [];
+  const venueEntity: RpcVenueEntity | null = detailPayload?.venue_entity ?? null;
 
-  const { data: connectedPeople = [] } = useQuery({
+  type ConnectionRow = Database['public']['Functions']['get_event_profile_connections']['Returns'][number];
+
+  const { data: connectedPeople = [] } = useQuery<ConnectionRow[]>({
     queryKey: ['event-profile-connections', event?.id],
     queryFn: async () => {
-      if (!event?.id) return [] as any[];
+      if (!event?.id) return [];
 
-      const { data, error } = await supabase.rpc('get_event_profile_connections' as any, {
+      const { data, error } = await supabase.rpc('get_event_profile_connections', {
         p_event_id: event.id,
       });
 
       if (error) {
         console.warn('get_event_profile_connections unavailable or failed', error.message);
-        return [] as any[];
+        return [];
       }
 
-      return (data || []) as any[];
+      return (data || []);
     },
     enabled: !!event?.id,
   });
 
   const connectionSignature = useMemo(
-    () => connectedPeople.map((row: any) => `${row.person_type}:${row.person_id}:${row.connection_label}`).join('|'),
+    () => connectedPeople.map((row) => `${row.person_type}:${row.person_id}:${row.connection_label}`).join('|'),
     [connectedPeople]
   );
 
@@ -121,72 +173,59 @@ const EventDetail = () => {
         videographer: [] as string[],
       };
 
-      for (const row of connectedPeople as any[]) {
-        if (row?.person_type && row?.person_id && row.person_type in byType) {
-          (byType as any)[row.person_type].push(row.person_id);
+      for (const row of connectedPeople) {
+        if (row.person_type && row.person_id && row.person_type in byType) {
+          byType[row.person_type as keyof typeof byType].push(row.person_id);
         }
       }
 
       const unique = (values: string[]) => Array.from(new Set(values));
 
+      const emptyResult = { data: [] as Record<string, unknown>[], error: null };
       const [dancersRes, organisersRes, teachersRes, djsRes, vendorsRes, videographersRes] = await Promise.all([
         unique(byType.dancer).length
           ? supabase.from('dancers').select('id,first_name,surname,photo_url').in('id', unique(byType.dancer))
-          : Promise.resolve({ data: [], error: null } as any),
+          : Promise.resolve(emptyResult),
         unique(byType.organiser).length
-          ? (supabase as any).from('organisers').select('id,name,avatar_url,photo_url').in('id', unique(byType.organiser))
-          : Promise.resolve({ data: [], error: null } as any),
+          ? supabase.from('organisers').select('id,name,photo_url').in('id', unique(byType.organiser))
+          : Promise.resolve(emptyResult),
         unique(byType.teacher).length
-          ? (supabase as any).from('teacher_profiles').select('id,name,avatar_url,photo_url').in('id', unique(byType.teacher))
-          : Promise.resolve({ data: [], error: null } as any),
+          ? supabase.from('teacher_profiles').select('id,first_name,surname,photo_url').in('id', unique(byType.teacher))
+          : Promise.resolve(emptyResult),
         unique(byType.dj).length
-          ? (supabase as any).from('dj_profiles').select('id,name,avatar_url,photo_url').in('id', unique(byType.dj))
-          : Promise.resolve({ data: [], error: null } as any),
+          ? supabase.from('dj_profiles').select('id,name,photo_url').in('id', unique(byType.dj))
+          : Promise.resolve(emptyResult),
         unique(byType.vendor).length
-          ? supabase.from('vendors').select('id,business_name,avatar_url,photo_url').in('id', unique(byType.vendor))
-          : Promise.resolve({ data: [], error: null } as any),
+          ? supabase.from('vendors').select('id,business_name,photo_url').in('id', unique(byType.vendor))
+          : Promise.resolve(emptyResult),
         unique(byType.videographer).length
-          ? supabase.from('videographers').select('id,name,avatar_url,photo_url').in('id', unique(byType.videographer))
-          : Promise.resolve({ data: [], error: null } as any),
+          ? supabase.from('videographers').select('id,business_name,photo_url').in('id', unique(byType.videographer))
+          : Promise.resolve(emptyResult),
       ]);
 
-      const dancerMap = new Map((dancersRes.data || []).map((row: any) => [
-        row.id,
-        {
-          name: [row.first_name, row.surname].filter(Boolean).join(' ') || 'Dancer',
-          avatar: resolveEventImage(row.photo_url, null),
-        },
-      ]));
-      const organiserMap = new Map((organisersRes.data || []).map((row: any) => [
-        row.id,
-        { name: row.name || 'Organiser', avatar: resolveEventImage(row.photo_url, row.avatar_url || null) },
-      ]));
-      const teacherMap = new Map((teachersRes.data || []).map((row: any) => [
-        row.id,
-        { name: row.name || 'Teacher', avatar: resolveEventImage(row.photo_url, row.avatar_url || null) },
-      ]));
-      const djMap = new Map((djsRes.data || []).map((row: any) => [
-        row.id,
-        { name: row.name || 'DJ', avatar: resolveEventImage(row.photo_url, row.avatar_url || null) },
-      ]));
-      const vendorMap = new Map((vendorsRes.data || []).map((row: any) => [
-        row.id,
-        { name: row.business_name || 'Vendor', avatar: resolveEventImage((row as any).photo_url, (row as any).avatar_url || null) },
-      ]));
-      const videographerMap = new Map((videographersRes.data || []).map((row: any) => [
-        row.id,
-        { name: row.name || 'Videographer', avatar: resolveEventImage(row.photo_url, row.avatar_url || null) },
-      ]));
+      type ProfileEntry = { name: string; avatar: string | null };
+      const toMap = (rows: Record<string, unknown>[], nameExtractor: (r: Record<string, unknown>) => string): Map<string, ProfileEntry> =>
+        new Map(rows.map((r) => [r.id as string, { name: nameExtractor(r), avatar: resolveEventImage(r.photo_url as string[] | null, null) }]));
 
-      return (connectedPeople as any[]).map((row: any) => {
-        let profile = { name: row.person_type || 'Connected', avatar: null as string | null };
+      const dancerMap = toMap(dancersRes.data || [], (r) => [r.first_name, r.surname].filter(Boolean).join(' ') || 'Dancer');
+      const organiserMap = toMap(organisersRes.data || [], (r) => (r.name as string) || 'Organiser');
+      const teacherMap = toMap(teachersRes.data || [], (r) => [r.first_name, r.surname].filter(Boolean).join(' ') || 'Teacher');
+      const djMap = toMap(djsRes.data || [], (r) => (r.name as string) || 'DJ');
+      const vendorMap = toMap(vendorsRes.data || [], (r) => (r.business_name as string) || 'Vendor');
+      const videographerMap = toMap(videographersRes.data || [], (r) => (r.business_name as string) || 'Videographer');
 
-        if (row.person_type === 'dancer') profile = dancerMap.get(row.person_id) || profile;
-        if (row.person_type === 'organiser') profile = organiserMap.get(row.person_id) || profile;
-        if (row.person_type === 'teacher') profile = teacherMap.get(row.person_id) || profile;
-        if (row.person_type === 'dj') profile = djMap.get(row.person_id) || profile;
-        if (row.person_type === 'vendor') profile = vendorMap.get(row.person_id) || profile;
-        if (row.person_type === 'videographer') profile = videographerMap.get(row.person_id) || profile;
+      const lookupMaps: Record<string, Map<string, ProfileEntry>> = {
+        dancer: dancerMap,
+        organiser: organiserMap,
+        teacher: teacherMap,
+        dj: djMap,
+        vendor: vendorMap,
+        videographer: videographerMap,
+      };
+
+      return (connectedPeople as { person_type: string; person_id: string }[]).map((row) => {
+        const fallback: ProfileEntry = { name: row.person_type || 'Connected', avatar: null };
+        const profile = lookupMaps[row.person_type]?.get(row.person_id) ?? fallback;
 
         return {
           ...row,
@@ -211,7 +250,7 @@ const EventDetail = () => {
 
   const groupedConnections = useMemo(() => {
     const source = connectedPeopleEnriched.length > 0 ? connectedPeopleEnriched : connectedPeople;
-    const grouped: Record<string, any[]> = {
+    const grouped: Record<string, Record<string, unknown>[]> = {
       organiser: [],
       teacher: [],
       dj: [],
@@ -220,9 +259,10 @@ const EventDetail = () => {
       dancer: [],
     };
 
-    for (const row of source as any[]) {
-      if (grouped[row.person_type]) {
-        grouped[row.person_type].push(row);
+    for (const row of source) {
+      const pt = (row as Record<string, unknown>).person_type as string;
+      if (grouped[pt]) {
+        grouped[pt].push(row as Record<string, unknown>);
       }
     }
 
@@ -258,10 +298,11 @@ const EventDetail = () => {
     queryKey: ['event-engagement', id],
     queryFn: async () => {
       if (!id) return { interested_count: 0, going_count: 0 };
-      const { data, error } = await supabase
+      const { data: engData, error } = await supabase
         .rpc('get_event_engagement', { p_event_id: id });
       if (error) throw error;
-      return data?.[0] ?? { interested_count: 0, going_count: 0 };
+      const rows = engData as { going_count: number; interested_count: number }[] | null;
+      return rows?.[0] ?? { interested_count: 0, going_count: 0 };
     },
     enabled: !!id,
   });

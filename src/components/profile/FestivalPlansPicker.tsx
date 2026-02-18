@@ -26,6 +26,12 @@ export const FestivalPlansPicker = ({ value, onChange }: FestivalPlansPickerProp
   const { festivals, festivalMap, isLoading } = useFestivalEvents();
   const [search, setSearch] = useState('');
 
+  // Only keep IDs that actually exist in the festival map (drop stale/fake entries)
+  const validValue = useMemo(
+    () => value.filter((id) => festivalMap[id]),
+    [value, festivalMap]
+  );
+
   const filteredFestivals = useMemo(() => {
     if (!search) return festivals;
     const searchLower = search.toLowerCase();
@@ -36,27 +42,27 @@ export const FestivalPlansPicker = ({ value, onChange }: FestivalPlansPickerProp
   }, [festivals, search]);
 
   const toggleFestival = (id: string) => {
-    if (value.includes(id)) {
-      onChange(value.filter((festivalId) => festivalId !== id));
+    if (validValue.includes(id)) {
+      onChange(validValue.filter((festivalId) => festivalId !== id));
       return;
     }
-    onChange([...value, id]);
+    onChange([...validValue, id]);
   };
 
   const removeFestival = (id: string) => {
-    onChange(value.filter((festivalId) => festivalId !== id));
+    onChange(validValue.filter((festivalId) => festivalId !== id));
   };
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <p className="text-sm font-medium">Selected Festivals</p>
-        {value.length === 0 && (
+        {validValue.length === 0 && (
           <p className="text-xs text-muted-foreground">No festival plans selected yet.</p>
         )}
-        {value.length > 0 && (
+        {validValue.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {value.map((id) => {
+            {validValue.map((id) => {
               const festival = festivalMap[id];
               return (
                 <Badge key={id} variant="secondary" className="flex items-center gap-1 text-xs">
@@ -104,7 +110,7 @@ export const FestivalPlansPicker = ({ value, onChange }: FestivalPlansPickerProp
                 <p className="text-sm text-muted-foreground p-4">No festivals match your search.</p>
               )}
               {filteredFestivals.map((festival) => {
-                const isSelected = value.includes(festival.id);
+                const isSelected = validValue.includes(festival.id);
                 return (
                   <button
                     key={festival.id}

@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { CityPicker } from '@/components/ui/city-picker';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
+import { FestivalPlansPicker } from '@/components/profile/FestivalPlansPicker';
 import { useCity } from '@/contexts/CityContext';
 import { getPhotoUrl, serializePartnerDetails, parsePartnerDetails, type PartnerDetailsValue } from '@/lib/utils';
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
@@ -153,7 +154,7 @@ type ModuleSlot = {
   disabled?: boolean;
 };
 
-type EditingSection = 'identity' | 'career' | 'partner' | 'social';
+type EditingSection = 'identity' | 'career' | 'partner' | 'social' | 'festivals';
 
 const spanClass = (slot: Pick<ModuleSlot, 'colSpan' | 'rowSpan'>) => {
   const colMap: Record<ModuleSlot['colSpan'], string> = {
@@ -362,6 +363,13 @@ export const DancerDashboard = () => {
       }));
     }
 
+    if (section === 'festivals') {
+      setEditForm((prev) => ({
+        ...prev,
+        festival_plans: dancerProfile.festival_plans || [],
+      }));
+    }
+
     if (section === 'partner') {
       setEditForm((prev) => ({
         ...prev,
@@ -499,6 +507,17 @@ export const DancerDashboard = () => {
           favorite_songs: editForm.favorite_songs,
           achievements: editForm.achievements,
           gallery_urls: editForm.gallery_urls,
+          festival_plans: editForm.festival_plans,
+        };
+      }
+
+      if (section === 'festivals') {
+        updatePayload = {
+          festival_plans: editForm.festival_plans.length ? editForm.festival_plans : null,
+        };
+
+        nextLocalProfile = {
+          ...nextLocalProfile,
           festival_plans: editForm.festival_plans,
         };
       }
@@ -715,6 +734,7 @@ export const DancerDashboard = () => {
   const profileCompletenessLabel = `${coreStepsCompletedCount}/${coreStepChecks.length} core steps complete`;
   const progressStatusFor = (progressKey: DancerProgressKey): TileStatus =>
     dancerProgressMap[progressKey] ? 'live' : 'attention';
+  const shouldShowSignupWizardButton = dancerProgressMap.identity && !dancerProgressMap.media;
 
   const getNextEditingSection = (): EditingSection => {
     if (!dancerProgressMap.identity || !dancerProgressMap.media) return 'identity';
@@ -892,9 +912,9 @@ export const DancerDashboard = () => {
       description: dancerProfile.festival_plans?.length ? `${dancerProfile.festival_plans.length} festival plan(s).` : 'No festival plans set.',
       colSpan: '12',
       status: progressStatusFor('engagement'),
-      actionLabel: 'Explore festivals',
-      mobileActionLabel: 'Festivals',
-      onAction: () => navigate('/festivals'),
+      actionLabel: 'Edit festivals',
+      mobileActionLabel: 'Edit',
+      onAction: () => beginSectionEdit('festivals'),
     },
     {
       tab: 'profile',
@@ -1021,7 +1041,17 @@ export const DancerDashboard = () => {
               <p className="text-[11px] text-muted-foreground line-clamp-1">
                 Recent: {eventCounts.going} going • {confirmedEvents.length} upcoming
               </p>
-              <p className="text-[11px] text-muted-foreground line-clamp-1">{nextStepAction.helper}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground line-clamp-1">{nextStepAction.helper}</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[10px] px-2 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => navigate('/create-dancers-profile')}
+                >
+                  Use wizard
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -1090,7 +1120,6 @@ export const DancerDashboard = () => {
                   {renderTiles('engagement')}
                 </div>
 
-                {/* Partner preferences inline edit */}
                 {editingSection === 'partner' && (
                   <Card className="dashboard-card border-festival-teal/20">
                     <CardContent className="p-3 space-y-3">
@@ -1135,6 +1164,25 @@ export const DancerDashboard = () => {
                           <Textarea placeholder="Availability or practice preferences..." value={editForm.partner_details} onChange={(e) => setEditForm({ ...editForm, partner_details: e.target.value })} className="mt-1 text-sm" />
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Festival plans inline edit */}
+                {editingSection === 'festivals' && (
+                  <Card className="dashboard-card border-festival-teal/20">
+                    <CardContent className="p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground">Festival Plans</p>
+                        <div className="flex gap-1.5">
+                          <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => cancelSectionEdit('festivals')}>Cancel</Button>
+                          <Button size="sm" className="h-6 text-[10px]" onClick={() => saveSection('festivals')} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
+                        </div>
+                      </div>
+                      <FestivalPlansPicker
+                        value={editForm.festival_plans}
+                        onChange={(ids) => setEditForm({ ...editForm, festival_plans: ids })}
+                      />
                     </CardContent>
                   </Card>
                 )}
@@ -1253,6 +1301,21 @@ export const DancerDashboard = () => {
 
             <TabsContent value="settings" className="m-0">
               <div className="space-y-2">
+                {shouldShowSignupWizardButton && (
+                  <Card className="dashboard-card border-festival-teal/20">
+                    <CardContent className="p-3 flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">Prefer guided setup? Use the signup wizard.</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] px-2.5 shrink-0"
+                        onClick={() => navigate('/create-dancers-profile')}
+                      >
+                        Use signup wizard
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
                 <div className="grid grid-cols-4 sm:grid-cols-8 lg:grid-cols-12 auto-rows-[minmax(84px,auto)] gap-1.5 sm:gap-2">
                   {renderTiles('settings')}
                 </div>

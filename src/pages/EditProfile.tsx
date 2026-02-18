@@ -41,7 +41,7 @@ interface DancerData {
   looking_for_partner: boolean | null;
   instagram: string | null;
   facebook: string | null;
-  phone: string | null;
+
   photo_url: string | string[] | null;
   achievements: string[] | null;
   favorite_songs: string[] | null;
@@ -74,7 +74,6 @@ const EditProfile = () => {
     looking_for_partner: false,
     instagram: '',
     facebook: '',
-    phone: '',
     photo_url: '',
     achievements: [] as string[],
     favorite_songs: [] as string[],
@@ -123,7 +122,6 @@ const EditProfile = () => {
             looking_for_partner: data.looking_for_partner || false,
             instagram: data.instagram || '',
             facebook: data.facebook || '',
-            phone: data.phone || '',
             photo_url: normalizePhotoValue(data.photo_url),
             achievements: data.achievements || [],
             favorite_songs: data.favorite_songs || [],
@@ -201,7 +199,6 @@ const EditProfile = () => {
           looking_for_partner: form.looking_for_partner,
           instagram: form.instagram || null,
           facebook: form.facebook || null,
-          phone: form.phone || null,
           achievements: form.achievements.length > 0 ? form.achievements : null,
           favorite_songs: form.favorite_songs.length > 0 ? form.favorite_songs : null,
           partner_search_role: form.partner_search_role || null,
@@ -574,15 +571,7 @@ const EditProfile = () => {
                   className='h-9 text-sm'
                 />
               </div>
-              <div>
-                <label className='text-xs text-muted-foreground mb-1 block'>Phone</label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder='+44...'
-                  className='h-9 text-sm'
-                />
-              </div>
+
             </div>
           </section>
 

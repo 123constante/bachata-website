@@ -636,9 +636,14 @@ export const VendorDashboard = () => {
                   {nextStepAction.cta}
                 </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground line-clamp-1">
-                Name: {vendor?.business_name || "Not set"} • City: {vendor?.city || "Not set"}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground line-clamp-1">
+                  Name: {vendor?.business_name || "Not set"} • City: {vendor?.city || "Not set"}
+                </p>
+                <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => navigate('/create-vendor-profile')}>
+                  Use wizard
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 export type UserRole = 'dancer' | 'organiser' | 'dj' | 'teacher' | 'videographer' | 'vendor';
 
@@ -50,19 +51,19 @@ export const useUserIds = () => {
 
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, djRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
-          (supabase as any)
+          supabase
             .from('organisers')
             .select('id')
             .eq('user_id', user.id)
             .maybeSingle(),
 
-          (supabase as any)
+          supabase
             .from('dj_profiles')
             .select('id')
             .eq('user_id', user.id)
             .maybeSingle(),
 
-          (supabase as any)
+          supabase
             .from('teacher_profiles')
             .select('id')
             .eq('user_id', user.id)
@@ -94,18 +95,22 @@ export const useUserIds = () => {
             .is('user_id', null)
             .limit(200);
 
-          const matchesDancer = (row: any) => {
-            const metadataLeaderId = row?.meta_data?.business_leader_dancer_id;
+          const matchesDancer = (row: { id: string; meta_data: Json | null; team: Json | null }) => {
+            const md = row.meta_data as Record<string, unknown> | null;
+            const metadataLeaderId = md?.business_leader_dancer_id;
             if (metadataLeaderId === dancer.id) return true;
 
-            const team = Array.isArray(row?.team) ? row.team : [];
-            return team.some((member: any) => member?.dancer_id === dancer.id);
+            const team = Array.isArray(row.team) ? row.team : [];
+            return team.some((member) => {
+              const m = member as Record<string, unknown> | null;
+              return m?.dancer_id === dancer.id;
+            });
           };
 
-          const candidate = (unclaimedVendors || []).find((row: any) => matchesDancer(row));
+          const candidate = (unclaimedVendors || []).find((row) => matchesDancer(row));
 
           if (candidate?.id) {
-            const { data: claimedVendorId, error: claimError } = await (supabase as any).rpc(
+            const { data: claimedVendorId, error: claimError } = await supabase.rpc(
               'claim_vendor_profile_for_current_user',
               { p_vendor_id: candidate.id }
             );

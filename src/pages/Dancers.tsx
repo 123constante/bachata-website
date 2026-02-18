@@ -58,9 +58,7 @@ const Dancers = () => {
         const { data, error } = await supabase
           .from('dancers')
           .select('id, first_name, surname, favorite_styles, years_dancing, photo_url, looking_for_partner, city, nationality, partner_role, hide_surname')
-          .eq('is_public', true)
-          .order('created_at', { ascending: false })
-          .limit(50);
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         setDancers(data || []);
