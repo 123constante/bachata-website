@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { DancerDashboard } from '@/components/profile/DancerDashboard';
 import { OrganiserDashboard } from '@/components/profile/OrganiserDashboard';
@@ -92,6 +93,9 @@ export const ProfileEntryRouter = ({
         onRefreshRoles();
       } catch (err) {
         console.error('Auto-create dancer profile failed:', err);
+        // Retry fetching -- profile may already exist
+        onRefreshRoles();
+        await new Promise(r => setTimeout(r, 800));
         setAutoResolveFailed(true);
       } finally {
         setAutoResolving(false);
@@ -146,13 +150,25 @@ export const ProfileEntryRouter = ({
     return (
       <div className='min-h-screen bg-background relative overflow-hidden'>
         <div className='pointer-events-none absolute top-16 -left-16 h-56 w-56 rounded-full bg-festival-teal/20 blur-3xl' />
-        <div className='pointer-events-none absolute bottom-10 -right-20 h-64 w-64 rounded-full bg-cyan-500/15 blur-3xl' />
         <div className='pt-24'>
-          <div className='max-w-lg mx-auto px-4 space-y-2'>
-            <h1 className='text-3xl font-bold'>Set up your profile</h1>
-            <p className='text-muted-foreground'>Choose what you want to do on Bachata Calendar.</p>
+          <div className='max-w-sm mx-auto px-4 text-center space-y-4'>
+            <h1 className='text-xl font-semibold text-foreground'>Something went wrong loading your profile</h1>
+            <p className='text-sm text-muted-foreground'>This is usually temporary. Try again or sign out and back in.</p>
+            <div className='flex flex-col gap-2 pt-2'>
+              <Button
+                onClick={() => {
+                  setAutoResolveFailed(false);
+                  autoResolveRan.current = false;
+                  onRefreshRoles();
+                }}
+              >
+                Try Again
+              </Button>
+              <Button variant='ghost' onClick={onSignOut}>
+                Sign Out
+              </Button>
+            </div>
           </div>
-          <ManageProfilesHub ids={ids} onRefreshRoles={onRefreshRoles} onSignOut={onSignOut} />
         </div>
       </div>
     );
