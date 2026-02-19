@@ -168,7 +168,7 @@ const Tonight = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-36 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
+    <div className="min-h-screen bg-black pb-20 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
       {/* Broadcast Overlay Effects */}
       <div className="fixed inset-0 pointer-events-none z-50">
         {/* Vignette */}
@@ -218,7 +218,30 @@ const Tonight = () => {
           </div>
         </div>
 
-        {/* Spacer for removed inline ticker */}
+        {/* Live Feed Ticker - News Style */}
+        <div className="mb-8 overflow-hidden bg-red-950/30 border-y border-red-500/20 py-2 backdrop-blur-md relative group">
+          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-black to-transparent z-10" />
+          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black to-transparent z-10" />
+          
+          <div className="flex items-center space-x-8 animate-scroll whitespace-nowrap font-mono text-sm">
+            <span className="text-red-400 font-bold px-2 bg-red-500/10 rounded">BREAKING</span>
+            <span className="text-white flex items-center">
+              Sarah just joined "Bachata Sensual Night"
+            </span>
+            <span className="text-red-500/50">///</span>
+            <span className="text-white flex items-center">
+              "Salsa Fusion" capacity at 85%
+            </span>
+             <span className="text-red-500/50">///</span>
+            <span className="text-white flex items-center">
+              New photos uploaded from Flow Dance
+            </span>
+            <span className="text-red-500/50">///</span>
+             <span className="text-white flex items-center">
+              DJ Play starting set at Bar Salsa
+            </span>
+          </div>
+        </div>
 
         <div className="mb-8">
           <WeatherWidget />
@@ -371,33 +394,6 @@ const Tonight = () => {
           })}
         </div>
 
-      </div>
-
-      {/* Fixed Breaking News Ticker */}
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 overflow-hidden bg-red-950/90 border-t border-red-500/30 py-2 backdrop-blur-md">
-        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-red-950/90 to-transparent z-10" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-red-950/90 to-transparent z-10" />
-
-        <div className="flex items-center animate-scroll whitespace-nowrap font-mono text-sm">
-          <span className="text-red-400 font-bold px-3 py-0.5 bg-red-500/20 rounded mr-4 shrink-0">BREAKING</span>
-          <span className="text-white">Sarah just joined "Bachata Sensual Night"</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">"Salsa Fusion" capacity at 85%</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">New photos uploaded from Flow Dance</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">DJ Play starting set at Bar Salsa</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          {/* Duplicate for seamless loop */}
-          <span className="text-red-400 font-bold px-3 py-0.5 bg-red-500/20 rounded mr-4 shrink-0">BREAKING</span>
-          <span className="text-white">Sarah just joined "Bachata Sensual Night"</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">"Salsa Fusion" capacity at 85%</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">New photos uploaded from Flow Dance</span>
-          <span className="text-red-500/50 mx-4">///</span>
-          <span className="text-white">DJ Play starting set at Bar Salsa</span>
-        </div>
       </div>
     </div>
   );

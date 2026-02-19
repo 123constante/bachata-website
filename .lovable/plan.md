@@ -1,41 +1,81 @@
 
 
-# Make the Breaking News Ticker Sticky
+## Celebration Confirmation After Magic Link Submission
 
-## Change
+### Problem
 
-Convert the inline breaking news ticker (currently scrolls away with the page) into a **fixed bottom bar** that stays visible at all times as the user scrolls through event cards.
+Both the MobileBottomNav modal and the Auth page show a plain, minimal "Check your email" message after submitting. The modal version is especially bare -- just one line of text and a button. Plus, both fire a redundant toast notification on top. This feels generic and unhelpful.
 
-## What Happens
+### Solution
 
-- The ticker moves from its current inline position (between the header and events grid) to `fixed bottom-0 left-0 right-0 z-40`
-- Bottom padding is added to the main content container so event cards aren't hidden behind the ticker
-- The ticker also gets `bottom-20` on mobile to clear the `MobileBottomNav` component
+Replace the post-submission confirmation in both surfaces with a celebratory, informative experience:
 
-## Technical Details
+1. **Animated entrance** with confetti burst (using existing `triggerMicroConfetti` from `src/lib/confetti.ts`)
+2. **Show the email address** the link was sent to
+3. **Resend countdown timer** (30 seconds) -- disabled "Resend" button that counts down, then enables
+4. **Remove the redundant toast** -- the inline confirmation is the feedback
+5. **Framer Motion animations** for smooth transitions
 
-### File: `src/pages/Tonight.tsx`
+### Files to Change
 
-1. **Extract the ticker block** (lines ~220-244) from the inline flow
-2. **Move it outside** the scrollable content area, applying fixed positioning:
-   ```
-   fixed bottom-0 left-0 right-0 z-40
-   ```
-3. **Increase bottom padding** on the outer container from `pb-20` to `pb-36` so the last event card isn't obscured
-4. **Mobile nav clearance**: add responsive bottom offset (`md:bottom-0 bottom-16`) to avoid overlapping the mobile bottom navigation bar
+#### 1. `src/components/MobileBottomNav.tsx`
 
-### File: `tailwind.config.ts`
+**Replace the `magicLinkSent` confirmation block** (lines 296-302) with:
 
-Register the missing `scroll` keyframe that the ticker's `animate-scroll` class relies on:
+- Animated mail icon with a scale-in + glow effect (framer-motion)
+- Heading: "Magic link sent!" with a sparkle emoji
+- Subtext showing: "We sent a link to **{signInEmail}**. Check your inbox and click to continue."
+- Resend timer: a `useState` countdown from 30 to 0, displayed as "Resend in {n}s" (disabled), becomes "Resend magic link" button when timer hits 0
+- "Use a different email" ghost button (already exists, keep it)
+- Fire `triggerMicroConfetti` once when `magicLinkSent` becomes true
 
+**Remove the toast** on line 157 (`toast({ title: 'Check your email' ...})`). The inline UI replaces it.
+
+**Add state**: `resendCountdown` (number), reset to 30 when magic link is sent, decremented by `setInterval`.
+
+#### 2. `src/pages/Auth.tsx`
+
+**Replace the `magicLinkSent` confirmation card** (lines 128-154) with the same celebratory pattern:
+
+- Animated mail icon with entrance animation
+- "Magic link sent!" heading
+- Shows the email address
+- Resend countdown timer (30s) with resend button
+- "Use a different email" and "Continue browsing" buttons (already exist)
+- Fire `triggerMicroConfetti` on mount of this view
+
+**Remove the toast** on line 92. The full-page confirmation replaces it.
+
+**Add state**: `resendCountdown` with the same countdown logic.
+
+### Resend Logic (both files)
+
+```text
+When magicLinkSent becomes true:
+  1. Set resendCountdown = 30
+  2. Start interval decrementing every 1s
+  3. Fire triggerMicroConfetti at center of mail icon
+
+Resend button:
+  - While countdown > 0: disabled, shows "Resend in {countdown}s"
+  - When countdown === 0: enabled, shows "Resend magic link"
+  - On click: calls handleSendMagicLink again, resets countdown to 30
 ```
-"scroll": {
-  "0%": { transform: "translateX(0)" },
-  "100%": { transform: "translateX(-50%)" },
-}
-```
 
-Animation utility: `"scroll": "scroll 30s linear infinite"`
+### Visual Design (Lovable handles styling)
 
-No new dependencies required.
+- Mail icon: gradient background circle (festival-teal to cyan), animated scale-in
+- Checkmark or sparkle particle animation around the icon
+- Heading uses slightly larger text with a warm tone
+- Email address displayed in bold
+- Timer text in muted foreground, transitions smoothly when it hits 0
+- Overall: warm, celebratory, clear -- not clinical
+
+### What Does NOT Change
+
+- No routing logic changes
+- No database/RLS changes
+- No changes to the sign-in/sign-up form UI itself
+- No changes to AuthCallback or Onboarding
+- Dev tools remain untouched
 
