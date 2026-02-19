@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar, Camera, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
+import { Calendar, Camera, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
@@ -24,6 +25,8 @@ const Auth = () => {
   const mode = searchParams.get("mode") || "signup";
 
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [city, setCity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
@@ -68,6 +71,16 @@ const Auth = () => {
       return;
     }
 
+    if (mode === "signup" && !firstName.trim()) {
+      toast({ title: "Enter your first name", variant: "destructive" });
+      return;
+    }
+
+    if (mode === "signup" && !city.trim()) {
+      toast({ title: "Select your city", variant: "destructive" });
+      return;
+    }
+
     const isCreateAccount = mode === "signup";
 
     // Store pending role for Create Account flow
@@ -82,7 +95,7 @@ const Auth = () => {
         options: {
           shouldCreateUser: isCreateAccount,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: isCreateAccount ? { user_type: selectedRole } : undefined,
+          data: isCreateAccount ? { user_type: selectedRole, first_name: firstName.trim(), city: city.trim() } : undefined,
         },
       });
 
@@ -237,6 +250,19 @@ const Auth = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="signup-firstname">First name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="signup-firstname" type="text" placeholder="Your first name" className="pl-10 bg-background/70 border-primary/20 focus-visible:ring-festival-teal/40" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>City</Label>
+                <CityPicker value={city} onChange={setCity} placeholder="Select your city…" />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="signup-email">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -244,7 +270,7 @@ const Auth = () => {
                 </div>
               </div>
 
-              <Button className="w-full bg-gradient-to-r from-festival-teal to-cyan-400 text-black font-semibold hover:opacity-95" onClick={handleSendMagicLink} disabled={isSubmitting}>
+              <Button className="w-full bg-gradient-to-r from-festival-teal to-cyan-400 text-black font-semibold hover:opacity-95" onClick={handleSendMagicLink} disabled={isSubmitting || !firstName.trim() || !city.trim() || !isValidEmail(email)}>
                 {isSubmitting ? "Sending…" : "Send magic link"}
               </Button>
             </CardContent>
