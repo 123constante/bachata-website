@@ -171,7 +171,7 @@ const Tonight = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-32 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
+    <div className="min-h-screen bg-black pb-32 text-neutral-200 font-sans selection:bg-red-500/30">
       <ChannelOverlay />
       {/* Broadcast Overlay Effects */}
       <div className="fixed inset-0 pointer-events-none z-50">

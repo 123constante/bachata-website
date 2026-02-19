@@ -24,7 +24,7 @@ const BroadcastTicker = ({ eventCount = 3 }: BroadcastTickerProps) => {
   const tickerText = headlines.join("   ///   ");
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 h-11 flex items-stretch border-t border-red-600/60 bg-neutral-950/95 backdrop-blur-sm select-none">
+    <div className="fixed bottom-0 left-0 right-0 z-[55] h-11 flex items-stretch border-t border-red-500 bg-red-700 select-none">
       {/* BREAKING badge */}
       <div className="flex-shrink-0 flex items-center bg-red-600 px-4">
         <span className="text-xs font-black uppercase tracking-widest text-white">
@@ -35,8 +35,8 @@ const BroadcastTicker = ({ eventCount = 3 }: BroadcastTickerProps) => {
       {/* Scrolling ticker */}
       <div className="flex-1 overflow-hidden relative">
         {/* fade edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-neutral-950 to-transparent z-10" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-neutral-950 to-transparent z-10" />
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-red-700 to-transparent z-10" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-red-700 to-transparent z-10" />
 
         <div className="flex items-center h-full animate-ticker-scroll whitespace-nowrap">
           <span className="text-sm text-white/90 font-medium pr-[50vw]">
@@ -49,7 +49,7 @@ const BroadcastTicker = ({ eventCount = 3 }: BroadcastTickerProps) => {
       </div>
 
       {/* LIVE section + clock */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-4 bg-neutral-900/80 border-l border-white/10">
+      <div className="flex-shrink-0 flex items-center gap-4 px-4 bg-red-800 border-l border-white/10">
         {/* Live dot */}
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
