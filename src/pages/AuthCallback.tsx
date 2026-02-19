@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -55,28 +56,48 @@ const AuthCallback = () => {
             .eq("user_id", user.id)
             .maybeSingle();
 
-          // 1. Read pendingRole
           const pendingRole = localStorage.getItem("pending_profile_role");
+          const meta = user.user_metadata || {};
 
           if (dancer?.id) {
-            // Case A: dancer EXISTS
+            // Existing dancer — route based on pending role
             if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
-              // 2. Decide route
-              // 3. Navigate
               navigate(`/create-${pendingRole}-profile`, { replace: true });
             } else {
               navigate("/profile", { replace: true });
             }
-            // 4. Clear AFTER navigate
             localStorage.removeItem("pending_profile_role");
           } else {
-            // Case B: dancer DOES NOT EXIST
-            // Always go to /onboarding — keep pending_profile_role for onboarding to read
-            navigate("/onboarding", { replace: true });
+            // No dancer profile — try to auto-create from metadata
+            const firstName = meta.first_name as string | undefined;
+            const city = meta.city as string | undefined;
+
+            if (firstName && city) {
+              try {
+                await ensureDancerProfile({
+                  userId: user.id,
+                  email: user.email,
+                  firstName,
+                  city,
+                });
+
+                if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
+                  navigate(`/create-${pendingRole}-profile`, { replace: true });
+                } else {
+                  navigate("/profile", { replace: true });
+                }
+                localStorage.removeItem("pending_profile_role");
+              } catch (profileErr) {
+                console.error("AuthCallback auto-create profile failed:", profileErr);
+                navigate("/onboarding", { replace: true });
+              }
+            } else {
+              // Missing metadata — fall back to onboarding
+              navigate("/onboarding", { replace: true });
+            }
           }
         } catch (err) {
           console.error("AuthCallback dancer check failed:", err);
-          // Fallback: send to onboarding
           navigate("/onboarding", { replace: true });
         }
       }
