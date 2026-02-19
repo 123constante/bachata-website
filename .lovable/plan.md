@@ -1,53 +1,22 @@
 
 
-## Live TV Broadcast Banner for the Tonight Page
+## Fix: Sticky Red Broadcast Ticker
 
-### What We're Building
-A sticky bottom banner that mimics a live TV news broadcast ticker -- exactly like the screenshot reference. It will sit fixed at the bottom of the Tonight page with:
-- A bold red **"BREAKING"** label on the left
-- A red background bar with a continuously scrolling news ticker
-- A green pulsing **"LIVE"** dot with real-time stats and event updates
-- The current time displayed
+### Problem
+1. **Not sticking on scroll**: The broadcast overlay effects div (`z-50`) on the Tonight page sits above the ticker (`z-40`), visually covering it. Additionally, `overflow-x-hidden` on the parent container can clip `position: fixed` children in some browsers.
+2. **Not red**: The main ticker bar uses a dark/black background (`bg-neutral-950/95`) and the right-side LIVE section uses `bg-neutral-900/80` -- neither is red.
 
-### Implementation
+### Fix
 
-**1. New Component: `src/components/BroadcastTicker.tsx`**
+**`src/components/BroadcastTicker.tsx`**
+- Raise `z-index` from `z-40` to `z-[55]` so it sits above the overlay effects (`z-50`)
+- Change the main bar background from `bg-neutral-950/95` to `bg-red-700` (solid red)
+- Change the fade-edge gradients from `from-neutral-950` to `from-red-700` so they blend seamlessly with the red background
+- Change the right-side LIVE/clock section background from `bg-neutral-900/80` to `bg-red-800` (slightly darker red for visual separation)
+- Update the top border from `border-red-600/60` to `border-red-500` for a cleaner look against the red background
 
-A self-contained sticky bottom bar component with:
-- `position: fixed; bottom: 0` so it stays visible while scrolling
-- High `z-index` to sit above all content (but below modals)
-- A red "BREAKING" badge on the far left with white text on solid red background
-- A dark red/black background bar spanning the full width
-- A CSS-animated marquee scrolling right-to-left with dynamic headlines (e.g. "LIVE: 378 dancers heading out tonight", "Thursday Bachata at Salsa Street looking PACKED with 34 confirmed")
-- A green pulsing dot next to "LIVE" text on the right side
-- Uses the existing `animate-pulse` for the live dot and a new `ticker-scroll` keyframe for the marquee
+**`src/pages/Tonight.tsx`**
+- Move the `overflow-x-hidden` from the outermost container div to an inner wrapper so it does not interfere with the fixed-position ticker
 
-**2. Tailwind Config Update: `tailwind.config.ts`**
-
-Add a new keyframe and animation for the ticker scroll:
-- `ticker-scroll`: translates from `0%` to `-100%` over ~20 seconds, linear, infinite
-- This creates the smooth horizontal news-ticker scroll effect
-
-**3. Update `src/pages/Tonight.tsx`**
-
-- Import and render `<BroadcastTicker />` at the bottom of the page
-- Increase `pb` (bottom padding) to account for the fixed ticker height (~48px)
-- Remove the existing inline "Live Feed Ticker" section (lines ~175-200) since the new sticky banner replaces it
-
-### Visual Details
-
-The banner will have:
-- Height: ~40-48px
-- Background: dark (near-black) with a subtle red tint
-- Top border: thin red line for the broadcast feel
-- "BREAKING" label: solid red background, white bold uppercase text, rounded
-- Ticker text: white on the dark background, smoothly scrolling
-- Right side: green pulsing dot + "LIVE" + dynamic stat (e.g., event count or viewer count)
-- Current time in monospace font on the far right
-
-### Technical Notes
-- The ticker uses CSS animation (not JS intervals) for smooth 60fps scrolling
-- Duplicate content technique: the ticker text is rendered twice side-by-side so the scroll loops seamlessly
-- The component pulls event data from the parent or uses sensible defaults
-- Bottom padding on the page ensures no content is hidden behind the fixed bar
-
+### Result
+The banner will be fully red across its entire width and will always remain visible at the bottom of the viewport while scrolling.
