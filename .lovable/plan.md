@@ -1,47 +1,84 @@
-## Fix: Add Profile Flow for Authenticated Users
 
-### Problem
 
-When an already signed-in user clicks "Create" on a new role (e.g., Organiser, Teacher, DJ) from the Manage Profiles hub, they are incorrectly redirected to the Auth/signup page instead of going straight to the role creation form. This breaks the "add multiple profiles under one account" flow.
+## Redesign Signup UX/UI as a Multi-Step Wizard
 
-### Root Cause
+### Overview
+Replace the current single-card signup form (role grid + name + city + email all visible at once) with a clean, animated multi-step wizard. Each step focuses on one concern, reducing cognitive load and reflecting the flow we designed.
 
-In `src/components/profile/ManageProfilesHub.tsx`, the `handleCreateRole` function (line 182-186) always navigates to `/auth?mode=signup`, regardless of whether the user is already authenticated.
+### New Signup Steps
 
-### Fix
+```text
+Step 1: Role Selection
+  "What brings you here?"
+  Six role cards in a clean grid. Pick one, tap Continue.
 
-`**src/components/profile/ManageProfilesHub.tsx**` -- Update `handleCreateRole` to check authentication status:
+Step 2: About You
+  First name + City picker. Two fields, nothing else.
 
-- If the user is already signed in, navigate directly to the role creation page (e.g., `/create-organiser-profile`, `/create-teacher-profile`, etc.)
-- Only redirect to `/auth` if the user is not authenticated (edge case/fallback)
+Step 3: Your Email
+  Email input + "Send magic link" button.
 
-The role-to-route mapping already exists in the codebase via the `ROLE_CREATE_ROUTES` constant at the top of the file (line 22-28). The fix simply uses this map when the user is authenticated.
-
-&nbsp;
-
-duplicate role creation is prevented at the database level (unique constraint on user_id + role). Do not rely only on frontend checks.
-
-### Technical Detail
-
-```
-Current (broken):
-  handleCreateRole -> always navigates to /auth?mode=signup
-
-Fixed:
-  handleCreateRole -> if user exists, navigate to /create-{role}-profile
-                   -> if no user, navigate to /auth (fallback)
+Step 4: Confirmation
+  Existing MagicLinkConfirmation component (confetti, countdown, resend).
 ```
 
-### What Already Works (no changes needed)
+Sign-in mode stays as-is (single card with email input).
 
-- Each Create*Profile page already detects authenticated users and skips to the form (step 1)
-- Each page checks for duplicate profiles and redirects if one already exists
-- ProfileSelector handles switching between roles
-- useUserIds fetches all role IDs and triggers re-render when a new profile is created
-- The `onRefreshRoles` callback reloads IDs after profile creation
+### Visual Design
+- Shared progress indicator at the top showing step X of 3 (before magic link is sent)
+- Each step slides in/out using AnimatePresence (already in use)
+- Back button on steps 2 and 3 to go to the previous step
+- The same glassmorphic card style, teal gradient accents, and blur backgrounds
+- Role cards become larger with descriptions (like ProfileEntryFlow has) for clarity
+- The sign-in/sign-up tab toggle stays at the top, outside the card
 
-### Result
+### Technical Changes
 
-Authenticated users can seamless*ly add n*ew role profiles (Organiser, Teacher, DJ, Videographer, Vendor) from their profile page without being sent through the auth flow again.
+**`src/pages/Auth.tsx`** (rewrite the signup branch):
+- Add a `signupStep` state: 1 (role) | 2 (name/city) | 3 (email)
+- Wrap each step in `AnimatePresence` + `motion.div` with slide transitions
+- Step 1: Role grid with role descriptions (Dancer: "Find classes, partners, and events", etc.)
+- Step 2: First name input + CityPicker, with a Continue button that validates both fields
+- Step 3: Email input + "Send magic link" button (disabled until valid email)
+- On successful send, switch to the existing `magicLinkSent` state which renders `MagicLinkConfirmation`
+- Add a progress bar component showing current step (reuse the existing gradient bar pattern from ProfileEntryFlow)
+- Back navigation: each step has a "Back" ghost button that decrements `signupStep`
 
-&nbsp;
+**No other files change.** The sign-in flow, MagicLinkConfirmation, AuthCallback, CityPicker, and all backend logic remain untouched.
+
+### Step-by-Step Detail
+
+**Step 1 -- Role Selection Card**
+- Title: "What brings you here?"
+- Subtitle: "You can always add more roles later."
+- Six role buttons in a vertical list (icon + label + short description), matching the style from ProfileEntryFlow
+- Selected role gets a highlighted border (cyan-300)
+- "Continue" button at the bottom
+
+**Step 2 -- About You Card**
+- Title: "A little about you"
+- Subtitle: "Just two things and we are done."
+- First name input with User icon
+- City picker with MapPin label
+- Inline validation errors (red text below fields) if empty on Continue
+- "Continue" button, disabled until both fields are filled
+- "Back" ghost button
+
+**Step 3 -- Your Email Card**
+- Title: "Last step -- your email"
+- Subtitle: "We will send you a magic link to sign in."
+- Email input with Mail icon
+- "Send magic link" gradient button, disabled until valid email format
+- "Back" ghost button
+
+**Progress Bar (above the card)**
+- "Step X of 3" label + percentage
+- Thin gradient bar (festival-teal to cyan-400), same style as the current progress bar in ProfileEntryFlow
+
+### What Stays the Same
+- Sign-in mode (left tab) -- unchanged single-card email flow
+- Tab toggle (Sign in / Create account) -- stays at the top
+- Exit button (X) and exit confirmation dialog -- unchanged
+- MagicLinkConfirmation screen -- unchanged
+- Dev tools section -- moved into Step 3 (email step) only
+- All Supabase auth logic, metadata passing, and AuthCallback -- unchanged
