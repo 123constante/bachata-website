@@ -71,6 +71,8 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [citySlug, setCitySlugState] = useState<string | null>(null);
+  const isAuthRoute =
+    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
   const isValidCitySlug = useCallback(async (slug: string) => {
     const normalized = slug.trim().toLowerCase();
@@ -115,6 +117,10 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
     let cancelled = false;
 
     const syncCity = async () => {
+      if (isAuthRoute) {
+        return;
+      }
+
       const fromPath = getCityFromPath(location.pathname);
       if (fromPath) {
         const valid = await isValidCitySlug(fromPath);
@@ -140,16 +146,20 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [citySlug, isValidCitySlug, location.pathname, navigate, setCitySlug]);
+  }, [citySlug, isAuthRoute, isValidCitySlug, location.pathname, navigate, setCitySlug]);
 
   useEffect(() => {
+    if (isAuthRoute) {
+      return;
+    }
+
     const fromPath = getCityFromPath(location.pathname);
     if (!citySlug || fromPath || location.pathname !== "/") {
       return;
     }
 
     navigate(`/${citySlug}`, { replace: true });
-  }, [citySlug, location.pathname, navigate]);
+  }, [citySlug, isAuthRoute, location.pathname, navigate]);
 
   const value = useMemo(
     () => ({
