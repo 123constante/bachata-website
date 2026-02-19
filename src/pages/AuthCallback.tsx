@@ -21,18 +21,6 @@ const AuthCallback = () => {
   useEffect(() => {
     if (resolved.current) return;
 
-    // Check for errors in the URL fragment (Supabase returns errors in the hash)
-    const hash = window.location.hash;
-    const params = new URLSearchParams(hash.replace(/^#/, ''));
-    const errorDescription = params.get('error_description');
-    const errorCode = params.get('error_code');
-
-    if (errorDescription || errorCode) {
-      setError(decodeURIComponent(errorDescription || 'Authentication failed.'));
-      resolved.current = true;
-      return;
-    }
-
     const timeout = setTimeout(() => {
       if (!resolved.current) {
         setError("Authentication timed out. Please try again.");
