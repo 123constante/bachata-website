@@ -153,10 +153,11 @@ const Auth = () => {
 
   if (magicLinkSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
-        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 h-[500px] w-[500px] rounded-full bg-primary/10 blur-[120px]" />
+      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1a14 0%, #0d1f17 50%, #0a1a14 100%)" }}>
+        <div className="pointer-events-none absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-500/15 blur-[120px]" />
+        <div className="pointer-events-none absolute bottom-1/4 -right-20 w-72 h-72 rounded-full bg-amber-400/10 blur-[100px]" />
         <div className="w-full max-w-md relative z-10">
-          <Card className="border-border/60 bg-card/90 backdrop-blur-2xl shadow-[0_30px_80px_hsl(var(--primary)/0.15)]">
+          <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_30px_80px_rgba(16,185,129,0.12)]">
             <CardContent className="pt-6">
               <MagicLinkConfirmation
                 email={email}
@@ -174,10 +175,14 @@ const Auth = () => {
   const progressPercent = mode === "signup" ? Math.round((signupStep / 3) * 100) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 relative overflow-hidden">
-      {/* Ambient glow orbs */}
-      <div className="pointer-events-none absolute top-[-10%] left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-primary/8 blur-[140px]" />
-      <div className="pointer-events-none absolute bottom-[-5%] right-[-10%] h-[400px] w-[400px] rounded-full bg-accent/6 blur-[100px]" />
+    <div
+      className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, #0a1a14 0%, #0d1f17 50%, #0a1a14 100%)" }}
+    >
+      {/* Ambient glow orbs — emerald & gold */}
+      <div className="pointer-events-none absolute top-[-10%] left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-emerald-500/8 blur-[140px]" />
+      <div className="pointer-events-none absolute bottom-[-5%] right-[-10%] h-[400px] w-[400px] rounded-full bg-amber-400/6 blur-[100px]" />
+      <div className="pointer-events-none absolute top-[60%] left-[-8%] h-[300px] w-[300px] rounded-full bg-emerald-600/5 blur-[120px]" />
 
       <div className="w-full max-w-md space-y-6 relative z-10">
         {/* Logo + Brand */}
@@ -190,23 +195,26 @@ const Auth = () => {
           <img
             src={authLogo}
             alt="Bachata Calendar"
-            className="w-24 h-24 object-contain drop-shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
+            className="w-24 h-24 object-contain drop-shadow-[0_0_30px_rgba(52,211,153,0.4)]"
           />
-          <h1 className="text-xl font-bold tracking-tight gradient-text">
+          <h1
+            className="text-xl font-bold tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "linear-gradient(135deg, #34d399, #fbbf24)" }}
+          >
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-emerald-200/50 text-center">
             {mode === "signin" ? "Sign in with a magic link." : "Create your account in 3 easy steps."}
           </p>
         </motion.div>
 
         {/* Tab toggle */}
-        <div className="grid grid-cols-2 gap-1 rounded-full border border-border/60 bg-card/70 p-1 backdrop-blur-xl">
+        <div className="grid grid-cols-2 gap-1 rounded-full border border-emerald-500/20 bg-[rgba(16,42,32,0.6)] p-1 backdrop-blur-xl">
           <button
             className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
               mode === "signin"
-                ? "bg-primary text-primary-foreground shadow-[0_4px_20px_hsl(var(--primary)/0.35)]"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white shadow-[0_4px_20px_rgba(16,185,129,0.35)]"
+                : "text-emerald-200/50 hover:text-emerald-100/80"
             }`}
             onClick={() => navigate(signInAuthUrl)}
           >
@@ -215,8 +223,8 @@ const Auth = () => {
           <button
             className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
               mode === "signup"
-                ? "bg-primary text-primary-foreground shadow-[0_4px_20px_hsl(var(--primary)/0.35)]"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white shadow-[0_4px_20px_rgba(16,185,129,0.35)]"
+                : "text-emerald-200/50 hover:text-emerald-100/80"
             }`}
             onClick={() => navigate(signUpAuthUrl)}
           >
@@ -232,13 +240,13 @@ const Auth = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-xs text-emerald-200/50">
               <span>Step {signupStep} of 3</span>
               <span>{progressPercent}%</span>
             </div>
-            <div className="h-1 w-full rounded-full bg-muted/50 overflow-hidden">
+            <div className="h-1 w-full rounded-full bg-emerald-900/40 overflow-hidden">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400"
                 initial={false}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.35, ease: "easeInOut" }}
@@ -254,34 +262,34 @@ const Auth = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-[0_24px_60px_hsl(var(--primary)/0.1)]">
+            <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(16,185,129,0.08)]">
               <CardHeader className="space-y-1 pb-4">
-                <CardTitle className="text-lg">Sign in</CardTitle>
-                <p className="text-sm text-muted-foreground">Enter your email and we'll send you a magic link.</p>
+                <CardTitle className="text-lg text-white">Sign in</CardTitle>
+                <p className="text-sm text-emerald-200/50">Enter your email and we'll send you a magic link.</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</Label>
+                  <Label htmlFor="signin-email" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
                     <Input
                       id="signin-email"
                       type="email"
                       placeholder="you@example.com"
-                      className="pl-10 bg-background/60 border-border/50 focus-visible:ring-primary/40 focus-visible:border-primary/50 transition-all"
+                      className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                 </div>
                 <Button
-                  className="w-full rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold shadow-[0_8px_30px_hsl(var(--primary)/0.3)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                  className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                   onClick={handleSendMagicLink}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Sending…" : "Send magic link"}
                 </Button>
-                <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => navigate(signUpAuthUrl)}>
+                <button type="button" className="w-full text-xs text-emerald-200/40 hover:text-emerald-100/70 transition-colors" onClick={() => navigate(signUpAuthUrl)}>
                   New here? Create an account
                 </button>
                 {import.meta.env.DEV && (
@@ -300,7 +308,7 @@ const Auth = () => {
           </motion.div>
         ) : (
           /* ─── SIGN UP WIZARD ─── */
-          <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-[0_24px_60px_hsl(var(--primary)/0.1)] overflow-hidden">
+          <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(16,185,129,0.08)] overflow-hidden">
             <AnimatePresence mode="wait" custom={stepDirection}>
               {signupStep === 1 && (
                 <motion.div
@@ -313,8 +321,8 @@ const Auth = () => {
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg">What brings you here?</CardTitle>
-                    <p className="text-sm text-muted-foreground">You can always add more roles later.</p>
+                    <CardTitle className="text-lg text-white">What brings you here?</CardTitle>
+                    <p className="text-sm text-emerald-200/50">You can always add more roles later.</p>
                   </CardHeader>
                   <CardContent className="space-y-3 pb-6">
                     <div className="space-y-2">
@@ -328,22 +336,22 @@ const Auth = () => {
                             type="button"
                             className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-200 ${
                               isActive
-                                ? "border-primary/70 bg-primary/10 shadow-[0_0_20px_hsl(var(--primary)/0.12)]"
-                                : "border-border/40 bg-background/40 hover:border-border/70 hover:bg-background/60"
+                                ? "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.12)]"
+                                : "border-emerald-500/10 bg-emerald-950/30 hover:border-emerald-500/25 hover:bg-emerald-950/50"
                             }`}
                             onClick={() => setSelectedRole(role.value)}
                           >
                             <div className="flex items-center gap-3">
                               <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
                                 isActive
-                                  ? "bg-primary/20 text-primary"
-                                  : "bg-muted/40 text-muted-foreground"
+                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  : "bg-emerald-900/30 text-emerald-300/40"
                               }`}>
                                 <Icon className="w-4 h-4" />
                               </div>
                               <div>
-                                <p className="font-medium text-sm">{role.label}</p>
-                                <p className="text-xs text-muted-foreground">{role.description}</p>
+                                <p className="font-medium text-sm text-white">{role.label}</p>
+                                <p className="text-xs text-emerald-200/40">{role.description}</p>
                               </div>
                             </div>
                           </motion.button>
@@ -351,7 +359,7 @@ const Auth = () => {
                       })}
                     </div>
                     <Button
-                      className="w-full rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold shadow-[0_8px_30px_hsl(var(--primary)/0.3)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                      className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                       onClick={() => goToStep(2)}
                     >
                       Continue
@@ -371,42 +379,42 @@ const Auth = () => {
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg">A little about you</CardTitle>
-                    <p className="text-sm text-muted-foreground">Just two things and we're done.</p>
+                    <CardTitle className="text-lg text-white">A little about you</CardTitle>
+                    <p className="text-sm text-emerald-200/50">Just two things and we're done.</p>
                   </CardHeader>
                   <CardContent className="space-y-4 pb-6">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-firstname" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">First name</Label>
+                      <Label htmlFor="signup-firstname" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">First name</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
                         <Input
                           id="signup-firstname"
                           type="text"
                           placeholder="Your first name"
-                          className="pl-10 bg-background/60 border-border/50 focus-visible:ring-primary/40 focus-visible:border-primary/50 transition-all"
+                          className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                         />
                       </div>
                       {step2Touched && !firstName.trim() && (
-                        <p className="text-xs text-destructive">First name is required.</p>
+                        <p className="text-xs text-red-400">First name is required.</p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">City</Label>
+                      <Label className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">City</Label>
                       <CityPicker value={city} onChange={setCity} placeholder="Select your city…" />
                       {step2Touched && !city.trim() && (
-                        <p className="text-xs text-destructive">City is required.</p>
+                        <p className="text-xs text-red-400">City is required.</p>
                       )}
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full" onClick={() => goToStep(1)}>
+                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => goToStep(1)}>
                         <ArrowLeft className="w-4 h-4 mr-1" /> Back
                       </Button>
                       <Button
-                        className="flex-1 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold shadow-[0_8px_30px_hsl(var(--primary)/0.3)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                        className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                         disabled={!firstName.trim() || !city.trim()}
                         onClick={() => {
                           setStep2Touched(true);
@@ -431,19 +439,19 @@ const Auth = () => {
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg">Last step — your email</CardTitle>
-                    <p className="text-sm text-muted-foreground">We'll send you a magic link to sign in.</p>
+                    <CardTitle className="text-lg text-white">Last step — your email</CardTitle>
+                    <p className="text-sm text-emerald-200/50">We'll send you a magic link to sign in.</p>
                   </CardHeader>
                   <CardContent className="space-y-4 pb-6">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</Label>
+                      <Label htmlFor="signup-email" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">Email</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
                         <Input
                           id="signup-email"
                           type="email"
                           placeholder="you@example.com"
-                          className="pl-10 bg-background/60 border-border/50 focus-visible:ring-primary/40 focus-visible:border-primary/50 transition-all"
+                          className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                         />
@@ -451,11 +459,11 @@ const Auth = () => {
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full" onClick={() => goToStep(2)}>
+                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => goToStep(2)}>
                         <ArrowLeft className="w-4 h-4 mr-1" /> Back
                       </Button>
                       <Button
-                        className="flex-1 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold shadow-[0_8px_30px_hsl(var(--primary)/0.3)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                        className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                         onClick={handleSendMagicLink}
                         disabled={isSubmitting || !isValidEmail(email)}
                       >
@@ -478,7 +486,7 @@ const Auth = () => {
           </Card>
         )}
 
-        <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground rounded-full" onClick={() => navigate(returnTo)}>
+        <Button variant="ghost" className="w-full text-emerald-200/40 hover:text-emerald-100/70 hover:bg-emerald-500/10 rounded-full" onClick={() => navigate(returnTo)}>
           Continue browsing
         </Button>
 
