@@ -771,3 +771,10 @@
     will-change: transform;
   }
 }
+
+@keyframes channel-static {
+  0% { background-position: 0 0; }
+  33% { background-position: -128px -64px; }
+  66% { background-position: 64px -128px; }
+  100% { background-position: -64px 64px; }
+}

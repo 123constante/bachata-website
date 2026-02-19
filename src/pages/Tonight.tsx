@@ -12,6 +12,7 @@ import { resolveEventImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import BroadcastTicker from "@/components/BroadcastTicker";
+import { useChannelSwitch } from "@/components/ChannelSwitchOverlay";
 
 interface Event {
   id: number | string;
@@ -75,6 +76,7 @@ const Tonight = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [likedEventIds, setLikedEventIds] = useState<Record<string, boolean>>({});
   const { citySlug } = useCity();
+  const { ChannelOverlay } = useChannelSwitch();
   
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -170,6 +172,7 @@ const Tonight = () => {
 
   return (
     <div className="min-h-screen bg-black pb-32 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
+      <ChannelOverlay />
       {/* Broadcast Overlay Effects */}
       <div className="fixed inset-0 pointer-events-none z-50">
         {/* Vignette */}
