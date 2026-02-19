@@ -1,63 +1,45 @@
 
 
-## Align MobileBottomNav Auth Modal with the New Signup Flow
+## Auth Signup Visual Overhaul: Emerald & Gold + New Logo
 
-### Problem
-The modal auth dialog in `MobileBottomNav` (triggered when an unauthenticated user taps the Profile tab) has two issues:
+### Overview
+Update the logo to the uploaded image and apply an Emerald & Gold color scheme exclusively to the auth/signup flow. No logic changes -- only visual styling.
 
-1. **Broken signups**: The "Create account" tab sends `signInWithOtp` without `first_name` or `city` in the metadata. The database trigger `enforce_required_user_metadata` rejects accounts missing these fields, so every signup from this modal fails with a 500 error.
+### Logo Update
+- Copy `user-uploads://IMG_5823_small.jpg` to `src/assets/bachata-calendar-logo-auth.png` (replacing the current file)
+- The logo is already imported and used in Auth.tsx, so it will update automatically
 
-2. **Inconsistent UX**: The Auth page now uses a clean 3-step wizard (Role -> Name/City -> Email), but the modal still shows role list + email on one screen with no name or city collection.
+### Emerald & Gold Color Scheme
+Apply a scoped color palette to the auth page only (no changes to the global theme or other pages).
 
-### Solution
-Redesign the modal's signup tab to match the Auth page wizard pattern -- a multi-step flow inside the dialog that collects role, first name, city, and email before sending the magic link.
+**Palette:**
+- Background: Deep dark green-black (`#0a1a14` / `#0d1f17`)
+- Card: Dark emerald glass (`rgba(16, 42, 32, 0.85)`)
+- Primary accent: Emerald green (`#34d399` / `#10b981`)
+- Secondary accent: Soft gold (`#fbbf24` / `#f59e0b`)
+- Glow orbs: Emerald and gold blurs behind the card
+- Text: White foreground, muted sage for secondary text
+- Borders: Emerald-tinted borders (`emerald-500/30`)
 
-### Changes
+**What changes in `src/pages/Auth.tsx`:**
+- Wrapper div gets inline background style (deep dark green) or a scoped class
+- Ambient glow orbs switch from primary/accent to emerald and gold colors
+- Card styling: emerald-tinted border, slightly green-tinted glass background
+- Tab toggle: active tab uses emerald gradient instead of `bg-primary`
+- Progress bar gradient: emerald-to-gold instead of primary-to-accent
+- All CTA buttons: emerald-to-gold gradient (`from-emerald-500 to-amber-400`)
+- Role card selected state: emerald border and emerald background tint
+- Input focus rings: emerald tint
+- Logo glow: emerald drop-shadow instead of primary
+- "gradient-text" on the heading replaced with a custom emerald-to-gold gradient
 
-**`src/components/MobileBottomNav.tsx`** -- Rework the signup tab inside the existing Dialog:
+### Files Changed
+- `src/assets/bachata-calendar-logo-auth.png` -- replaced with new logo
+- `src/pages/Auth.tsx` -- all color references updated (Tailwind utility classes only, no CSS variable changes)
 
-**New state variables:**
-- `signupStep`: 1 | 2 | 3 (role -> name/city -> email)
-- `firstName`: string
-- `city`: string
+### What Does NOT Change
+- Global theme variables in `index.css` (the rest of the app keeps orange/gold)
+- Signup flow logic, steps, validation, Supabase calls
+- MobileBottomNav auth modal (separate task if needed)
+- Any other page or component
 
-**Step 1 -- Role Selection** (replaces current role list + email on one screen)
-- Same role buttons as today, but with a "Continue" button instead of jumping straight to email
-- Hint text: "Choose your role, then enter your details."
-
-**Step 2 -- Name and City**
-- First name input (required, with User icon)
-- CityPicker component (required, autocomplete from cities table)
-- "Continue" button (disabled until both fields filled)
-- "Back" button to return to step 1
-
-**Step 3 -- Email**
-- Email input (same as today)
-- "Send magic link" button (disabled until valid email)
-- "Back" button to return to step 2
-
-**Fix the `signInWithOtp` call** to include metadata:
-```
-data: {
-  user_type: selectedRole,
-  first_name: firstName.trim(),
-  city: city.trim()
-}
-```
-
-**Sign-in tab** stays exactly as-is (single email field + send link).
-
-**Reset behavior**: When switching between tabs or closing/reopening the modal, reset `signupStep` back to 1.
-
-### What Stays the Same
-- The Dialog component and its open/close behavior
-- The sign-in tab (email + magic link, unchanged)
-- The MagicLinkConfirmation screen after sending
-- Dev tools (quick login, random account)
-- The bottom nav bar itself
-- All AuthCallback and backend logic
-
-### Result
-- Signups from the modal will include all required metadata and succeed
-- The UX matches the full Auth page wizard pattern
-- Users complete role + name + city + email before the magic link is sent
