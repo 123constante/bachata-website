@@ -179,10 +179,23 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     onRefreshRoles?.();
   };
 
+  const ROLE_CREATE_ROUTES: Record<UserRole, string> = {
+    dancer: '/profile',
+    organiser: '/create-organiser-profile',
+    teacher: '/create-teacher-profile',
+    dj: '/create-dj-profile',
+    videographer: '/create-videographer-profile',
+    vendor: '/create-vendor-profile',
+  };
+
   const handleCreateRole = (role: UserRole) => {
-    localStorage.setItem('profile_entry_role', role);
-    localStorage.removeItem('auth_signup_draft_v1');
-    navigate(`/auth?mode=signup&returnTo=${encodeURIComponent('/profile')}&userType=${encodeURIComponent(role)}`);
+    if (user) {
+      navigate(ROLE_CREATE_ROUTES[role]);
+    } else {
+      localStorage.setItem('profile_entry_role', role);
+      localStorage.removeItem('auth_signup_draft_v1');
+      navigate(`/auth?mode=signup&returnTo=${encodeURIComponent('/profile')}&userType=${encodeURIComponent(role)}`);
+    }
   };
 
   return (
