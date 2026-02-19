@@ -120,6 +120,10 @@ export default {
           "25%": { transform: "translateX(-5px)" },
           "75%": { transform: "translateX(5px)" },
         },
+        "ticker-scroll": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -132,6 +136,7 @@ export default {
         "spin-slow": "spin-slow 20s linear infinite",
         "wiggle": "wiggle 0.5s ease-in-out",
         "shake": "shake 0.4s ease-in-out",
+        "ticker-scroll": "ticker-scroll 25s linear infinite",
       },
     },
   },

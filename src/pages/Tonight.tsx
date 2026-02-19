@@ -11,6 +11,7 @@ import { useCity } from "@/contexts/CityContext";
 import { resolveEventImage } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import BroadcastTicker from "@/components/BroadcastTicker";
 
 interface Event {
   id: number | string;
@@ -168,7 +169,7 @@ const Tonight = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-20 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
+    <div className="min-h-screen bg-black pb-32 overflow-x-hidden text-neutral-200 font-sans selection:bg-red-500/30">
       {/* Broadcast Overlay Effects */}
       <div className="fixed inset-0 pointer-events-none z-50">
         {/* Vignette */}
@@ -218,30 +219,7 @@ const Tonight = () => {
           </div>
         </div>
 
-        {/* Live Feed Ticker - News Style */}
-        <div className="mb-8 overflow-hidden bg-red-950/30 border-y border-red-500/20 py-2 backdrop-blur-md relative group">
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-black to-transparent z-10" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black to-transparent z-10" />
-          
-          <div className="flex items-center space-x-8 animate-scroll whitespace-nowrap font-mono text-sm">
-            <span className="text-red-400 font-bold px-2 bg-red-500/10 rounded">BREAKING</span>
-            <span className="text-white flex items-center">
-              Sarah just joined "Bachata Sensual Night"
-            </span>
-            <span className="text-red-500/50">///</span>
-            <span className="text-white flex items-center">
-              "Salsa Fusion" capacity at 85%
-            </span>
-             <span className="text-red-500/50">///</span>
-            <span className="text-white flex items-center">
-              New photos uploaded from Flow Dance
-            </span>
-            <span className="text-red-500/50">///</span>
-             <span className="text-white flex items-center">
-              DJ Play starting set at Bar Salsa
-            </span>
-          </div>
-        </div>
+        {/* Old ticker removed — replaced by sticky BroadcastTicker */}
 
         <div className="mb-8">
           <WeatherWidget />
@@ -395,6 +373,8 @@ const Tonight = () => {
         </div>
 
       </div>
+
+      <BroadcastTicker eventCount={events.length} />
     </div>
   );
 };
