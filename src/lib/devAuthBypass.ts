@@ -10,10 +10,33 @@ const getDevCreds = () => ({
 
 const randomToken = () => Math.random().toString(36).slice(2, 8);
 
-export const createRandomDevAccount = async (userType?: string) => {
+type RandomDevAccountOptions = {
+  userType?: string;
+  firstName?: string;
+  surname?: string;
+  city?: string;
+};
+
+const resolveRandomDevOptions = (
+  optionsOrUserType?: string | RandomDevAccountOptions
+): RandomDevAccountOptions => {
+  if (typeof optionsOrUserType === "string") {
+    return { userType: optionsOrUserType };
+  }
+  return optionsOrUserType || {};
+};
+
+export const createRandomDevAccount = async (
+  optionsOrUserType?: string | RandomDevAccountOptions
+) => {
   if (!import.meta.env.DEV) {
     return { error: new Error("Random dev account creation is available in development only.") };
   }
+
+  const { userType, firstName, surname, city } = resolveRandomDevOptions(optionsOrUserType);
+  const safeFirstName = (firstName || "Dev").trim() || "Dev";
+  const safeSurname = (surname || "Tester").trim() || "Tester";
+  const safeCity = (city || "London").trim() || "London";
 
   const email = `dev-${Date.now()}-${randomToken()}@example.test`;
   const password = `Dev!${randomToken()}${randomToken()}`;
@@ -23,8 +46,10 @@ export const createRandomDevAccount = async (userType?: string) => {
     password,
     options: {
       data: {
-        first_name: "Dev",
-        surname: "Tester",
+        first_name: safeFirstName,
+        surname: safeSurname,
+        city: safeCity,
+        full_name: `${safeFirstName} ${safeSurname}`.trim(),
         ...(userType ? { user_type: userType } : {}),
       },
     },

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,11 +20,29 @@ const VALID_ROLES: Record<string, string> = {
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [firstName, setFirstName] = useState("");
   const [city, setCity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fallbackReason = searchParams.get("authFallback");
+    if (!fallbackReason) return;
+
+    const fallbackMessages: Record<string, string> = {
+      timeout: "We couldn't finish sign-in in time. Complete onboarding to continue.",
+      profile: "We couldn't auto-create your profile yet. Complete onboarding to continue.",
+      metadata: "A few account details are still missing. Complete onboarding to continue.",
+      lookup: "We couldn't load your profile details. Complete onboarding to continue.",
+    };
+
+    toast({
+      title: "Finish setup",
+      description: fallbackMessages[fallbackReason] || "Complete onboarding to continue.",
+    });
+  }, [searchParams, toast]);
 
   if (isLoading || !user) {
     return (

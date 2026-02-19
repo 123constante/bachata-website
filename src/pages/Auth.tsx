@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Calendar, Camera, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
+import { ArrowLeft, Calendar, Camera, Check, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -52,11 +52,11 @@ const Auth = () => {
   const [step2Touched, setStep2Touched] = useState(false);
 
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
-  const [selectedRole, setSelectedRole] = useState<EntryRole>(() => {
+  const [selectedRole, setSelectedRole] = useState<EntryRole | null>(() => {
     if (validRole) return validRole as EntryRole;
     const stored = localStorage.getItem("profile_entry_role") as EntryRole | null;
     if (stored && ROLE_OPTIONS.some((r) => r.value === stored)) return stored;
-    return "dancer";
+    return null;
   });
 
   useEffect(() => {
@@ -78,15 +78,33 @@ const Auth = () => {
   const signInAuthUrl = `/auth?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
   const signUpAuthUrl = `/auth?mode=signup&returnTo=${encodeURIComponent(returnTo)}${selectedRole ? `&userType=${encodeURIComponent(selectedRole)}` : ""}`;
 
-  const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+  const normalizeEmail = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/^mailto:/i, "")
+      .replace(/^<+|>+$/g, "")
+      .replace(/\s+/g, "");
+
+  const isValidEmail = (value: string) =>
+    /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(
+      value
+    );
 
   const goToStep = (step: number) => {
     setStepDirection(step > signupStep ? 1 : -1);
     setSignupStep(step);
   };
 
+  const handleRoleSelect = (role: EntryRole) => {
+    setSelectedRole(role);
+    if (mode === "signup" && signupStep === 1) {
+      setTimeout(() => goToStep(2), 120);
+    }
+  };
+
   const handleSendMagicLink = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
       toast({ title: "Enter a valid email", description: "Use an email like name@example.com.", variant: "destructive" });
       return;
@@ -99,21 +117,27 @@ const Auth = () => {
       toast({ title: "Select your city", variant: "destructive" });
       return;
     }
+    if (mode === "signup" && !selectedRole) {
+      toast({ title: "Choose a role", description: "Pick a role to continue.", variant: "destructive" });
+      return;
+    }
     const isCreateAccount = mode === "signup";
     if (isCreateAccount) {
-      localStorage.setItem("pending_profile_role", selectedRole);
+      localStorage.setItem("pending_profile_role", selectedRole as EntryRole);
     }
     setIsSubmitting(true);
     try {
+      const callbackUrl = `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnTo)}`;
       const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
           shouldCreateUser: isCreateAccount,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl,
           data: isCreateAccount ? { user_type: selectedRole, first_name: firstName.trim(), city: city.trim() } : undefined,
         },
       });
       if (error) throw error;
+      setEmail(normalizedEmail);
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
@@ -140,7 +164,11 @@ const Auth = () => {
   const handleCreateRandomDevAccount = async (destination: string, userTypeForAccount?: string) => {
     setIsSubmitting(true);
     try {
-      const result = await createRandomDevAccount(userTypeForAccount);
+      const result = await createRandomDevAccount({
+        userType: userTypeForAccount,
+        firstName: firstName.trim() || "Dev",
+        city: city.trim() || "London",
+      });
       if (result.error) throw new Error(result.error.message);
       toast({ title: "Random test account created", description: `${result.email} / ${result.password}` });
       navigate(destination);
@@ -339,7 +367,8 @@ const Auth = () => {
                                 ? "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.12)]"
                                 : "border-emerald-500/10 bg-emerald-950/30 hover:border-emerald-500/25 hover:bg-emerald-950/50"
                             }`}
-                            onClick={() => setSelectedRole(role.value)}
+                            aria-pressed={isActive}
+                            onClick={() => handleRoleSelect(role.value)}
                           >
                             <div className="flex items-center gap-3">
                               <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
@@ -349,10 +378,16 @@ const Auth = () => {
                               }`}>
                                 <Icon className="w-4 h-4" />
                               </div>
-                              <div>
+                              <div className="flex-1">
                                 <p className="font-medium text-sm text-white">{role.label}</p>
                                 <p className="text-xs text-emerald-200/40">{role.description}</p>
                               </div>
+                              {isActive && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
+                                  <Check className="h-3 w-3" />
+                                  Selected
+                                </span>
+                              )}
                             </div>
                           </motion.button>
                         );
@@ -360,9 +395,12 @@ const Auth = () => {
                     </div>
                     <Button
                       className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                      disabled={!selectedRole}
                       onClick={() => goToStep(2)}
                     >
-                      Continue
+                      {selectedRole
+                        ? `Continue as ${ROLE_OPTIONS.find((role) => role.value === selectedRole)?.label ?? "Selected role"}`
+                        : "Choose a role to continue"}
                     </Button>
                   </CardContent>
                 </motion.div>
@@ -465,7 +503,7 @@ const Auth = () => {
                       <Button
                         className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                         onClick={handleSendMagicLink}
-                        disabled={isSubmitting || !isValidEmail(email)}
+                        disabled={isSubmitting || !isValidEmail(normalizeEmail(email))}
                       >
                         {isSubmitting ? "Sending…" : "Send magic link"}
                       </Button>

@@ -236,7 +236,7 @@ export const AuthStepper = ({
 
     setIsLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+      const redirectUrl = `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(resolvedReturnTo)}`;
       const trimmedFirstName = firstName.trim();
       const trimmedSurname = surname.trim();
 
@@ -335,7 +335,12 @@ export const AuthStepper = ({
   const handleCreateRandomDevAccount = async () => {
     setIsLoading(true);
     try {
-      const result = await createRandomDevAccount(userType);
+      const result = await createRandomDevAccount({
+        userType,
+        firstName: firstName.trim() || "Dev",
+        surname: surname.trim() || "Tester",
+        city: city.trim() || "London",
+      });
       if (result.error) {
         throw new Error(`${result.error.message}${result.email ? ` | ${result.email}` : ""}${result.password ? ` | ${result.password}` : ""}`);
       }
