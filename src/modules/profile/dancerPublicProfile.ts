@@ -7,6 +7,7 @@ type DancerRow = Database["public"]["Tables"]["dancers"]["Row"];
 export type DancerPublicRecord = Pick<
   DancerRow,
   | "id"
+  | "user_id"
   | "first_name"
   | "surname"
   | "city"
@@ -29,7 +30,6 @@ export type DancerPublicRecord = Pick<
   | "is_public"
   | "verified"
   | "dancing_start_date"
-  | "festival_plans"
 > & { email?: string | null };
 
 export type DancerPublicViewModel = {
@@ -51,7 +51,6 @@ export type DancerPublicViewModel = {
   partnerDetailsText: string;
   isVerified: boolean;
   goals: string[];
-  festivalPlanIds: string[];
   connectLinks: {
     instagram: string | null;
     facebook: string | null;
@@ -131,7 +130,6 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
     partnerDetailsText,
     isVerified: Boolean(record.verified),
     goals: [],
-    festivalPlanIds: normalizeStringArray(record.festival_plans),
     connectLinks: {
       instagram: normalizeUrl(record.instagram, "instagram"),
       facebook: normalizeUrl(record.facebook, "facebook"),

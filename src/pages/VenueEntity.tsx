@@ -25,9 +25,16 @@ const VenueEntity = () => {
     queryFn: async () => {
       if (!id) throw new Error('Venue ID required');
 
-      const { data, error } = await supabase.rpc('get_venue_detail' as any, {
-        p_venue_id: id,
-      });
+      const { data, error } = await supabase
+        .from('venues')
+        .select(`
+          *,
+          cities (
+            name
+          )
+        `)
+        .eq('id', id)
+        .single();
 
       if (error) throw error;
       return data as any;
@@ -131,7 +138,7 @@ const VenueEntity = () => {
             <h1 className="text-lg font-bold text-foreground truncate">{venue.name}</h1>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{venue.city}{venue.address && `, ${venue.address}`}</span>
+              <span className="truncate">{venue.cities?.name}{venue.address && `, ${venue.address}`}</span>
             </div>
           </div>
         </div>

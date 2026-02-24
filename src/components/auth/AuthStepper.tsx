@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Mail, MapPin, User } from "lucide-react";
+import { AlertCircle, CheckCircle, Mail, MapPin, User } from "lucide-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
+import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
+import { getAuthStepperStage } from "@/lib/auth-signup-resolver";
+import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +27,12 @@ type AuthStepperProps = {
   subtitle?: string;
   prefilledEmail?: string;
   skipEmailStepWhenPrefilled?: boolean;
+  requireSignupDetails?: boolean;
 };
 
 const emailPattern = /\S+@\S+\.\S+/;
 const OTP_RESEND_COOLDOWN_SECONDS = 30;
+const SIGNUPS_DISABLED_HINT = "Signups are disabled for OTP. Contact support or use an existing account.";
 
 export const AuthStepper = ({
   userType,
@@ -39,9 +44,11 @@ export const AuthStepper = ({
   subtitle,
   prefilledEmail,
   skipEmailStepWhenPrefilled = false,
+  requireSignupDetails = true,
 }: AuthStepperProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { formState, setFirstName, setSurname, setCityId, setCityName, setOtpCode, setRole, updateEmail } = useAuthForm();
   const [intent, setIntent] = useState<AuthIntent | null>(initialIntent || (showIntentSelect ? null : "returning"));
   const rememberedEmail = (() => {
     try {
@@ -51,19 +58,13 @@ export const AuthStepper = ({
     }
   })();
   const normalizedPrefilledEmail = (prefilledEmail || rememberedEmail || "").trim();
-  const canSkipEmailStep = skipEmailStepWhenPrefilled && emailPattern.test(normalizedPrefilledEmail);
-  const [stage, setStage] = useState<"intent" | "email" | "name" | "code">(
-    intent ? (canSkipEmailStep ? (intent === "new" ? "name" : "code") : "email") : "intent"
-  );
-  const [email, setEmail] = useState(normalizedPrefilledEmail);
-  const [otpCode, setOtpCode] = useState("");
+  const canSkipEmailStep = skipEmailStepWhenPrefilled && emailPattern.test((formState.email || normalizedPrefilledEmail).trim());
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [firstName, setFirstName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [city, setCity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [flowNotice, setFlowNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     code?: string;
@@ -71,34 +72,40 @@ export const AuthStepper = ({
     city?: string;
   }>({});
   const shakeControls = useAnimationControls();
+  const { email, firstName, surname, cityId, cityName, otpCode } = formState;
 
   const totalSteps = intent === "new" ? 3 : 2;
+  const derivedStage = intent
+    ? getAuthStepperStage({
+        formState,
+        intent,
+        emailConfirmed,
+        otpSent: isCodeSent,
+        skipEmailStep: canSkipEmailStep,
+        requireSignupDetails,
+      })
+    : "intent";
   const currentStepIndex = useMemo(() => {
-    if (stage === "email") return 1;
-    if (stage === "name") return 2;
-    if (stage === "code") return intent === "new" ? 3 : 2;
+    if (derivedStage === "email") return 1;
+    if (derivedStage === "name") return 2;
+    if (derivedStage === "code") return intent === "new" ? 3 : 2;
     return 0;
-  }, [intent, stage]);
+  }, [intent, derivedStage]);
   const progressValue = intent ? Math.round((currentStepIndex / totalSteps) * 100) : 0;
 
   const resolvedReturnTo = returnTo || "/";
 
   useEffect(() => {
     if (!normalizedPrefilledEmail) return;
-    setEmail((prev) => {
-      const trimmed = prev.trim();
-      if (trimmed.length > 0) return prev;
-      return normalizedPrefilledEmail;
-    });
+    if (!email.trim()) {
+      updateEmail(normalizedPrefilledEmail);
+    }
   }, [normalizedPrefilledEmail]);
 
   useEffect(() => {
-    if (!intent) return;
-    if (!canSkipEmailStep) return;
-    if (stage === "email") {
-      setStage(intent === "new" ? "name" : "code");
-    }
-  }, [canSkipEmailStep, intent, stage]);
+    if (!userType) return;
+    setRole(userType as EntryRole);
+  }, [setRole, userType]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -114,20 +121,6 @@ export const AuthStepper = ({
       x: [0, -8, 8, -6, 6, -3, 3, 0],
       transition: { duration: 0.35, ease: "easeOut" },
     });
-  };
-
-  const checkEmailAccountExists = async (candidateEmail: string): Promise<boolean | null> => {
-    try {
-      const { data, error } = await supabase.rpc("account_exists_by_email" as any, {
-        p_email: candidateEmail,
-      });
-
-      if (error) return null;
-      if (typeof data !== "boolean") return null;
-      return data;
-    } catch {
-      return null;
-    }
   };
 
   const handleAuthSuccess = async () => {
@@ -172,7 +165,8 @@ export const AuthStepper = ({
 
     trackAnalyticsEvent("auth_email_checked", { source: "auth_stepper", result: "valid" });
 
-    setEmail(normalizedEmail);
+    updateEmail(normalizedEmail);
+    setEmailConfirmed(false);
     try {
       localStorage.setItem("auth_last_email", normalizedEmail);
     } catch {
@@ -181,24 +175,20 @@ export const AuthStepper = ({
     setFieldErrors((prev) => ({ ...prev, email: undefined }));
 
     setIsCheckingEmail(true);
-    const exists = await checkEmailAccountExists(normalizedEmail);
+    const lookup = await checkAccountExistsByEmail(normalizedEmail);
     setIsCheckingEmail(false);
 
-    if (exists === true) {
-      setIntent("returning");
-      trackAnalyticsEvent("auth_email_lookup_routed", { source: "auth_stepper", route: "returning" });
-      setStage("code");
-    } else if (exists === false) {
-      setIntent("new");
-      trackAnalyticsEvent("auth_email_lookup_routed", { source: "auth_stepper", route: "new" });
-      setStage("name");
-    } else if (!intent) {
-      setIntent("returning");
-      trackAnalyticsEvent("auth_email_lookup_routed", { source: "auth_stepper", route: "fallback" });
-      setStage("code");
-    } else {
-      setStage(intent === "new" ? "name" : "code");
-    }
+    const transition = getEmailLookupTransition({
+      lookup,
+      currentIntent: intent,
+      fallbackIntent: "returning",
+      source: "auth_stepper",
+    });
+
+    setIntent(transition.nextIntent);
+    setFlowNotice(transition.notice);
+    setEmailConfirmed(true);
+    transition.analytics.forEach((event) => trackAnalyticsEvent(event.event, event.payload));
   };
 
   const handleSendCode = async () => {
@@ -216,7 +206,7 @@ export const AuthStepper = ({
       return;
     }
 
-    if (intent === "new" && !firstName.trim()) {
+    if (intent === "new" && requireSignupDetails && !firstName.trim()) {
       setFieldErrors((prev) => ({
         ...prev,
         firstName: "First name is required.",
@@ -225,7 +215,7 @@ export const AuthStepper = ({
       return;
     }
 
-    if (intent === "new" && !city.trim()) {
+    if (intent === "new" && requireSignupDetails && !cityId.trim()) {
       setFieldErrors((prev) => ({
         ...prev,
         city: "City is required.",
@@ -239,16 +229,17 @@ export const AuthStepper = ({
       const redirectUrl = `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(resolvedReturnTo)}`;
       const trimmedFirstName = firstName.trim();
       const trimmedSurname = surname.trim();
+      const shouldCreateUser = intent === "new";
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          shouldCreateUser: intent === "new",
+          shouldCreateUser,
           emailRedirectTo: redirectUrl,
           data: {
-            ...(intent === "new" ? { first_name: trimmedFirstName } : {}),
-            ...(intent === "new" ? { surname: trimmedSurname || null } : {}),
-            ...(intent === "new" ? { city: city.trim() } : {}),
+            ...(intent === "new" && requireSignupDetails ? { first_name: trimmedFirstName } : {}),
+            ...(intent === "new" && requireSignupDetails ? { surname: trimmedSurname || null } : {}),
+            ...(intent === "new" && requireSignupDetails ? { city: cityName.trim() } : {}),
             ...(userType ? { user_type: userType } : {}),
           },
         },
@@ -263,9 +254,11 @@ export const AuthStepper = ({
         description: "Check your email for the short verification code.",
       });
     } catch (error: any) {
+      const message = String(error?.message || "");
+      const isSignupDisabled = message.toLowerCase().includes("signups not allowed") || message.toLowerCase().includes("signup not allowed");
       toast({
         title: "Unable to send code",
-        description: error.message || "Please try again.",
+        description: isSignupDisabled ? SIGNUPS_DISABLED_HINT : "We could not send the code. Please try again in a moment.",
         variant: "destructive",
       });
     } finally {
@@ -305,9 +298,11 @@ export const AuthStepper = ({
       });
       await handleAuthSuccess();
     } catch (error: any) {
+      const message = String(error?.message || "").toLowerCase();
+      const isInvalid = message.includes("invalid") || message.includes("expired");
       toast({
         title: "Invalid code",
-        description: error.message || "Please try again.",
+        description: isInvalid ? "That code is invalid or expired. Request a new one." : "We could not verify that code. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -337,9 +332,9 @@ export const AuthStepper = ({
     try {
       const result = await createRandomDevAccount({
         userType,
-        firstName: firstName.trim() || "Dev",
-        surname: surname.trim() || "Tester",
-        city: city.trim() || "London",
+        firstName: requireSignupDetails ? (firstName.trim() || "Dev") : "Dev",
+        surname: requireSignupDetails ? (surname.trim() || "Tester") : "Tester",
+        city: requireSignupDetails ? (cityName.trim() || "London") : "London",
       });
       if (result.error) {
         throw new Error(`${result.error.message}${result.email ? ` | ${result.email}` : ""}${result.password ? ` | ${result.password}` : ""}`);
@@ -367,13 +362,15 @@ export const AuthStepper = ({
     const mockEmail = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.test`;
 
     setIntent("new");
-    setEmail(mockEmail);
+    updateEmail(mockEmail);
     setFirstName(selectedName);
     setSurname("Tester");
+    setCityId("London");
+    setCityName("London");
     setOtpCode("");
     setIsCodeSent(false);
     setResendCooldown(0);
-    setStage("name");
+    setEmailConfirmed(true);
 
     toast({
       title: "Mock data filled",
@@ -386,6 +383,12 @@ export const AuthStepper = ({
       <div className="text-center space-y-2">
         {title && <h3 className="text-xl font-semibold">{title}</h3>}
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        {flowNotice && (
+          <div className="mt-2 flex items-start gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+            <span>{flowNotice}</span>
+          </div>
+        )}
         {import.meta.env.DEV && (
           <div className="flex gap-2 justify-center">
             <Button
@@ -421,14 +424,14 @@ export const AuthStepper = ({
         </div>
       )}
 
-      {stage === "intent" && showIntentSelect && (
+      {derivedStage === "intent" && showIntentSelect && (
         <div className="grid gap-1.5 rounded-xl border border-border/60 bg-muted/40 p-1">
           <Button
             type="button"
             className="w-full h-9 text-xs"
             onClick={() => {
               setIntent("returning");
-              setStage(canSkipEmailStep ? "code" : "email");
+              setEmailConfirmed(false);
             }}
           >
             I already have an account
@@ -439,7 +442,7 @@ export const AuthStepper = ({
             className="w-full h-9 text-xs"
             onClick={() => {
               setIntent("new");
-              setStage(canSkipEmailStep ? "name" : "email");
+              setEmailConfirmed(false);
             }}
           >
             I need an account
@@ -447,7 +450,7 @@ export const AuthStepper = ({
         </div>
       )}
 
-      {stage === "email" && (
+      {derivedStage === "email" && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className={fieldErrors.email ? "text-destructive" : undefined}>Email</Label>
@@ -459,10 +462,12 @@ export const AuthStepper = ({
                 placeholder="you@example.com"
                 value={email}
                 onChange={(event) => {
-                  setEmail(event.target.value);
+                  const update = updateEmail(event.target.value);
                   setIsCodeSent(false);
                   setOtpCode("");
                   setResendCooldown(0);
+                  setEmailConfirmed(false);
+                  if (update.changed) setFlowNotice(null);
                   if (fieldErrors.email) {
                     setFieldErrors((prev) => ({ ...prev, email: undefined }));
                   }
@@ -481,7 +486,7 @@ export const AuthStepper = ({
         </div>
       )}
 
-      {stage === "name" && intent === "new" && (
+      {derivedStage === "name" && intent === "new" && requireSignupDetails && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className={fieldErrors.firstName ? "text-destructive" : undefined}>First name</Label>
@@ -521,9 +526,10 @@ export const AuthStepper = ({
               </span>
             </Label>
             <CityPicker
-              value={city}
-              onChange={(val) => {
-                setCity(val);
+              value={cityId}
+              onChange={(val, cityOption) => {
+                setCityId(val);
+                setCityName(cityOption?.name || "");
                 if (fieldErrors.city) {
                   setFieldErrors((prev) => ({ ...prev, city: undefined }));
                 }
@@ -546,7 +552,7 @@ export const AuthStepper = ({
                 triggerValidationFeedback();
                 return;
               }
-              if (!city.trim()) {
+              if (!cityId.trim()) {
                 setFieldErrors((prev) => ({
                   ...prev,
                   city: "City is required.",
@@ -555,7 +561,7 @@ export const AuthStepper = ({
                 return;
               }
               setFieldErrors((prev) => ({ ...prev, firstName: undefined, city: undefined }));
-              setStage("code");
+              setEmailConfirmed(true);
             }}
           >
             Continue
@@ -563,7 +569,7 @@ export const AuthStepper = ({
         </div>
       )}
 
-      {stage === "code" && intent && (
+      {derivedStage === "code" && intent && (
         <div className="space-y-4">
           {!isCodeSent ? (
             <Button type="button" className="w-full h-9 text-xs" onClick={handleSendCode} disabled={isLoading}>
@@ -608,7 +614,7 @@ export const AuthStepper = ({
               setOtpCode("");
               setIsCodeSent(false);
               setResendCooldown(0);
-              setStage("email");
+              setEmailConfirmed(false);
             }}
           >
             Use different email

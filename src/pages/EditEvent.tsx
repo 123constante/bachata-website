@@ -39,8 +39,8 @@ const eventSchema = z.object({
   venue_id: z.string().min(1, 'Venue is required'),
   class_start: z.string().optional(),
   class_end: z.string().optional(),
-  social_start: z.string().optional(),
-  social_end: z.string().optional(),
+  party_start: z.string().optional(),
+  party_end: z.string().optional(),
   tickets: z.string().optional(),
   ticket_url: z.string().optional().or(z.literal('')),
   payment_methods: z.string().optional(),
@@ -49,10 +49,10 @@ const eventSchema = z.object({
   website: z.string().optional().or(z.literal('')),
 }).refine((data) => {
   const hasClass = data.class_start && data.class_end;
-  const hasSocial = data.social_start && data.social_end;
+  const hasSocial = data.party_start && data.party_end;
   return hasClass || hasSocial;
 }, {
-  message: 'At least one time range (Class or Social) is required',
+  message: 'At least one time range (Class or Party) is required',
   path: ['class_start'],
 });
 
@@ -71,7 +71,7 @@ const EditEvent = () => {
     resolver: zodResolver(eventSchema),
     defaultValues: {
       name: '', description: '', date: '', venue_id: '',
-      class_start: '', class_end: '', social_start: '', social_end: '',
+      class_start: '', class_end: '', party_start: '', party_end: '',
       tickets: '', ticket_url: '', payment_methods: '',
       facebook_url: '', instagram_url: '', website: ''
     },
@@ -103,7 +103,7 @@ const EditEvent = () => {
   const { data: venues } = useQuery({
     queryKey: ['venues'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('venues').select('id, name, city').order('name');
+      const { data, error } = await supabase.from('venues').select('id, name, city_id, cities(name)').order('name');
       if (error) throw error;
       return data;
     },
@@ -118,8 +118,8 @@ const EditEvent = () => {
         venue_id: eventData.venue_id,
         class_start: (eventData as any).class_start || '',
         class_end: (eventData as any).class_end || '',
-        social_start: (eventData as any).social_start || '',
-        social_end: (eventData as any).social_end || '',
+        party_start: (eventData as any).party_start || '',
+        party_end: (eventData as any).party_end || '',
         tickets: eventData.tickets || '',
         ticket_url: eventData.ticket_url || '',
         payment_methods: eventData.payment_methods || '',
@@ -159,7 +159,7 @@ const EditEvent = () => {
     setIsSubmitting(true);
     try {
       const hasClass = !!(data.class_start && data.class_end);
-      const hasParty = !!(data.social_start && data.social_end);
+      const hasParty = !!(data.party_start && data.party_end);
 
       const keyTimes = {
         classes: {
@@ -169,8 +169,8 @@ const EditEvent = () => {
         },
         party: {
           active: hasParty,
-          start: data.social_start || null,
-          end: data.social_end || null
+          start: data.party_start || null,
+          end: data.party_end || null
         }
       };
 
@@ -182,8 +182,8 @@ const EditEvent = () => {
         cover_image_url: coverImageUrl,
         class_start: cleanString(data.class_start),
         class_end: cleanString(data.class_end),
-        social_start: cleanString(data.social_start),
-        social_end: cleanString(data.social_end),
+        party_start: cleanString(data.party_start),
+        party_end: cleanString(data.party_end),
         key_times: JSON.stringify(keyTimes),
         tickets: cleanString(data.tickets),
         ticket_url: cleanString(data.ticket_url),
@@ -263,8 +263,8 @@ const EditEvent = () => {
                  <div><Label>Class End</Label><Input type='time' {...register('class_end')} /></div>
                </div>
                <div className='grid grid-cols-2 gap-4'>
-                 <div><Label>Social Start</Label><Input type='time' {...register('social_start')} /></div>
-                 <div><Label>Social End</Label><Input type='time' {...register('social_end')} /></div>
+                 <div><Label>Party Start</Label><Input type='time' {...register('party_start')} /></div>
+                 <div><Label>Party End</Label><Input type='time' {...register('party_end')} /></div>
                </div>
                {errors.class_start && <p className='text-red-500'>{errors.class_start.message}</p>}
             </CardContent>

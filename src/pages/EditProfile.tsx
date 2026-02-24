@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FestivalPlansPicker } from '@/components/profile/FestivalPlansPicker';
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { CityPicker } from '@/components/ui/city-picker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -49,7 +48,6 @@ interface DancerData {
   partner_search_level: string[] | null;
   partner_practice_goals: string[] | null;
   partner_details: Record<string, unknown> | string | null;
-  festival_plans: string[] | null;
   website: string | null;
 }
 
@@ -81,7 +79,6 @@ const EditProfile = () => {
     partner_search_level: [] as string[],
     partner_practice_goals: [] as string[],
     partner_details: '',
-    festival_plans: [] as string[],
     website: '',
   });
 
@@ -129,7 +126,6 @@ const EditProfile = () => {
             partner_search_level: data.partner_search_level || [],
             partner_practice_goals: data.partner_practice_goals || [],
             partner_details: parsePartnerDetails(data.partner_details as any),
-            festival_plans: (Array.isArray(data.festival_plans) ? data.festival_plans : []) as string[],
             website: data.website || '',
           };
 
@@ -191,7 +187,7 @@ const EditProfile = () => {
         .update({
           first_name: form.first_name,
           surname: form.surname || null,
-          city: canonicalCity.cityName,
+          city_id: canonicalCity.cityId,
           nationality: form.nationality || null,
           dancing_start_date: form.dancing_start_date || null,
           favorite_styles: form.favorite_styles.length > 0 ? form.favorite_styles : null,
@@ -207,7 +203,6 @@ const EditProfile = () => {
           partner_practice_goals: form.partner_practice_goals || null,
           photo_url: serializePhotoValue(form.photo_url),
           partner_details: serializePartnerDetails(form.partner_details) as any,
-          festival_plans: form.festival_plans.length > 0 ? form.festival_plans : null,
         })
         .eq('id', dancerId);
 
@@ -435,13 +430,6 @@ const EditProfile = () => {
                     </Badge>
                   ))}
                 </div>
-              </div>
-              <div className='pt-1'>
-                <label className='text-xs text-muted-foreground mb-1.5 block'>Festival Plans</label>
-                <FestivalPlansPicker
-                  value={form.festival_plans}
-                  onChange={(ids) => setForm({ ...form, festival_plans: ids })}
-                />
               </div>
             </div>
           </section>

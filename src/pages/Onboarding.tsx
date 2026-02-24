@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { CityPicker } from "@/components/ui/city-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, User } from "lucide-react";
+import { popPendingReturnTo } from "@/lib/authRouting";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -24,7 +26,8 @@ const Onboarding = () => {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [firstName, setFirstName] = useState("");
-  const [city, setCity] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [cityName, setCityName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -57,14 +60,12 @@ const Onboarding = () => {
 
   const handleSubmit = async () => {
     const trimmedFirst = firstName.trim();
-    const trimmedCity = city.trim();
-
     if (!trimmedFirst) {
       toast({ title: "First name required", description: "Enter your first name to continue.", variant: "destructive" });
       return;
     }
-    if (!trimmedCity) {
-      toast({ title: "City required", description: "Enter your city to continue.", variant: "destructive" });
+    if (!cityId) {
+      toast({ title: "City required", description: "Select your city to continue.", variant: "destructive" });
       return;
     }
 
@@ -73,33 +74,41 @@ const Onboarding = () => {
       // Duplicate protection: check if dancer already exists
       const { data: existing } = await supabase
         .from("dancers")
-        .select("id")
+        .select("id, meta_data")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!existing?.id) {
-        // Resolve city_id from city name
-        const { data: cityRow } = await supabase
-          .from("cities")
-          .select("id")
-          .ilike("name", trimmedCity)
-          .maybeSingle();
+      const existingMeta = (existing?.meta_data && typeof existing.meta_data === "object")
+        ? (existing.meta_data as Record<string, unknown>)
+        : {};
 
-        const cityId = cityRow?.id;
-        if (!cityId) {
-          toast({ title: "City not found", description: "Please enter a valid city name (e.g. London, Paris).", variant: "destructive" });
-          setIsSubmitting(false);
-          return;
-        }
+      if (existing?.id) {
+        const { error: updateError } = await supabase
+          .from("dancers")
+          .update({
+            first_name: trimmedFirst,
+            city: cityName,
+            city_id: cityId,
+            meta_data: {
+              ...existingMeta,
+              onboarding_status: "completed",
+            },
+          })
+          .eq("id", existing.id);
 
+        if (updateError) throw updateError;
+      } else {
         const { error: insertError } = await supabase.from("dancers").insert({
           user_id: user.id,
           first_name: trimmedFirst,
-          city: trimmedCity,
+          city: cityName,
           city_id: cityId,
           verified: false,
           is_public: false,
           hide_surname: false,
+          meta_data: {
+            onboarding_status: "completed",
+          },
         });
 
         if (insertError) throw insertError;
@@ -107,9 +116,12 @@ const Onboarding = () => {
 
       // 1. Read pendingRole
       const pendingRole = localStorage.getItem("pending_profile_role");
+      const pendingReturnTo = popPendingReturnTo();
 
       // 2. Decide route + 3. Navigate
-      if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
+      if (pendingReturnTo) {
+        navigate(pendingReturnTo, { replace: true });
+      } else if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
         navigate(`/create-${pendingRole}-profile`, { replace: true });
       } else {
         navigate("/profile", { replace: true });
@@ -162,14 +174,15 @@ const Onboarding = () => {
             <div className="space-y-2">
               <Label htmlFor="onboarding-city">City</Label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="onboarding-city"
-                  type="text"
-                  placeholder="London"
-                  className="pl-10 bg-background/70 border-primary/20 focus-visible:ring-festival-teal/40"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                <CityPicker 
+                  value={cityId} 
+                  onChange={(id, obj) => {
+                    setCityId(id);
+                    setCityName(obj?.name || "");
+                  }} 
+                  placeholder="Select your city" 
+                  className="pl-10 bg-background/70 border-primary/20 focus-visible:ring-festival-teal/40" 
                 />
               </div>
             </div>

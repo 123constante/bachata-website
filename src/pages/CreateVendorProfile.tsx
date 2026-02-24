@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { AuthStepper } from "@/components/auth/AuthStepper";
+import { AuthFormProvider } from "@/contexts/AuthFormContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import { triggerMicroConfetti } from "@/lib/confetti";
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
-import { normalizeSocialUrl } from "@/modules/vendor/utils";
+import { normalizeProducts, normalizeSocialUrl } from "@/modules/vendor/utils";
 
 const STEP_INVITE = 0;
 const STEP_IDENTITY = 1;
@@ -67,6 +68,7 @@ type TeamMemberOption = {
   id: string;
   displayName: string;
   city: string | null;
+  cityId?: string | null;
 };
 
 const defaultDraft: VendorDraft = {
@@ -104,6 +106,7 @@ const CreateVendorProfile = () => {
   const [showShowcaseErrors, setShowShowcaseErrors] = useState(false);
   const [faqMode, setFaqMode] = useState<"builder" | "markdown">("builder");
   const [faqItems, setFaqItems] = useState<Array<{ id: string; question: string; answer: string }>>([]);
+  const [hasLoadedExisting, setHasLoadedExisting] = useState(false);
   const categoryOptions = useMemo(() => [
     "Dance shoes",
     "Dancewear",
@@ -159,23 +162,60 @@ const CreateVendorProfile = () => {
     void (async () => {
       const { data, error } = await supabase
         .from('vendors')
-        .select('id')
+        .select('id, business_name, city, city_id, cities(name), photo_url, product_categories, products, upcoming_events, promo_code, promo_discount_type, promo_discount_value, faq, ships_international, website, instagram, facebook, whatsapp, public_email')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (cancelled || error || !data?.id) return;
 
+      if (!hasLoadedExisting) {
+        const normalizedProducts = normalizeProducts(data.products).map((product) => ({
+          id: product.id || (typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+          name: product.name,
+          price: product.price != null ? String(product.price) : "",
+          variants: product.variants || [],
+          imageUrl: product.image_url || "",
+        }));
+
+        setDraft({
+          ...defaultDraft,
+          businessName: data.business_name || "",
+          logoUrl: Array.isArray(data.photo_url) ? (data.photo_url[0] || "") : "",
+          city: data.cities?.name || data.city || "",
+          productCategories: Array.isArray(data.product_categories) ? data.product_categories : [],
+          products: normalizedProducts,
+          upcomingEvents: Array.isArray(data.upcoming_events) ? data.upcoming_events : [],
+          promoCode: data.promo_code || "",
+          promoDiscountType: data.promo_discount_type === "fixed" ? "fixed" : "percent",
+          promoDiscountValue: data.promo_discount_value != null ? String(data.promo_discount_value) : "",
+          faq: data.faq || "",
+          shipsInternational: Boolean(data.ships_international),
+          website: data.website || "",
+          instagram: data.instagram || "",
+          facebook: data.facebook || "",
+          whatsapp: data.whatsapp || "",
+          email: data.public_email || "",
+        });
+
+        if (data.faq) {
+          setFaqMode("markdown");
+        }
+
+        setHasLoadedExisting(true);
+      }
+
       toast({
-        title: 'Profile already found',
-        description: 'Opening your profile manager.',
+        title: "Profile loaded",
+        description: "You can continue editing your vendor profile here.",
       });
-      navigate('/profile');
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [navigate, toast, user?.id]);
+  }, [hasLoadedExisting, toast, user?.id]);
 
   useEffect(() => {
     const accountEmail = user?.email?.trim();
@@ -208,7 +248,7 @@ const CreateVendorProfile = () => {
 
       const { data: ownDancer } = await supabase
         .from("dancers")
-        .select("id, first_name, surname, city")
+        .select("id, first_name, surname, city, city_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -219,6 +259,7 @@ const CreateVendorProfile = () => {
         id: ownDancer.id,
         displayName: ownDisplayName,
         city: ownDancer.city || null,
+        cityId: ownDancer.city_id || null,
       };
 
       setSelectedTeamMembers((prev) => {
@@ -269,7 +310,7 @@ const CreateVendorProfile = () => {
 
         const { data, error } = await supabase
           .from("dancers")
-          .select("id, first_name, surname, city")
+          .select("id, first_name, surname, city, city_id")
           .or(`first_name.ilike.%${safeQuery}%,surname.ilike.%${safeQuery}%`)
           .limit(8);
 
@@ -281,6 +322,7 @@ const CreateVendorProfile = () => {
             id: row.id,
             displayName,
             city: row.city || null,
+            cityId: row.city_id || null,
           };
         });
 
@@ -480,6 +522,12 @@ const CreateVendorProfile = () => {
       return;
     }
 
+    const candidateCityIds = Array.from(new Set(
+      selectedTeamMembers
+        .map((member) => normalizeRequiredCity(member.cityId || ""))
+        .filter((value) => hasRequiredCity(value))
+    ));
+
     const candidateCities = Array.from(new Set(
       [
         normalizeRequiredCity(draft.city),
@@ -488,7 +536,13 @@ const CreateVendorProfile = () => {
     ));
 
     let canonicalCity: Awaited<ReturnType<typeof resolveCanonicalCity>> = null;
+    for (const candidateCityId of candidateCityIds) {
+      canonicalCity = await resolveCanonicalCity(candidateCityId);
+      if (canonicalCity) break;
+    }
+
     for (const candidate of candidateCities) {
+      if (canonicalCity) break;
       canonicalCity = await resolveCanonicalCity(candidate);
       if (canonicalCity) break;
     }
@@ -593,8 +647,8 @@ const CreateVendorProfile = () => {
         instagram: normalizeSocialUrl('instagram', draft.instagram) || null,
         facebook: normalizeSocialUrl('facebook', draft.facebook) || null,
         whatsapp: draft.whatsapp.trim() || null,
-        email: draft.email.trim() || null,
-        city: canonicalCity.cityName,
+        public_email: draft.email.trim() || null,
+        city_id: canonicalCity.cityId,
         meta_data: {
           business_leader_dancer_id: leaderDancerId,
           business_leader_name: leaderMember?.displayName || null,
@@ -603,11 +657,18 @@ const CreateVendorProfile = () => {
         user_id: user?.id || null,
       };
 
+      // Strict payload check
+      console.log("PAYLOAD_DEBUG:", {
+        payloadKeys: Object.keys(payload),
+        publicEmail: payload.public_email,
+        emailPropertyInPayload: 'email' in payload,
+      });
+
       let didUpdate = false;
       if (user?.id) {
         const { data: existing, error: existingError } = await supabase
           .from('vendors')
-          .select('id')
+          .select('id, city_id, cities(name)')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -1024,6 +1085,74 @@ const CreateVendorProfile = () => {
     }, 120);
   };
 
+  const fillMockData = () => {
+    const createProductId = () => (
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
+
+    const sampleFaqItems = [
+      {
+        id: createProductId(),
+        question: 'Do you ship internationally?',
+        answer: 'Yes, we ship worldwide and share tracking details once your order leaves our studio.',
+      },
+      {
+        id: createProductId(),
+        question: 'Can I collect at events?',
+        answer: 'Yes, collection is available at selected socials and festivals listed in our upcoming events.',
+      },
+    ];
+
+    const sampleProducts: VendorProduct[] = [
+      {
+        id: createProductId(),
+        name: 'Practice Heels - Midnight',
+        price: '89.00',
+        variants: ['Black', 'Size 37', 'Size 38'],
+        imageUrl: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2',
+      },
+      {
+        id: createProductId(),
+        name: 'Performance Skirt - Flow',
+        price: '54.00',
+        variants: ['Red', 'S', 'M'],
+        imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b',
+      },
+    ];
+
+    setDraft({
+      businessName: 'Ritmo Boutique',
+      logoUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8',
+      city: 'London',
+      productCategories: ['Dance shoes', 'Dancewear', 'Accessories'],
+      products: sampleProducts,
+      upcomingEvents: eventOptions[0] ? [eventOptions[0].id] : [],
+      promoCode: 'RITMO10',
+      promoDiscountType: 'percent',
+      promoDiscountValue: '10',
+      faq: '## FAQ\n\n### Do you ship internationally?\nYes, we ship worldwide and share tracking details once dispatched.\n\n### Can I collect at events?\nYes, collection is available at selected socials and festivals listed in our upcoming events.',
+      shipsInternational: true,
+      website: 'https://ritmoboutique.example.com',
+      instagram: 'https://instagram.com/ritmoboutique',
+      facebook: 'https://facebook.com/ritmoboutique',
+      whatsapp: '+44 7700 900456',
+      email: 'hello@ritmoboutique.example.com',
+    });
+
+    setFaqItems(sampleFaqItems);
+    setPendingLogoFile(null);
+    setPendingProductFiles({});
+    setVariantInputs({});
+    setShowShowcaseErrors(false);
+
+    toast({
+      title: 'Mock data loaded',
+      description: 'Development sample values have been filled in.',
+    });
+  };
+
   useUnsavedChangesGuard({ enabled: hasUnsavedProgress && !isSubmitting });
 
   const trimmedTeamSearch = teamSearch.trim();
@@ -1039,6 +1168,11 @@ const CreateVendorProfile = () => {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Vendor onboarding</p>
               <h1 className="text-2xl font-bold">Storefront setup</h1>
             </div>
+            {import.meta.env.DEV && (
+              <Button type="button" variant="outline" size="sm" onClick={fillMockData}>
+                Fill mock data
+              </Button>
+            )}
           </div>
           {step >= STEP_INVITE && step <= STEP_ACCESS && (
             <div className="space-y-2 rounded-xl border border-festival-teal/35 bg-background/70 p-3 backdrop-blur-md">
@@ -1776,17 +1910,18 @@ const CreateVendorProfile = () => {
                       </CardContent>
                     </Card>
                   ) : (
-                    <AuthStepper
-                      userType="vendor"
-                      returnTo={returnTo}
-                      onAuthenticated={() => setPendingSubmit(true)}
-                      showIntentSelect={false}
-                      initialIntent="returning"
-                      title="Finish your profile"
-                      subtitle="We will use the email above for sign in (you can change it below)."
-                      prefilledEmail={draft.email.trim() || undefined}
-                      skipEmailStepWhenPrefilled
-                    />
+                    <AuthFormProvider>
+                      <AuthStepper
+                        userType="vendor"
+                        returnTo={returnTo}
+                        onAuthenticated={() => setPendingSubmit(true)}
+                        showIntentSelect={false}
+                        initialIntent="returning"
+                        title="Finish your profile"
+                        subtitle="Sign in with your account email. Public contact email above is stored separately."
+                        requireSignupDetails={false}
+                      />
+                    </AuthFormProvider>
                   )}
                 </div>
 

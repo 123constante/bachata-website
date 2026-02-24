@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Calendar, Camera, Check, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, Camera, Check, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
-
-type EntryRole = "dancer" | "vendor" | "organiser" | "teacher" | "dj" | "videographer";
+import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
+import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 
 const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
   { label: "Dancer", icon: Sparkles, value: "dancer", description: "Find classes, partners, and events" },
@@ -32,51 +33,76 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
 };
 
-const Auth = () => {
+const AuthContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get("returnTo") || "/";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { formState, setFirstName, setCityId, setCityName, setRole, updateEmail } = useAuthForm();
+  const sanitizeReturnTo = (value: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+    if (trimmed === "/auth" || trimmed.startsWith("/auth/")) return null;
+    return trimmed;
+  };
+
+  const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
+  const returnTo = explicitReturnTo || "/";
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 
-  const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [city, setCity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
-  const [signupStep, setSignupStep] = useState(1);
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
+  const [manualStep, setManualStep] = useState<SignupStep | null>(null);
+  const [lastStep, setLastStep] = useState<SignupStep>(() => getNextStep(formState));
+
+  const { email, firstName, cityId, cityName, role: selectedRole } = formState;
 
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
-  const [selectedRole, setSelectedRole] = useState<EntryRole | null>(() => {
-    if (validRole) return validRole as EntryRole;
-    const stored = localStorage.getItem("profile_entry_role") as EntryRole | null;
-    if (stored && ROLE_OPTIONS.some((r) => r.value === stored)) return stored;
-    return null;
-  });
+  const selectedRoleValue = selectedRole && ROLE_OPTIONS.some((r) => r.value === selectedRole) ? selectedRole : null;
 
   useEffect(() => {
-    if (validRole && validRole !== selectedRole) setSelectedRole(validRole as EntryRole);
-  }, [validRole, selectedRole]);
+    if (validRole && validRole !== selectedRole) {
+      setRole(validRole as EntryRole);
+      localStorage.setItem("profile_entry_role", validRole as EntryRole);
+    }
+  }, [validRole, selectedRole, setRole]);
 
   useEffect(() => {
     trackAnalyticsEvent("auth_viewed", { mode: mode === "signin" ? "signin" : "signup", source: "auth_page" });
   }, [mode]);
 
+  const autoStep = getNextStep(formState);
+  const activeStep = manualStep ?? autoStep;
+  const activeStepIndex = getStepIndex(activeStep);
+  const progressPercent = mode === "signup" ? Math.round(((activeStepIndex + 1) / SIGNUP_STEPS.length) * 100) : 0;
+
   useEffect(() => {
-    if (mode === "signup") {
-      setSignupStep(1);
-      setStepDirection(1);
-      setStep2Touched(false);
+    if (manualStep && manualStep === autoStep) {
+      setManualStep(null);
+    }
+  }, [autoStep, manualStep]);
+
+  useEffect(() => {
+    if (activeStep === lastStep) return;
+    const nextDir = getStepIndex(activeStep) > getStepIndex(lastStep) ? 1 : -1;
+    setStepDirection(nextDir);
+    setLastStep(activeStep);
+  }, [activeStep, lastStep]);
+
+  useEffect(() => {
+    if (mode === "signin") {
+      setAuthNotice(null);
     }
   }, [mode]);
 
-  const signInAuthUrl = `/auth?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
-  const signUpAuthUrl = `/auth?mode=signup&returnTo=${encodeURIComponent(returnTo)}${selectedRole ? `&userType=${encodeURIComponent(selectedRole)}` : ""}`;
+  const signInAuthUrl = `/auth?mode=signin${explicitReturnTo ? `&returnTo=${encodeURIComponent(explicitReturnTo)}` : ""}`;
+  const signUpAuthUrl = `/auth?mode=signup${explicitReturnTo ? `&returnTo=${encodeURIComponent(explicitReturnTo)}` : ""}${selectedRoleValue ? `&userType=${encodeURIComponent(selectedRoleValue)}` : ""}`;
 
   const normalizeEmail = (value: string) =>
     value
@@ -96,10 +122,18 @@ const Auth = () => {
     setSignupStep(step);
   };
 
+  const persistRoleSelection = (role: EntryRole) => {
+    localStorage.setItem("profile_entry_role", role);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("userType", role);
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handleRoleSelect = (role: EntryRole) => {
-    setSelectedRole(role);
-    if (mode === "signup" && signupStep === 1) {
-      setTimeout(() => goToStep(2), 120);
+    setRole(role);
+    persistRoleSelection(role);
+    if (mode === "signup") {
+      setManualStep(null);
     }
   };
 
@@ -113,7 +147,7 @@ const Auth = () => {
       toast({ title: "Enter your first name", variant: "destructive" });
       return;
     }
-    if (mode === "signup" && !city.trim()) {
+    if (mode === "signup" && !cityId) {
       toast({ title: "Select your city", variant: "destructive" });
       return;
     }
@@ -121,28 +155,73 @@ const Auth = () => {
       toast({ title: "Choose a role", description: "Pick a role to continue.", variant: "destructive" });
       return;
     }
+    const emailUpdate = updateEmail(normalizedEmail);
+    if (emailUpdate.changed) {
+      setMagicLinkSent(false);
+      setAuthNotice(null);
+    }
+    if (mode === "signin") {
+      const lookup = await checkAccountExistsByEmail(normalizedEmail);
+      const transition = getEmailLookupTransition({
+        lookup,
+        currentIntent: "returning",
+        fallbackIntent: "returning",
+        source: "auth_page",
+      });
+      transition.analytics.forEach((event) => trackAnalyticsEvent(event.event, event.payload));
+      if (transition.nextIntent === "new") {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set("mode", "signup");
+        if (selectedRole) {
+          nextParams.set("userType", selectedRole);
+        }
+        setSearchParams(nextParams, { replace: true });
+        setStep2Touched(false);
+        setManualStep("role");
+        setAuthNotice(transition.notice || null);
+        return;
+      }
+    }
     const isCreateAccount = mode === "signup";
     if (isCreateAccount) {
       localStorage.setItem("pending_profile_role", selectedRole as EntryRole);
+    } else {
+      localStorage.removeItem("pending_profile_role");
     }
     setIsSubmitting(true);
     try {
-      const callbackUrl = `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnTo)}`;
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("mode", isCreateAccount ? "signup" : "signin");
+      if (explicitReturnTo) {
+        callbackUrl.searchParams.set("returnTo", explicitReturnTo);
+      }
       const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
           shouldCreateUser: isCreateAccount,
-          emailRedirectTo: callbackUrl,
-          data: isCreateAccount ? { user_type: selectedRole, first_name: firstName.trim(), city: city.trim() } : undefined,
+          emailRedirectTo: callbackUrl.toString(),
+          data: isCreateAccount ? { 
+            user_type: selectedRole, 
+            first_name: firstName.trim(), 
+            city_id: cityId,
+            city: cityName // Retain for debugging/analytics, but city_id is primary
+          } : undefined,
         },
       });
       if (error) throw error;
-      setEmail(normalizedEmail);
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
     } catch (error: any) {
-      toast({ title: "Unable to send link", description: error.message || "Please try again.", variant: "destructive" });
+      const message = String(error?.message || "").toLowerCase();
+      const isSignupDisabled = message.includes("signups not allowed") || message.includes("signup not allowed");
+      toast({
+        title: "Unable to send link",
+        description: isSignupDisabled
+          ? "Signups are disabled for OTP. Contact support or use an existing account."
+          : "We could not send the link. Please try again in a moment.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +246,7 @@ const Auth = () => {
       const result = await createRandomDevAccount({
         userType: userTypeForAccount,
         firstName: firstName.trim() || "Dev",
-        city: city.trim() || "London",
+        city: cityName || "London",
       });
       if (result.error) throw new Error(result.error.message);
       toast({ title: "Random test account created", description: `${result.email} / ${result.password}` });
@@ -200,7 +279,7 @@ const Auth = () => {
     );
   }
 
-  const progressPercent = mode === "signup" ? Math.round((signupStep / 3) * 100) : 0;
+  const stepLabelIndex = activeStepIndex + 1;
 
   return (
     <div
@@ -269,7 +348,7 @@ const Auth = () => {
             transition={{ delay: 0.2 }}
           >
             <div className="flex items-center justify-between text-xs text-emerald-200/50">
-              <span>Step {signupStep} of 3</span>
+              <span>Step {stepLabelIndex} of {SIGNUP_STEPS.length}</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="h-1 w-full rounded-full bg-emerald-900/40 overflow-hidden">
@@ -279,6 +358,20 @@ const Auth = () => {
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.35, ease: "easeInOut" }}
               />
+            </div>
+          </motion.div>
+        )}
+
+        {authNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+            <div>
+              <p className="font-medium">No account found</p>
+              <p className="text-xs text-emerald-200/70">{authNotice}</p>
             </div>
           </motion.div>
         )}
@@ -306,7 +399,13 @@ const Auth = () => {
                       placeholder="you@example.com"
                       className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        const update = updateEmail(e.target.value);
+                        if (update.changed) {
+                          setMagicLinkSent(false);
+                          setAuthNotice(null);
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -338,7 +437,7 @@ const Auth = () => {
           /* ─── SIGN UP WIZARD ─── */
           <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(16,185,129,0.08)] overflow-hidden">
             <AnimatePresence mode="wait" custom={stepDirection}>
-              {signupStep === 1 && (
+              {activeStep === "role" && (
                 <motion.div
                   key="step1"
                   custom={stepDirection}
@@ -395,18 +494,18 @@ const Auth = () => {
                     </div>
                     <Button
                       className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                      disabled={!selectedRole}
-                      onClick={() => goToStep(2)}
+                      disabled={!selectedRoleValue}
+                      onClick={() => setManualStep(null)}
                     >
-                      {selectedRole
-                        ? `Continue as ${ROLE_OPTIONS.find((role) => role.value === selectedRole)?.label ?? "Selected role"}`
+                      {selectedRoleValue
+                        ? `Continue as ${ROLE_OPTIONS.find((role) => role.value === selectedRoleValue)?.label ?? "Selected role"}`
                         : "Choose a role to continue"}
                     </Button>
                   </CardContent>
                 </motion.div>
               )}
 
-              {signupStep === 2 && (
+              {activeStep === "details" && (
                 <motion.div
                   key="step2"
                   custom={stepDirection}
@@ -431,7 +530,10 @@ const Auth = () => {
                           placeholder="Your first name"
                           className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                           value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
+                          onChange={(e) => {
+                            setFirstName(e.target.value);
+                            if (step2Touched) setStep2Touched(false);
+                          }}
                         />
                       </div>
                       {step2Touched && !firstName.trim() && (
@@ -441,22 +543,30 @@ const Auth = () => {
 
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">City</Label>
-                      <CityPicker value={city} onChange={setCity} placeholder="Select your city…" />
-                      {step2Touched && !city.trim() && (
+                      <CityPicker 
+                        value={cityId} 
+                        onChange={(id, obj) => {
+                          setCityId(id);
+                          setCityName(obj?.name || "");
+                          if (step2Touched) setStep2Touched(false);
+                        }} 
+                        placeholder="Select your city…" className="bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30" 
+                      />
+                      {step2Touched && !cityId && (
                         <p className="text-xs text-red-400">City is required.</p>
                       )}
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => goToStep(1)}>
+                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => setManualStep(getPreviousStep(activeStep))}>
                         <ArrowLeft className="w-4 h-4 mr-1" /> Back
                       </Button>
                       <Button
                         className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                        disabled={!firstName.trim() || !city.trim()}
+                        disabled={!firstName.trim() || !cityId}
                         onClick={() => {
                           setStep2Touched(true);
-                          if (firstName.trim() && city.trim()) goToStep(3);
+                          if (firstName.trim() && cityId) setManualStep(null);
                         }}
                       >
                         Continue
@@ -466,7 +576,7 @@ const Auth = () => {
                 </motion.div>
               )}
 
-              {signupStep === 3 && (
+              {activeStep === "email" && (
                 <motion.div
                   key="step3"
                   custom={stepDirection}
@@ -491,13 +601,19 @@ const Auth = () => {
                           placeholder="you@example.com"
                           className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={(e) => {
+                            const update = updateEmail(e.target.value);
+                            if (update.changed) {
+                              setMagicLinkSent(false);
+                              setAuthNotice(null);
+                            }
+                          }}
                         />
                       </div>
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => goToStep(2)}>
+                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => setManualStep(getPreviousStep(activeStep))}>
                         <ArrowLeft className="w-4 h-4 mr-1" /> Back
                       </Button>
                       <Button
@@ -512,7 +628,7 @@ const Auth = () => {
                     {import.meta.env.DEV && (
                       <div className="space-y-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
                         <p className="text-xs font-semibold text-yellow-300/80">🛠 Dev Tools</p>
-                        <Button variant="outline" className="w-full border-yellow-500/30 text-yellow-200/80 hover:bg-yellow-500/10" onClick={() => void handleCreateRandomDevAccount("/profile", selectedRole)} disabled={isSubmitting}>
+                        <Button variant="outline" className="w-full border-yellow-500/30 text-yellow-200/80 hover:bg-yellow-500/10" onClick={() => void handleCreateRandomDevAccount("/profile", selectedRoleValue || undefined)} disabled={isSubmitting}>
                           ⚡ Instant Dev Login
                         </Button>
                       </div>
@@ -545,5 +661,11 @@ const Auth = () => {
     </div>
   );
 };
+
+const Auth = () => (
+  <AuthFormProvider>
+    <AuthContent />
+  </AuthFormProvider>
+);
 
 export default Auth;

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { AuthStepper } from '@/components/auth/AuthStepper';
+import { AuthFormProvider } from '@/contexts/AuthFormContext';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
@@ -48,9 +49,10 @@ const CreateOrganiserProfile = () => {
     let cancelled = false;
     void (async () => {
       const { data, error } = await (supabase as any)
-        .from('organisers')
-        .select('id')
-        .eq('user_id', user.id)
+        .from('entities')
+        .select('id, city_id, cities(name)')
+        .eq('claimed_by', user.id)
+        .eq('type', 'organiser')
         .maybeSingle();
 
       if (cancelled || error || !data?.id) return;
@@ -121,29 +123,33 @@ const CreateOrganiserProfile = () => {
     try {
       const payload = {
         name: form.name.trim(),
-        city: canonicalCity.cityName,
-        photo_url: form.avatar_url.trim() || null,
+        city_id: canonicalCity.cityId,
+        avatar_url: form.avatar_url.trim() || null,
         bio: form.bio.trim() || null,
-        user_id: user?.id,
-        instagram: form.instagram.trim() || null,
-        website: form.website.trim() || null,
+        claimed_by: user?.id,
+        socials: {
+          instagram: form.instagram.trim() || null,
+          website: form.website.trim() || null,
+        },
       };
 
       let didUpdate = false;
       if (user?.id) {
         const { data: existing, error: existingError } = await (supabase as any)
-          .from('organisers')
-          .select('id')
-          .eq('user_id', user.id)
+          .from('entities')
+          .select('id, city_id, cities(name)')
+          .eq('claimed_by', user.id)
+          .eq('type', 'organiser')
           .maybeSingle();
 
         if (existingError) throw existingError;
 
         if (existing?.id) {
           const { error: updateError } = await (supabase as any)
-            .from('organisers')
+            .from('entities')
             .update(payload)
-            .eq('id', existing.id);
+            .eq('id', existing.id)
+            .eq('type', 'organiser');
 
           if (updateError) throw updateError;
           didUpdate = true;
@@ -151,7 +157,10 @@ const CreateOrganiserProfile = () => {
       }
 
       if (!didUpdate) {
-        const { error } = await (supabase as any).from('organisers').insert(payload);
+        const { error } = await (supabase as any).from('entities').insert({
+          ...payload,
+          type: 'organiser',
+        });
         if (error) throw error;
       }
 
@@ -196,6 +205,29 @@ const CreateOrganiserProfile = () => {
     window.scrollTo(0, 0);
   };
 
+  const fillMockData = () => {
+    const mockQuickStart = {
+      primaryVenue: 'Sabor Social Nights',
+    };
+
+    const mockForm = {
+      name: 'Sabor Events London',
+      city: 'London',
+      avatar_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819',
+      bio: 'Weekly bachata socials and monthly workshops across London venues.',
+      instagram: '@saboreventslondon',
+      website: 'https://saborevents.example.com',
+    };
+
+    setQuickStart(mockQuickStart);
+    setForm(mockForm);
+
+    toast({
+      title: 'Mock data loaded',
+      description: 'Development sample values have been filled in.',
+    });
+  };
+
   useEffect(() => {
     if (user && pendingSubmit) {
       setPendingSubmit(false);
@@ -213,6 +245,14 @@ const CreateOrganiserProfile = () => {
   return (
     <div className="min-h-screen pt-20 px-4 pb-24">
       <div className="max-w-2xl mx-auto">
+        {import.meta.env.DEV && (
+          <div className="mb-4 flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={fillMockData}>
+              Fill mock data
+            </Button>
+          </div>
+        )}
+
         {step === 0 && (
           <div className="space-y-6">
             <div className="text-center">
@@ -335,16 +375,19 @@ const CreateOrganiserProfile = () => {
             </div>
 
             <div className="flex justify-center">
-              <AuthStepper
-                returnTo={returnTo}
-                userType="organiser"
-                onAuthenticated={() => setPendingSubmit(true)}
-                showIntentSelect={false}
-                initialIntent="returning"
-                title="Quick finish"
-                subtitle="Sign in to publish."
-                skipEmailStepWhenPrefilled
-              />
+              <AuthFormProvider>
+                <AuthStepper
+                  returnTo={returnTo}
+                  userType="organiser"
+                  onAuthenticated={() => setPendingSubmit(true)}
+                  showIntentSelect={false}
+                  initialIntent="returning"
+                  title="Quick finish"
+                  subtitle="Sign in to publish."
+                  skipEmailStepWhenPrefilled
+                  requireSignupDetails={false}
+                />
+              </AuthFormProvider>
             </div>
 
             <Button variant="outline" className="w-full" onClick={() => setStep(1)}>

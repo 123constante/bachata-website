@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { AuthStepper } from '@/components/auth/AuthStepper';
+import { AuthFormProvider } from '@/contexts/AuthFormContext';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
@@ -216,6 +217,30 @@ const CreateTeacherProfile = () => {
     window.scrollTo(0, 0);
   };
 
+  const fillMockData = () => {
+    const mockQuickStart = {
+      stylesTaught: 'Bachata Sensual, Dominican Bachata',
+      yearsTeaching: '8',
+    };
+
+    const mockForm = {
+      name: 'Elena Cruz',
+      city: 'Madrid',
+      avatar_url: 'https://images.unsplash.com/photo-1544717305-2782549b5136',
+      bio: 'Bachata instructor focused on musicality, connection, and social confidence.',
+      instagram: '@elenacruz.bachata',
+      website: 'https://elenacruzdance.example.com',
+    };
+
+    setQuickStart(mockQuickStart);
+    setForm(mockForm);
+
+    toast({
+      title: 'Mock data loaded',
+      description: 'Development sample values have been filled in.',
+    });
+  };
+
   useEffect(() => {
     if (user && pendingSubmit) {
       setPendingSubmit(false);
@@ -233,6 +258,14 @@ const CreateTeacherProfile = () => {
   return (
     <div className="min-h-screen pt-20 px-4 pb-24">
       <div className="max-w-2xl mx-auto">
+        {import.meta.env.DEV && (
+          <div className="mb-4 flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={fillMockData}>
+              Fill mock data
+            </Button>
+          </div>
+        )}
+
         {step === 0 && (
           <div className="space-y-6">
             <div className="text-center">
@@ -363,16 +396,19 @@ const CreateTeacherProfile = () => {
             </div>
 
             <div className="flex justify-center">
-              <AuthStepper
-                returnTo={returnTo}
-                userType="teacher"
-                onAuthenticated={() => setPendingSubmit(true)}
-                showIntentSelect={false}
-                initialIntent="returning"
-                title="Quick finish"
-                subtitle="Sign in to publish."
-                skipEmailStepWhenPrefilled
-              />
+              <AuthFormProvider>
+                <AuthStepper
+                  returnTo={returnTo}
+                  userType="teacher"
+                  onAuthenticated={() => setPendingSubmit(true)}
+                  showIntentSelect={false}
+                  initialIntent="returning"
+                  title="Quick finish"
+                  subtitle="Sign in to publish."
+                  skipEmailStepWhenPrefilled
+                  requireSignupDetails={false}
+                />
+              </AuthFormProvider>
             </div>
 
             <Button variant="outline" className="w-full" onClick={() => setStep(1)}>

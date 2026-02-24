@@ -6,6 +6,7 @@ export type EnsureDancerProfileParams = {
   firstName?: string | null;
   surname?: string | null;
   city?: string | null;
+  cityId?: string | null;
 };
 
 const normalizeText = (value?: string | null) => {
@@ -28,11 +29,13 @@ export const ensureDancerProfile = async ({
   firstName,
   surname,
   city,
+  cityId,
 }: EnsureDancerProfileParams) => {
   const safeFirstName = normalizeText(firstName) || inferFirstName(email);
   const safeSurname = normalizeText(surname);
   const safeCity = normalizeText(city);
   const safeEmail = normalizeText(email);
+  const safeCityId = normalizeText(cityId);
 
   try {
     const { data, error } = await (supabase as any).rpc("ensure_dancer_profile", {
@@ -75,16 +78,44 @@ export const ensureDancerProfile = async ({
     return { dancerId: existing.id, created: false };
   }
 
-  if (!safeCity) {
+  if (!safeCity && !safeCityId) {
     throw new Error("City is required to create a profile");
+  }
+
+  let finalCityId = safeCityId;
+
+  // If no ID provided but we have a name, try to resolve it
+  if (!finalCityId && safeCity) {
+    const { data: cityRow, error: cityError } = await supabase
+      .from("cities")
+      .select("id")
+      .ilike("name", safeCity)
+      .maybeSingle();
+
+    if (cityError) {
+      console.error("Error looking up city:", cityError);
+      // We don't throw; we proceed to try insert with just name if possible, 
+      // but likely it will fail DB constraint if city_id is creating issues.
+      // However, if the DB enforces NOT NULL on city_id, we must have it.
+    }
+    
+    if (cityRow?.id) {
+      finalCityId = cityRow.id;
+    }
+  }
+
+  // If we still don't have a finalCityId, we can't create a valid profile if key constraints exist.
+  // But let's try to proceed as legacy fallback if needed.
+  if (!finalCityId) {
+     throw new Error(`City '${safeCity || "unknown"}' not found in supported cities list`);
   }
 
   const insertPayload = {
     user_id: userId,
     first_name: safeFirstName,
     surname: safeSurname,
-    city: safeCity!,
-    city_id: "", // caller must provide valid city_id
+    city: safeCity,
+    city_id: finalCityId,
     verified: false,
     is_public: false,
     hide_surname: false,

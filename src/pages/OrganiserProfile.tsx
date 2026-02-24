@@ -51,7 +51,12 @@ const OrganiserProfile = () => {
       
       const { data, error } = await supabase
         .from('entities')
-        .select('*')
+        .select(`
+          *,
+          cities (
+            name
+          )
+        `)
         .eq('id', id)
         .eq('type', 'organiser')
         .maybeSingle();
@@ -70,10 +75,7 @@ const OrganiserProfile = () => {
     
     try {
       const { error } = await supabase
-        .from('entities')
-        .update({ claimed_by: user.id })
-        .eq('id', id)
-        .is('claimed_by', null); // Only claim if unclaimed
+        .rpc('claim_organiser_profile', { p_organiser_id: id });
       
       if (error) throw error;
       
@@ -101,7 +103,7 @@ const OrganiserProfile = () => {
       name: entity.name || '',
       avatar_url: entity.avatar_url || '',
       bio: entity.bio || '',
-      city: entity.city || '',
+      city: entity.cities?.name || '',
       instagram: socials?.instagram || '',
       website: socials?.website || '',
     });
@@ -140,7 +142,7 @@ const OrganiserProfile = () => {
           name: editForm.name.trim(),
           avatar_url: editForm.avatar_url.trim() || null,
           bio: editForm.bio.trim() || null,
-          city: canonicalCity.cityName,
+          city_id: canonicalCity.cityId,
           socials: {
             instagram: editForm.instagram.trim() || null,
             website: editForm.website.trim() || null,
@@ -246,8 +248,8 @@ const OrganiserProfile = () => {
               <p className="text-muted-foreground text-lg">Event organiser</p>
               
               {/* City if available */}
-              {entity.city && (
-                <p className="text-sm text-muted-foreground mt-2">{entity.city}</p>
+              {entity.cities?.name && (
+                <p className="text-sm text-muted-foreground mt-2">{entity.cities.name}</p>
               )}
 
               {/* Social Links */}

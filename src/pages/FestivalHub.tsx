@@ -1,99 +1,41 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect, type MouseEvent } from "react";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
-import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Star } from "lucide-react";
+import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import PageHero from "@/components/PageHero";
 import { FloatingElements } from "@/components/FloatingElements";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { AuthPromptModal } from "@/components/AuthPromptModal";
+import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
 
-// Festival mock data - completely separate from regular events
-const festivals = [
-  {
-    id: "bcn-bachata-2025",
-    name: "Barcelona Bachata Festival",
-    location: "Barcelona, Spain",
-    flag: "‡ª‡¸",
-    dates: "Jan 15-18, 2025",
-    startDate: new Date("2025-01-15"),
-    danceStyles: ["Bachata", "Sensual", "Dominican"],
-    goingCount: 14,
-    interestedCount: 32,
-    roommatesLooking: 6,
-    taxiBuddiesLooking: 4,
-    dancePartnersLooking: 9,
-    attendees: Array.from({ length: 46 }, (_, i) => ({
-      id: `bcn-${i}`,
-      name: `Dancer ${i + 1}`,
-      avatar: i % 3 === 0 ? "‘©" : i % 3 === 1 ? "‘¨" : "’ƒ",
-      status: i < 14 ? "going" : "interested" as "going" | "interested",
-    })),
-    travel: {
-      nearestAirport: "Barcelona El Prat (BCN)",
-      airportDistance: "12 km",
-      nearbyAirports: ["Girona (GRO) - 92km", "Reus (REU) - 108km"],
-      nearestCoachStation: "Barcelona Nord Bus Station",
-      publicTransportTime: "35 mins by metro + bus"
-    }
-  },
-  {
-    id: "warsaw-salsa-2025",
-    name: "Warsaw Salsa Congress",
-    location: "Warsaw, Poland",
-    flag: "‡µ‡±",
-    dates: "Feb 6-9, 2025",
-    startDate: new Date("2025-02-06"),
-    danceStyles: ["Salsa", "Cuban", "On2"],
-    goingCount: 8,
-    interestedCount: 19,
-    roommatesLooking: 3,
-    taxiBuddiesLooking: 5,
-    dancePartnersLooking: 7,
-    attendees: Array.from({ length: 27 }, (_, i) => ({
-      id: `warsaw-${i}`,
-      name: `Dancer ${i + 1}`,
-      avatar: i % 3 === 0 ? "‘©" : i % 3 === 1 ? "‘¨" : "•º",
-      status: i < 8 ? "going" : "interested" as "going" | "interested",
-    })),
-    travel: {
-      nearestAirport: "Warsaw Chopin (WAW)",
-      airportDistance: "10 km",
-      nearbyAirports: ["Warsaw Modlin (WMI) - 40km"],
-      nearestCoachStation: "Warszawa Zachodnia",
-      publicTransportTime: "25 mins by train"
-    }
-  },
-  {
-    id: "paris-kizomba-2025",
-    name: "Paris Kizomba Festival",
-    location: "Paris, France",
-    flag: "‡«‡·",
-    dates: "Mar 20-23, 2025",
-    startDate: new Date("2025-03-20"),
-    danceStyles: ["Kizomba", "Urban Kiz", "Semba"],
-    goingCount: 22,
-    interestedCount: 45,
-    roommatesLooking: 8,
-    taxiBuddiesLooking: 12,
-    dancePartnersLooking: 15,
-    attendees: Array.from({ length: 67 }, (_, i) => ({
-      id: `paris-${i}`,
-      name: `Dancer ${i + 1}`,
-      avatar: i % 3 === 0 ? "‘©" : i % 3 === 1 ? "‘¨" : "’ƒ",
-      status: i < 22 ? "going" : "interested" as "going" | "interested",
-    })),
-    travel: {
-      nearestAirport: "Paris Charles de Gaulle (CDG)",
-      airportDistance: "25 km",
-      nearbyAirports: ["Paris Orly (ORY) - 18km", "Beauvais (BVA) - 85km"],
-      nearestCoachStation: "Paris Bercy Seine",
-      publicTransportTime: "45 mins by RER + metro"
-    }
-  },
-];
+type FestivalEvent = {
+  id: string;
+  name: string;
+  city: string | null;
+  date: string | null;
+  start_time: string | null;
+  cover_image_url: string | null;
+};
+
+type AttendanceCounts = {
+  interested_count: number;
+  going_count: number;
+};
+
+type AttendeePreview = {
+  event_id: string;
+  user_id: string;
+  avatar_url: string | null;
+  username: string | null;
+};
 
 // Confetti particle component
 const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) => (
@@ -120,7 +62,12 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
 
 const FestivalHub = () => {
   const navigate = useNavigate();
-  const [userStatus, setUserStatus] = useState<Record<string, "going" | "interested" | null>>({});
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authReturnTo, setAuthReturnTo] = useState<string | null>(null);
+  const [pendingByEvent, setPendingByEvent] = useState<Record<string, AttendanceStatus | null>>({});
+  const [optimisticStatusByEvent, setOptimisticStatusByEvent] = useState<Record<string, AttendanceStatus | null>>({});
   const [, setTick] = useState(0);
 
   const { scrollYProgress } = useScroll();
@@ -142,14 +89,226 @@ const FestivalHub = () => {
     return `${days}d ${hours}h`;
   };
 
-  const handleStatus = (festivalId: string, status: "going" | "interested") => {
-    setUserStatus(prev => ({
-      ...prev,
-      [festivalId]: prev[festivalId] === status ? null : status
-    }));
+  const { data: festivals = [] } = useQuery({
+    queryKey: ['festival-events-live'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, city, date, start_time, cover_image_url')
+        .eq('type', 'festival')
+        .eq('is_published', true)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as FestivalEvent[];
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const festivalIds = useMemo(() => festivals.map((festival) => festival.id), [festivals]);
+
+  const {
+    data: countRows = [],
+    refetch: refetchCounts,
+  } = useQuery({
+    queryKey: ['festival-attendance-counts', festivalIds],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_event_attendance_counts', {
+        p_event_ids: festivalIds,
+      });
+      if (!error) {
+        return (data || []) as Array<{ event_id: string; interested_count: number; going_count: number }>;
+      }
+
+      const isSchemaCacheError =
+        error.code === 'PGRST202' ||
+        (typeof error.message === 'string' && error.message.toLowerCase().includes('schema cache'));
+
+      if (!isSchemaCacheError) throw error;
+
+      const { data: participantRows, error: fallbackError } = await supabase
+        .from('event_participants')
+        .select('event_id, status')
+        .in('event_id', festivalIds)
+        .in('status', ['going', 'interested']);
+
+      if (fallbackError) throw fallbackError;
+
+      const counts = new Map<string, AttendanceCounts>();
+      (participantRows || []).forEach((row) => {
+        const current = counts.get(row.event_id) || { interested_count: 0, going_count: 0 };
+        if (row.status === 'going') current.going_count += 1;
+        if (row.status === 'interested') current.interested_count += 1;
+        counts.set(row.event_id, current);
+      });
+
+      return Array.from(counts.entries()).map(([event_id, value]) => ({
+        event_id,
+        interested_count: value.interested_count,
+        going_count: value.going_count,
+      }));
+    },
+    enabled: festivalIds.length > 0,
+    staleTime: 1000 * 30,
+  });
+
+  const countsByEvent = useMemo(() => {
+    const map = new Map<string, AttendanceCounts>();
+    countRows.forEach((row) => {
+      map.set(row.event_id, {
+        interested_count: row.interested_count,
+        going_count: row.going_count,
+      });
+    });
+    return map;
+  }, [countRows]);
+
+  const {
+    data: statusRows = [],
+    refetch: refetchStatuses,
+  } = useQuery({
+    queryKey: ['festival-attendance-status', festivalIds, user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('event_participants')
+        .select('event_id, status')
+        .eq('user_id', user.id)
+        .in('event_id', festivalIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: festivalIds.length > 0 && Boolean(user?.id),
+    staleTime: 1000 * 15,
+  });
+
+  const statusByEvent = useMemo(() => {
+    const map = new Map<string, AttendanceStatus>();
+    statusRows.forEach((row: { event_id: string; status: string }) => {
+      if (row.status === 'going' || row.status === 'interested') {
+        map.set(row.event_id, row.status);
+      }
+    });
+    return map;
+  }, [statusRows]);
+
+  const { data: attendeePreviews = [] } = useQuery({
+    queryKey: ['festival-attendee-previews', festivalIds],
+    queryFn: async () => {
+      const { data: participantRows, error } = await supabase
+        .from('event_participants')
+        .select('event_id, user_id, updated_at, status')
+        .in('event_id', festivalIds)
+        .in('status', ['going', 'interested'])
+        .order('updated_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      const participants = (participantRows || []) as Array<{ event_id: string; user_id: string }>;
+      if (!participants.length) return [] as AttendeePreview[];
+
+      const userIds = Array.from(new Set(participants.map((row) => row.user_id)));
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, avatar_url, username')
+        .in('id', userIds);
+
+      const safeProfiles = profileError ? [] : (profiles || []);
+
+      const profileMap = new Map<string, { avatar_url: string | null; username: string | null }>();
+      safeProfiles.forEach((profile) => {
+        profileMap.set(profile.id, {
+          avatar_url: profile.avatar_url || null,
+          username: profile.username || null,
+        });
+      });
+
+      return participants.map((row) => {
+        const profile = profileMap.get(row.user_id);
+        return {
+          event_id: row.event_id,
+          user_id: row.user_id,
+          avatar_url: profile?.avatar_url || null,
+          username: profile?.username || null,
+        } satisfies AttendeePreview;
+      });
+    },
+    enabled: festivalIds.length > 0,
+    staleTime: 1000 * 30,
+  });
+
+  const attendeePreviewsByEvent = useMemo(() => {
+    const map = new Map<string, AttendeePreview[]>();
+    attendeePreviews.forEach((preview) => {
+      const current = map.get(preview.event_id) ?? [];
+      if (current.length < 3) {
+        current.push(preview);
+        map.set(preview.event_id, current);
+      }
+    });
+    return map;
+  }, [attendeePreviews]);
+
+  const resolveStatus = (eventId: string) => {
+    if (Object.prototype.hasOwnProperty.call(optimisticStatusByEvent, eventId)) {
+      return optimisticStatusByEvent[eventId] ?? null;
+    }
+    return statusByEvent.get(eventId) ?? null;
+  };
+
+  const handleStatus = async (festivalId: string, status: AttendanceStatus) => {
+    if (!user) {
+      setAuthReturnTo(`/festival/${festivalId}`);
+      setShowAuthModal(true);
+      return;
+    }
+
+    const currentStatus = resolveStatus(festivalId);
+    const nextStatus = currentStatus === status ? null : status;
+
+    setPendingByEvent((prev) => ({ ...prev, [festivalId]: status }));
+    setOptimisticStatusByEvent((prev) => ({ ...prev, [festivalId]: nextStatus }));
+
+    try {
+      await setAttendanceRpc(festivalId, nextStatus);
+      await Promise.all([refetchCounts(), refetchStatuses()]);
+      setOptimisticStatusByEvent((prev) => {
+        const next = { ...prev };
+        delete next[festivalId];
+        return next;
+      });
+    } catch (error: any) {
+      setOptimisticStatusByEvent((prev) => ({ ...prev, [festivalId]: currentStatus }));
+      toast({
+        title: 'Could not update attendance',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPendingByEvent((prev) => {
+        const next = { ...prev };
+        delete next[festivalId];
+        return next;
+      });
+    }
+  };
+
+  const handleAvatarClick = (event: MouseEvent<HTMLButtonElement>, festivalId: string) => {
+    event.stopPropagation();
+    const returnTo = `/festival/${festivalId}`;
+
+    if (!user) {
+      setAuthReturnTo(returnTo);
+      setShowAuthModal(true);
+      return;
+    }
+
+    navigate(returnTo);
   };
 
   const WHATSAPP_THRESHOLD = 10;
+  const showProfiles = Boolean(user);
 
   const heroWidgets = [
     { emoji: "ª", title: "Festivals", desc: "Upcoming events", sectionId: "festivals" },
@@ -205,10 +364,21 @@ const FestivalHub = () => {
       <section id="festivals" className="px-4 mb-24 relative z-10">
         <StaggerContainer staggerDelay={0.15} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {festivals.map((festival) => {
-            const totalAttendees = festival.goingCount + festival.interestedCount;
+            const counts = countsByEvent.get(festival.id) || { interested_count: 0, going_count: 0 };
+            const totalAttendees = counts.going_count + counts.interested_count;
             const progress = Math.min((totalAttendees / WHATSAPP_THRESHOLD) * 100, 100);
             const whatsappActive = totalAttendees >= WHATSAPP_THRESHOLD;
-            const status = userStatus[festival.id];
+            const status = resolveStatus(festival.id);
+            const attendeePreviewsForFestival = attendeePreviewsByEvent.get(festival.id) ?? [];
+            const visiblePreviews = attendeePreviewsForFestival.slice(0, 3);
+            const startDateRaw = festival.date || festival.start_time;
+            const startDate = startDateRaw ? new Date(startDateRaw) : null;
+            const dateLabel = startDate
+              ? startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : 'Date TBA';
+            const locationLabel = festival.city || 'Location TBA';
+            const isPending = Boolean(pendingByEvent[festival.id]);
+            const pendingStatus = pendingByEvent[festival.id];
 
             return (
               <StaggerItem key={festival.id}>
@@ -227,60 +397,97 @@ const FestivalHub = () => {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">{festival.flag}</span>
+                          <span className="text-xl">★</span>
                           <h3 className="font-bold text-foreground text-lg">{festival.name}</h3>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{festival.dates} Â· {festival.location}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{dateLabel} · {locationLabel}</p>
                       </div>
                       <motion.div
                         animate={{ scale: [1, 1.1, 1] }}
                         transition={{ repeat: Infinity, duration: 2 }}
                         className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full"
                       >
-                        {getCountdown(festival.startDate)}
+                        {startDate ? getCountdown(startDate) : 'TBA'}
                       </motion.div>
                     </div>
 
                     {/* Dance Styles */}
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {festival.danceStyles.map(style => (
-                        <span key={style} className="text-[10px] bg-accent/50 text-accent-foreground px-2 py-0.5 rounded-full">
-                          {style}
-                        </span>
-                      ))}
+                      <span className="text-[10px] bg-accent/50 text-accent-foreground px-2 py-0.5 rounded-full">
+                        Festival
+                      </span>
                     </div>
 
                     {/* Attendance Stats */}
                     <div className="flex items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm">‹</span>
-                        <span className="text-xs font-medium text-foreground">Going: {festival.goingCount}</span>
+                        <span className="text-xs font-medium text-foreground">
+                          Going:{' '}
+                          <motion.span
+                            key={counts.going_count}
+                            initial={{ y: -4, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className="inline-block"
+                          >
+                            {counts.going_count}
+                          </motion.span>
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm">‘€</span>
-                        <span className="text-xs text-muted-foreground">Interested: {festival.interestedCount}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Interested:{' '}
+                          <motion.span
+                            key={counts.interested_count}
+                            initial={{ y: -4, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className="inline-block"
+                          >
+                            {counts.interested_count}
+                          </motion.span>
+                        </span>
                       </div>
                     </div>
 
-                    {/* Avatars */}
-                    <div className="flex items-center mb-3">
-                      <div className="flex -space-x-2">
-                        {festival.attendees.slice(0, 5).map((attendee, i) => (
-                          <motion.div
-                            key={attendee.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 * i }}
-                            className="w-7 h-7 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center text-sm"
-                          >
-                            {attendee.avatar}
-                          </motion.div>
-                        ))}
-                      </div>
-                      {festival.attendees.length > 5 && (
-                        <span className="text-xs text-muted-foreground ml-2">+{festival.attendees.length - 5} more</span>
-                      )}
+                    <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                      <Users className="w-3 h-3" />
+                      <span>{totalAttendees} attending</span>
                     </div>
+
+                    {visiblePreviews.length > 0 && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex -space-x-2">
+                          {visiblePreviews.map((attendee) => (
+                            <button
+                              key={attendee.user_id}
+                              type="button"
+                              onClick={(event) => handleAvatarClick(event, festival.id)}
+                              className="focus:outline-none"
+                            >
+                              <div
+                                className={`w-7 h-7 rounded-full border border-background bg-primary/20 overflow-hidden flex items-center justify-center text-[10px] uppercase ${showProfiles ? '' : 'blur-sm'}`}
+                              >
+                                {attendee.avatar_url ? (
+                                  <img
+                                    src={attendee.avatar_url}
+                                    alt={attendee.username ?? 'Attendee'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{(attendee.username ?? 'Member').slice(0, 1)}</span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        {!showProfiles && (
+                          <span className="text-[10px] text-muted-foreground">Sign in to see profiles</span>
+                        )}
+                      </div>
+                    )}
 
                     {/* WhatsApp Progress */}
                     <div className="mb-3">
@@ -339,10 +546,13 @@ const FestivalHub = () => {
                           className="w-full text-xs h-9"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleStatus(festival.id, "going");
+                            void handleStatus(festival.id, "going");
                           }}
+                          disabled={isPending}
                         >
-                          {status === "going" ? "“ Going" : "‹ I'm Going"}
+                          {isPending && pendingStatus === 'going' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : status === "going" ? "“ Going" : "‹ I'm Going"}
                         </Button>
                       </motion.div>
                       <motion.div className="flex-1" whileTap={{ scale: 0.95 }}>
@@ -352,10 +562,13 @@ const FestivalHub = () => {
                           className="w-full text-xs h-9"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleStatus(festival.id, "interested");
+                            void handleStatus(festival.id, "interested");
                           }}
+                          disabled={isPending}
                         >
-                          {status === "interested" ? "“ Interested" : "‘€ Interested"}
+                          {isPending && pendingStatus === 'interested' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : status === "interested" ? "“ Interested" : "‘€ Interested"}
                         </Button>
                       </motion.div>
                     </div>
@@ -388,6 +601,17 @@ const FestivalHub = () => {
           </Card>
         </section>
       </ScrollReveal>
+
+      <AuthPromptModal
+        open={showAuthModal}
+        onOpenChange={(open) => {
+          setShowAuthModal(open);
+          if (!open) setAuthReturnTo(null);
+        }}
+        title="Sign in required"
+        description="Sign in to view attendee profiles and update attendance."
+        returnTo={authReturnTo}
+      />
     </div>
   );
 };

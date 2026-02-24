@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
+import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } from "@/lib/authRouting";
+import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -16,21 +18,21 @@ const VALID_ROLES: Record<string, string> = {
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const resolved = useRef(false);
 
-  const sanitizeReturnTo = (value: string | null) => {
-    if (!value) return null;
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
-    if (trimmed === "/auth" || trimmed.startsWith("/auth/")) return null;
-    return trimmed;
+  const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
+  const callbackMode = searchParams.get("mode");
+
+  const navigateToOnboardingFallback = (reason: "timeout" | "profile" | "metadata" | "lookup" | "incomplete") => {
+    if (safeReturnTo) {
+      stashPendingReturnTo(safeReturnTo);
+    }
+    navigate(`/onboarding?authFallback=${reason}`, { replace: true });
   };
 
-  const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
-
-  const navigateToOnboardingFallback = (reason: "timeout" | "profile" | "metadata" | "lookup") => {
-    navigate(`/onboarding?authFallback=${reason}`, { replace: true });
+  const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
+    navigate(`/auth?mode=signin&callbackError=${reason}`, { replace: true });
   };
 
   const resolveRolePreference = (pendingRole: string | null, metaRoleRaw: unknown) => {
@@ -51,7 +53,7 @@ const AuthCallback = () => {
     const timeout = setTimeout(() => {
       if (!resolved.current) {
         resolved.current = true;
-        navigateToOnboardingFallback("timeout");
+        navigateToSignInFallback("timeout");
       }
     }, 15000);
 
@@ -66,21 +68,35 @@ const AuthCallback = () => {
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
+        const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
         const meta = user.user_metadata || {};
         const preferredRole = resolveRolePreference(pendingRole, meta.user_type);
 
-        if (safeReturnTo) {
-          navigate(safeReturnTo, { replace: true });
-          return;
-        }
-
         const { data: dancer } = await supabase
           .from("dancers")
-          .select("id")
+          .select("id, first_name, city, city_id, meta_data")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (dancer?.id) {
+          const onboardingStatus = inferOnboardingStatusFromDancer(dancer);
+          if (onboardingStatus !== "completed") {
+            navigateToOnboardingFallback("incomplete");
+            return;
+          }
+
+          if (!isSignupFlow && safeReturnTo) {
+            navigate(safeReturnTo, { replace: true });
+            return;
+          }
+
+          const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
+          if (pendingReturnTo) {
+            localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+            navigate(pendingReturnTo, { replace: true });
+            return;
+          }
+
           if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
             navigate(`/create-${preferredRole}-profile`, { replace: true });
           } else {
@@ -92,15 +108,51 @@ const AuthCallback = () => {
 
         const firstName = meta.first_name as string | undefined;
         const city = meta.city as string | undefined;
+        const cityId = meta.city_id as string | undefined;
 
-        if (firstName && city) {
+        if (firstName && (city || cityId)) {
           try {
             await ensureDancerProfile({
               userId: user.id,
               email: user.email,
               firstName,
               city,
+              cityId,
             });
+
+            const { data: ensuredDancer } = await supabase
+              .from("dancers")
+              .select("id, meta_data")
+              .eq("user_id", user.id);
+
+            const dancerRow = Array.isArray(ensuredDancer) ? ensuredDancer[0] : null;
+            const existingMeta = (dancerRow?.meta_data && typeof dancerRow.meta_data === "object")
+              ? (dancerRow.meta_data as Record<string, unknown>)
+              : {};
+
+            if (dancerRow?.id) {
+              await supabase
+                .from("dancers")
+                .update({
+                  meta_data: {
+                    ...existingMeta,
+                    onboarding_status: "completed",
+                  },
+                })
+                .eq("id", dancerRow.id);
+            }
+
+            if (!isSignupFlow && safeReturnTo) {
+              navigate(safeReturnTo, { replace: true });
+              return;
+            }
+
+            const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
+            if (pendingReturnTo) {
+              localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+              navigate(pendingReturnTo, { replace: true });
+              return;
+            }
 
             if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
               navigate(`/create-${preferredRole}-profile`, { replace: true });
@@ -124,7 +176,9 @@ const AuthCallback = () => {
     };
 
     void supabase.auth.getSession().then(({ data: { session } }) => {
-      void resolveSession(session);
+      if (session) {
+        void resolveSession(session);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -137,7 +191,24 @@ const AuthCallback = () => {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [navigate, safeReturnTo]);
+  }, [callbackMode, navigate, safeReturnTo]);
+
+  useEffect(() => {
+    if (resolved.current) return;
+
+    const fallbackTimer = setTimeout(async () => {
+      if (resolved.current) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) return;
+
+      resolved.current = true;
+      const hasAuthParams = Boolean(window.location.hash) || Boolean(searchParams.get("code"));
+      navigateToSignInFallback(hasAuthParams ? "expired" : "manual");
+    }, 9000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [navigate, searchParams]);
 
   if (error) {
     return (

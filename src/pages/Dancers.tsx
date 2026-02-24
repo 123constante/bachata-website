@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
-import { Heart, Music, Star, Sparkles, Users, Search, Loader2, X, ChevronDown, Check, Camera } from 'lucide-react';
+import { Calendar, Heart, Music, Star, Sparkles, Users, Search, Loader2, X, ChevronDown, Check, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
@@ -17,6 +17,8 @@ import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { cn, getPhotoUrl, getNationalityCode } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { useCity } from '@/contexts/CityContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
 
 type Dancer = {
   id: string;
@@ -34,12 +36,40 @@ type Dancer = {
 
 type FilterType = 'all' | 'name' | 'role' | 'style' | 'nationality' | 'city';
 
+type AttendanceRow = {
+  event_id: string;
+  status: 'going' | 'interested';
+  updated_at: string | null;
+};
+
+type AttendanceEvent = {
+  id: string;
+  name: string;
+  city: string | null;
+  country: string | null;
+  date: string | null;
+  start_time: string | null;
+  type: 'festival' | 'standard';
+};
+
+type AttendanceItem = {
+  id: string;
+  name: string;
+  city: string | null;
+  country: string | null;
+  date: string | null;
+  start_time: string | null;
+  type: 'festival' | 'standard';
+  status: 'going' | 'interested';
+};
+
 const Dancers = () => {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const { toast } = useToast();
+  const { user } = useAuth();
     const practicePartnersPath = citySlug ? `/${citySlug}/practice-partners` : '/practice-partners';
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +121,133 @@ const Dancers = () => {
     [...new Set(dancers.map(d => d.city).filter(Boolean) as string[])].sort(),
     [dancers]
   );
+
+  const { data: attendanceRows = [] } = useQuery({
+    queryKey: ['dancer-attendance', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [] as AttendanceRow[];
+      const { data, error } = await supabase
+        .from('event_participants')
+        .select('event_id, status, updated_at')
+        .eq('user_id', user.id)
+        .in('status', ['going', 'interested']);
+      if (error) throw error;
+      return (data || []) as AttendanceRow[];
+    },
+    enabled: Boolean(user?.id),
+    staleTime: 1000 * 20,
+  });
+
+  const { data: attendanceEvents = [] } = useQuery({
+    queryKey: ['dancer-attendance-events', attendanceRows.map((row) => row.event_id).join('|')],
+    queryFn: async () => {
+      if (!attendanceRows.length) return [] as AttendanceEvent[];
+      const eventIds = attendanceRows.map((row) => row.event_id);
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, city, country, date, start_time, type')
+        .in('id', eventIds);
+      if (error) throw error;
+      return (data || []) as AttendanceEvent[];
+    },
+    enabled: attendanceRows.length > 0,
+    staleTime: 1000 * 20,
+  });
+
+  const attendanceItems = useMemo(() => {
+    if (!attendanceRows.length || !attendanceEvents.length) return [] as AttendanceItem[];
+    const eventMap = new Map(attendanceEvents.map((event) => [event.id, event]));
+    return attendanceRows
+      .map((row) => {
+        const event = eventMap.get(row.event_id);
+        if (!event) return null;
+        return {
+          id: event.id,
+          name: event.name,
+          city: event.city,
+          country: event.country,
+          date: event.date,
+          start_time: event.start_time,
+          type: event.type,
+          status: row.status,
+        } satisfies AttendanceItem;
+      })
+      .filter(Boolean) as AttendanceItem[];
+  }, [attendanceEvents, attendanceRows]);
+
+  const now = new Date();
+  const toEventDate = (item: AttendanceItem) => {
+    const raw = item.date || item.start_time;
+    return raw ? new Date(raw) : null;
+  };
+  const isUpcoming = (item: AttendanceItem) => {
+    const date = toEventDate(item);
+    return date ? date >= now : false;
+  };
+
+  const upcomingEvents = useMemo(
+    () => attendanceItems.filter((item) => item.type === 'standard' && isUpcoming(item)),
+    [attendanceItems]
+  );
+  const upcomingFestivals = useMemo(
+    () => attendanceItems.filter((item) => item.type === 'festival' && isUpcoming(item)),
+    [attendanceItems]
+  );
+
+  const getNextUpcoming = (items: AttendanceItem[]) => {
+    const sorted = [...items].sort((a, b) => {
+      const aDate = toEventDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bDate = toEventDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aDate - bDate;
+    });
+    return sorted[0] ?? null;
+  };
+
+  const nextEvent = getNextUpcoming(upcomingEvents);
+  const nextFestival = getNextUpcoming(upcomingFestivals);
+
+  const formatEventDate = (item: AttendanceItem | null) => {
+    if (!item) return 'Date TBA';
+    const date = toEventDate(item);
+    if (!date) return 'Date TBA';
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  };
+
+  const formatCountdown = (item: AttendanceItem) => {
+    const date = toEventDate(item);
+    if (!date) return 'Date TBA';
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfEvent = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (startOfEvent <= startOfToday) return 'Happening now';
+
+    let months = (startOfEvent.getFullYear() - startOfToday.getFullYear()) * 12
+      + (startOfEvent.getMonth() - startOfToday.getMonth());
+    let anchor = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), startOfToday.getDate());
+    anchor.setMonth(anchor.getMonth() + months);
+
+    if (anchor > startOfEvent) {
+      months -= 1;
+      anchor = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), startOfToday.getDate());
+      anchor.setMonth(anchor.getMonth() + months);
+    }
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const days = Math.max(0, Math.floor((startOfEvent.getTime() - anchor.getTime()) / msPerDay));
+
+    const monthLabel = months === 1 ? 'month' : 'months';
+    const dayLabel = days === 1 ? 'day' : 'days';
+
+    if (months <= 0) return `${days} ${dayLabel}`;
+    if (days <= 0) return `${months} ${monthLabel}`;
+    return `${months} ${monthLabel} ${days} ${dayLabel}`;
+  };
+
+  const openAttendanceItem = (item: AttendanceItem) => {
+    navigate(item.type === 'festival' ? `/festival/${item.id}` : `/event/${item.id}`);
+  };
 
   // Filter dancers based on active filter
   const filteredDancers = useMemo(() => {
@@ -564,6 +721,126 @@ const Dancers = () => {
           </StaggerContainer>
         )}
       </section>
+
+      <section className="px-4 mb-16">
+        <ScrollReveal animation="fadeUp">
+          <h2 className="text-2xl md:text-3xl font-black text-center mb-6">
+            <span className="text-foreground">Your </span>
+            <span className="text-primary">Plans</span>
+          </h2>
+        </ScrollReveal>
+
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-6 bg-gradient-to-br from-card via-card to-primary/10 border-primary/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-bold text-foreground">Events</h3>
+              </div>
+              <span className="text-xs text-muted-foreground">{upcomingEvents.length} saved</span>
+            </div>
+
+            {user ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Next: {nextEvent ? `${nextEvent.name} • ${formatEventDate(nextEvent)}` : 'No upcoming events'}
+                </p>
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-xs text-muted-foreground">
+                    Going: {upcomingEvents.filter((item) => item.status === 'going').length} · Interested: {upcomingEvents.filter((item) => item.status === 'interested').length}
+                  </span>
+                </div>
+                <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {upcomingEvents.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No upcoming events yet.</p>
+                  ) : (
+                    upcomingEvents.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => openAttendanceItem(item)}
+                        className="w-full text-left rounded-lg border border-border/60 px-3 py-2 hover:border-primary/50 transition"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.country || 'Country TBA'}</p>
+                          <p className="text-xs text-muted-foreground">{formatCountdown(item)}</p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">Sign in to track your events.</p>
+                <Button
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => navigate('/auth?mode=signin&returnTo=/dancers')}
+                >
+                  Sign in
+                </Button>
+              </>
+            )}
+          </Card>
+
+          <Card className="p-6 bg-gradient-to-br from-card via-card to-festival-pink/20 border-festival-pink/30">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-festival-pink" />
+                <h3 className="text-lg font-bold text-foreground">Festivals</h3>
+              </div>
+              <span className="text-xs text-muted-foreground">{upcomingFestivals.length} saved</span>
+            </div>
+
+            {user ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Next: {nextFestival ? `${nextFestival.name} • ${formatEventDate(nextFestival)}` : 'No upcoming festivals'}
+                </p>
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-xs text-muted-foreground">
+                    Going: {upcomingFestivals.filter((item) => item.status === 'going').length} · Interested: {upcomingFestivals.filter((item) => item.status === 'interested').length}
+                  </span>
+                </div>
+                <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {upcomingFestivals.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No upcoming festivals yet.</p>
+                  ) : (
+                    upcomingFestivals.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => openAttendanceItem(item)}
+                        className="w-full text-left rounded-lg border border-border/60 px-3 py-2 hover:border-festival-pink/60 transition"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.country || 'Country TBA'}</p>
+                          <p className="text-xs text-muted-foreground">{formatCountdown(item)}</p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">Sign in to track your festivals.</p>
+                <Button
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => navigate('/auth?mode=signin&returnTo=/dancers')}
+                >
+                  Sign in
+                </Button>
+              </>
+            )}
+          </Card>
+        </div>
+      </section>
+
 
       {/* Find A Dance Partner CTA */}
       <section id="find-partner" className="px-4 mb-16 max-w-4xl mx-auto">

@@ -7,9 +7,7 @@ import {
   User, Calendar, Music, Zap, Disc, Sparkles, CheckCircle2, Trophy 
 } from "lucide-react";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
-import { useFestivalEvents } from "@/hooks/useFestivalEvents";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { calculateDuration } from "@/components/profile/ExperiencePicker";
 
 interface DancerProfileGridProps {
@@ -17,8 +15,6 @@ interface DancerProfileGridProps {
 }
 
 export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
-  const navigate = useNavigate();
-  const { festivalMap } = useFestivalEvents();
   const getInstagramHandle = (instagramUrl: string | null) => {
     if (!instagramUrl) return null;
 
@@ -102,17 +98,6 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
     if (years >= 1) return { label: 'Rising', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/30' };
     return { label: 'Newcomer', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' };
   };
-
-  const resolvedFestivals = dancer.festivalPlanIds
-    .map((id) => {
-      const fest = festivalMap[id];
-      if (!fest) return null;
-      const startDate = fest.start_time ? new Date(fest.start_time) : null;
-      const isUpcoming = startDate ? startDate >= new Date() : true;
-      if (!isUpcoming) return null;
-      return { id: fest.id, name: fest.name, city: fest.city, startTime: fest.start_time };
-    })
-    .filter(Boolean) as { id: string; name: string; city: string | null; startTime: string | null }[];
 
   return (
     <motion.div 
@@ -427,46 +412,6 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
             </Card>
           </motion.div>
       )}
-
-      {/* Upcoming Festivals (2x1) */}
-      {resolvedFestivals.length > 0 && (
-        <motion.div variants={itemVariants} className="col-span-2 md:col-span-2 row-span-1">
-          <Card className="h-full p-5 border-white/10 bg-card/50 backdrop-blur-sm transition-all hover:bg-card/80">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5 text-emerald-400" />
-              <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Upcoming Festivals</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {resolvedFestivals.map((fest) => (
-                <button
-                  key={fest.id}
-                  type="button"
-                  onClick={() => navigate(`/event/${fest.id}`)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200 transition-colors cursor-pointer"
-                >
-                  <span>{fest.name}</span>
-                  {fest.city && (
-                    <span className="flex items-center gap-1 text-xs text-emerald-400/70">
-                      <MapPin className="w-3 h-3" />
-                      {fest.city}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* 8. Event Timeline (Full Width) */}
-      <motion.div variants={itemVariants} className="col-span-2 md:col-span-4 mt-4">
-        <ProfileEventTimeline 
-            personType="dancer"
-            personId={dancer.id}
-            title="Event Timeline"
-            emptyText="No public events linked yet."
-        />
-      </motion.div>
 
     </motion.div>
   );

@@ -52,9 +52,10 @@ export const useUserIds = () => {
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, djRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
           supabase
-            .from('organisers')
-            .select('id')
-            .eq('user_id', user.id)
+            .from('entities')
+            .select('id, city_id, cities(name)')
+            .eq('claimed_by', user.id)
+            .eq('type', 'organiser')
             .maybeSingle(),
 
           supabase
@@ -77,7 +78,7 @@ export const useUserIds = () => {
 
           supabase
             .from('vendors')
-            .select('id')
+            .select('id, city_id, cities(name)')
             .eq('user_id', user.id)
             .maybeSingle(),
         ]);
@@ -86,14 +87,14 @@ export const useUserIds = () => {
         const dj = djRes.data;
         const teacher = teacherRes.data;
         const videographer = videographerRes.data;
-        let vendor = vendorRes.data;
+        let vendor: { id: string } | null = vendorRes.data?.id ? { id: vendorRes.data.id } : null;
 
         // Vendor-claim in its own try/catch so failures don't wipe other IDs
         try {
           if (!vendor?.id && dancer?.id) {
             const { data: unclaimedVendors } = await supabase
               .from('vendors')
-              .select('id, meta_data, team')
+              .select('id, city_id, cities(name), meta_data, team')
               .is('user_id', null)
               .limit(200);
 

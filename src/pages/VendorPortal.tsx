@@ -5,7 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorPromoDiscountType } from "@/modules/vendor/types";
+import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorRowWithCity, VendorPromoDiscountType } from "@/modules/vendor/types";
 import {
   isRlsError,
   normalizeProducts,
@@ -39,7 +39,7 @@ const emptyForm: VendorDashboardFormState = {
   promo_code: "",
   promo_discount_type: "percent",
   promo_discount_value: "",
-  email: "",
+  public_email: "",
   phone: "",
   whatsapp: "",
   website: "",
@@ -54,7 +54,7 @@ const emptyForm: VendorDashboardFormState = {
 const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   id: vendor.id,
   business_name: vendor.business_name || "",
-  city: vendor.city || "",
+  city: (vendor as VendorRowWithCity).cities?.name || "",
   country: (vendor as any).country || "",
   photo_url: normalizeStringArray(vendor.photo_url),
   products: normalizeProducts(vendor.products),
@@ -64,7 +64,7 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   promo_discount_type: vendor.promo_discount_type || "percent",
   promo_discount_value:
     typeof vendor.promo_discount_value === "number" ? String(vendor.promo_discount_value) : "",
-  email: vendor.email || "",
+  public_email: vendor.public_email || "",
   phone: (vendor as any).phone || "",
   whatsapp: vendor.whatsapp || "",
   website: vendor.website || "",
@@ -196,7 +196,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
 
       const { data, error: fetchError } = await supabase
         .from("vendors")
-        .select("*")
+        .select("*, cities(name)")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -801,7 +801,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
 
       const payload = {
         business_name: businessName,
-        city: canonicalCity.cityName,
+        city_id: canonicalCity.cityId,
         photo_url: photoUrl.length > 0 ? photoUrl : null,
         product_categories: categories.length > 0 ? categories : null,
         products: normalizedProductsJson,
@@ -809,7 +809,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         promo_code: form.promo_code.trim() || null,
         promo_discount_type: form.promo_code.trim() ? form.promo_discount_type.trim() || null : null,
         promo_discount_value: form.promo_code.trim() ? promoValue : null,
-        email: form.email.trim() || null,
+        public_email: form.public_email.trim() || null,
         phone: form.phone.trim() || null,
         whatsapp: form.whatsapp.trim() || null,
         website: form.website.trim() || null,
@@ -1404,8 +1404,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
           <CardHeader><CardTitle>6) Contact (Portal only)</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
             <div>
-              <Label>Email</Label>
-              <Input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
+              <Label>Public contact email</Label>
+              <Input value={form.public_email} onChange={(e) => setForm((prev) => ({ ...prev, public_email: e.target.value }))} />
             </div>
             <div>
               <Label>Phone</Label>

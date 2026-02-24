@@ -63,8 +63,8 @@ interface SupabaseEvent {
   id: string;
   name: string;
   date: string;
-  social_start: string | null;
-  social_end: string | null;
+  party_start: string | null;
+  party_end: string | null;
   class_start: string | null;
   class_end: string | null;
   venue_id: string | null;

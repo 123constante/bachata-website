@@ -6,12 +6,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { stashPendingReturnTo } from "@/lib/authRouting";
 
 interface AuthPromptModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
+  returnTo?: string | null;
 }
 
 const AuthPromptModal = ({
@@ -19,7 +22,21 @@ const AuthPromptModal = ({
   onOpenChange,
   title = "Join the Community",
   description = "To connect with other dancers, you need to be logged in.",
+  returnTo = null,
 }: AuthPromptModalProps) => {
+  const navigate = useNavigate();
+
+  const handleNavigate = (mode: "signin" | "signup") => {
+    if (!returnTo) {
+      onOpenChange(false);
+      return;
+    }
+
+    stashPendingReturnTo(returnTo);
+    navigate(`/auth?mode=${mode}&returnTo=${encodeURIComponent(returnTo)}`);
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md p-6">
@@ -37,8 +54,7 @@ const AuthPromptModal = ({
             size="lg"
             className="w-full h-11 font-semibold"
             onClick={() => {
-              // TODO: Navigate to login page when auth is implemented
-              onOpenChange(false);
+              handleNavigate("signin");
             }}
           >
             Log In
@@ -48,8 +64,7 @@ const AuthPromptModal = ({
             size="lg"
             className="w-full h-11 font-semibold"
             onClick={() => {
-              // TODO: Navigate to signup page when auth is implemented
-              onOpenChange(false);
+              handleNavigate("signup");
             }}
           >
             Sign Up

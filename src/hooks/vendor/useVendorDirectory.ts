@@ -41,7 +41,7 @@ export const useVendorDirectory = ({
 
       let query = supabase
         .from("vendors")
-        .select("id, business_name, city, photo_url, product_categories, upcoming_events, ships_international", { count: "exact" })
+        .select("id, business_name, city_id, cities(name), photo_url, product_categories, upcoming_events, ships_international", { count: "exact" })
         .order("business_name", { ascending: true })
         .range(from, to);
 
@@ -50,7 +50,31 @@ export const useVendorDirectory = ({
       }
 
       if (city.trim()) {
-        query = query.ilike("city", `%${city.trim()}%`);
+        const { data: cityMatches, error: cityError } = await supabase
+          .from("cities")
+          .select("id")
+          .ilike("name", `%${city.trim()}%`)
+          .limit(50);
+
+        if (cityError) {
+          if (cancelled) return;
+          setError(cityError.message || "Failed to filter by city.");
+          setVendors([]);
+          setTotal(0);
+          setLoading(false);
+          return;
+        }
+
+        const cityIds = (cityMatches || []).map((row: any) => row.id).filter(Boolean);
+        if (cityIds.length === 0) {
+          if (cancelled) return;
+          setVendors([]);
+          setTotal(0);
+          setLoading(false);
+          return;
+        }
+
+        query = query.in("city_id", cityIds);
       }
 
       if (category.trim()) {

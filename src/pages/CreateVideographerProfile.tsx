@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AuthStepper } from "@/components/auth/AuthStepper";
+import { AuthFormProvider } from "@/contexts/AuthFormContext";
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,7 @@ const CreateVideographerProfile = () => {
     website: "",
     instagram: "",
     facebook: "",
-    email: "",
+    public_email: "",
     phone: "",
   });
 
@@ -76,8 +77,8 @@ const CreateVideographerProfile = () => {
     if (!accountEmail) return;
 
     setForm((prev) => {
-      if (prev.email.trim().length > 0) return prev;
-      return { ...prev, email: accountEmail };
+      if (prev.public_email.trim().length > 0) return prev;
+      return { ...prev, public_email: accountEmail };
     });
   }, [user?.email]);
 
@@ -145,7 +146,7 @@ const CreateVideographerProfile = () => {
         website: form.website.trim() || null,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
-        email: form.email.trim() || null,
+        public_email: form.public_email.trim() || null,
         phone: form.phone.trim() || null,
         user_id: user?.id || null,
         verified: false,
@@ -232,9 +233,44 @@ const CreateVideographerProfile = () => {
     window.scrollTo(0, 0);
   };
 
+  const fillMockData = () => {
+    const mockQuickStart = {
+      businessName: 'Bachata Frame Studio',
+      logoUrl: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4',
+    };
+
+    const mockForm = {
+      business_name: 'Bachata Frame Studio',
+      photo_url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4',
+      city: 'Paris',
+      bio: 'Event videography for socials, workshops, and performance teams.',
+      website: 'https://bachataframe.example.com',
+      instagram: '@bachataframe',
+      facebook: 'facebook.com/bachataframe',
+      public_email: 'hello@bachataframe.example.com',
+      phone: '+33 6 12 34 56 78',
+    };
+
+    setQuickStart(mockQuickStart);
+    setForm(mockForm);
+
+    toast({
+      title: 'Mock data loaded',
+      description: 'Development sample values have been filled in.',
+    });
+  };
+
   return (
     <div className="min-h-screen pt-20 px-4 pb-24">
       <div className="max-w-2xl mx-auto">
+        {import.meta.env.DEV && (
+          <div className="mb-4 flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={fillMockData}>
+              Fill mock data
+            </Button>
+          </div>
+        )}
+
         {step === 0 && (
           <div className="space-y-6">
             <div className="text-center">
@@ -351,10 +387,10 @@ const CreateVideographerProfile = () => {
                     />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label>Public contact email</Label>
                     <Input
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      value={form.public_email}
+                      onChange={(e) => setForm({ ...form, public_email: e.target.value })}
                       placeholder="you@example.com"
                     />
                   </div>
@@ -387,17 +423,20 @@ const CreateVideographerProfile = () => {
             </div>
 
             <div className="flex justify-center">
-              <AuthStepper
-                returnTo={returnTo}
-                userType="videographer"
-                onAuthenticated={() => setPendingSubmit(true)}
-                showIntentSelect={false}
-                initialIntent="returning"
-                title="Quick finish"
-                subtitle="Sign in to publish."
-                prefilledEmail={form.email.trim() || undefined}
-                skipEmailStepWhenPrefilled
-              />
+              <AuthFormProvider>
+                <AuthStepper
+                  returnTo={returnTo}
+                  userType="videographer"
+                  onAuthenticated={() => setPendingSubmit(true)}
+                  showIntentSelect={false}
+                  initialIntent="returning"
+                  title="Quick finish"
+                  subtitle="Sign in to publish."
+                    prefilledEmail={form.public_email.trim() || undefined}
+                  skipEmailStepWhenPrefilled
+                  requireSignupDetails={false}
+                />
+              </AuthFormProvider>
             </div>
 
             <Button variant="outline" className="w-full" onClick={() => setStep(1)}>

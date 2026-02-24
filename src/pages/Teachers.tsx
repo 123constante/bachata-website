@@ -45,7 +45,7 @@ const Teachers = () => {
   
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    public_email: '',
     specialty: '',
     bio: '',
     instagram: ''
@@ -60,7 +60,7 @@ const Teachers = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.specialty) {
+    if (!formData.name || !formData.specialty) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields.",
@@ -273,9 +273,9 @@ const Teachers = () => {
                 />
                 <Input
                   type="email"
-                  placeholder="Email address *"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Public contact email (optional)"
+                  value={formData.public_email}
+                  onChange={(e) => setFormData({ ...formData, public_email: e.target.value })}
                   className="bg-background/50"
                 />
                 <Input

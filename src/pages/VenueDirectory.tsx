@@ -14,7 +14,7 @@ const VenueDirectory = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entities')
-        .select('id, name, avatar_url, city')
+        .select('id, name, avatar_url, city_id, cities(name)')
         .eq('type', 'venue')
         .order('name');
 
@@ -68,8 +68,8 @@ const VenueDirectory = () => {
                         </AvatarFallback>
                       </Avatar>
                       <p className="font-medium text-foreground truncate">{venue.name}</p>
-                      {venue.city && (
-                        <p className="text-sm text-muted-foreground truncate">{venue.city}</p>
+                      {venue.cities?.name && (
+                        <p className="text-sm text-muted-foreground truncate">{venue.cities.name}</p>
                       )}
                     </CardContent>
                   </Card>

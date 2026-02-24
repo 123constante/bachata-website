@@ -10,21 +10,25 @@ type VendorContractFields = {
 
 export type VendorRow = Database["public"]["Tables"]["vendors"]["Row"] & VendorContractFields;
 
+export type VendorRowWithCity = VendorRow & {
+  cities?: { name: string } | null;
+};
+
 export type VendorPublicCard = Pick<
-  VendorRow,
-  "id" | "business_name" | "city" | "photo_url" | "product_categories" | "upcoming_events" | "ships_international"
+  VendorRowWithCity,
+  "id" | "business_name" | "city_id" | "photo_url" | "product_categories" | "upcoming_events" | "ships_international" | "cities"
 >;
 
 export type VendorPublicDetail = Pick<
-  VendorRow,
+  VendorRowWithCity,
   | "id"
   | "business_name"
-  | "city"
+  | "city_id"
   | "photo_url"
   | "product_categories"
   | "products"
   | "faq"
-  | "email"
+  | "public_email"
   | "whatsapp"
   | "promo_code"
   | "upcoming_events"
@@ -33,6 +37,7 @@ export type VendorPublicDetail = Pick<
   | "website"
   | "instagram"
   | "facebook"
+  | "cities"
 >;
 
 export type VendorProduct = {
@@ -89,7 +94,7 @@ export type VendorDashboardFormState = {
   promo_code: string;
   promo_discount_type: VendorPromoDiscountType;
   promo_discount_value: string;
-  email: string;
+  public_email: string;
   whatsapp: string;
   website: string;
   instagram: string;

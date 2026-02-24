@@ -5,7 +5,7 @@ export const VENDOR_FIELD_GROUPS = {
   media: ["photo_url"] as const,
   products: ["products", "product_categories", "ships_international"] as const,
   promo: ["promo_code", "promo_discount_type", "promo_discount_value"] as const,
-  contact: ["email", "whatsapp", "website", "instagram", "facebook"] as const,
+  contact: ["public_email", "whatsapp", "website", "instagram", "facebook"] as const,
   content: ["faq", "upcoming_events", "team"] as const,
 } as const;
 

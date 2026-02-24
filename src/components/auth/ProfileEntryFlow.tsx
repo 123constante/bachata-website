@@ -5,6 +5,7 @@ import { Sparkles, Sun, Calendar, GraduationCap, Music, Camera, ShoppingBag } fr
 import { useAuth } from "@/hooks/useAuth";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
 import { AuthStepper } from "@/components/auth/AuthStepper";
+import { AuthFormProvider } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -270,14 +271,16 @@ export const ProfileEntryFlow = ({
                     <p className="text-sm text-muted-foreground">Log in with two quick steps.</p>
                   </CardHeader>
                   <CardContent>
-                    <AuthStepper
-                      userType={resolvedUserType}
-                      returnTo={returnTo}
-                      initialIntent="returning"
-                      showIntentSelect={false}
-                      title="Log in"
-                      subtitle="Fast, simple, and private."
-                    />
+                    <AuthFormProvider>
+                      <AuthStepper
+                        userType={resolvedUserType}
+                        returnTo={returnTo}
+                        initialIntent="returning"
+                        showIntentSelect={false}
+                        title="Log in"
+                        subtitle="Fast, simple, and private."
+                      />
+                    </AuthFormProvider>
                   </CardContent>
                 </Card>
                 <Button variant="ghost" className="w-full" onClick={() => setStep(0)}>

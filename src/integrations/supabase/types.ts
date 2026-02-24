@@ -275,7 +275,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           dj_name: string
-          email: string | null
+          public_email: string | null
           facebook: string | null
           faq: string | null
           first_name: string | null
@@ -309,7 +309,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           dj_name: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -343,7 +343,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           dj_name?: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1278,7 +1278,7 @@ export type Database = {
           city: string | null
           city_id: string | null
           created_at: string | null
-          email: string | null
+          public_email: string | null
           facebook: string | null
           faq: string | null
           first_name: string | null
@@ -1306,7 +1306,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string | null
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1334,7 +1334,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string | null
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1559,7 +1559,7 @@ export type Database = {
           city_id: string | null
           country: string | null
           created_at: string | null
-          email: string | null
+          public_email: string | null
           facebook: string | null
           faq: string | null
           first_name: string | null
@@ -1592,7 +1592,7 @@ export type Database = {
           city_id?: string | null
           country?: string | null
           created_at?: string | null
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1625,7 +1625,7 @@ export type Database = {
           city_id?: string | null
           country?: string | null
           created_at?: string | null
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1703,7 +1703,7 @@ export type Database = {
           city: string | null
           city_id: string | null
           created_at: string
-          email: string | null
+          public_email: string | null
           facebook: string | null
           faq: string | null
           id: string
@@ -1727,7 +1727,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           id?: string
@@ -1751,7 +1751,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           id?: string
@@ -1888,7 +1888,7 @@ export type Database = {
           city: string | null
           city_id: string | null
           created_at: string
-          email: string | null
+          public_email: string | null
           facebook: string | null
           faq: string | null
           first_name: string | null
@@ -1911,7 +1911,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -1934,7 +1934,7 @@ export type Database = {
           city?: string | null
           city_id?: string | null
           created_at?: string
-          email?: string | null
+          public_email?: string | null
           facebook?: string | null
           faq?: string | null
           first_name?: string | null
@@ -2273,6 +2273,24 @@ export type Database = {
           going_count: number
           interested_count: number
         }[]
+      }
+      get_event_attendance_counts: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          event_id: string
+          interested_count: number
+          going_count: number
+        }[]
+      }
+      set_attendance: {
+        Args: { p_event_id: string; p_status?: string | null }
+        Returns: {
+          created_at: string | null
+          event_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
       }
       get_event_profile_connections: {
         Args: { p_event_id: string }

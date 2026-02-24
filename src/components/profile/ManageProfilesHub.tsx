@@ -28,7 +28,7 @@ type EntitySearchRow = {
 };
 
 const CLAIM_TABLE_MAP: Record<ClaimableEntityType, string> = {
-  organiser: 'organisers',
+  organiser: 'entities',
   teacher: 'teacher_profiles',
   dj: 'dj_profiles',
 };
@@ -118,11 +118,14 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
       // can drift from migrations. This keeps UI unblocked.
       const normalizedQuery = claimQuery.trim().toLowerCase();
 
-      const { data, error } = await (supabase as any)
+      const query = (supabase as any)
         .from(CLAIM_TABLE_MAP[claimType])
         .select("*")
-        .is("user_id", null)
         .limit(100);
+
+      const { data, error } = claimType === 'organiser'
+        ? await query.eq('type', 'organiser').is('claimed_by', null)
+        : await query.is('user_id', null);
 
       if (error) {
         setClaimError(error.message || "Failed to search profiles.");

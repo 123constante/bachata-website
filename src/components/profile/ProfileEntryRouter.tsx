@@ -138,7 +138,7 @@ export const ProfileEntryRouter = ({
     );
   }
 
-  const isDashboardBright = activeRole === 'dancer' || activeRole === 'vendor';
+  const isDashboardBright = activeRole === 'vendor';
 
   return (
     <div className={`min-h-screen bg-background relative overflow-hidden ${isDashboardBright ? 'dashboard-bright' : ''}`}>

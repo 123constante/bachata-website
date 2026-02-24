@@ -8,7 +8,7 @@ import type {
   VendorDashboardProgressMap,
   VendorDashboardSavePayload,
   VendorDashboardSection,
-  VendorRow,
+  VendorRowWithCity,
 } from "@/modules/vendor/types";
 import { normalizeProducts, normalizePromoDiscountType, normalizePromoDiscountValue } from "@/modules/vendor/utils";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
@@ -81,7 +81,7 @@ export const VendorDashboard = () => {
   } = useUserIds();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [vendor, setVendor] = useState<VendorRow | null>(null);
+  const [vendor, setVendor] = useState<VendorRowWithCity | null>(null);
   const [editingSection, setEditingSection] = useState<ModuleSlot["actionSection"] | null>(null);
     const [editingProfileFocus, setEditingProfileFocus] = useState<ProfileEditorFocus | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("growth");
@@ -126,7 +126,7 @@ export const VendorDashboard = () => {
 
     const { data, error } = await supabase
       .from("vendors")
-      .select("*")
+      .select("*, cities(name)")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -136,7 +136,7 @@ export const VendorDashboard = () => {
       return;
     }
 
-    setVendor((data as VendorRow) || null);
+    setVendor((data as VendorRowWithCity) || null);
     setIsLoading(false);
   }, [user]);
 
@@ -177,9 +177,10 @@ export const VendorDashboard = () => {
   const linkedEventsCount = Array.isArray(vendor?.upcoming_events) ? vendor.upcoming_events.length : 0;
   const hasBusinessProfile = Boolean(vendor?.business_name?.trim());
   const hasLogo = Boolean(vendor?.photo_url?.[0]);
-  const hasContact = Boolean(vendor?.email || vendor?.whatsapp || vendor?.website || vendor?.instagram || vendor?.facebook);
+  const hasContact = Boolean(vendor?.public_email || vendor?.whatsapp || vendor?.website || vendor?.instagram || vendor?.facebook);
   const hasFaq = Boolean(vendor?.faq?.trim());
-  const hasLocation = Boolean(vendor?.city?.trim());
+  const hasLocation = Boolean(vendor?.cities?.name?.trim());
+  const vendorCityName = vendor?.cities?.name || null;
   const hasShipping = Boolean(vendor?.ships_international);
   const shippingStatus = vendor?.ships_international ? "International" : "Local only";
   const teamCount = useMemo(() => {
@@ -192,7 +193,7 @@ export const VendorDashboard = () => {
   const vendorSectionProgress = useMemo<VendorDashboardProgressMap>(() => {
     const hasPromoCode = Boolean(vendor?.promo_code?.trim());
     const hasPromoValue = typeof normalizePromoDiscountValue(vendor?.promo_discount_value) === "number";
-    const hasAnyContact = [vendor?.email, vendor?.whatsapp].some(
+    const hasAnyContact = [vendor?.public_email, vendor?.whatsapp].some(
       (item) => Boolean(item && String(item).trim().length > 0)
     );
     const hasAnySocial = [vendor?.website, vendor?.instagram, vendor?.facebook].some(
@@ -230,7 +231,7 @@ export const VendorDashboard = () => {
     vendor?.promo_discount_value,
     vendor?.website,
     vendor?.whatsapp,
-    vendor?.email,
+    vendor?.public_email,
   ]);
 
   const sectionProgress = useMemo<VendorDashboardProgressMap>(
@@ -238,15 +239,15 @@ export const VendorDashboard = () => {
     [vendorSectionProgress, sectionProgressOverride]
   );
 
-  const contactChannelsCount = [vendor?.email, vendor?.whatsapp, vendor?.website, vendor?.instagram, vendor?.facebook]
+  const contactChannelsCount = [vendor?.public_email, vendor?.whatsapp, vendor?.website, vendor?.instagram, vendor?.facebook]
     .filter((item) => Boolean(item && String(item).trim().length > 0)).length;
 
   const contactSummary = useMemo(() => {
     const channels: string[] = [];
-    if (vendor?.email) channels.push("Email");
+    if (vendor?.public_email) channels.push("Email");
     if (vendor?.whatsapp) channels.push("WhatsApp");
     return channels.length > 0 ? channels.join(", ") : "None";
-  }, [vendor?.email, vendor?.whatsapp]);
+  }, [vendor?.public_email, vendor?.whatsapp]);
 
   const socialSummary = useMemo(() => {
     const links: string[] = [];
@@ -375,7 +376,7 @@ export const VendorDashboard = () => {
       {
         tab: "presence",
         title: "Business Location",
-        description: isLocationReady ? `City: ${vendor?.city}` : "City not set.",
+        description: isLocationReady ? `City: ${vendorCityName}` : "City not set.",
         colSpan: "8",
         rowSpan: "1",
         status: isLocationReady ? "live" : "attention",
@@ -461,7 +462,7 @@ export const VendorDashboard = () => {
         actionSection: "social",
       },
     ];
-  }, [vendor, hasBusinessProfile, hasLocation, hasContact, contactChannelsCount, contactSummary, socialSummary, productsCount, productCategoriesCount, hasShipping, shippingStatus, promoDetails, linkedEventsCount, hasFaq, teamCount, hasLogo]);
+  }, [vendor, vendorCityName, hasBusinessProfile, hasLocation, hasContact, contactChannelsCount, contactSummary, socialSummary, productsCount, productCategoriesCount, hasShipping, shippingStatus, promoDetails, linkedEventsCount, hasFaq, teamCount, hasLogo]);
 
   const openEditor = (
     section?: Exclude<VendorDashboardSection, "advanced">,
@@ -638,7 +639,7 @@ export const VendorDashboard = () => {
               </div>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground line-clamp-1">
-                  Name: {vendor?.business_name || "Not set"} • City: {vendor?.city || "Not set"}
+                  Name: {vendor?.business_name || "Not set"} • City: {vendorCityName || "Not set"}
                 </p>
                 <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => navigate('/create-vendor-profile')}>
                   Use wizard

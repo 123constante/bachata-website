@@ -11,6 +11,7 @@ type AnalyticsEventMap = {
   signup_failed: { step: 2; role: string; reason?: string };
   signup_completed: { role: string; verification: 'session' | 'email_confirmation' };
   auth_email_checked: { source?: string; result: 'valid' | 'invalid' };
+  auth_auto_switched_to_signup: { source?: string; reason: 'email_not_found' };
   auth_email_lookup_routed: { source?: string; route: 'returning' | 'new' | 'fallback' };
   auth_code_send_clicked: { source?: string; route: 'returning' | 'new' | 'unknown' };
   auth_code_verified: { source?: string; route: 'returning' | 'new' | 'unknown' };

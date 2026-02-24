@@ -27,7 +27,7 @@ export const OrganiserDashboard = () => {
         // Fetch the organiser entity claimed by this user
         const { data: entity } = await supabase
           .from('entities')
-          .select('*')
+          .select('id, name, city_id, cities(name), claimed_by, type')
           .eq('claimed_by', user.id)
           .eq('type', 'organiser')
           .maybeSingle();

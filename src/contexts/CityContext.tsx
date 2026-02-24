@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 type CityContextValue = {
@@ -17,7 +17,6 @@ type CityContextValue = {
 const CityContext = createContext<CityContextValue | undefined>(undefined);
 
 const STORAGE_KEY = "activeCitySlug";
-const DEFAULT_CITY_SLUG = "london";
 const cityValidityCache = new Map<string, boolean>();
 
 const RESERVED_SEGMENTS = new Set([
@@ -54,6 +53,9 @@ const RESERVED_SEGMENTS = new Set([
   "calendar",
   "directory",
   "debug",
+  "onboarding",
+  "dashboard",
+  "vendor-dashboard",
 ]);
 
 const getCityFromPath = (pathname: string): string | null => {
@@ -69,8 +71,9 @@ const getCityFromPath = (pathname: string): string | null => {
 
 export const CityProvider = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [citySlug, setCitySlugState] = useState<string | null>(null);
+  const [citySlug, setCitySlugState] = useState<string | null>(
+    () => localStorage.getItem(STORAGE_KEY) || null
+  );
   const isAuthRoute =
     location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
@@ -128,16 +131,8 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (valid) {
           setCitySlug(fromPath.toLowerCase());
-          return;
         }
-
-        setCitySlug(DEFAULT_CITY_SLUG);
-        navigate(`/${DEFAULT_CITY_SLUG}`, { replace: true });
-        return;
-      }
-
-      if (!citySlug) {
-        setCitySlug(DEFAULT_CITY_SLUG);
+        // Invalid slug: do nothing — no navigation, no default city forced
       }
     };
 
@@ -146,20 +141,7 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [citySlug, isAuthRoute, isValidCitySlug, location.pathname, navigate, setCitySlug]);
-
-  useEffect(() => {
-    if (isAuthRoute) {
-      return;
-    }
-
-    const fromPath = getCityFromPath(location.pathname);
-    if (!citySlug || fromPath || location.pathname !== "/") {
-      return;
-    }
-
-    navigate(`/${citySlug}`, { replace: true });
-  }, [citySlug, isAuthRoute, location.pathname, navigate]);
+  }, [isAuthRoute, isValidCitySlug, location.pathname, setCitySlug]);
 
   const value = useMemo(
     () => ({

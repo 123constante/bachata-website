@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Users, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { AuthPromptModal } from '@/components/AuthPromptModal';
+import { attendanceQueryKeys, useAttendance, type AttendanceStatus } from '@/hooks/useAttendance';
 
 interface EventAttendanceButtonsProps {
   eventId: string;
@@ -14,12 +15,13 @@ interface EventAttendanceButtonsProps {
 export const EventAttendanceButtons = ({ eventId }: EventAttendanceButtonsProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [clickedStatus, setClickedStatus] = useState<AttendanceStatus | null>(null);
+  const { currentStatus: userStatus, setStatus, isLoading, error } = useAttendance(eventId);
 
   // Fetch engagement counts using RPC
   const { data: engagement } = useQuery({
-    queryKey: ['event-engagement', eventId],
+    queryKey: attendanceQueryKeys.engagement(eventId),
     queryFn: async () => {
       const { data, error } = await supabase
         .rpc('get_event_engagement', { p_event_id: eventId });
@@ -30,94 +32,41 @@ export const EventAttendanceButtons = ({ eventId }: EventAttendanceButtonsProps)
     enabled: !!eventId,
   });
 
-  // Fetch current user's participation status
-  const { data: userStatus, isLoading: statusLoading } = useQuery({
-    queryKey: ['event-participation', eventId, user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      
-      const { data, error } = await supabase
-        .from('event_participants')
-        .select('status')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data?.status as 'interested' | 'going' | null;
-    },
-    enabled: !!eventId && !!user?.id,
-  });
+  useEffect(() => {
+    if (!error) return;
+    toast({
+      title: 'Something went wrong',
+      description: error,
+      variant: 'destructive',
+    });
+  }, [error, toast]);
 
-  // Mutation to update participation
-  const participationMutation = useMutation({
-    mutationFn: async (newStatus: 'interested' | 'going') => {
-      if (!user?.id) throw new Error('Not authenticated');
-
-      // If same status, remove participation
-      if (userStatus === newStatus) {
-        const { error } = await supabase
-          .from('event_participants')
-          .delete()
-          .eq('event_id', eventId)
-          .eq('user_id', user.id);
-        
-        if (error) throw error;
-        return null;
-      }
-
-      // Upsert participation
-      const { error } = await supabase
-        .from('event_participants')
-        .upsert(
-          {
-            event_id: eventId,
-            user_id: user.id,
-            status: newStatus,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'event_id,user_id' }
-        );
-      
-      if (error) throw error;
-      return newStatus;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event-engagement', eventId] });
-      queryClient.invalidateQueries({ queryKey: ['event-participation', eventId, user?.id] });
-    },
-    onError: (error) => {
-      console.error('Participation error:', error);
-      toast({
-        title: 'Something went wrong',
-        description: 'Could not update your attendance. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleClick = (status: 'interested' | 'going') => {
+  const handleClick = async (status: AttendanceStatus) => {
     if (!user) {
       setShowAuthModal(true);
       return;
     }
-    participationMutation.mutate(status);
+
+    setClickedStatus(status);
+    try {
+      await setStatus(status);
+    } finally {
+      setClickedStatus(null);
+    }
   };
 
   const interestedCount = engagement?.interested_count ?? 0;
   const goingCount = engagement?.going_count ?? 0;
-  const isUpdating = participationMutation.isPending;
-
   return (
     <>
       <div className="flex gap-3">
         <Button
           variant={userStatus === 'interested' ? 'default' : 'outline'}
           className="flex-1"
-          onClick={() => handleClick('interested')}
-          disabled={isUpdating || statusLoading}
+          onClick={() => void handleClick('interested')}
+          disabled={isLoading}
         >
-          {isUpdating && userStatus !== 'interested' ? (
+          {isLoading && clickedStatus === 'interested' ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
             <Heart className={`w-4 h-4 mr-2 ${userStatus === 'interested' ? 'fill-current' : ''}`} />
@@ -127,10 +76,10 @@ export const EventAttendanceButtons = ({ eventId }: EventAttendanceButtonsProps)
         <Button
           variant={userStatus === 'going' ? 'default' : 'outline'}
           className="flex-1"
-          onClick={() => handleClick('going')}
-          disabled={isUpdating || statusLoading}
+          onClick={() => void handleClick('going')}
+          disabled={isLoading}
         >
-          {isUpdating && userStatus !== 'going' ? (
+          {isLoading && clickedStatus === 'going' ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
             <Users className={`w-4 h-4 mr-2 ${userStatus === 'going' ? 'fill-current' : ''}`} />

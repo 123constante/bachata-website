@@ -63,7 +63,7 @@ const VendorDetail = () => {
       const { data, error: fetchError } = await supabase
         .from("vendors")
         .select(
-          "id, business_name, city, photo_url, product_categories, products, faq, email, whatsapp, promo_code, upcoming_events, ships_international, team, website, instagram, facebook",
+          "id, business_name, city_id, cities(name), photo_url, product_categories, products, faq, public_email, whatsapp, promo_code, upcoming_events, ships_international, team, website, instagram, facebook",
         )
         .eq("id", id)
         .maybeSingle();
@@ -129,7 +129,7 @@ const VendorDetail = () => {
     const all = [...normalizeStringArray(vendor.photo_url), ...productImages];
     return Array.from(new Set(all));
   }, [vendor, products]);
-  const cityLabel = [vendor?.city].filter(Boolean).join(", ");
+  const cityLabel = [vendor?.cities?.name].filter(Boolean).join(", ");
   const categoryItems = useMemo(() => normalizeStringArray(vendor?.product_categories), [vendor?.product_categories]);
   const teamItems = useMemo<TeamLinkItem[]>(() => {
     if (!Array.isArray(vendor?.team)) return [];
@@ -162,14 +162,14 @@ const VendorDetail = () => {
     if (vendor?.facebook) {
       actions.push({ label: "Facebook", href: normalizeLink(vendor.facebook), external: true });
     }
-    if (vendor?.email) {
-      actions.push({ label: "Email", href: `mailto:${vendor.email}` });
+    if (vendor?.public_email) {
+      actions.push({ label: "Email", href: `mailto:${vendor.public_email}` });
     }
     if (whatsappHref) {
       actions.push({ label: "WhatsApp", href: whatsappHref, external: true });
     }
     return actions;
-  }, [vendor?.website, vendor?.instagram, vendor?.facebook, vendor?.email, whatsappHref]);
+  }, [vendor?.website, vendor?.instagram, vendor?.facebook, vendor?.public_email, whatsappHref]);
   const websiteLabel = useMemo(() => {
     if (!vendor?.website) return null;
     const normalized = normalizeLink(vendor.website);
@@ -534,8 +534,8 @@ const VendorDetail = () => {
                       </Button>
                     </a>
                   )}
-                  {vendor.email && (
-                    <a href={`mailto:${vendor.email}`}>
+                  {vendor.public_email && (
+                    <a href={`mailto:${vendor.public_email}`}>
                       <Button variant="outline" className="gap-2">
                         <Mail className="h-4 w-4" />
                         Email

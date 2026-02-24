@@ -178,7 +178,7 @@ const Vendors = () => {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {vendors.map((vendor) => {
               const primaryImage = vendor.photo_url?.[0] || FALLBACK_IMAGE;
-              const location = [vendor.city].filter(Boolean).join(", ");
+              const location = [vendor.cities?.name].filter(Boolean).join(", ");
               const vendorName = vendor.business_name || "Untitled vendor";
               const upcomingEventCount = normalizeStringArray(vendor.upcoming_events).length;
 
@@ -217,7 +217,7 @@ const Vendors = () => {
 
                       <div className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        {vendor.city ? (
+                        {vendor.cities?.name ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -225,11 +225,11 @@ const Vendors = () => {
                             className="h-7 px-2 text-xs"
                             onClick={(event) => {
                               event.stopPropagation();
-                              setCity(vendor.city || "");
+                              setCity(vendor.cities?.name || "");
                               setPage(1);
                             }}
                           >
-                            {vendor.city}
+                            {vendor.cities?.name}
                           </Button>
                         ) : (
                           <span>{location || "Location not specified"}</span>

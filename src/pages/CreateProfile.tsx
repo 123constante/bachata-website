@@ -10,7 +10,6 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AvatarUpload } from '@/components/profile/AvatarUpload';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,10 +22,10 @@ import { serializePartnerDetails, serializePhotoValue } from '@/lib/utils';
 import type { Json } from '@/integrations/supabase/types';
 import { buildFullName, getInitials, normalizeUserMetadata } from '@/lib/name-utils';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
-import { FestivalPlansPicker } from '@/components/profile/FestivalPlansPicker';
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { CityPicker } from '@/components/ui/city-picker';
 import { AuthStepper } from '@/components/auth/AuthStepper';
+import { AuthFormProvider } from '@/contexts/AuthFormContext';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
@@ -550,10 +549,8 @@ const formSchema = z.object({
   dancing_start_date: z.string().optional(),
   favorite_styles: z.array(z.string()).optional(),
   partner_role: z.string().optional(), // 'Leader', 'Follower', 'Both'
-  favorite_songs_text: z.string().optional(), // Helper for easy input
-  achievements_text: z.string().optional(), // Helper for easy input
-    festival_plans: z.array(z.string()).optional(),
-    gallery_urls: z.array(z.string()).optional(),
+    favorite_songs_text: z.string().optional(), // Helper for easy input
+    achievements_text: z.string().optional(), // Helper for easy input
   
   // Partner Search Specifics
   looking_for_partner: z.boolean().optional(),
@@ -582,8 +579,7 @@ const CreateProfile = () => {
         const authStep = 4;
         const returnTo = `${location.pathname}${location.search}`;
         const [step, setStep] = useState(user ? 1 : 0);
-        const [pendingSubmit, setPendingSubmit] = useState(false);
-      const [galleryUrlDraft, setGalleryUrlDraft] = useState('');
+                const [pendingSubmit, setPendingSubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
     const [profileError, setProfileError] = useState<string | null>(null);
@@ -619,10 +615,8 @@ const CreateProfile = () => {
       dancing_start_date: '',
       favorite_styles: [],
       partner_role: '',
-      favorite_songs_text: '',
-      achievements_text: '',
-    festival_plans: [],
-            gallery_urls: [],
+    favorite_songs_text: '',
+    achievements_text: '',
       looking_for_partner: false,
       partner_search_role: '',
       partner_search_level: [],
@@ -695,8 +689,6 @@ const CreateProfile = () => {
                 partner_role: data.partner_role || '',
                 favorite_songs_text: favSongs,
                 achievements_text: achievements,
-                festival_plans: Array.isArray(data.festival_plans) ? (data.festival_plans as string[]) : [],
-                gallery_urls: Array.isArray(data.gallery_urls) ? data.gallery_urls : [],
                 looking_for_partner: data.looking_for_partner ?? false,
                 partner_search_role: data.partner_search_role || '',
                 partner_search_level: Array.isArray(data.partner_search_level) ? data.partner_search_level : [],
@@ -809,7 +801,7 @@ const CreateProfile = () => {
         photo_url: serializePhotoValue(data.photo_url),
         is_public: data.is_public,
                 hide_surname: false,
-            city: canonicalCity.cityName,
+        city: canonicalCity.cityName,
         city_id: canonicalCity.cityId,
         nationality: data.nationality || null,
         dancing_start_date: data.dancing_start_date || null,
@@ -819,8 +811,6 @@ const CreateProfile = () => {
         
         achievements: achievements,
         favorite_songs: favorite_songs,
-        festival_plans: data.festival_plans?.length ? data.festival_plans : null,
-        gallery_urls: data.gallery_urls?.length ? data.gallery_urls : null,
 
         looking_for_partner: data.looking_for_partner || false,
         partner_search_role: canonicalPartnerSearchRole === 'Leader' || canonicalPartnerSearchRole === 'Follower' ? canonicalPartnerSearchRole : null,
@@ -957,8 +947,6 @@ const CreateProfile = () => {
                 form.setValue('partner_role', samplePartnerRole, { shouldDirty: true });
                 form.setValue('favorite_songs_text', 'Me Rehúso - Danny Ocean\nInmortal - Aventura\nBachata en Fukuoka - Juan Luis Guerra', { shouldDirty: true });
                 form.setValue('achievements_text', 'Regional Social Night Finalist 2024\nCommunity Showcase Winner 2023', { shouldDirty: true });
-                form.setValue('festival_plans', [], { shouldDirty: true });
-                form.setValue('gallery_urls', ['https://images.unsplash.com/photo-1508804185872-d7badad00f7d'], { shouldDirty: true });
 
                 form.setValue('instagram', 'https://instagram.com/mock.dancer', { shouldDirty: true });
                 form.setValue('facebook', 'https://facebook.com/mock.dancer', { shouldDirty: true });
@@ -980,7 +968,7 @@ const CreateProfile = () => {
         };
 
     return (
-        <div className='auth-bright min-h-screen pb-24 relative overflow-hidden'>
+        <div className='auth-noir min-h-screen pb-24 relative overflow-hidden'>
             <div className='absolute inset-0 bg-[radial-gradient(circle_at_top,_#FFF3D8,_transparent_60%)]' />
             <div className='absolute -top-16 -right-20 h-72 w-72 rounded-full bg-amber-200/70 blur-3xl' />
             <div className='absolute bottom-0 left-0 h-80 w-80 rounded-full bg-sky-200/70 blur-3xl' />
@@ -1292,34 +1280,6 @@ const CreateProfile = () => {
                                     )}
                                 />
 
-                                <FormField
-                                    control={form.control}
-                                    name='festival_plans'
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <div className='flex items-center gap-2 mb-4'>
-                                            <div className='p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg'>
-                                                <Calendar className='w-5 h-5 text-blue-600 dark:text-blue-300' />
-                                            </div>
-                                            <div>
-                                                <FormLabel className='text-xl font-bold m-0'>Festival Plans <span className='text-xs text-muted-foreground'>(optional)</span></FormLabel>
-                                                <FormDescription className='text-sm m-0'>Pin the festivals you plan to attend.</FormDescription>
-                                            </div>
-                                        </div>
-                                        <FormControl>
-                                            <FestivalPlansPicker
-                                                value={field.value || []}
-                                                                                                onChange={(value) => {
-                                                                                                    field.onChange(value);
-                                                                                                    if (value?.length) triggerCompletionConfetti();
-                                                                                                }}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-
                             </CardContent>
                         </Card>
 
@@ -1366,52 +1326,6 @@ const CreateProfile = () => {
                                     </FormItem>
                                     )}
                                 />
-
-                                                                <FormField
-                                                                        control={form.control}
-                                                                        name='gallery_urls'
-                                                                        render={({ field }) => {
-                                                                            const currentUrls = field.value || [];
-
-                                                                            return (
-                                                                            <FormItem>
-                                                                                <FormLabel>Gallery URLs <span className='text-xs text-muted-foreground'>(optional)</span></FormLabel>
-                                                                                <FormControl>
-                                                                                    <Input
-                                                                                        placeholder='Paste image URL and press Enter'
-                                                                                        value={galleryUrlDraft}
-                                                                                        onChange={(e) => setGalleryUrlDraft(e.target.value)}
-                                                                                        onKeyDown={(e) => {
-                                                                                            if (e.key === 'Enter') {
-                                                                                                e.preventDefault();
-                                                                                                const trimmed = galleryUrlDraft.trim();
-                                                                                                if (!trimmed) return;
-                                                                                                if (currentUrls.includes(trimmed)) {
-                                                                                                    setGalleryUrlDraft('');
-                                                                                                    return;
-                                                                                                }
-                                                                                                field.onChange([...currentUrls, trimmed]);
-                                                                                                setGalleryUrlDraft('');
-                                                                                            }
-                                                                                        }}
-                                                                                    />
-                                                                                </FormControl>
-                                                                                <div className='flex flex-wrap gap-2 mt-2'>
-                                                                                    {currentUrls.map((url, index) => (
-                                                                                        <Badge
-                                                                                            key={`gallery-url-${index}`}
-                                                                                            variant='secondary'
-                                                                                            className='cursor-pointer'
-                                                                                            onClick={() => field.onChange(currentUrls.filter((_, itemIndex) => itemIndex !== index))}
-                                                                                        >
-                                                                                            {url} ×
-                                                                                        </Badge>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </FormItem>
-                                                                            );
-                                                                        }}
-                                                                />
 
                                 <FormField
                                     control={form.control}
@@ -1808,15 +1722,18 @@ const CreateProfile = () => {
                         </div>
 
                         <div className='flex justify-center'>
-                            <AuthStepper
-                                returnTo={returnTo}
-                                userType='dancer'
-                                onAuthenticated={() => setPendingSubmit(true)}
-                                showIntentSelect={false}
-                                initialIntent='returning'
-                                title='Quick unlock'
-                                subtitle='Sign in to publish.'
-                            />
+                            <AuthFormProvider>
+                                <AuthStepper
+                                    returnTo={returnTo}
+                                    userType='dancer'
+                                    onAuthenticated={() => setPendingSubmit(true)}
+                                    showIntentSelect={false}
+                                    initialIntent='returning'
+                                    title='Quick unlock'
+                                    subtitle='Sign in to publish.'
+                                    requireSignupDetails={false}
+                                />
+                            </AuthFormProvider>
                         </div>
 
                         <Button type='button' variant='outline' onClick={() => setStep(3)} className='w-full'>

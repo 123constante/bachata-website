@@ -13,6 +13,7 @@ import {
   type VendorDashboardSection,
   type VendorProduct,
   type VendorRow,
+  type VendorRowWithCity,
   type VendorPromoDiscountType,
 } from "@/modules/vendor/types";
 import {
@@ -49,7 +50,7 @@ const emptyForm: VendorDashboardFormState = {
   promo_code: "",
   promo_discount_type: "percent",
   promo_discount_value: "",
-  email: "",
+  public_email: "",
   whatsapp: "",
   website: "",
   instagram: "",
@@ -63,7 +64,7 @@ const emptyForm: VendorDashboardFormState = {
 const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   id: vendor.id,
   business_name: vendor.business_name || "",
-  city: vendor.city || "",
+  city: (vendor as VendorRowWithCity).cities?.name || "",
   photo_url: normalizeStringArray(vendor.photo_url),
   products: normalizeProducts(vendor.products),
   product_categories: normalizeStringArray(vendor.product_categories),
@@ -72,7 +73,7 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   promo_discount_type: vendor.promo_discount_type || "percent",
   promo_discount_value:
     typeof vendor.promo_discount_value === "number" ? String(vendor.promo_discount_value) : "",
-  email: vendor.email || "",
+  public_email: vendor.public_email || "",
   whatsapp: vendor.whatsapp || "",
   website: vendor.website || "",
   instagram: vendor.instagram || "",
@@ -349,7 +350,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
       const { data, error: fetchError } = await supabase
         .from("vendors")
-        .select("*")
+        .select("*, cities(name)")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -739,7 +740,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     form.promo_discount_value.trim().length > 0 && promoValueParsed === null;
   const normalizedWebsite = normalizeHttpUrl(form.website);
   const hasEmailFormatError =
-    form.email.trim().length > 0 && !EMAIL_PATTERN.test(form.email.trim());
+    form.public_email.trim().length > 0 && !EMAIL_PATTERN.test(form.public_email.trim());
   const hasWebsiteFormatError =
     form.website.trim().length > 0 && normalizedWebsite === null;
   const hasWhatsappFormatHint =
@@ -1088,7 +1089,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
     const hasPromoCode = form.promo_code.trim().length > 0;
     const promoComplete = !hasPromoCode || (toNullableNumber(form.promo_discount_value) !== null);
-    const hasAnyContact = [form.email, form.whatsapp].some((item) => item.trim().length > 0);
+    const hasAnyContact = [form.public_email, form.whatsapp].some((item) => item.trim().length > 0);
     const hasAnySocial = [form.website, form.instagram, form.facebook].some((item) => item.trim().length > 0);
     const hasTeamMembers = parsedTeamDisplay.length > 0;
 
@@ -1116,7 +1117,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     currentLeaderDancerId,
     form.business_name,
     form.city,
-    form.email,
+    form.public_email,
     form.facebook,
     form.faq,
     form.id,
@@ -1291,7 +1292,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
       const payload = {
         business_name: businessName,
-        city: canonicalCity.cityName,
+        city_id: canonicalCity.cityId,
         photo_url: photoUrl.length > 0 ? photoUrl : null,
         product_categories: categories.length > 0 ? categories : null,
         products: normalizedProductsJson,
@@ -1299,7 +1300,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         promo_code: form.promo_code.trim() || null,
         promo_discount_type: form.promo_code.trim() ? form.promo_discount_type.trim() || null : null,
         promo_discount_value: form.promo_code.trim() ? promoValue : null,
-        email: form.email.trim() || null,
+        public_email: form.public_email.trim() || null,
         whatsapp: form.whatsapp.trim() || null,
         website: normalizedWebsite,
         instagram: normalizeSocialUrl('instagram', form.instagram) || null,
@@ -1310,46 +1311,23 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         team: parsedTeam,
       };
 
-      const saveWithSchemaFallback = async (): Promise<VendorRow> => {
-        const missingColumnPattern = /Could not find the '([^']+)' column of 'vendors'/i;
-        const mutablePayload: Record<string, any> = { ...payload };
+      const { data: savedVendorData, error: saveError } = isEditMode && form.id
+        ? await supabase
+            .from("vendors")
+            .update(payload)
+            .eq("id", form.id)
+            .eq("user_id", user.id)
+            .select("*")
+            .single()
+        : await supabase
+            .from("vendors")
+            .insert({ ...payload, user_id: user.id })
+            .select("*")
+            .single();
 
-        for (let attempt = 0; attempt < 8; attempt += 1) {
-          const response = isEditMode && form.id
-            ? await supabase
-                .from("vendors")
-                .update(mutablePayload)
-                .eq("id", form.id)
-                .eq("user_id", user.id)
-                .select("*")
-                .single()
-            : await supabase
-                .from("vendors")
-                .insert({ ...mutablePayload, user_id: user.id })
-                .select("*")
-                .single();
+      if (saveError) throw saveError;
 
-          if (!response.error) {
-            return response.data as VendorRow;
-          }
-
-          if (isRlsError(response.error)) {
-            throw response.error;
-          }
-
-          const missingColumn = String(response.error.message || "").match(missingColumnPattern)?.[1];
-          if (missingColumn && Object.prototype.hasOwnProperty.call(mutablePayload, missingColumn)) {
-            delete mutablePayload[missingColumn];
-            continue;
-          }
-
-          throw response.error;
-        }
-
-        throw new Error("Vendor profile schema is outdated. Save failed after schema fallback attempts.");
-      };
-
-      const savedVendor = await saveWithSchemaFallback();
+      const savedVendor = savedVendorData as VendorRow;
       setForm(toFormState(savedVendor));
       setTeamInput(savedVendor?.team ? JSON.stringify(savedVendor.team, null, 2) : "");
       setPrimaryFile(null);
@@ -1970,10 +1948,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
             <div>
-              <Label>Email</Label>
+              <Label>Public contact email</Label>
               <Input
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                value={form.public_email}
+                onChange={(e) => setForm((prev) => ({ ...prev, public_email: e.target.value }))}
                 onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
               />
               {showEmailFormatError && (
