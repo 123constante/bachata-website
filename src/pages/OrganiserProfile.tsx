@@ -69,13 +69,17 @@ const OrganiserProfile = () => {
     enabled: !!id,
   });
 
-  // Handle claiming - simplified: just set claimed_by
+  // Handle claiming directly on entities ownership
   const handleClaim = async () => {
     if (!id || !user?.id) return;
     
     try {
       const { error } = await supabase
-        .rpc('claim_organiser_profile', { p_organiser_id: id });
+        .from('entities')
+        .update({ claimed_by: user.id })
+        .eq('id', id)
+        .eq('type', 'organiser')
+        .is('claimed_by', null);
       
       if (error) throw error;
       

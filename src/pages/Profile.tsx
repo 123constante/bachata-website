@@ -51,14 +51,14 @@ const Profile = () => {
 
     const handleConfirmSignOut = async () => {
         setIsSigningOut(true);
+        setIsSignOutOpen(false);
+        localStorage.removeItem('profile_entry_role');
+        localStorage.removeItem(LAST_ACTIVE_ROLE_KEY);
+        navigate('/', { replace: true });
         try {
             await signOut();
-            localStorage.removeItem('profile_entry_role');
-            localStorage.removeItem(LAST_ACTIVE_ROLE_KEY);
-            navigate('/');
         } finally {
             setIsSigningOut(false);
-            setIsSignOutOpen(false);
         }
     };
 

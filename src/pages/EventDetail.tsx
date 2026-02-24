@@ -177,7 +177,7 @@ const EventDetail = () => {
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id,name,date,description,location,city,country,cover_image_url,photo_url,gallery_urls,website,instagram_url,facebook_url,ticket_url,pricing,payment_methods,promo_codes,faq,type,timezone,start_time,end_time,venue_id,key_times,meta_data,organiser_id,organiser_ids,teacher_ids,dj_ids'
+          'id,name,date,description,location,city,country,cover_image_url,photo_url,gallery_urls,website,instagram_url,facebook_url,ticket_url,pricing,payment_methods,promo_codes,faq,type,timezone,start_time,end_time,venue_id,key_times,meta_data'
         )
         .eq('id', id)
         .maybeSingle();

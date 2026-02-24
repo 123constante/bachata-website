@@ -91,6 +91,37 @@ const CreateOrganiserProfile = () => {
     }
   }, [preAuthKey, quickStart.primaryVenue]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const metadata = (user.user_metadata || {}) as Record<string, unknown>;
+      const metadataFirstName = typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
+      const metadataCityId = typeof metadata.city_id === 'string' ? metadata.city_id.trim() : '';
+      const metadataCity = typeof metadata.city === 'string' ? metadata.city.trim() : '';
+
+      const { data: ownDancer } = await supabase
+        .from('dancers')
+        .select('first_name, city, city_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      setForm((prev) => ({
+        ...prev,
+        name: prev.name || ownDancer?.first_name?.trim() || metadataFirstName || '',
+        city: prev.city || ownDancer?.city_id || metadataCityId || ownDancer?.city || metadataCity || '',
+      }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.user_metadata]);
+
   const submitForm = async () => {
     if (!form.name.trim()) {
       toast({
@@ -297,14 +328,16 @@ const CreateOrganiserProfile = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <Label>Name</Label>
+                    <p className="text-xs text-muted-foreground">Public organiser name (can differ from your personal profile).</p>
                     <Input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="Your organiser name"
+                      placeholder="Your organiser or brand name"
                     />
                   </div>
                   <div>
                     <Label>City</Label>
+                    <p className="text-xs text-muted-foreground">Used for your organiser listing location.</p>
                     <CityPicker
                       value={form.city}
                       onChange={(city) => setForm({ ...form, city })}
