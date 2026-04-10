@@ -22,7 +22,7 @@ type FestivalEvent = {
   city: string | null;
   date: string | null;
   start_time: string | null;
-  cover_image_url: string | null;
+  poster_url: string | null;
 };
 
 type AttendanceCounts = {
@@ -94,10 +94,10 @@ const FestivalHub = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, city, date, start_time, cover_image_url')
+        .select('id, name, city, date, start_time, poster_url')
         .eq('type', 'festival')
         .eq('is_published', true)
-        .order('date', { ascending: true });
+        .order('start_time', { ascending: true });
 
       if (error) throw error;
       return (data || []) as FestivalEvent[];

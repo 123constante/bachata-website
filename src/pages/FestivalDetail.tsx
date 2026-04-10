@@ -20,7 +20,7 @@ type FestivalEvent = {
   city: string | null;
   date: string | null;
   start_time: string | null;
-  cover_image_url: string | null;
+  poster_url: string | null;
   description: string | null;
 };
 
@@ -52,7 +52,7 @@ const FestivalDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, city, date, start_time, cover_image_url, description')
+        .select('id, name, city, date, start_time, poster_url, description')
         .eq('id', festivalId)
         .eq('type', 'festival')
         .maybeSingle();
