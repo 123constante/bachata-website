@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Clock, Phone, Globe, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/ScrollReveal';
+import { useCity } from '@/contexts/CityContext';
 
 // Mock venue data - will be replaced with real data later
 const venueData: Record<string, {
@@ -72,6 +73,8 @@ const venueData: Record<string, {
 
 const Venue = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { citySlug } = useCity();
+  const partiesPath = citySlug ? `/${citySlug}/parties` : '/parties';
   const venue = slug ? venueData[slug] : null;
 
   if (!venue) {
@@ -79,7 +82,7 @@ const Venue = () => {
       <div className="min-h-screen flex items-center justify-center pt-20">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Venue Not Found</h1>
-          <Link to="/parties" className="text-primary hover:underline">
+          <Link to={partiesPath} className="text-primary hover:underline">
             â† Back to Events
           </Link>
         </div>
@@ -88,7 +91,7 @@ const Venue = () => {
   }
 
   return (
-    <div className="min-h-screen pt-20">
+    <div className="min-h-screen pt-20 pb-24 overflow-x-hidden">
       {/* Hero Section */}
       <div className="relative h-[40vh] bg-gradient-to-b from-primary/20 to-background">
         <div className="absolute inset-0 bg-[url('/placeholder.svg')] bg-cover bg-center opacity-20" />
@@ -96,7 +99,7 @@ const Venue = () => {
         
         {/* Back Button */}
         <div className="absolute top-6 left-6 z-10">
-          <Link to="/parties">
+          <Link to={partiesPath}>
             <Button variant="outline" size="sm" className="backdrop-blur-sm bg-background/50">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Events

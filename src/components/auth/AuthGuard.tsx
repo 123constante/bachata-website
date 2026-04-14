@@ -43,9 +43,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
       setIsCheckingOnboarding(true);
       const { data: dancer } = await supabase
-        .from("dancers")
-        .select("first_name, city, city_id, meta_data")
-        .eq("user_id", user.id)
+        .from("dancer_profiles")
+        .select("first_name, based_city_id, meta_data")
+        .eq("created_by", user.id)
         .maybeSingle();
 
       if (cancelled) return;

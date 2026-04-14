@@ -1,15 +1,9 @@
 import { motion } from 'framer-motion';
-import { Calendar, Users, Moon, User } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { trackAnalyticsEvent } from '@/lib/analytics';
-
-const tabRoutes: Record<string, string> = {
-  calendar: '/',
-  dancers: '/dancers',
-  tonight: '/tonight',
-  profile: '/profile',
-};
+import { useCity } from '@/contexts/CityContext';
 
 const getActiveTab = (pathname: string): string | null => {
   if (pathname === '/') return 'calendar';
@@ -24,14 +18,19 @@ const MobileBottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading } = useAuth();
+  const { citySlug } = useCity();
+
+  const tabRoutes: Record<string, string> = {
+    calendar: citySlug ? `/${citySlug}` : '/',
+    dancers: '/dancers',
+    tonight: citySlug ? `/${citySlug}/tonight` : '/tonight',
+    profile: '/profile',
+  };
 
   const activeTab = getActiveTab(location.pathname);
 
   const navItems = [
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'dancers', label: 'Dancers', icon: Users },
-    { id: 'tonight', label: 'Tonight', icon: Moon },
-    { id: 'profile', label: 'Profile', icon: User },
   ];
 
   const handleTabChange = (tabId: string) => {

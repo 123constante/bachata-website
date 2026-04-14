@@ -100,7 +100,8 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
   };
 
   return (
-    <motion.div 
+    <>
+    <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
@@ -414,5 +415,18 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
       )}
 
     </motion.div>
+
+    {/* Event-level appearances from event_profile_links (dancer role).
+        dancer.id === dancer_profiles.id, which is the profile_id stored in
+        event_profile_links for profile_type = 'dancer'. */}
+    <div className="mt-6">
+      <ProfileEventTimeline
+        personType="dancer"
+        personId={dancer.id}
+        title="Event appearances"
+        emptyText="No event appearances yet."
+      />
+    </div>
+    </>
   );
 };

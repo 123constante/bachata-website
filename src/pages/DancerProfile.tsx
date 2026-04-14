@@ -54,8 +54,8 @@ const DancerProfile = () => {
 
       try {
         const { data, error } = await supabase
-          .from("dancers")
-          .select("id, user_id, first_name, surname, city, nationality, years_dancing, dancing_start_date, favorite_styles, partner_role, looking_for_partner, instagram, facebook, photo_url, hide_surname, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, is_public, verified")
+          .from("dancer_profiles")
+          .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, cities!based_city_id(name)")
           .eq("id", id)
           .maybeSingle();
 
@@ -76,7 +76,7 @@ const DancerProfile = () => {
   }, [id]);
 
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
-  const dancerUserId = dancer?.user_id ?? null;
+  const dancerUserId = dancer?.created_by ?? null;
 
   const { data: attendanceRows = [] } = useQuery({
     queryKey: ["dancer-public-attendance", dancerUserId],

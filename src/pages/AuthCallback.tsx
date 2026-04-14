@@ -73,9 +73,9 @@ const AuthCallback = () => {
         const preferredRole = resolveRolePreference(pendingRole, meta.user_type);
 
         const { data: dancer } = await supabase
-          .from("dancers")
-          .select("id, first_name, city, city_id, meta_data")
-          .eq("user_id", user.id)
+          .from("dancer_profiles")
+          .select("id, first_name, based_city_id, meta_data")
+          .eq("created_by", user.id)
           .maybeSingle();
 
         if (dancer?.id) {
@@ -121,9 +121,9 @@ const AuthCallback = () => {
             });
 
             const { data: ensuredDancer } = await supabase
-              .from("dancers")
+              .from("dancer_profiles")
               .select("id, meta_data")
-              .eq("user_id", user.id);
+              .eq("created_by", user.id);
 
             const dancerRow = Array.isArray(ensuredDancer) ? ensuredDancer[0] : null;
             const existingMeta = (dancerRow?.meta_data && typeof dancerRow.meta_data === "object")
@@ -132,7 +132,7 @@ const AuthCallback = () => {
 
             if (dancerRow?.id) {
               await supabase
-                .from("dancers")
+                .from("dancer_profiles")
                 .update({
                   meta_data: {
                     ...existingMeta,

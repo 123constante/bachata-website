@@ -103,9 +103,9 @@ const CreateOrganiserProfile = () => {
       const metadataCity = typeof metadata.city === 'string' ? metadata.city.trim() : '';
 
       const { data: ownDancer } = await supabase
-        .from('dancers')
-        .select('first_name, city, city_id')
-        .eq('user_id', user.id)
+        .from('dancer_profiles')
+        .select('first_name, based_city_id')
+        .eq('created_by', user.id)
         .maybeSingle();
 
       if (cancelled) return;
@@ -113,7 +113,7 @@ const CreateOrganiserProfile = () => {
       setForm((prev) => ({
         ...prev,
         name: prev.name || ownDancer?.first_name?.trim() || metadataFirstName || '',
-        city: prev.city || ownDancer?.city_id || metadataCityId || ownDancer?.city || metadataCity || '',
+        city: prev.city || ownDancer?.based_city_id || metadataCityId || metadataCity || '',
       }));
     })();
 

@@ -1,0 +1,258 @@
+{
+  "rpcColumns": [
+    "event_id",
+    "name",
+    "photo_url",
+    "location",
+    "start_time",
+    "end_time",
+    "meta_data",
+    "key_times",
+    "type",
+    "has_party",
+    "has_class",
+    "class_start",
+    "class_end",
+    "party_start",
+    "party_end",
+    "city_slug",
+    "cover_image_url"
+  ],
+  "eventColumns": [
+    "id",
+    "name",
+    "description",
+    "venue_id",
+    "is_published",
+    "created_at",
+    "created_by",
+    "dancer_ids",
+    "facebook_url",
+    "has_guestlist",
+    "has_raffle",
+    "instagram_url",
+    "payment_methods",
+    "photographer_ids",
+    "pricing",
+    "recurrence",
+    "ticket_url",
+    "user_id",
+    "website",
+    "guestlist_config",
+    "key_times",
+    "promo_codes",
+    "raffle_config",
+    "tickets",
+    "schedule_type",
+    "festival_config",
+    "is_active",
+    "meta_data",
+    "type",
+    "attendance_count",
+    "date",
+    "start_time",
+    "end_time",
+    "faq",
+    "country",
+    "timezone",
+    "city_slug",
+    "lifecycle_status",
+    "updated_at",
+    "city_id",
+    "poster_url",
+    "parent_event_id",
+    "source_occurrence_id",
+    "location",
+    "city"
+  ],
+  "byName": {
+    "Mock Party [23:39:41]": {
+      "eventCount": 1,
+      "rpcCount": 1,
+      "events": [
+        {
+          "id": "cfee4831-e188-4862-b845-c1e4bd48e18d",
+          "name": "Mock Party [23:39:41]",
+          "is_active": true,
+          "type": "standard",
+          "start_time": "2026-05-04T21:00:00+00:00",
+          "end_time": "2026-05-05T05:00:00+00:00",
+          "key_times_col": null,
+          "meta_key_times": {
+            "party": {
+              "end": "05:00",
+              "start": "22:00",
+              "active": true
+            },
+            "classes": {
+              "end": "22:00",
+              "start": "21:00",
+              "active": true
+            }
+          },
+          "city_slug": "london-gb"
+        }
+      ],
+      "rpcRows": [
+        {
+          "event_id": "cfee4831-e188-4862-b845-c1e4bd48e18d",
+          "name": "Mock Party [23:39:41]",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-05-04T21:00:00+00:00",
+          "end_time": "2026-05-05T05:00:00+00:00",
+          "city_slug": "london-gb"
+        }
+      ]
+    },
+    "tues": {
+      "eventCount": 1,
+      "rpcCount": 53,
+      "events": [
+        {
+          "id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "is_active": true,
+          "type": "standard",
+          "start_time": "2026-04-06T21:00:00+00:00",
+          "end_time": "2027-04-14T05:00:00+00:00",
+          "key_times_col": null,
+          "meta_key_times": {
+            "party": {
+              "end": "05:00",
+              "start": "22:00",
+              "active": true
+            },
+            "classes": {
+              "end": "22:00",
+              "start": "21:00",
+              "active": true
+            }
+          },
+          "city_slug": "cordoba-ar"
+        }
+      ],
+      "rpcRows": [
+        {
+          "event_id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-04-06T21:00:00+00:00",
+          "end_time": "2026-04-15T05:00:00+00:00",
+          "city_slug": "london-gb"
+        },
+        {
+          "event_id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-04-13T21:00:00+00:00",
+          "end_time": "2026-04-22T05:00:00+00:00",
+          "city_slug": "london-gb"
+        },
+        {
+          "event_id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-04-20T21:00:00+00:00",
+          "end_time": "2026-04-29T05:00:00+00:00",
+          "city_slug": "london-gb"
+        },
+        {
+          "event_id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-04-27T21:00:00+00:00",
+          "end_time": "2026-05-06T05:00:00+00:00",
+          "city_slug": "london-gb"
+        },
+        {
+          "event_id": "a93ecee3-9ca8-4c9c-a858-e79482d98657",
+          "name": "tues",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-05-04T21:00:00+00:00",
+          "end_time": "2026-05-13T05:00:00+00:00",
+          "city_slug": "london-gb"
+        }
+      ]
+    },
+    "brand": {
+      "eventCount": 1,
+      "rpcCount": 1,
+      "events": [
+        {
+          "id": "2cbf5df7-7aab-4850-8c74-70afccd22b90",
+          "name": "brand",
+          "is_active": true,
+          "type": "standard",
+          "start_time": "2026-04-17T21:00:00+00:00",
+          "end_time": "2026-04-18T05:00:00+00:00",
+          "key_times_col": null,
+          "meta_key_times": {
+            "party": {
+              "end": "05:00",
+              "start": "22:00",
+              "active": true
+            },
+            "classes": {
+              "end": "22:00",
+              "start": "21:00",
+              "active": true
+            }
+          },
+          "city_slug": "cordoba-ar"
+        }
+      ],
+      "rpcRows": [
+        {
+          "event_id": "2cbf5df7-7aab-4850-8c74-70afccd22b90",
+          "name": "brand",
+          "has_party": false,
+          "has_class": false,
+          "class_start": null,
+          "class_end": null,
+          "party_start": null,
+          "party_end": null,
+          "key_times": {},
+          "start_time": "2026-04-17T21:00:00+00:00",
+          "end_time": "2026-04-18T05:00:00+00:00",
+          "city_slug": "cordoba-ar"
+        }
+      ]
+    }
+  }
+}

@@ -12,9 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import Footer from '@/components/Footer';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
-import { cn, getPhotoUrl, getNationalityCode } from '@/lib/utils';
+import { cn, getNationalityCode } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,13 +24,12 @@ type Dancer = {
   first_name: string;
   surname: string | null;
   favorite_styles: string[] | null;
-  years_dancing: string | null;
-  photo_url: string[] | null;
+  dance_started_year: number | null;
+  avatar_url: string | null;
   looking_for_partner: boolean | null;
-  city: string | null;
+  cities: { name: string } | null;
   nationality: string | null;
-  partner_role: string | null;
-  hide_surname: boolean | null;
+  dance_role: string | null;
 };
 
 type FilterType = 'all' | 'name' | 'role' | 'style' | 'nationality' | 'city';
@@ -86,8 +84,8 @@ const Dancers = () => {
     const fetchDancers = async () => {
       try {
         const { data, error } = await supabase
-          .from('dancers')
-          .select('id, first_name, surname, favorite_styles, years_dancing, photo_url, looking_for_partner, city, nationality, partner_role, hide_surname')
+          .from('dancer_profiles')
+          .select('id, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -117,8 +115,8 @@ const Dancers = () => {
     [dancers]
   );
 
-  const uniqueCities = useMemo(() => 
-    [...new Set(dancers.map(d => d.city).filter(Boolean) as string[])].sort(),
+  const uniqueCities = useMemo(() =>
+    [...new Set(dancers.map(d => d.cities?.name).filter(Boolean) as string[])].sort(),
     [dancers]
   );
 
@@ -257,7 +255,7 @@ const Dancers = () => {
         return fullName.toLowerCase().includes(searchName.toLowerCase());
       }
       if (activeFilter === 'role' && selectedRole) {
-        return dancer.partner_role === selectedRole;
+        return dancer.dance_role === selectedRole;
       }
       if (activeFilter === 'style' && selectedStyle) {
         return dancer.favorite_styles?.includes(selectedStyle);
@@ -266,7 +264,7 @@ const Dancers = () => {
         return dancer.nationality === selectedNationality;
       }
       if (activeFilter === 'city' && selectedCity) {
-        return dancer.city === selectedCity;
+        return dancer.cities?.name === selectedCity;
       }
       return true;
     });
@@ -287,9 +285,6 @@ const Dancers = () => {
   };
 
   const getDisplayName = (dancer: Dancer) => {
-    if (dancer.hide_surname && dancer.surname) {
-      return `${dancer.first_name} ${dancer.surname.charAt(0)}.`;
-    }
     return buildFullName(dancer.first_name, dancer.surname);
   };
 
@@ -688,8 +683,8 @@ const Dancers = () => {
                         whileHover={{ scale: 1.2, rotate: 10 }}
                         transition={{ type: 'spring', stiffness: 300 }}
                       >
-                        {getPhotoUrl(dancer.photo_url) ? (
-                          <img src={getPhotoUrl(dancer.photo_url)!} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" />
+                        {dancer.avatar_url ? (
+                          <img src={dancer.avatar_url} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" />
                         ) : (
                           getAvatarEmoji(dancer.first_name)
                         )}
@@ -701,9 +696,9 @@ const Dancers = () => {
                       {getDisplayName(dancer)}
                     </h3>
                     <div className="flex flex-col items-center gap-1 mt-1">
-                      {dancer.partner_role && (
+                      {dancer.dance_role && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary/30 text-secondary-foreground border border-secondary/20">
-                          {dancer.partner_role}
+                          {dancer.dance_role}
                         </span>
                       )}
                       <div className="hidden md:flex flex-wrap items-center justify-center gap-1">
@@ -894,7 +889,6 @@ const Dancers = () => {
       </section>
 
       {/* Footer */}
-      <Footer />
     </div>
   );
 };

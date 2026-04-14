@@ -28,48 +28,6 @@ interface Event {
   liveStatus: "starting-soon" | "live" | "popular";
 }
 
-const mockTonightEvents: Event[] = [
-  {
-    id: 1,
-    name: "Bachata Sensual Night",
-    location: "Bar Salsa Temple, London",
-    time: "21:00 - 02:00",
-    image: "https://images.unsplash.com/photo-1546707012-c46675f12716",
-    attendees: 142,
-    tags: ["Bachata", "Sensual", "Class"],
-    description: "The biggest Monday night party in London. 3 rooms of dance.",
-    organizer: "Latin Collective",
-    leadFollowRatio: 0.45,
-    liveStatus: "live"
-  },
-  {
-    id: 2,
-    name: "Salsa Fusion Underground",
-    location: "The Vaults, Waterloo",
-    time: "20:00 - 01:00",
-    image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7",
-    attendees: 89,
-    tags: ["Salsa", "Cuban", "Social"],
-    description: "Underground vibes with live percussion.",
-    organizer: "Mambo City",
-    leadFollowRatio: 0.60,
-    liveStatus: "starting-soon"
-  },
-  {
-    id: 3,
-    name: "Kizomba Connection",
-    location: "Flow Dance, Oval",
-    time: "21:30 - 03:00",
-    image: "https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9",
-    attendees: 65,
-    tags: ["Kizomba", "Urban", "Workshop"],
-    description: "Exclusive masterclass followed by social.",
-    organizer: "Kizomba UK",
-    leadFollowRatio: 0.52,
-    liveStatus: "popular"
-  }
-];
-
 const Tonight = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -124,7 +82,7 @@ const Tonight = () => {
     enabled: !!citySlug,
   });
 
-  const events = liveEvents.length > 0 ? liveEvents : mockTonightEvents;
+  const events = liveEvents;
 
   const handleShareEvent = async (event: Event) => {
     const eventUrl = `${window.location.origin}/event/${event.id}`;
@@ -171,7 +129,7 @@ const Tonight = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-32 text-neutral-200 font-sans selection:bg-red-500/30">
+    <div className="min-h-screen bg-black pb-32 text-neutral-200 font-sans selection:bg-red-500/30 overflow-x-hidden">
       <ChannelOverlay />
       {/* Broadcast Overlay Effects */}
       <div className="fixed inset-0 pointer-events-none z-50">
@@ -229,6 +187,15 @@ const Tonight = () => {
         </div>
 
         {/* Events Grid */}
+        {events.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+              <Clock className="w-8 h-8 text-white/30" />
+            </div>
+            <h3 className="text-white/70 text-xl font-bold mb-2">No events tonight</h3>
+            <p className="text-white/40 text-sm max-w-xs">There are no events scheduled in your city tonight. Check back later or switch city.</p>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {events.map((event, index) => {
             const ratio = getRatioVisuals(event.leadFollowRatio);

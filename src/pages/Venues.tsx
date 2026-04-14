@@ -10,7 +10,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import Footer from '@/components/Footer';
 
 const heroWidgets = [
   {
@@ -314,7 +313,6 @@ const Venues = () => {
       </section>
 
       {/* Footer */}
-      <Footer />
     </div>
   );
 };

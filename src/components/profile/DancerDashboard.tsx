@@ -282,9 +282,9 @@ export const DancerDashboard = () => {
       setIsLoading(true);
       try {
         const { data: dancer } = await supabase
-          .from('dancers')
+          .from('dancer_profiles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('created_by', user.id)
           .maybeSingle();
 
         if (!dancer) {
@@ -428,36 +428,16 @@ export const DancerDashboard = () => {
     };
 
     try {
-      const { error } = await supabase.from('dancers').update(payload).eq('id', profile.id);
+      const { error } = await supabase.from('dancer_profiles').update(payload).eq('id', profile.id);
       if (error) throw error;
 
-      setProfile((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          looking_for_partner: nextForm.looking_for_partner,
-          partner_search_role: canonicalPartnerSearchRole || null,
-          partner_search_level: nextForm.partner_search_level,
-          partner_practice_goals: nextForm.partner_practice_goals,
-          partner_details: serializedPartnerDetails,
-        };
-      });
-
+      setProfile((prev) => (prev ? { ...prev, ...payload } : prev));
       if (options?.toastTitle) {
-        toast({
-          title: options.toastTitle,
-          description: options.toastDescription,
-        });
+        toast({ title: options.toastTitle, description: options.toastDescription });
       }
     } catch (error: any) {
       if (options?.showErrorToast) {
-        toast({
-          title: 'Could not update partner mode',
-          description: error.message,
-          variant: 'destructive',
-        });
-      } else {
-        console.error('Partner autosave failed:', error);
+        toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
       }
     }
   };
@@ -833,7 +813,7 @@ export const DancerDashboard = () => {
         };
       }
 
-      const { error } = await supabase.from('dancers').update(payload).eq('id', profile.id);
+      const { error } = await supabase.from('dancer_profiles').update(payload).eq('id', profile.id);
       if (error) throw error;
 
       if (activeEditor === 'identity') {

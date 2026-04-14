@@ -19,20 +19,38 @@ const DJProfile = () => {
     queryKey: ['dj-entity', id],
     queryFn: async () => {
       if (!id) throw new Error('DJ ID is required');
-      
+
       const { data, error } = await supabase
         .from('entities')
         .select('*')
         .eq('id', id)
         .eq('type', 'dj')
         .maybeSingle();
-      
+
       if (error) throw error;
       if (!data) throw new Error('DJ not found');
-      
+
       return data;
     },
     enabled: !!id,
+  });
+
+  // Resolve dj_profiles.id via person_entity_id so that event_program_djs
+  // and event_profile_links lookups use the correct profile-table primary key.
+  // entity.id is the entities UUID; dj_profiles.id is a different UUID.
+  const { data: djProfile } = useQuery({
+    queryKey: ['dj-profile-by-entity', entity?.id],
+    queryFn: async () => {
+      if (!entity?.id) return null;
+      const { data } = await supabase
+        .from('dj_profiles')
+        .select('id')
+        .eq('person_entity_id', entity.id)
+        .maybeSingle();
+      return data ?? null;
+    },
+    enabled: !!entity?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading) {
@@ -128,9 +146,9 @@ const DJProfile = () => {
         <ScrollReveal animation="fadeUp" delay={0.15}>
           <ProfileEventTimeline
             personType="dj"
-            personId={entity.id}
-            title="Event timeline"
-            emptyText="No connected events yet."
+            personId={djProfile?.id}
+            title="Event appearances"
+            emptyText="No event appearances yet."
           />
         </ScrollReveal>
       </div>

@@ -99,9 +99,9 @@ const EditProfile = () => {
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('dancers')
+          .from('dancer_profiles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('created_by', user.id)
           .maybeSingle();
 
         if (error) throw error;
@@ -183,7 +183,7 @@ const EditProfile = () => {
     setIsSaving(true);
     try {
       const { error } = await supabase
-        .from('dancers')
+        .from('dancer_profiles')
         .update({
           first_name: form.first_name,
           surname: form.surname || null,
@@ -191,7 +191,7 @@ const EditProfile = () => {
           nationality: form.nationality || null,
           dancing_start_date: form.dancing_start_date || null,
           favorite_styles: form.favorite_styles.length > 0 ? form.favorite_styles : null,
-          partner_role: form.partner_role || null,
+          dance_role: form.partner_role || null,
           looking_for_partner: form.looking_for_partner,
           instagram: form.instagram || null,
           facebook: form.facebook || null,
@@ -201,7 +201,7 @@ const EditProfile = () => {
           partner_search_level: form.partner_search_level || null,
           website: form.website || null,
           partner_practice_goals: form.partner_practice_goals || null,
-          photo_url: serializePhotoValue(form.photo_url),
+          avatar_url: serializePhotoValue(form.photo_url),
           partner_details: serializePartnerDetails(form.partner_details) as any,
         })
         .eq('id', dancerId);

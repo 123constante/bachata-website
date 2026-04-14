@@ -42,9 +42,9 @@ export const useUserIds = () => {
 
       try {
         const dancerRes = await supabase
-          .from('dancers')
+          .from('dancer_profiles')
           .select('id')
-          .eq('user_id', user.id)
+          .eq('created_by', user.id)
           .maybeSingle();
 
         const dancer = dancerRes.data;
@@ -146,7 +146,7 @@ export const useUserIds = () => {
     };
 
     fetchIds();
-  }, [user?.id, reloadIndex]);
+  }, [user, reloadIndex]);
 
   return { ...ids, refetch };
 };

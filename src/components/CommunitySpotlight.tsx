@@ -10,7 +10,7 @@ interface Dancer {
   id: string;
   first_name: string;
   surname: string | null;
-  photo_url: string[] | null;
+  avatar_url: string[] | null;
 }
 
 export const CommunitySpotlight = () => {
@@ -19,8 +19,8 @@ export const CommunitySpotlight = () => {
   useEffect(() => {
     const fetchDancers = async () => {
       const { data } = await supabase
-        .from('dancers')
-        .select('id, first_name, surname, photo_url')
+        .from('dancer_profiles')
+        .select('id, first_name, surname, avatar_url')
         .order('created_at', { ascending: false })
         .limit(5);
       
@@ -41,7 +41,7 @@ export const CommunitySpotlight = () => {
             transition={{ delay: 0.1 * i }}
           >
             <Avatar className="w-9 h-9 border-2 border-background ring-2 ring-primary/10">
-              <AvatarImage src={getPhotoUrl(dancer.photo_url) || ''} alt={buildFullName(dancer.first_name, dancer.surname)} />
+              <AvatarImage src={getPhotoUrl(dancer.avatar_url) || ''} alt={buildFullName(dancer.first_name, dancer.surname)} />
               <AvatarFallback className="bg-green-100 text-green-700 text-[10px]">
                 {getInitials(dancer)}
               </AvatarFallback>

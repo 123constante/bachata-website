@@ -73,9 +73,9 @@ const Onboarding = () => {
     try {
       // Duplicate protection: check if dancer already exists
       const { data: existing } = await supabase
-        .from("dancers")
+        .from("dancer_profiles")
         .select("id, meta_data")
-        .eq("user_id", user.id)
+        .eq("created_by", user.id)
         .maybeSingle();
 
       const existingMeta = (existing?.meta_data && typeof existing.meta_data === "object")
@@ -84,11 +84,10 @@ const Onboarding = () => {
 
       if (existing?.id) {
         const { error: updateError } = await supabase
-          .from("dancers")
+          .from("dancer_profiles")
           .update({
             first_name: trimmedFirst,
-            city: cityName,
-            city_id: cityId,
+            based_city_id: cityId,
             meta_data: {
               ...existingMeta,
               onboarding_status: "completed",
@@ -98,14 +97,10 @@ const Onboarding = () => {
 
         if (updateError) throw updateError;
       } else {
-        const { error: insertError } = await supabase.from("dancers").insert({
-          user_id: user.id,
+        const { error: insertError } = await supabase.from("dancer_profiles").insert({
+          created_by: user.id,
           first_name: trimmedFirst,
-          city: cityName,
-          city_id: cityId,
-          verified: false,
-          is_public: false,
-          hide_surname: false,
+          based_city_id: cityId,
           meta_data: {
             onboarding_status: "completed",
           },

@@ -355,8 +355,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         }
 
         const { data, error } = await supabase
-          .from("dancers")
-          .select("id, first_name, surname, city")
+          .from("dancer_profiles")
+          .select("id, first_name, surname")
           .or(`first_name.ilike.%${safeQuery}%,surname.ilike.%${safeQuery}%`)
           .limit(8);
 
@@ -367,7 +367,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
           return {
             id: row.id,
             displayName,
-            city: row.city || null,
+            city: null,
           };
         });
 

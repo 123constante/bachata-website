@@ -20,7 +20,7 @@ import Discounts from "./pages/Discounts";
 
 import Venue from "./pages/Venue";
 import Tonight from "./pages/Tonight";
-import EventDetail from "./pages/EventDetail";
+import EventPage from "./pages/EventPage";
 import PracticePartners from "./pages/PracticePartners";
 import FestivalHub from "./pages/FestivalHub";
 import FestivalDetail from "./pages/FestivalDetail";
@@ -36,6 +36,7 @@ import DJProfile from "./pages/DJProfile";
 import Venues from "./pages/Venues";
 import Organisers from "./pages/Organisers";
 import OrganiserProfile from "./pages/OrganiserProfile";
+import AllProfiles from "./pages/AllProfiles";
 import VenueDirectory from "./pages/VenueDirectory";
 import VenueEntity from "./pages/VenueEntity";
 import CreateProfile from "./pages/CreateProfile";
@@ -60,23 +61,33 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+/** Redirect bare `/` to `/<city-slug>` so the city is always visible in the URL. */
+const CityRedirect = () => {
+  const stored = localStorage.getItem('activeCitySlug');
+  const slug = stored || 'london-gb';
+  return <Navigate to={`/${slug}`} replace />;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
   
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Index /></PageTransition>} />
+        <Route path="/" element={<CityRedirect />} />
         <Route path="/:city" element={<PageTransition><Index /></PageTransition>} />
         <Route path="/:city/calendar" element={<PageTransition><Index /></PageTransition>} />
         <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
+        <Route path="/:city/parties" element={<PageTransition><Parties /></PageTransition>} />
         <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
+        <Route path="/:city/classes" element={<PageTransition><Classes /></PageTransition>} />
         <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
+        <Route path="/:city/discounts" element={<PageTransition><Discounts /></PageTransition>} />
         
         <Route path="/venues/:slug" element={<PageTransition><Venue /></PageTransition>} />
         <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
         <Route path="/:city/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-        <Route path="/event/:id" element={<PageTransition><EventDetail /></PageTransition>} />
+        <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
         <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
         <Route path="/:city/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
         <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
@@ -90,6 +101,7 @@ const AnimatedRoutes = () => {
         <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
         <Route path="/teachers" element={<PageTransition><Teachers /></PageTransition>} />
         <Route path="/teachers/:id" element={<PageTransition><TeacherProfile /></PageTransition>} />
+        <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
         <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
         <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
         <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />

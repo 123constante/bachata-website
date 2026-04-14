@@ -259,7 +259,7 @@ const FestivalHub = () => {
 
   const handleStatus = async (festivalId: string, status: AttendanceStatus) => {
     if (!user) {
-      setAuthReturnTo(`/festival/${festivalId}`);
+      setAuthReturnTo(`/event/${festivalId}`);
       setShowAuthModal(true);
       return;
     }
@@ -296,7 +296,7 @@ const FestivalHub = () => {
 
   const handleAvatarClick = (event: MouseEvent<HTMLButtonElement>, festivalId: string) => {
     event.stopPropagation();
-    const returnTo = `/festival/${festivalId}`;
+    const returnTo = `/event/${festivalId}`;
 
     if (!user) {
       setAuthReturnTo(returnTo);
@@ -320,7 +320,7 @@ const FestivalHub = () => {
   const floatingIcons = [Plane, Music, Heart, Star, Home, Users];
 
   return (
-    <div className="min-h-screen pb-24 pt-20 overflow-hidden relative">
+    <div className="min-h-screen pb-24 pt-20 overflow-x-hidden relative">
       <PageBreadcrumb items={[{ label: 'Experience', path: '/experience' }, { label: 'Festivals' }]} />
       {/* Scroll Progress Bar */}
       <motion.div
@@ -388,7 +388,7 @@ const FestivalHub = () => {
                 >
                   <Card 
                     className="p-6 bg-gradient-to-br from-card via-card to-primary/5 border-primary/20 hover:border-primary/40 transition-all cursor-pointer overflow-hidden relative"
-                    onClick={() => navigate(`/festival/${festival.id}`)}
+                    onClick={() => navigate(`/event/${festival.id}`)}
                   >
                     {/* Carnival stripe decoration */}
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500" />

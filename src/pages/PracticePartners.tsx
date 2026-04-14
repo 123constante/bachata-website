@@ -10,20 +10,19 @@ import { FloatingElements } from "@/components/FloatingElements";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { getPhotoUrl } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { buildFullName } from "@/lib/name-utils";
+import { useToast } from "@/hooks/use-toast";
 
 type Dancer = {
   id: string;
   first_name: string;
   surname: string | null;
   favorite_styles: string[] | null;
-  partner_role: string | null;
-  city: string | null;
-  photo_url: string[] | null;
+  dance_role: string | null;
+  cities: { name: string } | null;
+  avatar_url: string | null;
   looking_for_partner: boolean | null;
-  user_id: string;
+  created_by: string | null;
 };
 
 const PracticePartners = () => {
@@ -44,8 +43,8 @@ const PracticePartners = () => {
     const fetchPartners = async () => {
       try {
         const { data, error } = await supabase
-          .from('dancers')
-          .select('id, first_name, surname, favorite_styles, partner_role, city, photo_url, looking_for_partner, user_id')
+          .from('dancer_profiles')
+          .select('id, first_name, surname, favorite_styles, dance_role, avatar_url, looking_for_partner, created_by, cities!based_city_id(name)')
           .eq('looking_for_partner', true)
           .order('created_at', { ascending: false });
         
@@ -66,9 +65,9 @@ const PracticePartners = () => {
       if (!user) return;
       
       const { data } = await supabase
-        .from('dancers')
+        .from('dancer_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('created_by', user.id)
         .maybeSingle();
       
       if (data) setCurrentUserProfile(data);
@@ -107,7 +106,7 @@ const PracticePartners = () => {
     // Toggle on
     try {
       const { error } = await supabase
-        .from('dancers')
+        .from('dancer_profiles')
         .update({ looking_for_partner: true })
         .eq('id', currentUserProfile.id);
 
@@ -141,11 +140,11 @@ const PracticePartners = () => {
   const floatingIcons = [Users, Heart, Music, Star, Sparkles, Zap];
 
   const getAvatarContent = (partner: Dancer) => {
-    if (getPhotoUrl(partner.photo_url)) {
+    if (partner.avatar_url) {
       return (
-        <img 
-          src={getPhotoUrl(partner.photo_url)!} 
-          alt={buildFullName(partner.first_name, partner.surname)} 
+        <img
+          src={partner.avatar_url}
+          alt={buildFullName(partner.first_name, partner.surname)}
           className="w-full h-full object-cover rounded-full"
         />
       );
@@ -263,9 +262,9 @@ const PracticePartners = () => {
                         )}
                         
                         {/* Location */}
-                        {partner.city && (
+                        {partner.cities?.name && (
                            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                             <MapPin className="w-3 h-3" /> {partner.city}
+                             <MapPin className="w-3 h-3" /> {partner.cities.name}
                            </p>
                         )}
                         

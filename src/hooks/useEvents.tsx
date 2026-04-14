@@ -16,7 +16,7 @@ export const useUpcomingEvents = () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30); // Look ahead 30 days
 
-      const { data, error } = await supabase.rpc('get_calendar_events' as any, {
+      const { data, error } = await supabase.rpc('get_calendar_events', {
         range_start: startDate.toISOString(),
         range_end: endDate.toISOString(),
         city_slug_param: citySlug,
@@ -56,7 +56,7 @@ export const useEvents = () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 60);
 
-      const { data, error } = await supabase.rpc('get_calendar_events' as any, {
+      const { data, error } = await supabase.rpc('get_calendar_events', {
         range_start: startDate.toISOString(),
         range_end: endDate.toISOString(),
         city_slug_param: citySlug,

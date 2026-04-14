@@ -1,12 +1,11 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useCity } from '@/contexts/CityContext';
 
-const navLinks = [
-  { path: '/parties', label: 'Parties', emoji: '🎉' },
-  { path: '/classes', label: 'Classes', emoji: '🎓' },
-  { path: '/experience', label: 'Experiences', emoji: '💫' },
-  { path: '/discounts', label: 'Discounts', emoji: '✂️' },
+const BASE_NAV_LINKS = [
+  { segment: 'parties', label: 'Parties', emoji: '🎉' },
+  { segment: 'classes', label: 'Classes', emoji: '🎓' },
 ];
 
 const emojiAnimations = {
@@ -31,8 +30,14 @@ const emojiAnimations = {
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { citySlug } = useCity();
 
-  const isActive = (path: string) => location.pathname === path;
+  const navLinks = BASE_NAV_LINKS.map((link) => ({
+    ...link,
+    path: citySlug ? `/${citySlug}/${link.segment}` : `/${link.segment}`,
+  }));
+
+  const isActive = (path: string) => location.pathname === path || location.pathname === `/${path.split('/').pop()}`;
 
   useEffect(() => {
     const handleScroll = () => {

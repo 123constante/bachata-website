@@ -247,9 +247,9 @@ const CreateVendorProfile = () => {
       });
 
       const { data: ownDancer } = await supabase
-        .from("dancers")
-        .select("id, first_name, surname, city, city_id")
-        .eq("user_id", user.id)
+        .from("dancer_profiles")
+        .select("id, first_name, surname, based_city_id")
+        .eq("created_by", user.id)
         .maybeSingle();
 
       if (cancelled || !ownDancer?.id) return;
@@ -258,8 +258,8 @@ const CreateVendorProfile = () => {
       const ownMember: TeamMemberOption = {
         id: ownDancer.id,
         displayName: ownDisplayName,
-        city: ownDancer.city || null,
-        cityId: ownDancer.city_id || null,
+        city: null,
+        cityId: ownDancer.based_city_id || null,
       };
 
       setSelectedTeamMembers((prev) => {
@@ -309,8 +309,8 @@ const CreateVendorProfile = () => {
         }
 
         const { data, error } = await supabase
-          .from("dancers")
-          .select("id, first_name, surname, city, city_id")
+          .from("dancer_profiles")
+          .select("id, first_name, surname")
           .or(`first_name.ilike.%${safeQuery}%,surname.ilike.%${safeQuery}%`)
           .limit(8);
 
@@ -321,8 +321,8 @@ const CreateVendorProfile = () => {
           return {
             id: row.id,
             displayName,
-            city: row.city || null,
-            cityId: row.city_id || null,
+            city: null,
+            cityId: null,
           };
         });
 

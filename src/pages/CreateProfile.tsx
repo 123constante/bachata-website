@@ -669,9 +669,9 @@ const CreateProfile = () => {
         if (!user) return;
         const loadExisting = async () => {
             const { data } = await supabase
-                .from('dancers')
+                .from('dancer_profiles')
                 .select('*')
-                .eq('user_id', user.id)
+                .eq('created_by', user.id)
                 .maybeSingle();
             if (!data) return;
 
@@ -679,14 +679,14 @@ const CreateProfile = () => {
             const favSongs = Array.isArray(data.favorite_songs) ? data.favorite_songs.filter(Boolean).join('\n') : '';
 
             form.reset({
-                photo_url: Array.isArray(data.photo_url) ? (data.photo_url[0] || '') : (data.photo_url || ''),
-                is_public: data.is_public ?? true,
-                city: data.city || '',
+                photo_url: Array.isArray(data.avatar_url) ? (data.avatar_url[0] || '') : (data.avatar_url || ''),
+                is_public: true,
+                city: data.based_city_id || '',
                 nationality: data.nationality || '',
                 experience_level: '',
                 dancing_start_date: data.dancing_start_date || '',
                 favorite_styles: Array.isArray(data.favorite_styles) ? data.favorite_styles : [],
-                partner_role: data.partner_role || '',
+                partner_role: data.dance_role || '',
                 favorite_songs_text: favSongs,
                 achievements_text: achievements,
                 looking_for_partner: data.looking_for_partner ?? false,
@@ -714,9 +714,9 @@ const CreateProfile = () => {
             }
 
             const { data } = await supabase
-                .from('dancers')
-                .select('id, first_name, surname, city')
-                .is('user_id', null)
+                .from('dancer_profiles')
+                .select('id, first_name, surname')
+                .is('created_by', null)
                 .or(`first_name.ilike.%${combinedName}%,surname.ilike.%${combinedName}%`)
                 .limit(3);
 
@@ -724,7 +724,7 @@ const CreateProfile = () => {
                 id: row.id,
                 name: buildFullName(row.first_name || '', row.surname || ''),
                 type: 'dancer',
-                city: row.city || null,
+                city: null,
             }));
 
             setPotentialMatches(mapped);
@@ -797,17 +797,13 @@ const CreateProfile = () => {
                 first_name: trimmedFirstName,
                 surname: trimmedSurname || null,
                 
-                verified: false,
-        photo_url: serializePhotoValue(data.photo_url),
-        is_public: data.is_public,
-                hide_surname: false,
-        city: canonicalCity.cityName,
-        city_id: canonicalCity.cityId,
+        avatar_url: serializePhotoValue(data.photo_url),
+        based_city_id: canonicalCity.cityId,
         nationality: data.nationality || null,
         dancing_start_date: data.dancing_start_date || null,
-        years_dancing: resolvedYears,
+        dance_started_year: resolvedYears,
         favorite_styles: data.favorite_styles?.length ? data.favorite_styles : null,
-        partner_role: canonicalPartnerRole,
+        dance_role: canonicalPartnerRole,
         
         achievements: achievements,
         favorite_songs: favorite_songs,
@@ -823,27 +819,27 @@ const CreateProfile = () => {
         whatsapp: data.whatsapp || null,
         website: normalizedWebsite || null,
         
-        user_id: user.id,
+        created_by: user.id,
             };
 
             let didUpdate = false;
             const { data: existingDancer, error: existingDancerError } = await supabase
-                .from('dancers')
+                .from('dancer_profiles')
                 .select('id')
-                .eq('user_id', user.id)
+                .eq('created_by', user.id)
                 .maybeSingle();
 
             if (existingDancerError) throw existingDancerError;
 
             if (existingDancer?.id) {
                 const { error: dancerUpdateError } = await supabase
-                    .from('dancers')
+                    .from('dancer_profiles')
                     .update(dancerPayload)
                     .eq('id', existingDancer.id);
                 if (dancerUpdateError) throw dancerUpdateError;
                 didUpdate = true;
             } else {
-                const { error: dancerInsertError } = await supabase.from('dancers').insert(dancerPayload);
+                const { error: dancerInsertError } = await supabase.from('dancer_profiles').insert(dancerPayload);
                 if (dancerInsertError) throw dancerInsertError;
             }
 

@@ -1,0 +1,109 @@
+{
+  "eventId": "e2ac79c6-7a9c-4b9f-a7d9-5f7d9e454a99",
+  "eventName": "class only",
+  "payload": {
+    "event": {
+      "id": "e2ac79c6-7a9c-4b9f-a7d9-5f7d9e454a99",
+      "date": null,
+      "name": "class only",
+      "type": "standard",
+      "status": "published",
+      "location": null,
+      "timezone": "UTC",
+      "venue_id": "7195f4b0-85c1-4f1d-b96f-72f29810de38",
+      "city_slug": "london-gb",
+      "created_by": null,
+      "photo_urls": [],
+      "ticket_url": null,
+      "website_url": null,
+      "facebook_url": null,
+      "is_published": true,
+      "instagram_url": null,
+      "hero_image_url": null,
+      "cover_image_url": null
+    },
+    "venue": {
+      "id": "7195f4b0-85c1-4f1d-b96f-72f29810de38",
+      "city": null,
+      "name": "test venue",
+      "rules": [],
+      "country": null,
+      "parking": null,
+      "image_url": null,
+      "transport": null,
+      "facilities": [],
+      "floor_type": "[]",
+      "address_line": "This is a detailed mock description for the item.",
+      "google_maps_url": null
+    },
+    "schedule": {
+      "class": {
+        "active": true,
+        "end_at": "2026-04-18T22:00:00+00:00",
+        "start_at": "2026-04-18T21:00:00+00:00"
+      },
+      "items": [
+        {
+          "id": "class",
+          "kind": "class",
+          "label": "Classes",
+          "end_at": "2026-04-18T22:00:00+00:00",
+          "start_at": "2026-04-18T21:00:00+00:00"
+        }
+      ],
+      "party": {
+        "active": false,
+        "end_at": null,
+        "start_at": null
+      },
+      "end_at": "2026-04-18T22:00:00+00:00",
+      "start_at": "2026-04-18T21:00:00+00:00",
+      "timezone": "UTC",
+      "display_date": "2026-04-18",
+      "display_day_label": "Saturday"
+    },
+    "description": {
+      "notes": null,
+      "for_who": null,
+      "full_text": "Join us for the most Crazy Gala in town! We have 0 guest teachers and top DJs spininng until 5am.",
+      "highlights": []
+    },
+    "teachers": [],
+    "djs": [],
+    "organiser": {
+      "team": [],
+      "primary": null
+    },
+    "occurrence": {
+      "ends_at": "2026-04-18T22:00:00+00:00",
+      "is_live": false,
+      "is_past": false,
+      "event_id": "e2ac79c6-7a9c-4b9f-a7d9-5f7d9e454a99",
+      "timezone": "UTC",
+      "starts_at": "2026-04-18T21:00:00+00:00",
+      "local_date": "2026-04-18",
+      "is_upcoming": true,
+      "is_cancelled": false,
+      "occurrence_id": "4a273b8d-a24f-4036-b026-ed3880c11d95"
+    },
+    "attendance": {
+      "rsvp_scope": "occurrence",
+      "going_count": 0,
+      "user_status": "none",
+      "occurrence_id": "4a273b8d-a24f-4036-b026-ed3880c11d95",
+      "user_can_rsvp": true,
+      "last_updated_at": null,
+      "interested_count": 0
+    },
+    "balance": {
+      "scope": "going",
+      "status": "insufficient_data",
+      "switch": 0,
+      "leaders": 0,
+      "unknown": 0,
+      "followers": 0,
+      "ratio_leaders_to_followers": null
+    },
+    "attendee_preview": []
+  }
+}

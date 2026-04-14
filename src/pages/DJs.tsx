@@ -15,7 +15,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import Footer from '@/components/Footer';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 
 const heroWidgets = [
@@ -322,7 +321,6 @@ const DJs = () => {
       </section>
 
       {/* Footer */}
-      <Footer />
     </div>
   );
 };

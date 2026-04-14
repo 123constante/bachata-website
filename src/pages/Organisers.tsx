@@ -78,6 +78,15 @@ const Organisers = () => {
       {/* Organisers Directory */}
       <section id="directory" className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
+          <div className="flex justify-center mb-4">
+            <motion.div
+              animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-4xl"
+            >
+              🎵
+            </motion.div>
+          </div>
           <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
             <span className="text-foreground">Browse </span>
             <span className="text-primary">Organisers</span>

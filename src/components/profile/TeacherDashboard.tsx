@@ -4,9 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DASHBOARD_LABELS } from '@/modules/profile/dashboardLabels';
+import { useCity } from '@/contexts/CityContext';
 
 export const TeacherDashboard = () => {
   const navigate = useNavigate();
+  const { citySlug } = useCity();
+  const classesPath = citySlug ? `/${citySlug}/classes` : '/classes';
 
   return (
     <div className='dashboard-neon pt-[85px] pb-24 px-4'>
@@ -47,21 +50,21 @@ export const TeacherDashboard = () => {
                   </div>
                   <div className='grid grid-cols-2 gap-1'>
                     <Button size='sm' className='h-6 text-[10px]' onClick={() => navigate('/create-event')}>{DASHBOARD_LABELS.addClass}</Button>
-                    <Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate('/classes')}>{DASHBOARD_LABELS.manageClasses}</Button>
+                    <Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate(classesPath)}>{DASHBOARD_LABELS.manageClasses}</Button>
                   </div>
                 </CardContent>
               </Card>
-              <Card className='dashboard-card col-span-2 row-span-1'><CardContent className='p-2 h-full flex items-center justify-between'><p className='text-xs font-semibold'>Classes: 0</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate('/classes')}>{DASHBOARD_LABELS.manage}</Button></CardContent></Card>
+              <Card className='dashboard-card col-span-2 row-span-1'><CardContent className='p-2 h-full flex items-center justify-between'><p className='text-xs font-semibold'>Classes: 0</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate(classesPath)}>{DASHBOARD_LABELS.manage}</Button></CardContent></Card>
               <Card className='dashboard-card col-span-1 row-span-1'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Media</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.update}</Button></CardContent></Card>
               <Card className='dashboard-card col-span-1 row-span-1'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Contact</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.update}</Button></CardContent></Card>
             </div>
           </TabsContent>
 
-          <TabsContent value='operations' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-3 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>No classes listed yet.</p><Button size='sm' className='h-6 text-[10px] w-fit' onClick={() => navigate('/create-event')}>{DASHBOARD_LABELS.addClass}</Button></CardContent></Card><Card className='dashboard-card col-span-1 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Directory</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate('/classes')}>{DASHBOARD_LABELS.manage}</Button></CardContent></Card></div></TabsContent>
+          <TabsContent value='operations' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-3 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>No classes listed yet.</p><Button size='sm' className='h-6 text-[10px] w-fit' onClick={() => navigate('/create-event')}>{DASHBOARD_LABELS.addClass}</Button></CardContent></Card><Card className='dashboard-card col-span-1 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Directory</p><Button size='sm' className='h-6 text-[10px]' variant='outline' onClick={() => navigate(classesPath)}>{DASHBOARD_LABELS.manage}</Button></CardContent></Card></div></TabsContent>
 
-          <TabsContent value='content' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-4 row-span-2'><CardContent className='p-2 h-full flex items-center justify-between'><div><p className='text-xs uppercase text-muted-foreground'>Schedule</p><p className='text-sm font-semibold'>Manage workshop dates and class calendar</p></div><Button size='sm' className='h-6 text-[10px]' onClick={() => navigate('/classes')}>{DASHBOARD_LABELS.manageCalendar}</Button></CardContent></Card></div></TabsContent>
+          <TabsContent value='content' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-4 row-span-2'><CardContent className='p-2 h-full flex items-center justify-between'><div><p className='text-xs uppercase text-muted-foreground'>Schedule</p><p className='text-sm font-semibold'>Manage workshop dates and class calendar</p></div><Button size='sm' className='h-6 text-[10px]' onClick={() => navigate(classesPath)}>{DASHBOARD_LABELS.manageCalendar}</Button></CardContent></Card></div></TabsContent>
 
-          <TabsContent value='contact' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-2 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Contact and socials</p><Button size='sm' className='h-6 text-[10px] w-fit' variant='outline' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.update}</Button></CardContent></Card><Card className='dashboard-card col-span-2 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Availability</p><Button size='sm' className='h-6 text-[10px] w-fit' variant='outline' onClick={() => navigate('/classes')}>{DASHBOARD_LABELS.updateAvailability}</Button></CardContent></Card></div></TabsContent>
+          <TabsContent value='contact' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-2 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Contact and socials</p><Button size='sm' className='h-6 text-[10px] w-fit' variant='outline' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.update}</Button></CardContent></Card><Card className='dashboard-card col-span-2 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>Availability</p><Button size='sm' className='h-6 text-[10px] w-fit' variant='outline' onClick={() => navigate(classesPath)}>{DASHBOARD_LABELS.updateAvailability}</Button></CardContent></Card></div></TabsContent>
 
           <TabsContent value='faq' className='m-0'><div className='grid grid-cols-4 auto-rows-[88px] gap-1'><Card className='dashboard-card col-span-4 row-span-2'><CardContent className='p-2 h-full flex flex-col justify-between'><p className='text-xs font-semibold'>FAQ for students is empty.</p><Button size='sm' className='h-6 text-[10px] w-fit' variant='outline' onClick={() => navigate('/profile')}>{DASHBOARD_LABELS.addFaq}</Button></CardContent></Card></div></TabsContent>
         </Tabs>

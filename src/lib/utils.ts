@@ -183,6 +183,25 @@ export function resolveEventImage(photoUrl: string[] | string | null | undefined
 }
 
 type PhotoInput = string | string[] | null | undefined;
+
+/**
+ * Resolve the hero image for an event page by trying, in order:
+ * event cover image → organiser avatar → venue image.
+ * Returns the first non-empty URL or null.
+ */
+export function resolveHeroImage(
+  eventImageUrl: string | null | undefined,
+  organiserAvatarUrl: string | null | undefined,
+  venueImageUrl: string | null | undefined,
+): string | null {
+  for (const url of [eventImageUrl, organiserAvatarUrl, venueImageUrl]) {
+    if (typeof url === 'string' && url.trim() && url.trim().startsWith('http')) {
+      return url.trim();
+    }
+  }
+  return null;
+}
+
 const partnerDetailKeys = ['text', 'details', 'notes', 'value', 'description'];
 
 export function normalizePhotoValue(photoUrl: PhotoInput): string {

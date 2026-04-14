@@ -38,7 +38,8 @@ export const ensureDancerProfile = async ({
   const safeCityId = normalizeText(cityId);
 
   try {
-    const { data, error } = await (supabase as any).rpc("ensure_dancer_profile", {
+    // @ts-expect-error - RPC type definitions may not be available in all environments
+    const { data, error } = await supabase.rpc("ensure_dancer_profile", {
       p_user_id: userId,
       p_email: safeEmail,
       p_first_name: safeFirstName,
@@ -54,9 +55,9 @@ export const ensureDancerProfile = async ({
   }
 
   const { data: existing, error: existingError } = await supabase
-    .from("dancers")
-    .select("id, first_name, city")
-    .eq("user_id", userId)
+    .from("dancer_profiles")
+    .select("id, first_name, based_city_id")
+    .eq("created_by", userId)
     .maybeSingle();
 
   if (existingError) throw existingError;
@@ -64,11 +65,11 @@ export const ensureDancerProfile = async ({
   if (existing?.id) {
     const updatePayload: Record<string, unknown> = {};
     if (!normalizeText(existing.first_name)) updatePayload.first_name = safeFirstName;
-    if (!normalizeText(existing.city) && safeCity) updatePayload.city = safeCity;
+    if (!existing.based_city_id && safeCityId) updatePayload.based_city_id = safeCityId;
 
     if (Object.keys(updatePayload).length > 0) {
       const { error: updateError } = await supabase
-        .from("dancers")
+        .from("dancer_profiles")
         .update(updatePayload)
         .eq("id", existing.id);
 
@@ -111,18 +112,14 @@ export const ensureDancerProfile = async ({
   }
 
   const insertPayload = {
-    user_id: userId,
+    created_by: userId,
     first_name: safeFirstName,
     surname: safeSurname,
-    city: safeCity,
-    city_id: finalCityId,
-    verified: false,
-    is_public: false,
-    hide_surname: false,
+    based_city_id: finalCityId,
   };
 
   const { data: created, error: insertError } = await supabase
-    .from("dancers")
+    .from("dancer_profiles")
     .insert(insertPayload)
     .select("id")
     .single();

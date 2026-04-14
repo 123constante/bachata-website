@@ -5,6 +5,7 @@ export interface CalendarEvent {
   event_id: string;
   name: string;
   photo_url: string[];
+  cover_image_url: string | null;
   location: string;
   instance_date: string;
   start_time: string;
@@ -36,7 +37,7 @@ export const useCalendarEvents = ({ rangeStart, rangeEnd, citySlug }: UseCalenda
         return [] as CalendarEvent[];
       }
 
-      const { data, error } = await supabase.rpc('get_calendar_events' as any, {
+      const { data, error } = await supabase.rpc('get_calendar_events', {
         range_start: rangeStart.toISOString(),
         range_end: rangeEnd.toISOString(),
         city_slug_param: citySlug,
@@ -46,8 +47,6 @@ export const useCalendarEvents = ({ rangeStart, rangeEnd, citySlug }: UseCalenda
         console.error("Calendar RPC Error:", error);
         throw error;
       }
-
-      console.log("Main Calendar RPC Response:", data);
 
       return (data as CalendarEvent[]) || [];
     },

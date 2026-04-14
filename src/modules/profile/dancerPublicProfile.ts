@@ -2,24 +2,22 @@ import type { Database } from "@/integrations/supabase/types";
 import { buildFullName } from "@/lib/name-utils";
 import { getPhotoUrl, parsePartnerDetails } from "@/lib/utils";
 
-type DancerRow = Database["public"]["Tables"]["dancers"]["Row"];
+type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
 
 export type DancerPublicRecord = Pick<
   DancerRow,
   | "id"
-  | "user_id"
+  | "created_by"
   | "first_name"
   | "surname"
-  | "city"
   | "nationality"
-  | "years_dancing"
+  | "dance_started_year"
   | "favorite_styles"
-  | "partner_role"
+  | "dance_role"
   | "looking_for_partner"
   | "instagram"
   | "facebook"
-  | "photo_url"
-  | "hide_surname"
+  | "avatar_url"
   | "website"
   | "achievements"
   | "favorite_songs"
@@ -27,10 +25,7 @@ export type DancerPublicRecord = Pick<
   | "partner_search_level"
   | "partner_practice_goals"
   | "partner_details"
-  | "is_public"
-  | "verified"
-  | "dancing_start_date"
-> & { email?: string | null };
+> & { cities?: { name: string } | null; email?: string | null };
 
 export type DancerPublicViewModel = {
   id: string;
@@ -107,20 +102,24 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
         ? parsePartnerDetails(rawPartnerDetails as Record<string, unknown>)
         : "";
 
-  const displayName = record.hide_surname
-    ? `${record.first_name}${record.surname ? ` ${record.surname.charAt(0)}.` : ""}`.trim()
-    : buildFullName(record.first_name, record.surname) || "Dancer";
+  const displayName = buildFullName(record.first_name, record.surname) || "Dancer";
+
+  const currentYear = new Date().getFullYear();
+  const yearsDancing =
+    typeof record.dance_started_year === "number"
+      ? String(currentYear - record.dance_started_year)
+      : null;
 
   return {
     id: record.id,
     displayName,
-    avatarUrl: getPhotoUrl(record.photo_url),
-    city: record.city,
+    avatarUrl: getPhotoUrl(record.avatar_url),
+    city: record.cities?.name || null,
     nationality: record.nationality,
-    yearsDancing: record.years_dancing,
-    dancingStartDate: record.dancing_start_date || null,
+    yearsDancing,
+    dancingStartDate: null,
     favoriteStyles: normalizeStringArray(record.favorite_styles),
-    partnerRole: record.partner_role,
+    partnerRole: record.dance_role,
     lookingForPartner: Boolean(record.looking_for_partner),
     achievements: normalizeStringArray(record.achievements),
     favoriteSongs: normalizeStringArray(record.favorite_songs),
@@ -128,7 +127,7 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
     partnerSearchLevel: normalizeStringArray(record.partner_search_level),
     partnerPracticeGoals: normalizeStringArray(record.partner_practice_goals),
     partnerDetailsText,
-    isVerified: Boolean(record.verified),
+    isVerified: false,
     goals: [],
     connectLinks: {
       instagram: normalizeUrl(record.instagram, "instagram"),

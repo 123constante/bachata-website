@@ -4,6 +4,7 @@ type DancerLike = {
   first_name?: string | null;
   city?: string | null;
   city_id?: string | null;
+  based_city_id?: string | null;
   meta_data?: unknown;
 };
 
@@ -22,6 +23,6 @@ export const inferOnboardingStatusFromDancer = (dancer: DancerLike | null | unde
   const explicitStatus = parseOnboardingStatus(dancer.meta_data);
   if (explicitStatus) return explicitStatus;
 
-  const hasRequiredBasics = Boolean(dancer.first_name?.trim()) && Boolean(dancer.city?.trim()) && Boolean(dancer.city_id);
+  const hasRequiredBasics = Boolean(dancer.first_name?.trim()) && Boolean(dancer.based_city_id || dancer.city_id || dancer.city?.trim());
   return hasRequiredBasics ? "completed" : "in_progress";
 };

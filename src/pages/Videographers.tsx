@@ -1,9 +1,12 @@
 ﻿import { useState } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import PageHero from "@/components/PageHero";
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const VIDEO_CATEGORIES = [
   { id: 'socials', label: 'Social Demos', icon: Camera },
@@ -12,42 +15,36 @@ const VIDEO_CATEGORIES = [
   { id: 'reels', label: 'Short Form', icon: Instagram },
 ];
 
-const VIDEOGRAPHERS = [
-  {
-    id: 1,
-    name: "Kiko & Christina Visuals",
-    specialty: "Cinematic Socials",
-    location: "Madrid, Spain",
-    image: "https://images.unsplash.com/photo-1574701148212-8518049c7b2c?auto=format&fit=crop&q=80&w=800",
-    price: "â‚¬â‚¬â‚¬",
-    verified: true,
-    tags: ["4K", "Drone", "Slow Mo"]
-  },
-  {
-    id: 2,
-    name: "BachataTV",
-    specialty: "Congress Coverage",
-    location: "Milan, Italy",
-    image: "https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&q=80&w=800",
-    price: "â‚¬â‚¬",
-    verified: true,
-    tags: ["Live Stream", "Official"]
-  },
-  {
-    id: 3,
-    name: "Dance Reels NYC",
-    specialty: "Short Form Content",
-    location: "New York, USA",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=800",
-    price: "â‚¬â‚¬",
-    verified: false,
-    tags: ["Vertical", "Viral"]
-  }
-];
+interface Videographer {
+  id: string;
+  first_name: string | null;
+  surname: string | null;
+  business_name: string | null;
+  photo_url: string | null;
+  bio: string | null;
+  instagram: string | null;
+  website: string | null;
+  verified: boolean | null;
+  videography_styles: string[] | null;
+}
 
 const Videographers = () => {
   const [activeCategory, setActiveCategory] = useState('socials');
   const navigate = useNavigate();
+
+  const { data: videographers = [], isLoading } = useQuery({
+    queryKey: ['videographers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('videographers')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as Videographer[];
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
   return (
     <div className="min-h-screen">
@@ -55,7 +52,7 @@ const Videographers = () => {
         titleWhite="Media"
         titleOrange="Production"
         subtitle="Book the best eyes in the industry. Your movement deserves to be captured in cinema quality."
-        emoji="¥"
+        emoji="🎥"
         gradientFrom="blue-600"
       />
 
@@ -83,9 +80,31 @@ const Videographers = () => {
           })}
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-48 w-full rounded-3xl" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && videographers.length === 0 && (
+          <div className="text-center py-16">
+            <Video className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Videographers Yet</h3>
+            <p className="text-muted-foreground mb-6">Professional videographers will be listed here soon. Check back later!</p>
+          </div>
+        )}
+
         {/* Grid */}
+        {!isLoading && videographers.length > 0 && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {VIDEOGRAPHERS.map((video) => (
+          {videographers.map((video) => (
             <motion.div
               layout
               initial={{ opacity: 0, scale: 0.9 }}
@@ -96,20 +115,22 @@ const Videographers = () => {
               {/* Image Aspect Ratio */}
               <div className="aspect-[4/3] overflow-hidden relative">
                 <img 
-                  src={video.image} 
-                  alt={video.name}
+                  src={video.photo_url || 'https://images.unsplash.com/photo-1574701148212-8518049c7b2c?auto=format&fit=crop&q=80&w=800'} 
+                  alt={video.business_name || 'Videographer'}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 
                 <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
                    <div>
-                      <div className="text-white font-bold text-lg">{video.name}</div>
-                      <div className="text-blue-300 text-sm">{video.specialty}</div>
+                      <div className="text-white font-bold text-lg">{video.business_name || `${video.first_name || ''} ${video.surname || ''}`.trim()}</div>
+                      <div className="text-blue-300 text-sm">{video.bio?.substring(0, 40) || 'Professional videography'}</div>
                    </div>
-                   <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20">
-                     {video.price}
-                   </div>
+                   {video.verified && (
+                     <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20">
+                       Verified
+                     </div>
+                   )}
                 </div>
 
                 {/* Play Button Overlay */}
@@ -122,7 +143,7 @@ const Videographers = () => {
 
               <div className="p-4">
                  <div className="flex flex-wrap gap-2 mb-4">
-                    {video.tags.map(tag => (
+                    {(video.videography_styles || []).map(tag => (
                         <span key={tag} className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-md font-medium">
                             #{tag}
                         </span>
@@ -136,6 +157,7 @@ const Videographers = () => {
             </motion.div>
           ))}
         </div>
+        )}
 
       </div>
     </div>

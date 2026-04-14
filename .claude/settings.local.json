@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx supabase:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -r 'SUPABASE\\\\|supabase' .env*)",
+      "Bash(curl -s 'https://stsdtacfauprzrdebmzg.supabase.co/rest/v1/event_attendance?select=*&limit=0' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0c2R0YWNmYXVwcnpyZGVibXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMjAwODEsImV4cCI6MjA4MDU5NjA4MX0.16NNYdrWeTtl3_AylxmOLK6Vrxf7SEGsZIwMSrJl3OQ' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0c2R0YWNmYXVwcnpyZGVibXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMjAwODEsImV4cCI6MjA4MDU5NjA4MX0.16NNYdrWeTtl3_AylxmOLK6Vrxf7SEGsZIwMSrJl3OQ' -v)",
+      "Bash(npx playwright:*)"
+    ]
+  }
+}
