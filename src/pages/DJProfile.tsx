@@ -21,7 +21,7 @@ type DJRow = {
   first_name: string | null;
   surname: string | null;
   hide_real_name: boolean | null;
-  photo_url: string[] | null;
+  photo_url: string | string[] | null;
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
@@ -133,7 +133,9 @@ const DJProfile = () => {
     ? buildFullName(dj.first_name, dj.surname)
     : null;
   const cityName = dj.cities?.name || dj.city;
-  const coverPhoto = Array.isArray(dj.photo_url) && dj.photo_url.length > 0 ? dj.photo_url[0] : null;
+  const coverPhoto = Array.isArray(dj.photo_url)
+    ? (dj.photo_url[0] ?? null)
+    : (dj.photo_url ?? null);
   const genres = Array.isArray(dj.genres) ? dj.genres.filter(Boolean) : [];
   const galleryUrls = Array.isArray(dj.gallery_urls) ? dj.gallery_urls.filter(Boolean) : [];
   const sampleMixes = Array.isArray(dj.sample_mix_urls) ? dj.sample_mix_urls.filter(Boolean) : [];

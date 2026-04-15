@@ -32,33 +32,22 @@ export type ProfileAppearanceItem = {
 // ─── Private fetchers ─────────────────────────────────────────────────────────
 
 /**
- * Session-level: unique event IDs where this teacher has a program slot.
- * profile_id in event_program_instructors == teacher_profiles.id
+ * Session-level: unique event IDs where this person has a program slot.
+ * Reads event_program_people (single authority) directly by profile_id + profile_type.
+ * event_id is stored on the row itself so no join is required.
  */
-async function fetchTeacherProgramEventIds(profileId: string): Promise<string[]> {
+async function fetchProgramEventIds(
+  profileId: string,
+  profileType: 'teacher' | 'dj',
+): Promise<string[]> {
   const { data, error } = await supabase
-    .from('event_program_instructors')
-    .select('event_program_items!inner(event_id)')
-    .eq('profile_id', profileId);
+    .from('event_program_people' as never)
+    .select('event_id')
+    .eq('profile_id', profileId)
+    .eq('profile_type', profileType);
   if (error) throw error;
-  const ids = (data ?? [])
-    .map((r) => (r as any).event_program_items?.event_id as string | null)
-    .filter((id): id is string => Boolean(id));
-  return [...new Set(ids)];
-}
-
-/**
- * Session-level: unique event IDs where this DJ has a program slot.
- * profile_id in event_program_djs == dj_profiles.id
- */
-async function fetchDJProgramEventIds(profileId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('event_program_djs')
-    .select('event_program_items!inner(event_id)')
-    .eq('profile_id', profileId);
-  if (error) throw error;
-  const ids = (data ?? [])
-    .map((r) => (r as any).event_program_items?.event_id as string | null)
+  const ids = ((data ?? []) as unknown as { event_id: string | null }[])
+    .map((r) => r.event_id)
     .filter((id): id is string => Boolean(id));
   return [...new Set(ids)];
 }
@@ -152,10 +141,10 @@ export function useProfileProgramAppearances(
       let programLabel = '';
 
       if (personType === 'teacher') {
-        programEventIds = await fetchTeacherProgramEventIds(profileId);
+        programEventIds = await fetchProgramEventIds(profileId, 'teacher');
         programLabel = 'instructor';
       } else if (personType === 'dj') {
-        programEventIds = await fetchDJProgramEventIds(profileId);
+        programEventIds = await fetchProgramEventIds(profileId, 'dj');
         programLabel = 'dj_set';
       }
 

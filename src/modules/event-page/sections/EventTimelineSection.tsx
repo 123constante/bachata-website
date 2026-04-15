@@ -6,7 +6,7 @@ import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
-type Person = { id: string; name: string; href: string };
+type Person = { id: string; name: string; href: string; avatarUrl: string | null };
 
 type TimelineSession = {
   id: string;
@@ -83,80 +83,47 @@ function useProgramItems(eventId: string | null | undefined) {
 
       const itemIds = withTimes.map((i) => i.id);
 
-      // Fetch instructor and DJ links in parallel
-      const [{ data: instrLinks }, { data: djLinks }] = await Promise.all([
-        supabase
-          .from('event_program_instructors')
-          .select('program_item_id, profile_id')
-          .in('program_item_id', itemIds),
-        supabase
-          .from('event_program_djs')
-          .select('program_item_id, profile_id')
-          .in('program_item_id', itemIds),
-      ]);
+      // Read lineup from event_program_people (single authority).
+      // display_name + avatar_url are already denormalized on the row,
+      // so no secondary joins to teacher_profiles / dj_profiles are needed.
+      const { data: peopleRows } = await supabase
+        .from('event_program_people' as never)
+        .select('program_item_id, profile_id, profile_type, display_name, avatar_url, sort_order')
+        .in('program_item_id', itemIds)
+        .order('sort_order', { ascending: true, nullsFirst: false });
 
-      const teacherIds = [...new Set(
-        (instrLinks ?? []).map((l) => l.profile_id).filter((x): x is string => Boolean(x)),
-      )];
-      const djIds = [...new Set(
-        (djLinks ?? []).map((l) => l.profile_id).filter((x): x is string => Boolean(x)),
-      )];
+      type PeopleRow = {
+        program_item_id: string;
+        profile_id: string | null;
+        profile_type: string | null;
+        display_name: string | null;
+        avatar_url: string | null;
+      };
+      const rows = (peopleRows ?? []) as unknown as PeopleRow[];
 
-      // Fetch profiles in parallel.
-      // Teacher note: event_program_instructors.profile_id may store either
-      // teacher_profiles.id (UUID) OR teacher_profiles.person_entity_id (entity UUID),
-      // depending on which admin path created the link. We fetch by both and index
-      // teacherMap on both keys so either form resolves correctly.
-      const [{ data: teachers }, { data: djs }] = await Promise.all([
-        teacherIds.length
-          ? supabase
-              .from('teacher_profiles')
-              .select('id, first_name, surname, person_entity_id')
-              .or(`id.in.(${teacherIds.join(',')}),person_entity_id.in.(${teacherIds.join(',')})`)
-          : Promise.resolve({ data: [] as { id: string; first_name: string | null; surname: string | null; person_entity_id: string | null }[], error: null }),
-        djIds.length
-          ? supabase
-              .from('dj_profiles')
-              .select('id, dj_name, first_name, surname')
-              .in('id', djIds)
-          : Promise.resolve({ data: [] as { id: string; dj_name: string | null; first_name: string | null; surname: string | null }[], error: null }),
-      ]);
-
-      // Index teachers by both id and person_entity_id so either form of stored link resolves.
-      type TeacherRow = { id: string; first_name: string | null; surname: string | null; person_entity_id: string | null };
-      const teacherMap = new Map<string, TeacherRow>();
-      for (const t of teachers ?? []) {
-        teacherMap.set(t.id, t);
-        if (t.person_entity_id) teacherMap.set(t.person_entity_id, t);
-      }
-      const djMap = new Map((djs ?? []).map((d) => [d.id, d]));
+      const hrefFor = (t: string | null, id: string | null): string | null => {
+        if (!id) return null;
+        if (t === 'teacher') return `/teachers/${id}`;
+        if (t === 'dj') return `/djs/${id}`;
+        if (t === 'dancer') return `/dancers/${id}`;
+        return null;
+      };
 
       return withTimes.map((item): TimelineSession => {
         const startMins = toMins(item.start_time)!;
         const endMins = toMins(item.end_time) ?? startMins + 60;
 
-        const instructorPeople: Person[] = (instrLinks ?? [])
-          .filter((l) => l.program_item_id === item.id && l.profile_id)
-          .map((l): Person | null => {
-            const t = teacherMap.get(l.profile_id!);
-            if (!t) return null;
-            const name = [t.first_name, t.surname].filter(Boolean).join(' ') || 'Teacher';
-            // Always use teacher_profiles.id for the profile link, regardless of
-            // which UUID was stored in event_program_instructors.profile_id.
-            return { id: t.id, name, href: `/teachers/${t.id}` };
-          })
-          .filter((x): x is Person => x !== null);
-
-        const djPeople: Person[] = (djLinks ?? [])
-          .filter((l) => l.program_item_id === item.id && l.profile_id)
-          .map((l): Person | null => {
-            const d = djMap.get(l.profile_id!);
-            if (!d) return null;
-            const name =
-              d.dj_name ||
-              [d.first_name, d.surname].filter(Boolean).join(' ') ||
-              'DJ';
-            return { id: l.profile_id!, name, href: `/djs/${l.profile_id}` };
+        const people: Person[] = rows
+          .filter((r) => r.program_item_id === item.id)
+          .map((r): Person | null => {
+            const href = hrefFor(r.profile_type, r.profile_id);
+            if (!href) return null;
+            return {
+              id: r.profile_id!,
+              name: r.display_name || (r.profile_type === 'dj' ? 'DJ' : 'Teacher'),
+              href,
+              avatarUrl: r.avatar_url,
+            };
           })
           .filter((x): x is Person => x !== null);
 
@@ -167,7 +134,7 @@ function useProgramItems(eventId: string | null | undefined) {
           startMins,
           endMins,
           durationMins: endMins - startMins,
-          people: [...instructorPeople, ...djPeople],
+          people,
         };
       });
     },
@@ -189,11 +156,13 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): TimelineSession[] 
           id: p.id,
           name: p.displayName ?? 'Teacher',
           href: `/teachers/${p.id}`,
+          avatarUrl: null,
         })),
         ...item.djs.map((p) => ({
           id: p.id,
           name: p.displayName ?? 'DJ',
           href: `/djs/${p.id}`,
+          avatarUrl: null,
         })),
       ];
       return {
@@ -336,17 +305,33 @@ function Timeline({ sessions }: { sessions: TimelineSession[] }) {
                   {session.title}
                 </p>
 
-                {/* People */}
-                {session.people.slice(0, 2).map((p) => (
-                    <Link
-                      key={p.id}
-                      to={p.href}
-                      className={`truncate text-xs transition-colors ${s.link}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {p.name}
-                    </Link>
-                  ))}
+                {/* People pills: avatar + name, clickable */}
+                {session.people.length > 0 && (
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {session.people.slice(0, 4).map((p) => (
+                      <Link
+                        key={p.id}
+                        to={p.href}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] py-0.5 pl-0.5 pr-2 text-[11px] leading-none transition-colors hover:border-white/25 ${s.link}`}
+                      >
+                        {p.avatarUrl ? (
+                          <img
+                            src={p.avatarUrl}
+                            alt=""
+                            className="h-4 w-4 rounded-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-[9px] font-semibold text-white/70">
+                            {p.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="max-w-[90px] truncate">{p.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
