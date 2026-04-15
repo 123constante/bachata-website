@@ -19,7 +19,7 @@ type DJCard = {
   first_name: string | null;
   surname: string | null;
   hide_real_name: boolean | null;
-  photo_url: string[] | null;
+  photo_url: string | string[] | null;
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
@@ -147,7 +147,9 @@ const DJs = () => {
           <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((dj) => {
               const displayName = dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
-              const coverPhoto = Array.isArray(dj.photo_url) && dj.photo_url.length > 0 ? dj.photo_url[0] : null;
+              const coverPhoto = Array.isArray(dj.photo_url)
+                ? (dj.photo_url[0] ?? null)
+                : ((dj.photo_url as string | null) ?? null);
               const cityName = dj.cities?.name || dj.city;
               const genres = (dj.genres ?? []).filter(Boolean);
 

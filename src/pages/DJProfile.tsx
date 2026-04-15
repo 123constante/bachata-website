@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { buildFullName } from '@/lib/name-utils';
@@ -173,12 +172,20 @@ const DJProfile = () => {
 
         {/* ── Hero ── */}
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 mb-8">
-          <Avatar className="w-28 h-28 rounded-2xl border border-primary/20 shrink-0 self-start">
-            <AvatarImage src={coverPhoto || undefined} alt={displayName} className="object-cover" />
-            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary text-4xl font-black">
-              {displayName.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
+          <div className="w-28 h-28 rounded-2xl border border-primary/20 shrink-0 self-start overflow-hidden bg-primary/10 flex items-center justify-center">
+            {coverPhoto ? (
+              <img
+                src={coverPhoto}
+                alt={displayName}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-primary text-4xl font-black">
+                {displayName.charAt(0)}
+              </span>
+            )}
+          </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
