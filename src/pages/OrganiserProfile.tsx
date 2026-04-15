@@ -207,9 +207,27 @@ const OrganiserProfile = () => {
     );
   }
 
-  // Parse socials from JSONB
+  // Parse socials from JSONB — also check direct entity fields as fallback
   const socials = entity.socials as { instagram?: string; website?: string } | null;
-  
+  const instagramRaw = (entity as any).instagram || socials?.instagram || null;
+  const websiteRaw = (entity as any).website || socials?.website || null;
+  const contactEmail = (entity as any).contact_email || null;
+  const organisationCategory = (entity as any).organisation_category || null;
+  const galleryUrls: string[] = (() => {
+    const raw = (entity as any).gallery_urls;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (typeof raw === 'string') { try { const p = JSON.parse(raw); return Array.isArray(p) ? p.filter(Boolean) : []; } catch { return []; } }
+    return [];
+  })();
+
+  const instagramUrl = instagramRaw
+    ? (instagramRaw.startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`)
+    : null;
+  const websiteUrl = websiteRaw
+    ? (websiteRaw.startsWith('http') ? websiteRaw : `https://${websiteRaw}`)
+    : null;
+
   // Claiming states
   const isUnclaimed = !entity.claimed_by;
   const isClaimedByUser = entity.claimed_by === user?.id;
@@ -256,26 +274,41 @@ const OrganiserProfile = () => {
                 <p className="text-sm text-muted-foreground mt-2">{entity.cities.name}</p>
               )}
 
-              {/* Social Links */}
-              <div className="flex items-center gap-3 mt-4">
-                {socials?.instagram && (
+              {/* Organisation category */}
+              {organisationCategory && (
+                <span className="inline-block mt-2 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+                  {organisationCategory}
+                </span>
+              )}
+
+              {/* Social + contact links */}
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {instagramUrl && (
                   <a
-                    href={`https://instagram.com/${socials.instagram.replace('@', '')}`}
+                    href={instagramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-sm text-primary"
                   >
-                    <Instagram className="w-5 h-5 text-primary" />
+                    <Instagram className="w-4 h-4" /> Instagram
                   </a>
                 )}
-                {socials?.website && (
+                {websiteUrl && (
                   <a
-                    href={socials.website}
+                    href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-sm text-primary"
                   >
-                    <Globe className="w-5 h-5 text-primary" />
+                    <Globe className="w-4 h-4" /> Website
+                  </a>
+                )}
+                {contactEmail && (
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-sm text-primary"
+                  >
+                    <span className="text-xs">✉️</span> {contactEmail}
                   </a>
                 )}
               </div>
@@ -310,12 +343,35 @@ const OrganiserProfile = () => {
           </ScrollReveal>
         )}
 
+        {/* Gallery */}
+        {galleryUrls.length > 0 && (
+          <ScrollReveal animation="fadeUp" delay={0.12}>
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Gallery</h2>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {galleryUrls.slice(0, 8).map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={url}
+                        alt={`${entity.name} photo ${i + 1}`}
+                        className="w-full aspect-square object-cover rounded-lg hover:opacity-80 transition-opacity"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+        )}
+
         {/* Event Timeline */}
         <ScrollReveal animation="fadeUp" delay={0.15}>
           <ProfileEventTimeline
             personType="organiser"
             personId={entity.id}
-            title="Event timeline"
+            title="Events"
             emptyText="No connected events yet."
           />
         </ScrollReveal>

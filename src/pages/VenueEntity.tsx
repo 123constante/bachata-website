@@ -60,17 +60,29 @@ const VenueEntity = () => {
   });
 
   // Parse JSON fields safely - handle both string and array formats
-  const facilities = venue?.facilities 
-    ? (Array.isArray(venue.facilities) ? venue.facilities as string[] : typeof venue.facilities === 'string' ? [venue.facilities] : null)
+  const parseStrArray = (val: any): string[] | null => {
+    if (!val) return null;
+    if (Array.isArray(val)) return (val as string[]).filter(Boolean);
+    if (typeof val === 'string') {
+      try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : null; } catch { return [val]; }
+    }
+    return null;
+  };
+
+  const facilities = parseStrArray(venue?.facilities_new ?? venue?.facilities);
+  const floorType = parseStrArray(venue?.floor_type);
+  const galleryUrls = parseStrArray(venue?.gallery_urls);
+  const rules = parseStrArray(venue?.rules);
+  const videoUrls = parseStrArray(venue?.video_urls);
+
+  const openingHours = venue?.opening_hours && typeof venue.opening_hours === 'object' && !Array.isArray(venue.opening_hours)
+    ? venue.opening_hours as Record<string, any>
     : null;
-  const floorType = venue?.floor_type 
-    ? (Array.isArray(venue.floor_type) ? venue.floor_type as string[] : typeof venue.floor_type === 'string' ? [venue.floor_type] : null)
-    : null;
-  const openingHours = venue?.opening_hours && typeof venue.opening_hours === 'object' && !Array.isArray(venue.opening_hours) 
-    ? venue.opening_hours as Record<string, string> 
-    : null;
-  const galleryUrls = Array.isArray(venue?.gallery_urls) ? venue.gallery_urls as string[] : null;
-  const rules = Array.isArray(venue?.rules) ? venue.rules as string[] : null;
+
+  // Pick first photo for avatar
+  const coverPhoto = Array.isArray(venue?.photo_url) && venue.photo_url.length > 0
+    ? venue.photo_url[0]
+    : (typeof venue?.photo_url === 'string' ? venue.photo_url : null);
 
   if (isLoading) {
     return (
@@ -129,7 +141,7 @@ const VenueEntity = () => {
         {/* Header - Compact */}
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="w-14 h-14 border border-border">
-            <AvatarImage src={venue.photo_url || undefined} alt={venue.name} />
+            <AvatarImage src={coverPhoto || undefined} alt={venue.name} />
             <AvatarFallback className="bg-muted text-muted-foreground">
               <Building2 className="w-6 h-6" />
             </AvatarFallback>
@@ -310,6 +322,59 @@ const VenueEntity = () => {
                 <p className="text-[10px] text-muted-foreground">Facebook</p>
               </a>
             )}
+          </div>
+        )}
+
+        {/* Venue features (boolean flags) */}
+        {(venue.bar_available || venue.cloakroom_available || venue.id_required || venue.last_entry_time) && (
+          <div className="bg-card border border-border rounded-lg p-3 mb-3">
+            <h2 className="text-xs font-semibold text-foreground mb-2">Features</h2>
+            <div className="flex flex-wrap gap-2">
+              {venue.bar_available && (
+                <Badge variant="outline" className="text-[10px]">🍹 Bar available</Badge>
+              )}
+              {venue.cloakroom_available && (
+                <Badge variant="outline" className="text-[10px]">🧥 Cloakroom</Badge>
+              )}
+              {venue.id_required && (
+                <Badge variant="outline" className="text-[10px]">🪪 ID required</Badge>
+              )}
+              {venue.last_entry_time && (
+                <Badge variant="outline" className="text-[10px]">🕐 Last entry {venue.last_entry_time}</Badge>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* FAQ */}
+        {venue.faq && (
+          <div className="bg-card border border-border rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Info className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-xs font-semibold text-foreground">FAQ</h2>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{venue.faq}</p>
+          </div>
+        )}
+
+        {/* Videos */}
+        {videoUrls && videoUrls.length > 0 && (
+          <div className="bg-card border border-border rounded-lg p-3 mb-3">
+            <h2 className="text-xs font-semibold text-foreground mb-2">Videos</h2>
+            <div className="space-y-1">
+              {videoUrls.map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{url.replace(/^https?:\/\//, '')}</span>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 

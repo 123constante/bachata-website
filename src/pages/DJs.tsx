@@ -1,330 +1,212 @@
-﻿import { motion, useScroll, useSpring } from 'framer-motion';
-import { 
-  Heart, Music, Star, Sparkles, Disc3
-} from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Search, X, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
-import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import { FloatingElements } from '@/components/FloatingElements';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
+import PageHero from '@/components/PageHero';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
+import { buildFullName } from '@/lib/name-utils';
 
-const heroWidgets = [
-  { emoji: "🔍", title: "Find A DJ", desc: "Browse directory", sectionId: "directory" },
-  { emoji: "✍️", title: "Get Listed", desc: "Join as DJ", sectionId: "get-listed" },
-];
+type DJCard = {
+  id: string;
+  dj_name: string | null;
+  first_name: string | null;
+  surname: string | null;
+  hide_real_name: boolean | null;
+  photo_url: string[] | null;
+  bio: string | null;
+  genres: string[] | null;
+  nationality: string | null;
+  verified: boolean | null;
+  city: string | null;
+  cities?: { name: string } | null;
+};
 
 const DJs = () => {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-  const { toast } = useToast();
-  
-  // Fetch DJs from entities table
-  const { data: djs, isLoading } = useQuery({
-    queryKey: ['dj-entities'],
+  const [search, setSearch] = useState('');
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+
+  const { data: djs = [], isLoading } = useQuery({
+    queryKey: ['dj-profiles-directory'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('entities')
-        .select('*')
-        .eq('type', 'dj')
-        .order('name');
-      
+        .from('dj_profiles')
+        .select('id, dj_name, first_name, surname, hide_real_name, photo_url, bio, genres, nationality, verified, city, cities!city_id(name)')
+        .eq('is_active', true)
+        .order('dj_name', { ascending: true, nullsFirst: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as DJCard[];
     },
+    staleTime: 5 * 60 * 1000,
   });
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    public_email: '',
-    style: '',
-    bio: '',
-    instagram: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const scrollToSection = (sectionId: string) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    djs.forEach((dj) => (dj.genres ?? []).forEach((g) => g && set.add(g)));
+    return [...set].sort();
+  }, [djs]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.style) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    
-    toast({
-      title: "Application submitted!",
-      description: "We'll review your profile and get back to you soon.",
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return djs.filter((dj) => {
+      const name = (dj.dj_name || buildFullName(dj.first_name, dj.surname) || '').toLowerCase();
+      const city = (dj.cities?.name || dj.city || '').toLowerCase();
+      const matchesSearch = !q || name.includes(q) || city.includes(q);
+      const matchesGenre = !selectedGenre || (dj.genres ?? []).includes(selectedGenre);
+      return matchesSearch && matchesGenre;
     });
-  };
+  }, [djs, search, selectedGenre]);
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
-      {/* Progress Bar */}
-      <motion.div 
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
-        style={{ scaleX }}
+    <div className="min-h-screen pb-24">
+      <PageHero
+        emoji="🎧"
+        titleWhite="Bachata"
+        titleOrange="DJs"
+        subtitle="Discover the DJs behind the music — sensual, traditional, and everything in between."
+        largeTitle={false}
       />
 
-      <FloatingElements count={15} />
-
-      {/* HERO */}
-      <section className="pt-20 pb-24 px-4 relative overflow-hidden mb-12">
-        <motion.div 
-          className="absolute inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20"
-          animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
-          transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
-          style={{ backgroundSize: '200% 200%' }}
-        />
-        
-        <div className="relative z-10">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-2">
           <PageBreadcrumb items={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]} />
         </div>
 
-        {/* Floating Icons */}
-        {[Disc3, Star, Heart, Music, Sparkles].map((Icon, i) => (
-          <motion.div
-            key={i}
-            className="absolute text-primary/30"
-            style={{ left: `${10 + i * 18}%`, top: `${20 + (i % 3) * 25}%` }}
-            animate={{ y: [0, -30, 0], rotate: [0, 360], scale: [1, 1.2, 1] }}
-            transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.5 }}
-          >
-            <Icon size={30 + i * 10} />
-          </motion.div>
-        ))}
-
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <ScrollReveal animation="scale">
-            <motion.div 
-              className="text-7xl mb-8"
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              §
-            </motion.div>
-          </ScrollReveal>
-
-          <ScrollReveal animation="fadeUp" delay={0.2}>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 tracking-tight">
-              Bachata{' '}
-              <motion.span
-                className="gradient-text inline-block"
-                animate={{ scale: [1, 1.05, 1], rotate: [-1, 1, -1] }}
-                transition={{ duration: 2, repeat: Infinity }}
+        {/* Search + genre filter */}
+        <div className="mb-6 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or city…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-card border-border/50"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                DJs
-              </motion.span>
-            </h1>
-          </ScrollReveal>
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-          {/* Hero Widgets */}
-          <ScrollReveal animation="scale" delay={0.6}>
-            <div className="flex justify-center gap-4 mt-8">
-              {heroWidgets.map((widget, index) => (
-                <motion.div
-                  key={widget.title}
-                  onClick={() => scrollToSection(widget.sectionId)}
-                  className="cursor-pointer p-4 md:p-6 bg-gradient-to-br from-surface/80 to-surface/40 backdrop-blur-sm rounded-2xl border border-primary/30 shadow-lg"
-                  style={{
-                    transformStyle: 'preserve-3d',
-                    transform: `perspective(1000px) rotateY(${index === 0 ? -8 : 8}deg)`,
-                  }}
-                  whileHover={{ 
-                    scale: 1.1, 
-                    rotateY: 0,
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                    z: 50
-                  }}
-                  whileTap={{ scale: 0.95 }}
+          {allGenres.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedGenre(null)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  !selectedGenre
+                    ? 'bg-primary text-black border-primary font-semibold'
+                    : 'border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/40'
+                }`}
+              >
+                All
+              </button>
+              {allGenres.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setSelectedGenre(selectedGenre === g ? null : g)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    selectedGenre === g
+                      ? 'bg-primary text-black border-primary font-semibold'
+                      : 'border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/40'
+                  }`}
                 >
-                  <span className="text-3xl md:text-4xl block mb-2">{widget.emoji}</span>
-                  <h3 className="font-bold text-sm md:text-base text-foreground">{widget.title}</h3>
-                  <p className="text-xs text-muted-foreground">{widget.desc}</p>
-                </motion.div>
+                  {g}
+                </button>
               ))}
             </div>
-          </ScrollReveal>
+          )}
         </div>
-      </section>
 
-      {/* DJs Directory */}
-      <section id="directory" className="px-4 mb-16 max-w-7xl mx-auto">
-        <ScrollReveal animation="fadeUp">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
-            <span className="text-foreground">Our </span>
-            <span className="text-primary">DJs</span>
-          </h2>
-        </ScrollReveal>
-
+        {/* Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="bg-surface/50 border-primary/20">
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center gap-4">
-                    <Skeleton className="h-16 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-32" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border border-border/40 bg-card p-4 space-y-3">
+                <Skeleton className="h-16 w-16 rounded-full mx-auto" />
+                <Skeleton className="h-4 w-24 mx-auto" />
+                <Skeleton className="h-3 w-16 mx-auto" />
+              </div>
             ))}
           </div>
-        ) : djs && djs.length > 0 ? (
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {djs.map((dj) => (
-              <StaggerItem key={dj.id}>
-                <Link to={`/djs/${dj.id}`}>
-                  <motion.div
-                    whileHover={{ y: -8, scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Card className="bg-surface/50 backdrop-blur-sm border-primary/20 overflow-hidden h-full">
-                      <CardContent className="p-6">
-                        <div className="text-center mb-4">
-                          <Avatar className="w-16 h-16 mx-auto mb-3 border border-primary/20">
-                            <AvatarImage src={dj.avatar_url || undefined} alt={dj.name} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                              {dj.name?.charAt(0) || '§'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <h3 className="font-bold text-lg text-foreground">{dj.name}</h3>
-                          <p className="text-muted-foreground text-sm">DJ</p>
-                        </div>
-                        
-                        {dj.bio && (
-                          <p className="text-muted-foreground text-sm mb-4 text-center line-clamp-2">
-                            {dj.bio}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </Link>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3">🎧</div>
+            <p className="text-muted-foreground">No DJs match your search.</p>
+          </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No DJs listed yet.</p>
-          </div>
-        )}
-      </section>
+          <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filtered.map((dj) => {
+              const displayName = dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
+              const coverPhoto = Array.isArray(dj.photo_url) && dj.photo_url.length > 0 ? dj.photo_url[0] : null;
+              const cityName = dj.cities?.name || dj.city;
+              const genres = (dj.genres ?? []).filter(Boolean);
 
-      {/* Get Listed Section */}
-      <section id="get-listed" className="px-4 mb-16 max-w-2xl mx-auto">
-        <ScrollReveal animation="fadeUp">
-          <Card className="bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 border-primary/30 p-8">
-            <div className="text-center mb-8">
-              <motion.span 
-                className="text-5xl block mb-4"
-                animate={{ rotate: [0, -5, 5, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                ✍️
-              </motion.span>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">
-                <span className="text-foreground">Get </span>
-                <span className="text-primary">Listed</span>
-              </h2>
-              <p className="text-muted-foreground">Join our DJ directory and reach more events</p>
-            </div>
-
-            {isSubmitted ? (
-              <motion.div 
-                className="text-center py-8"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <span className="text-6xl block mb-4">🎉</span>
-                <h3 className="text-xl font-bold text-primary mb-2">Application Submitted!</h3>
-                <p className="text-muted-foreground">We'll be in touch soon.</p>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  placeholder="Your DJ name *"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="bg-background/50"
-                />
-                <Input
-                  type="email"
-                  placeholder="Public contact email (optional)"
-                  value={formData.public_email}
-                  onChange={(e) => setFormData({ ...formData, public_email: e.target.value })}
-                  className="bg-background/50"
-                />
-                <Input
-                  placeholder="Music style (e.g., Sensual, Tradicional) *"
-                  value={formData.style}
-                  onChange={(e) => setFormData({ ...formData, style: e.target.value })}
-                  className="bg-background/50"
-                />
-                <Input
-                  placeholder="Instagram handle"
-                  value={formData.instagram}
-                  onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
-                  className="bg-background/50"
-                />
-                <Textarea
-                  placeholder="Tell us about your DJ experience..."
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="bg-background/50 min-h-[100px]"
-                />
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <motion.span
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              return (
+                <StaggerItem key={dj.id}>
+                  <Link to={`/djs/${dj.id}`}>
+                    <motion.div
+                      whileHover={{ y: -4, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="rounded-2xl border border-border/40 bg-card p-4 text-center hover:border-primary/30 hover:shadow-md transition-all h-full flex flex-col"
                     >
-                      ⏳
-                    </motion.span>
-                  ) : (
-                    <>
-                      <Disc3 className="w-4 h-4 mr-2" />
-                      Submit Application
-                    </>
-                  )}
-                </Button>
-              </form>
-            )}
-          </Card>
-        </ScrollReveal>
-      </section>
+                      <div className="relative mx-auto mb-3 w-fit">
+                        <Avatar className="w-16 h-16 border border-primary/10">
+                          <AvatarImage src={coverPhoto || undefined} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-primary/10 text-primary text-xl font-black">
+                            {displayName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {dj.verified && (
+                          <CheckCircle2 className="w-4 h-4 text-primary absolute -bottom-0.5 -right-0.5 bg-card rounded-full" />
+                        )}
+                      </div>
 
-      {/* Footer */}
+                      <p className="font-bold text-sm text-foreground leading-tight mb-0.5 line-clamp-1">{displayName}</p>
+                      {cityName && (
+                        <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{cityName}</p>
+                      )}
+
+                      {genres.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-center mt-auto pt-2">
+                          {genres.slice(0, 2).map((g) => (
+                            <Badge key={g} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/25 text-primary/70">
+                              {g}
+                            </Badge>
+                          ))}
+                          {genres.length > 2 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border/40 text-muted-foreground">
+                              +{genres.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  </Link>
+                </StaggerItem>
+              );
+            })}
+          </StaggerContainer>
+        )}
+
+        {!isLoading && filtered.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            {filtered.length} DJ{filtered.length !== 1 ? 's' : ''}
+            {selectedGenre ? ` · ${selectedGenre}` : ''}
+          </p>
+        )}
+      </div>
     </div>
   );
 };
 
 export default DJs;
-
-

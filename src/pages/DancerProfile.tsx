@@ -1,13 +1,14 @@
 ﻿import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Calendar, Star } from "lucide-react";
+import { ArrowLeft, Calendar, Star, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
+import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import {
   mapDancerPublicProfile,
   type DancerPublicRecord,
@@ -51,12 +52,12 @@ const DancerProfile = () => {
       if (!id) throw new Error("Dancer ID required");
       const { data, error } = await supabase
         .from("dancer_profiles")
-        .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, cities!based_city_id(name)")
+        .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Dancer not found.");
-      return data as DancerPublicRecord;
+      return data as DancerPublicRecord & { gallery_urls?: string[] | null };
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
@@ -254,6 +255,43 @@ const DancerProfile = () => {
         </Button>
 
         <DancerProfileGrid dancer={dancerView} />
+
+        {/* Gallery */}
+        {(() => {
+          const gallery = Array.isArray((dancer as any)?.gallery_urls)
+            ? ((dancer as any).gallery_urls as string[]).filter(Boolean)
+            : [];
+          if (!gallery.length) return null;
+          return (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold text-foreground mb-3 flex items-center gap-2">
+                <Image className="w-5 h-5 text-primary" /> Gallery
+              </h2>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {gallery.slice(0, 12).map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={url}
+                      alt={`${dancerView.displayName} photo ${i + 1}`}
+                      className="w-full aspect-square object-cover rounded-xl hover:opacity-80 transition-opacity"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Event appearances */}
+        <div className="mt-8">
+          <ProfileEventTimeline
+            personType="dancer"
+            personId={id}
+            title="Event appearances"
+            emptyText="No event appearances recorded yet."
+          />
+        </div>
 
         <div className="mt-10">
           <h2 className="text-2xl font-bold text-foreground mb-4">Plans</h2>

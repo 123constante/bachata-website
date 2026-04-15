@@ -149,33 +149,25 @@ export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem
     const hasClass =
       event.has_class ?? (program ? programHasClass : !!keyTimes.classes?.active);
 
-    // Class times: RPC fields → combined program range → key_times fallback
+    // Class times: aggregate across ALL sources → earliest start, latest end
     const rpcClassStart = fmtTime(event.class_start);
     const rpcClassEnd   = fmtTime(event.class_end);
     const progClass     = classItems.length > 0 ? programClassRange(classItems) : { start: undefined, end: undefined };
 
-    const classStart =
-      rpcClassStart ??
-      progClass.start ??
-      fmtTime(keyTimes.classes?.start);
-    const classEnd =
-      rpcClassEnd ??
-      progClass.end ??
-      fmtTime(keyTimes.classes?.end);
+    const allClassStarts = [rpcClassStart, progClass.start, fmtTime(keyTimes.classes?.start)].filter((v): v is string => !!v);
+    const allClassEnds   = [rpcClassEnd,   progClass.end,   fmtTime(keyTimes.classes?.end)  ].filter((v): v is string => !!v);
+    const classStart = allClassStarts.length ? allClassStarts.sort()[0]    : undefined;
+    const classEnd   = allClassEnds.length   ? allClassEnds.sort().at(-1)  : undefined;
 
-    // Party times: RPC fields → program range → key_times fallback
+    // Party times: aggregate across ALL sources → earliest start, latest end
     const rpcPartyStart = fmtTime(event.party_start);
     const rpcPartyEnd   = fmtTime(event.party_end);
     const progParty     = partyItems.length > 0 ? programClassRange(partyItems) : { start: undefined, end: undefined };
 
-    const partyStart =
-      rpcPartyStart ??
-      progParty.start ??
-      fmtTime(keyTimes.party?.start);
-    const partyEnd =
-      rpcPartyEnd ??
-      progParty.end ??
-      fmtTime(keyTimes.party?.end);
+    const allPartyStarts = [rpcPartyStart, progParty.start, fmtTime(keyTimes.party?.start)].filter((v): v is string => !!v);
+    const allPartyEnds   = [rpcPartyEnd,   progParty.end,   fmtTime(keyTimes.party?.end)  ].filter((v): v is string => !!v);
+    const partyStart = allPartyStarts.length ? allPartyStarts.sort()[0]   : undefined;
+    const partyEnd   = allPartyEnds.length   ? allPartyEnds.sort().at(-1) : undefined;
 
     const globalStart = fmtTime(event.start_time);
     const globalEnd = fmtTime(event.end_time);

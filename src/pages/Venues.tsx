@@ -1,290 +1,201 @@
-import { useState } from 'react';
-import { motion, useScroll, useSpring } from 'framer-motion';
-import { MapPin, Building2, Music, Sparkles, Heart, Clock, Building, Instagram, Globe } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Search, X, Building2, MapPin, Users, Layers } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import PageHero from '@/components/PageHero';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
-import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import { FloatingElements } from '@/components/FloatingElements';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
-import { useCity } from '@/contexts/CityContext';
 
-const heroWidgets = [
-  {
-    emoji: '🔍',
-    title: 'Find A Venue',
-    desc: 'Browse all venues',
-    sectionId: 'directory',
-  },
-  {
-    emoji: '🏛️',
-    title: 'List Your Venue',
-    desc: 'Join the directory',
-    sectionId: 'get-listed',
-  },
-];
-
-const floatingIcons = [MapPin, Building2, Music, Sparkles, Heart];
-
-type VenueEntity = {
+type VenueCard = {
   id: string;
   name: string;
-  avatar_url: string | null;
-  bio: string | null;
-  city_id: string | null;
-  cities: { name: string } | null;
-  socials: { instagram?: string; website?: string } | null;
+  photo_url: string[] | null;
+  description: string | null;
+  address: string | null;
+  capacity: number | null;
+  floor_type: any | null;
+  facilities: any | null;
+  parking: string | null;
+  cities?: { name: string } | null;
 };
 
-const VenueSkeleton = () => (
-  <Card className="p-6 h-full">
-    <Skeleton className="w-16 h-16 rounded-full mb-4" />
-    <Skeleton className="h-5 w-3/4 mb-2" />
-    <Skeleton className="h-4 w-1/2 mb-3" />
-    <Skeleton className="h-4 w-full mb-1" />
-    <Skeleton className="h-4 w-4/5 mb-4" />
-    <Skeleton className="h-9 w-full" />
-  </Card>
-);
+const parseArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter((v): v is string => typeof v === 'string');
+  if (typeof val === 'string') {
+    try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : []; } catch { return []; }
+  }
+  return [];
+};
 
 const Venues = () => {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const { citySlug } = useCity();
-
-  const [formData, setFormData] = useState({ name: '', contactNumber: '' });
+  const [search, setSearch] = useState('');
 
   const { data: venues = [], isLoading } = useQuery({
-    queryKey: ['venue-entities-directory', citySlug],
+    queryKey: ['venues-directory'],
     queryFn: async () => {
-      const query = supabase
-        .from('entities')
-        .select('id, name, avatar_url, bio, city_id, cities(name), socials')
-        .eq('type', 'venue')
-        .order('name');
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('venues')
+        .select('id, name, photo_url, description, address, capacity, floor_type, facilities, parking, cities(name)')
+        .order('name', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as VenueEntity[];
+      return (data ?? []) as unknown as VenueCard[];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const scrollToSection = (sectionId: string) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({
-      title: 'Submission Received!',
-      description: "We'll contact you within 2 hours.",
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return venues;
+    return venues.filter((v) => {
+      const name = v.name.toLowerCase();
+      const city = (v.cities?.name || '').toLowerCase();
+      const addr = (v.address || '').toLowerCase();
+      return name.includes(q) || city.includes(q) || addr.includes(q);
     });
-    setFormData({ name: '', contactNumber: '' });
-  };
+  }, [venues, search]);
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
-      {/* Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
-        style={{ scaleX }}
-      />
-
-      <FloatingElements count={20} />
-
-      <PageBreadcrumb items={[{ label: 'Home', path: '/' }, { label: 'Venues' }]} />
-
+    <div className="min-h-screen pb-24">
       <PageHero
         emoji="🏛️"
         titleWhite="Dance"
         titleOrange="Venues"
-        subtitle="Discover the best bachata venues in your city — from studios and clubs to event spaces."
-        widgets={heroWidgets}
-        gradientFrom="primary"
-        floatingIcons={floatingIcons}
-        largeTitle={true}
+        subtitle="Find the perfect space for bachata — studios, clubs, and event halls."
+        largeTitle={false}
       />
 
-      {/* Venue Directory */}
-      <section id="directory" className="px-4 mb-16">
-        <ScrollReveal animation="fadeUp">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
-            <span className="text-foreground">Browse </span>
-            <span className="text-primary">Venues</span>
-          </h2>
-        </ScrollReveal>
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-2">
+          <PageBreadcrumb items={[{ label: 'Venues' }]} />
+        </div>
 
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, city or address…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-card border-border/50"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Grid */}
         {isLoading ? (
-          <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <VenueSkeleton key={i} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border border-border/40 bg-card overflow-hidden">
+                <Skeleton className="h-40 w-full" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        ) : venues.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">No venues listed yet</p>
-            <p className="text-sm mt-1">Be the first to list your venue below</p>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-muted-foreground">No venues match your search.</p>
           </div>
         ) : (
-          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {venues.map((venue) => {
-              const socials = venue.socials as { instagram?: string; website?: string } | null;
-              const instagramHandle = socials?.instagram;
-              const instagramUrl = instagramHandle
-                ? instagramHandle.startsWith('http')
-                  ? instagramHandle
-                  : `https://instagram.com/${instagramHandle.replace('@', '')}`
-                : null;
-              const websiteUrl = socials?.website || null;
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((venue) => {
+              const coverPhoto = Array.isArray(venue.photo_url) && venue.photo_url.length > 0 ? venue.photo_url[0] : null;
+              const floorTypes = parseArray(venue.floor_type);
 
               return (
                 <StaggerItem key={venue.id}>
-                  <motion.div whileHover={{ y: -8, scale: 1.02 }} transition={{ duration: 0.3 }}>
-                    <Card
-                      className="p-6 h-full bg-gradient-to-br from-surface to-background border-primary/20 hover:border-primary/50 transition-all duration-300 group flex flex-col cursor-pointer"
-                      onClick={() => navigate(`/venue-entity/${venue.id}`)}
+                  <Link to={`/venue-entity/${venue.id}`}>
+                    <motion.div
+                      whileHover={{ y: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="rounded-2xl border border-border/40 bg-card overflow-hidden hover:border-primary/30 hover:shadow-md transition-all group"
                     >
-                      {/* Avatar */}
-                      <div className="flex items-start justify-between mb-4">
-                        <Avatar className="w-14 h-14 border border-primary/20">
-                          <AvatarImage src={venue.avatar_url ?? undefined} alt={venue.name} />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            <Building2 className="w-6 h-6" />
-                          </AvatarFallback>
-                        </Avatar>
-                        {(instagramUrl || websiteUrl) && (
-                          <div className="flex gap-1.5">
-                            {instagramUrl && (
-                              <a
-                                href={instagramUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
-                              >
-                                <Instagram className="w-3.5 h-3.5 text-primary" />
-                              </a>
-                            )}
-                            {websiteUrl && (
-                              <a
-                                href={websiteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
-                              >
-                                <Globe className="w-3.5 h-3.5 text-primary" />
-                              </a>
-                            )}
+                      {/* Cover image */}
+                      <div className="h-40 bg-muted/20 relative overflow-hidden">
+                        {coverPhoto ? (
+                          <img
+                            src={coverPhoto}
+                            alt={venue.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Building2 className="w-12 h-12 text-muted-foreground/20" />
                           </div>
                         )}
                       </div>
 
-                      {/* Name + City */}
-                      <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-2">
-                        {venue.name}
-                      </h3>
-                      {venue.cities?.name && (
-                        <div className="flex items-center gap-1 text-muted-foreground text-sm mb-2">
-                          <MapPin className="w-3 h-3 shrink-0" />
-                          <span>{venue.cities.name}</span>
+                      <div className="p-4">
+                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-0.5">
+                          {venue.name}
+                        </h3>
+
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mb-3">
+                          {venue.cities?.name && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" /> {venue.cities.name}
+                            </span>
+                          )}
+                          {venue.capacity && (
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" /> {venue.capacity}
+                            </span>
+                          )}
                         </div>
-                      )}
 
-                      {/* Bio */}
-                      {venue.bio && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-3 flex-1">
-                          {venue.bio}
-                        </p>
-                      )}
+                        {venue.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                            {venue.description}
+                          </p>
+                        )}
 
-                      {/* CTA */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full mt-auto"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/venue-entity/${venue.id}`);
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </Card>
-                  </motion.div>
+                        {floorTypes.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {floorTypes.slice(0, 2).map((ft) => (
+                              <Badge key={ft} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/25 text-primary/70">
+                                <Layers className="w-2.5 h-2.5 mr-1" />{ft}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </Link>
                 </StaggerItem>
               );
             })}
           </StaggerContainer>
         )}
-      </section>
 
-      {/* Get Listed Section */}
-      <section id="get-listed" className="px-4 mb-16">
-        <div className="max-w-md mx-auto">
-          <ScrollReveal animation="fadeUp">
-            <Card className="p-8 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 border-primary/30">
-              <div className="text-center mb-8">
-                <motion.div
-                  className="text-6xl inline-block mb-4"
-                  animate={{ rotate: [-5, 5, -5] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  🏛️
-                </motion.div>
-                <h2 className="text-3xl font-black mb-2">
-                  <span className="text-foreground">List Your </span>
-                  <span className="text-primary">Venue</span>
-                </h2>
-                <p className="text-muted-foreground">
-                  Have a venue perfect for dance events? We'd love to hear from you.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Your Name *</label>
-                  <Input
-                    placeholder="Enter your name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Contact Number *</label>
-                  <Input
-                    type="tel"
-                    placeholder="Your phone number"
-                    value={formData.contactNumber}
-                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" size="lg">
-                  <Building className="w-4 h-4 mr-2" />
-                  Submit
-                </Button>
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground pt-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span>We'll contact you within 2 hours</span>
-                </div>
-              </form>
-            </Card>
-          </ScrollReveal>
-        </div>
-      </section>
+        {!isLoading && filtered.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            {filtered.length} venue{filtered.length !== 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
     </div>
   );
 };

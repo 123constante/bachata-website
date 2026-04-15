@@ -1,199 +1,198 @@
-﻿import { Link } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Calendar, Star, Users, PartyPopper, Music, Sparkles, Heart } from 'lucide-react';
+import { Search, X, Calendar, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import PageHero from '@/components/PageHero';
-import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
+import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import bachataLogo from '@/assets/bachata-calendar-logo.png';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { useCity } from '@/contexts/CityContext';
 
-const heroWidgets = [
-  {
-    emoji: '”',
-    title: 'Find An Organiser',
-    desc: 'Browse all organisers',
-    sectionId: 'directory',
-  },
-];
+type OrgRow = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  organisation_category: string | null;
+  cities?: { name: string } | null;
+};
 
 const Organisers = () => {
   const { citySlug } = useCity();
+  const [search, setSearch] = useState('');
 
-  // Fetch organisers from entities table
-  const { data: organisers, isLoading } = useQuery({
-    queryKey: ['entities', 'organiser'],
+  const { data: organisers = [], isLoading } = useQuery({
+    queryKey: ['entities-organisers'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entities')
-        .select('id, name, avatar_url, bio, socials, city_id, cities(name)')
+        .select('id, name, avatar_url, bio, organisation_category, city_id, cities(name)')
         .eq('type', 'organiser')
         .order('name');
-      
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as OrgRow[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch event counts per organiser
   const { data: eventCounts } = useQuery({
-    queryKey: ['entity-event-counts', 'organiser', citySlug],
+    queryKey: ['organiser-event-counts', citySlug],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_organiser_event_counts' as any, {
         p_city_slug: citySlug,
       });
-      
-      if (error) throw error;
-      
-      // Count events per entity
+      if (error) return {} as Record<string, number>;
       const counts: Record<string, number> = {};
       (data as any[] | null)?.forEach((item) => {
-        if (!item?.entity_id) return;
-        counts[item.entity_id] = item.event_count ?? 0;
+        if (item?.entity_id) counts[item.entity_id] = item.event_count ?? 0;
       });
       return counts;
     },
+    enabled: !!citySlug,
+    staleTime: 5 * 60 * 1000,
   });
 
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return organisers;
+    return organisers.filter((o) => {
+      const name = o.name.toLowerCase();
+      const city = (o.cities?.name || '').toLowerCase();
+      const cat = (o.organisation_category || '').toLowerCase();
+      return name.includes(q) || city.includes(q) || cat.includes(q);
+    });
+  }, [organisers, search]);
+
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20 pt-20">
-      <PageBreadcrumb items={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]} />
-      {/* Hero Section */}
+    <div className="min-h-screen pb-24">
       <PageHero
-        emoji="­"
+        emoji="🎪"
         titleWhite="Event"
         titleOrange="Organisers"
-        subtitle=""
-        widgets={heroWidgets}
-        gradientFrom="festival-pink"
-        floatingIcons={[PartyPopper, Star, Users, Music, Sparkles]}
-        card3DEffect={true}
-        largeTitle={true}
+        subtitle="The people and collectives behind the best bachata nights."
+        largeTitle={false}
       />
 
-      {/* Organisers Directory */}
-      <section id="directory" className="px-4 mb-16">
-        <ScrollReveal animation="fadeUp">
-          <div className="flex justify-center mb-4">
-            <motion.div
-              animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="text-4xl"
-            >
-              🎵
-            </motion.div>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-12">
-            <span className="text-foreground">Browse </span>
-            <span className="text-primary">Organisers</span>
-          </h2>
-        </ScrollReveal>
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-2">
+          <PageBreadcrumb items={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]} />
+        </div>
 
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, city or type…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-card border-border/50"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Grid */}
         {isLoading ? (
-          <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <Skeleton className="w-16 h-16 rounded-full" />
-                  <Skeleton className="w-12 h-8" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="p-5">
+                <div className="flex items-start gap-3 mb-3">
+                  <Skeleton className="w-14 h-14 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-1.5 pt-1">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
                 </div>
-                <Skeleton className="h-6 w-32 mb-2" />
-                <Skeleton className="h-4 w-24 mb-4" />
-                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-3 w-full mb-1" />
+                <Skeleton className="h-3 w-4/5" />
               </Card>
             ))}
           </div>
-        ) : organisers && organisers.length > 0 ? (
-          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {organisers.map((organiser) => {
-              const socials = organiser.socials as { instagram?: string } | null;
-              const eventCount = eventCounts?.[organiser.id] || 0;
-              
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-muted-foreground">No organisers match your search.</p>
+          </div>
+        ) : (
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {filtered.map((organiser) => {
+              const eventCount = eventCounts?.[organiser.id] ?? 0;
+
               return (
                 <StaggerItem key={organiser.id}>
-                  <motion.div whileHover={{ y: -8, scale: 1.02 }} transition={{ duration: 0.3 }}>
-                    <Link to={`/organisers/${organiser.id}`}>
-                      <Card className="p-6 h-full bg-gradient-to-br from-surface to-background border-primary/20 hover:border-primary/50 transition-all duration-300 group">
-                        {/* Avatar & Event Count */}
-                        <div className="flex items-start justify-between mb-4">
-                          <Avatar className="w-16 h-16 border-2 border-primary/20">
+                  <Link to={`/organisers/${organiser.id}`}>
+                    <motion.div
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Card className="p-5 h-full bg-card border-border/40 hover:border-primary/30 hover:shadow-md transition-all group">
+                        <div className="flex items-start gap-3 mb-3">
+                          <Avatar className="w-14 h-14 border border-primary/10 shrink-0">
                             <AvatarImage src={organiser.avatar_url || undefined} alt={organiser.name} />
-                            <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                              {organiser.name?.charAt(0) || '­'}
+                            <AvatarFallback className="bg-primary/10 text-primary text-xl font-black">
+                              {organiser.name?.charAt(0) || '?'}
                             </AvatarFallback>
                           </Avatar>
+
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <h3 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                              {organiser.name}
+                            </h3>
+                            {organiser.organisation_category && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {organiser.organisation_category}
+                              </p>
+                            )}
+                            {organiser.cities?.name && (
+                              <p className="text-xs text-muted-foreground/70 line-clamp-1">
+                                {organiser.cities.name}
+                              </p>
+                            )}
+                          </div>
+
                           {eventCount > 0 && (
-                            <div className="text-right">
-                              <div className="flex items-center gap-1 text-primary text-sm font-bold">
-                                <Calendar className="w-3 h-3" />
-                                <span>{eventCount}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">events</span>
+                            <div className="flex items-center gap-1 text-xs text-primary font-semibold shrink-0">
+                              <Calendar className="w-3 h-3" />
+                              {eventCount}
                             </div>
                           )}
                         </div>
 
-                        {/* Info */}
-                        <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
-                          {organiser.name}
-                        </h3>
-                        {/* Subheading: Event organiser */}
-                        <span className="text-xs text-muted-foreground block mb-3">
-                          Event organiser
-                        </span>
-                        
                         {organiser.bio && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                             {organiser.bio}
                           </p>
                         )}
                       </Card>
-                    </Link>
-                  </motion.div>
+                    </motion.div>
+                  </Link>
                 </StaggerItem>
               );
             })}
           </StaggerContainer>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No organisers listed yet.</p>
-          </div>
         )}
-      </section>
 
-      {/* Footer */}
-      <footer className="mt-24 py-20 px-4 border-t border-primary/20 relative overflow-hidden">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent"
-          animate={{ opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 4, repeat: Infinity }}
-        />
-
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="text-center">
-
-            <p className="text-muted-foreground text-sm">
-              Â© 2024 Bachata Calendar. Made with{' '}
-              <motion.span
-                className="inline-block text-primary"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              >
-                â™¥
-              </motion.span>{' '}
-              in London
-            </p>
-          </div>
-        </div>
-      </footer>
+        {!isLoading && filtered.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            {filtered.length} organiser{filtered.length !== 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
     </div>
   );
 };
 
 export default Organisers;
-
-
