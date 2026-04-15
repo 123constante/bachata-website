@@ -60,7 +60,7 @@ export const ProfileEventTimeline = ({
   );
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 bg-white/[0.04] border-white/10 backdrop-blur-sm">
       <CardContent className="p-6">
         <h2 className="text-xl font-semibold text-foreground mb-4">{title}</h2>
 
@@ -76,7 +76,7 @@ export const ProfileEventTimeline = ({
                 key={`${item.event_id}::${item.source}::${item.connection_label}`}
                 type="button"
                 onClick={() => navigate(`/event/${item.event_id}`)}
-                className="w-full rounded-lg border border-festival-teal/25 bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60"
+                className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition-colors hover:bg-white/[0.07]"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -98,7 +98,7 @@ export const ProfileEventTimeline = ({
                   </div>
                   <Badge
                     variant="outline"
-                    className="border-festival-teal/30 bg-background/60"
+                    className="border-white/15 bg-white/[0.06]"
                   >
                     {formatConnectionLabel(item.connection_label)}
                   </Badge>

@@ -91,7 +91,7 @@ const DJProfile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-24 pt-20">
+      <div className="min-h-screen pb-24 pt-20 bg-background">
         <div className="max-w-4xl mx-auto px-4 space-y-4">
           <Skeleton className="h-5 w-40" />
           <div className="flex gap-5 mt-6">
@@ -115,7 +115,7 @@ const DJProfile = () => {
 
   if (error || !dj) {
     return (
-      <div className="min-h-screen pb-24 pt-20 flex items-center justify-center px-4">
+      <div className="min-h-screen pb-24 pt-20 bg-background flex items-center justify-center px-4">
         <div className="text-center">
           <div className="text-5xl mb-4">🎧</div>
           <h1 className="text-2xl font-bold mb-2">DJ Not Found</h1>
@@ -153,7 +153,7 @@ const DJProfile = () => {
   ].filter(Boolean) as { label: string; value: string; url: string; icon: any }[];
 
   return (
-    <div className="min-h-screen pb-24 pt-20">
+    <div className="min-h-screen pb-24 pt-20 bg-background">
       <PageBreadcrumb items={[
         { label: 'DJs', path: '/djs' },
         { label: displayName },

@@ -196,7 +196,7 @@ const DancerProfile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-24 pt-32">
+      <div className="min-h-screen pb-24 pt-32 bg-background">
         <div className="container max-w-4xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]">
             <Skeleton className="col-span-2 row-span-2 h-full rounded-xl" />
@@ -213,7 +213,7 @@ const DancerProfile = () => {
 
   if (error || !dancer || !dancerView) {
     return (
-      <div className="min-h-screen pb-24 pt-32">
+      <div className="min-h-screen pb-24 pt-32 bg-background">
         <div className="container max-w-4xl mx-auto px-4 text-center">
           <motion.div
             initial={{ scale: 0 }}
@@ -238,7 +238,7 @@ const DancerProfile = () => {
   }
 
   return (
-    <div className="min-h-screen pb-24 pt-20">
+    <div className="min-h-screen pb-24 pt-20 bg-background">
       <PageBreadcrumb items={[
         { label: 'Dancers', path: '/dancers' },
         { label: dancerView.displayName }

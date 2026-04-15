@@ -86,7 +86,7 @@ const VenueEntity = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-20 px-3 pb-20">
+      <div className="min-h-screen pt-20 px-3 pb-20 bg-background">
         <div className="max-w-2xl mx-auto space-y-3">
           <Skeleton className="h-6 w-24" />
           <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ const VenueEntity = () => {
 
   if (!venue) {
     return (
-      <div className="min-h-screen pt-20 px-3 pb-20">
+      <div className="min-h-screen pt-20 px-3 pb-20 bg-background">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-lg font-bold text-foreground mb-2">Venue Not Found</h1>
           <p className="text-xs text-muted-foreground mb-4">This venue doesn't exist or has been removed.</p>
@@ -125,7 +125,7 @@ const VenueEntity = () => {
   const hasRules = rules && rules.length > 0;
 
   return (
-    <div className="min-h-screen pt-20 pb-20">
+    <div className="min-h-screen pt-20 pb-20 bg-background">
       <PageBreadcrumb items={[
         { label: 'Venues', path: '/venues' },
         { label: venue.name }

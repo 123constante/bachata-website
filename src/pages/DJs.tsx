@@ -64,7 +64,7 @@ const DJs = () => {
   }, [djs, search, selectedGenre]);
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 bg-background">
       <PageHero
         emoji="🎧"
         titleWhite="Bachata"

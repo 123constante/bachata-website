@@ -176,7 +176,7 @@ const OrganiserProfile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-20 px-4 pb-24">
+      <div className="min-h-screen pt-20 px-4 pb-24 bg-background">
         <div className="max-w-4xl mx-auto space-y-6">
           <Skeleton className="h-8 w-32" />
           <div className="flex items-center gap-4">
@@ -194,7 +194,7 @@ const OrganiserProfile = () => {
 
   if (error || !entity) {
     return (
-      <div className="min-h-screen pt-20 px-4 pb-24">
+      <div className="min-h-screen pt-20 px-4 pb-24 bg-background">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Organiser Not Found</h1>
           <p className="text-muted-foreground mb-6">The organiser profile you're looking for doesn't exist.</p>
@@ -234,7 +234,7 @@ const OrganiserProfile = () => {
   const canClaim = user && isUnclaimed;
 
   return (
-    <div className="min-h-screen pb-24 pt-20">
+    <div className="min-h-screen pb-24 pt-20 bg-background">
       <PageBreadcrumb items={[
         { label: 'Parties', path: '/parties' },
         { label: 'Organisers', path: '/organisers' },

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, MapPin, GraduationCap, Instagram, Globe, Mail, Phone,
   Users, User, Calendar, Languages, Sparkles, Trophy, BookOpen,
-  MessageCircle, CheckCircle2, ExternalLink,
+  MessageCircle, CheckCircle2, ExternalLink, Facebook,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -127,7 +127,7 @@ const TeacherProfile = () => {
   /* ── loading ──── */
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24">
+      <div className="min-h-screen pt-[100px] px-4 pb-24 bg-background">
         <div className="max-w-5xl mx-auto space-y-6">
           <Skeleton className="h-8 w-48" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -146,7 +146,7 @@ const TeacherProfile = () => {
   if (error || !teacher) {
     console.error('TeacherProfile error:', { error, teacher, id });
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24">
+      <div className="min-h-screen pt-[100px] px-4 pb-24 bg-background">
         <div className="max-w-4xl mx-auto text-center">
           <GraduationCap className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-4">Teacher Not Found</h1>
@@ -180,7 +180,7 @@ const TeacherProfile = () => {
     : [];
 
   return (
-    <div className="min-h-screen pb-24 pt-20">
+    <div className="min-h-screen pb-24 pt-20 bg-background">
       <div className="max-w-5xl mx-auto px-4">
         <PageBreadcrumb
           items={[
@@ -282,6 +282,11 @@ const TeacherProfile = () => {
                     <Instagram className="w-5 h-5" />
                   </a>
                 )}
+                {teacher.facebook && normalizeUrl(teacher.facebook) && (
+                  <a href={normalizeUrl(teacher.facebook)!} target="_blank" rel="noopener noreferrer" className="bg-blue-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                    <Facebook className="w-5 h-5" />
+                  </a>
+                )}
                 {websiteUrl && (
                   <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="bg-zinc-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Globe className="w-5 h-5" />
@@ -354,6 +359,21 @@ const TeacherProfile = () => {
                     <p className="text-sm text-muted-foreground mt-1">
                       <span className="font-semibold text-teal-300">Availability:</span> {teacher.availability}
                     </p>
+                  )}
+                  {(teacher.travel_willingness || teacher.private_travel_distance) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Travel:</span>
+                      {teacher.travel_willingness && (
+                        <span className="text-xs bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded-md text-violet-200">
+                          {teacher.travel_willingness}
+                        </span>
+                      )}
+                      {teacher.private_travel_distance && (
+                        <span className="text-xs bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded-md text-violet-200">
+                          Up to {teacher.private_travel_distance} km
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </Card>

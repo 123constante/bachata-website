@@ -61,7 +61,7 @@ const Venues = () => {
   }, [venues, search]);
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 bg-background">
       <PageHero
         emoji="🏛️"
         titleWhite="Dance"
