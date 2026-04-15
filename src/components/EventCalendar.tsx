@@ -142,7 +142,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-surface/50 backdrop-blur-sm border border-primary/20 rounded-3xl overflow-hidden relative"
+          className="bg-card border border-[hsl(42_90%_50%/0.22)] rounded-3xl overflow-hidden relative shadow-[0_0_0_1px_hsl(42_90%_50%/0.06),_0_8px_48px_hsl(42_90%_50%/0.07)]"
         >
           <div className="flex">
             {/* Main content */}
@@ -176,10 +176,10 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     className={cn(
                       'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all min-h-[32px]',
                       locationStatus === 'granted'
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-gradient-to-r from-[hsl(48_90%_62%)] via-[hsl(42_95%_50%)] to-[hsl(36_88%_42%)] text-black font-semibold shadow-[0_0_12px_hsl(42_95%_50%/0.4)]'
                         : locationStatus === 'denied'
                           ? 'bg-destructive/20 text-destructive'
-                          : 'bg-primary/10 text-primary hover:bg-primary/20',
+                          : 'bg-[hsl(42_90%_50%/0.1)] text-primary hover:bg-[hsl(42_90%_50%/0.18)]',
                     )}
                   >
                     {locationStatus === 'loading' ? (
@@ -235,12 +235,12 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                         <motion.div
                           layoutId="activeTabUnderline"
                           className={cn(
-                            'absolute bottom-0 left-0 right-0 h-0.5 rounded-full',
+                            'absolute bottom-0 left-0 right-0 h-[3px] rounded-full',
                             category === 'parties'
                               ? 'bg-festival-pink'
                               : category === 'classes'
                                 ? 'bg-festival-blue'
-                                : 'bg-primary',
+                                : 'bg-gradient-to-r from-[hsl(48_90%_62%)] via-[hsl(42_95%_50%)] to-[hsl(36_88%_42%)]',
                           )}
                           transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                         />

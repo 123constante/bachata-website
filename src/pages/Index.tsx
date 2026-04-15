@@ -98,7 +98,7 @@ const Index = () => {
         largeTitle={true}
         hideBackground={true}
         floatingIcons={[Sparkles]}
-        topPadding='pt-20'
+        topPadding='pt-10'
       />
 
       {/* CITY STATS STRIP */}

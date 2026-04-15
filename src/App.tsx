@@ -199,6 +199,8 @@ const App = () => {
             <CityProvider>
               <GlobalBackground />
               <GlobalHeader />
+              {/* Spacer that matches the sticky header height so NO page has content blocked behind it */}
+              <div className="h-[60px] shrink-0" aria-hidden="true" />
               <AnimatedRoutes />
               <MobileBottomNav />
             </CityProvider>

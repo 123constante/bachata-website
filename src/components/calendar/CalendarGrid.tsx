@@ -66,9 +66,9 @@ export const CalendarGrid = ({
               className={cn(
                 'aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all',
                 isToday
-                  ? 'bg-primary text-primary-foreground font-bold'
+                  ? 'bg-gradient-to-br from-[hsl(48_90%_62%)] via-[hsl(42_95%_50%)] to-[hsl(36_88%_42%)] text-black font-black shadow-[0_0_18px_hsl(42_95%_50%/0.55)]'
                   : hasEvents
-                    ? 'bg-primary/10 hover:bg-primary/20 shadow-[0_0_12px_rgba(249,115,22,0.4)]'
+                    ? 'bg-[hsl(42_90%_50%/0.08)] hover:bg-[hsl(42_90%_50%/0.16)] shadow-[0_0_10px_hsl(42_90%_50%/0.3)]'
                     : 'hover:bg-surface',
                 hasEvents && 'cursor-pointer',
               )}
@@ -111,7 +111,7 @@ export const CalendarGrid = ({
 
       {/* Hint when no day selected */}
       <motion.div
-        className="mt-8 pt-6 border-t border-primary/20 text-center"
+        className="mt-8 pt-6 border-t border-[hsl(42_90%_50%/0.18)] text-center"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
@@ -119,9 +119,11 @@ export const CalendarGrid = ({
         <motion.div
           animate={{ y: [0, -5, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="inline-flex items-center gap-2 text-sm text-primary font-medium bg-primary/10 px-4 py-2 rounded-full cursor-default"
+          className="inline-flex items-center gap-2 text-sm font-semibold bg-gradient-to-r from-[hsl(42_90%_50%/0.1)] to-[hsl(36_88%_42%/0.12)] border border-[hsl(42_90%_50%/0.2)] px-4 py-2 rounded-full cursor-default"
         >
-          Select a date to see details
+          <span className="bg-gradient-to-r from-[hsl(48_90%_62%)] to-[hsl(36_88%_42%)] bg-clip-text text-transparent">
+            Select a date to see details
+          </span>
         </motion.div>
       </motion.div>
     </>

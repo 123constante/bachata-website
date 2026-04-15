@@ -175,32 +175,44 @@ export const DayDetailModal = ({
                 </div>
 
                 {/* Time bars */}
-                <div className="flex flex-col text-sm border-t border-white/5">
-                  {event.hasClass && (popupFilter === 'all' || popupFilter === 'classes') && (
-                    <div className="flex items-center justify-between px-5 py-3 bg-festival-blue/5 border-b border-white/5 last:border-0 h-12">
-                      <span className="text-lg font-bold text-festival-blue tracking-wide">CLASSES</span>
-                      <span className="font-mono text-xl tracking-tight opacity-90">
-                        {event.classStart ?? ''} - {event.classEnd ?? ''}
-                      </span>
+                {(() => {
+                  const showClasses = event.hasClass && (popupFilter === 'all' || popupFilter === 'classes');
+                  const showParty   = event.hasParty  && (popupFilter === 'all' || popupFilter === 'parties');
+                  const showFallback = !event.hasParty && !event.hasClass;
+
+                  const classTime = event.classStart && event.classEnd
+                    ? `${event.classStart} - ${event.classEnd}`
+                    : event.classStart ?? event.classEnd ?? null;
+
+                  const partyTime = event.partyStart && event.partyEnd
+                    ? `${event.partyStart} - ${event.partyEnd}`
+                    : event.partyStart ?? event.partyEnd ?? null;
+
+                  return (
+                    <div className="flex flex-col text-sm border-t border-white/5">
+                      {showClasses && classTime && (
+                        <div className="flex items-center justify-between px-5 py-3 bg-festival-blue/5 border-b border-white/5 last:border-0 h-12">
+                          <span className="text-lg font-bold text-festival-blue tracking-wide">CLASSES</span>
+                          <span className="font-mono text-xl tracking-tight opacity-90">{classTime}</span>
+                        </div>
+                      )}
+                      {showParty && partyTime && (
+                        <div className="flex items-center justify-between px-5 py-3 bg-festival-pink/5 last:border-0 h-12">
+                          <span className="text-lg font-bold text-festival-pink tracking-wide">PARTY</span>
+                          <span className="font-mono text-xl tracking-tight opacity-90">{partyTime}</span>
+                        </div>
+                      )}
+                      {showFallback && (
+                        <div className="flex items-center justify-between px-5 py-3 bg-primary/5 h-12">
+                          <span className="text-lg font-bold text-primary tracking-wide">EVENT</span>
+                          <span className="font-mono text-xl tracking-tight opacity-90">
+                            {event.startTime} - {event.endTime}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {event.hasParty && (popupFilter === 'all' || popupFilter === 'parties') && (
-                    <div className="flex items-center justify-between px-5 py-3 bg-festival-pink/5 h-12">
-                      <span className="text-lg font-bold text-festival-pink tracking-wide">PARTY</span>
-                      <span className="font-mono text-xl tracking-tight opacity-90">
-                        {event.partyStart ?? ''} - {event.partyEnd ?? ''}
-                      </span>
-                    </div>
-                  )}
-                  {!event.hasParty && !event.hasClass && (
-                    <div className="flex items-center justify-between px-5 py-3 bg-primary/5 h-12">
-                      <span className="text-lg font-bold text-primary tracking-wide">EVENT</span>
-                      <span className="font-mono text-xl tracking-tight opacity-90">
-                        {event.startTime} - {event.endTime}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
               </Link>
             ))
           ) : (

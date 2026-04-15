@@ -81,6 +81,33 @@ interface KeyTimesData {
 
 const asKeyTimes = (obj: Record<string, unknown>): KeyTimesData => obj as unknown as KeyTimesData;
 
+/** Extract HH:MM time from a program item — checks both start/end and start_time/end_time keys. */
+const extractProgramTime = (item: Record<string, unknown>, key: 'start' | 'end'): string | undefined =>
+  fmtTime(item[key] as string | null | undefined) ??
+  fmtTime(item[`${key}_time`] as string | null | undefined);
+
+/**
+ * Given a list of program items all sharing the same type, return the combined
+ * time range: [earliest start, latest end].  Returns undefined for each field
+ * if none of the items carry usable times.
+ */
+const programClassRange = (
+  items: Array<Record<string, unknown>>,
+): { start: string | undefined; end: string | undefined } => {
+  const starts: string[] = [];
+  const ends: string[] = [];
+  for (const item of items) {
+    const s = extractProgramTime(item, 'start');
+    const e = extractProgramTime(item, 'end');
+    if (s) starts.push(s);
+    if (e) ends.push(e);
+  }
+  // Sort lexicographically — HH:MM strings sort correctly as strings
+  const earliest = starts.sort()[0];
+  const latest = ends.sort().at(-1);
+  return { start: earliest, end: latest };
+};
+
 export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem[] =>
   raw.map((event) => {
     const instanceDate = new Date(event.instance_date);
@@ -99,16 +126,21 @@ export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem
     }
     const keyTimes = asKeyTimes(keyTimesRaw);
 
-    // Program-based flags (festival meta)
+    // Program-based flags and times (festival / multi-session meta)
     let programHasParty = false;
     let programHasClass = false;
     const program = meta.program;
+    const classItems: Array<Record<string, unknown>> = [];
+    const partyItems: Array<Record<string, unknown>> = [];
+
     if (Array.isArray(program)) {
       for (const item of program as Array<Record<string, unknown>>) {
-        if (item?.type === 'party') programHasParty = true;
-        if (item?.type === 'class' || item?.type === 'workshop') programHasClass = true;
-        if (Array.isArray(item?.music_styles) && (item.music_styles as string[]).includes('party'))
+        if (item?.type === 'party') { programHasParty = true; partyItems.push(item); }
+        if (item?.type === 'class' || item?.type === 'workshop') { programHasClass = true; classItems.push(item); }
+        if (Array.isArray(item?.music_styles) && (item.music_styles as string[]).includes('party')) {
           programHasParty = true;
+          partyItems.push(item);
+        }
       }
     }
 
@@ -117,10 +149,33 @@ export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem
     const hasClass =
       event.has_class ?? (program ? programHasClass : !!keyTimes.classes?.active);
 
-    const partyStart = fmtTime(event.party_start) ?? fmtTime(keyTimes.party?.start);
-    const partyEnd = fmtTime(event.party_end) ?? fmtTime(keyTimes.party?.end);
-    const classStart = fmtTime(event.class_start) ?? fmtTime(keyTimes.classes?.start);
-    const classEnd = fmtTime(event.class_end) ?? fmtTime(keyTimes.classes?.end);
+    // Class times: RPC fields → combined program range → key_times fallback
+    const rpcClassStart = fmtTime(event.class_start);
+    const rpcClassEnd   = fmtTime(event.class_end);
+    const progClass     = classItems.length > 0 ? programClassRange(classItems) : { start: undefined, end: undefined };
+
+    const classStart =
+      rpcClassStart ??
+      progClass.start ??
+      fmtTime(keyTimes.classes?.start);
+    const classEnd =
+      rpcClassEnd ??
+      progClass.end ??
+      fmtTime(keyTimes.classes?.end);
+
+    // Party times: RPC fields → program range → key_times fallback
+    const rpcPartyStart = fmtTime(event.party_start);
+    const rpcPartyEnd   = fmtTime(event.party_end);
+    const progParty     = partyItems.length > 0 ? programClassRange(partyItems) : { start: undefined, end: undefined };
+
+    const partyStart =
+      rpcPartyStart ??
+      progParty.start ??
+      fmtTime(keyTimes.party?.start);
+    const partyEnd =
+      rpcPartyEnd ??
+      progParty.end ??
+      fmtTime(keyTimes.party?.end);
 
     const globalStart = fmtTime(event.start_time);
     const globalEnd = fmtTime(event.end_time);
