@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, X, Building2, MapPin, Users, Layers } from 'lucide-react';
+import { Search, X, Building2, Users, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +21,6 @@ type VenueCard = {
   floor_type: any | null;
   facilities: any | null;
   parking: string | null;
-  cities?: { name: string } | null;
 };
 
 const parseArray = (val: any): string[] => {
@@ -41,7 +40,7 @@ const Venues = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('venues')
-        .select('id, name, photo_url, description, address, capacity, floor_type, facilities, parking, cities(name)')
+        .select('id, name, photo_url, description, address, capacity, floor_type, facilities, parking')
         .order('name', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as VenueCard[];
@@ -54,9 +53,8 @@ const Venues = () => {
     if (!q) return venues;
     return venues.filter((v) => {
       const name = v.name.toLowerCase();
-      const city = (v.cities?.name || '').toLowerCase();
       const addr = (v.address || '').toLowerCase();
-      return name.includes(q) || city.includes(q) || addr.includes(q);
+      return name.includes(q) || addr.includes(q);
     });
   }, [venues, search]);
 
@@ -154,11 +152,6 @@ const Venues = () => {
                         </h3>
 
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mb-3">
-                          {venue.cities?.name && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {venue.cities.name}
-                            </span>
-                          )}
                           {venue.capacity && (
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" /> {venue.capacity}
