@@ -31,7 +31,7 @@ const Organisers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entities')
-        .select('id, name, avatar_url, bio, organisation_category, city_id, cities(name)')
+        .select('id, name, avatar_url, bio, organisation_category, city_id, cities:cities!entities_city_id_fkey(name)')
         .eq('type', 'organiser')
         .or('is_active.is.null,is_active.eq.true')
         .order('name');

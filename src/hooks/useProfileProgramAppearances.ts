@@ -32,18 +32,41 @@ export type ProfileAppearanceItem = {
 // ─── Private fetchers ─────────────────────────────────────────────────────────
 
 /**
+ * Resolve the set of profile_id values that should match this person in
+ * event_program_people. Admin tooling sometimes stores the profile-table PK
+ * (teacher_profiles.id / dj_profiles.id) and sometimes the shared
+ * person_entity_id, so both forms must be queried.
+ */
+async function resolveProfileIdForms(
+  profileId: string,
+  profileType: 'teacher' | 'dj',
+): Promise<string[]> {
+  const table = profileType === 'teacher' ? 'teacher_profiles' : 'dj_profiles';
+  const { data } = await supabase
+    .from(table)
+    .select('id, person_entity_id')
+    .eq('id', profileId)
+    .maybeSingle();
+  const ids = new Set<string>([profileId]);
+  const entityId = (data as { person_entity_id: string | null } | null)?.person_entity_id;
+  if (entityId) ids.add(entityId);
+  return [...ids];
+}
+
+/**
  * Session-level: unique event IDs where this person has a program slot.
- * Reads event_program_people (single authority) directly by profile_id + profile_type.
- * event_id is stored on the row itself so no join is required.
+ * Reads event_program_people (single authority) directly. Matches on BOTH
+ * profile-table PK and person_entity_id forms of profile_id.
  */
 async function fetchProgramEventIds(
   profileId: string,
   profileType: 'teacher' | 'dj',
 ): Promise<string[]> {
+  const idForms = await resolveProfileIdForms(profileId, profileType);
   const { data, error } = await supabase
     .from('event_program_people' as never)
     .select('event_id')
-    .eq('profile_id', profileId)
+    .in('profile_id', idForms)
     .eq('profile_type', profileType);
   if (error) throw error;
   const ids = ((data ?? []) as unknown as { event_id: string | null }[])
@@ -89,19 +112,20 @@ type EventRow = {
 };
 
 /**
- * Published + active gate: returns only the subset of the given event IDs
- * where is_published = true AND is_active = true.
+ * Active-only gate: `events` has no `is_published` column — `is_active`
+ * is the sole public visibility flag. Null is treated as visible so that
+ * legacy rows with un-set `is_active` still surface, matching the behaviour
+ * of the directory pages.
  */
 async function keepPublishedAndActive(eventIds: string[]): Promise<EventRow[]> {
   if (!eventIds.length) return [];
   const { data, error } = await supabase
     .from('events')
-    .select('id, name, location, city, start_time')
-    .in('id', eventIds)
-    .eq('is_published', true)
-    .eq('is_active', true);
+    .select('id, name, location, city, start_time, is_active')
+    .in('id', eventIds);
   if (error) throw error;
-  return (data ?? []) as EventRow[];
+  return ((data ?? []) as (EventRow & { is_active: boolean | null })[])
+    .filter((r) => r.is_active !== false);
 }
 
 // ─── Public hook ──────────────────────────────────────────────────────────────

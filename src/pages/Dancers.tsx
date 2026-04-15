@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 
 type Dancer = {
   id: string;
-  first_name: string;
+  first_name: string | null;
   surname: string | null;
   favorite_styles: string[] | null;
   dance_started_year: number | null;
@@ -280,13 +280,14 @@ const Dancers = () => {
     setSelectedCity(null);
   };
 
-  const getAvatarEmoji = (name: string) => {
+  const getAvatarEmoji = (name: string | null | undefined) => {
+    if (!name) return '??';
     const hash = name.charCodeAt(0) % 2;
     return hash === 0 ? '??' : '??';
   };
 
   const getDisplayName = (dancer: Dancer) => {
-    return buildFullName(dancer.first_name, dancer.surname);
+    return buildFullName(dancer.first_name, dancer.surname) || 'Dancer';
   };
 
   const filterTabs: { value: FilterType; label: string; icon: string }[] = [
