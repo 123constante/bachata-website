@@ -15,21 +15,19 @@ type EventHeroSectionProps = {
 // Schedule strip helpers
 // ---------------------------------------------------------------------------
 
-const fmt = (time: string) => {
-  const parts = time.split(':');
-  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : time;
+// Handle both "HH:MM" and full ISO timestamp "YYYY-MM-DDTHH:MM..."
+const fmt = (time: string): string => {
+  if (!time) return '';
+  const tIdx = time.indexOf('T');
+  const timePart = tIdx !== -1 ? time.slice(tIdx + 1) : time;
+  return timePart.slice(0, 5);
 };
 
-const formatDayLabel = (day: string) => {
-  try {
-    return new Date(day + 'T00:00:00').toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return day;
-  }
+const formatDayLabel = (day: string): string => {
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return day || 'TBD';
+  const d = new Date(day + 'T00:00:00');
+  if (isNaN(d.getTime())) return day;
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
 type DaySummary = {

@@ -15,11 +15,12 @@ const typeColorMap: Record<string, string> = {
   competition: 'bg-red-500/15 text-red-400',
 };
 
-const formatTime = (time: string) => {
+// Handle both "HH:MM" and full ISO timestamp "YYYY-MM-DDTHH:MM..."
+const formatTime = (time: string): string => {
   if (!time) return '';
-  const parts = time.split(':');
-  if (parts.length < 2) return time;
-  return `${parts[0]}:${parts[1]}`;
+  const tIdx = time.indexOf('T');
+  const timePart = tIdx !== -1 ? time.slice(tIdx + 1) : time;
+  return timePart.slice(0, 5);
 };
 
 /** Group program items by day and sort within each day by startTime */
@@ -37,17 +38,18 @@ const groupByDay = (items: FestivalScheduleItem[]) => {
   return sorted;
 };
 
-const formatDayLabel = (day: string) => {
-  try {
-    return new Date(day + 'T00:00:00').toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return day;
-  }
+const formatDayLabel = (day: string): string => {
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return day || 'TBD';
+  const d = new Date(day + 'T00:00:00');
+  if (isNaN(d.getTime())) return day;
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 };
+
+// Remove trailing " N" from auto-generated default names like "Class 1", "Party 2"
+const normalizeSessionTitle = (title: string): string =>
+  /^(class|party|workshop|social|show|competition)\s+\d+$/i.test(title.trim())
+    ? title.trim().replace(/\s+\d+$/, '')
+    : title;
 
 export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps) => {
   if (!schedule || schedule.length === 0) return null;
@@ -66,7 +68,7 @@ export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <p className="mb-4 text-[10px] uppercase tracking-[0.18em] text-white/45">Festival Schedule</p>
+      <p className="mb-4 text-[10px] uppercase tracking-[0.18em] text-white/45">Schedule</p>
       
       {/* Date selector tabs */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-2">
@@ -108,7 +110,7 @@ export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps
                         {item.endTime ? ` – ${formatTime(item.endTime)}` : ''}
                       </p>
                     </div>
-                    <p className="text-sm text-white/85">{item.title}</p>
+                    {item.title && <p className="text-sm text-white/85">{normalizeSessionTitle(item.title)}</p>}
                   </div>
                 );
               })
@@ -139,7 +141,7 @@ export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps
                         {item.endTime ? ` – ${formatTime(item.endTime)}` : ''}
                       </p>
                     </div>
-                    <p className="text-sm text-white/85">{item.title}</p>
+                    {item.title && <p className="text-sm text-white/85">{normalizeSessionTitle(item.title)}</p>}
                   </div>
                 );
               })

@@ -19,8 +19,11 @@ const getMonogram = (value: string | null) => {
 
 const formatDateLabel = (value: string | null) => {
   if (!value) return null;
-  const parsedDate = new Date(value);
-  return Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, 'EEEE, MMMM d, yyyy');
+  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS engines,
+  // which causes an off-by-one day in positive-offset timezones. Append local noon.
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
+  const parsedDate = new Date(normalized);
+  return Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, 'EEEE, d MMMM yyyy');
 };
 
 const formatTimeLabel = (value: string | null) => {

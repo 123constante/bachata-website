@@ -5,6 +5,14 @@ type EventScheduleSectionProps = {
   schedule: EventPageModel['schedule'];
 };
 
+// Extract HH:MM from "HH:MM", "HH:MM:SS", or full ISO timestamp "YYYY-MM-DDTHH:MM..."
+const fmtTime = (value: string): string => {
+  if (!value) return value;
+  const tIdx = value.indexOf('T');
+  const timePart = tIdx !== -1 ? value.slice(tIdx + 1) : value;
+  return timePart.slice(0, 5);
+};
+
 export const EventScheduleSection = ({ schedule }: EventScheduleSectionProps) => {
   if (!schedule.isVisible) return null;
 
@@ -40,10 +48,10 @@ export const EventScheduleSection = ({ schedule }: EventScheduleSectionProps) =>
         {schedule.keyTimes && (
           <div className="space-y-1 pl-6 text-[12px] text-white/60">
             {schedule.keyTimes.classes && (
-              <p>Classes: {schedule.keyTimes.classes.start} – {schedule.keyTimes.classes.end}</p>
+              <p>Classes: {fmtTime(schedule.keyTimes.classes.start)} – {fmtTime(schedule.keyTimes.classes.end)}</p>
             )}
             {schedule.keyTimes.party && (
-              <p>Party: {schedule.keyTimes.party.start} – {schedule.keyTimes.party.end}</p>
+              <p>Party: {fmtTime(schedule.keyTimes.party.start)} – {fmtTime(schedule.keyTimes.party.end)}</p>
             )}
           </div>
         )}
