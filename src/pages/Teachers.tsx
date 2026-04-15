@@ -55,6 +55,7 @@ const Teachers = () => {
       const { data, error } = await supabase
         .from('teacher_profiles')
         .select('id, first_name, surname, photo_url, bio, teaching_styles, years_teaching, offers_group, offers_private, instagram, website, languages, nationality, hide_surname, city:cities!city_id(name)')
+        .or('is_active.is.null,is_active.eq.true')
         .order('first_name');
 
       if (error) throw error;

@@ -38,7 +38,7 @@ const DJs = () => {
       const { data, error } = await supabase
         .from('dj_profiles')
         .select('id, dj_name, first_name, surname, hide_real_name, photo_url, bio, genres, nationality, verified, city, cities!city_id(name)')
-        .eq('is_active', true)
+        .or('is_active.is.null,is_active.eq.true')
         .order('dj_name', { ascending: true, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as unknown as DJCard[];

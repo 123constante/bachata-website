@@ -86,6 +86,7 @@ const Dancers = () => {
         const { data, error } = await supabase
           .from('dancer_profiles')
           .select('id, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
+          .or('is_active.is.null,is_active.eq.true')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
