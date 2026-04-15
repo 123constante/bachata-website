@@ -1,11 +1,10 @@
-import { Globe, Instagram, Facebook, Ticket, AlertTriangle, MapPin, MessageCircle, Music2, Radio } from 'lucide-react';
+import { Globe, Instagram, Facebook, Ticket, AlertTriangle, MessageCircle, Music2, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { EventPageModel } from '@/modules/event-page/types';
 
 type EventIdentityActionsSectionProps = {
   identity: EventPageModel['identity'];
   actions: EventPageModel['actions'];
-  locationLabel?: string | null;
 };
 
 const actionButtons = [
@@ -18,7 +17,7 @@ const actionButtons = [
   { key: 'livestream', label: 'Livestream', icon: Radio, field: 'livestreamUrl' },
 ] as const;
 
-export const EventIdentityActionsSection = ({ identity, actions, locationLabel }: EventIdentityActionsSectionProps) => {
+export const EventIdentityActionsSection = ({ identity, actions }: EventIdentityActionsSectionProps) => {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -34,12 +33,7 @@ export const EventIdentityActionsSection = ({ identity, actions, locationLabel }
               {identity.eventType}
             </span>
           )}
-          {locationLabel && (
-            <p className="inline-flex items-center gap-1 text-[11px] text-white/65">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{locationLabel}</span>
-            </p>
-          )}
+
         </div>
 
         {actions.hasAny && (

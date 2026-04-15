@@ -159,7 +159,7 @@ export const DayDetailModal = ({
                   </div>
 
                   <div className="flex-1 flex flex-col justify-center items-end px-3 sm:px-5 min-w-0 bg-black/20 text-right">
-                    <h4 className="font-bold text-base sm:text-lg leading-snug tracking-tight group-hover:text-primary transition-colors line-clamp-2 w-full">
+                    <h4 className="sparkle-title font-bold text-3xl sm:text-4xl leading-snug tracking-tight line-clamp-2 w-full">
                       {event.title}
                     </h4>
                     <div className="flex items-center justify-end gap-1.5 font-bold text-[12px] truncate mt-1 w-full">

@@ -1,8 +1,8 @@
-import type { EventPageModel, FestivalDetail } from '@/modules/event-page/types';
+import type { EventPageModel, FestivalDetail, FestivalScheduleItem } from '@/modules/event-page/types';
 import { ShareButton } from '@/components/ShareButton';
 import { EventHeroSection } from '@/modules/event-page/sections/EventHeroSection';
 import { EventIdentityActionsSection } from '@/modules/event-page/sections/EventIdentityActionsSection';
-import { EventScheduleSection } from '@/modules/event-page/sections/EventScheduleSection';
+import { EventTimelineSection } from '@/modules/event-page/sections/EventTimelineSection';
 import { EventLocationSection } from '@/modules/event-page/sections/EventLocationSection';
 import { EventOrganiserSection } from '@/modules/event-page/sections/EventOrganiserSection';
 import { EventLineupSection } from '@/modules/event-page/sections/EventLineupSection';
@@ -23,16 +23,13 @@ import { FestivalCompetitionsSection } from '@/modules/event-page/sections/Festi
 type EventPageScreenProps = {
   pageModel: EventPageModel;
   festivalDetail?: FestivalDetail | null;
+  eventSchedule?: FestivalScheduleItem[] | null;
   isRsvpPending: boolean;
   onBack: () => void;
   onToggleRsvp: () => void;
 };
 
-export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBack, onToggleRsvp }: EventPageScreenProps) => {
-  const identityLocation =
-    [pageModel.location.venueName, pageModel.location.cityName].filter(Boolean).join(', ') ||
-    pageModel.location.locationText ||
-    null;
+export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRsvpPending, onBack, onToggleRsvp }: EventPageScreenProps) => {
 
   // For festivals, prefer richer links from festival detail (includes whatsapp_link).
   // Snapshot actions are limited: ticket_url, website_url, facebook_url, instagram_url.
@@ -87,7 +84,6 @@ export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBa
               <EventIdentityActionsSection
                 identity={pageModel.identity}
                 actions={actions}
-                locationLabel={identityLocation}
               />
               <div className="flex justify-end">
                 <ShareButton
@@ -98,10 +94,14 @@ export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBa
               </div>
 
               {/* Mobile-only: Schedule and Location at top for quick access */}
-              {/* For festivals, FestivalProgramSection handles the detailed schedule, so skip EventScheduleSection */}
+              {/* For festivals, FestivalProgramSection handles the detailed schedule */}
               {!festivalDetail && (
                 <div className="lg:hidden space-y-3">
-                  <EventScheduleSection schedule={pageModel.schedule} />
+                  <EventTimelineSection
+                    schedule={pageModel.schedule}
+                    eventId={pageModel.identity.eventId}
+                    fallbackSchedule={eventSchedule}
+                  />
                   <EventLocationSection location={pageModel.location} />
                 </div>
               )}
@@ -110,12 +110,6 @@ export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBa
                   <EventLocationSection location={pageModel.location} />
                 </div>
               )}
-
-              {/* Lineup: festival has richer 6-role lineup; standard uses occurrence lineup */}
-              {festivalDetail
-                ? <FestivalLineupSection lineup={festivalDetail.lineup} />
-                : <EventLineupSection lineup={pageModel.lineup} />
-              }
 
               {festivalDetail && <FestivalProgramSection schedule={festivalDetail.schedule} />}
               {festivalDetail && <FestivalCompetitionsSection competitions={festivalDetail.competitions} />}
@@ -142,12 +136,24 @@ export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBa
               <EventDescriptionSection description={pageModel.description} />
               <EventGallerySection galleryUrls={galleryUrls} />
               <EventMusicStylesSection musicStyles={musicStyles} />
+
+              {/* Lineup — at the very bottom as a final summary */}
+              {festivalDetail
+                ? <FestivalLineupSection lineup={festivalDetail.lineup} />
+                : <EventLineupSection lineup={pageModel.lineup} />
+              }
             </div>
 
             {/* ── Sidebar — hidden on mobile ── */}
             <div className="hidden lg:block space-y-3">
               {/* For festivals, FestivalProgramSection in main column handles the detailed schedule */}
-              {!festivalDetail && <EventScheduleSection schedule={pageModel.schedule} />}
+              {!festivalDetail && (
+                <EventTimelineSection
+                  schedule={pageModel.schedule}
+                  eventId={pageModel.identity.eventId}
+                  fallbackSchedule={eventSchedule}
+                />
+              )}
 
               {/* Festival passes take priority over generic tickets */}
               {festivalDetail

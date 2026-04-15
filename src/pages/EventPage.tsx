@@ -10,7 +10,7 @@ const EventPageInner = () => {
   const location = useLocation();
 
   const requestedOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
-  const { pageModel, festivalDetail, isFestival, isRsvpPending, toggleRsvp } = useEventPage(id, requestedOccurrenceId);
+  const { pageModel, festivalDetail, isFestival, eventSchedule, isRsvpPending, toggleRsvp } = useEventPage(id, requestedOccurrenceId);
 
   const handleBack = () => navigate(-1);
   const handleToggleRsvp = () => {
@@ -52,6 +52,7 @@ const EventPageInner = () => {
     <EventPageScreen
       pageModel={pageModel}
       festivalDetail={isFestival ? festivalDetail : null}
+      eventSchedule={eventSchedule}
       isRsvpPending={isRsvpPending}
       onBack={handleBack}
       onToggleRsvp={handleToggleRsvp}

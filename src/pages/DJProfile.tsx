@@ -80,7 +80,6 @@ const DJProfile = () => {
         .from('dj_profiles')
         .select('*, cities!city_id(name)')
         .eq('id', id)
-        .eq('is_active', true)
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('DJ not found');

@@ -67,6 +67,9 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     pageModel,
     festivalDetail: festivalQuery.data ?? null,
     isFestival,
+    // For standard events, expose the meta_data.program schedule as a fallback for the timeline.
+    // Festivals use FestivalProgramSection instead.
+    eventSchedule: !isFestival ? (festivalQuery.data?.schedule ?? null) : null,
     error: query.error ?? null,
     isLoading: query.isLoading,
     isRsvpPending: rsvpMutation.isPending,
