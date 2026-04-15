@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, Star } from "lucide-react";
@@ -44,37 +44,25 @@ type AttendanceItem = {
 const DancerProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [dancer, setDancer] = useState<DancerPublicRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDancer = async () => {
-      if (!id) return;
+  const { data: dancer, isLoading, error: dancerError } = useQuery({
+    queryKey: ["dancer-profile", id],
+    queryFn: async () => {
+      if (!id) throw new Error("Dancer ID required");
+      const { data, error } = await supabase
+        .from("dancer_profiles")
+        .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, cities!based_city_id(name)")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Dancer not found.");
+      return data as DancerPublicRecord;
+    },
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5,
+  });
 
-      try {
-        const { data, error } = await supabase
-          .from("dancer_profiles")
-          .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, cities!based_city_id(name)")
-          .eq("id", id)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) {
-          setError("Dancer not found.");
-          return;
-        }
-        setDancer(data as DancerPublicRecord);
-      } catch (err: any) {
-        setError(err.message || "Failed to load dancer profile");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDancer();
-  }, [id]);
-
+  const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   const dancerUserId = dancer?.created_by ?? null;
 

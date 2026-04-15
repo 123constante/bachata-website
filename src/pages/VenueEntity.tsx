@@ -115,7 +115,7 @@ const VenueEntity = () => {
   return (
     <div className="min-h-screen pt-20 pb-20">
       <PageBreadcrumb items={[
-        { label: 'Venues', path: '/venue-directory' },
+        { label: 'Venues', path: '/venues' },
         { label: venue.name }
       ]} />
       
