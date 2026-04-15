@@ -58,6 +58,7 @@ const Teachers = () => {
         .not('is_active', 'is', false)
         .order('first_name');
 
+      console.log('[Teachers] query result:', { data, error });
       if (error) throw error;
       return (data ?? []) as unknown as Teacher[];
     },
