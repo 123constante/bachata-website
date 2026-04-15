@@ -63,13 +63,13 @@ export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRs
     : pageModel.identity.musicStyles;
 
   return (
-    <div className="relative min-h-screen overflow-hidden pb-24">
-      <div className="pointer-events-none absolute inset-0">
+    <div className="relative min-h-screen overflow-hidden pb-24 bg-background isolate">
+      <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsla(0,0%,100%,0.07),_transparent_55%)]" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.02] to-black/40" />
       </div>
 
-      <div className="relative pt-[84px] pb-14">
+      <div className="relative z-10 pt-[84px] pb-14">
         <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 lg:px-6">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
 
@@ -93,23 +93,32 @@ export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRs
                 />
               </div>
 
-              {/* Mobile-only: Schedule and Location at top for quick access */}
-              {/* For festivals, FestivalProgramSection handles the detailed schedule */}
-              {!festivalDetail && (
-                <div className="lg:hidden space-y-3">
+              {/* Mobile-only: all sidebar content stacked here (hidden on desktop where sidebar shows) */}
+              <div className="lg:hidden space-y-3">
+                {/* Schedule timeline — non-festival only; festivals use FestivalProgramSection below */}
+                {!festivalDetail && (
                   <EventTimelineSection
                     schedule={pageModel.schedule}
                     eventId={pageModel.identity.eventId}
                     fallbackSchedule={eventSchedule}
                   />
-                  <EventLocationSection location={pageModel.location} />
-                </div>
-              )}
-              {festivalDetail && (
-                <div className="lg:hidden space-y-3">
-                  <EventLocationSection location={pageModel.location} />
-                </div>
-              )}
+                )}
+
+                {/* Tickets / passes */}
+                {festivalDetail
+                  ? <FestivalPassesSection passes={festivalDetail.passes} />
+                  : <EventTicketsSection tickets={pageModel.tickets} />
+                }
+
+                {/* Location + hotels */}
+                <EventLocationSection location={pageModel.location} />
+                {festivalDetail && <FestivalHotelsSection hotels={festivalDetail.hotels} />}
+
+                {/* Info, promo codes, organiser */}
+                <EventInfoSection eventInfo={pageModel.eventInfo} />
+                <EventPromoSection promoCodes={pageModel.promoCodes} />
+                <EventOrganiserSection organiser={pageModel.organiser} />
+              </div>
 
               {festivalDetail && <FestivalProgramSection schedule={festivalDetail.schedule} />}
               {festivalDetail && <FestivalCompetitionsSection competitions={festivalDetail.competitions} />}
