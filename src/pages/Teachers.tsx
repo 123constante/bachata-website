@@ -27,7 +27,6 @@ type Teacher = {
   first_name: string | null;
   surname: string | null;
   photo_url: string | null;
-  bio: string | null;
   teaching_styles: string[] | null;
   years_teaching: number | null;
   offers_group: boolean | null;
@@ -54,11 +53,10 @@ const Teachers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('teacher_profiles')
-        .select('id, first_name, surname, photo_url, bio, teaching_styles, years_teaching, offers_group, offers_private, instagram, website, languages, nationality, hide_surname, city:cities(name)')
+        .select('id, first_name, surname, photo_url, teaching_styles, years_teaching, offers_group, offers_private, instagram, website, languages, nationality, hide_surname, city:cities(name)')
         .not('is_active', 'is', false)
         .order('first_name');
 
-      console.log('[Teachers] query result:', { data, error });
       if (error) throw error;
       return (data ?? []) as unknown as Teacher[];
     },
@@ -429,11 +427,6 @@ const Teachers = () => {
                           )}
                         </div>
                       </div>
-
-                      {/* Bio */}
-                      {teacher.bio && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{teacher.bio}</p>
-                      )}
 
                       {/* Styles badges */}
                       {teacher.teaching_styles && teacher.teaching_styles.length > 0 && (
