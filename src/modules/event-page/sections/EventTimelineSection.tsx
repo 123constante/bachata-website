@@ -102,14 +102,18 @@ function useProgramItems(eventId: string | null | undefined) {
         (djLinks ?? []).map((l) => l.profile_id).filter((x): x is string => Boolean(x)),
       )];
 
-      // Fetch profiles in parallel
+      // Fetch profiles in parallel.
+      // Teacher note: event_program_instructors.profile_id may store either
+      // teacher_profiles.id (UUID) OR teacher_profiles.person_entity_id (entity UUID),
+      // depending on which admin path created the link. We fetch by both and index
+      // teacherMap on both keys so either form resolves correctly.
       const [{ data: teachers }, { data: djs }] = await Promise.all([
         teacherIds.length
           ? supabase
               .from('teacher_profiles')
-              .select('id, first_name, surname')
-              .in('id', teacherIds)
-          : Promise.resolve({ data: [] as { id: string; first_name: string | null; surname: string | null }[], error: null }),
+              .select('id, first_name, surname, person_entity_id')
+              .or(`id.in.(${teacherIds.join(',')}),person_entity_id.in.(${teacherIds.join(',')})`)
+          : Promise.resolve({ data: [] as { id: string; first_name: string | null; surname: string | null; person_entity_id: string | null }[], error: null }),
         djIds.length
           ? supabase
               .from('dj_profiles')
@@ -118,7 +122,13 @@ function useProgramItems(eventId: string | null | undefined) {
           : Promise.resolve({ data: [] as { id: string; dj_name: string | null; first_name: string | null; surname: string | null }[], error: null }),
       ]);
 
-      const teacherMap = new Map((teachers ?? []).map((t) => [t.id, t]));
+      // Index teachers by both id and person_entity_id so either form of stored link resolves.
+      type TeacherRow = { id: string; first_name: string | null; surname: string | null; person_entity_id: string | null };
+      const teacherMap = new Map<string, TeacherRow>();
+      for (const t of teachers ?? []) {
+        teacherMap.set(t.id, t);
+        if (t.person_entity_id) teacherMap.set(t.person_entity_id, t);
+      }
       const djMap = new Map((djs ?? []).map((d) => [d.id, d]));
 
       return withTimes.map((item): TimelineSession => {
@@ -131,7 +141,9 @@ function useProgramItems(eventId: string | null | undefined) {
             const t = teacherMap.get(l.profile_id!);
             if (!t) return null;
             const name = [t.first_name, t.surname].filter(Boolean).join(' ') || 'Teacher';
-            return { id: l.profile_id!, name, href: `/teachers/${l.profile_id}` };
+            // Always use teacher_profiles.id for the profile link, regardless of
+            // which UUID was stored in event_program_instructors.profile_id.
+            return { id: t.id, name, href: `/teachers/${t.id}` };
           })
           .filter((x): x is Person => x !== null);
 
@@ -360,9 +372,30 @@ export const EventTimelineSection = ({
 }: EventTimelineSectionProps) => {
   const { data: programItems = [], isLoading } = useProgramItems(eventId);
 
-  // Resolve which data source to use
+  // Resolve which data source to use.
+  // When programItems exist, prefer them but backfill people from fallbackSchedule for
+  // any item whose event_program_instructors rows are missing (data gap between JSONB
+  // meta_data.program and the relational table). Match by startMins|type — unique in
+  // practice since no festival has two items of the same type at the exact same minute.
   const sessions: TimelineSession[] = (() => {
-    if (programItems.length) return programItems;
+    if (programItems.length) {
+      if (fallbackSchedule?.length) {
+        const fbPeople = new Map<string, Person[]>();
+        for (const s of fromFestivalSchedule(fallbackSchedule)) {
+          if (s.people.length > 0) {
+            fbPeople.set(`${s.startMins}|${s.type}`, s.people);
+          }
+        }
+        return programItems.map((item) => ({
+          ...item,
+          people:
+            item.people.length > 0
+              ? item.people
+              : (fbPeople.get(`${item.startMins}|${item.type}`) ?? []),
+        }));
+      }
+      return programItems;
+    }
     if (fallbackSchedule?.length) return fromFestivalSchedule(fallbackSchedule);
     if (schedule.keyTimes) return fromKeyTimes(schedule.keyTimes);
     return [];
