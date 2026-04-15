@@ -1,4 +1,5 @@
 ﻿import { useMemo, useState, useEffect, type MouseEvent } from "react";
+import { PageErrorBoundary } from "@/components/ErrorBoundary";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
   </motion.div>
 );
 
-const FestivalHub = () => {
+const FestivalHubInner = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -120,33 +121,8 @@ const FestivalHub = () => {
         return (data || []) as Array<{ event_id: string; interested_count: number; going_count: number }>;
       }
 
-      const isSchemaCacheError =
-        error.code === 'PGRST202' ||
-        (typeof error.message === 'string' && error.message.toLowerCase().includes('schema cache'));
-
-      if (!isSchemaCacheError) throw error;
-
-      const { data: participantRows, error: fallbackError } = await supabase
-        .from('event_participants')
-        .select('event_id, status')
-        .in('event_id', festivalIds)
-        .in('status', ['going', 'interested']);
-
-      if (fallbackError) throw fallbackError;
-
-      const counts = new Map<string, AttendanceCounts>();
-      (participantRows || []).forEach((row) => {
-        const current = counts.get(row.event_id) || { interested_count: 0, going_count: 0 };
-        if (row.status === 'going') current.going_count += 1;
-        if (row.status === 'interested') current.interested_count += 1;
-        counts.set(row.event_id, current);
-      });
-
-      return Array.from(counts.entries()).map(([event_id, value]) => ({
-        event_id,
-        interested_count: value.interested_count,
-        going_count: value.going_count,
-      }));
+      // Re-throw all errors — RPC is the canonical source for counts
+      throw error;
     },
     enabled: festivalIds.length > 0,
     staleTime: 1000 * 30,
@@ -163,6 +139,7 @@ const FestivalHub = () => {
     return map;
   }, [countRows]);
 
+  // Read current user's festival attendance status via occurrence-based lookup
   const {
     data: statusRows = [],
     refetch: refetchStatuses,
@@ -170,13 +147,39 @@ const FestivalHub = () => {
     queryKey: ['festival-attendance-status', festivalIds, user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('event_participants')
-        .select('event_id, status')
-        .eq('user_id', user.id)
+
+      // Get all occurrences for these festivals
+      const { data: occurrences, error: occError } = await supabase
+        .from('calendar_occurrences')
+        .select('id, event_id')
         .in('event_id', festivalIds);
-      if (error) throw error;
-      return data || [];
+
+      if (occError || !occurrences?.length) {
+        // Fallback to legacy event_participants
+        const { data, error } = await supabase
+          .from('event_participants')
+          .select('event_id, status')
+          .eq('user_id', user.id)
+          .in('event_id', festivalIds);
+        if (error) throw error;
+        return (data || []) as Array<{ event_id: string; status: string }>;
+      }
+
+      const occurrenceIds = occurrences.map((o) => o.id);
+      const occurrenceToEvent = new Map(occurrences.map((o) => [o.id, o.event_id]));
+
+      const { data: attendanceRows, error: attError } = await supabase
+        .from('event_attendance')
+        .select('occurrence_id, status')
+        .in('occurrence_id', occurrenceIds)
+        .eq('user_id', user.id);
+
+      if (attError) throw attError;
+
+      return (attendanceRows || []).map((row) => ({
+        event_id: occurrenceToEvent.get(row.occurrence_id) ?? '',
+        status: row.status,
+      })).filter((r) => r.event_id);
     },
     enabled: festivalIds.length > 0 && Boolean(user?.id),
     staleTime: 1000 * 15,
@@ -192,47 +195,31 @@ const FestivalHub = () => {
     return map;
   }, [statusRows]);
 
+  // Attendee previews via get_festival_attendance RPC for each festival
   const { data: attendeePreviews = [] } = useQuery({
     queryKey: ['festival-attendee-previews', festivalIds],
     queryFn: async () => {
-      const { data: participantRows, error } = await supabase
-        .from('event_participants')
-        .select('event_id, user_id, updated_at, status')
-        .in('event_id', festivalIds)
-        .in('status', ['going', 'interested'])
-        .order('updated_at', { ascending: false })
-        .limit(200);
+      if (!festivalIds.length) return [] as AttendeePreview[];
 
-      if (error) throw error;
+      // Fetch attendance for each festival in parallel
+      const results = await Promise.all(
+        festivalIds.map(async (eventId) => {
+          const { data } = await supabase.rpc('get_festival_attendance', { p_event_id: eventId });
+          const payload = (data as any) || {};
+          const rows: Array<{ user_id: string; avatar_url?: string | null; username?: string | null }> = [
+            ...(payload.going ?? []),
+            ...(payload.interested ?? []),
+          ];
+          return rows.slice(0, 5).map((row) => ({
+            event_id: eventId,
+            user_id: row.user_id,
+            avatar_url: row.avatar_url ?? null,
+            username: row.username ?? null,
+          } as AttendeePreview));
+        })
+      );
 
-      const participants = (participantRows || []) as Array<{ event_id: string; user_id: string }>;
-      if (!participants.length) return [] as AttendeePreview[];
-
-      const userIds = Array.from(new Set(participants.map((row) => row.user_id)));
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, avatar_url, username')
-        .in('id', userIds);
-
-      const safeProfiles = profileError ? [] : (profiles || []);
-
-      const profileMap = new Map<string, { avatar_url: string | null; username: string | null }>();
-      safeProfiles.forEach((profile) => {
-        profileMap.set(profile.id, {
-          avatar_url: profile.avatar_url || null,
-          username: profile.username || null,
-        });
-      });
-
-      return participants.map((row) => {
-        const profile = profileMap.get(row.user_id);
-        return {
-          event_id: row.event_id,
-          user_id: row.user_id,
-          avatar_url: profile?.avatar_url || null,
-          username: profile?.username || null,
-        } satisfies AttendeePreview;
-      });
+      return results.flat();
     },
     enabled: festivalIds.length > 0,
     staleTime: 1000 * 30,
@@ -615,6 +602,12 @@ const FestivalHub = () => {
     </div>
   );
 };
+
+const FestivalHub = () => (
+  <PageErrorBoundary>
+    <FestivalHubInner />
+  </PageErrorBoundary>
+);
 
 export default FestivalHub;
 

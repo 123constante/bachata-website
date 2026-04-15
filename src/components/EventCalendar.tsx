@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
@@ -9,6 +9,43 @@ import { MONTHS, transformCalendarEvents } from '@/components/calendar/calendarU
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { CalendarListView } from '@/components/calendar/CalendarListView';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+const CalendarSkeleton = ({ view }: { view: ViewType }) => {
+  if (view === 'list') {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 rounded-xl border border-primary/10 p-3">
+            <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
+            <Skeleton className="h-16 w-16 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-3 w-2/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <Skeleton key={i} className="h-5 w-full" />
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 35 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-square rounded-xl" />
+        ))}
+      </div>
+    </>
+  );
+};
 
 interface EventCalendarProps {
   defaultCategory?: Category;
@@ -19,6 +56,8 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const [view, setView] = useState<ViewType>('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
   const { citySlug } = useCity();
 
   const currentMonth = currentDate.getMonth();
@@ -27,9 +66,38 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const queryStart = useMemo(() => new Date(currentYear, currentMonth, 1), [currentYear, currentMonth]);
   const queryEnd = useMemo(() => new Date(currentYear, currentMonth + 1, 0), [currentYear, currentMonth]);
 
-  const { data: rawEvents } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
+  const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
 
-  const events = useMemo(() => (rawEvents ? transformCalendarEvents(rawEvents) : []), [rawEvents]);
+  const baseEvents = useMemo(() => (rawEvents ? transformCalendarEvents(rawEvents) : []), [rawEvents]);
+
+  // Unique event IDs to batch-fetch attendance counts
+  const eventIds = useMemo(() => Array.from(new Set(baseEvents.map((e) => e.id))), [baseEvents]);
+
+  const { data: attendanceCounts } = useQuery({
+    queryKey: ['calendar-attendance-counts', eventIds],
+    queryFn: async () => {
+      if (!eventIds.length) return {} as Record<string, number>;
+      const { data, error } = await (supabase.rpc as any)('get_event_attendance_counts', {
+        p_event_ids: eventIds,
+      });
+      if (error || !data) return {} as Record<string, number>;
+      const map: Record<string, number> = {};
+      (data as Array<{ event_id: string; going_count: number }>).forEach((row) => {
+        map[row.event_id] = row.going_count;
+      });
+      return map;
+    },
+    enabled: eventIds.length > 0,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const events = useMemo(() => {
+    if (!attendanceCounts) return baseEvents;
+    return baseEvents.map((e) => ({
+      ...e,
+      goingCount: attendanceCounts[e.id] ?? 0,
+    }));
+  }, [baseEvents, attendanceCounts]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate((prev) => {
@@ -41,6 +109,31 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   };
 
   const handleDayClick = (day: number) => setSelectedDay(day);
+
+  const handleNearMe = useCallback(() => {
+    if (locationStatus === 'granted' && userLocation) {
+      // Toggle off
+      setUserLocation(null);
+      setLocationStatus('idle');
+      return;
+    }
+    if (!navigator.geolocation) {
+      setLocationStatus('denied');
+      return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationStatus('granted');
+      },
+      () => {
+        setLocationStatus('denied');
+        setTimeout(() => setLocationStatus('idle'), 3000);
+      },
+      { timeout: 8000, maximumAge: 60000 }
+    );
+  }, [locationStatus, userLocation]);
 
   return (
     <section className="py-12 px-4">
@@ -56,8 +149,8 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
             <div className="flex-1">
               {/* Top control bar */}
               <div className="flex flex-col border-b border-primary/10">
-                {/* Month navigation */}
-                <div className="flex items-center justify-center px-4 pt-4 pb-2">
+                {/* Month navigation + Near Me */}
+                <div className="flex items-center justify-between px-4 pt-4 pb-2">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => navigateMonth('prev')}
@@ -75,6 +168,40 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
+
+                  {/* Near me toggle */}
+                  <button
+                    onClick={handleNearMe}
+                    title={locationStatus === 'denied' ? 'Location access denied' : 'Sort by distance'}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all min-h-[32px]',
+                      locationStatus === 'granted'
+                        ? 'bg-primary text-primary-foreground'
+                        : locationStatus === 'denied'
+                          ? 'bg-destructive/20 text-destructive'
+                          : 'bg-primary/10 text-primary hover:bg-primary/20',
+                    )}
+                  >
+                    {locationStatus === 'loading' ? (
+                      <span className="animate-pulse text-[10px]">Locating…</span>
+                    ) : locationStatus === 'granted' ? (
+                      <>
+                        <LocateFixed className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Near me</span>
+                        <X className="w-3 h-3 opacity-70" />
+                      </>
+                    ) : locationStatus === 'denied' ? (
+                      <>
+                        <LocateFixed className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Denied</span>
+                      </>
+                    ) : (
+                      <>
+                        <LocateFixed className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Near me</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Category tabs */}
@@ -125,7 +252,9 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
               {/* Content area */}
               <div className="p-4 pt-4 min-h-[400px]">
-                {view === 'calendar' ? (
+                {isEventsLoading ? (
+                  <CalendarSkeleton view={view} />
+                ) : view === 'calendar' ? (
                   <CalendarGrid
                     currentMonth={currentMonth}
                     currentYear={currentYear}
@@ -140,6 +269,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     selectedCategory={selectedCategory}
                     events={events}
                     onClearFilters={() => setSelectedCategory('all')}
+                    userLocation={userLocation}
                   />
                 )}
               </div>

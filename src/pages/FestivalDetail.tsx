@@ -1,4 +1,6 @@
 ﻿import { useState, useEffect } from "react";
+import { PageErrorBoundary } from "@/components/ErrorBoundary";
+import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plane, Bus, Train, Users, Home, Car, Heart, MessageCircle, Clock, Sparkles, Loader2 } from "lucide-react";
@@ -31,7 +33,7 @@ type FestivalAttendee = {
   status: AttendanceStatus;
 };
 
-const FestivalDetail = () => {
+const FestivalDetailInner = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -71,30 +73,8 @@ const FestivalDetail = () => {
         .rpc('get_event_engagement', { p_event_id: festivalId });
       if (!error) return data?.[0] ?? { interested_count: 0, going_count: 0 };
 
-      const isSchemaCacheError =
-        error.code === 'PGRST202' ||
-        (typeof error.message === 'string' && error.message.toLowerCase().includes('schema cache'));
-
-      if (!isSchemaCacheError) throw error;
-
-      const { data: participantRows, error: fallbackError } = await supabase
-        .from('event_participants')
-        .select('status')
-        .eq('event_id', festivalId)
-        .in('status', ['going', 'interested']);
-
-      if (fallbackError) throw fallbackError;
-
-      const counts = (participantRows || []).reduce(
-        (acc, row) => {
-          if (row.status === 'going') acc.going_count += 1;
-          if (row.status === 'interested') acc.interested_count += 1;
-          return acc;
-        },
-        { interested_count: 0, going_count: 0 }
-      );
-
-      return counts;
+      // Re-throw — RPC is canonical source for engagement counts
+      throw error;
     },
     enabled: Boolean(festivalId),
   });
@@ -102,53 +82,25 @@ const FestivalDetail = () => {
   const { data: attendeeData } = useQuery({
     queryKey: ['festival-attendees', festivalId],
     queryFn: async () => {
-      const { data: participantRows, error } = await supabase
-        .from('event_participants')
-        .select('user_id, status')
-        .eq('event_id', festivalId)
-        .in('status', ['going', 'interested'])
-        .order('updated_at', { ascending: false })
-        .limit(200);
-
+      const { data, error } = await supabase.rpc('get_festival_attendance', { p_event_id: festivalId });
       if (error) throw error;
 
-      const participants = (participantRows || []) as Array<{ user_id: string; status: string }>;
-      if (!participants.length) {
-        return { going: [], interested: [] } as { going: FestivalAttendee[]; interested: FestivalAttendee[] };
-      }
+      // RPC returns JSON — normalise into the shape the UI needs
+      const payload = (data as any) || {};
+      const going: FestivalAttendee[] = (payload.going ?? []).map((row: any) => ({
+        id: row.user_id ?? row.id,
+        avatar_url: row.avatar_url ?? null,
+        username: row.username ?? null,
+        status: 'going' as AttendanceStatus,
+      }));
+      const interested: FestivalAttendee[] = (payload.interested ?? []).map((row: any) => ({
+        id: row.user_id ?? row.id,
+        avatar_url: row.avatar_url ?? null,
+        username: row.username ?? null,
+        status: 'interested' as AttendanceStatus,
+      }));
 
-      const userIds = Array.from(new Set(participants.map((row) => row.user_id)));
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, avatar_url, username')
-        .in('id', userIds);
-
-      const safeProfiles = profileError ? [] : (profiles || []);
-
-      const profileMap = new Map<string, { avatar_url: string | null; username: string | null }>();
-      safeProfiles.forEach((profile) => {
-        profileMap.set(profile.id, {
-          avatar_url: profile.avatar_url || null,
-          username: profile.username || null,
-        });
-      });
-
-      const normalized = participants
-        .filter((row) => row.status === 'going' || row.status === 'interested')
-        .map((row) => {
-          const profile = profileMap.get(row.user_id);
-          return {
-            id: row.user_id,
-            avatar_url: profile?.avatar_url || null,
-            username: profile?.username || null,
-            status: row.status as AttendanceStatus,
-          } satisfies FestivalAttendee;
-        });
-
-      return {
-        going: normalized.filter((attendee) => attendee.status === 'going'),
-        interested: normalized.filter((attendee) => attendee.status === 'interested'),
-      };
+      return { going, interested };
     },
     enabled: Boolean(festivalId),
     staleTime: 1000 * 15,
@@ -161,8 +113,16 @@ const FestivalDetail = () => {
 
   if (isFestivalLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="min-h-screen pt-[84px] pb-24">
+        <div className="max-w-4xl mx-auto px-4 space-y-4 mt-4">
+          <Skeleton className="h-72 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-40 rounded-2xl" />
+            <Skeleton className="h-40 rounded-2xl" />
+          </div>
+          <Skeleton className="h-48 w-full rounded-2xl" />
+        </div>
       </div>
     );
   }
@@ -565,6 +525,12 @@ const FestivalDetail = () => {
     </div>
   );
 };
+
+const FestivalDetail = () => (
+  <PageErrorBoundary>
+    <FestivalDetailInner />
+  </PageErrorBoundary>
+);
 
 export default FestivalDetail;
 

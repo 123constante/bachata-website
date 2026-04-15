@@ -11,7 +11,18 @@ interface CalendarListViewProps {
   selectedCategory: Category;
   events: CalendarEventItem[];
   onClearFilters: () => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
+
+const haversineMiles = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 export const CalendarListView = ({
   currentMonth,
@@ -19,6 +30,7 @@ export const CalendarListView = ({
   selectedCategory,
   events,
   onClearFilters,
+  userLocation,
 }: CalendarListViewProps) => {
   const monthStart = new Date(currentYear, currentMonth, 1);
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
@@ -31,7 +43,15 @@ export const CalendarListView = ({
         e.startDate <= monthEnd &&
         matchesCategory(e, selectedCategory),
     )
-    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    .sort((a, b) => {
+      // When near-me active and venues have coords: sort by distance
+      if (userLocation && a.venueLat != null && b.venueLat != null) {
+        const distA = haversineMiles(userLocation.lat, userLocation.lng, a.venueLat!, a.venueLng!);
+        const distB = haversineMiles(userLocation.lat, userLocation.lng, b.venueLat!, b.venueLng!);
+        return distA - distB;
+      }
+      return a.startDate.getTime() - b.startDate.getTime();
+    });
 
   if (filtered.length === 0) {
     return (
@@ -92,13 +112,25 @@ export const CalendarListView = ({
 
                 {/* Details Column */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <h4 className="font-semibold text-sm truncate group-hover:text-primary transition-colors shrink-0 max-w-[60%]">
+                  <div className="flex flex-col min-w-0 gap-0.5">
+                    <h4 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
                       {event.title}
                     </h4>
-                    <span className="text-xs text-muted-foreground truncate shrink-0">@ {event.venueName}</span>
+                    <span className="text-xs text-muted-foreground truncate">@ {event.venueName}</span>
                   </div>
 
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    {(event.goingCount ?? 0) > 0 && (
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                        {event.goingCount} going
+                      </span>
+                    )}
+                    {userLocation && event.venueLat != null && (
+                      <span className="text-[10px] text-muted-foreground bg-muted/30 rounded-full px-2 py-0.5">
+                        {haversineMiles(userLocation.lat, userLocation.lng, event.venueLat!, event.venueLng!).toFixed(1)} mi
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs w-full mt-0.5">
                     {event.hasClass && (selectedCategory === 'all' || selectedCategory === 'classes') && (
                       <div className="flex items-center gap-1.5 text-festival-blue shrink-0">

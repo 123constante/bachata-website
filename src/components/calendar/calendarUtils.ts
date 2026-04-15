@@ -29,6 +29,9 @@ export interface CalendarEventItem {
   venueName: string;
   eventLink: string;
   coverImageUrl: string | null;
+  goingCount?: number;
+  venueLat?: number | null;
+  venueLng?: number | null;
 }
 
 // ---------------------------------------------------------------------------

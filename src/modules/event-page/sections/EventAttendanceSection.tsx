@@ -1,5 +1,7 @@
 import type { EventPageModel } from '@/modules/event-page/types';
 import { Button } from '@/components/ui/button';
+import { Check, CalendarCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type EventAttendanceSectionProps = {
   attendance: EventPageModel['attendance'];
@@ -10,6 +12,8 @@ type EventAttendanceSectionProps = {
 
 export const EventAttendanceSection = ({ attendance, isPending, onToggle, isCancelled }: EventAttendanceSectionProps) => {
   if (!attendance.isVisible) return null;
+
+  const isGoing = attendance.currentUserStatus === 'going' && !isCancelled;
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
@@ -44,22 +48,42 @@ export const EventAttendanceSection = ({ attendance, isPending, onToggle, isCanc
           )}
         </div>
 
-        <div className="flex flex-col items-start gap-2">
-          <Button
-            size="sm"
-            variant={attendance.currentUserStatus === 'going' && !isCancelled ? 'default' : 'outline'}
-            className="h-8 rounded-full px-3 text-xs"
+        <div className="flex flex-col items-stretch sm:items-start gap-2">
+          {/* Main attend button — minimum 44px tap target on mobile */}
+          <button
             onClick={onToggle}
             disabled={!attendance.canToggle || isPending || isCancelled}
+            className={cn(
+              'flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all active:scale-95',
+              'min-h-[44px] min-w-[140px]',
+              isGoing
+                ? 'bg-primary text-primary-foreground shadow-[0_0_20px_rgba(249,115,22,0.4)]'
+                : 'border border-white/20 bg-white/[0.06] text-white hover:bg-white/[0.12]',
+              (!attendance.canToggle || isCancelled) && 'opacity-50 cursor-not-allowed',
+            )}
           >
-            {isPending ? 'Saving...' : isCancelled ? 'Event Cancelled' : attendance.ctaLabel}
-          </Button>
+            {isPending ? (
+              <span className="animate-pulse">Saving…</span>
+            ) : isCancelled ? (
+              'Event Cancelled'
+            ) : isGoing ? (
+              <>
+                <Check className="h-4 w-4" />
+                Going
+              </>
+            ) : (
+              <>
+                <CalendarCheck className="h-4 w-4" />
+                Attend
+              </>
+            )}
+          </button>
 
           {!attendance.canToggle && !isCancelled && (
-            <p className="text-[11px] text-white/70">Sign in to mark your attendance</p>
+            <p className="text-[11px] text-white/70 text-center sm:text-left">Sign in to mark your attendance</p>
           )}
           {isCancelled && (
-            <p className="text-[11px] text-red-400/80">This occurrence was cancelled and is no longer accepting RSVPs.</p>
+            <p className="text-[11px] text-red-400/80">This occurrence was cancelled.</p>
           )}
         </div>
       </div>

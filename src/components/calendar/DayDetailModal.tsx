@@ -166,6 +166,11 @@ export const DayDetailModal = ({
                       <span className="text-[12px]">📍</span>
                       <span className="truncate tracking-wide">{event.venueName}</span>
                     </div>
+                    {(event.goingCount ?? 0) > 0 && (
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5 mt-1 w-fit ml-auto">
+                        {event.goingCount} going
+                      </span>
+                    )}
                   </div>
                 </div>
 

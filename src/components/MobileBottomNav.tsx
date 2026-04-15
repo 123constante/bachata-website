@@ -69,7 +69,7 @@ const MobileBottomNav = () => {
             <motion.button
               key={item.id}
               onClick={() => handleTabChange(item.id)}
-              className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors min-w-[60px] ${isActive ? 'text-festival-teal' : 'text-zinc-400'}`}
+              className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors min-w-[60px] min-h-[44px] justify-center ${isActive ? 'text-festival-teal' : 'text-zinc-400'}`}
               whileTap={{
                 scale: 0.9,
                 y: 2,

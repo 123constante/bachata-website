@@ -7,7 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
-import { CursorTrail } from "@/components/CursorTrail";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -196,8 +195,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          {/* <CursorTrail /> */}
-          <BrowserRouter>
+<BrowserRouter>
             <CityProvider>
               <GlobalBackground />
               <GlobalHeader />

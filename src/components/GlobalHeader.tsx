@@ -68,7 +68,7 @@ export const GlobalHeader = () => {
             <Link
               key={link.path}
               to={link.path}
-              className={`relative flex flex-col items-center px-4 py-0.5 text-xs font-medium transition-all no-underline group rounded-md min-w-[60px] ${isActive(link.path) ? 'bg-primary/15' : ''}`}
+              className={`relative flex flex-col items-center px-4 py-2 text-xs font-medium transition-all no-underline group rounded-md min-w-[60px] min-h-[44px] justify-center ${isActive(link.path) ? 'bg-primary/15' : ''}`}
             >
               {/* Emoji - fades on scroll */}
               <motion.span

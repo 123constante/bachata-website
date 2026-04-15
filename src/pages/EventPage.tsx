@@ -1,9 +1,10 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { EventPageScreen } from '@/modules/event-page/EventPageScreen';
+import { PageErrorBoundary } from '@/components/ErrorBoundary';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const EventPage = () => {
+const EventPageInner = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,8 +20,21 @@ const EventPage = () => {
 
   if (pageModel.page.state === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center pt-[84px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="relative min-h-screen pt-[84px] pb-24">
+        <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 lg:px-6 space-y-3 mt-4">
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+            <div className="space-y-3">
+              <Skeleton className="h-48 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </div>
+            <div className="space-y-3">
+              <Skeleton className="h-40 w-full rounded-2xl" />
+              <Skeleton className="h-40 w-full rounded-2xl" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -44,5 +58,11 @@ const EventPage = () => {
     />
   );
 };
+
+const EventPage = () => (
+  <PageErrorBoundary>
+    <EventPageInner />
+  </PageErrorBoundary>
+);
 
 export default EventPage;

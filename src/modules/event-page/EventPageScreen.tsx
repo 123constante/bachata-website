@@ -1,4 +1,5 @@
 import type { EventPageModel, FestivalDetail } from '@/modules/event-page/types';
+import { ShareButton } from '@/components/ShareButton';
 import { EventHeroSection } from '@/modules/event-page/sections/EventHeroSection';
 import { EventIdentityActionsSection } from '@/modules/event-page/sections/EventIdentityActionsSection';
 import { EventScheduleSection } from '@/modules/event-page/sections/EventScheduleSection';
@@ -88,6 +89,13 @@ export const EventPageScreen = ({ pageModel, festivalDetail, isRsvpPending, onBa
                 actions={actions}
                 locationLabel={identityLocation}
               />
+              <div className="flex justify-end">
+                <ShareButton
+                  eventName={pageModel.identity.title}
+                  dateLabel={pageModel.schedule.dateLabel}
+                  venueName={pageModel.location.venueName}
+                />
+              </div>
 
               {/* Mobile-only: Schedule and Location at top for quick access */}
               {/* For festivals, FestivalProgramSection handles the detailed schedule, so skip EventScheduleSection */}

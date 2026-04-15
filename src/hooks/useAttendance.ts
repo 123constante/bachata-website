@@ -33,6 +33,7 @@ export const setAttendanceRpc = async (eventId: string, status: AttendanceValue)
   }
 
   if (status === null) {
+    // Fallback delete from legacy table
     const { error: deleteError } = await supabase
       .from('event_participants')
       .delete()
@@ -58,6 +59,45 @@ export const setAttendanceRpc = async (eventId: string, status: AttendanceValue)
   if (upsertError) throw upsertError;
 };
 
+/**
+ * Read the current user's attendance status for an event.
+ * Primary: event_attendance (via occurrence join).
+ * Fallback: event_participants (legacy).
+ */
+const fetchAttendanceStatus = async (eventId: string, userId: string): Promise<AttendanceValue> => {
+  // Primary path: occurrence-based event_attendance
+  const { data: occurrences } = await supabase
+    .from('calendar_occurrences')
+    .select('id')
+    .eq('event_id', eventId)
+    .order('instance_start', { ascending: true })
+    .limit(10);
+
+  if (occurrences && occurrences.length > 0) {
+    const occurrenceIds = occurrences.map((o) => o.id);
+    const { data: attendanceRow } = await supabase
+      .from('event_attendance')
+      .select('status')
+      .in('occurrence_id', occurrenceIds)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (attendanceRow) {
+      return (attendanceRow.status as AttendanceStatus) ?? null;
+    }
+  }
+
+  // Fallback: legacy event_participants table
+  const { data: legacyRow } = await supabase
+    .from('event_participants')
+    .select('status')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return (legacyRow?.status as AttendanceStatus | undefined) ?? null;
+};
+
 export const useAttendance = (eventId: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -68,19 +108,7 @@ export const useAttendance = (eventId: string) => {
 
   const { data: statusFromServer } = useQuery({
     queryKey: statusQueryKey,
-    queryFn: async () => {
-      if (!user?.id) return null;
-
-      const { data, error: fetchError } = await supabase
-        .from('event_participants')
-        .select('status')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      return (data?.status as AttendanceStatus | undefined) ?? null;
-    },
+    queryFn: () => fetchAttendanceStatus(eventId, user!.id),
     enabled: Boolean(eventId) && Boolean(user?.id),
   });
 
