@@ -9,7 +9,7 @@ export const config = {
 const BOT_UA_PATTERN =
   /googlebot|bingbot|facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot/i;
 
-const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacommunity.space';
+const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacalendar.co.uk';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
 
