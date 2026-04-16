@@ -58,8 +58,9 @@ const Profile = lazy(() => import("./pages/Profile"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
 const EditEvent = lazy(() => import("./pages/EditEvent"));
 const CreateEvent = lazy(() => import("./pages/CreateEvent"));
-const Debug = lazy(() => import("./pages/Debug"));
-const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
+// Debug routes removed — security audit 2026-04-16
+// const Debug = lazy(() => import("./pages/Debug"));
+// const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -194,8 +195,11 @@ const AnimatedRoutes = () => {
               <PageTransition><Onboarding /></PageTransition>
             </AuthGuard>
           } />
-          <Route path="/debug" element={<PageTransition><Debug /></PageTransition>} />
-          <Route path="/debug/dashboard-patterns" element={<PageTransition><DashboardPatternsDemo /></PageTransition>} />
+          {/* Debug routes removed — security audit 2026-04-16.
+              Restore behind admin-only AuthGuard if needed for production debugging.
+          <Route path="/debug" element={<AuthGuard><PageTransition><Debug /></PageTransition></AuthGuard>} />
+          <Route path="/debug/dashboard-patterns" element={<AuthGuard><PageTransition><DashboardPatternsDemo /></PageTransition></AuthGuard>} />
+          */}
 
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
