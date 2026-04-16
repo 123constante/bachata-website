@@ -143,31 +143,57 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   const handleDayClick = (day: number) => setSelectedDay(day);
 
-  const handleNearMe = useCallback(() => {
+  const handleNearMe = useCallback(async () => {
+    // Toggle off if already active.
     if (locationStatus === 'granted' && userLocation) {
-      // Toggle off
       setUserLocation(null);
       setLocationStatus('idle');
       return;
     }
-    if (!navigator.geolocation) {
+
+    // Secure-context check — geolocation is only available on HTTPS / localhost.
+    if (typeof window === 'undefined' || !window.isSecureContext) {
+      console.warn('[Near me] Blocked: not a secure context (need HTTPS)');
       setLocationStatus('denied');
       return;
     }
+    if (!('geolocation' in navigator)) {
+      console.warn('[Near me] Blocked: navigator.geolocation unavailable');
+      setLocationStatus('denied');
+      return;
+    }
+
+    // If the user already denied permission previously, the prompt won't
+    // re-appear — surface that immediately instead of looking stuck.
+    try {
+      if ('permissions' in navigator) {
+        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (status.state === 'denied') {
+          console.warn('[Near me] Permission previously denied — enable in browser site settings');
+          setLocationStatus('denied');
+          return;
+        }
+      }
+    } catch {
+      // Some browsers (older Safari) throw on unknown permission names — ignore.
+    }
+
     setLocationStatus('loading');
+    // Flip to list view up-front so the user sees the effect land even if the
+    // permission prompt takes a moment.
+    setView('list');
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocationStatus('granted');
-        // Auto-switch to list view so the distance-sorted order is visible;
-        // the calendar grid doesn't reflect distance ordering.
-        setView('list');
       },
-      () => {
+      (err) => {
+        console.error('[Near me] getCurrentPosition error:', err.code, err.message);
         setLocationStatus('denied');
-        setTimeout(() => setLocationStatus('idle'), 3000);
+        setTimeout(() => setLocationStatus('idle'), 4000);
       },
-      { timeout: 8000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     );
   }, [locationStatus, userLocation]);
 

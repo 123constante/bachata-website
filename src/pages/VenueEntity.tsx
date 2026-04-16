@@ -11,6 +11,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { useCity } from '@/contexts/CityContext';
 
@@ -79,6 +80,31 @@ const VenueEntity = () => {
   const galleryUrls = parseStrArray(venue?.gallery_urls);
   const rules = parseStrArray(venue?.rules);
   const videoUrls = parseStrArray(venue?.video_urls);
+
+  // Structured transport / parking JSON
+  type Station = { station?: string | null; line_names?: string[] | null; walking_distance_minutes?: number | null };
+  type TransportJson = { notes?: string | null; nearest_stations?: Station[] | null };
+  type ParkingJson = { parking_available?: boolean | null; nearby_parking_notes?: string | null };
+  const transportJson: TransportJson | null =
+    venue?.transport_json && typeof venue.transport_json === 'object' && !Array.isArray(venue.transport_json)
+      ? (venue.transport_json as TransportJson)
+      : null;
+  const parkingJson: ParkingJson | null =
+    venue?.parking_json && typeof venue.parking_json === 'object' && !Array.isArray(venue.parking_json)
+      ? (venue.parking_json as ParkingJson)
+      : null;
+
+  // Google Maps link — prefer explicit column, fall back to a search query
+  // built from address + postcode + city.
+  const addressLine = [venue?.address, venue?.postcode].filter(Boolean).join(', ');
+  const mapsUrl =
+    venue?.google_maps_link ||
+    venue?.google_maps_url ||
+    (addressLine
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          [venue?.name, addressLine, venue?.cities?.name].filter(Boolean).join(', '),
+        )}`
+      : null);
 
   const openingHours = venue?.opening_hours && typeof venue.opening_hours === 'object' && !Array.isArray(venue.opening_hours)
     ? venue.opening_hours as Record<string, any>
@@ -153,10 +179,24 @@ const VenueEntity = () => {
           </Avatar>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-foreground truncate">{venue.name}</h1>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{venue.cities?.name}{venue.address && `, ${venue.address}`}</span>
-            </div>
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <MapPin className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">
+                  {[venue.cities?.name, venue.address, venue.postcode].filter(Boolean).join(', ') || 'View on map'}
+                </span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{[venue.cities?.name, venue.address, venue.postcode].filter(Boolean).join(', ')}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -258,6 +298,69 @@ const VenueEntity = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Transport (structured) */}
+        {transportJson && (
+          <div className="bg-card border border-border rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Train className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-xs font-semibold text-foreground">Getting here</h2>
+            </div>
+            {Array.isArray(transportJson.nearest_stations) && transportJson.nearest_stations.length > 0 && (
+              <div className="space-y-1.5 mb-2">
+                {transportJson.nearest_stations.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Train className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <span className="text-foreground font-medium truncate">{s.station || 'Station'}</span>
+                      {Array.isArray(s.line_names) && s.line_names.length > 0 && (
+                        <span className="flex gap-1 flex-wrap">
+                          {s.line_names.map((line, j) => (
+                            <Badge key={j} variant="outline" className="text-[9px] px-1 py-0">{line}</Badge>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                    {typeof s.walking_distance_minutes === 'number' && (
+                      <span className="text-muted-foreground whitespace-nowrap ml-2">
+                        {s.walking_distance_minutes} min walk
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {transportJson.notes && (
+              <p className="text-xs text-muted-foreground leading-relaxed">{transportJson.notes}</p>
+            )}
+          </div>
+        )}
+
+        {/* Parking (structured) */}
+        {parkingJson && (parkingJson.parking_available !== null || parkingJson.nearby_parking_notes) && (
+          <div className="bg-card border border-border rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Car className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-xs font-semibold text-foreground">Parking</h2>
+            </div>
+            {parkingJson.parking_available !== null && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] mb-1',
+                  parkingJson.parking_available
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    : 'border-muted-foreground/30 bg-muted/20 text-muted-foreground',
+                )}
+              >
+                {parkingJson.parking_available ? 'On-site parking available' : 'No on-site parking'}
+              </Badge>
+            )}
+            {parkingJson.nearby_parking_notes && (
+              <p className="text-xs text-muted-foreground leading-relaxed">{parkingJson.nearby_parking_notes}</p>
+            )}
           </div>
         )}
 
