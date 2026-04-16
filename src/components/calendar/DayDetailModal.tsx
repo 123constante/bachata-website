@@ -176,8 +176,8 @@ export const DayDetailModal = ({
 
                 {/* Time bars */}
                 {(() => {
-                  const showClasses = event.hasClass;
-                  const showParty   = event.hasParty;
+                  const showClasses = event.hasClass && (popupFilter === 'all' || popupFilter === 'classes');
+                  const showParty   = event.hasParty  && (popupFilter === 'all' || popupFilter === 'parties');
                   const showFallback = !event.hasParty && !event.hasClass;
 
                   const classTime = event.classStart && event.classEnd
