@@ -149,10 +149,13 @@ export const transformCalendarEvents = (
       }
     }
 
-    // Derive from program/key_times directly — the RPC has_class/has_party
+    // Derive from program + key_times combined — the RPC has_class/has_party
     // are unreliable (live DB returns true for all events regardless of data).
-    const hasParty = program ? programHasParty : !!keyTimes.party?.active;
-    const hasClass = program ? programHasClass : !!keyTimes.classes?.active;
+    // Use OR: either source saying "active" is sufficient. The ternary
+    // (program ? programHas : keyTimes) broke when program was [] (truthy
+    // but empty) or when program had only one type while key_times had both.
+    const hasParty = programHasParty || !!keyTimes.party?.active;
+    const hasClass = programHasClass || !!keyTimes.classes?.active;
 
     // Class times: aggregate across ALL sources → earliest start, latest end
     const rpcClassStart = fmtTime(event.class_start);
