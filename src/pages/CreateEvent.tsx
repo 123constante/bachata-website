@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useForm } from 'react-hook-form';
@@ -67,6 +67,7 @@ type EventFormData = z.infer<typeof eventSchema>;
 
 const CreateEvent = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const { citySlug } = useCity();
@@ -186,6 +187,7 @@ const CreateEvent = () => {
 
       const { data: newEvent, error } = await supabase.from('events').insert(eventData).select().single();
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast({ title: 'Event created' });
       navigate(`/event/${newEvent.id}`);
     } catch (error: any) {

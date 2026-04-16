@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
@@ -62,6 +62,7 @@ type EventFormData = z.infer<typeof eventSchema>;
 const EditEvent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth(); // Removed authLoading, handled by AuthGuard
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -198,6 +199,8 @@ const EditEvent = () => {
 
       const { error } = await supabase.from('events').update(eventPayload).eq('id', id);
       if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['event-page-snapshot', id] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast({ title: 'Event updated' });
       navigate(`/event/${id}`);
     } catch (error) {
