@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { ALL_COUNTRIES, type Country } from '@/constants/countries';
+import { loadCountries, getLoadedCountries, type Country } from '@/constants/countries';
 
 export interface NationalityPickerProps {
   value?: string;
@@ -48,16 +48,20 @@ const FlagIcon = ({ country, className }: { country: Country; className?: string
 
 export function NationalityPicker({ value, onChange, className, disabled }: NationalityPickerProps) {
   const [open, setOpen] = React.useState(false);
+  const [countries, setCountries] = React.useState<Country[]>(getLoadedCountries);
 
-  // Helper to find country object
+  React.useEffect(() => {
+    loadCountries().then(setCountries);
+  }, []);
+
   const selectedCountry = React.useMemo(() => {
     if (!value) return null;
     const normalized = value.toLowerCase().trim();
-    return ALL_COUNTRIES.find(c => 
+    return countries.find(c =>
       c.name.toLowerCase() === normalized ||
       c.code.toLowerCase() === normalized
     );
-  }, [value]);
+  }, [value, countries]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,7 +90,7 @@ export function NationalityPicker({ value, onChange, className, disabled }: Nati
           <CommandList>
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              {ALL_COUNTRIES.map((country) => (
+              {countries.map((country) => (
                 <CommandItem
                   key={country.code}
                   value={country.name}
@@ -112,4 +116,3 @@ export function NationalityPicker({ value, onChange, className, disabled }: Nati
     </Popover>
   );
 }
-

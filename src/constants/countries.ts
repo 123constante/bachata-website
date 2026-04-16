@@ -1,9 +1,7 @@
-﻿import worldCountries from 'world-countries';
-
 export type Country = {
   code: string;
   name: string;
-  flag: string; // Emoji fallback
+  flag: string;
   flagUrl: string;
 };
 
@@ -11,14 +9,8 @@ const FLAG_CDN_BASE = 'https://flagcdn.com';
 
 const toFlagEmoji = (code: string): string => {
   if (!code) return '';
-  const alphabeticCode = code
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '');
-
-  if (alphabeticCode.length !== 2) {
-    return '';
-  }
-
+  const alphabeticCode = code.toUpperCase().replace(/[^A-Z]/g, '');
+  if (alphabeticCode.length !== 2) return '';
   return alphabeticCode
     .split('')
     .map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397))
@@ -35,36 +27,47 @@ const buildCountry = (code: string, name: string): Country => {
   };
 };
 
-const mapWorldCountry = (country: (typeof worldCountries)[number]): Country | null => {
-  const code = country.cca2?.toUpperCase();
-  const name = country.name?.common?.trim();
+let cachedCountries: Country[] | null = null;
 
-  if (!code || code.length !== 2 || !name) {
-    return null;
-  }
+export async function loadCountries(): Promise<Country[]> {
+  if (cachedCountries) return cachedCountries;
 
-  return buildCountry(code, name);
-};
+  const { default: worldCountries } = await import('world-countries');
 
-const unitedNationsMembers: Country[] = worldCountries
-  .filter((country) => country.unMember)
-  .map(mapWorldCountry)
-  .filter((country): country is Country => Boolean(country));
+  type WC = (typeof worldCountries)[number];
+  const mapWorldCountry = (country: WC): Country | null => {
+    const code = country.cca2?.toUpperCase();
+    const name = country.name?.common?.trim();
+    if (!code || code.length !== 2 || !name) return null;
+    return buildCountry(code, name);
+  };
 
-// Observer states bring the list to the full 195 sovereign countries.
-const observerStates: Country[] = [
-  buildCountry('PS', 'Palestine'),
-  buildCountry('VA', 'Vatican City'),
-];
+  const unitedNationsMembers: Country[] = worldCountries
+    .filter((country) => country.unMember)
+    .map(mapWorldCountry)
+    .filter((country): country is Country => Boolean(country));
 
-const countriesByCode = new Map<string, Country>();
+  const observerStates: Country[] = [
+    buildCountry('PS', 'Palestine'),
+    buildCountry('VA', 'Vatican City'),
+  ];
 
-[...unitedNationsMembers, ...observerStates].forEach((country) => {
-  countriesByCode.set(country.code, country);
-});
+  const countriesByCode = new Map<string, Country>();
+  [...unitedNationsMembers, ...observerStates].forEach((country) => {
+    countriesByCode.set(country.code, country);
+  });
 
-export const ALL_COUNTRIES: Country[] = Array.from(countriesByCode.values()).sort((a, b) =>
-  a.name.localeCompare(b.name)
-);
+  cachedCountries = Array.from(countriesByCode.values()).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
-export const TOTAL_SOVEREIGN_COUNTRIES = ALL_COUNTRIES.length; // Should be 195
+  return cachedCountries;
+}
+
+export const TOTAL_SOVEREIGN_COUNTRIES = 195;
+
+// Synchronous accessor — returns the cached list if loaded, empty array otherwise.
+// Components that need the full list should call loadCountries() first.
+export function getLoadedCountries(): Country[] {
+  return cachedCountries ?? [];
+}

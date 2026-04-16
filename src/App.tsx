@@ -1,5 +1,5 @@
 import { GlobalBackground } from "@/components/GlobalBackground";
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,53 +12,67 @@ import { GlobalHeader } from "@/components/GlobalHeader";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CityProvider } from "@/contexts/CityContext";
-import Index from "./pages/Index";
-import Parties from "./pages/Parties";
-import Classes from "./pages/Classes";
-import Discounts from "./pages/Discounts";
+import { Skeleton } from "@/components/ui/skeleton";
 
-import Venue from "./pages/Venue";
-import Tonight from "./pages/Tonight";
-import EventPage from "./pages/EventPage";
-import PracticePartners from "./pages/PracticePartners";
-import FestivalHub from "./pages/FestivalHub";
-import FestivalDetail from "./pages/FestivalDetail";
-import Experience from "./pages/Experience";
-import Videographers from "./pages/Videographers";
-import Choreography from "./pages/Choreography";
-import Dancers from "./pages/Dancers";
-import DancerProfile from "./pages/DancerProfile";
-import Teachers from "./pages/Teachers";
-import TeacherProfile from "./pages/TeacherProfile";
-import DJs from "./pages/DJs";
-import DJProfile from "./pages/DJProfile";
-import Venues from "./pages/Venues";
-import Organisers from "./pages/Organisers";
-import OrganiserProfile from "./pages/OrganiserProfile";
-import AllProfiles from "./pages/AllProfiles";
-import VenueDirectory from "./pages/VenueDirectory";
-import VenueEntity from "./pages/VenueEntity";
-import CreateProfile from "./pages/CreateProfile";
-import CreateOrganiserProfile from "./pages/CreateOrganiserProfile";
-import CreateTeacherProfile from "./pages/CreateTeacherProfile";
-import CreateDJProfile from "./pages/CreateDJProfile";
-import CreateVideographerProfile from "./pages/CreateVideographerProfile";
-import CreateVendorProfile from "./pages/CreateVendorProfile";
-import VendorDashboardPage from "./pages/VendorDashboardPage";
-import Vendors from "./pages/Vendors";
-import VendorDetail from "./pages/VendorDetail";
-import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
-import Onboarding from "./pages/Onboarding";
-import Profile from "./pages/Profile";
-import EditProfile from "./pages/EditProfile";
-import EditEvent from "./pages/EditEvent";
-import CreateEvent from "./pages/CreateEvent";
-import Debug from "./pages/Debug";
-import DashboardPatternsDemo from "./pages/DashboardPatternsDemo";
-import NotFound from "./pages/NotFound";
+// ─── Landing page: eager (most common entry point) ───────────────────────────
+import Index from "./pages/Index";
+
+// ─── All other pages: lazy-loaded ────────────────────────────────────────────
+const Parties = lazy(() => import("./pages/Parties"));
+const Classes = lazy(() => import("./pages/Classes"));
+const Discounts = lazy(() => import("./pages/Discounts"));
+const Venue = lazy(() => import("./pages/Venue"));
+const Tonight = lazy(() => import("./pages/Tonight"));
+const EventPage = lazy(() => import("./pages/EventPage"));
+const PracticePartners = lazy(() => import("./pages/PracticePartners"));
+const FestivalHub = lazy(() => import("./pages/FestivalHub"));
+const FestivalDetail = lazy(() => import("./pages/FestivalDetail"));
+const Experience = lazy(() => import("./pages/Experience"));
+const Videographers = lazy(() => import("./pages/Videographers"));
+const Choreography = lazy(() => import("./pages/Choreography"));
+const Dancers = lazy(() => import("./pages/Dancers"));
+const DancerProfile = lazy(() => import("./pages/DancerProfile"));
+const Teachers = lazy(() => import("./pages/Teachers"));
+const TeacherProfile = lazy(() => import("./pages/TeacherProfile"));
+const DJs = lazy(() => import("./pages/DJs"));
+const DJProfile = lazy(() => import("./pages/DJProfile"));
+const Venues = lazy(() => import("./pages/Venues"));
+const Organisers = lazy(() => import("./pages/Organisers"));
+const OrganiserProfile = lazy(() => import("./pages/OrganiserProfile"));
+const AllProfiles = lazy(() => import("./pages/AllProfiles"));
+const VenueDirectory = lazy(() => import("./pages/VenueDirectory"));
+const VenueEntity = lazy(() => import("./pages/VenueEntity"));
+const CreateProfile = lazy(() => import("./pages/CreateProfile"));
+const CreateOrganiserProfile = lazy(() => import("./pages/CreateOrganiserProfile"));
+const CreateTeacherProfile = lazy(() => import("./pages/CreateTeacherProfile"));
+const CreateDJProfile = lazy(() => import("./pages/CreateDJProfile"));
+const CreateVideographerProfile = lazy(() => import("./pages/CreateVideographerProfile"));
+const CreateVendorProfile = lazy(() => import("./pages/CreateVendorProfile"));
+const VendorDashboardPage = lazy(() => import("./pages/VendorDashboardPage"));
+const Vendors = lazy(() => import("./pages/Vendors"));
+const VendorDetail = lazy(() => import("./pages/VendorDetail"));
+const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Profile = lazy(() => import("./pages/Profile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const EditEvent = lazy(() => import("./pages/EditEvent"));
+const CreateEvent = lazy(() => import("./pages/CreateEvent"));
+const Debug = lazy(() => import("./pages/Debug"));
+const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const RouteFallback = () => (
+  <div className="min-h-screen pt-24 px-4 pb-24 bg-background">
+    <div className="max-w-4xl mx-auto space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-48 w-full rounded-xl" />
+      <Skeleton className="h-28 w-full rounded-xl" />
+    </div>
+  </div>
+);
 
 /** Redirect bare `/` to `/<city-slug>` so the city is always visible in the URL. */
 const CityRedirect = () => {
@@ -69,121 +83,123 @@ const CityRedirect = () => {
 
 const AnimatedRoutes = () => {
   const location = useLocation();
-  
+
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<CityRedirect />} />
-        <Route path="/:city" element={<PageTransition><Index /></PageTransition>} />
-        <Route path="/:city/calendar" element={<PageTransition><Index /></PageTransition>} />
-        <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
-        <Route path="/:city/parties" element={<PageTransition><Parties /></PageTransition>} />
-        <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
-        <Route path="/:city/classes" element={<PageTransition><Classes /></PageTransition>} />
-        <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
-        <Route path="/:city/discounts" element={<PageTransition><Discounts /></PageTransition>} />
-        
-        <Route path="/venues/:slug" element={<PageTransition><Venue /></PageTransition>} />
-        <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-        <Route path="/:city/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-        <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
-        <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-        <Route path="/:city/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-        <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
-        <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
-        <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
-        <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
-        <Route path="/experience" element={<PageTransition><Experience /></PageTransition>} />
-        <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
-        <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
-        <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
-        <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
-        <Route path="/teachers" element={<PageTransition><Teachers /></PageTransition>} />
-        <Route path="/teachers/:id" element={<PageTransition><TeacherProfile /></PageTransition>} />
-        <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
-        <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
-        <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
-        <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
-        <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
-        <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
-        <Route path="/venue-directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
-        <Route path="/:city/directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
-        <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
-        
-        {/* Protected Routes */}
-        <Route path="/create-dancers-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-organiser-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateOrganiserProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-teacher-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateTeacherProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-dj-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateDJProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-videographer-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateVideographerProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-vendor-profile" element={
-          <AuthGuard>
-            <PageTransition><CreateVendorProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/profile" element={
-          <AuthGuard>
-            <PageTransition><Profile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/dashboard/vendor" element={
-          <AuthGuard>
-            <PageTransition><Navigate to="/profile?role=vendor" replace /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/vendor-dashboard/edit" element={
-          <AuthGuard>
-            <PageTransition><VendorDashboardPage /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/edit-profile" element={
-          <AuthGuard>
-            <PageTransition><EditProfile /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/create-event" element={
-          <AuthGuard>
-            <PageTransition><CreateEvent /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/event/:id/edit" element={
-          <AuthGuard>
-            <PageTransition><EditEvent /></PageTransition>
-          </AuthGuard>
-        } />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<CityRedirect />} />
+          <Route path="/:city" element={<PageTransition><Index /></PageTransition>} />
+          <Route path="/:city/calendar" element={<PageTransition><Index /></PageTransition>} />
+          <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
+          <Route path="/:city/parties" element={<PageTransition><Parties /></PageTransition>} />
+          <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
+          <Route path="/:city/classes" element={<PageTransition><Classes /></PageTransition>} />
+          <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
+          <Route path="/:city/discounts" element={<PageTransition><Discounts /></PageTransition>} />
 
-        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
-        <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />
-        <Route path="/onboarding" element={
-          <AuthGuard>
-            <PageTransition><Onboarding /></PageTransition>
-          </AuthGuard>
-        } />
-        <Route path="/debug" element={<PageTransition><Debug /></PageTransition>} />
-        <Route path="/debug/dashboard-patterns" element={<PageTransition><DashboardPatternsDemo /></PageTransition>} />
-        
-        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-      </Routes>
+          <Route path="/venues/:slug" element={<PageTransition><Venue /></PageTransition>} />
+          <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
+          <Route path="/:city/tonight" element={<PageTransition><Tonight /></PageTransition>} />
+          <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
+          <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
+          <Route path="/:city/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
+          <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
+          <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
+          <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
+          <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
+          <Route path="/experience" element={<PageTransition><Experience /></PageTransition>} />
+          <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
+          <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
+          <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
+          <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
+          <Route path="/teachers" element={<PageTransition><Teachers /></PageTransition>} />
+          <Route path="/teachers/:id" element={<PageTransition><TeacherProfile /></PageTransition>} />
+          <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
+          <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
+          <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
+          <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
+          <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
+          <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
+          <Route path="/venue-directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
+          <Route path="/:city/directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
+          <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
+
+          {/* Protected Routes */}
+          <Route path="/create-dancers-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-organiser-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateOrganiserProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-teacher-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateTeacherProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-dj-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateDJProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-videographer-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateVideographerProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-vendor-profile" element={
+            <AuthGuard>
+              <PageTransition><CreateVendorProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/profile" element={
+            <AuthGuard>
+              <PageTransition><Profile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/dashboard/vendor" element={
+            <AuthGuard>
+              <PageTransition><Navigate to="/profile?role=vendor" replace /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/vendor-dashboard/edit" element={
+            <AuthGuard>
+              <PageTransition><VendorDashboardPage /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/edit-profile" element={
+            <AuthGuard>
+              <PageTransition><EditProfile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/create-event" element={
+            <AuthGuard>
+              <PageTransition><CreateEvent /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/event/:id/edit" element={
+            <AuthGuard>
+              <PageTransition><EditEvent /></PageTransition>
+            </AuthGuard>
+          } />
+
+          <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+          <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />
+          <Route path="/onboarding" element={
+            <AuthGuard>
+              <PageTransition><Onboarding /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/debug" element={<PageTransition><Debug /></PageTransition>} />
+          <Route path="/debug/dashboard-patterns" element={<PageTransition><DashboardPatternsDemo /></PageTransition>} />
+
+          <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+        </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 };
@@ -212,4 +228,3 @@ const App = () => {
 };
 
 export default App;
-
