@@ -212,6 +212,7 @@ const DancerProfile = () => {
   }
 
   if (error || !dancer || !dancerView) {
+    if (dancerError) console.error('DancerProfile error:', dancerError);
     return (
       <div className="min-h-screen pb-24 pt-32 bg-background">
         <div className="container max-w-4xl mx-auto px-4 text-center">
@@ -225,6 +226,7 @@ const DancerProfile = () => {
           <h1 className="text-2xl font-bold text-foreground mb-2">
             {error || "Dancer not found"}
           </h1>
+          {id && <p className="text-xs text-muted-foreground mb-4">ID: {id}</p>}
           <p className="text-muted-foreground mb-6">
             The profile you're looking for doesn't exist or has been removed.
           </p>

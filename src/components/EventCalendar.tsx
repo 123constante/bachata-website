@@ -126,6 +126,9 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocationStatus('granted');
+        // Auto-switch to list view so the distance-sorted order is visible;
+        // the calendar grid doesn't reflect distance ordering.
+        setView('list');
       },
       () => {
         setLocationStatus('denied');

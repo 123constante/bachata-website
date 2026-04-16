@@ -198,6 +198,8 @@ export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem
       venueName: event.location || (meta.venues as any)?.[0]?.name || 'Venue TBA',
       eventLink: `/event/${event.event_id}`,
       coverImageUrl: resolveEventImage(event.photo_url, null),
+      venueLat: typeof event.venue_lat === 'number' ? event.venue_lat : null,
+      venueLng: typeof event.venue_lng === 'number' ? event.venue_lng : null,
     };
   });
 

@@ -53,7 +53,7 @@ const OrganiserProfile = () => {
         .from('entities')
         .select(`
           *,
-          cities (
+          cities:cities!entities_city_id_fkey (
             name
           )
         `)

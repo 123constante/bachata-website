@@ -29,15 +29,20 @@ const VenueEntity = () => {
         .from('venues')
         .select(`
           *,
-          cities (
-            name
+          entities (
+            cities:cities!entities_city_id_fkey (name)
           )
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as any;
+      const venue = data as any;
+      // Flatten the nested city (venues has no direct FK to cities — it
+      // reaches the city via its linked entity). Expose as venue.cities
+      // so the existing render code keeps working unchanged.
+      venue.cities = venue.entities?.cities ?? null;
+      return venue;
     },
     enabled: !!id,
   });
