@@ -132,7 +132,7 @@ export const CalendarListView = ({
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs w-full mt-0.5">
-                    {event.hasClass && (selectedCategory === 'all' || selectedCategory === 'classes') && (
+                    {event.hasClass && (
                       <div className="flex items-center gap-1.5 text-festival-blue shrink-0">
                         <span className="font-bold">Classes</span>
                         <span className="font-mono opacity-90">
@@ -140,7 +140,7 @@ export const CalendarListView = ({
                         </span>
                       </div>
                     )}
-                    {event.hasParty && (selectedCategory === 'all' || selectedCategory === 'parties') && (
+                    {event.hasParty && (
                       <div className="flex items-center gap-1.5 text-festival-pink shrink-0">
                         <span className="font-bold">Party</span>
                         <span className="font-mono opacity-90">

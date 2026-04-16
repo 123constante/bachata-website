@@ -149,10 +149,10 @@ export const transformCalendarEvents = (
       }
     }
 
-    const hasParty =
-      event.has_party ?? (program ? programHasParty : !!keyTimes.party?.active);
-    const hasClass =
-      event.has_class ?? (program ? programHasClass : !!keyTimes.classes?.active);
+    // Derive from program/key_times directly — the RPC has_class/has_party
+    // are unreliable (live DB returns true for all events regardless of data).
+    const hasParty = program ? programHasParty : !!keyTimes.party?.active;
+    const hasClass = program ? programHasClass : !!keyTimes.classes?.active;
 
     // Class times: aggregate across ALL sources → earliest start, latest end
     const rpcClassStart = fmtTime(event.class_start);
