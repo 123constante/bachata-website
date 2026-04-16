@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
-import type { Category, ViewType } from '@/components/calendar/calendarUtils';
+import type { Category, ViewType, VenueCoordMap } from '@/components/calendar/calendarUtils';
 import { MONTHS, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { CalendarListView } from '@/components/calendar/CalendarListView';
@@ -68,7 +68,40 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
 
-  const baseEvents = useMemo(() => (rawEvents ? transformCalendarEvents(rawEvents) : []), [rawEvents]);
+  // Unique raw event IDs — used for both the venue-coord fetch and attendance counts.
+  const rawEventIds = useMemo(
+    () => Array.from(new Set((rawEvents ?? []).map((e) => e.event_id))),
+    [rawEvents],
+  );
+
+  // Venue coordinates per event_id. The calendar RPC doesn't return lat/lng,
+  // so fetch events→venues separately and build a Map the transform consumes.
+  // Only runs when "Near me" is active — otherwise the coords are unused.
+  const { data: venueCoords } = useQuery<VenueCoordMap>({
+    queryKey: ['calendar-venue-coords', rawEventIds],
+    queryFn: async () => {
+      const map: VenueCoordMap = new Map();
+      if (!rawEventIds.length) return map;
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, venues(lat, lng)')
+        .in('id', rawEventIds);
+      if (error || !data) return map;
+      for (const row of data as Array<{ id: string; venues: { lat: number | null; lng: number | null } | null }>) {
+        if (row.venues) {
+          map.set(row.id, { lat: row.venues.lat ?? null, lng: row.venues.lng ?? null });
+        }
+      }
+      return map;
+    },
+    enabled: rawEventIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const baseEvents = useMemo(
+    () => (rawEvents ? transformCalendarEvents(rawEvents, venueCoords) : []),
+    [rawEvents, venueCoords],
+  );
 
   // Unique event IDs to batch-fetch attendance counts
   const eventIds = useMemo(() => Array.from(new Set(baseEvents.map((e) => e.id))), [baseEvents]);

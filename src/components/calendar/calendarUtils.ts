@@ -108,7 +108,12 @@ const programClassRange = (
   return { start: earliest, end: latest };
 };
 
-export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem[] =>
+export type VenueCoordMap = Map<string, { lat: number | null; lng: number | null }>;
+
+export const transformCalendarEvents = (
+  raw: CalendarEvent[],
+  venueCoords?: VenueCoordMap,
+): CalendarEventItem[] =>
   raw.map((event) => {
     const instanceDate = new Date(event.instance_date);
 
@@ -198,8 +203,8 @@ export const transformCalendarEvents = (raw: CalendarEvent[]): CalendarEventItem
       venueName: event.location || (meta.venues as any)?.[0]?.name || 'Venue TBA',
       eventLink: `/event/${event.event_id}`,
       coverImageUrl: resolveEventImage(event.photo_url, null),
-      venueLat: typeof event.venue_lat === 'number' ? event.venue_lat : null,
-      venueLng: typeof event.venue_lng === 'number' ? event.venue_lng : null,
+      venueLat: venueCoords?.get(event.event_id)?.lat ?? null,
+      venueLng: venueCoords?.get(event.event_id)?.lng ?? null,
     };
   });
 

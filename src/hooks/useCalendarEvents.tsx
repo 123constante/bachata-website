@@ -21,8 +21,6 @@ export interface CalendarEvent {
   party_start?: string | null;
   party_end?: string | null;
   city_slug?: string | null;
-  venue_lat?: number | null;
-  venue_lng?: number | null;
 }
 
 interface UseCalendarEventsProps {
