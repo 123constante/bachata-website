@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
@@ -61,8 +61,10 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const [view, setView] = useState<ViewType>('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
+  // TODO: Re-enable Near Me when we decide where it should live
+  // const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
+  const userLocation = null;
   const { citySlug } = useCity();
 
   const currentMonth = currentDate.getMonth();
@@ -148,59 +150,29 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   const handleDayClick = (day: number) => setSelectedDay(day);
 
-  const handleNearMe = useCallback(async () => {
-    // Toggle off if already active.
-    if (locationStatus === 'granted' && userLocation) {
-      setUserLocation(null);
-      setLocationStatus('idle');
-      return;
-    }
-
-    // Secure-context check — geolocation is only available on HTTPS / localhost.
-    if (typeof window === 'undefined' || !window.isSecureContext) {
-      console.warn('[Near me] Blocked: not a secure context (need HTTPS)');
-      setLocationStatus('denied');
-      return;
-    }
-    if (!('geolocation' in navigator)) {
-      console.warn('[Near me] Blocked: navigator.geolocation unavailable');
-      setLocationStatus('denied');
-      return;
-    }
-
-    // If the user already denied permission previously, the prompt won't
-    // re-appear — surface that immediately instead of looking stuck.
-    try {
-      if ('permissions' in navigator) {
-        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (status.state === 'denied') {
-          console.warn('[Near me] Permission previously denied — enable in browser site settings');
-          setLocationStatus('denied');
-          return;
-        }
-      }
-    } catch {
-      // Some browsers (older Safari) throw on unknown permission names — ignore.
-    }
-
-    setLocationStatus('loading');
-    // Flip to list view up-front so the user sees the effect land even if the
-    // permission prompt takes a moment.
-    setView('list');
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocationStatus('granted');
-      },
-      (err) => {
-        console.error('[Near me] getCurrentPosition error:', err.code, err.message);
-        setLocationStatus('denied');
-        setTimeout(() => setLocationStatus('idle'), 4000);
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
-    );
-  }, [locationStatus, userLocation]);
+  // TODO: Re-enable Near Me when we decide where it should live
+  // const handleNearMe = useCallback(async () => {
+  //   if (locationStatus === 'granted' && userLocation) {
+  //     setUserLocation(null); setLocationStatus('idle'); return;
+  //   }
+  //   if (typeof window === 'undefined' || !window.isSecureContext) {
+  //     setLocationStatus('denied'); return;
+  //   }
+  //   if (!('geolocation' in navigator)) { setLocationStatus('denied'); return; }
+  //   try {
+  //     if ('permissions' in navigator) {
+  //       const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+  //       if (status.state === 'denied') { setLocationStatus('denied'); return; }
+  //     }
+  //   } catch {}
+  //   setLocationStatus('loading');
+  //   setView('list');
+  //   navigator.geolocation.getCurrentPosition(
+  //     (pos) => { setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocationStatus('granted'); },
+  //     (err) => { console.error('[Near me]', err.code, err.message); setLocationStatus('denied'); setTimeout(() => setLocationStatus('idle'), 4000); },
+  //     { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+  //   );
+  // }, [locationStatus, userLocation]);
 
   return (
     <section className="py-12 px-4">
@@ -213,8 +185,8 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
             <div className="flex-1">
               {/* Top control bar */}
               <div className="flex flex-col border-b border-primary/10">
-                {/* Month navigation + Near Me */}
-                <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                {/* Month navigation */}
+                <div className="flex items-center justify-center px-4 pt-4 pb-2">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => navigateMonth('prev')}
@@ -233,7 +205,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     </button>
                   </div>
 
-                  {/* Near me toggle */}
+                  {/* TODO: Re-enable Near Me toggle when we decide where it should live
                   <button
                     onClick={handleNearMe}
                     title={locationStatus === 'denied' ? 'Location access denied' : 'Sort by distance'}
@@ -246,26 +218,10 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                           : 'bg-[hsl(42_90%_50%/0.1)] text-primary hover:bg-[hsl(42_90%_50%/0.18)]',
                     )}
                   >
-                    {locationStatus === 'loading' ? (
-                      <span className="animate-pulse text-[10px]">Locating…</span>
-                    ) : locationStatus === 'granted' ? (
-                      <>
-                        <LocateFixed className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Near me</span>
-                        <X className="w-3 h-3 opacity-70" />
-                      </>
-                    ) : locationStatus === 'denied' ? (
-                      <>
-                        <LocateFixed className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Denied</span>
-                      </>
-                    ) : (
-                      <>
-                        <LocateFixed className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Near me</span>
-                      </>
-                    )}
+                    <LocateFixed className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Near me</span>
                   </button>
+                  */}
                 </div>
 
                 {/* Category tabs */}
