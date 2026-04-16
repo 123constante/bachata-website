@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { validateImageFile } from '@/lib/upload-validation';
 
 const cleanString = (str: string | undefined | null) => {
   if (!str) return null;
@@ -134,6 +135,8 @@ const EditEvent = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const check = validateImageFile(file);
+    if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();

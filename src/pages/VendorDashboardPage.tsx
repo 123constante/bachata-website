@@ -5,6 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { validateImageFile } from "@/lib/upload-validation";
 import {
   VENDOR_DASHBOARD_SECTIONS,
   type VendorDashboardFormState,
@@ -1603,7 +1604,13 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setPrimaryFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const check = validateImageFile(f);
+                      if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
+                      setPrimaryFile(f);
+                    }}
                   />
                 </Label>
                 {primaryFile && <Badge variant="outline">{primaryFile.name}</Badge>}
@@ -1711,7 +1718,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const check = validateImageFile(file);
+                        if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); e.currentTarget.value = ""; return; }
                         void uploadProductImage(index, file);
                         e.currentTarget.value = "";
                       }}

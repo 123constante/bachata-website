@@ -5,6 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { validateImageFile } from "@/lib/upload-validation";
 import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorRowWithCity, VendorPromoDiscountType } from "@/modules/vendor/types";
 import {
   isRlsError,
@@ -1079,7 +1080,13 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setPrimaryFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const check = validateImageFile(f);
+                      if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
+                      setPrimaryFile(f);
+                    }}
                   />
                 </Label>
                 {primaryFile && <Badge variant="outline">{primaryFile.name}</Badge>}

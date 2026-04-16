@@ -31,6 +31,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { useCity } from '@/contexts/CityContext';
+import { validateImageFile } from '@/lib/upload-validation';
 
 const cleanString = (str: string | undefined | null) => {
   if (!str) return null;
@@ -95,6 +96,8 @@ const CreateEvent = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const check = validateImageFile(file);
+    if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();

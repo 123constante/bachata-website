@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { validateImageFile } from '@/lib/upload-validation';
 
 interface AvatarUploadProps {
   value?: string | null;
@@ -30,6 +31,9 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
       }
 
       const file = event.target.files[0];
+      const check = validateImageFile(file);
+      if (!check.ok) throw new Error(check.message);
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;

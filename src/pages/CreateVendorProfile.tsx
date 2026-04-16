@@ -5,6 +5,7 @@ import { CircleHelp, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { validateImageFile } from "@/lib/upload-validation";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { AuthStepper } from "@/components/auth/AuthStepper";
 import { AuthFormProvider } from "@/contexts/AuthFormContext";
@@ -383,6 +384,8 @@ const CreateVendorProfile = () => {
   const handleLocalLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.length) return;
     const file = event.target.files[0];
+    const check = validateImageFile(file);
+    if (!check.ok) { toast({ title: check.message, variant: "destructive" }); return; }
     const previewUrl = createPreviewUrl(draft.logoUrl, file);
     setPendingLogoFile(file);
     setDraft((prev) => ({ ...prev, logoUrl: previewUrl }));
@@ -391,6 +394,8 @@ const CreateVendorProfile = () => {
   const handleLocalProductImageChange = (productId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.length) return;
     const file = event.target.files[0];
+    const check = validateImageFile(file);
+    if (!check.ok) { toast({ title: check.message, variant: "destructive" }); return; }
     const currentUrl = draft.products.find((product) => product.id === productId)?.imageUrl || "";
     const previewUrl = createPreviewUrl(currentUrl, file);
     setPendingProductFiles((prev) => ({ ...prev, [productId]: file }));
