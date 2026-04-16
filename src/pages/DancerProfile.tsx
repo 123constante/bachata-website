@@ -72,12 +72,16 @@ const DancerProfile = () => {
     queryFn: async () => {
       if (!dancerUserId) return [] as AttendanceRow[];
       const { data, error } = await supabase
-        .from("event_participants")
-        .select("event_id, status, updated_at")
+        .from("event_attendance")
+        .select("status, updated_at, calendar_occurrences!inner(event_id)")
         .eq("user_id", dancerUserId)
         .in("status", ["going", "interested"]);
       if (error) throw error;
-      return (data || []) as AttendanceRow[];
+      return (data || []).map((r: any) => ({
+        event_id: r.calendar_occurrences.event_id as string,
+        status: r.status as "going" | "interested",
+        updated_at: r.updated_at as string | null,
+      }));
     },
     enabled: Boolean(dancerUserId),
     staleTime: 1000 * 20,

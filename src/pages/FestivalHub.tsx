@@ -155,14 +155,7 @@ const FestivalHubInner = () => {
         .in('event_id', festivalIds);
 
       if (occError || !occurrences?.length) {
-        // Fallback to legacy event_participants
-        const { data, error } = await supabase
-          .from('event_participants')
-          .select('event_id, status')
-          .eq('user_id', user.id)
-          .in('event_id', festivalIds);
-        if (error) throw error;
-        return (data || []) as Array<{ event_id: string; status: string }>;
+        return [];
       }
 
       const occurrenceIds = occurrences.map((o) => o.id);

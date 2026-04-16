@@ -298,16 +298,19 @@ export const DancerDashboard = () => {
           photo_url: getPhotoUrl(normalized.photo_url) || '',
         });
 
-        const { data: participations, error: participationsError } = await supabase
-          .from('event_participants')
-          .select('event_id, status')
+        const { data: rawAttendance, error: attendanceError } = await supabase
+          .from('event_attendance')
+          .select('status, calendar_occurrences!inner(event_id)')
           .eq('user_id', user.id);
 
-        if (participationsError) {
-          throw participationsError;
+        if (attendanceError) {
+          throw attendanceError;
         }
 
-        const participantRows = (participations || []) as Array<{ event_id: string; status: string }>;
+        const participantRows = (rawAttendance || []).map((r: any) => ({
+          event_id: r.calendar_occurrences.event_id as string,
+          status: r.status as string,
+        }));
         if (!participantRows.length) {
           setSelectedEvents([]);
           setSelectedFestivals([]);
@@ -319,9 +322,8 @@ export const DancerDashboard = () => {
 
         let eventQuery = supabase
           .from('events')
-          .select('id, name, date, city, type, city_slug, is_published')
-          .in('id', eventIds)
-          .eq('is_published', true);
+          .select('id, name, date, city, type, city_slug, is_active')
+          .in('id', eventIds);
 
         if (citySlug) {
           eventQuery = eventQuery.eq('city_slug', citySlug);

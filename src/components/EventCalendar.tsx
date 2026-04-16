@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-const CalendarSkeleton = ({ view }: { view: ViewType }) => {
+const CalendarSkeleton = ({ view, month, year }: { view: ViewType; month: number; year: number }) => {
   if (view === 'list') {
     return (
       <div className="space-y-3">
@@ -31,6 +31,11 @@ const CalendarSkeleton = ({ view }: { view: ViewType }) => {
     );
   }
 
+  const firstDay = new Date(year, month, 1).getDay();
+  const adjustedFirst = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cellCount = adjustedFirst + daysInMonth;
+
   return (
     <>
       <div className="grid grid-cols-7 gap-1 mb-2">
@@ -39,7 +44,7 @@ const CalendarSkeleton = ({ view }: { view: ViewType }) => {
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: 35 }).map((_, i) => (
+        {Array.from({ length: cellCount }).map((_, i) => (
           <Skeleton key={i} className="aspect-square rounded-xl" />
         ))}
       </div>
@@ -200,10 +205,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   return (
     <section className="py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+        <div
           className="bg-card border border-[hsl(42_90%_50%/0.22)] rounded-3xl overflow-hidden relative shadow-[0_0_0_1px_hsl(42_90%_50%/0.06),_0_8px_48px_hsl(42_90%_50%/0.07)]"
         >
           <div className="flex">
@@ -315,7 +317,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
               {/* Content area */}
               <div className="p-4 pt-4 min-h-[400px]">
                 {isEventsLoading ? (
-                  <CalendarSkeleton view={view} />
+                  <CalendarSkeleton view={view} month={currentMonth} year={currentYear} />
                 ) : view === 'calendar' ? (
                   <CalendarGrid
                     currentMonth={currentMonth}
@@ -356,7 +358,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
               ))}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Day detail modal */}

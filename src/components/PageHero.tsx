@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { ScrollReveal } from "@/components/ScrollReveal";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { Sparkles, Star, Heart, Music, Zap, PartyPopper, LucideIcon } from "lucide-react";
 
@@ -55,7 +54,6 @@ const PageHero = ({
   };
 
   return (
-    <ScrollReveal animation="fadeUp" duration={0.8}>
       <section className={`relative px-4 ${topPadding} pb-10 overflow-hidden`}>
         {/* Animated gradient background */}
         {!hideBackground && (
@@ -111,11 +109,7 @@ const PageHero = ({
           </motion.div>
         ))}
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 text-center"
-        >
+        <div className="relative z-10 text-center">
           {/* Animated Emoji with enhanced bounce */}
           <motion.div
             animate={{ 
@@ -165,8 +159,8 @@ const PageHero = ({
                 return (
                   <motion.div
                     key={widget.title}
-                    initial={{ opacity: 0, y: 20, rotateY: rotation * 2 }}
-                    animate={{ opacity: 1, y: 0, rotateY: rotation }}
+                    initial={false}
+                    animate={{ rotateY: rotation }}
                     transition={{ delay: 0.1 * i, type: "spring", stiffness: 100 }}
                     whileHover={{ 
                       scale: 1.1, 
@@ -201,9 +195,8 @@ const PageHero = ({
               })}
             </div>
           )}
-        </motion.div>
+        </div>
       </section>
-    </ScrollReveal>
   );
 };
 

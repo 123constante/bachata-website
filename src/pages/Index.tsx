@@ -101,14 +101,9 @@ const Index = () => {
         topPadding='pt-10'
       />
 
-      {/* CITY STATS STRIP */}
-      {stats.thisWeek > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="container mx-auto px-4 pb-4"
-        >
+      {/* CITY STATS STRIP — fixed height to prevent CLS */}
+      <div className="container mx-auto px-4 pb-4 min-h-[44px]">
+        {stats.thisWeek > 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
             <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 text-sm font-medium text-primary">
               <Calendar className="w-4 h-4" />
@@ -121,14 +116,14 @@ const Index = () => {
               </div>
             )}
           </div>
-        </motion.div>
-      )}
+        )}
+      </div>
 
       {/* EVENT CALENDAR */}
-      <section className="py-8 min-h-[600px]">
+      <section className="py-8 min-h-[650px]">
         <div className="container mx-auto px-4">
           <Suspense fallback={
-            <div className="flex flex-col items-center justify-center h-[400px] w-full text-muted-foreground">
+            <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">
               <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
               <p>Loading calendar…</p>
             </div>

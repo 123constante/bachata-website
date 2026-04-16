@@ -17,55 +17,10 @@ export const setAttendanceRpc = async (eventId: string, status: AttendanceValue)
     p_status: status,
   });
 
-  if (!error) return;
-
-  const isSchemaCacheError =
-    error.code === 'PGRST202' ||
-    (typeof error.message === 'string' && error.message.toLowerCase().includes('schema cache'));
-
-  if (!isSchemaCacheError) {
-    throw error;
-  }
-
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData?.user?.id) {
-    throw error;
-  }
-
-  if (status === null) {
-    // Fallback delete from legacy table
-    const { error: deleteError } = await supabase
-      .from('event_participants')
-      .delete()
-      .eq('event_id', eventId)
-      .eq('user_id', userData.user.id);
-
-    if (deleteError) throw deleteError;
-    return;
-  }
-
-  const { error: upsertError } = await supabase
-    .from('event_participants')
-    .upsert(
-      {
-        event_id: eventId,
-        user_id: userData.user.id,
-        status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,event_id' }
-    );
-
-  if (upsertError) throw upsertError;
+  if (error) throw error;
 };
 
-/**
- * Read the current user's attendance status for an event.
- * Primary: event_attendance (via occurrence join).
- * Fallback: event_participants (legacy).
- */
 const fetchAttendanceStatus = async (eventId: string, userId: string): Promise<AttendanceValue> => {
-  // Primary path: occurrence-based event_attendance
   const { data: occurrences } = await supabase
     .from('calendar_occurrences')
     .select('id')
@@ -73,29 +28,17 @@ const fetchAttendanceStatus = async (eventId: string, userId: string): Promise<A
     .order('instance_start', { ascending: true })
     .limit(10);
 
-  if (occurrences && occurrences.length > 0) {
-    const occurrenceIds = occurrences.map((o) => o.id);
-    const { data: attendanceRow } = await supabase
-      .from('event_attendance')
-      .select('status')
-      .in('occurrence_id', occurrenceIds)
-      .eq('user_id', userId)
-      .maybeSingle();
+  if (!occurrences?.length) return null;
 
-    if (attendanceRow) {
-      return (attendanceRow.status as AttendanceStatus) ?? null;
-    }
-  }
-
-  // Fallback: legacy event_participants table
-  const { data: legacyRow } = await supabase
-    .from('event_participants')
+  const occurrenceIds = occurrences.map((o) => o.id);
+  const { data: attendanceRow } = await supabase
+    .from('event_attendance')
     .select('status')
-    .eq('event_id', eventId)
+    .in('occurrence_id', occurrenceIds)
     .eq('user_id', userId)
     .maybeSingle();
 
-  return (legacyRow?.status as AttendanceStatus | undefined) ?? null;
+  return (attendanceRow?.status as AttendanceStatus) ?? null;
 };
 
 export const useAttendance = (eventId: string) => {
