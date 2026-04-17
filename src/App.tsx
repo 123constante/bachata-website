@@ -7,7 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
-import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -120,6 +119,7 @@ const AnimatedRoutes = () => {
           <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
           <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
           <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
+          <Route path="/:city/venues" element={<PageTransition><Venues /></PageTransition>} />
           <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
           <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
           <Route path="/venue-directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
@@ -222,7 +222,6 @@ const App = () => {
               {/* Spacer that matches the sticky header height so NO page has content blocked behind it */}
               <div className="h-[60px] shrink-0" aria-hidden="true" />
               <AnimatedRoutes />
-              <MobileBottomNav />
             </CityProvider>
           </BrowserRouter>
         </TooltipProvider>

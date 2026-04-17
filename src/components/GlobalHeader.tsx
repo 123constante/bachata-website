@@ -6,6 +6,7 @@ import { useCity } from '@/contexts/CityContext';
 const BASE_NAV_LINKS = [
   { segment: 'parties', label: 'Parties', emoji: '🎉' },
   { segment: 'classes', label: 'Classes', emoji: '🎓' },
+  { segment: 'venues', label: 'Venues', emoji: '🏛️' },
 ];
 
 const emojiAnimations = {
@@ -16,6 +17,10 @@ const emojiAnimations = {
   '🎓': {
     animate: { y: [0, -6, 0] },
     transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' as const },
+  },
+  '🏛️': {
+    animate: { scale: [1, 1.08, 1] },
+    transition: { repeat: Infinity, duration: 2.5, ease: 'easeInOut' as const },
   },
   '💫': {
     animate: { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] },
