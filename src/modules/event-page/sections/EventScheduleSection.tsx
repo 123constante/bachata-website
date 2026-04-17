@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, Clock } from 'lucide-react';
+import { AlertTriangle, CalendarDays } from 'lucide-react';
 import type { EventPageModel } from '@/modules/event-page/types';
 
 type EventScheduleSectionProps = {
@@ -32,16 +32,6 @@ export const EventScheduleSection = ({ schedule }: EventScheduleSectionProps) =>
           <div className="inline-flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             <span>{schedule.dateLabel}</span>
-          </div>
-        )}
-
-        {schedule.timeLabel && (
-          <div className="inline-flex items-center gap-2">
-            <Clock className="h-4 w-4 text-white/60" />
-            <span className="text-white/80">{schedule.timeLabel}</span>
-            {schedule.timezoneLabel && (
-              <span className="text-[11px] text-white/40">{schedule.timezoneLabel}</span>
-            )}
           </div>
         )}
 

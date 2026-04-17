@@ -237,5 +237,45 @@ export const matchesCategory = (event: CalendarEventItem, category: Category): b
   return true;
 };
 
+export interface DayDotFlags {
+  hasEvents: boolean;
+  hasParty: boolean;
+  hasClass: boolean;
+}
+
+/**
+ * Single source of truth for calendar cell dot rendering.
+ *
+ *   category === 'parties' → hasClass is always false
+ *   category === 'classes' → hasParty is always false
+ *   category === 'all'     → both reflect underlying events
+ */
+export const getDayDotFlags = (
+  events: CalendarEventItem[],
+  day: Date,
+  category: Category,
+): DayDotFlags => {
+  let hasEvents = false;
+  let hasParty = false;
+  let hasClass = false;
+
+  for (const e of events) {
+    const visible = e.instanceDateIso
+      ? isSameDay(e.instanceDateIso, day)
+      : day >= e.startDate && day <= e.endDate;
+    if (!visible) continue;
+
+    // Skip events that don't belong to the active tab at all.
+    if (category === 'parties' && !e.hasParty) continue;
+    if (category === 'classes' && !e.hasClass) continue;
+
+    hasEvents = true;
+    if (category !== 'classes' && e.hasParty) hasParty = true;
+    if (category !== 'parties' && e.hasClass) hasClass = true;
+  }
+
+  return { hasEvents, hasParty, hasClass };
+};
+
 /** Monday-adjusted day index (0 = Mon, 6 = Sun) */
 export const mondayIndex = (jsDay: number): number => (jsDay === 0 ? 6 : jsDay - 1);

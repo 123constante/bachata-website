@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
-import { DAYS, isEventVisibleOnDay } from '@/components/calendar/calendarUtils';
+import { DAYS, getDayDotFlags } from '@/components/calendar/calendarUtils';
 
 interface CalendarGridProps {
   currentMonth: number;
@@ -25,12 +25,6 @@ export const CalendarGrid = ({
   const today = new Date();
   const isCurrentMonth = today.getMonth() === currentMonth && today.getFullYear() === currentYear;
 
-  const getEventsForDay = (day: number) => {
-    const checkDate = new Date(currentYear, currentMonth, day);
-    checkDate.setHours(12, 0, 0, 0);
-    return events.filter((e) => isEventVisibleOnDay(e, checkDate, selectedCategory));
-  };
-
   const cells: (number | null)[] = [];
   for (let i = 0; i < adjustedFirstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -51,11 +45,10 @@ export const CalendarGrid = ({
         {cells.map((day, index) => {
           if (day === null) return <div key={`empty-${index}`} className="aspect-square" />;
 
-          const dayEvents = getEventsForDay(day);
+          const checkDate = new Date(currentYear, currentMonth, day);
+          checkDate.setHours(12, 0, 0, 0);
+          const { hasEvents, hasParty, hasClass } = getDayDotFlags(events, checkDate, selectedCategory);
           const isToday = isCurrentMonth && today.getDate() === day;
-          const hasParty = dayEvents.some((e) => e.hasParty);
-          const hasClass = dayEvents.some((e) => e.hasClass);
-          const hasEvents = dayEvents.length > 0;
 
           return (
             <motion.button

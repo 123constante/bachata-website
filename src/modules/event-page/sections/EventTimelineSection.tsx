@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarDays, Clock } from 'lucide-react';
+import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
@@ -388,7 +388,6 @@ export const EventTimelineSection = ({
 
   const hasAnySchedule =
     Boolean(schedule.dateLabel) ||
-    Boolean(schedule.timeLabel) ||
     sessions.length > 0;
 
   if (!hasAnySchedule && !isLoading) return null;
@@ -405,23 +404,12 @@ export const EventTimelineSection = ({
       )}
 
       {/* Date + overall start–end */}
-      {(schedule.dateLabel || schedule.timeLabel) && (
-        <div className="mb-4 space-y-1">
-          {schedule.dateLabel && (
-            <div className="flex items-center gap-2 text-sm text-white/80">
-              <CalendarDays className="h-4 w-4 shrink-0 text-white/40" />
-              {schedule.dateLabel}
-            </div>
-          )}
-          {schedule.timeLabel && (
-            <div className="flex items-center gap-2 text-xs text-white/50">
-              <Clock className="h-3.5 w-3.5 shrink-0 text-white/30" />
-              {schedule.timeLabel}
-              {schedule.timezoneLabel && (
-                <span className="text-[10px] text-white/30">{schedule.timezoneLabel}</span>
-              )}
-            </div>
-          )}
+      {schedule.dateLabel && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 text-sm text-white/80">
+            <CalendarDays className="h-4 w-4 shrink-0 text-white/40" />
+            {schedule.dateLabel}
+          </div>
         </div>
       )}
 
