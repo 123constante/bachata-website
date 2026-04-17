@@ -12,6 +12,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CityProvider } from "@/contexts/CityContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── Landing page: eager (most common entry point) ───────────────────────────
 import Index from "./pages/Index";
@@ -226,6 +227,7 @@ const App = () => {
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
+      <Analytics />
     </QueryClientProvider>
   );
 };

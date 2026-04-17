@@ -8,6 +8,7 @@ import { EventOrganiserSection } from '@/modules/event-page/sections/EventOrgani
 import { EventLineupSection } from '@/modules/event-page/sections/EventLineupSection';
 import { EventGuestDancersSection } from '@/modules/event-page/sections/EventGuestDancersSection';
 import { EventAttendanceSection } from '@/modules/event-page/sections/EventAttendanceSection';
+import { GuestListSection } from '@/modules/event-page/sections/GuestListSection';
 import { EventDescriptionSection } from '@/modules/event-page/sections/EventDescriptionSection';
 import { EventGallerySection } from '@/modules/event-page/sections/EventGallerySection';
 import { EventMusicStylesSection } from '@/modules/event-page/sections/EventMusicStylesSection';
@@ -142,6 +143,7 @@ export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRs
                 onToggle={onToggleRsvp}
                 isCancelled={pageModel.schedule.isCancelled}
               />
+              <GuestListSection eventId={pageModel.identity.eventId} />
               <EventDescriptionSection description={pageModel.description} />
               <EventGallerySection galleryUrls={galleryUrls} />
               <EventMusicStylesSection musicStyles={musicStyles} />
