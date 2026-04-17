@@ -4,12 +4,17 @@ import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 
 const BASE_NAV_LINKS = [
+  { segment: '', label: 'Home', emoji: '🏠' },
   { segment: 'parties', label: 'Parties', emoji: '🎉' },
   { segment: 'classes', label: 'Classes', emoji: '🎓' },
   { segment: 'venues', label: 'Venues', emoji: '🏛️' },
 ];
 
 const emojiAnimations = {
+  '🏠': {
+    animate: { y: [0, -4, 0] },
+    transition: { repeat: Infinity, duration: 2.8, ease: 'easeInOut' as const },
+  },
   '🎉': {
     animate: { y: [0, -8, 0], scale: [1, 1.1, 1] },
     transition: { repeat: Infinity, duration: 1.5, ease: 'easeInOut' as const },
@@ -39,7 +44,9 @@ export const GlobalHeader = () => {
 
   const navLinks = BASE_NAV_LINKS.map((link) => ({
     ...link,
-    path: citySlug ? `/${citySlug}/${link.segment}` : `/${link.segment}`,
+    path: link.segment
+      ? (citySlug ? `/${citySlug}/${link.segment}` : `/${link.segment}`)
+      : (citySlug ? `/${citySlug}` : '/'),
   }));
 
   const isActive = (path: string) => location.pathname === path || location.pathname === `/${path.split('/').pop()}`;
