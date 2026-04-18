@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
 import type { Category, ViewType, VenueCoordMap } from '@/components/calendar/calendarUtils';
@@ -56,9 +57,20 @@ interface EventCalendarProps {
   defaultCategory?: Category;
 }
 
+const VIEW_STORAGE_KEY = 'bachata-calendar-view';
+
 export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) => {
   const [selectedCategory, setSelectedCategory] = useState<Category>(defaultCategory);
-  const [view, setView] = useState<ViewType>('calendar');
+  const [view, setView] = useState<ViewType>(() => {
+    if (typeof window === 'undefined') return 'calendar';
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return stored === 'list' || stored === 'calendar' ? stored : 'calendar';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   // TODO: Re-enable Near Me when we decide where it should live
@@ -224,6 +236,39 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                   */}
                 </div>
 
+                {/* View toggle (Calendar / List) */}
+                <div className="flex justify-center pt-1 pb-2">
+                  <ToggleGroup
+                    type="single"
+                    value={view}
+                    onValueChange={(v) => { if (v) setView(v as ViewType); }}
+                    aria-label="Calendar view"
+                    size="sm"
+                    className="rounded-full border border-primary/15 bg-card p-1"
+                  >
+                    <ToggleGroupItem
+                      value="calendar"
+                      aria-label="Calendar grid view"
+                      className="rounded-full px-3 data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <CalendarDays className="w-4 h-4" />
+                        Calendar
+                      </span>
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="list"
+                      aria-label="List view"
+                      className="rounded-full px-3 data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <List className="w-4 h-4" />
+                        List
+                      </span>
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
                 {/* Category tabs */}
                 <nav className="relative flex items-center justify-center gap-6 pb-4">
                   {(['all', 'parties', 'classes'] as Category[]).map((category) => (
@@ -293,25 +338,6 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                   />
                 )}
               </div>
-            </div>
-
-            {/* View tabs (vertical, right side) */}
-            <div className="flex flex-col border-l border-primary/10">
-              {(['calendar', 'list'] as ViewType[]).map((viewType) => (
-                <button
-                  key={viewType}
-                  onClick={() => setView(viewType)}
-                  className={cn(
-                    'px-2 py-4 text-[10px] font-medium transition-all relative',
-                    '[writing-mode:vertical-rl] rotate-180',
-                    view === viewType
-                      ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-surface/50',
-                  )}
-                >
-                  {viewType.charAt(0).toUpperCase() + viewType.slice(1)}
-                </button>
-              ))}
             </div>
           </div>
         </div>
