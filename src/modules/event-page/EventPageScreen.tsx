@@ -2,7 +2,7 @@ import type { EventPageModel, FestivalDetail, FestivalScheduleItem } from '@/mod
 import { ShareButton } from '@/components/ShareButton';
 import { EventHeroSection } from '@/modules/event-page/sections/EventHeroSection';
 import { EventIdentityActionsSection } from '@/modules/event-page/sections/EventIdentityActionsSection';
-import { EventTimelineSection } from '@/modules/event-page/sections/EventTimelineSection';
+import { EventScheduleGrid } from '@/modules/event-page/sections/EventScheduleGrid';
 import { EventLocationSection } from '@/modules/event-page/sections/EventLocationSection';
 import { EventOrganiserSection } from '@/modules/event-page/sections/EventOrganiserSection';
 import { EventLineupSection } from '@/modules/event-page/sections/EventLineupSection';
@@ -98,7 +98,7 @@ export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRs
               <div className="lg:hidden space-y-3">
                 {/* Schedule timeline — non-festival only; festivals use FestivalProgramSection below */}
                 {!festivalDetail && (
-                  <EventTimelineSection
+                  <EventScheduleGrid
                     schedule={pageModel.schedule}
                     eventId={pageModel.identity.eventId}
                     fallbackSchedule={eventSchedule}
@@ -159,7 +159,7 @@ export const EventPageScreen = ({ pageModel, festivalDetail, eventSchedule, isRs
             <div className="hidden lg:block space-y-3">
               {/* For festivals, FestivalProgramSection in main column handles the detailed schedule */}
               {!festivalDetail && (
-                <EventTimelineSection
+                <EventScheduleGrid
                   schedule={pageModel.schedule}
                   eventId={pageModel.identity.eventId}
                   fallbackSchedule={eventSchedule}

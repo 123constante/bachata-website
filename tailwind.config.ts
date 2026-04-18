@@ -58,6 +58,7 @@ export default {
           teal: "hsl(var(--festival-teal))",
           purple: "hsl(var(--festival-purple))",
           blue: "hsl(var(--festival-blue))",
+          rose: "hsl(var(--festival-rose))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import { Loader2, Sparkles, Calendar, GraduationCap } from 'lucide-react';
 import PageHero from '@/components/PageHero';
@@ -103,18 +104,15 @@ const Index = () => {
 
       {/* CITY STATS STRIP — fixed height to prevent CLS */}
       <div className="container mx-auto px-4 pb-4 min-h-[44px]">
-        {stats.thisWeek > 0 && (
+        {stats.classesTonight > 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
-            <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 text-sm font-medium text-primary">
-              <Calendar className="w-4 h-4" />
-              <span>{stats.thisWeek} event{stats.thisWeek !== 1 ? 's' : ''} this week</span>
-            </div>
-            {stats.classesTonight > 0 && (
-              <div className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue">
-                <GraduationCap className="w-4 h-4" />
-                <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
-              </div>
-            )}
+            <Link
+              to={citySlug ? `/${citySlug}/tonight` : '/tonight'}
+              className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue hover:bg-festival-blue/20 transition-colors"
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
+            </Link>
           </div>
         )}
       </div>

@@ -7,10 +7,13 @@ export type GuestListEntry = {
 };
 
 export type GuestListConfig = {
-  cutoff_time: string | null;
-  discount_until: string | null;
-  regular_price: number | null;
-  guest_list_price: number | null;
+  cutoff_time: string;
+  discount_until: string;
+  description: string;
+  regular_party_price: number | null;
+  guest_list_party_price: number | null;
+  regular_class_party_price: number | null;
+  guest_list_class_party_price: number | null;
 };
 
 export type EventGuestList = {
@@ -26,10 +29,13 @@ const EMPTY_GUEST_LIST: EventGuestList = {
   count: 0,
   entries: [],
   config: {
-    cutoff_time: null,
-    discount_until: null,
-    regular_price: null,
-    guest_list_price: null,
+    cutoff_time: '',
+    discount_until: '',
+    description: '',
+    regular_party_price: null,
+    guest_list_party_price: null,
+    regular_class_party_price: null,
+    guest_list_class_party_price: null,
   },
   cutoff_passed: false,
 };

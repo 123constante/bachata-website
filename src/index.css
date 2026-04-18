@@ -46,9 +46,10 @@
     
     /* Festival accent colors */
     --festival-pink: 330 100% 60%;
-    --festival-teal: 175 100% 45%; 
+    --festival-teal: 175 100% 45%;
     --festival-purple: 280 100% 60%;
     --festival-blue: 200 100% 60%;
+    --festival-rose: 339 56% 52%;
 
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;

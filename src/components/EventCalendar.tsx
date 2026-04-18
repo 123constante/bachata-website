@@ -194,7 +194,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <h3 className="text-base font-semibold min-w-[120px] text-center">
+                    <h3 className="text-lg font-black tracking-tight min-w-[120px] text-center">
                       {MONTHS[currentMonth]} {currentYear}
                     </h3>
                     <button
