@@ -1,16 +1,13 @@
-import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Search, X, Calendar, Users } from 'lucide-react';
+import { Calendar, Users, Sparkles, Music, Trophy, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import PageHero from '@/components/PageHero';
+import PageLayout from '@/components/PageLayout';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { useCity } from '@/contexts/CityContext';
 
 type OrgRow = {
@@ -24,7 +21,6 @@ type OrgRow = {
 
 const Organisers = () => {
   const { citySlug } = useCity();
-  const [search, setSearch] = useState('');
 
   const { data: organisers = [], isLoading } = useQuery({
     queryKey: ['entities-organisers'],
@@ -58,53 +54,17 @@ const Organisers = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return organisers;
-    return organisers.filter((o) => {
-      const name = o.name.toLowerCase();
-      const city = (o.cities?.name || '').toLowerCase();
-      const cat = (o.organisation_category || '').toLowerCase();
-      return name.includes(q) || city.includes(q) || cat.includes(q);
-    });
-  }, [organisers, search]);
-
   return (
-    <div className="min-h-screen pb-24 bg-background">
-      <PageHero
-        emoji="🎪"
-        titleWhite="Event"
-        titleOrange="Organisers"
-        subtitle="The people and collectives behind the best bachata nights."
-        largeTitle={false}
-      />
-
+    <PageLayout
+      emoji="🎪"
+      titleWhite="Event"
+      titleOrange="Organisers"
+      subtitle="The people and collectives behind the best bachata nights."
+      floatingIcons={[Users, Calendar, Sparkles, Music, Trophy, Zap]}
+      breadcrumbItems={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]}
+      breadcrumbLabel="Organisers"
+    >
       <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-2">
-          <PageBreadcrumb items={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]} />
-        </div>
-
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, city or type…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-card border-border/50"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -122,14 +82,14 @@ const Organisers = () => {
               </Card>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : organisers.length === 0 ? (
           <div className="text-center py-16">
             <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground">No organisers match your search.</p>
+            <p className="text-muted-foreground">No organisers yet.</p>
           </div>
         ) : (
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filtered.map((organiser) => {
+            {organisers.map((organiser) => {
               const eventCount = eventCounts?.[organiser.id] ?? 0;
 
               return (
@@ -186,13 +146,13 @@ const Organisers = () => {
           </StaggerContainer>
         )}
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && organisers.length > 0 && (
           <p className="text-center text-xs text-muted-foreground mt-8">
-            {filtered.length} organiser{filtered.length !== 1 ? 's' : ''}
+            {organisers.length} organiser{organisers.length !== 1 ? 's' : ''}
           </p>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

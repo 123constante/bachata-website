@@ -8,6 +8,7 @@ import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-route
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
 import { GlobalHeader } from "@/components/GlobalHeader";
+import { BottomNav } from "@/components/BottomNav";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CityProvider } from "@/contexts/CityContext";
@@ -223,6 +224,9 @@ const App = () => {
               {/* Spacer that matches the sticky header height so NO page has content blocked behind it */}
               <div className="h-[60px] shrink-0" aria-hidden="true" />
               <AnimatedRoutes />
+              {/* Spacer reserving space for the fixed BottomNav (incl. iOS safe-area inset) */}
+              <div className="h-[calc(64px+env(safe-area-inset-bottom))] shrink-0" aria-hidden="true" />
+              <BottomNav />
             </CityProvider>
           </BrowserRouter>
         </TooltipProvider>

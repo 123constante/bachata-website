@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
-import { 
+import { motion, AnimatePresence } from 'framer-motion';
+import {
   Crown, CheckCircle, Sparkles, Zap, ArrowRight, Star, Gift, Heart, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import PageHero from '@/components/PageHero';
-import { FloatingElements } from '@/components/FloatingElements';
+import PageLayout from '@/components/PageLayout';
 import {
   Accordion,
   AccordionContent,
@@ -43,8 +42,6 @@ const faqs = [
 const Discounts = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const [currentTestimonialPage, setCurrentTestimonialPage] = useState(0);
   const testimonialsPerPage = 3;
   const totalPages = Math.ceil(testimonials.length / testimonialsPerPage);
@@ -83,30 +80,17 @@ const Discounts = () => {
   };
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-24">
-      {/* Scroll Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-50 origin-left"
-        style={{ scaleX }}
-      />
-
-      {/* Floating Elements Background */}
-      <FloatingElements count={20} />
-
-      {/* Hero Section */}
-      <PageHero
-        emoji=''
-        titleWhite='VIP'
-        titleOrange='Membership'
-        subtitle='£20/month. Best discounts in London. Guest list at every event. Just say your name.'
-        widgets={heroWidgets}
-        gradientFrom='amber-500'
-        floatingIcons={floatingIcons}
-        breadcrumbItems={[{ label: 'Discounts' }]}
-        topPadding='pt-20'
-        largeTitle={true}
-      />
-
+    <PageLayout
+      emoji='👑'
+      titleWhite='VIP'
+      titleOrange='Membership'
+      subtitle='£20/month. Best discounts in London. Guest list at every event. Just say your name.'
+      widgets={heroWidgets}
+      gradientFrom='amber-500'
+      floatingIcons={floatingIcons}
+      breadcrumbLabel='Discounts'
+      largeTitle={true}
+    >
       {/* Tonight's Event Alert */}
       <TonightSavingsAlert />
 
@@ -330,7 +314,7 @@ const Discounts = () => {
           </Card>
         </section>
       </ScrollReveal>
-    </div>
+    </PageLayout>
   );
 };
 

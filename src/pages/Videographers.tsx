@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import PageHero from "@/components/PageHero";
+import PageLayout from "@/components/PageLayout";
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";

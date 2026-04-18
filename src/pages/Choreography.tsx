@@ -1,17 +1,16 @@
-﻿import PageHero from "@/components/PageHero";
-import { Users, Trophy, Sparkles } from "lucide-react";
+﻿import PageLayout from "@/components/PageLayout";
+import { Users, Trophy, Sparkles, Music, Star, Zap, Heart, Crown } from "lucide-react";
 
 const Choreography = () => {
   return (
-    <div className="min-h-screen">
-      <PageHero
-        titleWhite="Join the"
-        titleOrange="Stage"
-        subtitle="Transform from social dancer to performer. Find intensive choreography teams and performance courses near you."
-        emoji=""
-        gradientFrom="purple-600"
-      />
-
+    <PageLayout
+      emoji='🎭'
+      titleWhite="Join the"
+      titleOrange="Stage"
+      subtitle="Transform from social dancer to performer. Find intensive choreography teams and performance courses near you."
+      floatingIcons={[Music, Star, Sparkles, Zap, Heart, Crown]}
+      breadcrumbLabel="Choreography"
+    >
       <div className="max-w-7xl mx-auto px-4 py-8">
 
         {/* Value Prop Banner */}
@@ -55,7 +54,7 @@ const Choreography = () => {
         </div>
 
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

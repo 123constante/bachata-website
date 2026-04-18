@@ -1,6 +1,6 @@
 import { motion, useScroll, useSpring } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import PageHero from '@/components/PageHero';
+import PageHero, { type HeroWidget, type BreadcrumbItem } from '@/components/PageHero';
 import { FloatingElements } from '@/components/FloatingElements';
 
 interface PageLayoutProps {
@@ -16,6 +16,8 @@ interface PageLayoutProps {
   breadcrumbLabel: string;
   /** Optional emoji prefixed onto the breadcrumb label */
   breadcrumbEmoji?: string;
+  /** Full breadcrumb trail. If provided, overrides breadcrumbLabel and breadcrumbEmoji. Pass when the page needs a multi-level trail like [{label: 'Parties', path: '/parties'}, {label: 'DJs'}]. */
+  breadcrumbItems?: BreadcrumbItem[];
   /** Number of decorative floating elements behind the page (default 20) */
   floatingCount?: number;
   /** Show the top scroll-progress bar (default true) */
@@ -26,6 +28,12 @@ interface PageLayoutProps {
   largeTitle?: boolean;
   /** Decorative icons passed through to PageHero */
   floatingIcons?: LucideIcon[];
+  /** Optional widgets rendered in the hero section below the title */
+  widgets?: HeroWidget[];
+  /** Hero gradient starting color (default "primary") */
+  gradientFrom?: string;
+  /** Hide PageHero's internal gradient background (default true — PageLayout owns the wash) */
+  hideBackground?: boolean;
   /** Page-specific content rendered below the hero */
   children: React.ReactNode;
 }
@@ -37,19 +45,23 @@ const PageLayout = ({
   subtitle = '',
   breadcrumbLabel,
   breadcrumbEmoji,
+  breadcrumbItems: breadcrumbItemsProp,
   floatingCount = 20,
   showProgressBar = true,
   showGradientBg = true,
   largeTitle = true,
   floatingIcons,
+  widgets,
+  gradientFrom,
+  hideBackground = true,
   children,
 }: PageLayoutProps) => {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
 
-  const breadcrumbItems = [
-    { label: breadcrumbEmoji ? `${breadcrumbEmoji} ${breadcrumbLabel}` : breadcrumbLabel },
-  ];
+  const breadcrumbItems = breadcrumbItemsProp && breadcrumbItemsProp.length > 0
+    ? breadcrumbItemsProp
+    : [{ label: breadcrumbEmoji ? `${breadcrumbEmoji} ${breadcrumbLabel}` : breadcrumbLabel }];
 
   return (
     <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
@@ -85,9 +97,11 @@ const PageLayout = ({
         titleOrange={titleOrange}
         subtitle={subtitle}
         largeTitle={largeTitle}
-        hideBackground={true}
+        hideBackground={hideBackground}
         breadcrumbItems={breadcrumbItems}
         floatingIcons={floatingIcons}
+        widgets={widgets}
+        gradientFrom={gradientFrom}
         topPadding="pt-20"
       />
 

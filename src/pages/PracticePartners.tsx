@@ -1,12 +1,11 @@
 ﻿import { useState, useEffect } from "react";
-import { motion, useScroll, useSpring } from "framer-motion";
+import { motion } from "framer-motion";
 import { Users, Lock, MessageCircle, Sparkles, Heart, Music, Star, Zap, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
-import PageHero from "@/components/PageHero";
-import { FloatingElements } from "@/components/FloatingElements";
+import PageLayout from "@/components/PageLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -34,9 +33,6 @@ const PracticePartners = () => {
   const [loading, setLoading] = useState(true);
   const [currentUserProfile, setCurrentUserProfile] = useState<Dancer | null>(null);
 
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-  
   const isLoggedIn = !!user;
 
   useEffect(() => {
@@ -133,8 +129,6 @@ const PracticePartners = () => {
   const heroWidgets = [
     { emoji: "➕", title: "Add Yourself", desc: "Get listed", sectionId: "add-yourself" },
     { emoji: "👀", title: "Browse", desc: "Find partners", sectionId: "partners" },
-    { emoji: "🎵", title: "By Style", desc: "Filter dancers", sectionId: "partners" },
-    { emoji: "🕒", title: "By Time", desc: "Availability", sectionId: "partners" },
   ];
 
   const floatingIcons = [Users, Heart, Music, Star, Sparkles, Zap];
@@ -156,26 +150,15 @@ const PracticePartners = () => {
   };
 
   return (
-    <div className="min-h-screen pb-24 pt-20">
-      {/* Scroll Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-50 origin-left"
-        style={{ scaleX }}
-      />
-
-      {/* Floating Elements Background */}
-      <FloatingElements count={20} />
-
-      {/* Hero Section */}
-      <PageHero
-        emoji="💃"
-        titleWhite="Practice"
-        titleOrange="Partners"
-        subtitle={`${partners.length} dancers looking to practice together`}
-        widgets={heroWidgets}
-        floatingIcons={floatingIcons}
-      />
-
+    <PageLayout
+      emoji="💃"
+      titleWhite="Practice"
+      titleOrange="Partners"
+      subtitle={`${partners.length} dancers looking to practice together`}
+      widgets={heroWidgets}
+      floatingIcons={floatingIcons}
+      breadcrumbLabel="Practice Partners"
+    >
       {/* Add Yourself CTA */}
       <ScrollReveal animation="fadeUp" duration={0.8} delay={0.1}>
         <section id="add-yourself" className="px-4 mb-20">
@@ -348,7 +331,7 @@ const PracticePartners = () => {
         title="Join the Community"
         description="Login to see dancer profiles and connect with practice partners."
       />
-    </div>
+    </PageLayout>
   );
 };
 

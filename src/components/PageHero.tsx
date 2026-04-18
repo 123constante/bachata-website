@@ -2,14 +2,14 @@ import { motion } from "framer-motion";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { Sparkles, Star, Heart, Music, Zap, PartyPopper, LucideIcon } from "lucide-react";
 
-interface HeroWidget {
+export interface HeroWidget {
   emoji: string;
   title: string;
   desc: string;
   sectionId?: string;
 }
 
-interface BreadcrumbItem {
+export interface BreadcrumbItem {
   label: string;
   path?: string;
 }

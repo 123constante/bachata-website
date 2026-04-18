@@ -1,19 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
-import { Calendar, Heart, Music, Star, Sparkles, Users, Search, Loader2, X, ChevronDown, Check, Camera } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import PageHero from '@/components/PageHero';
+import PageLayout from '@/components/PageLayout';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import { FloatingElements } from '@/components/FloatingElements';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
-import { cn, getNationalityCode } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,8 +26,6 @@ type Dancer = {
   nationality: string | null;
   dance_role: string | null;
 };
-
-type FilterType = 'all' | 'name' | 'role' | 'style' | 'nationality' | 'city';
 
 type AttendanceRow = {
   event_id: string;
@@ -62,8 +55,6 @@ type AttendanceItem = {
 };
 
 const Dancers = () => {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const { toast } = useToast();
@@ -71,14 +62,6 @@ const Dancers = () => {
     const practicePartnersPath = citySlug ? `/${citySlug}/practice-partners` : '/practice-partners';
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Filter state
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [searchName, setSearchName] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [selectedNationality, setSelectedNationality] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDancers = async () => {
@@ -104,22 +87,6 @@ const Dancers = () => {
 
     fetchDancers();
   }, [toast]);
-
-  // Extract unique styles and nationalities for filters
-  const uniqueStyles = useMemo(() => 
-    [...new Set(dancers.flatMap(d => d.favorite_styles || []))].sort(),
-    [dancers]
-  );
-  
-  const uniqueNationalities = useMemo(() => 
-    [...new Set(dancers.map(d => d.nationality).filter(Boolean) as string[])].sort(),
-    [dancers]
-  );
-
-  const uniqueCities = useMemo(() =>
-    [...new Set(dancers.map(d => d.cities?.name).filter(Boolean) as string[])].sort(),
-    [dancers]
-  );
 
   const { data: attendanceRows = [] } = useQuery({
     queryKey: ['dancer-attendance', user?.id],
@@ -252,38 +219,6 @@ const Dancers = () => {
     navigate(item.type === 'festival' ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
-  // Filter dancers based on active filter
-  const filteredDancers = useMemo(() => {
-    return dancers.filter(dancer => {
-      if (activeFilter === 'name' && searchName) {
-        const fullName = buildFullName(dancer.first_name, dancer.surname);
-        return fullName.toLowerCase().includes(searchName.toLowerCase());
-      }
-      if (activeFilter === 'role' && selectedRole) {
-        return dancer.dance_role === selectedRole;
-      }
-      if (activeFilter === 'style' && selectedStyle) {
-        return dancer.favorite_styles?.includes(selectedStyle);
-      }
-      if (activeFilter === 'nationality' && selectedNationality) {
-        return dancer.nationality === selectedNationality;
-      }
-      if (activeFilter === 'city' && selectedCity) {
-        return dancer.cities?.name === selectedCity;
-      }
-      return true;
-    });
-  }, [dancers, activeFilter, searchName, selectedRole, selectedStyle, selectedNationality, selectedCity]);
-
-  const clearFilters = () => {
-    setActiveFilter('all');
-    setSearchName('');
-    setSelectedRole(null);
-    setSelectedStyle(null);
-    setSelectedNationality(null);
-    setSelectedCity(null);
-  };
-
   const getAvatarEmoji = (name: string | null | undefined) => {
     if (!name) return '??';
     const hash = name.charCodeAt(0) % 2;
@@ -294,37 +229,15 @@ const Dancers = () => {
     return buildFullName(dancer.first_name, dancer.surname) || 'Dancer';
   };
 
-  const filterTabs: { value: FilterType; label: string; icon: string }[] = [
-    { value: 'all', label: 'All', icon: '?' },
-    { value: 'name', label: 'Name', icon: '??' },
-    { value: 'role', label: 'Role', icon: '??' },
-    { value: 'style', label: 'Style', icon: '??' },
-    { value: 'nationality', label: 'Country', icon: '??' },
-    { value: 'city', label: 'City', icon: '???' },
-  ];
-
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
-      {/* Progress Bar */}
-      <motion.div 
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
-        style={{ scaleX }}
-      />
-
-      <FloatingElements count={20} />
-
-      {/* HERO - Dancers */}
-      <PageHero
-        emoji=''
-        titleWhite='Meet'
-        titleOrange='Dancers'
-        subtitle=''
-        largeTitle={true}
-        breadcrumbItems={[{ label: 'Dancers' }]}
-        floatingIcons={[Users, Star, Heart, Music, Sparkles, Search]}
-        topPadding='pt-20'
-      />
-
+    <PageLayout
+      emoji="💃"
+      titleWhite="Meet"
+      titleOrange="Dancers"
+      breadcrumbLabel="Dancers"
+      floatingIcons={[Users, Star, Heart, Music, Sparkles, UserCheck]}
+      largeTitle={true}
+    >
       {/* Hero Widgets */}
       <div className='relative z-10 px-4 -mt-6 mb-16'>
           {/* Hero Widgets - 2 small cards */}
@@ -385,297 +298,22 @@ const Dancers = () => {
           </h2>
         </ScrollReveal>
 
-        {/* Filter Tabs - 3x2 grid on mobile, single row on desktop */}
-        <div className="max-w-7xl mx-auto mb-6 px-2">
-          <motion.div 
-            className="grid grid-cols-3 md:flex md:justify-center gap-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {filterTabs.map((tab, index) => (
-              <motion.div
-                key={tab.value}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.05, type: 'spring', stiffness: 300 }}
-              >
-                <Button
-                  variant={activeFilter === tab.value ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setActiveFilter(tab.value);
-                    if (tab.value !== 'role') setSelectedRole(null);
-                    if (tab.value !== 'style') setSelectedStyle(null);
-                    if (tab.value !== 'nationality') setSelectedNationality(null);
-                    if (tab.value !== 'name') setSearchName('');
-                    if (tab.value !== 'city') setSelectedCity(null);
-                  }}
-                  className={cn(
-                    "w-full rounded-full text-xs md:text-sm transition-all duration-300",
-                    activeFilter === tab.value && "ring-2 ring-primary/50 ring-offset-1 ring-offset-background shadow-lg shadow-primary/20"
-                  )}
-                >
-                  <motion.span
-                    animate={{ 
-                      scale: activeFilter === tab.value ? [1, 1.3, 1] : 1,
-                      rotate: activeFilter === tab.value ? [0, -10, 10, 0] : 0
-                    }}
-                    transition={{ duration: 0.4 }}
-                    className="mr-1"
-                  >
-                    {tab.icon}
-                  </motion.span>
-                  {tab.label}
-                </Button>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Sub-filters */}
-          <AnimatePresence mode="wait">
-            {activeFilter === 'name' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4"
-              >
-                <div className="relative max-w-md mx-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name..."
-                    value={searchName}
-                    onChange={(e) => setSearchName(e.target.value)}
-                    className="pl-10 pr-10"
-                    autoFocus
-                  />
-                  {searchName && (
-                    <button
-                      onClick={() => setSearchName('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {activeFilter === 'role' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-between rounded-full">
-                      {selectedRole || "Select a role..."}
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="center">
-                    <Command>
-                      <CommandInput placeholder="Search roles..." />
-                      <CommandList>
-                        <CommandEmpty>No role found.</CommandEmpty>
-                        <CommandGroup>
-                          {['Leader', 'Follower', 'Both'].map((role) => (
-                            <CommandItem
-                              key={role}
-                              onSelect={() => setSelectedRole(selectedRole === role ? null : role)}
-                              className="cursor-pointer"
-                            >
-                              <Check className={cn("h-4 w-4 mr-2", selectedRole === role ? "opacity-100" : "opacity-0")} />
-                              {role}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </motion.div>
-            )}
-
-            {activeFilter === 'style' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-between rounded-full">
-                      {selectedStyle || "Select a dance style..."}
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="center">
-                    <Command>
-                      <CommandInput placeholder="Search styles..." />
-                      <CommandList>
-                        <CommandEmpty>No style found.</CommandEmpty>
-                        <CommandGroup>
-                          {uniqueStyles.map((style) => (
-                            <CommandItem
-                              key={style}
-                              onSelect={() => setSelectedStyle(selectedStyle === style ? null : style)}
-                              className="cursor-pointer"
-                            >
-                              <Check className={cn("h-4 w-4 mr-2", selectedStyle === style ? "opacity-100" : "opacity-0")} />
-                              {style}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </motion.div>
-            )}
-
-            {activeFilter === 'nationality' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-between rounded-full">
-                      {selectedNationality ? (
-                        <span className="flex items-center gap-2">
-                          {getNationalityCode(selectedNationality) && (
-                            <img 
-                              src={`https://flagcdn.com/w20/${getNationalityCode(selectedNationality)}.png`} 
-                              alt="" 
-                              className="w-5 h-4 object-cover rounded-sm" 
-                            />
-                          )}
-                          {selectedNationality}
-                        </span>
-                      ) : "Select a country..."}
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="center">
-                    <Command>
-                      <CommandInput placeholder="Search countries..." />
-                      <CommandList>
-                        <CommandEmpty>No country found.</CommandEmpty>
-                        <CommandGroup>
-                          {uniqueNationalities.map((nationality) => (
-                            <CommandItem
-                              key={nationality}
-                              onSelect={() => setSelectedNationality(selectedNationality === nationality ? null : nationality)}
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <Check className={cn("h-4 w-4", selectedNationality === nationality ? "opacity-100" : "opacity-0")} />
-                              {getNationalityCode(nationality) && (
-                                <img 
-                                  src={`https://flagcdn.com/w20/${getNationalityCode(nationality)}.png`} 
-                                  alt="" 
-                                  className="w-5 h-4 object-cover rounded-sm" 
-                                />
-                              )}
-                              {nationality}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </motion.div>
-            )}
-
-            {activeFilter === 'city' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-between rounded-full">
-                      {selectedCity ? (
-                        <span className="flex items-center gap-2">
-                          <span>???</span>
-                          {selectedCity}
-                        </span>
-                      ) : "Select a city..."}
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="center">
-                    <Command>
-                      <CommandInput placeholder="Search cities..." />
-                      <CommandList>
-                        <CommandEmpty>No city found.</CommandEmpty>
-                        <CommandGroup>
-                          {uniqueCities.map((city) => (
-                            <CommandItem
-                              key={city}
-                              onSelect={() => setSelectedCity(selectedCity === city ? null : city)}
-                              className="cursor-pointer"
-                            >
-                              <Check className={cn("h-4 w-4 mr-2", selectedCity === city ? "opacity-100" : "opacity-0")} />
-                              <span>???</span>
-                              {city}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Results count & clear */}
-          {activeFilter !== 'all' && (
-            <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-muted-foreground">
-                {filteredDancers.length} dancer{filteredDancers.length !== 1 ? 's' : ''} found
-              </span>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            </div>
-          )}
-        </div>
-
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : filteredDancers.length === 0 ? (
+        ) : dancers.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-muted-foreground text-lg mb-4">
-              {dancers.length === 0 
-                ? "No dancers yet. Be the first to join!" 
-                : "No dancers match your filters."}
+              No dancers yet. Be the first to join!
             </p>
-            {dancers.length === 0 ? (
-              <Button onClick={() => navigate('/create-dancers-profile')}>
-                Create Your Profile
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            )}
+            <Button onClick={() => navigate('/create-dancers-profile')}>
+              Create Your Profile
+            </Button>
           </div>
         ) : (
           <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-4 gap-2 md:gap-4 px-2">
-            {filteredDancers.map((dancer) => (
+            {dancers.map((dancer) => (
               <StaggerItem key={dancer.id}>
                 <motion.div whileHover={{ y: -4, scale: 1.02 }} transition={{ duration: 0.3 }}>
                   <Card 
@@ -895,7 +533,7 @@ const Dancers = () => {
       </section>
 
       {/* Footer */}
-    </div>
+    </PageLayout>
   );
 };
 

@@ -1,16 +1,13 @@
-import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, X, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Headphones, Music, Disc3, Radio, Volume2, Mic2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import PageHero from '@/components/PageHero';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import PageLayout from '@/components/PageLayout';
 import { buildFullName } from '@/lib/name-utils';
 
 type DJCard = {
@@ -29,9 +26,6 @@ type DJCard = {
 };
 
 const DJs = () => {
-  const [search, setSearch] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-
   const { data: djs = [], isLoading } = useQuery({
     queryKey: ['dj-profiles-directory'],
     queryFn: async () => {
@@ -46,87 +40,17 @@ const DJs = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const allGenres = useMemo(() => {
-    const set = new Set<string>();
-    djs.forEach((dj) => (dj.genres ?? []).forEach((g) => g && set.add(g)));
-    return [...set].sort();
-  }, [djs]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return djs.filter((dj) => {
-      const name = (dj.dj_name || buildFullName(dj.first_name, dj.surname) || '').toLowerCase();
-      const city = (dj.cities?.name || dj.city || '').toLowerCase();
-      const matchesSearch = !q || name.includes(q) || city.includes(q);
-      const matchesGenre = !selectedGenre || (dj.genres ?? []).includes(selectedGenre);
-      return matchesSearch && matchesGenre;
-    });
-  }, [djs, search, selectedGenre]);
-
   return (
-    <div className="min-h-screen pb-24 bg-background">
-      <PageHero
-        emoji="🎧"
-        titleWhite="Bachata"
-        titleOrange="DJs"
-        subtitle="Discover the DJs behind the music — sensual, traditional, and everything in between."
-        largeTitle={false}
-      />
-
+    <PageLayout
+      emoji="🎧"
+      titleWhite="Bachata"
+      titleOrange="DJs"
+      subtitle="Discover the DJs behind the music — sensual, traditional, and everything in between."
+      floatingIcons={[Headphones, Music, Disc3, Radio, Volume2, Mic2]}
+      breadcrumbItems={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]}
+      breadcrumbLabel="DJs"
+    >
       <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-2">
-          <PageBreadcrumb items={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]} />
-        </div>
-
-        {/* Search + genre filter */}
-        <div className="mb-6 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or city…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-card border-border/50"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {allGenres.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedGenre(null)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  !selectedGenre
-                    ? 'bg-primary text-black border-primary font-semibold'
-                    : 'border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/40'
-                }`}
-              >
-                All
-              </button>
-              {allGenres.map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setSelectedGenre(selectedGenre === g ? null : g)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    selectedGenre === g
-                      ? 'bg-primary text-black border-primary font-semibold'
-                      : 'border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/40'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Grid */}
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -138,14 +62,14 @@ const DJs = () => {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : djs.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">🎧</div>
-            <p className="text-muted-foreground">No DJs match your search.</p>
+            <p className="text-muted-foreground">No DJs yet.</p>
           </div>
         ) : (
           <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.map((dj) => {
+            {djs.map((dj) => {
               const displayName = dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
               const coverPhoto = Array.isArray(dj.photo_url)
                 ? (dj.photo_url[0] ?? null)
@@ -200,14 +124,13 @@ const DJs = () => {
           </StaggerContainer>
         )}
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && djs.length > 0 && (
           <p className="text-center text-xs text-muted-foreground mt-8">
-            {filtered.length} DJ{filtered.length !== 1 ? 's' : ''}
-            {selectedGenre ? ` · ${selectedGenre}` : ''}
+            {djs.length} DJ{djs.length !== 1 ? 's' : ''}
           </p>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

@@ -1,15 +1,12 @@
-import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, X, Building2, Users, Layers } from 'lucide-react';
+import { Building2, MapPin, Users, Music, Layers, Lightbulb } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import PageHero from '@/components/PageHero';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import PageLayout from '@/components/PageLayout';
 
 type VenueCard = {
   id: string;
@@ -33,8 +30,6 @@ const parseArray = (val: any): string[] => {
 };
 
 const Venues = () => {
-  const [search, setSearch] = useState('');
-
   const { data: venues = [], isLoading } = useQuery({
     queryKey: ['venues-directory'],
     queryFn: async () => {
@@ -48,52 +43,16 @@ const Venues = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return venues;
-    return venues.filter((v) => {
-      const name = v.name.toLowerCase();
-      const addr = (v.address || '').toLowerCase();
-      return name.includes(q) || addr.includes(q);
-    });
-  }, [venues, search]);
-
   return (
-    <div className="min-h-screen pb-24 bg-background">
-      <PageHero
-        emoji="🏛️"
-        titleWhite="Dance"
-        titleOrange="Venues"
-        subtitle="Find the perfect space for bachata — studios, clubs, and event halls."
-        largeTitle={false}
-      />
-
+    <PageLayout
+      emoji="🏛️"
+      titleWhite="Dance"
+      titleOrange="Venues"
+      subtitle="Find the perfect space for bachata — studios, clubs, and event halls."
+      floatingIcons={[Building2, MapPin, Users, Music, Layers, Lightbulb]}
+      breadcrumbLabel="Venues"
+    >
       <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-2">
-          <PageBreadcrumb items={[{ label: 'Venues' }]} />
-        </div>
-
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, city or address…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-card border-border/50"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -111,14 +70,14 @@ const Venues = () => {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : venues.length === 0 ? (
           <div className="text-center py-16">
             <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground">No venues match your search.</p>
+            <p className="text-muted-foreground">No venues yet.</p>
           </div>
         ) : (
           <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((venue) => {
+            {venues.map((venue) => {
               const coverPhoto = Array.isArray(venue.photo_url) && venue.photo_url.length > 0 ? venue.photo_url[0] : null;
               const floorTypes = parseArray(venue.floor_type);
 
@@ -183,13 +142,13 @@ const Venues = () => {
           </StaggerContainer>
         )}
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && venues.length > 0 && (
           <p className="text-center text-xs text-muted-foreground mt-8">
-            {filtered.length} venue{filtered.length !== 1 ? 's' : ''}
+            {venues.length} venue{venues.length !== 1 ? 's' : ''}
           </p>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
