@@ -11,6 +11,7 @@ export const config = {
     '/djs/:path*',
     '/dancers/:path*',
     '/organisers/:path*',
+    '/city/:path*',
   ],
 };
 
@@ -31,6 +32,7 @@ const SUPABASE_HEADERS = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CITY_SLUG_RE = /^[a-z]+(-[a-z]+)*-[a-z]{2}$/;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -336,6 +338,28 @@ async function fetchDancerMeta(id: string, url: string): Promise<OgMeta | null> 
   return { title, description, image, type: 'profile', url };
 }
 
+async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> {
+  const query = `slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&select=name,description,hero_image_url`;
+  const res = await supabaseFetch(`/rest/v1/cities?${query}`);
+  if (!res || !res.ok) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: any = await res.json();
+  const c = Array.isArray(rows) ? rows[0] : null;
+  if (!c || !c.name) return null;
+
+  const title = truncate(`Bachata in ${c.name}`, 90);
+
+  const rawDesc = c.description && String(c.description).trim()
+    ? c.description
+    : `Bachata classes, socials and festivals in ${c.name}.`;
+  const description = truncate(rawDesc, 160);
+
+  const image = absoluteUrl(c.hero_image_url) ?? `${SITE_URL.replace(/\/$/, '')}/og-image.png`;
+
+  return { title, description, image, type: 'website', url };
+}
+
 async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | null> {
   const query = `id=eq.${encodeURIComponent(id)}&type=eq.organiser&select=name,avatar_url,bio,cities:cities!entities_city_id_fkey(name)`;
   const res = await supabaseFetch(`/rest/v1/entities?${query}`);
@@ -456,8 +480,6 @@ export default async function middleware(request: Request): Promise<Response> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return next();
 
   const canonicalUrl = request.url;
-  const requiresUuid = kind !== 'event' && kind !== 'festival';
-  if (requiresUuid && !UUID_RE.test(id)) return next();
 
   let meta: OgMeta | null = null;
   switch (kind) {
@@ -468,19 +490,28 @@ export default async function middleware(request: Request): Promise<Response> {
       meta = await fetchFestivalMeta(id, canonicalUrl);
       break;
     case 'venue-entity':
+      if (!UUID_RE.test(id)) return next();
       meta = await fetchVenueMeta(id, canonicalUrl);
       break;
     case 'teachers':
+      if (!UUID_RE.test(id)) return next();
       meta = await fetchTeacherMeta(id, canonicalUrl);
       break;
     case 'djs':
+      if (!UUID_RE.test(id)) return next();
       meta = await fetchDjMeta(id, canonicalUrl);
       break;
     case 'dancers':
+      if (!UUID_RE.test(id)) return next();
       meta = await fetchDancerMeta(id, canonicalUrl);
       break;
     case 'organisers':
+      if (!UUID_RE.test(id)) return next();
       meta = await fetchOrganiserMeta(id, canonicalUrl);
+      break;
+    case 'city':
+      if (!CITY_SLUG_RE.test(id)) return next();
+      meta = await fetchCityMeta(id, canonicalUrl);
       break;
     default:
       return next();

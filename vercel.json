@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/:slug((^[a-z]+(-[a-z]+)*-[a-z]{2}$))",
+      "destination": "/city/:slug",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/(.*)", "destination": "/index.html" }

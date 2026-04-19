@@ -19,54 +19,12 @@ const CityContext = createContext<CityContextValue | undefined>(undefined);
 const STORAGE_KEY = "activeCitySlug";
 const cityValidityCache = new Map<string, boolean>();
 
-const RESERVED_SEGMENTS = new Set([
-  "parties",
-  "classes",
-  "discounts",
-  "venues",
-  "tonight",
-  "event",
-  "practice-partners",
-  "festivals",
-  "festival",
-  "experience",
-  "videographers",
-  "choreography",
-  "dancers",
-  "teachers",
-  "djs",
-  "organisers",
-  "vendors",
-  "venue-directory",
-  "venue-entity",
-  "create-dancers-profile",
-  "create-organiser-profile",
-  "create-teacher-profile",
-  "create-dj-profile",
-  "create-videographer-profile",
-  "create-vendor-profile",
-  "profile",
-  "edit-profile",
-  "portal",
-  "create-event",
-  "auth",
-  "calendar",
-  "directory",
-  "debug",
-  "onboarding",
-  "dashboard",
-  "vendor-dashboard",
-]);
-
 const getCityFromPath = (pathname: string): string | null => {
-  const segment = pathname.split("/").filter(Boolean)[0];
-  if (!segment) {
-    return null;
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments[0] === "city" && segments[1]) {
+    return segments[1];
   }
-  if (RESERVED_SEGMENTS.has(segment)) {
-    return null;
-  }
-  return segment;
+  return null;
 };
 
 export const CityProvider = ({ children }: { children: React.ReactNode }) => {

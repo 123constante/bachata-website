@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const city of cities ?? []) {
     if (!city.slug) continue;
     lines.push('  <url>');
-    lines.push(`    <loc>${escapeXml(`${SITE_URL}/${city.slug}`)}</loc>`);
+    lines.push(`    <loc>${escapeXml(`${SITE_URL}/city/${city.slug}`)}</loc>`);
     lines.push('    <changefreq>daily</changefreq>');
     lines.push('    <priority>0.8</priority>');
     lines.push('  </url>');

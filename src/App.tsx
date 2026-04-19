@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CityProvider } from "@/contexts/CityContext";
+import { buildCityPath } from "@/lib/cityPath";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -76,11 +77,11 @@ const RouteFallback = () => (
   </div>
 );
 
-/** Redirect bare `/` to `/<city-slug>` so the city is always visible in the URL. */
+/** Redirect bare `/` to `/city/<slug>` so the city is always visible in the URL. */
 const CityRedirect = () => {
   const stored = localStorage.getItem('activeCitySlug');
   const slug = stored || 'london-gb';
-  return <Navigate to={`/${slug}`} replace />;
+  return <Navigate to={buildCityPath(slug)} replace />;
 };
 
 const AnimatedRoutes = () => {
@@ -91,21 +92,21 @@ const AnimatedRoutes = () => {
       <Suspense fallback={<RouteFallback />}>
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<CityRedirect />} />
-          <Route path="/:city" element={<PageTransition><Index /></PageTransition>} />
-          <Route path="/:city/calendar" element={<PageTransition><Index /></PageTransition>} />
+          <Route path="/city/:slug" element={<PageTransition><Index /></PageTransition>} />
+          <Route path="/city/:slug/calendar" element={<PageTransition><Index /></PageTransition>} />
           <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
-          <Route path="/:city/parties" element={<PageTransition><Parties /></PageTransition>} />
+          <Route path="/city/:slug/parties" element={<PageTransition><Parties /></PageTransition>} />
           <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
-          <Route path="/:city/classes" element={<PageTransition><Classes /></PageTransition>} />
+          <Route path="/city/:slug/classes" element={<PageTransition><Classes /></PageTransition>} />
           <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
-          <Route path="/:city/discounts" element={<PageTransition><Discounts /></PageTransition>} />
+          <Route path="/city/:slug/discounts" element={<PageTransition><Discounts /></PageTransition>} />
 
           <Route path="/venues/:slug" element={<PageTransition><Venue /></PageTransition>} />
           <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-          <Route path="/:city/tonight" element={<PageTransition><Tonight /></PageTransition>} />
+          <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
           <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
           <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-          <Route path="/:city/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
+          <Route path="/city/:slug/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
           <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
           <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
           <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
@@ -121,11 +122,11 @@ const AnimatedRoutes = () => {
           <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
           <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
           <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
-          <Route path="/:city/venues" element={<PageTransition><Venues /></PageTransition>} />
+          <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
           <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
           <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
           <Route path="/venue-directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
-          <Route path="/:city/directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
+          <Route path="/city/:slug/directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
           <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
 
           {/* Protected Routes */}
