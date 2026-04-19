@@ -47,15 +47,14 @@ const Videographers = () => {
   });
 
   return (
-    <div className="min-h-screen">
-      <PageHero 
-        titleWhite="Media"
-        titleOrange="Production"
-        subtitle="Book the best eyes in the industry. Your movement deserves to be captured in cinema quality."
-        emoji="🎥"
-        gradientFrom="blue-600"
-      />
-
+    <PageLayout
+      emoji="🎥"
+      titleWhite="Bachata"
+      titleOrange="Videographers"
+      subtitle="Book the best eyes in the industry. Your movement deserves to be captured in cinema quality."
+      floatingIcons={[Camera, Video, Film, Play, Star, Youtube]}
+      breadcrumbLabel="Videographers"
+    >
       <div className="max-w-7xl mx-auto px-4 py-8">
         
         {/* Category Tabs */}
@@ -160,7 +159,7 @@ const Videographers = () => {
         )}
 
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
