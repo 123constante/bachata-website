@@ -1,7 +1,7 @@
 {
   "redirects": [
     {
-      "source": "/:slug((^[a-z]+(-[a-z]+)*-[a-z]{2}$))",
+      "source": "/:slug([a-z]+(-[a-z]+)*-[a-z]{2})",
       "destination": "/city/:slug",
       "permanent": true
     }
