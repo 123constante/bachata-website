@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
+import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 
 type Teacher = {
@@ -46,7 +47,7 @@ const Teachers = () => {
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const navigate = useNavigate();
   const { citySlug } = useCity();
-  const classesPath = citySlug ? `/${citySlug}/classes` : '/classes';
+  const classesPath = buildCityPath(citySlug, 'classes');
 
   const { data: teachers = [], isLoading } = useQuery({
     queryKey: ['teacher-profiles-directory'],

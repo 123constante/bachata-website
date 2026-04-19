@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Clock, Phone, Globe, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 
 // Mock venue data - will be replaced with real data later
 const venueData: Record<string, {
@@ -74,7 +75,7 @@ const venueData: Record<string, {
 const Venue = () => {
   const { slug } = useParams<{ slug: string }>();
   const { citySlug } = useCity();
-  const partiesPath = citySlug ? `/${citySlug}/parties` : '/parties';
+  const partiesPath = buildCityPath(citySlug, 'parties');
   const venue = slug ? venueData[slug] : null;
 
   if (!venue) {

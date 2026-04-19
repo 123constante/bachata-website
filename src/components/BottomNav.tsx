@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 
 const BASE_NAV_LINKS = [
   { segment: '', label: 'Home', emoji: '🏠' },
@@ -42,9 +43,7 @@ export const BottomNav = () => {
 
   const navLinks = BASE_NAV_LINKS.map((link) => ({
     ...link,
-    path: link.segment
-      ? (citySlug ? `/${citySlug}/${link.segment}` : `/${link.segment}`)
-      : (citySlug ? `/${citySlug}` : '/'),
+    path: buildCityPath(citySlug, link.segment || undefined),
   }));
 
   const isActive = (path: string) => location.pathname === path || location.pathname === `/${path.split('/').pop()}`;

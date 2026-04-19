@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 
 export const SimpleHero = () => {
   const navigate = useNavigate();
@@ -40,14 +41,14 @@ export const SimpleHero = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
-              onClick={() => navigate(citySlug ? `/${citySlug}/tonight` : '/tonight')}
+              onClick={() => navigate(buildCityPath(citySlug, 'tonight'))}
               className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-primary/90 text-white rounded-full font-bold text-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"
             >
               <Calendar className="w-5 h-5" />
               What's On Tonight
             </button>
             <button 
-              onClick={() => navigate(citySlug ? `/${citySlug}/classes` : '/classes')}}
+              onClick={() => navigate(buildCityPath(citySlug, 'classes'))}
               className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full font-bold text-lg transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
             >
               Find Classes

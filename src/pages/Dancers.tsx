@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { buildFullName } from '@/lib/name-utils';
+import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -59,7 +60,7 @@ const Dancers = () => {
   const { citySlug } = useCity();
   const { toast } = useToast();
   const { user } = useAuth();
-    const practicePartnersPath = citySlug ? `/${citySlug}/practice-partners` : '/practice-partners';
+    const practicePartnersPath = buildCityPath(citySlug, 'practice-partners');
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

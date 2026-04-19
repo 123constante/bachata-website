@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const { citySlug } = useCity();
-  const homePath = citySlug ? `/${citySlug}` : '/';
+  const homePath = buildCityPath(citySlug);
 
   useEffect(() => {
     const handleScroll = () => {

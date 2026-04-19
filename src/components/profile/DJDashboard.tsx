@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DASHBOARD_LABELS } from '@/modules/profile/dashboardLabels';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 
 export const DJDashboard = () => {
   const navigate = useNavigate();
   const { citySlug } = useCity();
-  const partiesPath = citySlug ? `/${citySlug}/parties` : '/parties';
+  const partiesPath = buildCityPath(citySlug, 'parties');
 
   return (
     <div className='dashboard-neon pt-[85px] pb-24 px-4'>

@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
+import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 
 type TeacherRow = {
@@ -104,7 +105,7 @@ const TeacherProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { citySlug } = useCity();
-  const classesPath = citySlug ? `/${citySlug}/classes` : '/classes';
+  const classesPath = buildCityPath(citySlug, 'classes');
 
   const { data: teacher, isLoading, error } = useQuery({
     queryKey: ['teacher-profile', id],

@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DASHBOARD_LABELS } from '@/modules/profile/dashboardLabels';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 
 export const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { citySlug } = useCity();
-  const classesPath = citySlug ? `/${citySlug}/classes` : '/classes';
+  const classesPath = buildCityPath(citySlug, 'classes');
 
   return (
     <div className='dashboard-neon pt-[85px] pb-24 px-4'>

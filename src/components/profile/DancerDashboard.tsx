@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 import { useToast } from '@/hooks/use-toast';
 import { setAttendanceRpc } from '@/hooks/useAttendance';
 import { supabase } from '@/integrations/supabase/client';
@@ -238,7 +239,7 @@ export const DancerDashboard = () => {
   const [newFavoriteSong, setNewFavoriteSong] = useState('');
   const [newAchievement, setNewAchievement] = useState('');
 
-  const calendarPath = citySlug ? `/${citySlug}/calendar` : '/';
+  const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/';
 
   const hydrateEditForm = (dancer: DancerProfile) => {
     setEditForm({
