@@ -1,128 +1,81 @@
-﻿import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  ArrowLeft, Building2, Calendar, MapPin, Clock, Phone, Mail, 
-  Globe, Instagram, Facebook, Car, Train, Users, Layers, 
-  ExternalLink, Info, AlertCircle
+import {
+  ArrowLeft, Building2, Calendar, MapPin, Clock, Phone, Mail,
+  Globe, Instagram, Car, Train, Users, Layers, Info, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import PageBreadcrumb from '@/components/PageBreadcrumb';
-import { useCity } from '@/contexts/CityContext';
+import { fetchPublicVenue } from '@/services/venuePublicService';
+import { VenueGalleryLightbox } from '@/components/venue/VenueGalleryLightbox';
+
+type VenueOccurrenceRow = {
+  event_id: string;
+  name: string;
+  instance_start: string;
+  occurrence_id: string;
+  poster_url: string | null;
+};
+
+type FaqItem = { q?: string | null; a?: string | null };
+
+const parseStrArray = (val: unknown): string[] | null => {
+  if (!val) return null;
+  if (Array.isArray(val)) return (val as unknown[]).filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (typeof val === 'string') {
+    try {
+      const p = JSON.parse(val);
+      return Array.isArray(p) ? (p as unknown[]).filter((v): v is string => typeof v === 'string' && v.length > 0) : null;
+    } catch {
+      return [val];
+    }
+  }
+  return null;
+};
+
+type Station = { station?: string | null; line_names?: string[] | null; walking_distance_minutes?: number | null };
+type TransportJson = { notes?: string | null; nearest_stations?: Station[] | null };
+type ParkingJson = { parking_available?: boolean | null; nearby_parking_notes?: string | null };
 
 const VenueEntity = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { citySlug } = useCity();
 
-  // Fetch venue from venues table
   const { data: venue, isLoading } = useQuery({
-    queryKey: ['venue-detail', id],
-    queryFn: async () => {
-      if (!id) throw new Error('Venue ID required');
-
-      const { data, error } = await supabase
-        .from('venues')
-        .select(`
-          *,
-          entities (
-            cities:cities!entities_city_id_fkey (name)
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      const venue = data as any;
-      // Flatten the nested city (venues has no direct FK to cities — it
-      // reaches the city via its linked entity). Expose as venue.cities
-      // so the existing render code keeps working unchanged.
-      venue.cities = venue.entities?.cities ?? null;
-      return venue;
-    },
+    queryKey: ['public-venue', id],
+    queryFn: () => fetchPublicVenue(id!),
     enabled: !!id,
   });
 
-  // Fetch events hosted at this venue
   const { data: events } = useQuery({
-    queryKey: ['venue-events', id, citySlug],
+    queryKey: ['venue-upcoming-events', id],
     queryFn: async () => {
-      if (!id) return [];
-
-      const { data, error } = await supabase.rpc('get_venue_events' as any, {
+      const now = new Date().toISOString();
+      const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString();
+      const { data } = await supabase.rpc('calendar_events_dto' as never, {
+        p_from: now,
+        p_to: ninetyDaysLater,
+        p_city_id: null,
         p_venue_id: id,
-        p_city_slug: citySlug,
-      });
-
-      if (error) throw error;
-      return (data as any[]) || [];
+      } as never);
+      return ((data as VenueOccurrenceRow[] | null) ?? []).slice(0, 5);
     },
-    enabled: !!id,
+    enabled: !!id && !!venue,
   });
-
-  // Parse JSON fields safely - handle both string and array formats
-  const parseStrArray = (val: any): string[] | null => {
-    if (!val) return null;
-    if (Array.isArray(val)) return (val as string[]).filter(Boolean);
-    if (typeof val === 'string') {
-      try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : null; } catch { return [val]; }
-    }
-    return null;
-  };
-
-  const facilities = parseStrArray(venue?.facilities_new ?? venue?.facilities);
-  const floorType = parseStrArray(venue?.floor_type);
-  const galleryUrls = parseStrArray(venue?.gallery_urls);
-  const rules = parseStrArray(venue?.rules);
-  const videoUrls = parseStrArray(venue?.video_urls);
-
-  // Structured transport / parking JSON
-  type Station = { station?: string | null; line_names?: string[] | null; walking_distance_minutes?: number | null };
-  type TransportJson = { notes?: string | null; nearest_stations?: Station[] | null };
-  type ParkingJson = { parking_available?: boolean | null; nearby_parking_notes?: string | null };
-  const transportJson: TransportJson | null =
-    venue?.transport_json && typeof venue.transport_json === 'object' && !Array.isArray(venue.transport_json)
-      ? (venue.transport_json as TransportJson)
-      : null;
-  const parkingJson: ParkingJson | null =
-    venue?.parking_json && typeof venue.parking_json === 'object' && !Array.isArray(venue.parking_json)
-      ? (venue.parking_json as ParkingJson)
-      : null;
-
-  // Google Maps link — prefer explicit column, fall back to a search query
-  // built from address + postcode + city.
-  const addressLine = [venue?.address, venue?.postcode].filter(Boolean).join(', ');
-  const mapsUrl =
-    venue?.google_maps_link ||
-    venue?.google_maps_url ||
-    (addressLine
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-          [venue?.name, addressLine, venue?.cities?.name].filter(Boolean).join(', '),
-        )}`
-      : null);
-
-  const openingHours = venue?.opening_hours && typeof venue.opening_hours === 'object' && !Array.isArray(venue.opening_hours)
-    ? venue.opening_hours as Record<string, any>
-    : null;
-
-  // Pick first photo for avatar
-  const coverPhoto = Array.isArray(venue?.photo_url) && venue.photo_url.length > 0
-    ? venue.photo_url[0]
-    : (typeof venue?.photo_url === 'string' ? venue.photo_url : null);
 
   if (isLoading) {
     return (
       <div className="min-h-screen pt-20 px-3 pb-20 bg-background">
         <div className="max-w-2xl mx-auto space-y-3">
           <Skeleton className="h-6 w-24" />
+          <Skeleton className="aspect-video w-full rounded-xl" />
           <div className="flex items-center gap-3">
-            <Skeleton className="w-12 h-12 rounded-full" />
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
               <Skeleton className="h-5 w-36" />
               <Skeleton className="h-3 w-24" />
             </div>
@@ -148,94 +101,142 @@ const VenueEntity = () => {
     );
   }
 
-  const hasLocation = venue.address || venue.google_maps_url || venue.transport || venue.parking;
-  const hasContact = venue.phone || venue.email || venue.website || venue.instagram || venue.facebook;
+  const facilities = parseStrArray(venue.facilities_new ?? venue.facilities);
+  const floorType = parseStrArray(venue.floor_type);
+  const galleryUrls = parseStrArray(venue.gallery_urls);
+  const rules = parseStrArray(venue.rules);
+
+  const transportJson: TransportJson | null =
+    venue.transport_json && typeof venue.transport_json === 'object' && !Array.isArray(venue.transport_json)
+      ? (venue.transport_json as TransportJson)
+      : null;
+  const parkingJson: ParkingJson | null =
+    venue.parking_json && typeof venue.parking_json === 'object' && !Array.isArray(venue.parking_json)
+      ? (venue.parking_json as ParkingJson)
+      : null;
+
+  const faqItems: FaqItem[] = Array.isArray(venue.faq_json)
+    ? (venue.faq_json as FaqItem[]).filter((f) => f && (f.q || f.a))
+    : [];
+
+  const addressLine = [venue.address, venue.postcode].filter(Boolean).join(', ');
+  const mapsUrl =
+    venue.google_maps_href ||
+    venue.google_maps_link ||
+    venue.google_maps_url ||
+    (addressLine
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          [venue.name, addressLine, venue.city_name].filter(Boolean).join(', '),
+        )}`
+      : null);
+
+  const openingHours =
+    venue.opening_hours && typeof venue.opening_hours === 'object' && !Array.isArray(venue.opening_hours)
+      ? (venue.opening_hours as Record<string, unknown>)
+      : null;
+
+  const heroImage = Array.isArray(venue.image_url) && venue.image_url.length > 0 ? venue.image_url[0] : null;
+
+  const locationLine = [venue.city_name, venue.address, venue.postcode].filter(Boolean).join(', ');
+
+  const hasContact = venue.phone || venue.email || venue.website || venue.instagram;
   const hasDetails = venue.capacity || (facilities && facilities.length > 0) || (floorType && floorType.length > 0);
   const hasHours = openingHours && Object.keys(openingHours).length > 0;
   const hasGallery = galleryUrls && galleryUrls.length > 0;
   const hasRules = rules && rules.length > 0;
+  const hasFeatures = venue.bar_available || venue.cloakroom_available || venue.id_required;
 
   return (
     <div className="min-h-screen pt-20 pb-20 bg-background">
       <PageBreadcrumb items={[
         { label: 'Venues', path: '/venues' },
-        { label: venue.name }
+        { label: venue.name },
       ]} />
-      
+
       <div className="max-w-2xl mx-auto px-3">
+        {/* Hero image */}
+        <div className="aspect-video w-full rounded-xl overflow-hidden mb-3 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20">
+          {heroImage ? (
+            <img
+              src={heroImage}
+              alt={venue.name}
+              className="w-full h-full object-cover"
+              loading="eager"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Building2 className="w-10 h-10 text-primary/40" />
+            </div>
+          )}
+        </div>
+
         {/* Back Button */}
         <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="mb-3 -ml-2 h-7 text-xs">
           <ArrowLeft className="w-3 h-3 mr-1" />
           Back
         </Button>
 
-        {/* Header - Compact */}
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar className="w-14 h-14 border border-border">
-            <AvatarImage src={coverPhoto || undefined} alt={venue.name} />
-            <AvatarFallback className="bg-muted text-muted-foreground">
-              <Building2 className="w-6 h-6" />
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground truncate">{venue.name}</h1>
-            {mapsUrl ? (
+        {/* Header */}
+        <div className="mb-4">
+          <h1 className="text-lg font-bold text-foreground truncate">{venue.name}</h1>
+          {locationLine ? (
+            mapsUrl ? (
               <a
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
               >
                 <MapPin className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">
-                  {[venue.cities?.name, venue.address, venue.postcode].filter(Boolean).join(', ') || 'View on map'}
-                </span>
+                <span className="truncate">{locationLine}</span>
               </a>
             ) : (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                 <MapPin className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{[venue.cities?.name, venue.address, venue.postcode].filter(Boolean).join(', ')}</span>
+                <span className="truncate">{locationLine}</span>
               </div>
-            )}
-          </div>
+            )
+          ) : null}
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {venue.capacity && (
-            <div className="bg-muted/50 rounded-lg p-2 text-center">
-              <Users className="w-4 h-4 mx-auto mb-1 text-primary" />
-              <p className="text-xs font-medium">{venue.capacity}</p>
-              <p className="text-[10px] text-muted-foreground">Capacity</p>
-            </div>
-          )}
-          {venue.transport && (
-            <div className="bg-muted/50 rounded-lg p-2 text-center">
-              <Train className="w-4 h-4 mx-auto mb-1 text-primary" />
-              <p className="text-xs font-medium truncate">{venue.transport}</p>
-              <p className="text-[10px] text-muted-foreground">Transport</p>
-            </div>
-          )}
-          {venue.parking && (
-            <div className="bg-muted/50 rounded-lg p-2 text-center">
-              <Car className="w-4 h-4 mx-auto mb-1 text-primary" />
-              <p className="text-xs font-medium truncate">{venue.parking}</p>
-              <p className="text-[10px] text-muted-foreground">Parking</p>
-            </div>
-          )}
-          {venue.google_maps_url && (
-            <a 
-              href={venue.google_maps_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="bg-muted/50 rounded-lg p-2 text-center hover:bg-muted transition-colors"
-            >
-              <MapPin className="w-4 h-4 mx-auto mb-1 text-primary" />
-              <p className="text-xs font-medium">View</p>
-              <p className="text-[10px] text-muted-foreground">Map</p>
-            </a>
-          )}
-        </div>
+        {(venue.capacity || venue.transport || venue.parking || mapsUrl) && (
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {venue.capacity && (
+              <div className="bg-muted/50 rounded-lg p-2 text-center">
+                <Users className="w-4 h-4 mx-auto mb-1 text-primary" />
+                <p className="text-xs font-medium">{venue.capacity}</p>
+                <p className="text-[10px] text-muted-foreground">Capacity</p>
+              </div>
+            )}
+            {venue.transport && (
+              <div className="bg-muted/50 rounded-lg p-2 text-center">
+                <Train className="w-4 h-4 mx-auto mb-1 text-primary" />
+                <p className="text-xs font-medium truncate">{venue.transport}</p>
+                <p className="text-[10px] text-muted-foreground">Transport</p>
+              </div>
+            )}
+            {venue.parking && (
+              <div className="bg-muted/50 rounded-lg p-2 text-center">
+                <Car className="w-4 h-4 mx-auto mb-1 text-primary" />
+                <p className="text-xs font-medium truncate">{venue.parking}</p>
+                <p className="text-[10px] text-muted-foreground">Parking</p>
+              </div>
+            )}
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-muted/50 rounded-lg p-2 text-center hover:bg-muted transition-colors"
+              >
+                <MapPin className="w-4 h-4 mx-auto mb-1 text-primary" />
+                <p className="text-xs font-medium">View</p>
+                <p className="text-[10px] text-muted-foreground">Map</p>
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Description */}
         {venue.description && (
@@ -303,6 +304,9 @@ const VenueEntity = () => {
 
         {/* Transport (structured) */}
         {transportJson && (
+          (Array.isArray(transportJson.nearest_stations) && transportJson.nearest_stations.length > 0) ||
+          transportJson.notes
+        ) && (
           <div className="bg-card border border-border rounded-lg p-3 mb-3">
             <div className="flex items-center gap-1.5 mb-2">
               <Train className="w-3.5 h-3.5 text-primary" />
@@ -345,7 +349,7 @@ const VenueEntity = () => {
               <Car className="w-3.5 h-3.5 text-primary" />
               <h2 className="text-xs font-semibold text-foreground">Parking</h2>
             </div>
-            {parkingJson.parking_available !== null && (
+            {parkingJson.parking_available !== null && parkingJson.parking_available !== undefined && (
               <Badge
                 variant="outline"
                 className={cn(
@@ -373,7 +377,6 @@ const VenueEntity = () => {
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
               {Object.entries(openingHours!).map(([day, hours]) => {
-                // Handle both string and object formats
                 let displayHours = '';
                 if (typeof hours === 'string') {
                   displayHours = hours;
@@ -397,7 +400,7 @@ const VenueEntity = () => {
           </div>
         )}
 
-        {/* Contact Links - Compact Grid */}
+        {/* Contact Links */}
         {hasContact && (
           <div className="grid grid-cols-4 gap-2 mb-3">
             {venue.phone && (
@@ -424,17 +427,11 @@ const VenueEntity = () => {
                 <p className="text-[10px] text-muted-foreground">Instagram</p>
               </a>
             )}
-            {venue.facebook && (
-              <a href={venue.facebook} target="_blank" rel="noopener noreferrer" className="bg-card border border-border rounded-lg p-2 text-center hover:bg-muted transition-colors">
-                <Facebook className="w-4 h-4 mx-auto mb-1 text-primary" />
-                <p className="text-[10px] text-muted-foreground">Facebook</p>
-              </a>
-            )}
           </div>
         )}
 
-        {/* Venue features (boolean flags) */}
-        {(venue.bar_available || venue.cloakroom_available || venue.id_required || venue.last_entry_time) && (
+        {/* Features */}
+        {hasFeatures && (
           <div className="bg-card border border-border rounded-lg p-3 mb-3">
             <h2 className="text-xs font-semibold text-foreground mb-2">Features</h2>
             <div className="flex flex-wrap gap-2">
@@ -447,82 +444,70 @@ const VenueEntity = () => {
               {venue.id_required && (
                 <Badge variant="outline" className="text-[10px]">🪪 ID required</Badge>
               )}
-              {venue.last_entry_time && (
-                <Badge variant="outline" className="text-[10px]">🕐 Last entry {venue.last_entry_time}</Badge>
-              )}
             </div>
           </div>
         )}
 
         {/* FAQ */}
-        {venue.faq && (
+        {faqItems.length > 0 && (
           <div className="bg-card border border-border rounded-lg p-3 mb-3">
-            <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
               <Info className="w-3.5 h-3.5 text-primary" />
               <h2 className="text-xs font-semibold text-foreground">FAQ</h2>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{venue.faq}</p>
-          </div>
-        )}
-
-        {/* Videos */}
-        {videoUrls && videoUrls.length > 0 && (
-          <div className="bg-card border border-border rounded-lg p-3 mb-3">
-            <h2 className="text-xs font-semibold text-foreground mb-2">Videos</h2>
-            <div className="space-y-1">
-              {videoUrls.map((url, i) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{url.replace(/^https?:\/\//, '')}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Gallery - Small Thumbnails */}
-        {hasGallery && (
-          <div className="mb-3">
-            <h2 className="text-xs font-semibold text-foreground mb-2">Gallery</h2>
-            <div className="grid grid-cols-4 gap-1.5">
-              {galleryUrls!.slice(0, 8).map((url, i) => (
-                <div key={i} className="aspect-square rounded-md overflow-hidden bg-muted">
-                  <img src={url} alt={`${venue.name} ${i + 1}`} className="w-full h-full object-cover" />
+            <div className="flex flex-col gap-2">
+              {faqItems.map((item, i) => (
+                <div key={i}>
+                  {item.q && <p className="text-sm font-medium text-foreground">{item.q}</p>}
+                  {item.a && <p className="text-xs text-muted-foreground leading-relaxed">{item.a}</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Events Hosted */}
+        {/* Gallery */}
+        {hasGallery && (
+          <div className="mb-3">
+            <h2 className="text-xs font-semibold text-foreground mb-2">Gallery</h2>
+            <VenueGalleryLightbox allImages={galleryUrls!} venueName={venue.name} />
+          </div>
+        )}
+
+        {/* Upcoming Events */}
         <div className="bg-card border border-border rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
             <Calendar className="w-3.5 h-3.5 text-primary" />
-            <h2 className="text-xs font-semibold text-foreground">Events at this venue</h2>
+            <h2 className="text-xs font-semibold text-foreground">Upcoming events at this venue</h2>
           </div>
           {events && events.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {events.map((event) => (
                 <Link
-                  key={event.id}
-                  to={`/event/${event.id}`}
-                  className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
+                  key={event.occurrence_id}
+                  to={`/event/${event.event_id}?occurrenceId=${event.occurrence_id}`}
+                  className="flex items-center gap-3 p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
                 >
-                  <span className="text-xs font-medium text-foreground truncate flex-1 mr-2">{event.name}</span>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {format(new Date(event.date), 'MMM d')}
-                  </span>
+                  <div className="aspect-[4/3] w-16 shrink-0 rounded-md overflow-hidden bg-muted">
+                    {event.poster_url ? (
+                      <img src={event.poster_url} alt={event.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{event.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(event.instance_start), 'EEE d MMM, HH:mm')}
+                    </p>
+                  </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">No events yet</p>
+            <p className="text-xs text-muted-foreground italic">No upcoming events at this venue yet</p>
           )}
         </div>
       </div>
@@ -531,4 +516,3 @@ const VenueEntity = () => {
 };
 
 export default VenueEntity;
-
