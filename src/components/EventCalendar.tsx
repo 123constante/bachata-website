@@ -82,6 +82,9 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
 
+  const now = new Date();
+  const isAtCurrentMonth = currentMonth === now.getMonth() && currentYear === now.getFullYear();
+
   const queryStart = useMemo(() => new Date(currentYear, currentMonth, 1), [currentYear, currentMonth]);
   const queryEnd = useMemo(() => new Date(currentYear, currentMonth + 1, 0), [currentYear, currentMonth]);
 
@@ -202,7 +205,14 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => navigateMonth('prev')}
-                      className="p-1.5 rounded-full hover:bg-primary/10 transition-colors"
+                      disabled={isAtCurrentMonth}
+                      aria-label="Previous month"
+                      className={cn(
+                        'p-1.5 rounded-full transition-colors',
+                        isAtCurrentMonth
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:bg-primary/10',
+                      )}
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>

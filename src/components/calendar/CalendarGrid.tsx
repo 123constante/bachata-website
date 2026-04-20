@@ -29,6 +29,20 @@ export const CalendarGrid = ({
   for (let i = 0; i < adjustedFirstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
+  // Collapse fully-invisible leading weeks in the current month so the user
+  // doesn't stare at rows of past-date blanks. A week is dropped when every
+  // cell is either a leading-null or a past-date. Non-current months render
+  // all weeks untouched so trailing months aren't affected.
+  let displayCells = cells;
+  if (isCurrentMonth) {
+    const weeks: (number | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    const visibleWeeks = weeks.filter((week) =>
+      week.some((c) => c !== null && c >= today.getDate()),
+    );
+    displayCells = visibleWeeks.flat();
+  }
+
   return (
     <>
       {/* Day headers */}
@@ -42,8 +56,11 @@ export const CalendarGrid = ({
 
       {/* Day cells */}
       <div className="grid grid-cols-7 auto-rows-fr gap-1">
-        {cells.map((day, index) => {
+        {displayCells.map((day, index) => {
           if (day === null) return <div key={`empty-${index}`} className="aspect-square rounded-xl" />;
+
+          const isPast = isCurrentMonth && day < today.getDate();
+          if (isPast) return <div key={`past-${day}`} className="aspect-square rounded-xl" />;
 
           const checkDate = new Date(currentYear, currentMonth, day);
           checkDate.setHours(12, 0, 0, 0);
@@ -59,7 +76,7 @@ export const CalendarGrid = ({
               className={cn(
                 'aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all',
                 isToday
-                  ? 'bg-transparent border border-[#C9A84C] text-[#FFF1A8] font-black shadow-[0_0_12px_rgba(201,168,76,0.45)]'
+                  ? 'bg-primary text-primary-foreground font-semibold'
                   : hasEvents
                     ? 'hover:bg-white/5 shadow-[0_0_8px_hsl(42_90%_50%/0.15)]'
                     : 'hover:bg-surface',
@@ -71,22 +88,8 @@ export const CalendarGrid = ({
               </span>
               {hasEvents && (
                 <div className="flex gap-0.5 mt-1">
-                  {hasParty && (
-                    <div
-                      className={cn(
-                        'w-1.5 h-1.5 rounded-full',
-                        isToday ? 'bg-primary-foreground' : 'bg-festival-pink',
-                      )}
-                    />
-                  )}
-                  {hasClass && (
-                    <div
-                      className={cn(
-                        'w-1.5 h-1.5 rounded-full',
-                        isToday ? 'bg-primary-foreground' : 'bg-festival-blue',
-                      )}
-                    />
-                  )}
+                  {hasParty && <div className="w-1.5 h-1.5 rounded-full bg-festival-pink" />}
+                  {hasClass && <div className="w-1.5 h-1.5 rounded-full bg-festival-blue" />}
                   {!hasParty && !hasClass && (
                     <div
                       className={cn(
