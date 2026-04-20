@@ -23,7 +23,6 @@ import Index from "./pages/Index";
 const Parties = lazy(() => import("./pages/Parties"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Discounts = lazy(() => import("./pages/Discounts"));
-const Venue = lazy(() => import("./pages/Venue"));
 const Tonight = lazy(() => import("./pages/Tonight"));
 const EventPage = lazy(() => import("./pages/EventPage"));
 const PracticePartners = lazy(() => import("./pages/PracticePartners"));
@@ -111,7 +110,6 @@ const AnimatedRoutes = () => {
           <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
           <Route path="/city/:slug/discounts" element={<PageTransition><Discounts /></PageTransition>} />
 
-          <Route path="/venues/:slug" element={<PageTransition><Venue /></PageTransition>} />
           <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
           <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
           <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
