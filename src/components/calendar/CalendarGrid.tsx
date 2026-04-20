@@ -29,19 +29,7 @@ export const CalendarGrid = ({
   for (let i = 0; i < adjustedFirstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  // Collapse fully-invisible leading weeks in the current month so the user
-  // doesn't stare at rows of past-date blanks. A week is dropped when every
-  // cell is either a leading-null or a past-date. Non-current months render
-  // all weeks untouched so trailing months aren't affected.
-  let displayCells = cells;
-  if (isCurrentMonth) {
-    const weeks: (number | null)[][] = [];
-    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-    const visibleWeeks = weeks.filter((week) =>
-      week.some((c) => c !== null && c >= today.getDate()),
-    );
-    displayCells = visibleWeeks.flat();
-  }
+  const displayCells = cells;
 
   return (
     <>
@@ -60,7 +48,16 @@ export const CalendarGrid = ({
           if (day === null) return <div key={`empty-${index}`} className="aspect-square rounded-xl" />;
 
           const isPast = isCurrentMonth && day < today.getDate();
-          if (isPast) return <div key={`past-${day}`} className="aspect-square rounded-xl" />;
+          if (isPast) {
+            return (
+              <div
+                key={`past-${day}`}
+                className="aspect-square rounded-xl flex items-center justify-center"
+              >
+                <span className="text-sm text-muted-foreground/40">{day}</span>
+              </div>
+            );
+          }
 
           const checkDate = new Date(currentYear, currentMonth, day);
           checkDate.setHours(12, 0, 0, 0);
