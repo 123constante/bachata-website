@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Images, X } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const Lightbox = ({
   urls,
@@ -75,20 +75,21 @@ export const VenueGalleryLightbox = ({
     [allImages.length],
   );
 
-  if (!allImages.length) return null;
+  if (allImages.length === 0) {
+    return (
+      <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 flex items-center justify-center">
+        <Building2 className="w-10 h-10 text-primary/40" />
+      </div>
+    );
+  }
 
-  const primary = allImages[0];
-  const thumbs = allImages.slice(1, 5);
-  const showMore = allImages.length > 5;
-  const moreCount = allImages.length - 5;
-
-  return (
-    <>
-      {allImages.length === 1 && (
+  if (allImages.length === 1) {
+    return (
+      <>
         <button
           type="button"
-          className="w-full aspect-[16/9] overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           onClick={() => setLightboxIndex(0)}
+          className="block w-full aspect-[16/9] overflow-hidden rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         >
           <img
             src={`${allImages[0]}?t=1`}
@@ -97,77 +98,75 @@ export const VenueGalleryLightbox = ({
             loading="eager"
           />
         </button>
-      )}
+        {lightboxIndex !== null && (
+          <Lightbox urls={allImages} index={lightboxIndex} onClose={close} onPrev={prev} onNext={next} />
+        )}
+      </>
+    );
+  }
 
-      {allImages.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto md:hidden">
-          {allImages.map((url, i) => (
+  const showMore = allImages.length > 3;
+  const moreCount = allImages.length - 3;
+  const thumbTop = allImages[1];
+  const thumbBottom = allImages[2];
+
+  return (
+    <>
+      <div className="aspect-[16/9] grid grid-cols-[3fr_2fr] gap-1.5 rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setLightboxIndex(0)}
+          className="overflow-hidden rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+        >
+          <img
+            src={`${allImages[0]}?t=1`}
+            alt={`${venueName} cover`}
+            className="h-full w-full object-cover object-center"
+            loading="eager"
+          />
+        </button>
+
+        <div className="grid grid-rows-2 gap-1.5">
+          {thumbTop ? (
             <button
-              key={url + i}
               type="button"
-              className="flex-none aspect-[4/3] h-52 overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-              onClick={() => setLightboxIndex(i)}
+              onClick={() => setLightboxIndex(1)}
+              className="overflow-hidden rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             >
               <img
-                src={`${url}?t=1`}
-                alt={`${venueName} photo ${i + 1}`}
+                src={`${thumbTop}?t=1`}
+                alt={`${venueName} photo 2`}
                 className="h-full w-full object-cover object-center"
-                loading={i === 0 ? 'eager' : 'lazy'}
+                loading="lazy"
               />
             </button>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div aria-hidden="true" />
+          )}
 
-      {allImages.length > 1 && (
-        <div className="hidden md:grid md:grid-cols-[3fr_2fr] md:gap-1 overflow-hidden rounded-xl">
-          <button
-            type="button"
-            className="relative aspect-[4/3] overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            onClick={() => setLightboxIndex(0)}
-          >
-            <img
-              src={`${primary}?t=1`}
-              alt={`${venueName} cover`}
-              className="h-full w-full object-cover object-center"
-              loading="eager"
-            />
-          </button>
-
-          {thumbs.length > 0 && (
-            <div className="grid grid-cols-2 gap-1">
-              {thumbs.map((url, i) => {
-                const absIdx = i + 1;
-                const isLastVisible = i === thumbs.length - 1 && showMore;
-                return (
-                  <button
-                    key={url + i}
-                    type="button"
-                    className="relative aspect-square overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                    onClick={() => setLightboxIndex(isLastVisible ? 0 : absIdx)}
-                  >
-                    <img
-                      src={`${url}?t=1`}
-                      alt={`${venueName} photo ${absIdx + 1}`}
-                      className="h-full w-full object-cover object-center"
-                      loading="lazy"
-                    />
-                    {isLastVisible && (
-                      <div
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 text-white"
-                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(0); }}
-                      >
-                        <Images className="h-5 w-5" />
-                        <span className="text-sm font-semibold">+{moreCount} more</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          {thumbBottom ? (
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(2)}
+              className="relative overflow-hidden rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            >
+              <img
+                src={`${thumbBottom}?t=1`}
+                alt={`${venueName} photo 3`}
+                className="h-full w-full object-cover object-center"
+                loading="lazy"
+              />
+              {showMore && (
+                <div className="absolute inset-0 bg-black/45 flex items-center justify-center text-white text-sm font-medium rounded-md pointer-events-none">
+                  +{moreCount}
+                </div>
+              )}
+            </button>
+          ) : (
+            <div aria-hidden="true" />
           )}
         </div>
-      )}
+      </div>
 
       {lightboxIndex !== null && (
         <Lightbox urls={allImages} index={lightboxIndex} onClose={close} onPrev={prev} onNext={next} />
