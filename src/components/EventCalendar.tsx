@@ -86,7 +86,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const isAtCurrentMonth = currentMonth === now.getMonth() && currentYear === now.getFullYear();
 
   const queryStart = useMemo(() => new Date(currentYear, currentMonth, 1), [currentYear, currentMonth]);
-  const queryEnd = useMemo(() => new Date(currentYear, currentMonth + 1, 0), [currentYear, currentMonth]);
+  const queryEnd = useMemo(() => new Date(currentYear, currentMonth + 1, 1), [currentYear, currentMonth]);
 
   const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
 
