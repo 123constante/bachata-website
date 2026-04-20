@@ -65,7 +65,18 @@ const CreateEvent = lazy(() => import("./pages/CreateEvent"));
 // const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+// Global query defaults: 60s staleTime, single retry, no window-focus refetches.
+// Per-query staleTimes (2–5 min) still override where set. Events data changes on
+// the scale of days, not minutes — focus-refetch adds cost without user benefit.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const RouteFallback = () => (
   <div className="min-h-screen pt-24 px-4 pb-24 bg-background">
