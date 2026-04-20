@@ -24,7 +24,7 @@ export const EventGuestDancersSection = ({ guestDancers }: EventGuestDancersSect
                   </div>
                 )}
               </div>
-              <p className="line-clamp-2 text-center text-xs leading-tight text-white/85">{person.displayName}</p>
+              <p className="line-clamp-2 text-center text-xs leading-normal text-white/85">{person.displayName}</p>
             </>
           );
 

@@ -20,7 +20,7 @@ export const EventOrganiserSection = ({ organiser }: EventOrganiserSectionProps)
         )}
       </div>
 
-      <p className="line-clamp-2 text-center text-sm leading-tight text-white/85">{organiser.person.displayName}</p>
+      <p className="line-clamp-2 text-center text-sm leading-normal text-white/85">{organiser.person.displayName}</p>
     </>
   );
 

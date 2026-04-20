@@ -54,7 +54,7 @@ const PageHero = ({
   };
 
   return (
-      <section className={`relative px-4 ${topPadding} pb-10 overflow-hidden`}>
+      <section className={`relative px-4 ${topPadding} pb-4 sm:pb-10 overflow-hidden`}>
         {/* Animated gradient background */}
         {!hideBackground && (
           <motion.div
@@ -139,7 +139,7 @@ const PageHero = ({
 
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto mb-6">
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto mb-3 sm:mb-6">
               {subtitle}
             </p>
           )}

@@ -102,9 +102,9 @@ const Index = () => {
         topPadding='pt-10'
       />
 
-      {/* CITY STATS STRIP — fixed height to prevent CLS */}
-      <div className="container mx-auto px-4 pb-4 min-h-[44px]">
-        {stats.classesTonight > 0 && (
+      {/* CITY STATS STRIP */}
+      {stats.classesTonight > 0 && (
+        <div className="container mx-auto px-4 pb-4">
           <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
             <Link
               to={citySlug ? `/${citySlug}/tonight` : '/tonight'}
@@ -114,11 +114,11 @@ const Index = () => {
               <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
             </Link>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* EVENT CALENDAR */}
-      <section className="py-8 min-h-[650px]">
+      <section className="min-h-[500px] sm:min-h-[650px]">
         <div className="container mx-auto px-4">
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">

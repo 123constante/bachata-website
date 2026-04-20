@@ -187,7 +187,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   // }, [locationStatus, userLocation]);
 
   return (
-    <section className="py-12 px-4">
+    <section className="py-6 sm:py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <div
           className="bg-card border border-[hsl(42_90%_50%/0.22)] rounded-3xl overflow-hidden relative shadow-[0_0_0_1px_hsl(42_90%_50%/0.06),_0_8px_48px_hsl(42_90%_50%/0.07)]"
@@ -316,7 +316,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
               </div>
 
               {/* Content area */}
-              <div className="p-4 pt-4 min-h-[400px]">
+              <div className="p-4 pt-4 min-h-0 sm:min-h-[400px]">
                 {isEventsLoading ? (
                   <CalendarSkeleton view={view} month={currentMonth} year={currentYear} />
                 ) : view === 'calendar' ? (

@@ -98,7 +98,7 @@ export const RecentlyAddedSection = () => {
                     className="w-[280px] md:w-full flex-shrink-0"
                 >
                     <Link to={`/event/${event.event_id}`} className="block group h-full">
-                        <div className="relative h-[400px] rounded-3xl overflow-hidden bg-surface border border-primary/10 transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_-15px_rgba(var(--primary),0.3)]">
+                        <div className="relative h-[420px] rounded-3xl overflow-hidden bg-surface border border-primary/10 transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_-15px_rgba(var(--primary),0.3)]">
                             
                             {/* Image Part */}
                             <div className="h-[220px] relative overflow-hidden">
@@ -119,7 +119,7 @@ export const RecentlyAddedSection = () => {
                             {/* Content Part */}
                             <div className="p-5 absolute bottom-0 left-0 right-0 top-[220px] flex flex-col justify-between bg-surface">
                                 <div>
-                                    <h3 className="text-xl font-bold mb-3 leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                                    <h3 className="text-xl font-bold mb-3 leading-normal group-hover:text-primary transition-colors line-clamp-2">
                                         {event.name}
                                     </h3>
                                     

@@ -24,7 +24,7 @@ const LineupPerson = ({ person }: { person: EventPagePerson }) => {
           </div>
         )}
       </div>
-      <p className="w-full line-clamp-2 text-center text-xs leading-tight text-white/85">{person.displayName}</p>
+      <p className="w-full line-clamp-2 text-center text-xs leading-normal text-white/85">{person.displayName}</p>
     </>
   );
 

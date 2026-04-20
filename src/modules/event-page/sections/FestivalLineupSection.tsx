@@ -28,7 +28,7 @@ const ArtistCard = ({ artist }: { artist: FestivalArtist }) => {
           </div>
         )}
       </div>
-      <p className="w-full line-clamp-2 text-center text-xs leading-tight text-white/85">{artist.displayName}</p>
+      <p className="w-full line-clamp-2 text-center text-xs leading-normal text-white/85">{artist.displayName}</p>
     </>
   );
   if (artist.href) {

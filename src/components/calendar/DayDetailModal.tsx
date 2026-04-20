@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, Filter } from 'lucide-react';
+import { X, Filter, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,6 +26,30 @@ export const DayDetailModal = ({
   onClose,
 }: DayDetailModalProps) => {
   const [popupFilter, setPopupFilter] = useState<Category>(parentCategory);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+  const touchStartY = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isMobile || touchStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    if (deltaY > 80) onClose();
+    touchStartY.current = null;
+  };
 
   // Sync filter when parentCategory or selectedDay changes
   const syncedFilter = parentCategory;
@@ -41,6 +65,16 @@ export const DayDetailModal = ({
   const displayedEvents = allDayEvents.filter((e) => matchesCategory(e, popupFilter));
   const selectedDate = selectedDay ? new Date(currentYear, currentMonth, selectedDay) : null;
 
+  const updateFade = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+    setShowBottomFade(hasOverflow && !atBottom);
+  };
+
+  useEffect(updateFade, [displayedEvents.length, selectedDay, popupFilter]);
+
   return (
     <Dialog
       open={!!selectedDay}
@@ -50,14 +84,27 @@ export const DayDetailModal = ({
       }}
     >
       <DialogContent className="max-w-md w-full h-[85vh] sm:h-[600px] p-0 gap-0 overflow-hidden bg-zinc-900 border-white/10 sm:rounded-3xl rounded-t-[32px] flex flex-col shadow-2xl [&>button]:hidden">
-        <DialogHeader className="px-6 pt-8 pb-6 border-b border-white/5 bg-background/95 backdrop-blur-xl shrink-0 space-y-6">
+        <div className="shrink-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          {/* Grab handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-white/30" aria-hidden="true" />
+          </div>
+          <DialogHeader className="px-6 pt-3 pb-4 border-b border-white/5 bg-background/95 backdrop-blur-xl space-y-5">
           {/* Headline date */}
-          <div className="flex items-start justify-between">
-            <DialogTitle className="flex items-end gap-0.5 select-none">
+          <div className="flex items-start gap-3">
+            <button
+              onClick={onClose}
+              aria-label="Back to calendar"
+              className="h-11 w-11 shrink-0 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors group"
+            >
+              <ArrowLeft className="w-5 h-5 opacity-80 group-hover:opacity-100" />
+            </button>
+
+            <DialogTitle className="flex items-end gap-0.5 select-none flex-1 min-w-0">
               <span className="text-7xl font-black leading-[0.75] tracking-tighter text-primary">
                 {selectedDay}
               </span>
-              <div className="flex flex-col pb-1.5 pl-1">
+              <div className="flex flex-col pb-1.5 pl-1 min-w-0">
                 <span className="text-4xl font-black uppercase tracking-tighter text-foreground leading-[0.85]">
                   {selectedDate && DAYS[mondayIndex(selectedDate.getDay())]}
                 </span>
@@ -69,9 +116,10 @@ export const DayDetailModal = ({
 
             <button
               onClick={onClose}
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors group"
+              aria-label="Close"
+              className="h-11 w-11 shrink-0 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors group"
             >
-              <X className="w-6 h-6 opacity-70 group-hover:opacity-100" />
+              <X className="w-5 h-5 opacity-80 group-hover:opacity-100" />
             </button>
           </div>
 
@@ -98,8 +146,14 @@ export const DayDetailModal = ({
                   {cat === 'classes' && 'Classes'}
                   <span
                     className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 transition-colors',
-                      popupFilter === cat ? 'bg-current text-background' : 'text-muted-foreground',
+                      'text-[10px] px-1.5 py-0.5 rounded-full transition-colors',
+                      popupFilter === cat
+                        ? cat === 'parties'
+                          ? 'bg-festival-pink text-background'
+                          : cat === 'classes'
+                            ? 'bg-festival-blue text-background'
+                            : 'bg-primary text-background'
+                        : 'bg-white/10 text-muted-foreground',
                     )}
                   >
                     {allDayEvents.filter((e) => matchesCategory(e, cat)).length}
@@ -121,25 +175,31 @@ export const DayDetailModal = ({
               </button>
             ))}
           </div>
-        </DialogHeader>
+          </DialogHeader>
+        </div>
 
         {/* Event list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-transparent to-black/20">
+        <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollRef}
+          onScroll={updateFade}
+          className="h-full overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-transparent to-black/20"
+        >
           {displayedEvents.length > 0 ? (
             displayedEvents.map((event, i) => (
               <Link
                 key={`${event.id}-${i}`}
                 to={event.eventLink}
-                className="group flex flex-col bg-black hover:bg-black/80 border border-white/5 hover:border-primary/20 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all active:scale-[0.98] mb-6"
+                className="group flex flex-col bg-black hover:bg-black/80 border border-white/5 hover:border-primary/20 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
               >
                 {/* Image + title row */}
-                <div className="flex h-24">
-                  <div className="aspect-square shrink-0 bg-muted/20 relative border-r border-white/5">
+                <div className="flex min-h-24 sm:min-h-28">
+                  <div className="w-24 sm:w-28 shrink-0 self-stretch bg-muted/20 relative border-r border-white/5">
                     {event.coverImageUrl ? (
                       <img
                         src={event.coverImageUrl}
                         alt={event.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
                       />
                     ) : (
@@ -158,8 +218,8 @@ export const DayDetailModal = ({
                     )}
                   </div>
 
-                  <div className="flex-1 flex flex-col justify-center items-end px-3 sm:px-5 min-w-0 bg-black/20 text-right">
-                    <h4 className="sparkle-title font-bold text-3xl sm:text-4xl leading-snug tracking-tight line-clamp-2 w-full">
+                  <div className="flex-1 flex flex-col justify-start items-end px-3 sm:px-5 min-w-0 bg-black/20 text-right">
+                    <h4 className="sparkle-title font-bold text-3xl sm:text-4xl leading-normal tracking-tight line-clamp-2 w-full">
                       {event.title}
                     </h4>
                     <div className="flex items-center justify-end gap-1.5 font-bold text-[12px] truncate mt-1 w-full">
@@ -215,7 +275,20 @@ export const DayDetailModal = ({
                 })()}
               </Link>
             ))
-          ) : (
+          ) : null}
+
+          {displayedEvents.length > 0 && (
+            <div className="flex justify-center pt-2 pb-2">
+              <button
+                onClick={onClose}
+                className="text-sm text-muted-foreground hover:text-foreground hover:underline transition-colors"
+              >
+                ← Back to calendar
+              </button>
+            </div>
+          )}
+
+          {displayedEvents.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
                 <Filter className="w-6 h-6 opacity-30" />
@@ -227,6 +300,13 @@ export const DayDetailModal = ({
               </Button>
             </div>
           )}
+        </div>
+        {showBottomFade && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-b from-transparent to-zinc-900"
+          />
+        )}
         </div>
       </DialogContent>
     </Dialog>
