@@ -1,45 +1,15 @@
-import { motion } from 'framer-motion';
 import { Building2, MapPin, Users, Music, Layers, Lightbulb } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import PageLayout from '@/components/PageLayout';
-
-type VenueCard = {
-  id: string;
-  name: string;
-  photo_url: string[] | null;
-  description: string | null;
-  address: string | null;
-  capacity: number | null;
-  floor_type: any | null;
-  facilities: any | null;
-  parking: string | null;
-};
-
-const parseArray = (val: any): string[] => {
-  if (!val) return [];
-  if (Array.isArray(val)) return val.filter((v): v is string => typeof v === 'string');
-  if (typeof val === 'string') {
-    try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : []; } catch { return []; }
-  }
-  return [];
-};
+import { fetchPublicVenuesList } from '@/services/venuePublicService';
+import { VenueCard } from '@/components/venue/VenueCard';
 
 const Venues = () => {
   const { data: venues = [], isLoading } = useQuery({
     queryKey: ['venues-directory'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('venues')
-        .select('id, name, photo_url, description, address, capacity, floor_type, facilities, parking')
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as unknown as VenueCard[];
-    },
+    queryFn: fetchPublicVenuesList,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -53,99 +23,32 @@ const Venues = () => {
       breadcrumbLabel="Venues"
     >
       <div className="max-w-6xl mx-auto px-4">
-        {/* Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-border/40 bg-card overflow-hidden">
-                <Skeleton className="h-40 w-full" />
-                <div className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="aspect-[4/3] w-full" />
+                <div className="p-3 space-y-1.5">
+                  <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
-                  <div className="flex gap-2 pt-1">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
               </div>
             ))}
           </div>
         ) : venues.length === 0 ? (
-          <div className="text-center py-16">
-            <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground">No venues yet.</p>
+          <div className="text-center py-12">
+            <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">No venues yet.</p>
           </div>
         ) : (
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {venues.map((venue) => {
-              const coverPhoto = Array.isArray(venue.photo_url) && venue.photo_url.length > 0 ? venue.photo_url[0] : null;
-              const floorTypes = parseArray(venue.floor_type);
-
-              return (
-                <StaggerItem key={venue.id}>
-                  <Link to={`/venue-entity/${venue.id}`}>
-                    <motion.div
-                      whileHover={{ y: -4 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="rounded-2xl border border-border/40 bg-card overflow-hidden hover:border-primary/30 hover:shadow-md transition-all group"
-                    >
-                      {/* Cover image */}
-                      <div className="h-40 bg-muted/20 relative overflow-hidden">
-                        {coverPhoto ? (
-                          <img
-                            src={coverPhoto}
-                            alt={venue.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Building2 className="w-12 h-12 text-muted-foreground/20" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-0.5">
-                          {venue.name}
-                        </h3>
-
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mb-3">
-                          {venue.capacity && (
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3" /> {venue.capacity}
-                            </span>
-                          )}
-                        </div>
-
-                        {venue.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                            {venue.description}
-                          </p>
-                        )}
-
-                        {floorTypes.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {floorTypes.slice(0, 2).map((ft) => (
-                              <Badge key={ft} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/25 text-primary/70">
-                                <Layers className="w-2.5 h-2.5 mr-1" />{ft}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  </Link>
-                </StaggerItem>
-              );
-            })}
+          <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {venues.map((venue) => (
+              <StaggerItem key={venue.id}>
+                <VenueCard venue={venue} />
+              </StaggerItem>
+            ))}
           </StaggerContainer>
-        )}
-
-        {!isLoading && venues.length > 0 && (
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            {venues.length} venue{venues.length !== 1 ? 's' : ''}
-          </p>
         )}
       </div>
     </PageLayout>

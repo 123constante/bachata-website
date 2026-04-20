@@ -45,3 +45,23 @@ export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | n
 
   return data as PublicVenue;
 }
+
+export interface PublicVenueListItem {
+  id: string;
+  name: string;
+  cover_image: string | null;
+  city_name: string | null;
+  capacity: number | null;
+  floor_type: string | null;
+  description: string | null;
+  bar_available: boolean;
+  cloakroom_available: boolean;
+  has_parking: boolean;
+  facilities_new: string[];
+}
+
+export async function fetchPublicVenuesList(): Promise<PublicVenueListItem[]> {
+  const { data, error } = await supabase.rpc('get_public_venues_list_v1' as never);
+  if (error || !data) return [];
+  return data as PublicVenueListItem[];
+}
