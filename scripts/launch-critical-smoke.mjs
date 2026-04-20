@@ -223,7 +223,7 @@ const run = async () => {
   });
 
   await runScenario('8) Venue detail events', async () => {
-    await page.goto(`${baseUrl}/venue-directory`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl}/venues`, { waitUntil: 'networkidle' });
     const link = page.locator('a[href^="/venue-entity/"]').first();
     const count = await page.locator('a[href^="/venue-entity/"]').count();
     if (count > 0) {
