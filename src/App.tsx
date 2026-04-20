@@ -42,7 +42,6 @@ const Venues = lazy(() => import("./pages/Venues"));
 const Organisers = lazy(() => import("./pages/Organisers"));
 const OrganiserProfile = lazy(() => import("./pages/OrganiserProfile"));
 const AllProfiles = lazy(() => import("./pages/AllProfiles"));
-const VenueDirectory = lazy(() => import("./pages/VenueDirectory"));
 const VenueEntity = lazy(() => import("./pages/VenueEntity"));
 const CreateProfile = lazy(() => import("./pages/CreateProfile"));
 const CreateOrganiserProfile = lazy(() => import("./pages/CreateOrganiserProfile"));
@@ -136,8 +135,6 @@ const AnimatedRoutes = () => {
           <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
           <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
           <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
-          <Route path="/venue-directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
-          <Route path="/city/:slug/directory" element={<PageTransition><VenueDirectory /></PageTransition>} />
           <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
 
           {/* Protected Routes */}
