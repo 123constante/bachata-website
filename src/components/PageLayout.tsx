@@ -34,6 +34,14 @@ interface PageLayoutProps {
   gradientFrom?: string;
   /** Hide PageHero's internal gradient background (default true — PageLayout owns the wash) */
   hideBackground?: boolean;
+  /** Tailwind class for the titleOrange span accent colour
+   *  (e.g. "text-orange-500"). Defaults to PageHero's default
+   *  ("text-primary") when not passed. */
+  highlightColor?: string;
+  /** Optional content rendered between the hero and {children}.
+   *  Use for tab strips, secondary nav, or other controls that should
+   *  sit visually attached to the hero section. */
+  heroAfter?: React.ReactNode;
   /** Page-specific content rendered below the hero */
   children: React.ReactNode;
 }
@@ -54,6 +62,8 @@ const PageLayout = ({
   widgets,
   gradientFrom,
   hideBackground = true,
+  highlightColor,
+  heroAfter,
   children,
 }: PageLayoutProps) => {
   const { scrollYProgress } = useScroll();
@@ -102,8 +112,11 @@ const PageLayout = ({
         floatingIcons={floatingIcons}
         widgets={widgets}
         gradientFrom={gradientFrom}
+        highlightColor={highlightColor}
         topPadding="pt-20"
       />
+
+      {heroAfter}
 
       {children}
     </div>
