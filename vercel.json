@@ -1,6 +1,106 @@
 {
   "redirects": [
     {
+      "source": "/:slug([a-z-]+-[a-z]{2})/dancers",
+      "destination": "/dancers",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/dancers/:id",
+      "destination": "/dancers/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/teachers",
+      "destination": "/teachers",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/teachers/:id",
+      "destination": "/teachers/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/djs",
+      "destination": "/djs",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/djs/:id",
+      "destination": "/djs/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/vendors",
+      "destination": "/vendors",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/vendors/:id",
+      "destination": "/vendors/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/videographers",
+      "destination": "/videographers",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/choreography",
+      "destination": "/choreography",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/experience",
+      "destination": "/experience",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/venues",
+      "destination": "/venues",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/venues/:id",
+      "destination": "/venues/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/organisers",
+      "destination": "/organisers",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/organisers/:id",
+      "destination": "/organisers/:id",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/parties",
+      "destination": "/city/:slug/parties",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/classes",
+      "destination": "/city/:slug/classes",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/tonight",
+      "destination": "/city/:slug/tonight",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/practice-partners",
+      "destination": "/city/:slug/practice-partners",
+      "permanent": true
+    },
+    {
+      "source": "/:slug([a-z-]+-[a-z]{2})/discounts",
+      "destination": "/city/:slug/discounts",
+      "permanent": true
+    },
+    {
       "source": "/:slug([a-z-]+-[a-z]{2})",
       "destination": "/city/:slug",
       "permanent": true

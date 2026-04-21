@@ -7,6 +7,7 @@ import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
 import { FloatingElements } from '@/components/FloatingElements';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
+import { buildCityPath } from '@/lib/cityPath';
 
 // Lazy load the heavy calendar component
 const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
@@ -107,7 +108,7 @@ const Index = () => {
         <div className="container mx-auto px-4 pb-4">
           <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
             <Link
-              to={citySlug ? `/${citySlug}/tonight` : '/tonight'}
+              to={buildCityPath(citySlug, 'tonight')}
               className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue hover:bg-festival-blue/20 transition-colors"
             >
               <GraduationCap className="w-4 h-4" />
