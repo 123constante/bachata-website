@@ -56,6 +56,8 @@ export type EventPageKeyTimes = {
   party?: { start: string; end: string };
 };
 
+export type EventPageEventLevel = 'beginner' | 'intermediate' | 'advanced' | 'all_levels' | null;
+
 export type EventPageSnapshot = {
   eventId: string;
   occurrenceId: string | null;
@@ -75,6 +77,7 @@ export type EventPageSnapshot = {
     galleryUrls: string[];
     musicStyles: string[];
     paymentMethods: string | null;
+    level: EventPageEventLevel;
     keyTimes: EventPageKeyTimes | null;
     metaDataPublic: Record<string, unknown>;
     tickets: EventPageTicket[];
@@ -125,6 +128,7 @@ export type EventPageSnapshot = {
   };
   attendance: {
     goingCount: number;
+    interestedCount: number;
     currentUserStatus: string | null;
     preview: EventPagePerson[];
   };
@@ -149,6 +153,7 @@ export type EventPageModel = {
     occurrenceId: string | null;
     statusLabel: string | null;
     eventType: string | null;
+    level: EventPageEventLevel;
     musicStyles: string[];
   };
   hero: {
@@ -170,6 +175,7 @@ export type EventPageModel = {
   };
   schedule: {
     dateLabel: string | null;
+    shortDateLabel: string | null;
     timeLabel: string | null;
     timezoneLabel: string | null;
     keyTimes: EventPageKeyTimes | null;
@@ -221,6 +227,7 @@ export type EventPageModel = {
   attendance: {
     goingCount: number;
     goingCountLabel: string;
+    interestedCount: number;
     currentUserStatus: string | null;
     preview: EventPagePerson[];
     ctaLabel: string;

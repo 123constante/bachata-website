@@ -32,17 +32,35 @@ const formatTimeLabel = (value: string | null) => {
   return Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, 'h:mm a');
 };
 
+const formatShortDateLabel = (value: string | null, timezone: string | null): string | null => {
+  if (!value) return null;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
+  const parsedDate = new Date(normalized);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  };
+  try {
+    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: timezone ?? undefined }).format(parsedDate);
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', options).format(parsedDate);
+  }
+};
+
 const EMPTY_PAGE_MODEL: EventPageModel = {
   page: { state: 'loading', canEdit: false, title: '', message: null },
-  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, musicStyles: [] },
+  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, level: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
-  schedule: { dateLabel: null, timeLabel: null, timezoneLabel: null, keyTimes: null, isCancelled: false, isVisible: false },
+  schedule: { dateLabel: null, shortDateLabel: null, timeLabel: null, timezoneLabel: null, keyTimes: null, isCancelled: false, isVisible: false },
   location: { venueId: null, venueName: null, address: null, postcode: null, googleMapsLink: null, venueImageUrl: null, galleryUrls: [], transportJson: null, venueDescription: null, capacity: null, floorType: null, facilitiesNew: [], venueTimezone: null, cityName: null, locationText: null, timezoneLabel: null, isVisible: false },
   organiser: { person: null, isVisible: false },
   lineup: { groups: [], hasAny: false },
   guestDancers: { items: [], isVisible: false },
-  attendance: { goingCount: 0, goingCountLabel: '0 going', currentUserStatus: null, preview: [], ctaLabel: "I'm Going", canToggle: false, isVisible: false },
+  attendance: { goingCount: 0, goingCountLabel: '0 going', interestedCount: 0, currentUserStatus: null, preview: [], ctaLabel: "I'm Going", canToggle: false, isVisible: false },
   description: { body: null, isVisible: false },
   eventInfo: { dressCode: null, ageRestriction: null, paymentMethods: null, isVisible: false },
   tickets: { items: [], isVisible: false },
@@ -53,11 +71,13 @@ const EMPTY_PAGE_MODEL: EventPageModel = {
 
 const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): EventPageModel => {
   const occurrence = snapshot.occurrenceEffective;
-  const scheduleDate = formatDateLabel(occurrence?.startsAt ?? occurrence?.localDate ?? snapshot.event.date ?? null);
+  const scheduleRawDate = occurrence?.startsAt ?? occurrence?.localDate ?? snapshot.event.date ?? null;
+  const scheduleDate = formatDateLabel(scheduleRawDate);
   const startLabel = formatTimeLabel(occurrence?.startsAt ?? null);
   const endLabel = formatTimeLabel(occurrence?.endsAt ?? null);
   const scheduleTime = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel;
   const scheduleTimezone = occurrence?.timezone ?? snapshot.event.timezone ?? snapshot.locationDefault.timezone ?? null;
+  const scheduleShortDate = formatShortDateLabel(scheduleRawDate, scheduleTimezone);
   const lineup = occurrence?.lineup ?? { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] };
   const statusLabel = snapshot.event.isPublished === false || snapshot.event.status === 'draft' ? 'Draft' : null;
   const primaryOrganiser = snapshot.organisers[0] ?? null;
@@ -67,8 +87,8 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const lineupGroups: EventPageModel['lineup']['groups'] = ([
     { key: 'teachers' as const, label: 'Teachers', items: lineup.teachers.map(p => ({ ...p, href: `/teachers/${p.id}` })) },
     { key: 'djs' as const, label: 'DJs', items: lineup.djs.map(p => ({ ...p, href: `/djs/${p.id}` })) },
-    { key: 'videographers' as const, label: 'Videographers', items: lineup.videographers.map(p => ({ ...p, href: p.href })) },
     { key: 'vendors' as const, label: 'Vendors', items: lineup.vendors.map(p => ({ ...p, href: p.href })) },
+    { key: 'videographers' as const, label: 'Videographers', items: lineup.videographers.map(p => ({ ...p, href: p.href })) },
   ] as EventPageModel['lineup']['groups']).filter((group) => group.items.length > 0);
 
   const heroImageUrl =
@@ -91,6 +111,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       occurrenceId: snapshot.occurrenceId,
       statusLabel,
       eventType: snapshot.event.type,
+      level: snapshot.event.level,
       musicStyles: snapshot.event.musicStyles,
     },
     hero: {
@@ -120,6 +141,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
     },
     schedule: {
       dateLabel: scheduleDate,
+      shortDateLabel: scheduleShortDate,
       timeLabel: scheduleTime,
       timezoneLabel: scheduleTimezone,
       keyTimes: snapshot.event.keyTimes,
@@ -165,6 +187,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
     attendance: {
       goingCount: snapshot.attendance.goingCount,
       goingCountLabel: `${snapshot.attendance.goingCount} going`,
+      interestedCount: snapshot.attendance.interestedCount,
       currentUserStatus: snapshot.attendance.currentUserStatus,
       preview: snapshot.attendance.preview,
       ctaLabel: snapshot.attendance.currentUserStatus === 'going' ? "You're Going" : "I'm Going",

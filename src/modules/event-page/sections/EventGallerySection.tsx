@@ -11,7 +11,7 @@ const cacheBust = (url: string) => {
 };
 
 // ---------------------------------------------------------------------------
-// Lightbox overlay
+// Lightbox overlay (preserved from prior implementation)
 // ---------------------------------------------------------------------------
 const Lightbox = ({
   urls,
@@ -31,7 +31,6 @@ const Lightbox = ({
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={onClose}
     >
-      {/* Close */}
       <button
         className="absolute right-3 top-3 z-10 rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
         onClick={onClose}
@@ -40,7 +39,6 @@ const Lightbox = ({
         <X className="h-5 w-5" />
       </button>
 
-      {/* Prev */}
       {urls.length > 1 && (
         <button
           className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
@@ -54,7 +52,6 @@ const Lightbox = ({
         </button>
       )}
 
-      {/* Next */}
       {urls.length > 1 && (
         <button
           className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
@@ -68,7 +65,6 @@ const Lightbox = ({
         </button>
       )}
 
-      {/* Image */}
       <img
         src={cacheBust(urls[index])}
         alt={`Gallery image ${index + 1} of ${urls.length}`}
@@ -76,7 +72,6 @@ const Lightbox = ({
         onClick={(e) => e.stopPropagation()}
       />
 
-      {/* Counter */}
       {urls.length > 1 && (
         <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60">
           {index + 1} / {urls.length}
@@ -105,28 +100,41 @@ export const EventGallerySection = ({ galleryUrls }: EventGallerySectionProps) =
 
   if (!galleryUrls.length) return null;
 
+  const total = galleryUrls.length;
+  const showOverflowTile = total > 6;
+  const thumbnailCount = showOverflowTile ? 5 : Math.min(total, 6);
+  const thumbnails = galleryUrls.slice(0, thumbnailCount);
+  const overflow = total - thumbnailCount;
+
   return (
     <>
-      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-        <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/45">Gallery</p>
-
-        {/* Mobile: horizontal scroll — Desktop: 2-3 col grid */}
-        <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-x-visible lg:grid-cols-3">
-          {galleryUrls.map((url, i) => (
+      <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+        <div className="grid grid-cols-3 gap-2">
+          {thumbnails.map((url, i) => (
             <button
               key={url}
               type="button"
-              className="flex-none cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              className="block aspect-square overflow-hidden rounded-md border-[0.5px] border-white/10 bg-white/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               onClick={() => open(i)}
             >
               <img
                 src={cacheBust(url)}
                 alt={`Gallery image ${i + 1}`}
-                className="h-32 w-48 object-cover md:h-40 md:w-full"
+                className="h-full w-full object-cover"
                 loading="lazy"
               />
             </button>
           ))}
+          {showOverflowTile && (
+            <button
+              type="button"
+              onClick={() => open(thumbnailCount)}
+              className="flex aspect-square flex-col items-center justify-center rounded-md border-[0.5px] border-white/15 bg-white/[0.06]"
+            >
+              <span className="text-[16px] font-medium text-white">+{overflow}</span>
+              <span className="text-[10px] text-white/55">more</span>
+            </button>
+          )}
         </div>
       </section>
 

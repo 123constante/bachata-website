@@ -1,6 +1,6 @@
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarDays } from 'lucide-react';
+import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
@@ -20,6 +20,7 @@ type ScheduleSession = {
   id: string;
   title: string;
   type: string;
+  day: string | null;
   startMins: number;
   endMins: number;
   people: Person[];
@@ -36,8 +37,13 @@ const toMins = (value: string | null | undefined): number | null => {
   return h * 60 + (m || 0);
 };
 
-const fmtMins = (mins: number): string =>
-  `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+const fmtMins12 = (mins: number): string => {
+  const h24 = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+  const ampm = h24 < 12 ? 'AM' : 'PM';
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+};
 
 const normalizeTitle = (title: string): string =>
   /^(class|party|workshop|social|show|competition)\s+\d+$/i.test(title.trim())
@@ -71,36 +77,6 @@ const roleLabel = (profileType: string | null): string => {
   if (profileType === 'dancer') return 'Dancer';
   if (profileType === 'videographer') return 'Videographer';
   return '';
-};
-
-// ─── Styling helpers ──────────────────────────────────────────────────────────
-
-const isClassType = (type: string) =>
-  ['class', 'workshop', 'social', 'show', 'competition'].includes(type);
-const isPartyType = (type: string) => type === 'party';
-
-const typeLabelColor = (type: string): string => {
-  if (isClassType(type)) return 'text-teal-400';
-  if (isPartyType(type)) return 'text-pink-400';
-  return 'text-white/50';
-};
-
-const borderAccentClass = (type: string): string => {
-  if (isClassType(type)) return 'border-l-teal-500';
-  if (isPartyType(type)) return 'border-l-pink-500';
-  return 'border-l-white/10';
-};
-
-const avatarBorderColor = (type: string): string => {
-  if (isClassType(type)) return 'rgb(94, 234, 212)'; // teal-300
-  if (isPartyType(type)) return 'rgb(249, 168, 212)'; // pink-300
-  return 'rgba(255, 255, 255, 0.25)';
-};
-
-const initialsBgClass = (type: string): string => {
-  if (isClassType(type)) return 'bg-teal-500/15 text-teal-300';
-  if (isPartyType(type)) return 'bg-pink-500/15 text-pink-300';
-  return 'bg-white/10 text-white/80';
 };
 
 // ─── Data hook — mirror of useProgramItems from EventTimelineSection ─────────
@@ -167,6 +143,7 @@ function useProgramItems(eventId: string | null | undefined) {
             id: item.id,
             title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
             type: item.type || 'class',
+            day: null,
             startMins,
             endMins,
             people,
@@ -205,9 +182,10 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         })),
       ];
       return {
-        id: item.id ?? `${item.type}-${item.startTime}`,
+        id: item.id ?? `${item.type}-${item.day ?? ''}-${item.startTime}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
+        day: /^\d{4}-\d{2}-\d{2}$/.test(item.day ?? '') ? item.day : null,
         startMins,
         endMins,
         people,
@@ -221,104 +199,147 @@ function fromKeyTimes(kt: NonNullable<EventPageModel['schedule']['keyTimes']>): 
   if (kt.classes?.start) {
     const s = toMins(kt.classes.start) ?? 0;
     const e = toMins(kt.classes.end) ?? s + 60;
-    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', startMins: s, endMins: e, people: [] });
+    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, people: [] });
   }
   if (kt.party?.start) {
     const s = toMins(kt.party.start) ?? 0;
     const e = toMins(kt.party.end) ?? s + 60;
-    out.push({ id: 'kt-party', title: 'Party', type: 'party', startMins: s, endMins: e, people: [] });
+    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, people: [] });
   }
   return out;
 }
 
-// ─── Person cell ──────────────────────────────────────────────────────────────
+// ─── Visual helpers ───────────────────────────────────────────────────────────
 
-function PersonCell({ person, type }: { person: Person; type: string }) {
-  const borderColor = avatarBorderColor(type);
-  const initialsClass = initialsBgClass(type);
-
-  const avatar = person.avatarUrl ? (
-    <img
-      src={person.avatarUrl}
-      alt=""
-      className="h-10 w-10 rounded-full object-cover"
-      style={{ border: `1.5px solid ${borderColor}` }}
-      loading="lazy"
-    />
-  ) : (
-    <span
-      className={cn(
-        'flex h-10 w-10 items-center justify-center rounded-full text-[13px] font-semibold',
-        initialsClass,
-      )}
-      style={{ border: `1.5px solid ${borderColor}` }}
-    >
-      {person.name.charAt(0).toUpperCase()}
-    </span>
-  );
-
-  const body = (
-    <>
-      {avatar}
-      <span
-        className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap text-center text-[11px] text-white/60"
-        style={{ maxWidth: '56px' }}
-      >
-        {person.name.split(' ')[0]}
-      </span>
-    </>
-  );
-
-  if (person.href) {
-    return (
-      <Link to={person.href} className="flex flex-col items-center">
-        {body}
-      </Link>
-    );
-  }
-  return <div className="flex flex-col items-center">{body}</div>;
-}
-
-// ─── Session block ────────────────────────────────────────────────────────────
-
-function SessionBlock({ session }: { session: ScheduleSession }) {
-  const typeUpper = session.type.toUpperCase();
+const AvatarStack = ({ people }: { people: Person[] }) => {
+  if (people.length === 0) return null;
+  const visible = people.slice(0, 2);
+  const extra = people.length - 2;
   return (
-    <div
-      className={cn('border-l-[3px]', borderAccentClass(session.type))}
-      style={{ padding: '10px 12px' }}
-    >
-      <div className="flex min-w-0 items-baseline gap-2">
-        <span className="shrink-0 text-[14px] font-medium text-white tabular-nums">
-          {fmtMins(session.startMins)} – {fmtMins(session.endMins)}
-        </span>
-        <span
-          className={cn(
-            'shrink-0 text-[11px] font-medium uppercase',
-            typeLabelColor(session.type),
-          )}
-          style={{ letterSpacing: '1px' }}
-        >
-          {typeUpper}
-        </span>
-        <span className="truncate text-[14px] font-medium text-white">
-          {session.title}
-        </span>
-      </div>
-
-      {session.people.length > 0 && (
+    <div className="flex items-center justify-end">
+      {visible.map((p, i) => {
+        const initial = (p.name || '?').charAt(0).toUpperCase();
+        return (
+          <div
+            key={p.id}
+            className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15"
+            style={{
+              marginLeft: i === 0 ? 0 : -8,
+              border: '1.5px solid hsl(var(--background))',
+            }}
+          >
+            {p.avatarUrl ? (
+              <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[11px] font-semibold text-white/80">{initial}</span>
+            )}
+          </div>
+        );
+      })}
+      {extra > 0 && (
         <div
-          className="mt-[10px] grid justify-items-center gap-2"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))' }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[10px] font-semibold text-white/70"
+          style={{
+            marginLeft: -8,
+            border: '1.5px solid hsl(var(--background))',
+          }}
         >
-          {session.people.map((p) => (
-            <PersonCell key={p.id} person={p} type={session.type} />
-          ))}
+          +{extra}
         </div>
       )}
     </div>
   );
-}
+};
+
+const SessionRow = ({ session, isLast }: { session: ScheduleSession; isLast: boolean }) => (
+  <div
+    className={cn(
+      'grid items-center gap-[10px] px-3 py-[9px]',
+      !isLast && 'border-b border-black/5',
+    )}
+    style={{ gridTemplateColumns: '64px minmax(0,1fr) auto' }}
+  >
+    <span className="text-[13px] font-medium text-black tabular-nums whitespace-nowrap">
+      {fmtMins12(session.startMins)}
+    </span>
+    <span className="text-[13px] text-black/85 line-clamp-2">{session.title}</span>
+    <div className="min-w-[32px]">
+      <AvatarStack people={session.people} />
+    </div>
+  </div>
+);
+
+const SessionTable = ({ sessions, flushTop = false }: { sessions: ScheduleSession[]; flushTop?: boolean }) => (
+  <div
+    className={cn(
+      'overflow-hidden border-[0.5px] border-black/10 bg-white',
+      flushTop ? 'rounded-b-md border-t-0' : 'rounded-md',
+    )}
+  >
+    {sessions.map((s, i) => (
+      <SessionRow key={s.id} session={s} isLast={i === sessions.length - 1} />
+    ))}
+  </div>
+);
+
+// ─── Day grouping ─────────────────────────────────────────────────────────────
+
+const formatDayLabel = (day: string): string => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const d = new Date(`${day}T12:00:00`);
+  if (isNaN(d.getTime())) return day;
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+
+const todayKeyInTz = (tz: string | null): string => {
+  const opts: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: tz ?? undefined,
+  };
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', opts).format(new Date());
+    return parts; // en-CA yields YYYY-MM-DD
+  } catch {
+    const parts = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return parts;
+  }
+};
+
+const DayBlock = ({
+  day,
+  sessions,
+  defaultOpen,
+}: {
+  day: string;
+  sessions: ScheduleSession[];
+  defaultOpen: boolean;
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+  const label = formatDayLabel(day);
+  const count = sessions.length;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex w-full items-center justify-between border-[0.5px] border-black/10 bg-white px-3 py-[9px] text-left',
+          open ? 'rounded-t-md' : 'rounded-md',
+        )}
+      >
+        <span className="text-[13px] font-medium text-black">
+          {label} <span className="text-black/50">· {count} session{count !== 1 ? 's' : ''}</span>
+        </span>
+        <ChevronDown
+          className={cn('h-3 w-3 shrink-0 text-black/50 transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <SessionTable sessions={sessions} flushTop />}
+    </div>
+  );
+};
 
 // ─── Public component ─────────────────────────────────────────────────────────
 
@@ -335,7 +356,7 @@ export const EventScheduleGrid = ({
 }: EventScheduleGridProps) => {
   const { data: programItems = [], isLoading } = useProgramItems(eventId);
 
-  const sessions: ScheduleSession[] = (() => {
+  const sessions: ScheduleSession[] = useMemo(() => {
     if (programItems.length) {
       if (fallbackSchedule?.length) {
         const fbPeople = new Map<string, Person[]>();
@@ -359,45 +380,54 @@ export const EventScheduleGrid = ({
     if (fallbackSchedule?.length) return normalizeSessions(fromFestivalSchedule(fallbackSchedule));
     if (schedule.keyTimes) return normalizeSessions(fromKeyTimes(schedule.keyTimes));
     return [];
-  })();
+  }, [programItems, fallbackSchedule, schedule.keyTimes]);
 
-  const hasAny = Boolean(schedule.dateLabel) || sessions.length > 0;
+  const hasAny = sessions.length > 0;
   if (!hasAny && !isLoading) return null;
 
+  // Group by day when multiple distinct dated days exist
+  const uniqueDays = Array.from(new Set(sessions.map((s) => s.day).filter((d): d is string => Boolean(d)))).sort();
+  const isMultiDay = uniqueDays.length > 1;
+
+  if (isLoading && !fallbackSchedule?.length && !schedule.keyTimes) {
+    return (
+      <section>
+        {schedule.isCancelled && <CancelledBanner />}
+        <div className="flex h-16 items-center justify-center rounded-md border-[0.5px] border-black/10 bg-white">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-black/15 border-t-black/50" />
+        </div>
+      </section>
+    );
+  }
+
+  if (isMultiDay) {
+    const defaultOpenDay = uniqueDays.find((d) => d >= todayKeyInTz(schedule.timezoneLabel)) ?? uniqueDays[uniqueDays.length - 1];
+    return (
+      <section className="space-y-2">
+        {schedule.isCancelled && <CancelledBanner />}
+        {uniqueDays.map((day) => (
+          <DayBlock
+            key={day}
+            day={day}
+            sessions={sessions.filter((s) => s.day === day)}
+            defaultOpen={day === defaultOpenDay}
+          />
+        ))}
+      </section>
+    );
+  }
+
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <p className="mb-3 text-[10px] uppercase tracking-[0.18em] text-white/45">Schedule</p>
-
-      {schedule.isCancelled && (
-        <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5">
-          <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-          <span className="text-[10px] uppercase tracking-[0.15em] text-red-400">Cancelled</span>
-        </div>
-      )}
-
-      {schedule.dateLabel && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-white/80">
-          <CalendarDays className="h-4 w-4 shrink-0 text-white/40" />
-          {schedule.dateLabel}
-        </div>
-      )}
-
-      {isLoading && !fallbackSchedule?.length && !schedule.keyTimes ? (
-        <div className="flex h-24 items-center justify-center">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />
-        </div>
-      ) : sessions.length > 0 ? (
-        <div>
-          {sessions.map((session, i) => (
-            <div
-              key={session.id}
-              className={cn(i < sessions.length - 1 && 'border-b border-white/[0.06]')}
-            >
-              <SessionBlock session={session} />
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <section>
+      {schedule.isCancelled && <CancelledBanner />}
+      <SessionTable sessions={sessions} />
     </section>
   );
 };
+
+const CancelledBanner = () => (
+  <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1">
+    <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+    <span className="text-[10px] uppercase tracking-[0.15em] text-red-400">Cancelled</span>
+  </div>
+);

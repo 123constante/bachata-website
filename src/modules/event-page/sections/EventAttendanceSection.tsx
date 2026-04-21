@@ -1,92 +1,103 @@
-import type { EventPageModel } from '@/modules/event-page/types';
-import { Button } from '@/components/ui/button';
-import { Check, CalendarCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import type { EventPageModel, EventPagePerson } from '@/modules/event-page/types';
 
 type EventAttendanceSectionProps = {
   attendance: EventPageModel['attendance'];
-  isPending: boolean;
-  onToggle: () => void;
-  isCancelled?: boolean;
 };
 
-export const EventAttendanceSection = ({ attendance, isPending, onToggle, isCancelled }: EventAttendanceSectionProps) => {
-  if (!attendance.isVisible) return null;
+const AVATAR_PALETTE: Array<{ bg: string; text: string }> = [
+  { bg: '#534AB7', text: '#EEEDFE' }, // purple
+  { bg: '#D85A30', text: '#FAECE7' }, // coral
+  { bg: '#1D9E75', text: '#E1F5EE' }, // teal
+  { bg: '#185FA5', text: '#E6F1FB' }, // blue
+  { bg: '#993556', text: '#FBEAF0' }, // pink
+];
 
-  const isGoing = attendance.currentUserStatus === 'going' && !isCancelled;
+const AvatarCell = ({
+  person,
+  index,
+  isFirst,
+}: {
+  person: EventPagePerson;
+  index: number;
+  isFirst: boolean;
+}) => {
+  const palette = AVATAR_PALETTE[index % AVATAR_PALETTE.length];
+  const initial = (person.displayName ?? '').trim().charAt(0).toUpperCase() || '•';
+  return (
+    <div
+      className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
+      style={{
+        backgroundColor: palette.bg,
+        border: '2px solid hsl(var(--background))',
+        marginLeft: isFirst ? 0 : -10,
+        zIndex: index + 1,
+      }}
+    >
+      {person.avatarUrl ? (
+        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span
+          className="text-[12px] font-semibold"
+          style={{ color: palette.text }}
+          aria-hidden
+        >
+          {initial}
+        </span>
+      )}
+    </div>
+  );
+};
+
+export const EventAttendanceSection = ({ attendance }: EventAttendanceSectionProps) => {
+  const { goingCount, interestedCount, preview } = attendance;
+
+  if (goingCount === 0 && interestedCount === 0) return null;
+
+  const visibleAvatars = preview.slice(0, 5);
+  const visibleCount = visibleAvatars.length;
+  const overflow = goingCount > 5 ? goingCount - visibleCount : 0;
+  const showGoing = goingCount > 0;
+  const showInterested = interestedCount > 0;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/45">Attendance</p>
-      <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-xs text-white/80 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <div className="space-y-0.5">
-            <p className="font-medium text-white">Let other dancers know you'll be there</p>
-            <p className="text-white/60">{attendance.goingCountLabel}</p>
-          </div>
+    <section className="rounded-lg border-[0.5px] border-white/15 bg-white/[0.04] p-[14px]">
+      <p className="text-[14px] text-white/85">
+        {showGoing && (
+          <>
+            <span className="font-medium text-white">{goingCount}</span>
+            {' going'}
+          </>
+        )}
+        {showGoing && showInterested && (
+          <span className="mx-[6px] text-white/45" aria-hidden>·</span>
+        )}
+        {showInterested && (
+          <>
+            <span className="font-medium text-white">{interestedCount}</span>
+            {' interested'}
+          </>
+        )}
+      </p>
 
-          {attendance.preview.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {attendance.preview.slice(0, 8).map((attendee) => (
-                <div
-                  key={attendee.id}
-                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1"
-                >
-                  <div className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06]">
-                    {attendee.avatarUrl ? (
-                      <img src={attendee.avatarUrl} alt={attendee.displayName ?? undefined} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] text-white/70">
-                        {(attendee.displayName || '').trim().charAt(0) || '•'}
-                      </div>
-                    )}
-                  </div>
-                  <span className="max-w-[88px] truncate text-[11px] text-white/65">{attendee.displayName}</span>
-                </div>
-              ))}
+      {visibleCount > 0 && (
+        <div className="mt-[10px] flex items-center">
+          {visibleAvatars.map((person, i) => (
+            <AvatarCell key={person.id} person={person} index={i} isFirst={i === 0} />
+          ))}
+          {overflow > 0 && (
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[12px] font-medium text-white/80"
+              style={{
+                border: '2px solid hsl(var(--background))',
+                marginLeft: visibleCount === 0 ? 0 : -10,
+                zIndex: visibleCount + 1,
+              }}
+            >
+              +{overflow}
             </div>
           )}
         </div>
-
-        <div className="flex flex-col items-stretch sm:items-start gap-2">
-          {/* Main attend button — minimum 44px tap target on mobile */}
-          <button
-            onClick={onToggle}
-            disabled={!attendance.canToggle || isPending || isCancelled}
-            className={cn(
-              'flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all active:scale-95',
-              'min-h-[44px] min-w-[140px]',
-              isGoing
-                ? 'bg-primary text-primary-foreground shadow-[0_0_20px_rgba(249,115,22,0.4)]'
-                : 'border border-white/20 bg-white/[0.06] text-white hover:bg-white/[0.12]',
-              (!attendance.canToggle || isCancelled) && 'opacity-50 cursor-not-allowed',
-            )}
-          >
-            {isPending ? (
-              <span className="animate-pulse">Saving…</span>
-            ) : isCancelled ? (
-              'Event Cancelled'
-            ) : isGoing ? (
-              <>
-                <Check className="h-4 w-4" />
-                Going
-              </>
-            ) : (
-              <>
-                <CalendarCheck className="h-4 w-4" />
-                Attend
-              </>
-            )}
-          </button>
-
-          {!attendance.canToggle && !isCancelled && (
-            <p className="text-[11px] text-white/70 text-center sm:text-left">Sign in to mark your attendance</p>
-          )}
-          {isCancelled && (
-            <p className="text-[11px] text-red-400/80">This occurrence was cancelled.</p>
-          )}
-        </div>
-      </div>
+      )}
     </section>
   );
 };

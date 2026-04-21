@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -225,6 +226,7 @@ const App = () => {
           <Toaster />
           <Sonner />
 <BrowserRouter>
+            <ScrollToTop />
             <CityProvider>
               <GlobalBackground />
               <GlobalHeader />

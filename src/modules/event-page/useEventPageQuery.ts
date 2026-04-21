@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
-import type { EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
+import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
 // JSON helpers — safe extraction from untyped RPC payloads
@@ -28,6 +28,11 @@ const asNumber = (value: unknown): number | null => {
 };
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+const asEventLevel = (value: unknown): EventPageEventLevel => {
+  const s = asString(value);
+  return s === 'beginner' || s === 'intermediate' || s === 'advanced' || s === 'all_levels' ? s : null;
+};
 
 const requireObject = (value: unknown, label: string): JsonRecord => {
   const objectValue = asObject(value);
@@ -140,6 +145,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
         .map((s) => asString(s))
         .filter((s): s is string => s !== null),
       paymentMethods: asString(event.payment_methods),
+      level: asEventLevel(event.level),
       keyTimes: (() => {
         const kt = asObject(event.key_times);
         if (!kt) return null;
@@ -256,6 +262,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
     },
     attendance: {
       goingCount: asNumber(attendance.going_count) ?? 0,
+      interestedCount: asNumber(attendance.interested_count) ?? 0,
       currentUserStatus: asString(attendance.current_user_status),
       preview: parsePeople(attendance.preview, null, 'snapshot.attendance.preview'),
     },

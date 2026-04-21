@@ -8,13 +8,17 @@ export const EventMusicStylesSection = ({ musicStyles }: EventMusicStylesSection
   if (!musicStyles || musicStyles.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 mb-3">Music Styles</p>
-      <div className="flex flex-wrap gap-1.5">
+    <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+      <div className="flex flex-wrap gap-[6px]">
         {musicStyles.map((style) => (
           <span
             key={style}
-            className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-0.5 text-[11px] font-medium text-orange-300"
+            className="rounded-full px-3 py-[6px] text-[12px] font-medium"
+            style={{
+              backgroundColor: '#FAEEDA',
+              border: '0.5px solid #FFA500',
+              color: '#4A1B0C',
+            }}
           >
             {style}
           </span>

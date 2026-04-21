@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { buildEventPageModel } from '@/modules/event-page/buildEventPageModel';
 import { useEventPageQuery } from '@/modules/event-page/useEventPageQuery';
-import { useEventPageRsvpMutation } from '@/modules/event-page/useEventPageRsvpMutation';
+import { useEventPageRsvpMutation, type RsvpStatus } from '@/modules/event-page/useEventPageRsvpMutation';
 import { useFestivalDetailQuery } from '@/modules/event-page/useFestivalDetailQuery';
 
 export const useEventPage = (eventId?: string | null, occurrenceId?: string | null) => {
@@ -73,6 +73,6 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     error: query.error ?? null,
     isLoading: query.isLoading,
     isRsvpPending: rsvpMutation.isPending,
-    toggleRsvp: (nextGoing: boolean) => rsvpMutation.mutateAsync({ nextGoing }),
+    setRsvp: (status: RsvpStatus) => rsvpMutation.mutateAsync({ status }),
   };
 };

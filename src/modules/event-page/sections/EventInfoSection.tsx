@@ -4,31 +4,27 @@ type EventInfoSectionProps = {
   eventInfo: EventPageModel['eventInfo'];
 };
 
+const chipClass =
+  'inline-flex items-center gap-[5px] rounded-full border-[0.5px] border-black/10 bg-white px-[10px] py-[6px]';
+
+const Chip = ({ emoji, value }: { emoji: string; value: string }) => (
+  <span className={chipClass}>
+    <span className="text-[13px] leading-none" aria-hidden>{emoji}</span>
+    <span className="text-[12px] text-black/85">{value}</span>
+  </span>
+);
+
 export const EventInfoSection = ({ eventInfo }: EventInfoSectionProps) => {
-  if (!eventInfo.isVisible) return null;
+  const { dressCode, ageRestriction, paymentMethods } = eventInfo;
+
+  if (!dressCode && !ageRestriction && !paymentMethods) return null;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Event Info</p>
-      <div className="mt-2 space-y-1.5 text-sm text-white/80">
-        {eventInfo.dressCode && (
-          <p>
-            <span className="text-white/50">Dress code: </span>
-            {eventInfo.dressCode}
-          </p>
-        )}
-        {eventInfo.ageRestriction && (
-          <p>
-            <span className="text-white/50">Age: </span>
-            {eventInfo.ageRestriction}
-          </p>
-        )}
-        {eventInfo.paymentMethods && (
-          <p>
-            <span className="text-white/50">Payment: </span>
-            {eventInfo.paymentMethods}
-          </p>
-        )}
+    <section className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+      <div className="flex flex-wrap gap-[6px]">
+        {dressCode && <Chip emoji="👔" value={dressCode} />}
+        {ageRestriction && <Chip emoji="🔞" value={ageRestriction} />}
+        {paymentMethods && <Chip emoji="💳" value={paymentMethods} />}
       </div>
     </section>
   );

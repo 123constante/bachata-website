@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { EventPageScreen } from '@/modules/event-page/EventPageScreen';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
@@ -6,17 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const EventPageInner = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
 
   const requestedOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
-  const { pageModel, festivalDetail, isFestival, eventSchedule, isRsvpPending, toggleRsvp } = useEventPage(id, requestedOccurrenceId);
-
-  const handleBack = () => navigate(-1);
-  const handleToggleRsvp = () => {
-    const isCurrentlyGoing = pageModel.attendance.ctaLabel === "You're Going";
-    toggleRsvp(!isCurrentlyGoing);
-  };
+  const { pageModel, festivalDetail, isFestival, eventSchedule, isRsvpPending, setRsvp } = useEventPage(id, requestedOccurrenceId);
 
   if (pageModel.page.state === 'loading') {
     return (
@@ -54,8 +47,7 @@ const EventPageInner = () => {
       festivalDetail={isFestival ? festivalDetail : null}
       eventSchedule={eventSchedule}
       isRsvpPending={isRsvpPending}
-      onBack={handleBack}
-      onToggleRsvp={handleToggleRsvp}
+      setRsvp={setRsvp}
     />
   );
 };

@@ -88,9 +88,9 @@ const sectionStyles = `
     border-radius: 16px;
   }
   .gl-save-badge {
-    background: rgba(197, 148, 10, 0.12);
-    border: 0.5px solid rgba(245, 213, 99, 0.3);
-    color: #f5d563;
+    background: rgba(29, 158, 117, 0.15);
+    border: 0.5px solid rgba(29, 158, 117, 0.4);
+    color: #5ee6b8;
   }
   .gl-input {
     background: rgba(0, 0, 0, 0.25) !important;
@@ -126,10 +126,10 @@ const PriceTier = ({ label, regular, guestList }: PriceTierProps) => {
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 py-1">
       <span className="text-xs" style={{ color: MUTED_PRIMARY }}>{label}</span>
-      <span className="gl-shimmer-text text-xl font-bold">£{displayPrice}</span>
+      <span className="gl-shimmer-text text-[17px] font-bold">£{displayPrice}</span>
       {hasSave && (
         <>
-          <span className="text-xs line-through" style={{ color: STRIKE }}>
+          <span className="text-[11px] line-through" style={{ color: STRIKE }}>
             £{regular}
           </span>
           <span className="gl-save-badge rounded-full px-2 py-0.5 text-[10px] font-semibold">
@@ -178,7 +178,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
   };
 
   return (
-    <section className="gl-card p-6 text-center">
+    <section className="gl-card p-3 text-center">
       <style>{sectionStyles}</style>
 
       {/* Header */}
@@ -207,7 +207,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
 
       {/* Arrive before */}
       {hasArriveBefore && (
-        <p className="mb-3 text-[11px]" style={{ color: MUTED_SECONDARY }}>
+        <p className="mt-2 mb-3 text-center text-[10px]" style={{ color: MUTED_SECONDARY }}>
           Arrive before {config.discount_until}
         </p>
       )}
@@ -229,7 +229,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
 
       {/* Input form OR closed message */}
       {cutoff_passed ? (
-        <p className="mb-4 text-sm" style={{ color: MUTED_PRIMARY }}>
+        <p className="mt-2 mb-4 text-center text-[10px]" style={{ color: MUTED_PRIMARY }}>
           Guest list is now closed
         </p>
       ) : (
@@ -243,12 +243,12 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
             placeholder="Enter your first name"
             disabled={submit.isPending}
             maxLength={60}
-            className="gl-input flex-1"
+            className="gl-input h-9 flex-1 py-2"
           />
           <Button
             type="submit"
             disabled={!name.trim() || submit.isPending}
-            className="gl-button shrink-0 font-semibold"
+            className="gl-button h-9 shrink-0 py-2 font-semibold"
           >
             {submit.isPending ? 'Adding…' : 'Add My Name'}
           </Button>
