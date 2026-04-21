@@ -74,7 +74,7 @@ const PageLayout = ({
     : [{ label: breadcrumbEmoji ? `${breadcrumbEmoji} ${breadcrumbLabel}` : breadcrumbLabel }];
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
+    <div className="min-h-screen text-foreground overflow-x-hidden">
       {/* Progress Bar */}
       {showProgressBar && (
         <motion.div
