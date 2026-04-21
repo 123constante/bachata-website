@@ -75,7 +75,7 @@ export const CalendarGrid = ({
                 isToday
                   ? 'bg-primary text-primary-foreground font-semibold'
                   : hasEvents
-                    ? 'hover:bg-white/5 shadow-[0_0_8px_hsl(42_90%_50%/0.15)]'
+                    ? 'hover:bg-white/5 shadow-[0_0_8px_hsl(42_90%_50%/0.10)]'
                     : 'hover:bg-surface',
                 hasEvents && 'cursor-pointer',
               )}
@@ -91,7 +91,7 @@ export const CalendarGrid = ({
                     <div
                       className={cn(
                         'w-1.5 h-1.5 rounded-full',
-                        isToday ? 'bg-primary-foreground' : 'bg-primary',
+                        isToday ? 'bg-primary ring-1 ring-primary-foreground' : 'bg-primary',
                       )}
                     />
                   )}
