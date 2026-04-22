@@ -1,5 +1,6 @@
 import { useParams, useLocation } from 'react-router-dom';
 import { useEventPage } from '@/modules/event-page/useEventPage';
+import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { EventPageScreen } from '@/modules/event-page/EventPageScreen';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +11,8 @@ const EventPageInner = () => {
 
   const requestedOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
   const { pageModel, festivalDetail, isFestival, eventSchedule, isRsvpPending, setRsvp } = useEventPage(id, requestedOccurrenceId);
+
+  useRecordEventView(id, 'public_event_page');
 
   if (pageModel.page.state === 'loading') {
     return (

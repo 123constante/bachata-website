@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { attendanceQueryKeys, useAttendance, type AttendanceStatus } from "@/hooks/useAttendance";
+import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 
 type FestivalEvent = {
   id: string;
@@ -48,6 +49,8 @@ const FestivalDetailInner = () => {
   const [, setTick] = useState(0);
 
   const festivalId = id || '';
+
+  useRecordEventView(festivalId, 'public_festival_page');
 
   const { data: festival, isLoading: isFestivalLoading } = useQuery({
     queryKey: ['festival-event', festivalId],
