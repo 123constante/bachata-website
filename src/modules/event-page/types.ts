@@ -203,6 +203,7 @@ export type EventPageModel = {
     floorType: string | null;
     facilitiesNew: string[];
     venueTimezone: string | null;
+    cityId: string | null;
     cityName: string | null;
     locationText: string | null;
     timezoneLabel: string | null;
