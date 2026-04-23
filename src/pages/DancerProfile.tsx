@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import PageBreadcrumb from "@/components/PageBreadcrumb";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import {
@@ -198,10 +198,16 @@ const DancerProfile = () => {
     navigate(item.type === "festival" ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
+  const dancerBreadcrumbs = [{ label: 'Dancers', path: '/dancers' }];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-24 pt-32 bg-background">
-        <div className="container max-w-4xl mx-auto px-4">
+      <GlobalLayout
+        breadcrumbs={dancerBreadcrumbs}
+        backHref="/dancers"
+        showGradientBg={false}
+      >
+        <div className="container max-w-4xl mx-auto px-4 pb-24">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]">
             <Skeleton className="col-span-2 row-span-2 h-full rounded-xl" />
             <Skeleton className="col-span-1 row-span-1 h-full rounded-xl" />
@@ -211,15 +217,19 @@ const DancerProfile = () => {
             <Skeleton className="col-span-1 row-span-1 h-full rounded-xl" />
           </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error || !dancer || !dancerView) {
     if (dancerError) console.error('DancerProfile error:', dancerError);
     return (
-      <div className="min-h-screen pb-24 pt-32 bg-background">
-        <div className="container max-w-4xl mx-auto px-4 text-center">
+      <GlobalLayout
+        breadcrumbs={dancerBreadcrumbs}
+        backHref="/dancers"
+        showGradientBg={false}
+      >
+        <div className="container max-w-4xl mx-auto px-4 pb-24 text-center">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -239,27 +249,17 @@ const DancerProfile = () => {
             Back to Dancers
           </Button>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24 pt-20 bg-background">
-      <PageBreadcrumb items={[
-        { label: 'Dancers', path: '/dancers' },
-        { label: dancerView.displayName }
-      ]} />
-      
-      <div className="container max-w-5xl mx-auto px-4 pt-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/dancers")}
-          className="mb-6 hover:bg-primary/10 -ml-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dancers
-        </Button>
-
+    <GlobalLayout
+      breadcrumbs={dancerBreadcrumbs}
+      backHref="/dancers"
+      showGradientBg={false}
+    >
+      <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
         <DancerProfileGrid dancer={dancerView} />
 
         {/* Gallery */}
@@ -380,7 +380,7 @@ const DancerProfile = () => {
           </div>
         </div>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 

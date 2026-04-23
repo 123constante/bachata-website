@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
@@ -125,12 +125,20 @@ const TeacherProfile = () => {
     enabled: !!id,
   });
 
+  const teacherBreadcrumbs = [
+    { label: 'Classes', path: classesPath },
+    { label: 'Teachers', path: '/teachers' },
+  ];
+
   /* ── loading ──── */
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24 bg-background">
-        <div className="max-w-5xl mx-auto space-y-6">
-          <Skeleton className="h-8 w-48" />
+      <GlobalLayout
+        breadcrumbs={teacherBreadcrumbs}
+        backHref="/teachers"
+        showGradientBg={false}
+      >
+        <div className="max-w-5xl mx-auto px-4 pb-24 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Skeleton className="col-span-2 row-span-2 h-[340px] rounded-xl" />
             <Skeleton className="h-[160px] rounded-xl" />
@@ -139,7 +147,7 @@ const TeacherProfile = () => {
             <Skeleton className="h-[160px] rounded-xl" />
           </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -147,8 +155,12 @@ const TeacherProfile = () => {
   if (error || !teacher) {
     console.error('TeacherProfile error:', { error, teacher, id });
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24 bg-background">
-        <div className="max-w-4xl mx-auto text-center">
+      <GlobalLayout
+        breadcrumbs={teacherBreadcrumbs}
+        backHref="/teachers"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 text-center">
           <GraduationCap className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-4">Teacher Not Found</h1>
           <p className="text-muted-foreground mb-2">{error?.message ?? 'The teacher profile you\'re looking for doesn\'t exist.'}</p>
@@ -158,7 +170,7 @@ const TeacherProfile = () => {
             Back to Teachers
           </Button>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -181,22 +193,12 @@ const TeacherProfile = () => {
     : [];
 
   return (
-    <div className="min-h-screen pb-24 pt-20 bg-background">
-      <div className="max-w-5xl mx-auto px-4">
-        <PageBreadcrumb
-          items={[
-            { label: 'Classes', path: classesPath },
-            { label: 'Teachers', path: '/teachers' },
-            { label: displayName },
-          ]}
-        />
-
-        {/* Back */}
-        <Button onClick={() => navigate(-1)} variant="ghost" className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
+    <GlobalLayout
+      breadcrumbs={teacherBreadcrumbs}
+      backHref="/teachers"
+      showGradientBg={false}
+    >
+      <div className="max-w-5xl mx-auto px-4 pb-24">
         {/* ═══ Bento Grid ═══ */}
         <motion.div
           variants={containerVariants}
@@ -550,7 +552,7 @@ const TeacherProfile = () => {
           />
         </div>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { buildFullName } from '@/lib/name-utils';
 
@@ -88,11 +88,16 @@ const DJProfile = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const djBreadcrumbs = [{ label: 'DJs', path: '/djs' }];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-24 pt-20 bg-background">
-        <div className="max-w-4xl mx-auto px-4 space-y-4">
-          <Skeleton className="h-5 w-40" />
+      <GlobalLayout
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 space-y-4">
           <div className="flex gap-5 mt-6">
             <Skeleton className="h-28 w-28 rounded-2xl shrink-0" />
             <div className="flex-1 space-y-2 pt-2">
@@ -108,22 +113,28 @@ const DJProfile = () => {
           </div>
           <Skeleton className="h-40 w-full rounded-xl" />
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error || !dj) {
     return (
-      <div className="min-h-screen pb-24 pt-20 bg-background flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="text-5xl mb-4">🎧</div>
-          <h1 className="text-2xl font-bold mb-2">DJ Not Found</h1>
-          <p className="text-muted-foreground mb-6">This DJ profile doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate('/djs')} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
-          </Button>
+      <GlobalLayout
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="text-5xl mb-4">🎧</div>
+            <h1 className="text-2xl font-bold mb-2">DJ Not Found</h1>
+            <p className="text-muted-foreground mb-6">This DJ profile doesn't exist or has been removed.</p>
+            <Button onClick={() => navigate('/djs')} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
+            </Button>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -154,22 +165,17 @@ const DJProfile = () => {
   ].filter(Boolean) as { label: string; value: string; url: string; icon: any }[];
 
   return (
-    <div className="min-h-screen pb-24 pt-20 bg-background">
-      <PageBreadcrumb items={[
-        { label: 'DJs', path: '/djs' },
-        { label: displayName },
-      ]} />
-
+    <GlobalLayout
+      breadcrumbs={djBreadcrumbs}
+      backHref="/djs"
+      showGradientBg={false}
+    >
       <motion.div
-        className="max-w-4xl mx-auto px-4 pt-6"
+        className="max-w-4xl mx-auto px-4 pb-24 pt-6"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
-        <Button variant="ghost" onClick={() => navigate('/djs')} className="mb-6 -ml-2">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
-        </Button>
-
         {/* ── Hero ── */}
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 mb-8">
           <div className="w-28 h-28 rounded-2xl border border-primary/20 shrink-0 self-start overflow-hidden bg-primary/10 flex items-center justify-center">
@@ -356,7 +362,7 @@ const DJProfile = () => {
           />
         </motion.div>
       </motion.div>
-    </div>
+    </GlobalLayout>
   );
 };
 

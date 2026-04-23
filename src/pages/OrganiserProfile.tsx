@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import {
   Dialog,
   DialogContent,
@@ -257,11 +257,16 @@ const OrganiserProfile = () => {
     }
   };
 
+  const organiserBreadcrumbs = [{ label: 'Organisers', path: '/organisers' }];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-20 px-4 pb-24 bg-background">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Skeleton className="h-8 w-32" />
+      <GlobalLayout
+        breadcrumbs={organiserBreadcrumbs}
+        backHref="/organisers"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 space-y-6">
           <div className="flex items-center gap-4">
             <Skeleton className="h-24 w-24 rounded-full" />
             <div className="space-y-2">
@@ -271,22 +276,26 @@ const OrganiserProfile = () => {
           </div>
           <Skeleton className="h-48 w-full" />
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error || !entity) {
     return (
-      <div className="min-h-screen pt-20 px-4 pb-24 bg-background">
-        <div className="max-w-4xl mx-auto text-center">
+      <GlobalLayout
+        breadcrumbs={organiserBreadcrumbs}
+        backHref="/organisers"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Organiser Not Found</h1>
           <p className="text-muted-foreground mb-6">The organiser profile you're looking for doesn't exist.</p>
-          <Button onClick={() => navigate(-1)} variant="outline">
+          <Button onClick={() => navigate('/organisers')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
+            Back to Organisers
           </Button>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -327,23 +336,12 @@ const OrganiserProfile = () => {
   const canClaim = user && isUnclaimed;
 
   return (
-    <div className="min-h-screen pb-24 pt-20 bg-background">
-      <PageBreadcrumb items={[
-        { label: 'Parties', path: '/parties' },
-        { label: 'Organisers', path: '/organisers' },
-        { label: entity.name }
-      ]} />
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Back Button */}
-        <Button
-          onClick={() => navigate(-1)}
-          variant="ghost"
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
+    <GlobalLayout
+      breadcrumbs={organiserBreadcrumbs}
+      backHref="/organisers"
+      showGradientBg={false}
+    >
+      <div className="max-w-4xl mx-auto px-4 pb-24">
         {/* Header with Avatar */}
         <ScrollReveal animation="fadeUp">
           <div className="flex flex-col sm:flex-row items-start gap-6 mb-8">
@@ -645,7 +643,7 @@ const OrganiserProfile = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </GlobalLayout>
   );
 };
 

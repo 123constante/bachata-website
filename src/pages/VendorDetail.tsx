@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
@@ -192,40 +193,49 @@ const VendorDetail = () => {
     }
   };
 
+  const vendorBreadcrumbs = [{ label: 'Vendors', path: '/vendors' }];
+
   if (loading) {
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24">
-        <div className="max-w-5xl mx-auto space-y-4">
-          <Skeleton className="h-8 w-24" />
+      <GlobalLayout
+        breadcrumbs={vendorBreadcrumbs}
+        backHref="/vendors"
+        showGradientBg={false}
+      >
+        <div className="max-w-5xl mx-auto px-4 pb-24 space-y-4">
           <Skeleton className="h-10 w-1/3" />
           <Skeleton className="h-72 w-full" />
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error || !vendor) {
     return (
-      <div className="min-h-screen pt-[100px] px-4 pb-24">
-        <div className="max-w-4xl mx-auto text-center space-y-4">
+      <GlobalLayout
+        breadcrumbs={vendorBreadcrumbs}
+        backHref="/vendors"
+        showGradientBg={false}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 text-center space-y-4">
           <h1 className="text-2xl font-semibold">Vendor unavailable</h1>
           <p className="text-muted-foreground">{error || "Could not load this vendor."}</p>
           <Button variant="outline" onClick={() => navigate("/vendors")}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
             Back to vendors
           </Button>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   return (
-    <div className="min-h-screen pt-[95px] px-4 pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-
+    <GlobalLayout
+      breadcrumbs={vendorBreadcrumbs}
+      backHref="/vendors"
+      showGradientBg={false}
+    >
+      <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
         <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-muted/40">
           <CardContent className="pt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-5">
@@ -556,7 +566,7 @@ const VendorDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 
