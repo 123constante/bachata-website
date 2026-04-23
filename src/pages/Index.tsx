@@ -1,10 +1,8 @@
-import React, { Suspense, lazy, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useSpring } from 'framer-motion';
-import { Loader2, Sparkles, Calendar, GraduationCap } from 'lucide-react';
-import PageHero from '@/components/PageHero';
+import { Loader2, Sparkles, GraduationCap } from 'lucide-react';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
-import { FloatingElements } from '@/components/FloatingElements';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { buildCityPath } from '@/lib/cityPath';
@@ -14,8 +12,6 @@ const EventCalendar = lazy(() => import('@/components/EventCalendar').then(modul
 
 const Index = () => {
   const { citySlug } = useCity();
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
 
   const cityDisplayName = citySlug
     ? citySlug.split('-')[0].replace(/^\w/, (c) => c.toUpperCase())
@@ -74,67 +70,48 @@ const Index = () => {
 
   return (
     <PageErrorBoundary>
-    <div className="min-h-screen text-foreground overflow-x-hidden">
-      {/* Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
-        style={{ scaleX }}
-      />
-      {/* Animated background */}
-      <motion.div
-        className="fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
-        animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
-        transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
-        style={{ backgroundSize: '200% 200%' }}
-      />
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <FloatingElements count={20} />
-      </div>
-
-      {/* HERO SECTION */}
-      <PageHero
-        emoji='💃'
-        titleWhite='Bachata'
-        titleOrange={cityDisplayName}
-        subtitle={`The most comprehensive calendar for Bachata classes, socials, and festivals in ${cityDisplayName}.`}
-        largeTitle={true}
-        hideBackground={true}
-        floatingIcons={[Sparkles]}
-        topPadding='pt-10'
-      />
-
-      {/* CITY STATS STRIP */}
-      {stats.classesTonight > 0 && (
-        <div className="container mx-auto px-4 pb-4">
-          <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
-            <Link
-              to={buildCityPath(citySlug, 'tonight')}
-              className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue hover:bg-festival-blue/20 transition-colors"
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* EVENT CALENDAR */}
-      <section className="min-h-[500px] sm:min-h-[650px]">
-        <div className="container mx-auto px-4">
-          <Suspense fallback={
-            <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-              <p>Loading calendar…</p>
+      <GlobalLayout
+        breadcrumbs={[]}
+        hero={{
+          emoji: '💃',
+          titleWhite: 'Bachata',
+          titleOrange: cityDisplayName,
+          subtitle: `The most comprehensive calendar for Bachata classes, socials, and festivals in ${cityDisplayName}.`,
+          largeTitle: true,
+          floatingIcons: [Sparkles],
+        }}
+      >
+        {/* CITY STATS STRIP */}
+        {stats.classesTonight > 0 && (
+          <div className="container mx-auto px-4 pb-4">
+            <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
+              <Link
+                to={buildCityPath(citySlug, 'tonight')}
+                className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue hover:bg-festival-blue/20 transition-colors"
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
+              </Link>
             </div>
-          }>
-            <ErrorBoundary>
-              <EventCalendar />
-            </ErrorBoundary>
-          </Suspense>
-        </div>
-      </section>
+          </div>
+        )}
 
-    </div>
+        {/* EVENT CALENDAR */}
+        <section className="min-h-[500px] sm:min-h-[650px]">
+          <div className="container mx-auto px-4">
+            <Suspense fallback={
+              <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">
+                <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
+                <p>Loading calendar…</p>
+              </div>
+            }>
+              <ErrorBoundary>
+                <EventCalendar />
+              </ErrorBoundary>
+            </Suspense>
+          </div>
+        </section>
+      </GlobalLayout>
     </PageErrorBoundary>
   );
 };
