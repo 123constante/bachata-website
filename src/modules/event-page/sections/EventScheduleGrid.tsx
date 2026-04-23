@@ -6,8 +6,11 @@ import { cn } from '@/lib/utils';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
+// Exported so the new bento ScheduleBlock can reuse this hook without
+// duplicating it. EventScheduleGrid is slated for deletion post-bento rollout;
+// the hook will relocate at that point.
 
-type Person = {
+export type Person = {
   id: string;
   name: string;
   href: string | null;
@@ -16,7 +19,7 @@ type Person = {
   profileType: string | null;
 };
 
-type ScheduleSession = {
+export type ScheduleSession = {
   id: string;
   title: string;
   type: string;
@@ -82,7 +85,7 @@ const roleLabel = (profileType: string | null): string => {
 // ─── Data hook — mirror of useProgramItems from EventTimelineSection ─────────
 // Same queryKey so React Query deduplicates across both components.
 
-function useProgramItems(eventId: string | null | undefined) {
+export function useProgramItems(eventId: string | null | undefined) {
   return useQuery<ScheduleSession[]>({
     queryKey: ['event-program-items', eventId],
     queryFn: async () => {
@@ -139,11 +142,18 @@ function useProgramItems(eventId: string | null | undefined) {
             })
             .filter((x): x is Person => x !== null);
 
+          // Extract local-wall-clock date prefix. The RPC stores times as naive
+          // local (see toMins, which ignores any offset); the YYYY-MM-DD prefix
+          // matches what DayBlock/formatDayLabel expect.
+          const dayMatch =
+            typeof item.start_time === 'string' ? item.start_time.match(/^(\d{4}-\d{2}-\d{2})/) : null;
+          const day = dayMatch ? dayMatch[1] : null;
+
           return {
             id: item.id,
             title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
             type: item.type || 'class',
-            day: null,
+            day,
             startMins,
             endMins,
             people,
