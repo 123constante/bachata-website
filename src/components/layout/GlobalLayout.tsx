@@ -8,7 +8,11 @@ import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadc
 import { FloatingElements } from '@/components/FloatingElements';
 
 interface HeroProps {
-  emoji: string;
+  // emoji is typed as optional for future BentoPage consumption (title-only hero).
+  // Current runtime still delegates to PageHero which requires emoji — an empty
+  // string renders an invisible but layout-occupying motion div. Full omission
+  // will be wired when BentoPage migrates in Phase 2c.
+  emoji?: string;
   titleWhite: string;
   titleOrange: string;
   subtitle?: string;
@@ -24,6 +28,10 @@ export interface GlobalLayoutProps {
   headerActions?: ReactNode;
   backHref?: string;
   stickySubheader?: ReactNode;
+  // When false, the entire sub-header row (breadcrumb + backHref + headerActions)
+  // is not rendered. Used by auth/onboarding flows that preserve their own
+  // theming and don't want a breadcrumb trail.
+  showSubheader?: boolean;
   showProgressBar?: boolean;
   showGradientBg?: boolean;
   floatingCount?: number;
@@ -49,15 +57,13 @@ const DEFAULT_BREADCRUMBS: BreadcrumbItemType[] = [];
 // - Without hero: sticky at viewport-top+60px so the row pins under the
 //   global header on scroll. Takes its natural height.
 //
-// TODO(Phase 2c): when `stickySubheader` is layered beneath this row, the
-// inner sticky offset likely needs top-[96px] (60 global + ~36 this row).
-// Resolve with a physical browser check on FestivalDetail at 390x844.
 const GlobalLayout = ({
   breadcrumbs = DEFAULT_BREADCRUMBS,
   hero,
   headerActions,
   backHref,
   stickySubheader,
+  showSubheader = true,
   showProgressBar = true,
   showGradientBg = true,
   floatingCount = 20,
@@ -124,15 +130,29 @@ const GlobalLayout = ({
       )}
 
       {stickySubheader && (
-        <div className="sticky top-[60px] z-20">{stickySubheader}</div>
+        // With hero, the breadcrumb row is absolute (zero flow impact), so the
+        // stickySubheader pins flush under the global header at top-[60px].
+        // Without hero, the breadcrumb row is itself sticky at top-[60px]
+        // with natural height ~41px, so the stickySubheader must pin below it
+        // at top-[101px] (60 global + 41 breadcrumb row) to avoid overlap.
+        <div className={`sticky ${hero ? 'top-[60px]' : 'top-[101px]'} z-20`}>
+          {stickySubheader}
+        </div>
       )}
 
-      {subHeader}
+      {showSubheader && subHeader}
 
       {hero && (
         <div className="pt-9">
           <PageHero
-            emoji={hero.emoji}
+            // emoji is typed as optional on GlobalLayout's HeroProps for future
+            // BentoPage consumption (title-only hero). PageHero still requires
+            // a string, so absent emojis pass through as ''. This renders an
+            // invisible motion div that still occupies the mb-4 spacing slot.
+            // Full omission (no motion div at all) will be wired when BentoPage
+            // migrates in Phase 2c — it's the first consumer that actually
+            // needs a title-only hero.
+            emoji={hero.emoji ?? ''}
             titleWhite={hero.titleWhite}
             titleOrange={hero.titleOrange}
             subtitle={hero.subtitle ?? ''}
