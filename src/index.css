@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Twemoji Country Flags — Windows' default emoji font (Segoe UI Emoji) does
+   not render regional-indicator flag sequences like 🇬🇧, showing them as bare
+   letter pairs ("GB") instead. This @font-face is scoped via unicode-range
+   to ONLY the regional-indicator codepoints (U+1F1E6–1F1FF), so it doesn't
+   affect any other emoji or text rendering. Any element with
+   font-family: "Twemoji Country Flags", <regular stack> will render flag
+   emojis through Twemoji on Windows, while other platforms keep their
+   native rendering (the browser falls through when a glyph is present in
+   the system font). */
+@font-face {
+  font-family: 'Twemoji Country Flags';
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1.8/dist/TwemojiCountryFlags.woff2') format('woff2');
+  unicode-range: U+1F1E6-1F1FF;
+}
+
 /* Bachata Design System - Festival Vibe */
 
 @layer base {
