@@ -136,7 +136,12 @@ const TeacherProfile = () => {
       <GlobalLayout
         breadcrumbs={teacherBreadcrumbs}
         backHref="/teachers"
-        showGradientBg={false}
+        hero={{
+          emoji: '🎓',
+          titleWhite: '',
+          titleOrange: 'Teacher',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-5xl mx-auto px-4 pb-24 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -158,11 +163,15 @@ const TeacherProfile = () => {
       <GlobalLayout
         breadcrumbs={teacherBreadcrumbs}
         backHref="/teachers"
-        showGradientBg={false}
+        hero={{
+          emoji: '🎓',
+          titleWhite: 'Teacher',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-4xl mx-auto px-4 pb-24 text-center">
           <GraduationCap className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground mb-4">Teacher Not Found</h1>
           <p className="text-muted-foreground mb-2">{error?.message ?? 'The teacher profile you\'re looking for doesn\'t exist.'}</p>
           {id && <p className="text-xs text-muted-foreground mb-6">ID: {id}</p>}
           <Button onClick={() => navigate('/teachers')} variant="outline">
@@ -187,16 +196,24 @@ const TeacherProfile = () => {
   const hasAchievements = teacher.achievements && teacher.achievements.length > 0;
   const hasGallery = teacher.gallery_urls && teacher.gallery_urls.length > 0;
 
-  // Parse FAQ as lines  
+  // Parse FAQ as lines
   const faqLines = teacher.faq
     ? teacher.faq.split('\n').filter((l) => l.trim())
     : [];
+
+  const teacherSubtitle = [teacher.city?.name, teacher.nationality].filter(Boolean).join(' · ');
 
   return (
     <GlobalLayout
       breadcrumbs={teacherBreadcrumbs}
       backHref="/teachers"
-      showGradientBg={false}
+      hero={{
+        emoji: '🎓',
+        titleWhite: displayName,
+        titleOrange: 'Teacher',
+        subtitle: teacherSubtitle,
+        largeTitle: true,
+      }}
     >
       <div className="max-w-5xl mx-auto px-4 pb-24">
         {/* ═══ Bento Grid ═══ */}
@@ -206,48 +223,7 @@ const TeacherProfile = () => {
           animate="show"
           className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]"
         >
-          {/* ── 1. Identity Hero (2×2) ── */}
-          <motion.div variants={itemVariants} className="col-span-2 row-span-2">
-            <Card className="h-full relative overflow-hidden group border-white/10 bg-card/50 backdrop-blur-sm transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/20 hover:border-primary/30">
-              <div className="absolute inset-0">
-                {teacher.photo_url ? (
-                  <img
-                    src={teacher.photo_url}
-                    alt={displayName}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-                    <GraduationCap className="w-24 h-24 text-primary/30" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              </div>
-              <div className="relative h-full flex flex-col justify-end p-6 z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-md">
-                    {displayName}
-                  </h1>
-                </div>
-                <div className="flex items-center gap-2 text-white/80 font-medium flex-wrap">
-                  {teacher.city?.name && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      {teacher.city.name}
-                    </span>
-                  )}
-                  {teacher.nationality && (
-                    <>
-                      {teacher.city?.name && <span className="text-white/40">•</span>}
-                      <span>{teacher.nationality}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* ── 2. Teaching Experience (1×1) ── */}
+          {/* ── Teaching Experience (1×1) ── */}
           {hasExperience && expLevel && (
             <motion.div variants={itemVariants} className="col-span-1 row-span-1">
               <Card className={`h-full p-5 border-white/10 ${expLevel.bg} backdrop-blur-sm transition-all hover:scale-[1.02] hover:bg-card/80 flex flex-col justify-between`}>

@@ -264,16 +264,14 @@ const OrganiserProfile = () => {
       <GlobalLayout
         breadcrumbs={organiserBreadcrumbs}
         backHref="/organisers"
-        showGradientBg={false}
+        hero={{
+          emoji: '🎪',
+          titleWhite: '',
+          titleOrange: 'Organiser',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-4xl mx-auto px-4 pb-24 space-y-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-24 w-24 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
           <Skeleton className="h-48 w-full" />
         </div>
       </GlobalLayout>
@@ -285,10 +283,14 @@ const OrganiserProfile = () => {
       <GlobalLayout
         breadcrumbs={organiserBreadcrumbs}
         backHref="/organisers"
-        showGradientBg={false}
+        hero={{
+          emoji: '🎪',
+          titleWhite: 'Organiser',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-4xl mx-auto px-4 pb-24 text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Organiser Not Found</h1>
           <p className="text-muted-foreground mb-6">The organiser profile you're looking for doesn't exist.</p>
           <Button onClick={() => navigate('/organisers')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -335,14 +337,23 @@ const OrganiserProfile = () => {
   const isClaimedByUser = entity.claimed_by === user?.id;
   const canClaim = user && isUnclaimed;
 
+  const organiserSubtitle = entity.cities?.name ?? '';
+
   return (
     <GlobalLayout
       breadcrumbs={organiserBreadcrumbs}
       backHref="/organisers"
-      showGradientBg={false}
+      hero={{
+        emoji: '🎪',
+        titleWhite: entity.name ?? '',
+        titleOrange: 'Organiser',
+        subtitle: organiserSubtitle,
+        largeTitle: true,
+      }}
     >
       <div className="max-w-4xl mx-auto px-4 pb-24">
-        {/* Header with Avatar */}
+        {/* Supporting identity — avatar, category, social actions, claim/edit.
+            Name, "Event organiser" label, and city now live in the hero. */}
         <ScrollReveal animation="fadeUp">
           <div className="flex flex-col sm:flex-row items-start gap-6 mb-8">
             <Avatar className="w-24 h-24 border-2 border-primary/20">
@@ -351,23 +362,11 @@ const OrganiserProfile = () => {
                 {entity.name?.charAt(0) || '­'}
               </AvatarFallback>
             </Avatar>
-            
-            <div className="flex-1">
-              {/* Page title: Organiser Name */}
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-1">
-                {entity.name}
-              </h1>
-              {/* Subheading: Event organiser */}
-              <p className="text-muted-foreground text-lg">Event organiser</p>
-              
-              {/* City if available */}
-              {entity.cities?.name && (
-                <p className="text-sm text-muted-foreground mt-2">{entity.cities.name}</p>
-              )}
 
+            <div className="flex-1">
               {/* Organisation category */}
               {organisationCategory && (
-                <span className="inline-block mt-2 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+                <span className="inline-block text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
                   {organisationCategory}
                 </span>
               )}

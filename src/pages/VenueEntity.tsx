@@ -81,12 +81,15 @@ const VenueEntity = () => {
       <GlobalLayout
         breadcrumbs={venueBreadcrumbs}
         backHref="/venues"
-        showGradientBg={false}
+        hero={{
+          emoji: '🏛️',
+          titleWhite: '',
+          titleOrange: 'Venue',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-2xl mx-auto px-3 pb-20 space-y-3">
           <Skeleton className="aspect-video w-full rounded-xl" />
-          <Skeleton className="h-6 w-24" />
-          <Skeleton className="h-5 w-36" />
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-20 w-full" />
         </div>
@@ -99,10 +102,14 @@ const VenueEntity = () => {
       <GlobalLayout
         breadcrumbs={venueBreadcrumbs}
         backHref="/venues"
-        showGradientBg={false}
+        hero={{
+          emoji: '🏛️',
+          titleWhite: 'Venue',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-2xl mx-auto px-3 pb-20 text-center">
-          <h1 className="text-lg font-bold text-foreground mb-2">Venue Not Found</h1>
           <p className="text-xs text-muted-foreground mb-4">This venue doesn't exist or has been removed.</p>
           <Button onClick={() => navigate('/venues')} variant="outline" size="sm">
             <ArrowLeft className="w-3 h-3 mr-1" />
@@ -166,11 +173,19 @@ const VenueEntity = () => {
     (parkingJson.parking_available !== null || !!parkingJson.nearby_parking_notes);
   const hasFaq = faqItems.length > 0;
 
+  const venueSubtitle = addressPillText;
+
   return (
     <GlobalLayout
       breadcrumbs={venueBreadcrumbs}
       backHref="/venues"
-      showGradientBg={false}
+      hero={{
+        emoji: '🏛️',
+        titleWhite: venue.name ?? '',
+        titleOrange: 'Venue',
+        subtitle: venueSubtitle,
+        largeTitle: true,
+      }}
     >
       <div className="max-w-2xl mx-auto px-3 pb-20">
         {/* Merged media block */}
@@ -184,8 +199,6 @@ const VenueEntity = () => {
           )}
         </div>
 
-        {/* Name */}
-        <h1 className="text-lg font-bold text-foreground truncate mb-2">{venue.name}</h1>
 
         {/* Identity strip — pills */}
         {(addressPillText || venue.capacity) && (

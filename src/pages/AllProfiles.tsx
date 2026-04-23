@@ -22,7 +22,12 @@ export default function AllProfiles() {
     return (
       <GlobalLayout
         breadcrumbs={ALL_PROFILES_BREADCRUMBS}
-        showGradientBg={false}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
       >
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <div className="text-center">
@@ -38,7 +43,12 @@ export default function AllProfiles() {
     return (
       <GlobalLayout
         breadcrumbs={ALL_PROFILES_BREADCRUMBS}
-        showGradientBg={false}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
       >
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <div className="text-center">
@@ -54,7 +64,12 @@ export default function AllProfiles() {
     return (
       <GlobalLayout
         breadcrumbs={ALL_PROFILES_BREADCRUMBS}
-        showGradientBg={false}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
       >
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <p className="text-muted-foreground">No profiles found</p>
@@ -76,17 +91,15 @@ export default function AllProfiles() {
   return (
     <GlobalLayout
       breadcrumbs={ALL_PROFILES_BREADCRUMBS}
-      showGradientBg={false}
+      hero={{
+        emoji: '👥',
+        titleWhite: 'All',
+        titleOrange: 'Profiles',
+        subtitle: `${profiles.length} profiles across ${Object.keys(grouped).length} roles`,
+        largeTitle: true,
+      }}
     >
       <div className="px-4 pb-24 space-y-16">
-        {/* Header */}
-        <div className="max-w-2xl mx-auto text-center space-y-2">
-          <h1 className="text-4xl font-bold">All Profiles</h1>
-          <p className="text-muted-foreground">
-            {profiles.length} profiles across {Object.keys(grouped).length} roles
-          </p>
-        </div>
-
       {/* Sections by role */}
       {Object.entries(grouped).map(([role, roleProfiles]) => (
         <div key={role} className="space-y-4">

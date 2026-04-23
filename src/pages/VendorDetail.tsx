@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Store, Tag, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Facebook, Globe, Instagram, Mail, MessageCircle, Package, Store, Tag, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { VendorPublicDetail } from "@/modules/vendor/types";
 import { normalizeLink, normalizeProducts, normalizeStringArray } from "@/modules/vendor/utils";
@@ -200,10 +200,14 @@ const VendorDetail = () => {
       <GlobalLayout
         breadcrumbs={vendorBreadcrumbs}
         backHref="/vendors"
-        showGradientBg={false}
+        hero={{
+          emoji: '🛍️',
+          titleWhite: '',
+          titleOrange: 'Vendor',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-5xl mx-auto px-4 pb-24 space-y-4">
-          <Skeleton className="h-10 w-1/3" />
           <Skeleton className="h-72 w-full" />
         </div>
       </GlobalLayout>
@@ -215,10 +219,14 @@ const VendorDetail = () => {
       <GlobalLayout
         breadcrumbs={vendorBreadcrumbs}
         backHref="/vendors"
-        showGradientBg={false}
+        hero={{
+          emoji: '🛍️',
+          titleWhite: 'Vendor',
+          titleOrange: 'unavailable',
+          largeTitle: true,
+        }}
       >
         <div className="max-w-4xl mx-auto px-4 pb-24 text-center space-y-4">
-          <h1 className="text-2xl font-semibold">Vendor unavailable</h1>
           <p className="text-muted-foreground">{error || "Could not load this vendor."}</p>
           <Button variant="outline" onClick={() => navigate("/vendors")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -229,22 +237,25 @@ const VendorDetail = () => {
     );
   }
 
+  const vendorSubtitle = cityLabel || '';
+
   return (
     <GlobalLayout
       breadcrumbs={vendorBreadcrumbs}
       backHref="/vendors"
-      showGradientBg={false}
+      hero={{
+        emoji: '🛍️',
+        titleWhite: vendor.business_name || '',
+        titleOrange: 'Vendor',
+        subtitle: vendorSubtitle,
+        largeTitle: true,
+      }}
     >
       <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
         <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-muted/40">
           <CardContent className="pt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-5">
               <div className="space-y-3">
-                <h1 className="text-3xl font-bold tracking-tight">{vendor.business_name || "Vendor"}</h1>
-                <p className="text-muted-foreground flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {cityLabel || "Location not specified"}
-                </p>
                 <div className="flex flex-wrap gap-2">
                   {categoryItems.slice(0, 5).map((category) => (
                     <Link key={category} to={`/vendors?category=${encodeURIComponent(category)}`}>

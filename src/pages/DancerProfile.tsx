@@ -205,7 +205,12 @@ const DancerProfile = () => {
       <GlobalLayout
         breadcrumbs={dancerBreadcrumbs}
         backHref="/dancers"
-        showGradientBg={false}
+        hero={{
+          emoji: '',
+          titleWhite: '',
+          titleOrange: 'Dancer',
+          largeTitle: true,
+        }}
       >
         <div className="container max-w-4xl mx-auto px-4 pb-24">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]">
@@ -227,7 +232,12 @@ const DancerProfile = () => {
       <GlobalLayout
         breadcrumbs={dancerBreadcrumbs}
         backHref="/dancers"
-        showGradientBg={false}
+        hero={{
+          emoji: '',
+          titleWhite: 'Dancer',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
       >
         <div className="container max-w-4xl mx-auto px-4 pb-24 text-center">
           <motion.div
@@ -253,11 +263,19 @@ const DancerProfile = () => {
     );
   }
 
+  const dancerSubtitle = [dancer.cities?.name, dancer.nationality].filter(Boolean).join(' · ');
+
   return (
     <GlobalLayout
       breadcrumbs={dancerBreadcrumbs}
       backHref="/dancers"
-      showGradientBg={false}
+      hero={{
+        emoji: '',
+        titleWhite: dancerView.displayName,
+        titleOrange: 'Dancer',
+        subtitle: dancerSubtitle,
+        largeTitle: true,
+      }}
     >
       <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
         <DancerProfileGrid dancer={dancerView} />
