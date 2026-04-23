@@ -39,6 +39,9 @@ import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { cn, resolveEventImage } from '@/lib/utils';
 import { useCity } from '@/contexts/CityContext';
 import { Checkbox } from '@/components/ui/checkbox';
+import GlobalLayout from '@/components/layout/GlobalLayout';
+
+const VENDOR_DASHBOARD_BREADCRUMBS = [{ label: 'Profile', path: '/profile' }, { label: 'Vendor dashboard' }];
 
 const emptyForm: VendorDashboardFormState = {
   id: null,
@@ -1398,17 +1401,22 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
   };
 
   if (authLoading || fetchingVendor) {
-    return (
-      <div className={embedded ? "py-8 flex items-center justify-center gap-2 text-muted-foreground" : "min-h-screen pt-[95px] px-4 pb-24 flex items-center justify-center gap-2 text-muted-foreground"}>
+    const loadingContent = (
+      <div className={embedded ? "py-8 flex items-center justify-center gap-2 text-muted-foreground" : "px-4 pb-24 flex items-center justify-center gap-2 text-muted-foreground min-h-[40vh]"}>
         <Loader2 className="h-5 w-5 animate-spin" />
         <span>Loading vendor dashboard...</span>
       </div>
     );
+    return embedded ? loadingContent : (
+      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+        {loadingContent}
+      </GlobalLayout>
+    );
   }
 
   if (notAuthorized) {
-    return (
-      <div className={embedded ? "" : "min-h-screen pt-[95px] px-4 pb-24"}>
+    const notAuthorizedContent = (
+      <div className={embedded ? "" : "px-4 pb-24"}>
         <div className={embedded ? "" : "max-w-3xl mx-auto"}>
           <Card className={embeddedCardClass}>
             <CardContent className="pt-6 text-center space-y-2">
@@ -1419,10 +1427,15 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         </div>
       </div>
     );
+    return embedded ? notAuthorizedContent : (
+      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+        {notAuthorizedContent}
+      </GlobalLayout>
+    );
   }
 
-  return (
-    <div className={embedded ? "" : "min-h-screen pt-[95px] px-4 pb-24"}>
+  const mainContent = (
+    <div className={embedded ? "" : "px-4 pb-24"}>
       <div
         className={cn(
           embedded
@@ -2259,6 +2272,12 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         )}
       </div>
     </div>
+  );
+
+  return embedded ? mainContent : (
+    <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+      {mainContent}
+    </GlobalLayout>
   );
 };
 

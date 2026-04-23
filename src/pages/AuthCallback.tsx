@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } from "@/lib/authRouting";
 import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -212,26 +213,30 @@ const AuthCallback = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen pt-20 px-4">
-        <div className="max-w-sm mx-auto text-center space-y-4">
-          <h1 className="text-xl font-semibold text-foreground">Authentication failed</h1>
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button onClick={() => navigate("/auth?mode=signin", { replace: true })}>
-            Try again
-          </Button>
+      <GlobalLayout showSubheader={false}>
+        <div className="pt-20 px-4">
+          <div className="max-w-sm mx-auto text-center space-y-4">
+            <h1 className="text-xl font-semibold text-foreground">Authentication failed</h1>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button onClick={() => navigate("/auth?mode=signin", { replace: true })}>
+              Try again
+            </Button>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   return (
-    <div className="min-h-screen pt-20 px-4">
-      <div className="max-w-md mx-auto space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <p className="text-center text-sm text-muted-foreground">Signing you in…</p>
+    <GlobalLayout showSubheader={false}>
+      <div className="pt-20 px-4">
+        <div className="max-w-md mx-auto space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <p className="text-center text-sm text-muted-foreground">Signing you in…</p>
+        </div>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 

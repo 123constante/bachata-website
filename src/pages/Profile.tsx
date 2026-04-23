@@ -5,6 +5,7 @@ import { useUserIds, UserRole } from '@/hooks/useUserIds';
 import { ProfileEntryRouter } from '@/components/profile/ProfileEntryRouter';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 
 const LAST_ACTIVE_ROLE_KEY = 'profile_last_active_role';
 
@@ -78,7 +79,7 @@ const Profile = () => {
     };
 
     return (
-        <>
+        <GlobalLayout breadcrumbs={[{ label: 'Profile' }]}>
             <ProfileEntryRouter
                 user={user}
                 loading={loading}
@@ -107,7 +108,7 @@ const Profile = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-        </>
+        </GlobalLayout>
     );
 };
 

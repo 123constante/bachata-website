@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CityPicker } from "@/components/ui/city-picker";
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 
 const CreateVideographerProfile = () => {
   const navigate = useNavigate();
@@ -261,7 +262,8 @@ const CreateVideographerProfile = () => {
   };
 
   return (
-    <div className="min-h-screen pt-20 px-4 pb-24">
+    <GlobalLayout breadcrumbs={[{ label: 'Create videographer profile' }]} backHref='/profile?role=videographer'>
+    <div className="px-4 pb-24">
       <div className="max-w-2xl mx-auto">
         {import.meta.env.DEV && (
           <div className="mb-4 flex justify-end">
@@ -446,6 +448,7 @@ const CreateVideographerProfile = () => {
         )}
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

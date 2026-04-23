@@ -14,6 +14,7 @@ import { AuthFormProvider } from '@/contexts/AuthFormContext';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 
 const CreateTeacherProfile = () => {
   const navigate = useNavigate();
@@ -256,7 +257,8 @@ const CreateTeacherProfile = () => {
   useUnsavedChangesGuard({ enabled: hasUnsavedProgress && !isSubmitting });
 
   return (
-    <div className="min-h-screen pt-20 px-4 pb-24">
+    <GlobalLayout breadcrumbs={[{ label: 'Create teacher profile' }]} backHref='/profile?role=teacher'>
+    <div className="px-4 pb-24">
       <div className="max-w-2xl mx-auto">
         {import.meta.env.DEV && (
           <div className="mb-4 flex justify-end">
@@ -418,6 +420,7 @@ const CreateTeacherProfile = () => {
         )}
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

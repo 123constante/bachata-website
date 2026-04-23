@@ -29,6 +29,7 @@ import { AuthFormProvider } from '@/contexts/AuthFormContext';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import {
     FAVORITE_STYLE_OPTIONS,
     PARTNER_PRACTICE_GOAL_OPTIONS,
@@ -964,11 +965,12 @@ const CreateProfile = () => {
         };
 
     return (
-        <div className='auth-noir min-h-screen pb-24 relative overflow-hidden'>
+        <GlobalLayout breadcrumbs={[{ label: 'Create dancer profile' }]} backHref='/profile?role=dancer'>
+        <div className='auth-noir pb-24 relative overflow-hidden'>
             <div className='absolute inset-0 bg-[radial-gradient(circle_at_top,_#FFF3D8,_transparent_60%)]' />
             <div className='absolute -top-16 -right-20 h-72 w-72 rounded-full bg-amber-200/70 blur-3xl' />
             <div className='absolute bottom-0 left-0 h-80 w-80 rounded-full bg-sky-200/70 blur-3xl' />
-            <div className='relative z-10 pt-20 px-4 mb-8 max-w-lg mx-auto'>
+            <div className='relative z-10 px-4 mb-8 max-w-lg mx-auto'>
          <div className='flex justify-between items-center mb-4'>
                                 <h1 className='text-xl font-bold text-muted-foreground auth-display'>
                                         {step === 0 ? 'Quick Start' : step === authStep ? 'Finish' : `Step ${step} of 3`}
@@ -1743,6 +1745,7 @@ const CreateProfile = () => {
         </Form>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

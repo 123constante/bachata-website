@@ -7,11 +7,11 @@ import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
-  ArrowLeft, 
-  Upload, 
-  Loader2, 
+import {
+  Upload,
+  Loader2,
 } from 'lucide-react';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -212,16 +212,18 @@ const EditEvent = () => {
   };
 
   if (eventLoading || permissionsLoading) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <Loader2 className='w-8 h-8 animate-spin text-primary' />
-    </div>
+    <GlobalLayout breadcrumbs={[{ label: 'Edit event' }]} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
+      <div className="flex justify-center items-center min-h-[40vh]">
+        <Loader2 className='w-8 h-8 animate-spin text-primary' />
+      </div>
+    </GlobalLayout>
   );
 
   return (
-    <div className='min-h-screen pt-20 px-4 pb-24'>
+    <GlobalLayout breadcrumbs={[{ label: 'Edit event' }]} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
+    <div className='px-4 pb-24'>
       <div className='max-w-2xl mx-auto'>
         <div className='flex items-center gap-4 mb-8'>
-            <Button onClick={() => navigate(-1)} variant='ghost' size='icon'><ArrowLeft className='w-5 h-5' /></Button>
             <h1 className='text-2xl font-bold'>Edit Event</h1>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
@@ -292,6 +294,7 @@ const EditEvent = () => {
         </form>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 export default EditEvent;
