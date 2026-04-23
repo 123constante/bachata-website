@@ -48,7 +48,7 @@ const DEFAULT_BREADCRUMBS: BreadcrumbItemType[] = [];
 // - With hero: absolute top-0 relative to the page root, which sits just
 //   under the fixed 60px GlobalHeader (App.tsx renders a 60px spacer above
 //   <main>). The pt-9 shim on the hero reserves the 36px underneath so the
-//   emoji lands at the same Y position as pre-migration PageLayout pages.
+//   emoji lands at the target Y position under the global header.
 //   Note: the Phase 2a brief specified `top-[60px]`, but inside the current
 //   App.tsx layout the positioning context already begins below the header,
 //   so top-0 is the correct literal value to achieve "flush under global
