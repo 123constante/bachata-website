@@ -131,17 +131,6 @@ const GlobalLayout = ({
         </>
       )}
 
-      {stickySubheader && (
-        // With hero, the breadcrumb row is absolute (zero flow impact), so the
-        // stickySubheader pins flush under the global header at top-[60px].
-        // Without hero, the breadcrumb row is itself sticky at top-[60px]
-        // with natural height ~41px, so the stickySubheader must pin below it
-        // at top-[101px] (60 global + 41 breadcrumb row) to avoid overlap.
-        <div className={`sticky ${hero ? 'top-[60px]' : 'top-[101px]'} z-20`}>
-          {stickySubheader}
-        </div>
-      )}
-
       {showSubheader && subHeader}
 
       {hero && (
@@ -165,6 +154,17 @@ const GlobalLayout = ({
             highlightColor={hero.highlightColor}
             topPadding="pt-20"
           />
+        </div>
+      )}
+
+      {stickySubheader && (
+        // Renders AFTER the hero so its natural position is below the fold at
+        // scroll=0 — invisible until the user scrolls past the hero, then pins
+        // at top-[60px] (with hero) / top-[101px] (without hero, clears the
+        // breadcrumb row). Previously rendered before the hero, which pinned
+        // it immediately since natural y=60 matched the sticky threshold.
+        <div className={`sticky ${hero ? 'top-[60px]' : 'top-[101px]'} z-20`}>
+          {stickySubheader}
         </div>
       )}
 
