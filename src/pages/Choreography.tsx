@@ -1,15 +1,17 @@
-﻿import PageLayout from "@/components/PageLayout";
+﻿import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Users, Trophy, Sparkles, Music, Star, Zap, Heart, Crown } from "lucide-react";
 
 const Choreography = () => {
   return (
-    <PageLayout
-      emoji='🎭'
-      titleWhite="Join the"
-      titleOrange="Stage"
-      subtitle="Transform from social dancer to performer. Find intensive choreography teams and performance courses near you."
-      floatingIcons={[Music, Star, Sparkles, Zap, Heart, Crown]}
-      breadcrumbLabel="Choreography"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Choreography' }]}
+      hero={{
+        emoji: '🎭',
+        titleWhite: 'Join the',
+        titleOrange: 'Stage',
+        subtitle: 'Transform from social dancer to performer. Find intensive choreography teams and performance courses near you.',
+        floatingIcons: [Music, Star, Sparkles, Zap, Heart, Crown],
+      }}
     >
       <div className="max-w-7xl mx-auto px-4 py-8">
 
@@ -54,7 +56,7 @@ const Choreography = () => {
         </div>
 
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

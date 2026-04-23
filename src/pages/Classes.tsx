@@ -1,21 +1,23 @@
 import { Star, Sparkles } from 'lucide-react';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { EventCalendar } from '@/components/EventCalendar';
 
 const Classes = () => {
   return (
-    <PageLayout
-      emoji="🎓"
-      titleWhite="Learn"
-      titleOrange="Bachata"
-      breadcrumbLabel="Classes"
-      floatingIcons={[Star, Sparkles]}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Classes' }]}
+      hero={{
+        emoji: '🎓',
+        titleWhite: 'Learn',
+        titleOrange: 'Bachata',
+        floatingIcons: [Star, Sparkles],
+      }}
     >
       {/* Class Schedule */}
       <section id="calendar" className="px-4 mb-8">
         <EventCalendar defaultCategory="classes" />
       </section>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, MapPin, Music, Instagram, Globe, Mail, ExternalLink,
+  ArrowLeft, Music, Instagram, Globe, Mail, ExternalLink,
   Disc3, Youtube, Mic2, CheckCircle2, DollarSign, BookOpen, Image,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { buildFullName } from '@/lib/name-utils';
 
@@ -88,19 +88,21 @@ const DJProfile = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const djBreadcrumbs = [{ label: 'DJs', path: '/djs' }];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-24 pt-20 bg-background">
-        <div className="max-w-4xl mx-auto px-4 space-y-4">
-          <Skeleton className="h-5 w-40" />
-          <div className="flex gap-5 mt-6">
-            <Skeleton className="h-28 w-28 rounded-2xl shrink-0" />
-            <div className="flex-1 space-y-2 pt-2">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-          </div>
+      <GlobalLayout
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        hero={{
+          emoji: '🎧',
+          titleWhite: '',
+          titleOrange: 'DJ',
+          largeTitle: true,
+        }}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 space-y-4">
           <Skeleton className="h-28 w-full rounded-xl" />
           <div className="grid grid-cols-2 gap-3">
             <Skeleton className="h-16 rounded-xl" />
@@ -108,22 +110,31 @@ const DJProfile = () => {
           </div>
           <Skeleton className="h-40 w-full rounded-xl" />
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error || !dj) {
     return (
-      <div className="min-h-screen pb-24 pt-20 bg-background flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="text-5xl mb-4">🎧</div>
-          <h1 className="text-2xl font-bold mb-2">DJ Not Found</h1>
-          <p className="text-muted-foreground mb-6">This DJ profile doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate('/djs')} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
-          </Button>
+      <GlobalLayout
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        hero={{
+          emoji: '🎧',
+          titleWhite: 'DJ',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
+      >
+        <div className="max-w-4xl mx-auto px-4 pb-24 flex items-center justify-center min-h-[40vh]">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-6">This DJ profile doesn't exist or has been removed.</p>
+            <Button onClick={() => navigate('/djs')} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
+            </Button>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -153,64 +164,41 @@ const DJProfile = () => {
     dj.public_email && { label: 'Contact', value: dj.public_email, url: `mailto:${dj.public_email}`, icon: Mail },
   ].filter(Boolean) as { label: string; value: string; url: string; icon: any }[];
 
-  return (
-    <div className="min-h-screen pb-24 pt-20 bg-background">
-      <PageBreadcrumb items={[
-        { label: 'DJs', path: '/djs' },
-        { label: displayName },
-      ]} />
+  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' · ');
 
+  return (
+    <GlobalLayout
+      breadcrumbs={djBreadcrumbs}
+      backHref="/djs"
+      hero={{
+        emoji: '🎧',
+        titleWhite: displayName,
+        titleOrange: 'DJ',
+        subtitle: djSubtitle,
+        largeTitle: true,
+      }}
+    >
       <motion.div
-        className="max-w-4xl mx-auto px-4 pt-6"
+        className="max-w-4xl mx-auto px-4 pb-24 pt-6"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
-        <Button variant="ghost" onClick={() => navigate('/djs')} className="mb-6 -ml-2">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to DJs
-        </Button>
-
-        {/* ── Hero ── */}
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 mb-8">
-          <div className="w-28 h-28 rounded-2xl border border-primary/20 shrink-0 self-start overflow-hidden bg-primary/10 flex items-center justify-center">
-            {coverPhoto ? (
-              <img
-                src={coverPhoto}
-                alt={displayName}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <span className="text-primary text-4xl font-black">
-                {displayName.charAt(0)}
+        {/* ── Supporting identity (verified, real name, genres) — name, city,
+            nationality now live in the hero. ── */}
+        {(realName && realName !== displayName) || dj.verified || genres.length > 0 ? (
+          <motion.div variants={itemVariants} className="mb-6 flex flex-wrap items-center gap-3">
+            {dj.verified && (
+              <span className="inline-flex items-center gap-1 text-sm text-primary">
+                <CheckCircle2 className="w-4 h-4" />
+                Verified
               </span>
             )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-3xl font-black tracking-tight text-foreground">{displayName}</h1>
-              {dj.verified && (
-                <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-              )}
-            </div>
             {realName && realName !== displayName && (
-              <p className="text-sm text-muted-foreground mb-1">{realName}</p>
+              <span className="text-sm text-muted-foreground">{realName}</span>
             )}
-            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-              {cityName && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> {cityName}
-                </span>
-              )}
-              {dj.nationality && (
-                <span className="flex items-center gap-1">
-                  <span>🌍</span> {dj.nationality}
-                </span>
-              )}
-            </div>
             {genres.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
+              <div className="flex flex-wrap gap-1.5">
                 {genres.map((g) => (
                   <Badge key={g} variant="outline" className="border-primary/30 text-primary text-xs">
                     {g}
@@ -218,8 +206,8 @@ const DJProfile = () => {
                 ))}
               </div>
             )}
-          </div>
-        </motion.div>
+          </motion.div>
+        ) : null}
 
         {/* ── Bio ── */}
         {dj.bio && (
@@ -356,7 +344,7 @@ const DJProfile = () => {
           />
         </motion.div>
       </motion.div>
-    </div>
+    </GlobalLayout>
   );
 };
 

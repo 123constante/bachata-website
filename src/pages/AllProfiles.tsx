@@ -2,6 +2,9 @@ import { useAllProfiles } from '@/hooks/useAllProfiles';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
+import GlobalLayout from '@/components/layout/GlobalLayout';
+
+const ALL_PROFILES_BREADCRUMBS = [{ label: 'All Profiles' }];
 
 const roleColors: Record<string, string> = {
   dancer: 'bg-pink-100 text-pink-800',
@@ -17,31 +20,61 @@ export default function AllProfiles() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-[85px] pb-24 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading all profiles...</p>
+      <GlobalLayout
+        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
+      >
+        <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="mt-4 text-muted-foreground">Loading all profiles...</p>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen pt-[85px] pb-24 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 font-semibold">Error loading profiles</p>
-          <p className="text-muted-foreground mt-2">{error.message}</p>
+      <GlobalLayout
+        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
+      >
+        <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
+          <div className="text-center">
+            <p className="text-red-600 font-semibold">Error loading profiles</p>
+            <p className="text-muted-foreground mt-2">{error.message}</p>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (!profiles || profiles.length === 0) {
     return (
-      <div className="min-h-screen pt-[85px] pb-24 px-4 flex items-center justify-center">
-        <p className="text-muted-foreground">No profiles found</p>
-      </div>
+      <GlobalLayout
+        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        hero={{
+          emoji: '👥',
+          titleWhite: 'All',
+          titleOrange: 'Profiles',
+          largeTitle: true,
+        }}
+      >
+        <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
+          <p className="text-muted-foreground">No profiles found</p>
+        </div>
+      </GlobalLayout>
     );
   }
 
@@ -56,15 +89,17 @@ export default function AllProfiles() {
   );
 
   return (
-    <div className="min-h-screen pt-[85px] pb-24 px-4 space-y-16">
-      {/* Header */}
-      <div className="max-w-2xl mx-auto text-center space-y-2">
-        <h1 className="text-4xl font-bold">All Profiles</h1>
-        <p className="text-muted-foreground">
-          {profiles.length} profiles across {Object.keys(grouped).length} roles
-        </p>
-      </div>
-
+    <GlobalLayout
+      breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+      hero={{
+        emoji: '👥',
+        titleWhite: 'All',
+        titleOrange: 'Profiles',
+        subtitle: `${profiles.length} profiles across ${Object.keys(grouped).length} roles`,
+        largeTitle: true,
+      }}
+    >
+      <div className="px-4 pb-24 space-y-16">
       {/* Sections by role */}
       {Object.entries(grouped).map(([role, roleProfiles]) => (
         <div key={role} className="space-y-4">
@@ -168,6 +203,7 @@ export default function AllProfiles() {
           </div>
         </div>
       ))}
-    </div>
+      </div>
+    </GlobalLayout>
   );
 }

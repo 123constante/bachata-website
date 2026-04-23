@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, Star, Heart, Music, Sparkles, Search, X,
   ChevronDown, Check, MapPin, Users, User, Instagram, Globe,
@@ -7,9 +7,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import PageHero from '@/components/PageHero';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import { FloatingElements } from '@/components/FloatingElements';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +42,6 @@ type Teacher = {
 type FilterType = 'all' | 'name' | 'style' | 'city';
 
 const Teachers = () => {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
@@ -112,34 +109,25 @@ const Teachers = () => {
   };
 
   const filterTabs: { value: FilterType; label: string; icon: string }[] = [
-    { value: 'all', label: 'All', icon: '\u2728' },
-    { value: 'name', label: 'Name', icon: '\uD83D\uDD0D' },
-    { value: 'style', label: 'Style', icon: '\uD83D\uDC83' },
-    { value: 'city', label: 'City', icon: '\uD83C\uDFD9\uFE0F' },
+    { value: 'all', label: 'All', icon: '✨' },
+    { value: 'name', label: 'Name', icon: '🔍' },
+    { value: 'style', label: 'Style', icon: '💃' },
+    { value: 'city', label: 'City', icon: '🏙️' },
   ];
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden pb-20">
-      {/* Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
-        style={{ scaleX }}
-      />
-
-      <FloatingElements count={15} />
-
-      {/* Hero */}
-      <PageHero
-        emoji={'\uD83C\uDF93'}
-        titleWhite="Find"
-        titleOrange="Teachers"
-        subtitle=""
-        largeTitle
-        breadcrumbItems={[{ label: 'Classes', path: classesPath }, { label: 'Teachers' }]}
-        floatingIcons={[GraduationCap, Star, Heart, Music, Sparkles]}
-        topPadding="pt-20"
-      />
-
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Classes', path: classesPath }, { label: 'Teachers' }]}
+      floatingCount={15}
+      hero={{
+        emoji: '🎓',
+        titleWhite: 'Find',
+        titleOrange: 'Teachers',
+        subtitle: '',
+        largeTitle: true,
+        floatingIcons: [GraduationCap, Star, Heart, Music, Sparkles],
+      }}
+    >
       {/* Hero Widgets */}
       <div className="relative z-10 px-4 -mt-6 mb-16">
         <ScrollReveal animation="scale" delay={0.6}>
@@ -150,7 +138,7 @@ const Teachers = () => {
               whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl md:text-4xl block mb-2">{'\uD83D\uDD0D'}</span>
+              <span className="text-3xl md:text-4xl block mb-2">{'🔍'}</span>
               <h3 className="font-bold text-xs md:text-sm text-foreground">Browse Teachers</h3>
             </motion.div>
             <motion.div
@@ -159,7 +147,7 @@ const Teachers = () => {
               whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl md:text-4xl block mb-2">{'\u270D\uFE0F'}</span>
+              <span className="text-3xl md:text-4xl block mb-2">{'✍️'}</span>
               <h3 className="font-bold text-xs md:text-sm text-foreground">Get Listed</h3>
             </motion.div>
             <motion.div
@@ -168,7 +156,7 @@ const Teachers = () => {
               whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl md:text-4xl block mb-2">{'\uD83D\uDCDA'}</span>
+              <span className="text-3xl md:text-4xl block mb-2">{'📚'}</span>
               <h3 className="font-bold text-xs md:text-sm text-foreground">Find Classes</h3>
             </motion.div>
           </div>
@@ -487,7 +475,7 @@ const Teachers = () => {
                 transition={{ duration: 3, repeat: Infinity }}
                 className="text-5xl mb-4 inline-block"
               >
-                {'\uD83C\uDF93'}
+                {'🎓'}
               </motion.div>
               <h2 className="text-2xl md:text-3xl font-bold mb-3">
                 <span className="text-foreground">Are you a </span>
@@ -504,7 +492,7 @@ const Teachers = () => {
           </Card>
         </ScrollReveal>
       </section>
-    </div>
+    </GlobalLayout>
   );
 };
 

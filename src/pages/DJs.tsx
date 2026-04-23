@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildFullName } from '@/lib/name-utils';
 
 type DJCard = {
@@ -41,14 +41,15 @@ const DJs = () => {
   });
 
   return (
-    <PageLayout
-      emoji="🎧"
-      titleWhite="Bachata"
-      titleOrange="DJs"
-      subtitle="Discover the DJs behind the music — sensual, traditional, and everything in between."
-      floatingIcons={[Headphones, Music, Disc3, Radio, Volume2, Mic2]}
-      breadcrumbItems={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]}
-      breadcrumbLabel="DJs"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]}
+      hero={{
+        emoji: '🎧',
+        titleWhite: 'Bachata',
+        titleOrange: 'DJs',
+        subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
+        floatingIcons: [Headphones, Music, Disc3, Radio, Volume2, Mic2],
+      }}
     >
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}
@@ -130,7 +131,7 @@ const DJs = () => {
           </p>
         )}
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

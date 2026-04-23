@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
-import PageLayout from "@/components/PageLayout";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -150,14 +150,16 @@ const PracticePartners = () => {
   };
 
   return (
-    <PageLayout
-      emoji="💃"
-      titleWhite="Practice"
-      titleOrange="Partners"
-      subtitle={`${partners.length} dancers looking to practice together`}
-      widgets={heroWidgets}
-      floatingIcons={floatingIcons}
-      breadcrumbLabel="Practice Partners"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Practice Partners' }]}
+      hero={{
+        emoji: '💃',
+        titleWhite: 'Practice',
+        titleOrange: 'Partners',
+        subtitle: `${partners.length} dancers looking to practice together`,
+        widgets: heroWidgets,
+        floatingIcons: floatingIcons,
+      }}
     >
       {/* Add Yourself CTA */}
       <ScrollReveal animation="fadeUp" duration={0.8} delay={0.1}>
@@ -331,7 +333,7 @@ const PracticePartners = () => {
         title="Join the Community"
         description="Login to see dancer profiles and connect with practice partners."
       />
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

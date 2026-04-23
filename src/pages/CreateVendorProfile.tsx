@@ -22,6 +22,7 @@ import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
 import { normalizeProducts, normalizeSocialUrl } from "@/modules/vendor/utils";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const STEP_INVITE = 0;
 const STEP_IDENTITY = 1;
@@ -1163,7 +1164,8 @@ const CreateVendorProfile = () => {
   const trimmedTeamSearch = teamSearch.trim();
 
   return (
-    <div className="min-h-screen pt-20 px-4 pb-24 relative overflow-hidden">
+    <GlobalLayout breadcrumbs={[{ label: 'Create vendor profile' }]} backHref='/profile?role=vendor'>
+    <div className="px-4 pb-24 relative overflow-hidden">
       <div className="pointer-events-none absolute top-10 -left-20 h-64 w-64 rounded-full bg-festival-teal/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 -right-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
       <div className="max-w-2xl mx-auto">
@@ -1945,6 +1947,7 @@ const CreateVendorProfile = () => {
         </AnimatePresence>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

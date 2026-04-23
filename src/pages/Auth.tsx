@@ -16,6 +16,7 @@ import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } fro
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 
 const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
@@ -282,6 +283,7 @@ const AuthContent = () => {
   const stepLabelIndex = activeStepIndex + 1;
 
   return (
+    <GlobalLayout showSubheader={false}>
     <div
       className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 relative overflow-hidden"
       style={{ background: "linear-gradient(135deg, #0a1a14 0%, #0d1f17 50%, #0a1a14 100%)" }}
@@ -659,6 +661,7 @@ const AuthContent = () => {
         </Dialog>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

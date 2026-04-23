@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, User } from "lucide-react";
 import { popPendingReturnTo } from "@/lib/authRouting";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -49,12 +50,14 @@ const Onboarding = () => {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen pt-20 px-4">
-        <div className="max-w-md mx-auto space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
+      <GlobalLayout showSubheader={false}>
+        <div className="pt-20 px-4">
+          <div className="max-w-md mx-auto space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -137,7 +140,8 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[95px] pb-24 px-4 relative overflow-hidden">
+    <GlobalLayout showSubheader={false}>
+    <div className="pt-[35px] pb-24 px-4 relative overflow-hidden">
       <div className="pointer-events-none absolute top-10 -left-20 h-64 w-64 rounded-full bg-festival-teal/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 -right-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
 
@@ -193,6 +197,7 @@ const Onboarding = () => {
         </Card>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

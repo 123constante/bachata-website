@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeStringArray } from "@/modules/vendor/utils";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const PAGE_SIZE = 12;
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
@@ -49,13 +50,17 @@ const Vendors = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[95px] pb-24 px-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Vendor Directory</h1>
-          <p className="text-muted-foreground">Discover trusted bachata vendors and browse their products, offers, and upcoming events.</p>
-        </div>
-
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Vendors' }]}
+      hero={{
+        emoji: '🛍️',
+        titleWhite: 'Bachata',
+        titleOrange: 'Vendors',
+        subtitle: 'Trusted shops, services, and products for dancers',
+        largeTitle: true,
+      }}
+    >
+      <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
         <Card>
           <CardContent className="pt-6 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">
             <Input
@@ -304,7 +309,7 @@ const Vendors = () => {
           </div>
         </div>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 

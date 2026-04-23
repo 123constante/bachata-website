@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import BroadcastTicker from "@/components/BroadcastTicker";
 import { useChannelSwitch } from "@/components/ChannelSwitchOverlay";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 
 interface Event {
   id: number | string;
@@ -35,7 +36,7 @@ const Tonight = () => {
   const [likedEventIds, setLikedEventIds] = useState<Record<string, boolean>>({});
   const { citySlug } = useCity();
   const { ChannelOverlay } = useChannelSwitch();
-  
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -113,10 +114,10 @@ const Tonight = () => {
   const getRatioVisuals = (ratio: number) => {
     const leadPercent = Math.round(ratio * 100);
     const followPercent = 100 - leadPercent;
-    
+
     let label = "Balanced";
     let colorClass = "bg-green-500";
-    
+
     if (leadPercent > 60) {
       label = "Leads Heavy";
       colorClass = "bg-blue-500";
@@ -129,223 +130,239 @@ const Tonight = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-32 text-neutral-200 font-sans selection:bg-red-500/30 overflow-x-hidden">
-      <ChannelOverlay />
-      {/* Broadcast Overlay Effects */}
-      <div className="fixed inset-0 pointer-events-none z-50">
-        {/* Vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.4)_100%)]" />
-        {/* Scanlines - subtle */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02)_50%,transparent_50%)] bg-[length:100%_4px]" />
-      </div>
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'Tonight' }]}
+      showGradientBg={false}
+      hero={{
+        emoji: '🌙',
+        titleWhite: 'Tonight in',
+        titleOrange: 'Bachata',
+        subtitle: 'Happening right now — live events tonight',
+        largeTitle: true,
+      }}
+    >
+      {/* Full-viewport black page backdrop — replaces the old outer `bg-black`
+          so the broadcast design language still lands with GlobalLayout owning
+          the chrome. */}
+      <div className="fixed inset-0 -z-20 bg-black pointer-events-none" aria-hidden="true" />
 
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-red-600/10 rounded-full blur-[100px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] animate-pulse delay-1000" />
-      </div>
-
-      <div className="relative z-10 max-w-6xl mx-auto px-4 pt-28">
-        
-        {/* Broadcast Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 border-b border-white/10 pb-6">
-          <div className="space-y-2">
-             <div className="flex items-center gap-3">
-               <span className="flex h-3 w-3 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-               </span>
-               <span className="text-red-500 font-bold tracking-widest text-sm uppercase">Live Broadcast</span>
-               <span className="text-white/20">|</span>
-               <span className="font-mono text-sm text-white/60 tabular-nums">
-                 {currentTime.toLocaleTimeString('en-GB')}
-               </span>
-             </div>
-             <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight uppercase italic">
-               Tonight <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">Live</span>
-             </h1>
-          </div>
-          
-          <div className="flex items-center gap-4 text-sm font-mono text-white/60 bg-white/5 px-4 py-2 rounded-lg border border-white/5 backdrop-blur-sm">
-             <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="text-white font-bold">1,204</span>
-                <span className="hidden sm:inline">watching</span>
-             </div>
-             <span className="text-white/20">|</span>
-             <div className="flex items-center gap-2">
-                <span className="text-green-400">●</span>
-                <span>{events.length} Cams Active</span>
-             </div>
-          </div>
+      <div className="text-neutral-200 font-sans selection:bg-red-500/30 pb-32">
+        <ChannelOverlay />
+        {/* Broadcast Overlay Effects — z-5 sits below GlobalLayout's
+            sub-header row (z-10) so scanlines don't bleed across the
+            breadcrumb text, while staying above the page backdrop. */}
+        <div className="fixed inset-0 pointer-events-none z-[5]">
+          {/* Vignette */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.4)_100%)]" />
+          {/* Scanlines - subtle */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02)_50%,transparent_50%)] bg-[length:100%_4px]" />
         </div>
 
-        {/* Old ticker removed — replaced by sticky BroadcastTicker */}
-
-        <div className="mb-8">
-          <WeatherWidget />
+        {/* Dynamic Background */}
+        <div className="fixed inset-0 pointer-events-none -z-10">
+          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-red-600/10 rounded-full blur-[100px] animate-pulse" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] animate-pulse delay-1000" />
         </div>
 
-        {/* Events Grid */}
-        {events.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <Clock className="w-8 h-8 text-white/30" />
+        <div className="relative z-10 max-w-6xl mx-auto px-4">
+
+          {/* Broadcast Header */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 border-b border-white/10 pb-6">
+            <div className="space-y-2">
+               <div className="flex items-center gap-3">
+                 <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                 </span>
+                 <span className="text-red-500 font-bold tracking-widest text-sm uppercase">Live Broadcast</span>
+                 <span className="text-white/20">|</span>
+                 <span className="font-mono text-sm text-white/60 tabular-nums">
+                   {currentTime.toLocaleTimeString('en-GB')}
+                 </span>
+               </div>
             </div>
-            <h3 className="text-white/70 text-xl font-bold mb-2">No events tonight</h3>
-            <p className="text-white/40 text-sm max-w-xs">There are no events scheduled in your city tonight. Check back later or switch city.</p>
+
+            <div className="flex items-center gap-4 text-sm font-mono text-white/60 bg-white/5 px-4 py-2 rounded-lg border border-white/5 backdrop-blur-sm">
+               <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span className="text-white font-bold">1,204</span>
+                  <span className="hidden sm:inline">watching</span>
+               </div>
+               <span className="text-white/20">|</span>
+               <div className="flex items-center gap-2">
+                  <span className="text-green-400">●</span>
+                  <span>{events.length} Cams Active</span>
+               </div>
+            </div>
           </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((event, index) => {
-            const ratio = getRatioVisuals(event.leadFollowRatio);
 
-            return (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="group relative"
-              >
-                <Card className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col">
-                  
-                  {/* Card Image Area */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={event.image} 
-                      alt={event.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
-                    
-                    {/* Live Status Badge */}
-                    <div className="absolute top-4 left-4">
-                      {event.liveStatus === 'live' && (
-                        <Badge className="bg-red-500/90 hover:bg-red-500 border-none text-white animate-pulse shadow-lg shadow-red-500/20">
-                          LIVE NOW
-                        </Badge>
-                      )}
-                       {event.liveStatus === 'starting-soon' && (
-                        <Badge className="bg-yellow-500/90 hover:bg-yellow-500 border-none text-black font-semibold shadow-lg shadow-yellow-500/20">
-                          STARTING SOON
-                        </Badge>
-                      )}
-                      {event.liveStatus === 'popular' && (
-                        <Badge className="bg-festival-teal/90 hover:bg-festival-teal border-none text-black font-semibold shadow-lg shadow-festival-teal/20">
-                          POPULAR
-                        </Badge>
-                      )}
-                    </div>
+          {/* Old ticker removed — replaced by sticky BroadcastTicker */}
 
-                    {/* Quick Action Overlay */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
-                        onClick={() => setLikedEventIds((prev) => ({ ...prev, [String(event.id)]: !prev[String(event.id)] }))}
-                      >
-                        <Heart className="w-5 h-5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
-                        onClick={() => handleShareEvent(event)}
-                      >
-                        <Share2 className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
+          <div className="mb-8">
+            <WeatherWidget />
+          </div>
 
-                  <CardContent className="p-5 flex-1 flex flex-col">
-                    
-                    {/* Title & Tags */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {event.tags.map(tag => (
-                          <span key={tag} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm bg-white/10 text-gray-300 border border-white/5">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight">
-                        {event.name}
-                      </h3>
-                      <p className="text-sm text-gray-300 line-clamp-2">{event.description}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                        <span className="inline-flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {event.location}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" />
-                          {event.time}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400 flex items-center mt-2">
-                        <Crown className="w-3 h-3 mr-1.5 text-yellow-500" />
-                        <span className="text-gray-500 text-xs uppercase tracking-wide mr-1">Hosted by</span>
-                        {event.organizer}
-                      </p>
-                    </div>
+          {/* Events Grid */}
+          {events.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                <Clock className="w-8 h-8 text-white/30" />
+              </div>
+              <h3 className="text-white/70 text-xl font-bold mb-2">No events tonight</h3>
+              <p className="text-white/40 text-sm max-w-xs">There are no events scheduled in your city tonight. Check back later or switch city.</p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {events.map((event, index) => {
+              const ratio = getRatioVisuals(event.leadFollowRatio);
 
-                    {/* Social Proof & Ratio Section */}
-                    <div className="mt-auto space-y-4">
-                      
-                      {/* Lead/Follow Ratio Bar */}
-                      <div>
-                        <div className="flex justify-between text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wider">
-                          <span>Leads</span>
-                          <span className={ratio.colorClass === 'bg-green-500' ? 'text-green-400' : 'text-gray-400'}>
-                             {ratio.label}
-                          </span>
-                          <span>Follows</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden flex">
-                          <div 
-                            style={{ width: `${ratio.leadPercent}%` }}
-                            className="h-full bg-blue-500/80" 
-                          />
-                          <div 
-                            style={{ width: `${ratio.followPercent}%` }}
-                            className="h-full bg-pink-500/80" 
-                          />
-                        </div>
+              return (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="group relative"
+                >
+                  <Card className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col">
+
+                    {/* Card Image Area */}
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={event.image}
+                        alt={event.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
+
+                      {/* Live Status Badge */}
+                      <div className="absolute top-4 left-4">
+                        {event.liveStatus === 'live' && (
+                          <Badge className="bg-red-500/90 hover:bg-red-500 border-none text-white animate-pulse shadow-lg shadow-red-500/20">
+                            LIVE NOW
+                          </Badge>
+                        )}
+                         {event.liveStatus === 'starting-soon' && (
+                          <Badge className="bg-yellow-500/90 hover:bg-yellow-500 border-none text-black font-semibold shadow-lg shadow-yellow-500/20">
+                            STARTING SOON
+                          </Badge>
+                        )}
+                        {event.liveStatus === 'popular' && (
+                          <Badge className="bg-festival-teal/90 hover:bg-festival-teal border-none text-black font-semibold shadow-lg shadow-festival-teal/20">
+                            POPULAR
+                          </Badge>
+                        )}
                       </div>
 
-                      {/* Attendee Stack */}
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="flex -space-x-2">
-                          {[1,2,3].map((i) => (
-                            <div key={i} className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-gray-400">
-                              {String.fromCharCode(64+i)}
-                            </div>
-                          ))}
-                          <div className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[9px] font-bold text-gray-400 pl-0.5">
-                            +{event.attendees}
-                          </div>
-                        </div>
-                        
-                        <Button className="h-9 rounded-full bg-white text-black hover:bg-gray-200 text-xs font-bold px-5 transition-colors" onClick={() => handleJoinList(event.id)}>
-                          Join List
-                          <ArrowRight className="w-3 h-3 ml-2" />
+                      {/* Quick Action Overlay */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
+                          onClick={() => setLikedEventIds((prev) => ({ ...prev, [String(event.id)]: !prev[String(event.id)] }))}
+                        >
+                          <Heart className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
+                          onClick={() => handleShareEvent(event)}
+                        >
+                          <Share2 className="w-5 h-5" />
                         </Button>
                       </div>
-
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+
+                    <CardContent className="p-5 flex-1 flex flex-col">
+
+                      {/* Title & Tags */}
+                      <div className="mb-4">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {event.tags.map(tag => (
+                            <span key={tag} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm bg-white/10 text-gray-300 border border-white/5">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight">
+                          {event.name}
+                        </h3>
+                        <p className="text-sm text-gray-300 line-clamp-2">{event.description}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {event.location}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            {event.time}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-400 flex items-center mt-2">
+                          <Crown className="w-3 h-3 mr-1.5 text-yellow-500" />
+                          <span className="text-gray-500 text-xs uppercase tracking-wide mr-1">Hosted by</span>
+                          {event.organizer}
+                        </p>
+                      </div>
+
+                      {/* Social Proof & Ratio Section */}
+                      <div className="mt-auto space-y-4">
+
+                        {/* Lead/Follow Ratio Bar */}
+                        <div>
+                          <div className="flex justify-between text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wider">
+                            <span>Leads</span>
+                            <span className={ratio.colorClass === 'bg-green-500' ? 'text-green-400' : 'text-gray-400'}>
+                               {ratio.label}
+                            </span>
+                            <span>Follows</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden flex">
+                            <div
+                              style={{ width: `${ratio.leadPercent}%` }}
+                              className="h-full bg-blue-500/80"
+                            />
+                            <div
+                              style={{ width: `${ratio.followPercent}%` }}
+                              className="h-full bg-pink-500/80"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Attendee Stack */}
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex -space-x-2">
+                            {[1,2,3].map((i) => (
+                              <div key={i} className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                {String.fromCharCode(64+i)}
+                              </div>
+                            ))}
+                            <div className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[9px] font-bold text-gray-400 pl-0.5">
+                              +{event.attendees}
+                            </div>
+                          </div>
+
+                          <Button className="h-9 rounded-full bg-white text-black hover:bg-gray-200 text-xs font-bold px-5 transition-colors" onClick={() => handleJoinList(event.id)}>
+                            Join List
+                            <ArrowRight className="w-3 h-3 ml-2" />
+                          </Button>
+                        </div>
+
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+
         </div>
 
+        <BroadcastTicker eventCount={events.length} />
       </div>
-
-      <BroadcastTicker eventCount={events.length} />
-    </div>
+    </GlobalLayout>
   );
 };
 

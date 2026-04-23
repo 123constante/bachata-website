@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,9 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { normalizePhotoValue, parsePartnerDetails, serializePartnerDetails, serializePhotoValue } from '@/lib/utils';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import GlobalLayout from '@/components/layout/GlobalLayout';
+
+const EDIT_PROFILE_BREADCRUMBS = [{ label: 'Profile', path: '/profile' }, { label: 'Edit' }];
 
 const DANCE_STYLES = ['Sensual', 'Moderna', 'Dominicana', 'Traditional', 'Fusion'];
 const PARTNER_ROLES = ['Leader', 'Follower', 'Both'];
@@ -279,42 +282,39 @@ const EditProfile = () => {
 
   if (isLoading) {
     return (
-      <div className='min-h-screen pt-[85px] pb-24 px-3'>
-        <div className='max-w-lg mx-auto space-y-4'>
-          <Skeleton className='h-8 w-32' />
-          <Skeleton className='h-40 w-full' />
-          <Skeleton className='h-40 w-full' />
-          <Skeleton className='h-40 w-full' />
+      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+        <div className='pb-24 px-3'>
+          <div className='max-w-lg mx-auto space-y-4'>
+            <Skeleton className='h-40 w-full' />
+            <Skeleton className='h-40 w-full' />
+            <Skeleton className='h-40 w-full' />
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (!dancerId) {
     return (
-      <div className='min-h-screen pt-[85px] pb-24 px-3 flex items-center justify-center'>
-        <div className='text-center'>
-          <p className='text-muted-foreground mb-4'>No dancer profile found</p>
-          <Button onClick={() => navigate('/create-dancers-profile')}>
-            Create Profile
-          </Button>
+      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+        <div className='pb-24 px-3 flex items-center justify-center min-h-[40vh]'>
+          <div className='text-center'>
+            <p className='text-muted-foreground mb-4'>No dancer profile found</p>
+            <Button onClick={() => navigate('/create-dancers-profile')}>
+              Create Profile
+            </Button>
+          </div>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   return (
-    <div className='min-h-screen pt-[85px] pb-24 px-3'>
+    <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+    <div className='pb-24 px-3'>
       <div className='max-w-lg mx-auto'>
-        {/* Header */}
-        <div className='flex items-center justify-between mb-4'>
-          <button
-            onClick={() => navigate('/profile')}
-            className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
-          >
-            <ArrowLeft className='w-4 h-4' />
-            Back
-          </button>
+        {/* Save action — back affordance is provided by GlobalLayout's backHref chevron. */}
+        <div className='flex items-center justify-end mb-4'>
           <Button
             size='sm'
             onClick={handleSave}
@@ -623,6 +623,7 @@ const EditProfile = () => {
         </div>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 

@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { fetchPublicVenue } from '@/services/venuePublicService';
 import { VenueGalleryLightbox } from '@/components/venue/VenueGalleryLightbox';
 
@@ -74,32 +74,49 @@ const VenueEntity = () => {
     enabled: !!id && !!venue,
   });
 
+  const venueBreadcrumbs = [{ label: 'Venues', path: '/venues' }];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-20 px-3 pb-20 bg-background">
-        <div className="max-w-2xl mx-auto space-y-3">
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref="/venues"
+        hero={{
+          emoji: '🏛️',
+          titleWhite: '',
+          titleOrange: 'Venue',
+          largeTitle: true,
+        }}
+      >
+        <div className="max-w-2xl mx-auto px-3 pb-20 space-y-3">
           <Skeleton className="aspect-video w-full rounded-xl" />
-          <Skeleton className="h-6 w-24" />
-          <Skeleton className="h-5 w-36" />
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-20 w-full" />
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
   if (!venue) {
     return (
-      <div className="min-h-screen pt-20 px-3 pb-20 bg-background">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-lg font-bold text-foreground mb-2">Venue Not Found</h1>
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref="/venues"
+        hero={{
+          emoji: '🏛️',
+          titleWhite: 'Venue',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
+      >
+        <div className="max-w-2xl mx-auto px-3 pb-20 text-center">
           <p className="text-xs text-muted-foreground mb-4">This venue doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate(-1)} variant="outline" size="sm">
+          <Button onClick={() => navigate('/venues')} variant="outline" size="sm">
             <ArrowLeft className="w-3 h-3 mr-1" />
-            Go Back
+            Back to Venues
           </Button>
         </div>
-      </div>
+      </GlobalLayout>
     );
   }
 
@@ -156,14 +173,21 @@ const VenueEntity = () => {
     (parkingJson.parking_available !== null || !!parkingJson.nearby_parking_notes);
   const hasFaq = faqItems.length > 0;
 
-  return (
-    <div className="min-h-screen pt-20 pb-20 bg-background">
-      <PageBreadcrumb items={[
-        { label: 'Venues', path: '/venues' },
-        { label: venue.name },
-      ]} />
+  const venueSubtitle = addressPillText;
 
-      <div className="max-w-2xl mx-auto px-3">
+  return (
+    <GlobalLayout
+      breadcrumbs={venueBreadcrumbs}
+      backHref="/venues"
+      hero={{
+        emoji: '🏛️',
+        titleWhite: venue.name ?? '',
+        titleOrange: 'Venue',
+        subtitle: venueSubtitle,
+        largeTitle: true,
+      }}
+    >
+      <div className="max-w-2xl mx-auto px-3 pb-20">
         {/* Merged media block */}
         <div className="mb-3">
           {allImages.length > 0 ? (
@@ -175,14 +199,6 @@ const VenueEntity = () => {
           )}
         </div>
 
-        {/* Back Button */}
-        <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="mb-3 -ml-2 h-7 text-xs">
-          <ArrowLeft className="w-3 h-3 mr-1" />
-          Back
-        </Button>
-
-        {/* Name */}
-        <h1 className="text-lg font-bold text-foreground truncate mb-2">{venue.name}</h1>
 
         {/* Identity strip — pills */}
         {(addressPillText || venue.capacity) && (
@@ -492,7 +508,7 @@ const VenueEntity = () => {
           )}
         </div>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 

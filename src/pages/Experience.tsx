@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Music, Camera, Plane, Users, Zap } from "lucide-react";
-import PageLayout from "@/components/PageLayout";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { ExperienceTravel } from "@/components/experience/ExperienceTravel";
 import { ExperienceMedia } from "@/components/experience/ExperienceMedia";
 import { ExperienceStage } from "@/components/experience/ExperienceStage";
@@ -59,16 +59,16 @@ const Experience = () => {
   const activeConfig = TABS[activeTab] as any; // Quick fix for type inference if needed, though TABS values are consistent
 
   return (
-    <PageLayout
-      emoji={activeConfig.hero.emoji}
-      titleWhite={activeConfig.hero.titleWhite}
-      titleOrange={activeConfig.hero.titleOrange}
-      subtitle={activeConfig.hero.subtitle}
-      gradientFrom={activeConfig.hero.gradientFrom}
-      floatingIcons={activeConfig.hero.floatingIcons}
-      highlightColor={activeConfig.highlightColor}
-      breadcrumbLabel={activeConfig.label}
-      breadcrumbItems={[{ label: 'Experience' }, { label: activeConfig.label }]}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Experience' }, { label: activeConfig.label }]}
+      hero={{
+        emoji: activeConfig.hero.emoji,
+        titleWhite: activeConfig.hero.titleWhite,
+        titleOrange: activeConfig.hero.titleOrange,
+        subtitle: activeConfig.hero.subtitle,
+        floatingIcons: activeConfig.hero.floatingIcons,
+        highlightColor: activeConfig.highlightColor,
+      }}
       heroAfter={
         <FolderTabs activeTab={activeTab} onTabChange={(id) => setActiveTab(id as TabId)} />
       }
@@ -88,7 +88,7 @@ const Experience = () => {
           </motion.div>
         </AnimatePresence>
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

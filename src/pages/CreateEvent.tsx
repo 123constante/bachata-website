@@ -6,15 +6,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
-  ArrowLeft, 
-  Upload, 
-  Ticket, 
-  Link as LinkIcon, 
-  CreditCard, 
-  Facebook, 
-  Instagram, 
-  Globe 
+import {
+  Upload,
+  Ticket,
+  Link as LinkIcon,
+  CreditCard,
+  Facebook,
+  Instagram,
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { useCity } from '@/contexts/CityContext';
 import { validateImageFile } from '@/lib/upload-validation';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 
 const cleanString = (str: string | undefined | null) => {
   if (!str) return null;
@@ -199,11 +199,11 @@ const CreateEvent = () => {
   };
 
   return (
-    <div className='min-h-screen pt-20 px-4 pb-24'>
+    <GlobalLayout breadcrumbs={[{ label: 'Create event' }]} backHref='/profile?role=organiser'>
+    <div className='px-4 pb-24'>
       <div className='max-w-2xl mx-auto'>
         <ScrollReveal animation='fadeUp'>
           <div className='flex items-center gap-4 mb-8'>
-            <Button onClick={() => navigate(-1)} variant='ghost' size='icon'><ArrowLeft className='w-5 h-5' /></Button>
             <h1 className='text-2xl font-bold'>Create Event</h1>
           </div>
         </ScrollReveal>
@@ -283,6 +283,7 @@ const CreateEvent = () => {
         </form>
       </div>
     </div>
+    </GlobalLayout>
   );
 };
 export default CreateEvent;

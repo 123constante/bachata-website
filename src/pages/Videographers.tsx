@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import PageLayout from "@/components/PageLayout";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -47,13 +47,15 @@ const Videographers = () => {
   });
 
   return (
-    <PageLayout
-      emoji="🎥"
-      titleWhite="Bachata"
-      titleOrange="Videographers"
-      subtitle="Book the best eyes in the industry. Your movement deserves to be captured in cinema quality."
-      floatingIcons={[Camera, Video, Film, Play, Star, Youtube]}
-      breadcrumbLabel="Videographers"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Videographers' }]}
+      hero={{
+        emoji: '🎥',
+        titleWhite: 'Bachata',
+        titleOrange: 'Videographers',
+        subtitle: 'Book the best eyes in the industry. Your movement deserves to be captured in cinema quality.',
+        floatingIcons: [Camera, Video, Film, Play, Star, Youtube],
+      }}
     >
       <div className="max-w-7xl mx-auto px-4 py-8">
         
@@ -159,7 +161,7 @@ const Videographers = () => {
         )}
 
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 
