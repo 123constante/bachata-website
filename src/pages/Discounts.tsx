@@ -6,7 +6,7 @@ import {
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import {
   Accordion,
   AccordionContent,
@@ -80,16 +80,17 @@ const Discounts = () => {
   };
 
   return (
-    <PageLayout
-      emoji='👑'
-      titleWhite='VIP'
-      titleOrange='Membership'
-      subtitle='£20/month. Best discounts in London. Guest list at every event. Just say your name.'
-      widgets={heroWidgets}
-      gradientFrom='amber-500'
-      floatingIcons={floatingIcons}
-      breadcrumbLabel='Discounts'
-      largeTitle={true}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Discounts' }]}
+      hero={{
+        emoji: '👑',
+        titleWhite: 'VIP',
+        titleOrange: 'Membership',
+        subtitle: '£20/month. Best discounts in London. Guest list at every event. Just say your name.',
+        widgets: heroWidgets,
+        floatingIcons: floatingIcons,
+        largeTitle: true,
+      }}
     >
       {/* Tonight's Event Alert */}
       <TonightSavingsAlert />
@@ -314,7 +315,7 @@ const Discounts = () => {
           </Card>
         </section>
       </ScrollReveal>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

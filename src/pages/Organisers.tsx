@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Calendar, Users, Sparkles, Music, Trophy, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -55,14 +55,15 @@ const Organisers = () => {
   });
 
   return (
-    <PageLayout
-      emoji="🎪"
-      titleWhite="Event"
-      titleOrange="Organisers"
-      subtitle="The people and collectives behind the best bachata nights."
-      floatingIcons={[Users, Calendar, Sparkles, Music, Trophy, Zap]}
-      breadcrumbItems={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]}
-      breadcrumbLabel="Organisers"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]}
+      hero={{
+        emoji: '🎪',
+        titleWhite: 'Event',
+        titleOrange: 'Organisers',
+        subtitle: 'The people and collectives behind the best bachata nights.',
+        floatingIcons: [Users, Calendar, Sparkles, Music, Trophy, Zap],
+      }}
     >
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}
@@ -152,7 +153,7 @@ const Organisers = () => {
           </p>
         )}
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

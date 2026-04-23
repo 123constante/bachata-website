@@ -2,7 +2,7 @@ import { Building2, MapPin, Users, Music, Layers, Lightbulb } from 'lucide-react
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { fetchPublicVenuesList } from '@/services/venuePublicService';
 import { VenueCard } from '@/components/venue/VenueCard';
 
@@ -14,13 +14,15 @@ const Venues = () => {
   });
 
   return (
-    <PageLayout
-      emoji="🏛️"
-      titleWhite="Dance"
-      titleOrange="Venues"
-      subtitle="Find the perfect space for bachata — studios, clubs, and event halls."
-      floatingIcons={[Building2, MapPin, Users, Music, Layers, Lightbulb]}
-      breadcrumbLabel="Venues"
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Venues' }]}
+      hero={{
+        emoji: '🏛️',
+        titleWhite: 'Dance',
+        titleOrange: 'Venues',
+        subtitle: 'Find the perfect space for bachata — studios, clubs, and event halls.',
+        floatingIcons: [Building2, MapPin, Users, Music, Layers, Lightbulb],
+      }}
     >
       <div className="max-w-6xl mx-auto px-4">
         {isLoading ? (
@@ -51,7 +53,7 @@ const Venues = () => {
           </StaggerContainer>
         )}
       </div>
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 

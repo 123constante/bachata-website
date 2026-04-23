@@ -2,13 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import PageLayout from '@/components/PageLayout';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import PageBreadcrumb from '@/components/PageBreadcrumb';
 import { buildFullName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
@@ -231,13 +230,15 @@ const Dancers = () => {
   };
 
   return (
-    <PageLayout
-      emoji="💃"
-      titleWhite="Meet"
-      titleOrange="Dancers"
-      breadcrumbLabel="Dancers"
-      floatingIcons={[Users, Star, Heart, Music, Sparkles, UserCheck]}
-      largeTitle={true}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Dancers' }]}
+      hero={{
+        emoji: '💃',
+        titleWhite: 'Meet',
+        titleOrange: 'Dancers',
+        floatingIcons: [Users, Star, Heart, Music, Sparkles, UserCheck],
+        largeTitle: true,
+      }}
     >
       {/* Hero Widgets */}
       <div className='relative z-10 px-4 -mt-6 mb-16'>
@@ -534,7 +535,7 @@ const Dancers = () => {
       </section>
 
       {/* Footer */}
-    </PageLayout>
+    </GlobalLayout>
   );
 };
 
