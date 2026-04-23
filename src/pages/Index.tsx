@@ -71,7 +71,7 @@ const Index = () => {
   return (
     <PageErrorBoundary>
       <GlobalLayout
-        breadcrumbs={[]}
+        showSubheader={false}
         hero={{
           emoji: '💃',
           titleWhite: 'Bachata',

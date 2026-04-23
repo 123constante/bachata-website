@@ -148,8 +148,10 @@ const Tonight = () => {
 
       <div className="text-neutral-200 font-sans selection:bg-red-500/30 pb-32">
         <ChannelOverlay />
-        {/* Broadcast Overlay Effects */}
-        <div className="fixed inset-0 pointer-events-none z-30">
+        {/* Broadcast Overlay Effects — z-5 sits below GlobalLayout's
+            sub-header row (z-10) so scanlines don't bleed across the
+            breadcrumb text, while staying above the page backdrop. */}
+        <div className="fixed inset-0 pointer-events-none z-[5]">
           {/* Vignette */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.4)_100%)]" />
           {/* Scanlines - subtle */}
