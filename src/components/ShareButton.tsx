@@ -1,4 +1,5 @@
 import { Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
 interface ShareButtonProps {
@@ -6,9 +7,28 @@ interface ShareButtonProps {
   dateLabel: string | null;
   venueName: string | null;
   className?: string;
+  /**
+   * Fallback for browsers without navigator.share.
+   * - 'whatsapp' (default): opens a wa.me link, preserving existing behaviour
+   *   for any call-site that relied on the original implementation.
+   * - 'copy': copies the page URL to the clipboard and surfaces a toast.
+   */
+  fallback?: 'whatsapp' | 'copy';
+  /**
+   * - 'default' (default): pill button with "Share" label. Unchanged.
+   * - 'icon': small circular icon-only button, suited for overlays.
+   */
+  variant?: 'default' | 'icon';
 }
 
-export const ShareButton = ({ eventName, dateLabel, venueName, className }: ShareButtonProps) => {
+export const ShareButton = ({
+  eventName,
+  dateLabel,
+  venueName,
+  className,
+  fallback = 'whatsapp',
+  variant = 'default',
+}: ShareButtonProps) => {
   const pageUrl = window.location.href;
 
   const shareText = [
@@ -21,6 +41,15 @@ export const ShareButton = ({ eventName, dateLabel, venueName, className }: Shar
 
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
+  const runCopyFallback = async () => {
+    try {
+      await navigator.clipboard.writeText(pageUrl);
+      toast.success('Link copied');
+    } catch {
+      toast.error("Couldn't copy — try again");
+    }
+  };
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -31,11 +60,31 @@ export const ShareButton = ({ eventName, dateLabel, venueName, className }: Shar
         });
         return;
       } catch {
-        // User cancelled or error — fall through to WhatsApp
+        // User cancelled or the share sheet errored — drop through to fallback.
       }
+    }
+    if (fallback === 'copy') {
+      await runCopyFallback();
+      return;
     }
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
+
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        onClick={handleShare}
+        aria-label="Share this event"
+        className={
+          'flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ' +
+          (className ?? '')
+        }
+      >
+        <Share2 className="h-4 w-4" />
+      </button>
+    );
+  }
 
   return (
     <Button
