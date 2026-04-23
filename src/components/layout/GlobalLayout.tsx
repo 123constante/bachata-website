@@ -123,7 +123,9 @@ const GlobalLayout = ({
             transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
             style={{ backgroundSize: '200% 200%' }}
           />
-          <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div
+            className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden`}
+          >
             <FloatingElements count={floatingCount} />
           </div>
         </>
