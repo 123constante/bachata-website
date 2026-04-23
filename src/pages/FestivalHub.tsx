@@ -1,6 +1,6 @@
-﻿import { useMemo, useState, useEffect, type MouseEvent } from "react";
+import { useMemo, useState, useEffect, type MouseEvent } from "react";
 import { PageErrorBoundary } from "@/components/ErrorBoundary";
-import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,9 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
-import PageHero from "@/components/PageHero";
-import { FloatingElements } from "@/components/FloatingElements";
-import PageBreadcrumb from "@/components/PageBreadcrumb";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -42,22 +40,22 @@ type AttendeePreview = {
 const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) => (
   <motion.div
     initial={{ y: -20, x: startX, opacity: 0, rotate: 0 }}
-    animate={{ 
-      y: ["0vh", "100vh"], 
+    animate={{
+      y: ["0vh", "100vh"],
       x: [startX, startX + (Math.random() - 0.5) * 100],
       opacity: [0, 1, 1, 0],
       rotate: [0, 360, 720]
     }}
-    transition={{ 
-      duration: 4 + Math.random() * 2, 
-      delay, 
+    transition={{
+      duration: 4 + Math.random() * 2,
+      delay,
       repeat: Infinity,
       ease: "linear"
     }}
     className="absolute text-lg pointer-events-none"
     style={{ left: `${startX}%` }}
   >
-    {["‰", "Š", "¨", "­", "ª", " ", "¡", "¥³", "’ƒ", "•º"][Math.floor(Math.random() * 10)]}
+    {["‰", "Š", "¨", "­", "ª", " ", "¡", "¥³", "’ƒ", "•º"][Math.floor(Math.random() * 10)]}
   </motion.div>
 );
 
@@ -71,9 +69,6 @@ const FestivalHubInner = () => {
   const [optimisticStatusByEvent, setOptimisticStatusByEvent] = useState<Record<string, AttendanceStatus | null>>({});
   const [, setTick] = useState(0);
 
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-
   // Update countdown every second
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 1000);
@@ -84,7 +79,7 @@ const FestivalHubInner = () => {
     const now = new Date();
     const diff = date.getTime() - now.getTime();
     if (diff <= 0) return "Now!";
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     return `${days}d ${hours}h`;
@@ -291,47 +286,37 @@ const FestivalHubInner = () => {
   const showProfiles = Boolean(user);
 
   const heroWidgets = [
-    { emoji: "ª", title: "Festivals", desc: "Upcoming events", sectionId: "festivals" },
-    { emoji: " ", title: "Roommates", desc: "Share costs", sectionId: "festivals" },
-    { emoji: "š•", title: "Travel", desc: "Taxi buddies", sectionId: "festivals" },
-    { emoji: "’ƒ", title: "Partners", desc: "Pre-plan dances", sectionId: "festivals" },
+    { emoji: "🎪", title: "Festivals", desc: "Upcoming events", sectionId: "festivals" },
+    { emoji: "🏠", title: "Roommates", desc: "Share costs", sectionId: "festivals" },
+    { emoji: "🚕", title: "Travel", desc: "Taxi buddies", sectionId: "festivals" },
+    { emoji: "💃", title: "Partners", desc: "Pre-plan dances", sectionId: "festivals" },
   ];
 
   const floatingIcons = [Plane, Music, Heart, Star, Home, Users];
 
   return (
-    <div className="min-h-screen pb-24 pt-20 overflow-x-hidden relative">
-      <PageBreadcrumb items={[{ label: 'Experience', path: '/experience' }, { label: 'Festivals' }]} />
-      {/* Scroll Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-50 origin-left"
-        style={{ scaleX }}
-      />
-
-      {/* Floating Elements Background */}
-      <FloatingElements count={20} />
-
-      {/* Animated Confetti Background */}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Experience', path: '/experience' }, { label: 'Festivals' }]}
+      showGradientBg={false}
+      hero={{
+        emoji: '🎪',
+        titleWhite: 'Festival',
+        titleOrange: 'Hub',
+        subtitle: '',
+        widgets: heroWidgets,
+        floatingIcons: floatingIcons,
+        largeTitle: true,
+      }}
+    >
+      {/* Animated Confetti Background — preserved as custom page background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         {Array.from({ length: 15 }).map((_, i) => (
           <ConfettiParticle key={i} delay={i * 0.3} startX={Math.random() * 100} />
         ))}
       </div>
 
-      {/* Carnival Gradient Background */}
+      {/* Carnival Gradient Background — preserved as custom page background */}
       <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-orange-500/10 pointer-events-none z-0" />
-      
-      {/* Hero Section */}
-      <PageHero
-        emoji="ª"
-        titleWhite="Festival"
-        titleOrange="Hub"
-        subtitle=""
-        widgets={heroWidgets}
-        gradientFrom="pink-500"
-        floatingIcons={floatingIcons}
-        largeTitle={true}
-      />
 
       {/* Stats */}
       <div className="flex items-center justify-center gap-2 -mt-4 mb-8 relative z-10">
@@ -366,13 +351,13 @@ const FestivalHubInner = () => {
                   whileHover={{ scale: 1.02, y: -4 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Card 
+                  <Card
                     className="p-6 bg-gradient-to-br from-card via-card to-primary/5 border-primary/20 hover:border-primary/40 transition-all cursor-pointer overflow-hidden relative"
                     onClick={() => navigate(`/event/${festival.id}`)}
                   >
                     {/* Carnival stripe decoration */}
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500" />
-                    
+
                     {/* Festival Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div>
@@ -592,7 +577,7 @@ const FestivalHubInner = () => {
         description="Sign in to view attendee profiles and update attendance."
         returnTo={authReturnTo}
       />
-    </div>
+    </GlobalLayout>
   );
 };
 
@@ -603,5 +588,3 @@ const FestivalHub = () => (
 );
 
 export default FestivalHub;
-
-
