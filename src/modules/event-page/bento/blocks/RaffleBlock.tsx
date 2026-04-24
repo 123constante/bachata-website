@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
+import { getRaffleSessionId } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import { Check, Sparkles, Trophy } from 'lucide-react';
 
@@ -246,7 +247,8 @@ const TrophyCircle = () => (
 
 export const RaffleBlock = () => {
   const { id: eventId } = useParams<{ id: string }>();
-  const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null);
+  const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
+  const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [shakeKey, setShakeKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
@@ -288,7 +290,80 @@ export const RaffleBlock = () => {
   // Entry-count-driven glow intensity: min(1, entry_count / 50).
   const intensity = Math.min(1, (config?.entry_count ?? 0) / 50);
 
-  // ─── Winner already announced ─────────────────────────────────────────
+  // ─── Phase 5E — per-dancer states. Must come before the public-winner
+  // block so the current user sees their own status (admin_excluded /
+  // already_won) rather than the generic winner card.
+  if (config?.enabled && config.my_status?.status === 'admin_excluded') {
+    const alt = config.my_status.alternate_event;
+    return (
+      <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
+        <div className="flex items-start gap-3">
+          <AnimatedChest intensity={0.2} opening={false} celebrate={false} dimmed />
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-[14px] font-semibold leading-[1.2] tracking-[-0.01em]"
+              style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
+            >
+              Thanks for entering!
+            </div>
+            <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+              This raffle has a special rule you don’t meet this time.
+              {alt && (
+                <>
+                  {' '}Try{' '}
+                  <a
+                    href={`/event/${alt.event_id}`}
+                    className="underline decoration-dotted underline-offset-2"
+                    style={{ color: GOLD }}
+                  >
+                    {alt.name ?? 'another event'}
+                  </a>{' '}
+                  instead.
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </BentoTile>
+    );
+  }
+
+  if (config?.enabled && config.my_status?.status === 'already_won') {
+    const alt = config.my_status.alternate_event;
+    return (
+      <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
+        <div className="flex items-start gap-3">
+          <TrophyCircle />
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-[14px] font-extrabold leading-[1.15] tracking-[-0.015em]"
+              style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
+            >
+              You won this one! 🎉
+            </div>
+            <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+              Organiser will be in touch.
+              {alt && (
+                <>
+                  {' '}Try{' '}
+                  <a
+                    href={`/event/${alt.event_id}`}
+                    className="underline decoration-dotted underline-offset-2"
+                    style={{ color: GOLD }}
+                  >
+                    {alt.name ?? 'another raffle'}
+                  </a>{' '}
+                  next.
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </BentoTile>
+    );
+  }
+
+  // ─── Winner already announced (public show_winner_publicly path) ─────
   if (config?.enabled && config.winner_display) {
     return (
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
