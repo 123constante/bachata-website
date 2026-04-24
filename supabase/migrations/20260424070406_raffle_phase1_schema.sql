@@ -84,7 +84,6 @@ CREATE TABLE IF NOT EXISTS public.event_raffle_entries (
   created_at  timestamptz NOT NULL DEFAULT now(),
   deleted_at  timestamptz,
 
-  CONSTRAINT uq_event_raffle_phone UNIQUE (event_id, phone_e164),
   CONSTRAINT chk_raffle_phone_e164
     CHECK (phone_e164 ~ '^\+[1-9][0-9]{1,14}$')
 );
@@ -92,11 +91,12 @@ CREATE TABLE IF NOT EXISTS public.event_raffle_entries (
 CREATE INDEX IF NOT EXISTS idx_event_raffle_entries_event_id
   ON public.event_raffle_entries(event_id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_event_raffle_phone_active
+  ON public.event_raffle_entries(event_id, phone_e164)
+  WHERE deleted_at IS NULL;
+
 COMMENT ON TABLE public.event_raffle_entries IS
-  'Public self-signup raffle entries. One row per phone per event. '
-  'deleted_at is an audit-only soft-delete marker — the UNIQUE (event_id, '
-  'phone_e164) constraint is full, so a soft-deleted phone cannot re-enter '
-  'without a hard delete first.';
+  'Public self-signup raffle entries. Partial unique index on (event_id, phone_e164) WHERE deleted_at IS NULL allows soft-deleted entries to be replaced by new entries from the same phone (GDPR retention compatible). Audit-pure history lives in event_raffle_draws.entries_snapshot, not here.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. event_raffle_draws — draw history + rollback chain
@@ -132,6 +132,7 @@ ALTER TABLE public.event_raffle_draws   ENABLE ROW LEVEL SECURITY;
 
 -- Entries: public INSERT gated on published-event + has_raffle = true.
 -- anon and authenticated both covered so a logged-in user can also enter.
+DROP POLICY IF EXISTS anon_insert_raffle_entry ON public.event_raffle_entries;
 CREATE POLICY anon_insert_raffle_entry
   ON public.event_raffle_entries
   FOR INSERT
@@ -147,6 +148,7 @@ CREATE POLICY anon_insert_raffle_entry
   );
 
 -- Entries: admin full access (SELECT / INSERT / UPDATE / DELETE).
+DROP POLICY IF EXISTS admin_all_raffle_entries ON public.event_raffle_entries;
 CREATE POLICY admin_all_raffle_entries
   ON public.event_raffle_entries
   FOR ALL
@@ -155,6 +157,7 @@ CREATE POLICY admin_all_raffle_entries
   WITH CHECK (public.is_admin());
 
 -- Draws: admin-only, no public path.
+DROP POLICY IF EXISTS admin_all_raffle_draws ON public.event_raffle_draws;
 CREATE POLICY admin_all_raffle_draws
   ON public.event_raffle_draws
   FOR ALL
