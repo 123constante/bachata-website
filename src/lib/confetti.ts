@@ -23,16 +23,30 @@ export const triggerGlobalConfetti = () => {
     }, 250);
 };
 
-export const triggerMicroConfetti = (x: number, y: number) => {
+export type MicroConfettiOptions = {
+    particleCount?: number;
+    colors?: string[];
+    spread?: number;
+    ticks?: number;
+    scalar?: number;
+};
+
+export const triggerMicroConfetti = (
+    x: number,
+    y: number,
+    options?: MicroConfettiOptions,
+) => {
     // Normalize coordinates to 0-1 range for canvas-confetti
     const xNorm = x / window.innerWidth;
     const yNorm = y / window.innerHeight;
 
     confetti({
-        particleCount: 30,
-        spread: 50,
+        particleCount: options?.particleCount ?? 30,
+        spread: options?.spread ?? 50,
         origin: { x: xNorm, y: yNorm },
-        colors: ['#3b82f6', '#8b5cf6', '#ec4899'], // Blue, Purple, Pink
+        colors: options?.colors ?? ['#3b82f6', '#8b5cf6', '#ec4899'],
+        ticks: options?.ticks ?? 60,
+        scalar: options?.scalar ?? 1,
         disableForReducedMotion: true,
         zIndex: 9999,
     });
