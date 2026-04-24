@@ -57,15 +57,17 @@ const roleLabelFor = (session: ScheduleSession): string | null => {
 
 // ─── Person link (only clickable item inside a session) ──────────────────────
 
-const PersonLink = ({ person, index }: { person: Person; index: number }) => {
+const PersonLink = ({ person }: { person: Person }) => {
   const initial = (person.name || '?').charAt(0).toUpperCase();
-  // Stable-feeling hue per person index — matches the design's avatar rainbow.
-  const hue = (index * 53) % 360;
   const body = (
     <>
       <div
-        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black/35 text-[15px] font-bold text-white/95"
-        style={{ background: person.avatarUrl ? undefined : `hsl(${hue} 35% 35%)` }}
+        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-[1.5px] text-[15px] font-bold"
+        style={{
+          background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
+          borderColor: 'var(--bento-hairline)',
+          color: 'hsl(var(--bento-accent))',
+        }}
       >
         {person.avatarUrl ? (
           <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -74,8 +76,9 @@ const PersonLink = ({ person, index }: { person: Person; index: number }) => {
         )}
       </div>
       <div
-        className="max-w-[60px] truncate text-center text-[9px] leading-[1.1] text-white/92"
+        className="max-w-[60px] truncate text-center text-[9px] leading-[1.1]"
         title={person.name}
+        style={{ color: 'hsl(var(--bento-fg))' }}
       >
         {person.name}
       </div>
@@ -92,7 +95,7 @@ const PersonLink = ({ person, index }: { person: Person; index: number }) => {
   return (
     <Link
       to={person.href}
-      className="flex w-11 flex-col items-center gap-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+      className="flex w-11 flex-col items-center gap-[4px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
     >
       {body}
     </Link>
@@ -109,30 +112,44 @@ const SessionRow = ({ session }: { session: ScheduleSession }) => {
     <div className="grid grid-cols-[44px_1fr] items-start gap-[10px]">
       {/* Time rail — not clickable */}
       <div className="flex flex-col items-start pt-[2px]">
-        <div className="text-[13px] font-bold leading-none tracking-[-0.01em] tabular-nums text-white">
+        <div
+          className="text-[13px] font-bold leading-none tracking-[-0.01em] tabular-nums"
+          style={{ color: 'hsl(var(--bento-fg))' }}
+        >
           {fmtMins12(session.startMins)}
         </div>
-        <div className="mt-[2px] font-mono text-[8px] uppercase tracking-[0.12em] text-white/70">
+        <div
+          className="mt-[2px] font-mono text-[8px] uppercase tracking-[0.12em]"
+          style={{ color: 'hsl(var(--bento-fg-muted))' }}
+        >
           {fmtDuration(session.startMins, session.endMins)}
         </div>
       </div>
 
       {/* Content — not clickable except the avatar/name links */}
       <div
-        className={cn(
-          'min-w-0',
-          isParty && 'rounded-[12px] border border-white/25 bg-black/15 px-3 py-[10px]',
-        )}
+        className={cn('min-w-0', isParty && 'rounded-[12px] px-3 py-[10px]')}
+        style={
+          isParty
+            ? {
+                background: 'hsl(var(--bento-surface))',
+                border: '1px solid var(--bento-hairline)',
+              }
+            : undefined
+        }
       >
         <span
-          className="text-[14px] font-semibold leading-[1.15] tracking-[-0.005em] text-white"
-          style={{ fontFamily: '"Fraunces", Georgia, serif' }}
+          className="text-[14px] font-semibold leading-[1.15] tracking-[-0.005em]"
+          style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
         >
           {session.title}
         </span>
 
         {roleLabel && (
-          <div className="mt-[8px] font-mono text-[8px] uppercase tracking-[0.14em] text-white/65">
+          <div
+            className="mt-[8px] font-mono text-[8px] uppercase tracking-[0.14em]"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
             {roleLabel}
           </div>
         )}
@@ -140,7 +157,7 @@ const SessionRow = ({ session }: { session: ScheduleSession }) => {
         {session.people.length > 0 && (
           <div className="mt-[6px] flex flex-wrap gap-[10px]">
             {session.people.map((p, i) => (
-              <PersonLink key={`${p.id}-${i}`} person={p} index={i} />
+              <PersonLink key={`${p.id}-${i}`} person={p} />
             ))}
           </div>
         )}
@@ -172,12 +189,20 @@ const DayTabs = ({
             key={day}
             type="button"
             onClick={() => onPick(day)}
-            className={cn(
-              'flex-shrink-0 rounded-full px-[10px] py-[4px] text-[10px] font-bold uppercase tracking-[0.06em] transition',
+            className="flex-shrink-0 rounded-full px-[10px] py-[4px] text-[10px] font-bold uppercase tracking-[0.06em] transition-transform duration-150 active:scale-[0.97]"
+            style={
               selected
-                ? 'border border-white/95 bg-white/95 text-black'
-                : 'border border-white/25 bg-transparent text-white/90',
-            )}
+                ? {
+                    background: 'hsl(var(--bento-accent))',
+                    color: 'hsl(var(--bento-surface))',
+                    border: '1px solid hsl(var(--bento-accent))',
+                  }
+                : {
+                    background: 'transparent',
+                    color: 'hsl(var(--bento-fg))',
+                    border: '1px solid var(--bento-hairline)',
+                  }
+            }
           >
             {fmtDayPill(day)}
           </button>
@@ -220,22 +245,22 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
     return sessions.filter((s) => s.day === currentDay);
   }, [sessions, isMultiDay, currentDay]);
 
+  // Schedule is a container, not a button — inner avatars + day tabs are
+  // the tap targets. Mode='container' suppresses the strong-button shell.
   return (
-    <BentoTile title={BLOCK_TITLES.schedule} color={BLOCK_COLORS.schedule}>
+    <BentoTile title={BLOCK_TITLES.schedule} color={BLOCK_COLORS.schedule} mode="container">
       {isMultiDay && currentDay && (
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
 
       {sessions.length === 0 ? (
-        // Empty-state copy sits in a naturally short box — no flex-1 so the
-        // bento row collapses to minimum cell height instead of inflating.
-        <div className="py-2 text-center text-[11px] text-white/70">
+        <div
+          className="py-2 text-center text-[11px]"
+          style={{ color: 'hsl(var(--bento-fg-muted))' }}
+        >
           {isLoading ? 'Loading…' : 'Schedule coming soon'}
         </div>
       ) : (
-        // No flex-1, no overflow-y-auto. Height = sessions stacked with their
-        // inter-row gap + the tile's padding. Anything taller just grows the
-        // grid row (gridAutoRows is minmax(cell, auto)).
         <div className="flex flex-col gap-[22px]">
           {visibleSessions.map((s) => (
             <SessionRow key={s.id} session={s} />

@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import { BLOCK_COLORS } from '@/modules/event-page/bento/BentoGrid';
+// PinkFallback keeps its legacy pink surface as a deliberate exception to
+// the Phase 8g unified-surface palette — it signals no-cover / error
+// states, not a normal tile. Imports PINK_FALLBACK_SURFACE (not
+// BLOCK_COLORS.cover, which now resolves to BENTO_SURFACE) so the pink
+// is preserved after the palette migration.
+import { PINK_FALLBACK_SURFACE } from '@/modules/event-page/bento/BentoGrid';
 
 type PinkFallbackProps = {
   title: string;
@@ -22,8 +27,8 @@ export const PinkFallback = ({ title, subtitle, action, fill = false }: PinkFall
     className="relative flex w-full items-center justify-center overflow-hidden rounded-[22px] px-6"
     style={
       fill
-        ? { height: '100%', background: BLOCK_COLORS.cover }
-        : { aspectRatio: '4 / 3', background: BLOCK_COLORS.cover }
+        ? { height: '100%', background: PINK_FALLBACK_SURFACE }
+        : { aspectRatio: '4 / 3', background: PINK_FALLBACK_SURFACE }
     }
   >
     <div className="text-center">

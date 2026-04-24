@@ -21,6 +21,7 @@ import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { PromoBlock } from '@/modules/event-page/bento/blocks/PromoBlock';
 import { CityBlock } from '@/modules/event-page/bento/blocks/CityBlock';
 import { GuestListBlock } from '@/modules/event-page/bento/blocks/GuestListBlock';
+import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
 import { SeeAllGuestsDrawer } from '@/modules/event-page/bento/modals/SeeAllGuestsDrawer';
@@ -239,68 +240,101 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
             onJoin={() => setJoinOpen(true)}
           />
         );
+      case 'raffle':
+        return <RaffleBlock />;
       default:
         return <BentoTile title={BLOCK_TITLES[id]} color={BLOCK_COLORS[id]} />;
     }
   };
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-[430px] px-2 pb-24 pt-4">
-      {past && (
-        <div className="mb-3 rounded-md bg-white/5 px-3 py-2 text-center text-[11px] text-white/60">
-          This event has ended.
-        </div>
-      )}
-
-      {/* Header: event title in Fraunces with gold-accented last word, plus
-          organiser byline. Now sits above the grid (cover moved into the grid
-          as a 2-col top-left tile). */}
-      <div className="px-1 pb-3 pt-1 text-center">
-        {isLoading ? (
-          <>
-            <div className="mx-auto h-6 w-3/4 animate-pulse rounded bg-white/10" />
-            <div className="mx-auto mt-2 h-3 w-1/3 animate-pulse rounded bg-white/10" />
-          </>
-        ) : (
-          <>
-            <h1
-              className="text-[28px] font-bold leading-[0.95] tracking-[-0.03em]"
-              style={{ fontFamily: '"Fraunces", Georgia, serif' }}
-            >
-              {white && <span>{white} </span>}
-              <span style={{ color: 'hsl(33 100% 50%)' }}>{orange}</span>
-            </h1>
-            {organiser?.displayName && (
-              <p className="mt-1 text-[11px] tracking-[0.02em] text-white/60">
-                by{' '}
-                {organiser.href ? (
-                  <Link to={organiser.href} className="font-semibold text-white">
-                    {organiser.displayName}
-                  </Link>
-                ) : (
-                  <span className="font-semibold text-white">{organiser.displayName}</span>
-                )}
-              </p>
-            )}
-          </>
+    // Full-viewport themed surface: the deeper --bento-surface sits behind
+    // the centred 430 px content column so tiles (--bento-surface-raised)
+    // visually "lift" off the page. Distinct from the rest of the site's
+    // dark+orange brand — the event page is a themed surface, like a
+    // Spotify now-playing screen.
+    <div
+      className="min-h-screen w-full"
+      style={{ background: 'hsl(var(--bento-surface))', color: 'hsl(var(--bento-fg))' }}
+    >
+      <div className="mx-auto w-full max-w-[430px] px-2 pb-24 pt-4">
+        {past && (
+          <div
+            className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
+            style={{
+              background: 'hsl(var(--bento-surface-raised))',
+              color: 'hsl(var(--bento-fg-muted))',
+            }}
+          >
+            This event has ended.
+          </div>
         )}
+
+        {/* Header: event title in Fraunces with brass-accented last word,
+            plus organiser byline. Sits above the grid; cover is a 2×3 tile
+            inside the grid. */}
+        <div className="px-1 pb-3 pt-1 text-center">
+          {isLoading ? (
+            <>
+              <div
+                className="mx-auto h-6 w-3/4 animate-pulse rounded"
+                style={{ background: 'hsl(var(--bento-surface-raised))' }}
+              />
+              <div
+                className="mx-auto mt-2 h-3 w-1/3 animate-pulse rounded"
+                style={{ background: 'hsl(var(--bento-surface-raised))' }}
+              />
+            </>
+          ) : (
+            <>
+              <h1
+                className="text-[28px] font-bold leading-[0.95] tracking-[-0.03em]"
+                style={{ fontFamily: '"Fraunces", Georgia, serif' }}
+              >
+                {white && <span>{white} </span>}
+                <span style={{ color: 'hsl(var(--bento-accent))' }}>{orange}</span>
+              </h1>
+              {organiser?.displayName && (
+                <p
+                  className="mt-1 text-[11px] tracking-[0.02em]"
+                  style={{ color: 'hsl(var(--bento-fg-muted))' }}
+                >
+                  by{' '}
+                  {organiser.href ? (
+                    <Link
+                      to={organiser.href}
+                      className="font-semibold"
+                      style={{ color: 'hsl(var(--bento-fg))' }}
+                    >
+                      {organiser.displayName}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold" style={{ color: 'hsl(var(--bento-fg))' }}>
+                      {organiser.displayName}
+                    </span>
+                  )}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
+
+        <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
+
+        <AddToCalendarChooser
+          open={calendarOpen}
+          onOpenChange={setCalendarOpen}
+          event={calendarInput}
+        />
+        <SeeAllGuestsDrawer
+          open={seeAllOpen}
+          onOpenChange={setSeeAllOpen}
+          entries={guestList?.entries ?? []}
+        />
+        <JoinGuestListDialog open={joinOpen} onOpenChange={setJoinOpen} eventId={eventId} />
       </div>
-
-      <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
-
-      <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
-
-      <AddToCalendarChooser
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        event={calendarInput}
-      />
-      <SeeAllGuestsDrawer
-        open={seeAllOpen}
-        onOpenChange={setSeeAllOpen}
-        entries={guestList?.entries ?? []}
-      />
-      <JoinGuestListDialog open={joinOpen} onOpenChange={setJoinOpen} eventId={eventId} />
     </div>
   );
 };

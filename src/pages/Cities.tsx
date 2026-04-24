@@ -8,7 +8,8 @@
 // size by an order of magnitude, and introduces zero runtime JS for map
 // rendering. See Phase 8c-2 report for the full rationale.
 
-const GOLD = 'hsl(33 100% 50%)';
+// Canonical site brand orange. Consolidates the last HSL-33 drift site-wide.
+const GOLD = 'hsl(var(--primary))';
 
 // Equirectangular projection, viewBox 1000 × 500:
 //   x = (lng + 180) / 360 * 1000

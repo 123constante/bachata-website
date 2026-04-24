@@ -29,20 +29,36 @@ export const VenueBlock = ({ location, showCityLine = false }: VenueBlockProps) 
 
   return (
     <BentoTile title={BLOCK_TITLES.venue} color={BLOCK_COLORS.venue} href={href}>
-      <div className="flex min-h-0 flex-1 flex-col gap-[6px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-[4px]">
         {location.venueName && (
           <div className="text-[17px] font-extrabold leading-[1.1] tracking-[-0.015em]">
             {location.venueName}
           </div>
         )}
         {location.address && (
-          <div className="text-[11px] leading-[1.3] text-white/85">{location.address}</div>
+          <div
+            className="text-[11px] leading-[1.3]"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
+            {location.address}
+          </div>
         )}
         {showCity && (
-          <div className="text-[11px] leading-[1.3] text-white/75">{location.cityName}</div>
+          <div
+            className="text-[11px] leading-[1.3]"
+            style={{ color: 'hsl(var(--bento-fg-muted))', opacity: 0.8 }}
+          >
+            {location.cityName}
+          </div>
         )}
         {hasWalkingLine && (
-          <div className="mt-auto flex items-center gap-[6px] border-t border-white/20 pt-[8px] text-[10px] text-white/90">
+          <div
+            className="mt-auto flex items-center gap-[6px] pt-[8px] text-[10px]"
+            style={{
+              borderTop: '1px solid hsl(var(--bento-fg-muted) / 0.25)',
+              color: 'hsl(var(--bento-fg))',
+            }}
+          >
             <MapPin className="h-[14px] w-[14px] shrink-0" />
             <span className="leading-[1.2]">
               {walkMinutes} min walk from {nearest?.station}

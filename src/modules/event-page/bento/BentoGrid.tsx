@@ -13,35 +13,45 @@ export type BentoBlockId =
   | 'description'
   | 'raffle'
   | 'guest'
-  | 'contacts'
-  // Retained in the union only so the soon-to-be-deleted GoingBlock /
-  // InterestedBlock compile cleanly until Phase 8f removes them. They are
-  // deliberately absent from LAYOUT, so neither ever renders in 8a.
-  | 'going'
-  | 'interested';
+  | 'contacts';
 
 // Every block id is placed inside the 4-col grid. Kept as a type alias so the
 // rest of the code (renderBlock callbacks, hidden sets) has a stable name.
 export type GridBlockId = BentoBlockId;
 
-// Bento-local palette — NOT a site-wide token. Mirrors Event Page.html:103-115
-// with two additions: `city` (same navy family as date, the two neighbouring
-// top-right tiles) and `cover` still retaining its pink fallback hue.
+// Phase 8g palette migration (Vibe F: Velvet & Brass) — every tile shares
+// the raised forest-green surface; the page behind the tiles uses the
+// deeper --bento-surface so tiles visually "sit on" the page. Brass
+// accents (border, title strip, raffle glyph) + aged-cream body text
+// complete the two-hue palette.
+export const BENTO_SURFACE = 'hsl(var(--bento-surface-raised))';
+// Text tokens — imported by blocks that need inline style colours
+// (Tailwind arbitrary values work too but inline style keeps the hex-free
+// promise visible at call sites).
+export const BENTO_FG = 'hsl(var(--bento-fg))';
+export const BENTO_FG_MUTED = 'hsl(var(--bento-fg-muted))';
+export const BENTO_ACCENT = 'hsl(var(--bento-accent))';
+
+// PinkFallback is semantically distinct from a normal tile (no-cover / error
+// state) and retains its legacy pink. Kept as a named export so
+// PinkFallback.tsx has a token to import instead of a floating hex literal.
+export const PINK_FALLBACK_SURFACE = '#E13A8A';
+
+// BLOCK_COLORS is retained for backward compatibility with consumers that
+// still read `BLOCK_COLORS[id]` — every entry now points to BENTO_SURFACE so
+// those consumers get the unified surface without requiring call-site
+// churn. New code should import BENTO_SURFACE directly.
 export const BLOCK_COLORS: Record<BentoBlockId, string> = {
-  cover: '#E13A8A',
-  date: '#1E3A8A',
-  promo: '#B91C1C',
-  city: '#1E3A8A',
-  venue: '#166534',
-  schedule: '#0F766E',
-  description: '#1E40AF',
-  // Phase 8e: raffle is brand-forward (dark surface + gold accents) so the
-  // Phase 8g palette migration doesn't need to rework it.
-  raffle: '#141414',
-  guest: '#9333EA',
-  contacts: '#BE185D',
-  going: '#FFA500',
-  interested: '#7C3AED',
+  cover: BENTO_SURFACE,
+  date: BENTO_SURFACE,
+  promo: BENTO_SURFACE,
+  city: BENTO_SURFACE,
+  venue: BENTO_SURFACE,
+  schedule: BENTO_SURFACE,
+  description: BENTO_SURFACE,
+  raffle: BENTO_SURFACE,
+  guest: BENTO_SURFACE,
+  contacts: BENTO_SURFACE,
 };
 
 export const BLOCK_TITLES: Record<BentoBlockId, string> = {
@@ -55,8 +65,6 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   raffle: 'Raffle',
   guest: 'Guest list',
   contacts: 'Contacts',
-  going: 'Going',
-  interested: 'Interested',
 };
 
 // Content-driven block spec. Replaces the old coordinate-based INITIAL_LAYOUT.
@@ -93,12 +101,18 @@ export const LAYOUT: BlockSpec[] = [
   { id: 'venue', minW: 2, preferredW: 2, minH: 2 },
   { id: 'schedule', minW: 4, preferredW: 4 },
   { id: 'description', minW: 4, preferredW: 4 },
+  // Raffle is a static "coming soon" placeholder — no data, no minH, so it
+  // sizes to content (chest icon + two text lines). Always visible, including
+  // on past events (BentoPage never adds it to hiddenBlocks).
+  { id: 'raffle', minW: 4, preferredW: 4 },
   { id: 'guest', minW: 4, preferredW: 4, minH: 2 },
   { id: 'contacts', minW: 4, preferredW: 4, minH: 2 },
 ];
 
 const GRID_COLS = 4;
-const GAP_PX = 8;
+// Phase 8g compact density — tiles sit closer together than the original
+// 8 px to match the denser strong-button treatment.
+const GAP_PX = 6;
 
 type PackedBlock = {
   id: BentoBlockId;

@@ -36,7 +36,10 @@ export const CityBlock = ({ cityId, cityName }: CityBlockProps) => {
             {flag}
           </div>
         )}
-        <div className="text-[14px] font-extrabold tracking-[-0.015em] text-white">
+        <div
+          className="text-[14px] font-extrabold tracking-[-0.015em]"
+          style={{ color: 'hsl(var(--bento-fg))' }}
+        >
           {displayName}
         </div>
       </div>

@@ -51,8 +51,10 @@ export const PromoBlock = ({ codes }: PromoBlockProps) => {
   const { flashingId, copy } = useCopyCode();
   if (!codes || codes.length === 0) return null;
 
+  // Promo is a multi-target tile (the outer card doesn't navigate, each
+  // code row is its own tap target — taps copy the code).
   return (
-    <BentoTile title={BLOCK_TITLES.promo} color={BLOCK_COLORS.promo}>
+    <BentoTile title={BLOCK_TITLES.promo} color={BLOCK_COLORS.promo} mode="multi-target">
       <div
         className="flex min-h-0 flex-1 flex-col gap-[6px] overflow-y-auto"
         style={{ scrollbarWidth: 'thin' }}
@@ -64,7 +66,12 @@ export const PromoBlock = ({ codes }: PromoBlockProps) => {
               key={code.id}
               type="button"
               onClick={() => copy(code)}
-              className="flex min-w-0 items-center justify-between gap-2 rounded-[10px] border border-white/25 bg-black/15 px-2 py-[6px] text-left text-white transition active:scale-[0.98]"
+              className="flex min-w-0 items-center justify-between gap-2 rounded-[10px] px-2 py-[6px] text-left transition active:scale-[0.98]"
+              style={{
+                background: 'hsl(var(--bento-surface))',
+                border: '1px solid var(--bento-hairline)',
+                color: 'hsl(var(--bento-fg))',
+              }}
               aria-label={`Copy promo code ${code.code}`}
             >
               <div className="min-w-0 flex-1">
@@ -74,12 +81,18 @@ export const PromoBlock = ({ codes }: PromoBlockProps) => {
                   </span>
                   {flashing && (
                     <Check
-                      className="h-3 w-3 shrink-0 text-white"
+                      className="h-3 w-3 shrink-0"
+                      style={{ color: 'hsl(var(--bento-accent))' }}
                       aria-hidden="true"
                     />
                   )}
                 </div>
-                <div className="text-[10px] text-white/85">{formatDiscount(code)}</div>
+                <div
+                  className="text-[10px]"
+                  style={{ color: 'hsl(var(--bento-fg-muted))' }}
+                >
+                  {formatDiscount(code)}
+                </div>
               </div>
             </button>
           );

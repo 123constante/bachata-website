@@ -19,6 +19,31 @@
   unicode-range: U+1F1E6-1F1FF;
 }
 
+/* Phase 8e RaffleBlock animations — only the two used by the picked variant
+   remain. The unused preview keyframes (raffle-glow-pulse, raffle-box-bounce,
+   raffle-ribbon-wiggle, padlock-wiggle) were removed when variants A/C/D
+   were deleted.
+     raffle-shake           : 250ms side-to-side shake on tap
+     raffle-glow-pulse-soft : 2s opacity pulse, low amplitude 0.65→0.95, for
+                              the gold wedge escaping the chest's ajar lid */
+@keyframes raffle-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-3px); }
+  20% { transform: translateX(3px); }
+  30% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+  90% { transform: translateX(0); }
+}
+
+@keyframes raffle-glow-pulse-soft {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 0.95; }
+}
+
 /* Phase 8d-cover: CoverBlock auto-rotation progress bar. Scales a full-width
    fill element from 0 → 1 on the x-axis over the slide's dwell time, driven
    by `animation` in inline style so the duration matches the hook's timer. */
@@ -75,6 +100,23 @@
     --festival-purple: 280 100% 60%;
     --festival-blue: 200 100% 60%;
     --festival-rose: 339 56% 52%;
+
+    /* Bento event page — Phase 8g palette migration (Vibe F: Velvet & Brass).
+       The event page is a deliberately-themed surface, distinct from the
+       rest of the site's dark+orange brand. Forest green + tarnished brass
+       evokes a 1940s ballroom; the rest of the site stays on --primary.
+         --bento-surface          page background (deeper velvet)
+         --bento-surface-raised   tile bodies (one step lifted)
+         --bento-accent           title strips, icons, raffle glyph (brass)
+         --bento-fg               high-emphasis body text (aged cream)
+         --bento-fg-muted         subtitles + secondary labels
+         --bento-hairline         tile border (brass at 18% alpha) */
+    --bento-surface: 161 24% 9%;         /* #101F1C — forest green surface base */
+    --bento-surface-raised: 161 27% 14%; /* #1A2E2A — raised tile body */
+    --bento-accent: 38 39% 50%;          /* #B38A4E — tarnished brass */
+    --bento-fg: 41 38% 76%;              /* #D8CCB0 — aged cream body text */
+    --bento-fg-muted: 41 17% 56%;        /* #A59474 — muted body text */
+    --bento-hairline: hsl(var(--bento-accent) / 0.18);
 
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;

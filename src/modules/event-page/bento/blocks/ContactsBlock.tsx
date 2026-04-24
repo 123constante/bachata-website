@@ -80,8 +80,10 @@ export const ContactsBlock = ({ websiteUrl, facebookUrl, instagramUrl }: Contact
 
   if (rows.length === 0) return null;
 
+  // Multi-target: outer tile has strong-button visual; each contact row is
+  // its own tap target (opens the external URL in a new tab).
   return (
-    <BentoTile title={BLOCK_TITLES.contacts} color={BLOCK_COLORS.contacts}>
+    <BentoTile title={BLOCK_TITLES.contacts} color={BLOCK_COLORS.contacts} mode="multi-target">
       <div className="flex flex-1 flex-col gap-[6px]">
         {rows.map(({ key, label, href, display, Icon }) => (
           <a
@@ -89,11 +91,21 @@ export const ContactsBlock = ({ websiteUrl, facebookUrl, instagramUrl }: Contact
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-w-0 items-center gap-2 rounded-[12px] border border-white/25 bg-black/20 px-2 py-[8px] text-white"
+            className="flex min-w-0 items-center gap-2 rounded-[12px] px-2 py-[8px] transition-transform duration-150 active:scale-[0.97]"
+            style={{
+              background: 'hsl(var(--bento-surface))',
+              border: '1px solid var(--bento-hairline)',
+              color: 'hsl(var(--bento-fg))',
+            }}
           >
             <Icon className="h-[14px] w-[14px] shrink-0" />
             <div className="min-w-0 flex-1">
-              <div className="text-[9px] uppercase tracking-[0.1em] text-white/70">{label}</div>
+              <div
+                className="text-[9px] uppercase tracking-[0.1em]"
+                style={{ color: 'hsl(var(--bento-fg-muted))' }}
+              >
+                {label}
+              </div>
               <div className="truncate text-[11px] font-semibold">{display}</div>
             </div>
           </a>

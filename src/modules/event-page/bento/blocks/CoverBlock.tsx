@@ -122,13 +122,16 @@ export const CoverBlock = ({
                 : 'Open cover image full-screen'
             }
             onClick={handleCoverTap}
-            // bg-neutral-900 is a touch lighter than the page's pure-black
-            // --background so the backdrop reads as a deliberate dark frame
-            // rather than continuing the page. Inset shadow adds a soft
-            // vignette at the inner border so image edges (object-contain
-            // letterbox) don't meet a perfectly flat line.
-            className="relative block h-full w-full overflow-hidden rounded-[22px] bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-            style={{ boxShadow: 'inset 0 0 32px rgba(0,0,0,0.55)' }}
+            // Cover uses the deeper --bento-surface (matches the page bg)
+            // with the strong-button tile treatment around it: brass
+            // hairline border, two-layer shadow (inset top highlight +
+            // drop shadow), scale-to-98% press. Combined with the existing
+            // inset vignette so image edges don't meet a flat line.
+            className="relative block h-full w-full cursor-pointer overflow-hidden rounded-[22px] bg-[hsl(var(--bento-surface))] border border-[color:var(--bento-hairline)] transition-transform duration-150 ease-out active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 after:pointer-events-none after:absolute after:inset-0 after:rounded-[22px] after:bg-black/10 after:opacity-0 after:transition-opacity after:duration-150 after:content-[''] active:after:opacity-100"
+            style={{
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 32px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.45)',
+            }}
           >
             {images.map((url, i) => (
               <div

@@ -138,6 +138,10 @@ const AnimatedRoutes = () => {
           <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
           <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
 
+          {/* Phase 8 preview routes removed — winning variants (bento palette
+              Vibe F, compact density, strong-button treatment, RaffleBlock B,
+              CoverBlock) all promoted into the real /event/:id page. */}
+
           {/* Protected Routes */}
           <Route path="/create-dancers-profile" element={
             <AuthGuard>

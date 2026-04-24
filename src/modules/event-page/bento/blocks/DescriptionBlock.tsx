@@ -50,8 +50,12 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
     return (
       <BentoTile title={BLOCK_TITLES.description} color={surface}>
         <p
-          className="whitespace-pre-wrap text-[13px] leading-[1.5] text-white/95"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 500 }}
+          className="whitespace-pre-wrap text-[13px] leading-[1.5]"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontWeight: 500,
+            color: 'hsl(var(--bento-fg))',
+          }}
         >
           {trimmed}
         </p>
@@ -69,7 +73,12 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
 
   return (
     <div className="relative">
-      <BentoTile title={BLOCK_TITLES.description} color={surface}>
+      <BentoTile
+        title={BLOCK_TITLES.description}
+        color={surface}
+        mode="tappable"
+        onClick={() => setExpanded((v) => !v)}
+      >
         <div
           className="relative overflow-hidden"
           style={{
@@ -77,13 +86,14 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
             transition: 'max-height 300ms ease',
           }}
         >
-          {/* Inner wrapper's scrollHeight drives the expanded target. The
-              <p> has no max-height of its own — the clipping is purely on
-              the outer div. */}
           <div ref={contentRef}>
             <p
-              className="whitespace-pre-wrap text-[13px] leading-[1.5] text-white/95"
-              style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 500 }}
+              className="whitespace-pre-wrap text-[13px] leading-[1.5]"
+              style={{
+                fontFamily: '"Fraunces", Georgia, serif',
+                fontWeight: 500,
+                color: 'hsl(var(--bento-fg))',
+              }}
             >
               {trimmed}
             </p>
@@ -93,24 +103,32 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
               className="pointer-events-none absolute inset-x-0 bottom-0"
               style={{
                 height: FADE_PX,
-                background: `linear-gradient(to bottom, rgba(30,64,175,0) 0%, ${surface} 85%)`,
+                // Fades from transparent into the tile surface
+                // (--bento-surface-raised). Stays neutral through
+                // interpolation and blends cleanly into the Velvet & Brass
+                // tile bg.
+                background: `linear-gradient(to bottom, transparent 0%, ${surface} 85%)`,
               }}
             />
           )}
         </div>
       </BentoTile>
-      {/* White pill straddling the block's outer bottom edge — half above,
-          half below. Re-anchors to the grown edge when expanded because the
-          relative wrapper's height tracks the BentoTile. */}
+      {/* Brass pill straddling the block's outer bottom edge. Lives DOM-
+          outside the BentoTile so there's no nested-button issue; the
+          stopPropagation on its own handler prevents the tile-tap from
+          double-firing expand when the user taps the pill directly. */}
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="absolute left-1/2 z-10 rounded-full px-4 py-[6px] text-[11px] font-bold uppercase tracking-[0.06em] shadow-md"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((v) => !v);
+        }}
+        className="absolute left-1/2 z-10 rounded-full px-4 py-[6px] text-[11px] font-bold uppercase tracking-[0.06em] shadow-md transition-transform duration-150 active:scale-[0.97]"
         style={{
           bottom: 0,
           transform: 'translate(-50%, 50%)',
-          background: 'white',
-          color: surface,
+          background: 'hsl(var(--bento-accent))',
+          color: 'hsl(var(--bento-surface))',
         }}
         aria-expanded={expanded}
       >
