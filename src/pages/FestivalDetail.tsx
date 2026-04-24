@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { attendanceQueryKeys, useAttendance, type AttendanceStatus } from "@/hooks/useAttendance";
 import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
+import { StickyTicketButton } from "@/modules/event-page/bento/StickyTicketButton";
 
 type FestivalEvent = {
   id: string;
@@ -25,6 +26,7 @@ type FestivalEvent = {
   start_time: string | null;
   poster_url: string | null;
   description: string | null;
+  ticket_url: string | null;
 };
 
 type FestivalAttendee = {
@@ -57,7 +59,7 @@ const FestivalDetailInner = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, city, date, start_time, poster_url, description')
+        .select('id, name, city, date, start_time, poster_url, description, ticket_url')
         .eq('id', festivalId)
         .eq('type', 'festival')
         .maybeSingle();
@@ -525,6 +527,12 @@ const FestivalDetailInner = () => {
           </Card>
         </section>
       </ScrollReveal>
+
+      {/* Sticky floating brass pill linking to the organiser's external
+          ticket page. Portalled to document.body inside the component so
+          framer-motion transforms on PageTransition don't break position:fixed.
+          Self-hides when ticket_url is empty. */}
+      <StickyTicketButton ticketUrl={festival?.ticket_url ?? null} />
     </div>
   );
 };

@@ -25,6 +25,7 @@ import { GuestListBlock } from '@/modules/event-page/bento/blocks/GuestListBlock
 import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
+import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 
@@ -331,6 +332,12 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           event={calendarInput}
         />
       </div>
+
+      {/* Floating brass pill linking to the organiser's external ticket page.
+          Self-hides when no ticket URL is set. Fixed-positioned, sits above
+          the BottomNav. Placed outside the centred content column so the
+          viewport-centered layout is correct on wide screens. */}
+      <StickyTicketButton ticketUrl={pageModel.actions.ticketUrl} />
     </div>
   );
 };
