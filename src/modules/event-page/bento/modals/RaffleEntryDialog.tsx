@@ -78,6 +78,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [honeypot, setHoneypot] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
+  const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string } | null>(null);
 
   // Reset form on close so reopens start clean. Keep the sessionId (it's a
   // persistent dedup token), don't rotate it here.
@@ -91,6 +92,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setHoneypot('');
         setSubmitting(false);
         setSucceeded(false);
+        setAckState(null);
       }, 200);
       return () => window.clearTimeout(t);
     }
@@ -132,15 +134,32 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
     const payload = data as SubmitResponse;
     if (!payload?.ok) {
       setSubmitting(false);
-      const { text, toast: variant } = messageForReason((payload as { reason: string })?.reason ?? '');
-      if (variant === 'success') {
-        // 'already_entered' and 'already_won_this_event' are friendly successes.
-        toast.success(text);
+      const reason = (payload as { reason: string })?.reason ?? '';
+      // 'already_entered' and 'already_won_this_event' need user acknowledgement
+      // — swap the modal into a centered info state instead of a disappearing
+      // toast. Parent is told (onSubmitted) so the chest flips to its
+      // "Entered" state once the user dismisses.
+      if (reason === 'already_entered') {
+        setAckState({
+          title: "You're already in!",
+          body: "You've entered this raffle already. We'll call you if you win — good luck!",
+          emoji: '🎉',
+        });
         onSubmitted();
-        onOpenChange(false);
-      } else {
-        toast.error(text);
+        return;
       }
+      if (reason === 'already_won_this_event') {
+        setAckState({
+          title: "You've already won this one!",
+          body: "You’ve already won this raffle. Come back next week for another chance — thanks for dancing with us.",
+          emoji: '🏆',
+        });
+        onSubmitted();
+        return;
+      }
+      // Everything else stays as a plain error toast.
+      const { text: errText } = messageForReason(reason);
+      toast.error(errText);
       return;
     }
 
@@ -172,7 +191,22 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {succeeded ? (
+        {ackState ? (
+          <div className="px-5 pb-5 pt-4 text-center space-y-3">
+            <div className="text-4xl" aria-hidden>{ackState.emoji}</div>
+            <div className="text-lg font-semibold text-[#F5D563]">{ackState.title}</div>
+            <div className="text-sm text-[#D8CCB0] leading-relaxed max-w-sm mx-auto">{ackState.body}</div>
+            <div className="pt-2">
+              <Button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold min-w-[120px]"
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        ) : succeeded ? (
           <div className="px-4 pb-5 pt-2 text-center">
             <div className="text-2xl mb-1" aria-hidden>🎉</div>
             <div className="text-base font-semibold text-[#F5D563]">You're entered!</div>
