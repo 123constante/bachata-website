@@ -1,34 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { useEventGuestList, type GuestListConfig } from '@/modules/event-page/hooks/useEventGuestList';
+import { triggerMicroConfetti } from '@/lib/confetti';
+import {
+  useEventGuestList,
+  type GuestListConfig,
+  type GuestListEntry,
+} from '@/modules/event-page/hooks/useEventGuestList';
 import { useSubmitGuestListEntry } from '@/modules/event-page/hooks/useSubmitGuestListEntry';
+import { CollisionCard } from '@/modules/event-page/components/CollisionCard';
 
 type GuestListSectionProps = {
   eventId: string | null;
 };
 
-// Scoped styles for this section — shimmer keyframes, pill sweep, button sweep,
-// and the "just added" glow. Injected once via a <style> tag; class names are
-// prefixed with gl- to avoid collisions with the rest of the app.
+// Section-scoped visual styles only. The shared pill base + sweep +
+// entry/halo/collision keyframes live in src/index.css so GuestListBlock
+// on the main bento grid can reuse them without duplicating CSS.
 const sectionStyles = `
   @keyframes gl-shimmer {
     0%   { background-position: -200% center; }
     100% { background-position: 200% center; }
-  }
-  @keyframes gl-sweep {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
-  @keyframes gl-glow {
-    0%, 100% { box-shadow: 0 0 0 rgba(245, 213, 99, 0.0); }
-    50%      { box-shadow: 0 0 18px rgba(245, 213, 99, 0.55); }
-  }
-  @keyframes gl-duplicate-pulse {
-    0%, 100% { background-color: rgba(197, 148, 10, 0.08); }
-    50%      { background-color: rgba(245, 213, 99, 0.28); }
   }
   .gl-shimmer-text {
     background: linear-gradient(90deg, #c8940a, #f5d563, #ffe08a, #f5d563, #c8940a);
@@ -37,31 +31,6 @@ const sectionStyles = `
     background-clip: text;
     color: transparent;
     animation: gl-shimmer 4s linear infinite;
-  }
-  .gl-pill {
-    position: relative;
-    overflow: hidden;
-    background: rgba(197, 148, 10, 0.08);
-    border: 0.5px solid rgba(245, 213, 99, 0.2);
-    color: #f5d563;
-  }
-  .gl-pill::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(245, 213, 99, 0.18), transparent);
-    transform: translateX(-100%);
-    animation: gl-sweep 3.5s linear infinite;
-    pointer-events: none;
-  }
-  .gl-pill-added {
-    border-color: rgba(255, 224, 138, 0.7) !important;
-    background: rgba(245, 213, 99, 0.18) !important;
-    animation: gl-glow 1.4s ease-in-out 2;
-  }
-  .gl-pill-duplicate {
-    border-color: rgba(255, 200, 90, 0.85) !important;
-    animation: gl-duplicate-pulse 0.9s ease-in-out 3;
   }
   .gl-button {
     position: relative;
@@ -113,6 +82,12 @@ const MUTED_PRIMARY = 'rgba(240, 230, 233, 0.45)';
 const MUTED_SECONDARY = 'rgba(240, 230, 233, 0.35)';
 const STRIKE = 'rgba(240, 230, 233, 0.3)';
 
+// Gold palette shared with ConfettiButton — stays on-brand when confetti
+// fires over the dark-brown guest-list surface.
+const CONFETTI_COLORS = ['#ff9500', '#ff6b00', '#ffb800', '#ff4500', '#ffd700'];
+const CONFETTI_PARTICLE_COUNT = 35;
+const COLLISION_CARD_EXIT_MS = 220;
+
 type PriceTierProps = {
   label: string;
   regular: number | null;
@@ -144,16 +119,102 @@ const PriceTier = ({ label, regular, guestList }: PriceTierProps) => {
 const shouldRenderPrices = (config: GuestListConfig) =>
   config.regular_party_price != null || config.regular_class_party_price != null;
 
+const normalize = (name: string) => name.trim().toLowerCase();
+
+// React key for a pill. We key by normalized first name rather than id
+// because id changes when an optimistic "pending" row is upgraded to the
+// confirmed row (either via mutation success or realtime echo), and we
+// want React to keep the same DOM node across that transition so the
+// spring-in animation doesn't re-fire.
+const entryKey = (entry: GuestListEntry): string => normalize(entry.first_name);
+
 export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
   const { data } = useEventGuestList(eventId);
   const submit = useSubmitGuestListEntry(eventId);
+  // Realtime subscription is mounted once at the page level (BentoPage)
+  // so it keeps updating the shared React Query cache even when this
+  // section is unmounted (the JoinGuestListDialog tears it down on close).
   const [name, setName] = useState('');
-  const [justAdded, setJustAdded] = useState<string | null>(null);
-  const [duplicateName, setDuplicateName] = useState<string | null>(null);
+  const [collidingName, setCollidingName] = useState<string | null>(null);
+  const [collisionClosing, setCollisionClosing] = useState(false);
 
-  if (!data || !data.enabled) return null;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
-  const { count, entries, config, cutoff_passed } = data;
+  // Tracks which entry keys have already been rendered, so a pill only
+  // gets the spring-in animation the first time React mounts its DOM
+  // node (not on every re-render, and not for entries already present
+  // on initial page load).
+  const seenKeysRef = useRef<Set<string>>(new Set());
+  const initialisedRef = useRef(false);
+
+  useEffect(() => {
+    if (!data) return;
+    data.entries.forEach((e) => seenKeysRef.current.add(entryKey(e)));
+    initialisedRef.current = true;
+  }, [data]);
+
+  // Memoized fallback so the empty array keeps a stable reference when
+  // data is still loading — otherwise the useMemo below churns.
+  const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
+  const cutoffPassed = data?.cutoff_passed ?? false;
+  const enabled = data?.enabled ?? false;
+
+  // Precompute which keys should animate on this render (i.e. new since
+  // last mount). Mutating seenKeysRef is done in the useEffect above.
+  const freshKeys = useMemo(() => {
+    if (!initialisedRef.current) return new Set<string>();
+    const fresh = new Set<string>();
+    entries.forEach((e) => {
+      const k = entryKey(e);
+      if (!seenKeysRef.current.has(k)) fresh.add(k);
+    });
+    return fresh;
+    // entries reference changes on every data update — that's what we want
+  }, [entries]);
+
+  const fireConfetti = () => {
+    const rect = submitButtonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    triggerMicroConfetti(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+      { particleCount: CONFETTI_PARTICLE_COUNT, colors: CONFETTI_COLORS, ticks: 120 },
+    );
+  };
+
+  const startClosingCollisionCard = () => {
+    setCollisionClosing(true);
+    window.setTimeout(() => {
+      setCollidingName(null);
+      setCollisionClosing(false);
+    }, COLLISION_CARD_EXIT_MS);
+  };
+
+  const openCollisionCard = (existingName: string) => {
+    setCollisionClosing(false);
+    setCollidingName(existingName);
+
+    // Append a space (if not already) and put the caret at the end so
+    // the user can immediately type a disambiguating letter.
+    const typed = name;
+    const next = typed.endsWith(' ') ? typed : `${typed} `;
+    setName(next);
+    window.setTimeout(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      try {
+        el.setSelectionRange(next.length, next.length);
+      } catch {
+        // some browsers (older Safari) throw on number/email inputs; harmless
+      }
+    }, 0);
+  };
+
+  if (!data || !enabled) return null;
+
+  const { count, config } = data;
   const hasPrices = shouldRenderPrices(config);
   const hasDescription = Boolean(config.description && config.description.trim());
   const hasArriveBefore = Boolean(config.discount_until && config.discount_until.trim());
@@ -162,18 +223,39 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed || submit.isPending) return;
+
+    // Client-side case-insensitive collision check against the cache.
+    // The server performs the authoritative check via its unique
+    // constraint; the client-side check lets us skip the round-trip for
+    // the common case and gate the confetti so we don't celebrate a
+    // duplicate submission.
+    const lower = normalize(trimmed);
+    const match = entries.find(
+      (entry) => !entry.pending && normalize(entry.first_name) === lower,
+    );
+    if (match) {
+      openCollisionCard(match.first_name);
+      return;
+    }
+
+    // Fire confetti at the moment of click for perceived-instant celebration.
+    // If the server ultimately rejects (race condition), we roll back the
+    // optimistic pill but don't retract the confetti — per spec.
+    fireConfetti();
+
     try {
       const result = await submit.mutateAsync(trimmed);
       if (result.ok) {
-        setJustAdded(trimmed);
-        setDuplicateName(null);
         setName('');
+        if (collidingName) startClosingCollisionCard();
       } else if (result.reason === 'duplicate_name') {
-        setDuplicateName(trimmed.toLowerCase());
-        setJustAdded(null);
+        // Server caught a collision our client missed (stale cache / race).
+        // The optimistic row has already been rolled back in the hook.
+        openCollisionCard(trimmed);
       }
+      // Other reasons are toasted inside the mutation hook.
     } catch {
-      // toast already surfaced in the mutation hook
+      // error toast surfaced in the mutation hook
     }
   };
 
@@ -227,8 +309,19 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
         </p>
       )}
 
+      {/* Collision card (Variant B) — mounts above the input when a
+          duplicate name is submitted, dismisses on × click or next
+          successful submission. */}
+      {collidingName && (
+        <CollisionCard
+          existingName={collidingName}
+          onClose={startClosingCollisionCard}
+          closing={collisionClosing}
+        />
+      )}
+
       {/* Input form OR closed message */}
-      {cutoff_passed ? (
+      {cutoffPassed ? (
         <p className="mt-2 mb-4 text-center text-[10px]" style={{ color: MUTED_PRIMARY }}>
           Guest list is now closed
         </p>
@@ -238,37 +331,40 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
           className="mx-auto mb-4 flex max-w-[400px] flex-row items-center gap-2"
         >
           <Input
+            ref={inputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your first name"
-            disabled={submit.isPending}
-            maxLength={60}
+            maxLength={80}
             className="gl-input h-9 flex-1 py-2"
           />
           <Button
             type="submit"
-            disabled={!name.trim() || submit.isPending}
+            ref={submitButtonRef}
+            disabled={!name.trim()}
             className="gl-button h-9 shrink-0 py-2 font-semibold"
           >
-            {submit.isPending ? 'Adding…' : 'Add My Name'}
+            Add My Name
           </Button>
         </form>
       )}
 
-      {/* Name pills */}
+      {/* Name pills — reserved min-height keeps layout stable when the
+          first pill lands on a previously-empty row. */}
       {entries.length > 0 ? (
-        <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
-          {entries.map((entry, idx) => {
-            const lower = entry.first_name.toLowerCase();
-            const isJustAdded = justAdded && lower === justAdded.toLowerCase();
-            const isDuplicate = duplicateName && lower === duplicateName;
+        <div
+          className="mb-2 flex flex-wrap items-center justify-center gap-1.5"
+          style={{ minHeight: 22 }}
+        >
+          {entries.map((entry) => {
+            const k = entryKey(entry);
+            const isFresh = freshKeys.has(k);
             return (
               <span
-                key={`${entry.first_name}-${entry.created_at}-${idx}`}
+                key={k}
                 className={cn(
                   'gl-pill rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  isJustAdded && 'gl-pill-added',
-                  isDuplicate && 'gl-pill-duplicate',
+                  isFresh && 'gl-pill--entering',
                 )}
               >
                 <span className="relative z-10">{entry.first_name}</span>
@@ -277,7 +373,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
           })}
         </div>
       ) : (
-        !cutoff_passed && (
+        !cutoffPassed && (
           <p className="mb-2 text-xs italic" style={{ color: MUTED_SECONDARY }}>
             Be the first on the list
           </p>

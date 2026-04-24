@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
+import { useGuestListRealtime } from '@/modules/event-page/hooks/useGuestListRealtime';
 import {
   BentoGrid,
   BLOCK_COLORS,
@@ -24,8 +25,6 @@ import { GuestListBlock } from '@/modules/event-page/bento/blocks/GuestListBlock
 import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
-import { SeeAllGuestsDrawer } from '@/modules/event-page/bento/modals/SeeAllGuestsDrawer';
-import { JoinGuestListDialog } from '@/modules/event-page/bento/modals/JoinGuestListDialog';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 
@@ -73,13 +72,14 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   // Mount-time 3s-delay view recording. Identical to old EventPage behaviour.
   useRecordEventView(eventId, 'public_event_page');
 
-  // Guest list fetched once at page level. React Query dedupes by key so the
-  // nested GuestListSection inside JoinGuestListDialog hits the same cache.
+  // Guest list fetched once at page level. React Query dedupes by key
+  // so GuestListBlock (which self-fetches) hits the same cache. The
+  // realtime subscription is mounted here so it stays active for the
+  // entire page lifetime and streams INSERTs into the shared cache.
   const { data: guestList } = useEventGuestList(eventId);
+  useGuestListRealtime(eventId);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [seeAllOpen, setSeeAllOpen] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
   const state = pageModel.page.state;
@@ -235,9 +235,11 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
       case 'guest':
         return (
           <GuestListBlock
-            data={guestList ?? null}
-            onSeeAll={() => setSeeAllOpen(true)}
-            onJoin={() => setJoinOpen(true)}
+            eventId={eventId}
+            eventStartIso={occurrence?.startsAt ?? null}
+            eventTimezone={
+              occurrence?.timezone ?? pageModel.schedule.timezoneLabel ?? null
+            }
           />
         );
       case 'raffle':
@@ -328,12 +330,6 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           onOpenChange={setCalendarOpen}
           event={calendarInput}
         />
-        <SeeAllGuestsDrawer
-          open={seeAllOpen}
-          onOpenChange={setSeeAllOpen}
-          entries={guestList?.entries ?? []}
-        />
-        <JoinGuestListDialog open={joinOpen} onOpenChange={setJoinOpen} eventId={eventId} />
       </div>
     </div>
   );

@@ -52,6 +52,205 @@
   to   { transform: scaleX(1); }
 }
 
+/* Guest list — base pill class, sweep animation, and entry/halo/
+   collision keyframes. All kept here (not in GuestListSection's scoped
+   <style>) so both GuestListSection (inside the modal) and
+   GuestListBlock (on the main bento grid) can reuse them without
+   duplicating CSS. Palette matches the warm-dark-brown + gold theme. */
+@keyframes gl-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes gl-pill-enter {
+  0%   { transform: scale(0)    rotate(-6deg); opacity: 0; }
+  55%  { transform: scale(1.35) rotate( 4deg); opacity: 1; }
+  75%  { transform: scale(0.92) rotate(-2deg); opacity: 1; }
+  100% { transform: scale(1)    rotate( 0deg); opacity: 1; }
+}
+
+@keyframes gl-pill-halo {
+  /* Tuned for the compact stacked-pill row (~28px tall). Previous spread
+     of 26px blur / 6px spread looked like a bloom smudge around the
+     smaller rows; scaled to ~60% to sit tight to the pill outline. */
+  0%   { box-shadow: 0 0 0 0 rgba(245, 213, 99, 0.45); }
+  40%  { box-shadow: 0 0 16px 4px rgba(245, 213, 99, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 213, 99, 0); }
+}
+
+@keyframes gl-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes gl-collision-card-in {
+  0%   { opacity: 0; transform: translateY(-8px) scaleY(0.4); }
+  100% { opacity: 1; transform: translateY(0)    scaleY(1);    }
+}
+
+@keyframes gl-collision-card-out {
+  0%   { opacity: 1; transform: translateY(0)    scaleY(1);    }
+  100% { opacity: 0; transform: translateY(-8px) scaleY(0.4); }
+}
+
+/* Base pill used by GuestListSection (wrapping pills) and GuestListBlock
+   (full-width stacked pills). The ::after overlay produces the slow
+   gold sweep that keeps idle pills from feeling dead. */
+.gl-pill {
+  position: relative;
+  overflow: hidden;
+  background: rgba(197, 148, 10, 0.08);
+  border: 0.5px solid rgba(245, 213, 99, 0.2);
+  color: #f5d563;
+}
+.gl-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(245, 213, 99, 0.18), transparent);
+  transform: translateX(-100%);
+  animation: gl-sweep 3.5s linear infinite;
+  pointer-events: none;
+}
+
+/* Stacked/row variant — content-width, centered horizontally within
+   its parent flex-col container. Used by GuestListBlock for the
+   vertical list on the main event page. Names hug their own content;
+   truly freakishly long names ellipsis-truncate at 240px. */
+.gl-pill--stacked {
+  display: inline-flex;
+  align-items: center;
+  max-width: 240px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Gold-gradient action button. Same visual as the pills' sibling action
+   (Add My Name). Moved here from GuestListSection's inline <style> so
+   GuestListBlock can use it directly now that the whole UI is inline. */
+.gl-button {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #b8860b, #d4a017, #c8940a);
+  color: #fff;
+  border: 0;
+}
+.gl-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c8940a, #e6b52c, #d4a017);
+}
+.gl-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: translateX(-100%);
+  animation: gl-sweep 2.8s linear infinite;
+  pointer-events: none;
+}
+
+/* Dark input field with gold focus ring. Moved from GuestListSection's
+   inline <style> for the same reason as .gl-button. */
+.gl-input {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 0.5px solid rgba(197, 148, 10, 0.3) !important;
+  color: #fff !important;
+  text-align: center;
+}
+.gl-input::placeholder {
+  color: rgba(240, 230, 233, 0.35) !important;
+  text-align: center;
+}
+.gl-input:focus-visible {
+  border-color: rgba(245, 213, 99, 0.55) !important;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(245, 213, 99, 0.25) !important;
+}
+
+/* Gold shimmer text — used on the price figure so the saving feels
+   premium. Moved from GuestListSection's inline <style>. */
+.gl-shimmer-text {
+  background: linear-gradient(90deg, #c8940a, #f5d563, #ffe08a, #f5d563, #c8940a);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gl-shimmer 4s linear infinite;
+}
+
+/* Green "Save £N" discount pill. Moved from GuestListSection's inline
+   <style>. */
+.gl-save-badge {
+  background: rgba(29, 158, 117, 0.15);
+  border: 0.5px solid rgba(29, 158, 117, 0.4);
+  color: #5ee6b8;
+}
+
+/* Applied to a pill that has just been inserted (optimistic or realtime).
+   Combines the bouncy spring-in with the gold halo radiating out. */
+.gl-pill--entering {
+  animation:
+    gl-pill-enter 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    gl-pill-halo  1.8s ease-out                    0s       both;
+}
+
+/* Avatar-sized variant (unused after the main-page redesign but retained
+   in case a future compact cluster comes back — zero cost if unapplied). */
+.gl-avatar--entering {
+  animation: gl-pill-enter 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.gl-collision-card {
+  transform-origin: top center;
+  animation: gl-collision-card-in 0.28s ease-out both;
+}
+.gl-collision-card.is-closing {
+  animation: gl-collision-card-out 0.22s ease-in both;
+}
+
+/* Urgent countdown (< 10m to cutoff) — subtle opacity pulse to draw
+   the eye without being flashy. Gets disabled under reduced-motion
+   below. */
+@keyframes gl-countdown-urgent-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.gl-countdown--urgent {
+  animation: gl-countdown-urgent-pulse 1.4s ease-in-out infinite;
+}
+
+/* "How to claim your discount" accordion. Uses the grid-template-rows
+   0fr → 1fr trick so the container animates from 0 to content height
+   without JS measurement. The inner wrapper needs overflow:hidden for
+   the clip; both rules are applied via the .gl-explainer-grid class +
+   its child selector. Supported in evergreen Chrome/Firefox/Safari;
+   older Safari (<17.4) falls back to an instant toggle. */
+.gl-explainer-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-out;
+}
+.gl-explainer-grid.is-expanded {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-pill--entering,
+  .gl-avatar--entering,
+  .gl-collision-card,
+  .gl-collision-card.is-closing,
+  .gl-countdown--urgent {
+    animation: none !important;
+  }
+  .gl-explainer-grid {
+    transition: none !important;
+  }
+}
+
 /* Bachata Design System - Festival Vibe */
 
 @layer base {
