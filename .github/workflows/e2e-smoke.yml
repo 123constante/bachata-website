@@ -29,4 +29,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E smoke suite
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run test:e2e
