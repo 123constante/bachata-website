@@ -28,6 +28,8 @@ import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCal
 import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
+import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
+import { getRaffleSessionId } from '@/lib/raffleSession';
 
 type BentoPageProps = {
   eventId: string | null;
@@ -61,6 +63,14 @@ const TileShimmer = () => (
 
 export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   const { snapshot, pageModel } = useEventPage(eventId, occurrenceId);
+
+  // Phase 6D — drives whether the bento grid reserves a slot for the raffle
+  // tile. When the event has no raffle (config.enabled === false), 'raffle' is
+  // added to hiddenBlocks below so the packer skips it entirely. RaffleBlock
+  // also fetches this internally, but keeping it here is the single source of
+  // truth for grid layout.
+  const raffleSessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
+  const { config: raffleConfig } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
 
   // Mount-time 3s-delay view recording. Identical to old EventPage behaviour.
   useRecordEventView(eventId, 'public_event_page');
@@ -136,8 +146,15 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
     );
     if (!hasContacts) hidden.add('contacts');
 
+    // Phase 6D — raffle tile hides when no raffle configured on this event.
+    // While raffleConfig is still loading we keep the slot in (renders a
+    // shimmer); once the answer arrives, an absent or disabled raffle hides
+    // the tile so no empty cell or "Prize pool unlocking soon" placeholder
+    // appears in the grid.
+    if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
+
     return hidden;
-  }, [isLoading, past, pageModel, guestList]);
+  }, [isLoading, past, pageModel, guestList, raffleConfig]);
 
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
