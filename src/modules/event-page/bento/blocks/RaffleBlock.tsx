@@ -385,26 +385,13 @@ export const RaffleBlock = () => {
     );
   }
 
-  // ─── No raffle on this event — placeholder ────────────────────────────
+  // ─── No raffle on this event — render nothing.
+  // Phase 6D: BentoPage hides the 'raffle' slot from the grid packer when
+  // config.enabled is false, so this branch is normally unreachable. Defensive
+  // null-return guards against the slot being rendered before the parent's
+  // hidden-set updates (e.g. during a brief loading/transition window).
   if (!loading && (!config || !config.enabled)) {
-    return (
-      <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
-        <div className="flex items-center gap-3">
-          <AnimatedChest intensity={0} opening={false} celebrate={false} dimmed />
-          <div className="flex-1">
-            <div
-              className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em]"
-              style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
-            >
-              Prize pool unlocking soon
-            </div>
-            <div className="mt-1 text-[11px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-              Coming in a future update
-            </div>
-          </div>
-        </div>
-      </BentoTile>
-    );
+    return null;
   }
 
   // ─── Raffle enabled, pre-draw ─────────────────────────────────────────
