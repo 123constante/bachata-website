@@ -30,8 +30,14 @@ jobs:
 
       - name: Run E2E smoke suite
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # Fallbacks when repo/environment secrets aren't reachable from this
+          # workflow (e.g., env-scoped secrets + no `environment:` declaration).
+          # The tests intercept all Supabase API calls via Playwright route
+          # mocks; only the URL/key need to be non-empty + match the projectRef
+          # the specs hardcode (`stsdtacfauprzrdebmzg`) so the localStorage
+          # auth-token key the mocks set is what the supabase-js client reads.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://stsdtacfauprzrdebmzg.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key' }}
         run: npm run test:e2e
 
       - name: Upload Playwright artifacts on failure
