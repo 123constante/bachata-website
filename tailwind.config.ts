@@ -60,6 +60,11 @@ export default {
           blue: "hsl(var(--festival-blue))",
           rose: "hsl(var(--festival-rose))",
         },
+        bento: {
+          accent: "hsl(var(--bento-accent))",
+          plum: "hsl(var(--bento-plum))",
+          surface: "hsl(var(--bento-surface))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

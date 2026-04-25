@@ -316,6 +316,7 @@
     --bento-fg: 41 38% 76%;              /* #D8CCB0 — aged cream body text */
     --bento-fg-muted: 41 17% 56%;        /* #A59474 — muted body text */
     --bento-hairline: hsl(var(--bento-accent) / 0.18);
+    --bento-plum: 280 35% 25%;           /* #2C1F3E — deep aubergine, pairs brass+velvet for the bento gradient palette */
 
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;

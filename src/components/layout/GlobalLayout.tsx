@@ -34,6 +34,13 @@ export interface GlobalLayoutProps {
   showSubheader?: boolean;
   showProgressBar?: boolean;
   showGradientBg?: boolean;
+  // Palette for the full-page gradient wash + progress-bar/floating-icon
+  // companions (gated by showGradientBg). 'default' renders the orange /
+  // festival-purple / festival-pink wash that 36+ public pages depend on;
+  // 'bento' swaps to brass / plum / velvet for the event page's
+  // themed-surface treatment. Always defaults to 'default' so existing
+  // consumers are unaffected.
+  gradientPalette?: 'default' | 'bento';
   floatingCount?: number;
   heroAfter?: ReactNode;
   children: ReactNode;
@@ -66,6 +73,7 @@ const GlobalLayout = ({
   showSubheader = true,
   showProgressBar = true,
   showGradientBg = true,
+  gradientPalette = 'default',
   floatingCount = 20,
   heroAfter,
   children,
@@ -118,7 +126,11 @@ const GlobalLayout = ({
       {showGradientBg && (
         <>
           <motion.div
-            className="fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
+            className={
+              gradientPalette === 'bento'
+                ? "fixed inset-0 bg-gradient-to-br from-bento-accent/20 via-bento-plum/15 to-bento-surface/30 -z-10 pointer-events-none"
+                : "fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
+            }
             animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
             transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
             style={{ backgroundSize: '200% 200%' }}
