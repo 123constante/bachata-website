@@ -4,17 +4,12 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 
 const BASE_NAV_LINKS = [
-  { segment: '', label: 'Home', emoji: '🏠' },
   { segment: 'parties', label: 'Parties', emoji: '🎉' },
   { segment: 'classes', label: 'Classes', emoji: '🎓' },
   { segment: 'venues', label: 'Venues', emoji: '🏛️' },
 ];
 
 const emojiAnimations = {
-  '🏠': {
-    animate: { y: [0, -4, 0] },
-    transition: { repeat: Infinity, duration: 2.8, ease: 'easeInOut' as const },
-  },
   '🎉': {
     animate: { y: [0, -8, 0], scale: [1, 1.1, 1] },
     transition: { repeat: Infinity, duration: 1.5, ease: 'easeInOut' as const },
