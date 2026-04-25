@@ -1,3 +1,5 @@
+import GlobalLayout from '@/components/layout/GlobalLayout';
+
 // World map uses inline SVG rather than react-simple-maps + world-atlas.
 // Audit (gzipped):
 //   • react-simple-maps 3.x + d3-geo + topojson-client + world-atlas/110m =
@@ -93,17 +95,15 @@ const WorldMap = () => (
 
 const CitiesPage = () => {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <GlobalLayout
+      breadcrumbs={[]}
+      hero={{
+        emoji: '🌍',
+        titleWhite: '',
+        titleOrange: 'Cities',
+      }}
+    >
       <div className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-8">
-        <header className="pb-6 text-center">
-          <h1
-            className="text-[36px] font-bold leading-[0.95] tracking-[-0.03em]"
-            style={{ fontFamily: '"Fraunces", Georgia, serif' }}
-          >
-            <span style={{ color: GOLD }}>Cities</span>
-          </h1>
-        </header>
-
         <WorldMap />
 
         <section className="pt-8">
@@ -122,7 +122,7 @@ const CitiesPage = () => {
           </ul>
         </section>
       </div>
-    </div>
+    </GlobalLayout>
   );
 };
 
