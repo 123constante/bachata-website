@@ -58,6 +58,20 @@ const parseArtists = (raw: unknown, hrefBase: string | null = null): FestivalArt
     })
     .filter((a): a is FestivalArtist => a !== null);
 
+const ALLOWED_LEVELS = new Set<string>(['beginner','improver','intermediate','advanced']);
+const parseLevels = (raw: unknown): ('beginner'|'improver'|'intermediate'|'advanced')[] => {
+  if (!Array.isArray(raw)) return [];
+  const out: ('beginner'|'improver'|'intermediate'|'advanced')[] = [];
+  for (const v of raw as unknown[]) {
+    if (typeof v === 'string' && ALLOWED_LEVELS.has(v)) {
+      out.push(v as 'beginner'|'improver'|'intermediate'|'advanced');
+    }
+  }
+  // Canonical order so re-renders are stable
+  const order = ['beginner','improver','intermediate','advanced'] as const;
+  return out.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+};
+
 const parseSchedule = (raw: unknown): FestivalScheduleItem[] =>
   asArray(raw).reduce<FestivalScheduleItem[]>((acc, item) => {
     const obj = asObject(item);
@@ -71,6 +85,7 @@ const parseSchedule = (raw: unknown): FestivalScheduleItem[] =>
       endTime: asString(obj.end_time),
       venueRoom: asString(obj.venue_room),
       isMasterclass: asBoolean(obj.is_masterclass),
+      levels: parseLevels(obj.levels),
       // RPC returns `instructors` (hydrated teacher_profiles), map to our shape
       instructors: parseArtists(obj.instructors),
       djs: parseArtists(obj.djs),

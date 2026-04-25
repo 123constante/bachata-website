@@ -19,6 +19,11 @@ export type Person = {
   profileType: string | null;
 };
 
+export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced';
+export const ALL_SESSION_LEVELS: readonly SessionLevel[] = [
+  'beginner', 'improver', 'intermediate', 'advanced',
+] as const;
+
 export type ScheduleSession = {
   id: string;
   title: string;
@@ -26,7 +31,21 @@ export type ScheduleSession = {
   day: string | null;
   startMins: number;
   endMins: number;
+  /** Skill levels for this session (class / masterclass / workshop / bootcamp).
+   *  Subset of {beginner, improver, intermediate, advanced}. Empty = unspecified.
+   *  All four = "All levels". Always [] for parties / shows. */
+  levels: SessionLevel[];
+  /** Optional room name — used to disambiguate parallel sessions. */
+  room: string | null;
   people: Person[];
+};
+
+const LEVEL_SET = new Set<string>(ALL_SESSION_LEVELS);
+const sanitizeLevels = (raw: unknown): SessionLevel[] => {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[])
+    .filter((v): v is SessionLevel => typeof v === 'string' && LEVEL_SET.has(v))
+    .sort((a, b) => ALL_SESSION_LEVELS.indexOf(a) - ALL_SESSION_LEVELS.indexOf(b));
 };
 
 // ─── Time utilities ───────────────────────────────────────────────────────────
@@ -111,6 +130,8 @@ export function useProgramItems(eventId: string | null | undefined) {
         start_time: string | null;
         end_time: string | null;
         sort_order: number | null;
+        levels: string[] | null;
+        room: string | null;
         people: RpcPerson[] | null;
       };
 
@@ -156,6 +177,8 @@ export function useProgramItems(eventId: string | null | undefined) {
             day,
             startMins,
             endMins,
+            levels: sanitizeLevels(item.levels),
+            room: typeof item.room === 'string' && item.room.trim().length > 0 ? item.room.trim() : null,
             people,
           };
         });
@@ -198,6 +221,8 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         day: /^\d{4}-\d{2}-\d{2}$/.test(item.day ?? '') ? item.day : null,
         startMins,
         endMins,
+        levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),
+        room: typeof item.venueRoom === 'string' && item.venueRoom.trim().length > 0 ? item.venueRoom.trim() : null,
         people,
       };
     })
@@ -209,12 +234,12 @@ function fromKeyTimes(kt: NonNullable<EventPageModel['schedule']['keyTimes']>): 
   if (kt.classes?.start) {
     const s = toMins(kt.classes.start) ?? 0;
     const e = toMins(kt.classes.end) ?? s + 60;
-    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, people: [] });
+    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, levels: [], room: null, people: [] });
   }
   if (kt.party?.start) {
     const s = toMins(kt.party.start) ?? 0;
     const e = toMins(kt.party.end) ?? s + 60;
-    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, people: [] });
+    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, levels: [], room: null, people: [] });
   }
   return out;
 }
