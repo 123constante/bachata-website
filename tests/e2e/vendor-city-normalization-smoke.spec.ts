@@ -131,7 +131,7 @@ const setupMockDataApis = async (
     if (path.endsWith('/rest/v1/dancer_profiles')) {
       if (method === 'GET') {
         const select = queryValue(url, 'select');
-        if (select.includes('id') && queryValue(url, 'user_id').includes(userId)) {
+        if (select.includes('id') && queryValue(url, 'created_by').includes(userId)) {
           return json(route, {
             id: dancerId,
             first_name: 'Vendor',
