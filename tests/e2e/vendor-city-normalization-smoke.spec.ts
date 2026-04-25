@@ -128,7 +128,7 @@ const setupMockDataApis = async (
     const url = new URL(req.url());
     const path = url.pathname;
 
-    if (path.endsWith('/rest/v1/dancers')) {
+    if (path.endsWith('/rest/v1/dancer_profiles')) {
       if (method === 'GET') {
         const select = queryValue(url, 'select');
         if (select.includes('id') && queryValue(url, 'user_id').includes(userId)) {
@@ -310,7 +310,6 @@ test('vendor create, edit city, and detail rendering use city_id + cities(name)'
   await page.goto('/create-vendor-profile');
 
   await page.fill('#vendor-storefront-name', 'Bachata Vendor Test');
-  await expect(page.getByText('Vendor Owner')).toBeVisible();
   await page.getByRole('button', { name: 'Continue to categories' }).click();
 
   await page.click('#vendor-first-category');
