@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
@@ -32,14 +32,6 @@ import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 type BentoPageProps = {
   eventId: string | null;
   occurrenceId: string | null;
-};
-
-const splitTitle = (name: string): { white: string; orange: string } => {
-  const trimmed = (name ?? '').trim();
-  if (!trimmed) return { white: '', orange: 'Event' };
-  const lastSpace = trimmed.lastIndexOf(' ');
-  if (lastSpace === -1) return { white: '', orange: trimmed };
-  return { white: trimmed.slice(0, lastSpace), orange: trimmed.slice(lastSpace + 1) };
 };
 
 // Copy for the three non-ready states, surfaced through the shared pink-cover
@@ -150,19 +142,32 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
     return (
-      <ErrorScreen
-        variant={state}
-        title={copy.title}
-        message={copy.message}
-        eventId={eventId}
-        occurrenceId={occurrenceId}
-      />
+      <GlobalLayout
+        breadcrumbs={[{ label: 'Events' }]}
+        // No emoji and no title text on error states — the page chrome
+        // (breadcrumb + gradient) frames the page; the ErrorScreen below
+        // owns the messaging. Avoids any generic stand-in like 'Event'.
+        hero={{ titleWhite: '', titleOrange: '' }}
+        gradientPalette="bento"
+        floatingCount={0}
+      >
+        <div
+          className="fixed inset-0 -z-20 pointer-events-none"
+          style={{ background: 'hsl(var(--bento-surface))' }}
+          aria-hidden="true"
+        />
+        <ErrorScreen
+          variant={state}
+          title={copy.title}
+          message={copy.message}
+          eventId={eventId}
+          occurrenceId={occurrenceId}
+        />
+      </GlobalLayout>
     );
   }
 
-  const { white, orange } = splitTitle(pageModel.identity.title);
   const coverImageUrl = snapshot?.event.imageUrl ?? null;
-  const organiser = pageModel.organiser.person;
 
   const renderBlock = (id: GridBlockId) => {
     if (isLoading) {
@@ -251,16 +256,33 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   };
 
   return (
-    // Full-viewport themed surface: the deeper --bento-surface sits behind
-    // the centred 430 px content column so tiles (--bento-surface-raised)
-    // visually "lift" off the page. Distinct from the rest of the site's
-    // dark+orange brand — the event page is a themed surface, like a
-    // Spotify now-playing screen.
-    <div
-      className="min-h-screen w-full"
-      style={{ background: 'hsl(var(--bento-surface))', color: 'hsl(var(--bento-fg))' }}
+    <GlobalLayout
+      breadcrumbs={[{ label: 'Events' }]}
+      // No emoji — title-only hero (the first GlobalLayout consumer to do
+      // this). titleOrange is gated on state === 'ready' so the loading
+      // window shows an empty hero rather than the 'Event' fallback that
+      // buildEventPageModel returns when snapshot is null.
+      hero={{
+        titleWhite: '',
+        titleOrange: state === 'ready' ? pageModel.identity.title : '',
+      }}
+      gradientPalette="bento"
+      floatingCount={0}
     >
-      <div className="mx-auto w-full max-w-[430px] px-2 pb-24 pt-4">
+      {/* Velvet backdrop sits at -z-20, beneath GlobalLayout's bento-tinted
+          gradient at -z-10. Preserves the original "themed surface, like a
+          Spotify now-playing screen" velvet base from the pre-migration outer
+          wrapper, while letting the new brass/plum/velvet gradient play on top. */}
+      <div
+        className="fixed inset-0 -z-20 pointer-events-none"
+        style={{ background: 'hsl(var(--bento-surface))' }}
+        aria-hidden="true"
+      />
+
+      <div
+        className="mx-auto w-full max-w-[430px] px-2 pb-24 pt-4"
+        style={{ color: 'hsl(var(--bento-fg))' }}
+      >
         {past && (
           <div
             className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
@@ -272,55 +294,6 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
             This event has ended.
           </div>
         )}
-
-        {/* Header: event title in Fraunces with brass-accented last word,
-            plus organiser byline. Sits above the grid; cover is a 2×3 tile
-            inside the grid. */}
-        <div className="px-1 pb-3 pt-1 text-center">
-          {isLoading ? (
-            <>
-              <div
-                className="mx-auto h-6 w-3/4 animate-pulse rounded"
-                style={{ background: 'hsl(var(--bento-surface-raised))' }}
-              />
-              <div
-                className="mx-auto mt-2 h-3 w-1/3 animate-pulse rounded"
-                style={{ background: 'hsl(var(--bento-surface-raised))' }}
-              />
-            </>
-          ) : (
-            <>
-              <h1
-                className="text-[28px] font-bold leading-[0.95] tracking-[-0.03em]"
-                style={{ fontFamily: '"Fraunces", Georgia, serif' }}
-              >
-                {white && <span>{white} </span>}
-                <span style={{ color: 'hsl(var(--bento-accent))' }}>{orange}</span>
-              </h1>
-              {organiser?.displayName && (
-                <p
-                  className="mt-1 text-[11px] tracking-[0.02em]"
-                  style={{ color: 'hsl(var(--bento-fg-muted))' }}
-                >
-                  by{' '}
-                  {organiser.href ? (
-                    <Link
-                      to={organiser.href}
-                      className="font-semibold"
-                      style={{ color: 'hsl(var(--bento-fg))' }}
-                    >
-                      {organiser.displayName}
-                    </Link>
-                  ) : (
-                    <span className="font-semibold" style={{ color: 'hsl(var(--bento-fg))' }}>
-                      {organiser.displayName}
-                    </span>
-                  )}
-                </p>
-              )}
-            </>
-          )}
-        </div>
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
 
@@ -338,6 +311,6 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           the BottomNav. Placed outside the centred content column so the
           viewport-centered layout is correct on wide screens. */}
       <StickyTicketButton ticketUrl={pageModel.actions.ticketUrl} />
-    </div>
+    </GlobalLayout>
   );
 };
