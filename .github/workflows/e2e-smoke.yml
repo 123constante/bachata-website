@@ -30,6 +30,31 @@ jobs:
 
       - name: Run E2E smoke suite
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # E2E smoke tests do NOT use real Supabase — Playwright route mocks
+          # intercept every **/auth/v1/** and **/rest/v1/** call. We only need
+          # createClient(url, key) to not throw at module-init time.
+          #
+          # Don't use ${{ secrets.* }} here: the configured VITE_SUPABASE_URL
+          # secret is not a valid HTTPS URL (likely a pooler connection string),
+          # so supabase-js threw "Invalid supabaseUrl" and React never hydrated
+          # — the page rendered pure white. The previous "ci: pass Supabase env
+          # vars to E2E smoke" attempt was wrong-headed; the tests need a valid
+          # URL shape, not a real backend.
+          #
+          # The URL's projectRef must match the `projectRef` constant in
+          # tests/e2e/*.spec.ts so the localStorage `sb-<ref>-auth-token` key
+          # the mocks set is what supabase-js looks up.
+          VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
         run: npm run test:e2e
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

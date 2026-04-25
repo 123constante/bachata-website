@@ -135,7 +135,7 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
     const url = new URL(req.url());
     const path = url.pathname;
 
-    if (path.endsWith('/rest/v1/dancers')) {
+    if (path.endsWith('/rest/v1/dancer_profiles')) {
       if (method === 'GET') {
         return json(route, dancer);
       }
@@ -152,7 +152,7 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
       }
     }
 
-    if (path.endsWith('/rest/v1/organisers') || path.endsWith('/rest/v1/dj_profiles') || path.endsWith('/rest/v1/teacher_profiles') || path.endsWith('/rest/v1/videographers')) {
+    if (path.endsWith('/rest/v1/entities') || path.endsWith('/rest/v1/dj_profiles') || path.endsWith('/rest/v1/teacher_profiles') || path.endsWith('/rest/v1/videographers')) {
       if (method === 'GET') return json(route, null);
     }
 
