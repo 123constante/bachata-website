@@ -165,6 +165,14 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   const handleDayClick = (day: number) => setSelectedDay(day);
 
+  // Used by DayDetailModal's prev/next day navigation. Crossing a month
+  // boundary also moves the underlying calendar grid so closing the modal
+  // lands the user on the correct month.
+  const handleChangeDate = (newDate: Date) => {
+    setCurrentDate(newDate);
+    setSelectedDay(newDate.getDate());
+  };
+
   // TODO: Re-enable Near Me when we decide where it should live
   // const handleNearMe = useCallback(async () => {
   //   if (locationStatus === 'granted' && userLocation) {
@@ -361,9 +369,8 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
         parentCategory={selectedCategory}
         events={events}
         onClose={() => setSelectedDay(null)}
+        onChangeDate={handleChangeDate}
+        eventsLoading={isEventsLoading}
       />
     </section>
-  );
-};
-
-export default EventCalendar;
+  
