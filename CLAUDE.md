@@ -42,29 +42,132 @@ anything in them.
 
 ## File-write safety (mandatory for agents)
 
-This repo lives on a Windows mount accessed from the Cowork Linux sandbox. The
-sandbox's Write/Edit tools sometimes corrupt files >5 KB on this mount,
-injecting null bytes or truncating mid-content. Symptoms: build fails with
-TS1127 ("Invalid character") errors, file ends mid-statement, `tr -d -c '\0'
-< file | wc -c` returns nonzero.
+This repo lives on a Windows mount accessed from the Cowork Linux sandbox via
+a stack of `Cowork bash → FUSE bindfs → virtio-fs → Windows NTFS`. The middle
+layers exhibit two distinct corruption modes for writes >~2 KB:
 
-**For non-trivial file writes, use `scripts/safe-write.py`:**
+1. **Null-byte injection** — file contains stray `\x00` bytes after write.
+2. **Silent truncation** — file ends mid-content with no nulls.
+3. **Mount eventual-consistency** — the writing process sees the new content
+   correctly via warm kernel cache, but a *separate* follow-up process sees a
+   stale prior version (sometimes with the same byte size as the new write).
+   Confirmed 2026-04-26 PM: `safe-write` v1 reported success, the next bash
+   call saw a truncated file matching a prior version's byte size.
+
+The integrity stack v3 defends against all three, plus guards itself against
+corruption.
+
+### Writing files >2 KB — `safe-write.py` is the ONLY supported path
+
+A Claude Code `PreToolUse` hook (`.claude/hooks/pre-write-block.sh`) refuses
+raw `Edit`/`Write` calls on `.ts/.tsx/.jsx/.js/.cjs/.mjs/.json/.sql/.yml/.yaml/.sh/.py`
+files when the existing target or the new content exceeds 2 KB. It prints
+the exact `safe-write.py` invocation to use.
 
 ```bash
-cat /tmp/new-content.tsx | python3 scripts/safe-write.py src/components/foo/Bar.tsx
+WRITER=$(mktemp /tmp/edit-XXXXXX.tsx)
+cat > "$WRITER" << 'EOF'
+…full intended file contents (not a diff)…
+EOF
+cat "$WRITER" | python3 scripts/safe-write.py src/components/foo/Bar.tsx
 ```
 
-The script writes to `/tmp` (Linux-native, immune), then verifies + atomically
-copies. It exits nonzero on any null-byte detection.
+`safe-write.py` v2 (2026-04-26 PM):
 
-**Guardrails in place:**
-- `.githooks/pre-commit` refuses commits containing null-byte corruption.
-  Run `bash bin/install-hooks.sh` once after clone (also runs automatically via
-  `npm install` postinstall).
-- `npm run check:integrity` scans the whole tracked source tree (also wired
-  into `npm run lint` so the existing lint workflow catches it).
-- `.github/workflows/architecture-guard.yml` runs the same check on every push/PR.
+1. Stages the new content in `/tmp` (Linux-native, immune to the mount bug).
+2. Computes the expected sha256 of the staged file.
+3. Copies to the target, then runs `sync` to flush the mount.
+4. Re-reads the target's sha256 in a **subprocess** (`sha256sum` binary) so
+   the read bypasses our own kernel cache and surfaces the mount's actual
+   settled state.
+5. If the round-trip sha256 mismatches: retries verify with backoff
+   (0.3s → 1s → 3s). If still mismatched, re-copies and starts the verify
+   loop over (up to 2 full re-copy cycles).
+6. If the round-trip still fails after that: restores the backup and exits 5.
+7. Runs the language-appropriate parse check; rolls back to the backup on
+   parse failure (exit 4).
+
+Exit codes:
+
+- `0` success — content on disk matches expected sha256 from a fresh subprocess
+- `1` null bytes detected
+- `2` truncation suspected (--expect-min-lines violated)
+- `3` I/O or argument error
+- `4` parse-check failed (file restored from backup)
+- `5` sha256 round-trip failed after all retries (file restored from backup)
+
+CRLF is auto-applied to source extensions (the repo is `.gitattributes`
+CRLF-locked). Override with `--lf` if needed.
+
+The `PostToolUse` hook (`.claude/hooks/post-write-check.sh`) runs the parse
+check after any `Edit`/`Write` to a file >2 KB, catching anything that slips
+through (e.g. via the bypass).
+
+### Bypassing the PreToolUse hook
+
+Repair flows that need to write directly without going through `safe-write`
+(e.g. `bin/repair-corrupt.sh` doing `git checkout HEAD --`) can set:
+
+```bash
+SAFEWRITE_HOOK_BYPASS=1 …
+```
+
+Use sparingly — every bypass is a risk surface for the corruption modes
+above.
+
+### Coordinating with concurrent sessions
+
+The 2026-04-26 morning incident's actual root cause was two Claude sessions
+editing the same files concurrently. Before any multi-file refactor:
+
+```bash
+bin/session-lock.sh acquire     # warns if another session is active
+bin/session-lock.sh release     # when done
+```
+
+The lock is advisory (does not block writes), but makes concurrent activity
+visible.
+
+### Verifying the whole tree
+
+```bash
+npm run check:integrity         # full sweep
+npm run repair:corrupt          # auto-restore corrupted files
+```
+
+`npm run check:integrity` calls `bin/check-integrity.sh`, which copies the
+guard to `/tmp` and verifies its sha256 against `.integrity-guard.sha256`
+before running. This means a corrupted guard cannot pass clean.
+
+### Repairing corruption
+
+```bash
+bin/repair-corrupt.sh
+```
+
+For each corrupt file:
+- If working tree matches HEAD → auto-restore via `git checkout HEAD --`.
+- If working tree has edits → DO NOT touch; print exact `safe-write.py`
+  command for manual repair (because the corruption may have eaten real
+  in-progress work).
+
+### Modifying the guard itself
+
+If you intentionally edit `scripts/integrity-guard.py`:
+
+```bash
+bash bin/integrity-pin.sh        # locks new sha256 into .integrity-guard.sha256
+git add scripts/integrity-guard.py .integrity-guard.sha256
+```
+
+Without re-pinning, every subsequent `check:integrity` will fail with
+"GUARD SHA MISMATCH".
+
+### Other guardrails
+
+- `.githooks/pre-commit` runs the integrity check on staged files.
+  Install via `bash bin/install-hooks.sh` (auto-run by `npm install`).
+- `.github/workflows/integrity.yml` (or `architecture-guard.yml`) runs the
+  full sweep on every push and PR.
 - `.gitattributes` enforces CRLF for source files (Windows-native repo).
-
-If the pre-commit hook flags corruption, repair the file by rewriting via
-`safe-write.py` — never bypass with `--no-verify`.
+- `npm run lint` chains `check:integrity` → architecture lint → eslint.

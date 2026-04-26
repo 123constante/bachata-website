@@ -1,23 +1,23 @@
-name: Runtime Architecture Guard
+name: Source Integrity
+
+# Production guardrail against Cowork-mount file corruption (null bytes,
+# silent truncation, JSON/TS parse failures). Runs on every push and PR.
+# Calls bin/check-integrity.sh which sha256-pins the guard before running.
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
 
 jobs:
-  runtime-architecture:
+  integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Source integrity (no null-byte corruption)
-        run: npm run check:integrity
+      - name: Make scripts executable
+        run: chmod +x bin/*.sh
 
-      - name: Enforce runtime architecture constraints
-        run: npm run lint:architecture
+      - name: Run integrity guard (sealed wrapper)
+        run: bin/check-integrity.sh

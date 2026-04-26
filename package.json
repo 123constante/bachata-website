@@ -14,8 +14,9 @@
     "test:e2e": "playwright test tests/e2e/auth-stepper-email-routing.spec.ts tests/e2e/vendor-city-normalization-smoke.spec.ts tests/e2e/dancer-dashboard-concept-b-smoke.spec.ts --project=chromium",
     "test:e2e:all": "playwright test",
     "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
-    "check:integrity": "node scripts/check-source-integrity.cjs",
-    "postinstall": "node bin/install-hooks.cjs"
+    "check:integrity": "bin/check-integrity.sh",
+    "postinstall": "node bin/install-hooks.cjs",
+    "repair:corrupt": "bin/repair-corrupt.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
