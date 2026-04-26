@@ -39,3 +39,32 @@ not affect DayDetailModal's appearance.
 
 If a task involves any of these excluded files, ask Ricky before changing
 anything in them.
+
+## File-write safety (mandatory for agents)
+
+This repo lives on a Windows mount accessed from the Cowork Linux sandbox. The
+sandbox's Write/Edit tools sometimes corrupt files >5 KB on this mount,
+injecting null bytes or truncating mid-content. Symptoms: build fails with
+TS1127 ("Invalid character") errors, file ends mid-statement, `tr -d -c '\0'
+< file | wc -c` returns nonzero.
+
+**For non-trivial file writes, use `scripts/safe-write.py`:**
+
+```bash
+cat /tmp/new-content.tsx | python3 scripts/safe-write.py src/components/foo/Bar.tsx
+```
+
+The script writes to `/tmp` (Linux-native, immune), then verifies + atomically
+copies. It exits nonzero on any null-byte detection.
+
+**Guardrails in place:**
+- `.githooks/pre-commit` refuses commits containing null-byte corruption.
+  Run `bash bin/install-hooks.sh` once after clone (also runs automatically via
+  `npm install` postinstall).
+- `npm run check:integrity` scans the whole tracked source tree (also wired
+  into `npm run lint` so the existing lint workflow catches it).
+- `.github/workflows/architecture-guard.yml` runs the same check on every push/PR.
+- `.gitattributes` enforces CRLF for source files (Windows-native repo).
+
+If the pre-commit hook flags corruption, repair the file by rewriting via
+`safe-write.py` — never bypass with `--no-verify`.

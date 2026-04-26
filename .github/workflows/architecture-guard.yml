@@ -25,5 +25,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Source integrity (no null-byte corruption)
+        run: npm run check:integrity
+
       - name: Enforce runtime architecture constraints
         run: npm run lint:architecture

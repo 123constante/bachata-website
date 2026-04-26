@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "lint": "npm run lint:architecture && eslint .",
+    "lint": "npm run check:integrity && npm run lint:architecture && eslint .",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
     "preview": "vite preview",
     "test:unit": "vitest run",
     "test:e2e": "playwright test tests/e2e/auth-stepper-email-routing.spec.ts tests/e2e/vendor-city-normalization-smoke.spec.ts tests/e2e/dancer-dashboard-concept-b-smoke.spec.ts --project=chromium",
     "test:e2e:all": "playwright test",
-    "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs"
+    "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
+    "check:integrity": "node scripts/check-source-integrity.cjs",
+    "postinstall": "node bin/install-hooks.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

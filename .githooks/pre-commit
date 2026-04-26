@@ -1,0 +1,11 @@
+#!/bin/sh
+# pre-commit — refuse commits that contain corruption (null bytes / unparseable JSON).
+# Runs the Node-based integrity check so it works regardless of bash availability.
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+if [ -f "$REPO_ROOT/scripts/check-source-integrity.cjs" ]; then
+    node "$REPO_ROOT/scripts/check-source-integrity.cjs" --staged
+else
+    echo "pre-commit: scripts/check-source-integrity.cjs not found; skipping"
+fi

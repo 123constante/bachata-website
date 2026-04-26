@@ -1,0 +1,27 @@
+# Force CRLF line endings for source files (Windows-native repo).
+# Without this, agents writing through the Linux sandbox (which produces LF) cause
+# enormous spurious diffs and trigger the "concurrent session" detection failure.
+
+* text=auto eol=crlf
+
+# Binary files — never normalise
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Shell scripts and Python — keep LF (so they execute correctly in unix environments)
+*.sh text eol=lf
+*.py text eol=lf
+
+# Git hooks must be LF for git itself
+.githooks/* text eol=lf
