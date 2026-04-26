@@ -146,7 +146,13 @@ const GlobalLayout = ({
       {showSubheader && subHeader}
 
       {hero && (
-        <div className="pt-9">
+        // pt-9 shim reserves 36px under the absolute-positioned subheader so
+        // the emoji clears the breadcrumb row. When showSubheader=false there
+        // is no breadcrumb to clear, so we drop the shim AND shrink the hero's
+        // own top padding (pt-20 → pt-16) since that 80px also exists to push
+        // the title below the breadcrumb. Net effect on the landing page:
+        // ~100px less empty space between the global header and the emoji.
+        <div className={showSubheader ? 'pt-9' : ''}>
           <PageHero
             // emoji is typed as optional on GlobalLayout's HeroProps for future
             // BentoPage consumption (title-only hero). PageHero still requires
@@ -164,7 +170,7 @@ const GlobalLayout = ({
             floatingIcons={hero.floatingIcons}
             widgets={hero.widgets}
             highlightColor={hero.highlightColor}
-            topPadding="pt-20"
+            topPadding={showSubheader ? 'pt-20' : 'pt-16'}
           />
         </div>
       )}
