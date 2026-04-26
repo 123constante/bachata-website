@@ -373,4 +373,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
         eventsLoading={isEventsLoading}
       />
     </section>
-  
+  );
+};
+
+export default EventCalendar;
