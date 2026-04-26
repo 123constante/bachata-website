@@ -58,10 +58,16 @@ export interface PublicVenueListItem {
   cloakroom_available: boolean;
   has_parking: boolean;
   facilities_new: string[];
+  upcoming_event_count: number;
+  next_event_iso: string | null;
+  next_event_name: string | null;
+  nearest_station: string | null;
+  nearest_station_minutes: number | null;
+  day_pattern: string[];
 }
 
 export async function fetchPublicVenuesList(): Promise<PublicVenueListItem[]> {
-  const { data, error } = await supabase.rpc('get_public_venues_list_v1' as never);
+  const { data, error } = await supabase.rpc('get_public_venues_list_v3' as never);
   if (error || !data) return [];
   return data as PublicVenueListItem[];
 }
