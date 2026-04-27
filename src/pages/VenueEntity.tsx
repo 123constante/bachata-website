@@ -1,9 +1,10 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, Building2, Calendar, MapPin, Clock, Phone, Mail,
   Globe, Instagram, Car, Train, Users, Layers, Info, AlertCircle,
+  Accessibility,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { fetchPublicVenue } from '@/services/venuePublicService';
 import { VenueGalleryLightbox } from '@/components/venue/VenueGalleryLightbox';
+import { useFacilityLookup } from '@/hooks/useFacilityOptions';
 
 type VenueOccurrenceRow = {
   event_id: string;
@@ -48,9 +50,32 @@ const PILL_CLASS =
 const stationMapUrl = (name: string) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
 
+// Facility chips are now driven by public.facility_options (filtered to
+// dancer_facing=true) via useFacilityLookup. Adding/retiring a facility =
+// INSERT/UPDATE on that table, no code deploy. The strict trigger on
+// venues.facilities_new ensures only canonical keys can be written, so
+// nothing reaches this render path that isn't in the table.
+
+// Parse `?from=event:<uuid>` -> uuid. Returns null when absent or malformed.
+const parseFromEventParam = (search: string): string | null => {
+  const raw = new URLSearchParams(search).get('from');
+  if (!raw) return null;
+  const [kind, value] = raw.split(':');
+  if (kind !== 'event' || !value) return null;
+  // Loose UUID guard — defends against URL tampering / typos.
+  return /^[0-9a-f-]{8,}$/i.test(value) ? value : null;
+};
+
 const VenueEntity = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { lookup: facilityLookup } = useFacilityLookup({ dancerFacingOnly: true });
+
+  // Warm-entry context: dancer arrived by clicking the venue card on an
+  // event page. Filter the source event out of "events here" and surface a
+  // thin breadcrumb back to that event.
+  const fromEventId = parseFromEventParam(location.search);
 
   const { data: venue, isLoading } = useQuery({
     queryKey: ['public-venue', id],
@@ -58,8 +83,24 @@ const VenueEntity = () => {
     enabled: !!id,
   });
 
+  // Source-event name for the warm-entry breadcrumb. Keep the query cheap —
+  // single column, single row, only fires when fromEventId is present.
+  const { data: sourceEvent } = useQuery({
+    queryKey: ['venue-from-event-name', fromEventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('id, name')
+        .eq('id', fromEventId!)
+        .maybeSingle();
+      return data as { id: string; name: string } | null;
+    },
+    enabled: !!fromEventId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: events } = useQuery({
-    queryKey: ['venue-upcoming-events', id],
+    queryKey: ['venue-upcoming-events', id, fromEventId],
     queryFn: async () => {
       const now = new Date().toISOString();
       const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString();
@@ -69,18 +110,33 @@ const VenueEntity = () => {
         p_city_id: null,
         p_venue_id: id,
       } as never);
-      return ((data as VenueOccurrenceRow[] | null) ?? []).slice(0, 5);
+      const rows = (data as VenueOccurrenceRow[] | null) ?? [];
+      // Warm entry: hide the event the user just came from.
+      const filtered = fromEventId ? rows.filter((r) => r.event_id !== fromEventId) : rows;
+      return filtered.slice(0, 5);
     },
     enabled: !!id && !!venue,
   });
 
-  const venueBreadcrumbs = [{ label: 'Venues', path: '/venues' }];
+  // Breadcrumb adapts to entry context. Cold = "Venues". Warm = source event.
+  // Last item has no path → renders as the current-page label (non-clickable),
+  // so the prior link (Venues / source event) stays clickable.
+  const venueBreadcrumbs = fromEventId
+    ? [
+        { label: sourceEvent?.name ?? 'Event', path: `/event/${fromEventId}` },
+        { label: venue?.name ?? 'Venue' },
+      ]
+    : [
+        { label: 'Venues', path: '/venues' },
+        { label: venue?.name ?? 'Venue' },
+      ];
+  const backHref = fromEventId ? `/event/${fromEventId}` : '/venues';
 
   if (isLoading) {
     return (
       <GlobalLayout
         breadcrumbs={venueBreadcrumbs}
-        backHref="/venues"
+        backHref={backHref}
         hero={{
           emoji: '🏛️',
           titleWhite: '',
@@ -101,7 +157,7 @@ const VenueEntity = () => {
     return (
       <GlobalLayout
         breadcrumbs={venueBreadcrumbs}
-        backHref="/venues"
+        backHref={backHref}
         hero={{
           emoji: '🏛️',
           titleWhite: 'Venue',
@@ -111,16 +167,23 @@ const VenueEntity = () => {
       >
         <div className="max-w-2xl mx-auto px-3 pb-20 text-center">
           <p className="text-xs text-muted-foreground mb-4">This venue doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate('/venues')} variant="outline" size="sm">
+          <Button onClick={() => navigate(backHref)} variant="outline" size="sm">
             <ArrowLeft className="w-3 h-3 mr-1" />
-            Back to Venues
+            {fromEventId ? 'Back to event' : 'Back to Venues'}
           </Button>
         </div>
       </GlobalLayout>
     );
   }
 
-  const facilities = parseStrArray(venue.facilities_new ?? venue.facilities);
+  const facilitiesRaw = parseStrArray(venue.facilities_new ?? venue.facilities);
+  // Filter to facilities that exist in the dancer-facing lookup. The DB-side
+  // strict trigger guarantees the array only contains canonical keys; this
+  // filter drops the non-dancer-facing ones (e.g. sound_system, which still
+  // lives in the data but never reaches the public page).
+  const facilities = facilitiesRaw
+    ? facilitiesRaw.filter((key) => facilityLookup.has(key))
+    : null;
   const floorType = parseStrArray(venue.floor_type);
   const galleryUrls = parseStrArray(venue.gallery_urls);
   const rules = parseStrArray(venue.rules);
@@ -160,7 +223,11 @@ const VenueEntity = () => {
   const addressPillText = [venue.city_name, venue.address, venue.postcode].filter(Boolean).join(', ');
 
   const hasContact = venue.phone || venue.email || venue.website || venue.instagram;
-  const hasDetails = venue.capacity || (facilities && facilities.length > 0) || (floorType && floorType.length > 0);
+  const hasDetails =
+    venue.capacity ||
+    (facilities && facilities.length > 0) ||
+    (floorType && floorType.length > 0) ||
+    !!venue.accessibility;
   const hasHours = openingHours && Object.keys(openingHours).length > 0;
   const hasRules = rules && rules.length > 0;
   const hasFeatures = venue.bar_available || venue.cloakroom_available || venue.id_required;
@@ -178,7 +245,7 @@ const VenueEntity = () => {
   return (
     <GlobalLayout
       breadcrumbs={venueBreadcrumbs}
-      backHref="/venues"
+      backHref={backHref}
       hero={{
         emoji: '🏛️',
         titleWhite: venue.name ?? '',
@@ -281,12 +348,26 @@ const VenueEntity = () => {
                     <div>
                       <p className="text-[10px] text-muted-foreground mb-1">Facilities</p>
                       <div className="flex flex-wrap gap-1">
-                        {facilities.map((facility, i) => (
-                          <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0">
-                            {facility}
-                          </Badge>
-                        ))}
+                        {facilities.map((key) => {
+                          const meta = facilityLookup.get(key);
+                          if (!meta) return null;
+                          return (
+                            <Badge key={key} variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
+                              {meta.emoji && <span aria-hidden="true">{meta.emoji}</span>}
+                              {meta.label}
+                            </Badge>
+                          );
+                        })}
                       </div>
+                    </div>
+                  )}
+                  {venue.accessibility && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                        <Accessibility className="w-3 h-3" />
+                        Accessibility
+                      </p>
+                      <p className="text-xs text-foreground leading-relaxed">{venue.accessibility}</p>
                     </div>
                   )}
                 </div>
@@ -471,11 +552,13 @@ const VenueEntity = () => {
           </div>
         )}
 
-        {/* Upcoming Events */}
+        {/* Upcoming Events — heading flips to "Other events" on warm entry */}
         <div className="bg-card border border-border rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
             <Calendar className="w-3.5 h-3.5 text-primary" />
-            <h2 className="text-xs font-semibold text-foreground">Upcoming events at this venue</h2>
+            <h2 className="text-xs font-semibold text-foreground">
+              {fromEventId ? 'Other events at this venue' : 'Upcoming events at this venue'}
+            </h2>
           </div>
           {events && events.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

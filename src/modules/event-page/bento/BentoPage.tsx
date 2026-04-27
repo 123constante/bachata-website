@@ -242,6 +242,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           <VenueBlock
             location={pageModel.location}
             showCityLine={hiddenBlocks.has('city')}
+            eventId={eventId}
           />
         );
       case 'schedule':

@@ -10,9 +10,13 @@ type VenueBlockProps = {
   // the standalone CityBlock is therefore hidden — keeping the city visible
   // somewhere on the page. Phase 8c.
   showCityLine?: boolean;
+  // Source event id — appended to the venue page URL as `?from=event:<id>`
+  // so the venue page can run its warm-entry flow (filter the source event
+  // out of "events here", show a thin breadcrumb back to the event).
+  eventId?: string | null;
 };
 
-export const VenueBlock = ({ location, showCityLine = false }: VenueBlockProps) => {
+export const VenueBlock = ({ location, showCityLine = false, eventId = null }: VenueBlockProps) => {
   const hasVenueIdentity = Boolean(location.venueName || location.address);
   if (!hasVenueIdentity) return null;
 
@@ -25,7 +29,11 @@ export const VenueBlock = ({ location, showCityLine = false }: VenueBlockProps) 
 
   const showCity = showCityLine && Boolean(location.cityName);
 
-  const href = location.venueId ? `/venue-entity/${location.venueId}` : undefined;
+  const href = location.venueId
+    ? eventId
+      ? `/venue-entity/${location.venueId}?from=event:${eventId}`
+      : `/venue-entity/${location.venueId}`
+    : undefined;
 
   return (
     <BentoTile title={BLOCK_TITLES.venue} color={BLOCK_COLORS.venue} href={href}>

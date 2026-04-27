@@ -28,7 +28,9 @@ const isToday = (iso: string | null): boolean => {
 const matchesFilters = (v: PublicVenueListItem, active: Set<FilterKey>): boolean => {
   if (active.has('tonight') && !isToday(v.next_event_iso)) return false;
   if (active.has('weekend') && !v.day_pattern.some((d) => WEEKEND_DAYS.has(d))) return false;
-  if (active.has('wood') && !v.facilities_new.includes('wood_floor')) return false;
+  // Floor type lives on its own column now — wood_floor was migrated out of
+  // facilities_new[] and into venues.floor_type during the data-quality pass.
+  if (active.has('wood') && v.floor_type !== 'wood') return false;
   return true;
 };
 

@@ -8,7 +8,9 @@ type AmenityPill = { key: string; emoji: string; label: string };
 const buildAmenities = (venue: PublicVenueListItem): AmenityPill[] => {
   const out: AmenityPill[] = [];
   const facilities = venue.facilities_new ?? [];
-  if (facilities.includes('wood_floor')) {
+  // Floor type is now its own column on the venues table — no longer a
+  // facilities_new[] entry. Surface it as the first amenity pill when set.
+  if (venue.floor_type === 'wood') {
     out.push({ key: 'wood_floor', emoji: '🪵', label: 'Wood floor' });
   }
   if (facilities.includes('air_conditioning')) {
