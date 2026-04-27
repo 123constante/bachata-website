@@ -21,6 +21,9 @@ export interface CalendarEvent {
   party_start?: string | null;
   party_end?: string | null;
   city_slug?: string | null;
+  occurrence_id: string;
+  occurrence_starts_at?: string;
+  occurrence_ends_at?: string | null;
 }
 
 interface UseCalendarEventsProps {

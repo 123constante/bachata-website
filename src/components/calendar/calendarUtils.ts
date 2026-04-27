@@ -204,7 +204,7 @@ export const transformCalendarEvents = (
       classStart,
       classEnd,
       venueName: event.location || (meta.venues as any)?.[0]?.name || 'Venue TBA',
-      eventLink: `/event/${event.event_id}`,
+      eventLink: `/event/${event.event_id}?occurrenceId=${event.occurrence_id}`,
       coverImageUrl: resolveEventImage(event.photo_url, null),
       venueLat: venueCoords?.get(event.event_id)?.lat ?? null,
       venueLng: venueCoords?.get(event.event_id)?.lng ?? null,
