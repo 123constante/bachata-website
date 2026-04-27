@@ -15,14 +15,16 @@ const LEVEL_LABEL_SHORT: Record<SessionLevel, string> = {
   improver:     'Imp',
   intermediate: 'Int',
   advanced:     'Adv',
+  open_level:   'Open',
 };
 const LEVEL_LABEL_FULL: Record<SessionLevel, string> = {
   beginner:     'Beginner',
   improver:     'Improver',
   intermediate: 'Intermediate',
   advanced:     'Advanced',
+  open_level:   'Open Level',
 };
-const LEVEL_ORDER: SessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced'];
+const LEVEL_ORDER: SessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
 
 // ─── Session classification helpers ──────────────────────────────────────────
 
@@ -38,17 +40,23 @@ const isDefaultClassTitle = (title: string): boolean =>
 // Rank-card headline text. This is the at-a-glance differentiator for a
 // dancer scanning a parallel group of classes — "where do I go?".
 //   • masterclass       → "Master"
+//   • open_level        → "Open Level" (5th value, mutually exclusive with named 4)
 //   • 4 levels          → "All"
-//   • 1 level           → "Beg" / "Imp" / "Int" / "Adv"
-//   • 2–3 levels        → joined "/" e.g. "Beg/Adv"
+//   • 1 level           → full word "Beginner" / "Improver" / "Intermediate" / "Advanced"
+//   • 2–3 levels        → joined "/" abbreviations e.g. "Beg/Adv"
 //   • no levels (class) → "Class" (muted; signals an absence of level info)
 const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => {
   if (session.type === 'masterclass') return { text: 'Master', muted: false };
   if (session.levels.length === 0) return { text: 'Class', muted: true };
+  // Open Level wins over everything else if present (UI keeps it exclusive).
+  if (session.levels.includes('open_level')) return { text: 'Open Level', muted: false };
   if (session.levels.length === 4) return { text: 'All', muted: false };
   const sorted = [...session.levels].sort(
     (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
   );
+  // Single level → full word ("Beginner"). Multi-level keeps abbreviations
+  // joined with "/" since two full words rarely fit a parallel-class card.
+  if (sorted.length === 1) return { text: LEVEL_LABEL_FULL[sorted[0]], muted: false };
   return { text: sorted.map((l) => LEVEL_LABEL_SHORT[l]).join('/'), muted: false };
 };
 
@@ -313,6 +321,7 @@ const RankCard = ({ session, inGrid }: { session: ScheduleSession; inGrid: boole
 const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
   if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
   if (session.levels.length === 0) return 'Level not specified';
+  if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
   if (session.levels.length === 4) return 'All four levels';
   return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };

@@ -13,12 +13,12 @@ type FestivalProgramSectionProps = {
 
 // ─── Level → rank text ───────────────────────────────────────────────────────
 const LEVEL_LABEL_SHORT: Record<FestivalSessionLevel, string> = {
-  beginner: 'Beg', improver: 'Imp', intermediate: 'Int', advanced: 'Adv',
+  beginner: 'Beg', improver: 'Imp', intermediate: 'Int', advanced: 'Adv', open_level: 'Open',
 };
 const LEVEL_LABEL_FULL: Record<FestivalSessionLevel, string> = {
-  beginner: 'Beginner', improver: 'Improver', intermediate: 'Intermediate', advanced: 'Advanced',
+  beginner: 'Beginner', improver: 'Improver', intermediate: 'Intermediate', advanced: 'Advanced', open_level: 'Open Level',
 };
-const LEVEL_ORDER: FestivalSessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced'];
+const LEVEL_ORDER: FestivalSessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
 
 const TYPE_LABEL: Record<string, string> = {
   workshop:    'Workshop',
@@ -47,8 +47,10 @@ const rankFor = (item: FestivalScheduleItem): { text: string; muted: boolean } =
   if (item.type === 'social')      return { text: 'Social', muted: false };
 
   // Class / workshop / bootcamp → level is the headline when set.
+  // Open Level wins over everything else if present (UI keeps it exclusive).
+  if (item.levels.includes('open_level')) return { text: 'Open Level', muted: false };
   if (item.levels.length === 4) return { text: 'All',   muted: false };
-  if (item.levels.length === 1) return { text: LEVEL_LABEL_SHORT[item.levels[0]], muted: false };
+  if (item.levels.length === 1) return { text: LEVEL_LABEL_FULL[item.levels[0]], muted: false };
   if (item.levels.length >= 2) {
     const sorted = [...item.levels].sort(
       (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
@@ -62,6 +64,7 @@ const rankFor = (item: FestivalScheduleItem): { text: string; muted: boolean } =
 const rankTooltip = (item: FestivalScheduleItem): string => {
   if (item.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
   if (item.levels.length === 0)    return 'Level not specified';
+  if (item.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
   if (item.levels.length === 4)    return 'All four levels';
   return item.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };

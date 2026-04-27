@@ -58,17 +58,19 @@ const parseArtists = (raw: unknown, hrefBase: string | null = null): FestivalArt
     })
     .filter((a): a is FestivalArtist => a !== null);
 
-const ALLOWED_LEVELS = new Set<string>(['beginner','improver','intermediate','advanced']);
-const parseLevels = (raw: unknown): ('beginner'|'improver'|'intermediate'|'advanced')[] => {
+// 2026-04-27: 'open_level' added as a 5th value alongside the 4 named levels.
+const ALLOWED_LEVELS = new Set<string>(['beginner','improver','intermediate','advanced','open_level']);
+type LevelLiteral = 'beginner'|'improver'|'intermediate'|'advanced'|'open_level';
+const parseLevels = (raw: unknown): LevelLiteral[] => {
   if (!Array.isArray(raw)) return [];
-  const out: ('beginner'|'improver'|'intermediate'|'advanced')[] = [];
+  const out: LevelLiteral[] = [];
   for (const v of raw as unknown[]) {
     if (typeof v === 'string' && ALLOWED_LEVELS.has(v)) {
-      out.push(v as 'beginner'|'improver'|'intermediate'|'advanced');
+      out.push(v as LevelLiteral);
     }
   }
   // Canonical order so re-renders are stable
-  const order = ['beginner','improver','intermediate','advanced'] as const;
+  const order = ['beginner','improver','intermediate','advanced','open_level'] as const;
   return out.sort((a, b) => order.indexOf(a) - order.indexOf(b));
 };
 

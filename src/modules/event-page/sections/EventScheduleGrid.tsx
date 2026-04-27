@@ -19,9 +19,9 @@ export type Person = {
   profileType: string | null;
 };
 
-export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced';
+export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
 export const ALL_SESSION_LEVELS: readonly SessionLevel[] = [
-  'beginner', 'improver', 'intermediate', 'advanced',
+  'beginner', 'improver', 'intermediate', 'advanced', 'open_level',
 ] as const;
 
 export type ScheduleSession = {
@@ -32,8 +32,9 @@ export type ScheduleSession = {
   startMins: number;
   endMins: number;
   /** Skill levels for this session (class / masterclass / workshop / bootcamp).
-   *  Subset of {beginner, improver, intermediate, advanced}. Empty = unspecified.
-   *  All four = "All levels". Always [] for parties / shows. */
+   *  Subset of {beginner, improver, intermediate, advanced, open_level}. Empty = unspecified.
+   *  All four named = "All levels". `open_level` alone = "Open Level" (suitable for all).
+   *  Always [] for parties / shows. */
   levels: SessionLevel[];
   /** Optional room name — used to disambiguate parallel sessions. */
   room: string | null;

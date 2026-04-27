@@ -269,9 +269,9 @@ export type FestivalArtist = {
   href: string | null;
 };
 
-export type FestivalSessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced';
+export type FestivalSessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
 export const ALL_FESTIVAL_LEVELS: readonly FestivalSessionLevel[] = [
-  'beginner', 'improver', 'intermediate', 'advanced',
+  'beginner', 'improver', 'intermediate', 'advanced', 'open_level',
 ] as const;
 
 /** One row in the hydrated festival schedule */
@@ -285,8 +285,8 @@ export type FestivalScheduleItem = {
   venueRoom: string | null;
   isMasterclass: boolean;
   /** Skill levels for this session (workshop / bootcamp / masterclass).
-   *  Subset of {beginner, improver, intermediate, advanced}. Empty = unspecified.
-   *  All four = "All levels". */
+   *  Subset of {beginner, improver, intermediate, advanced, open_level}. Empty = unspecified.
+   *  All four named = "All levels". `open_level` alone = "Open Level". */
   levels: FestivalSessionLevel[];
   instructors: FestivalArtist[];
   djs: FestivalArtist[];
