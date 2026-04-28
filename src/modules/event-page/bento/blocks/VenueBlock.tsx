@@ -52,22 +52,23 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
         )}
         {addressLine && (
           <div
-            className="text-[11px] leading-[1.3]"
+            className="truncate text-[10px] leading-[1.3]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
+            title={addressLine}
           >
             {addressLine}
           </div>
         )}
         {showCity && (
           <div
-            className="text-[11px] leading-[1.3]"
+            className="truncate text-[10px] leading-[1.3]"
             style={{ color: 'hsl(var(--bento-fg-muted))', opacity: 0.8 }}
           >
             {location.cityName}
           </div>
         )}
         {location.venueImageUrl && (
-          <div className="relative mt-[6px] h-[96px] w-full overflow-hidden rounded-[6px]">
+          <div className="relative mt-[6px] aspect-[4/3] w-full overflow-hidden rounded-[6px]">
             <img
               src={location.venueImageUrl}
               alt={location.venueName ?? 'Venue'}

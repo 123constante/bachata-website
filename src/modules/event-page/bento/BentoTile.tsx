@@ -22,6 +22,9 @@ import { Link } from 'react-router-dom';
 export type BentoTileMode = 'tappable' | 'container' | 'multi-target';
 
 type BentoTileProps = {
+  // Title can be omitted (empty string) to hide the brass label strip
+  // entirely — used by tiles whose content is self-explanatory (date, city,
+  // venue) per Ricky's 2026-04-28 cleanup.
   title: string;
   color: string;
   children?: ReactNode;
@@ -56,7 +59,11 @@ const TAPPABLE_INTERACTION_CLASS =
 // 2 px bottom trail, content pulls in to px-2.5 / pb-2.5.
 const TITLE_STRIP_CLASS =
   'px-2.5 pb-[2px] pt-2 text-[10px] font-bold uppercase tracking-[0.04em]';
+// Default content wrapper has no top padding because the title strip
+// provides it. When the title strip is omitted (empty title), we add
+// pt-2.5 so content keeps a comfortable distance from the tile edge.
 const CONTENT_WRAPPER_CLASS = 'flex min-h-0 flex-1 flex-col px-2.5 pb-2.5';
+const CONTENT_WRAPPER_NO_TITLE_CLASS = `${CONTENT_WRAPPER_CLASS} pt-2.5`;
 
 export const BentoTile = ({
   title,
@@ -90,13 +97,18 @@ export const BentoTile = ({
   } as const;
 
   const titleStyle = { color: 'hsl(var(--bento-accent))' } as const;
+  const hasTitle = Boolean(title);
 
   const inner = (
     <>
-      <div className={TITLE_STRIP_CLASS} style={titleStyle}>
-        {title}
+      {hasTitle && (
+        <div className={TITLE_STRIP_CLASS} style={titleStyle}>
+          {title}
+        </div>
+      )}
+      <div className={hasTitle ? CONTENT_WRAPPER_CLASS : CONTENT_WRAPPER_NO_TITLE_CLASS}>
+        {children}
       </div>
-      <div className={CONTENT_WRAPPER_CLASS}>{children}</div>
     </>
   );
 

@@ -54,12 +54,14 @@ export const BLOCK_COLORS: Record<BentoBlockId, string> = {
   contacts: BENTO_SURFACE,
 };
 
+// Empty strings for date/city/venue suppress the brass label strip — those
+// tiles are self-explanatory and the labels added clutter (Ricky 2026-04-28).
 export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   cover: 'Cover',
-  date: 'Date',
+  date: '',
   promo: 'Promo',
-  city: 'City',
-  venue: 'Venue',
+  city: '',
+  venue: '',
   schedule: 'Schedule',
   description: 'About',
   raffle: 'Raffle',

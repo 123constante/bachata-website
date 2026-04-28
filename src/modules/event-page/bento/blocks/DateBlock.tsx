@@ -14,7 +14,7 @@ export const DateBlock = ({ occurrence, onClick }: DateBlockProps) => {
   return (
     <BentoTile title={BLOCK_TITLES.date} color={BLOCK_COLORS.date} onClick={onClick}>
       {label ? (
-        <div className="flex flex-1 flex-col justify-center">
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
           <div
             className="text-[10px] font-bold uppercase tracking-[0.12em]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
