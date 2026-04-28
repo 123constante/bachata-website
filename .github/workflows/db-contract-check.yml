@@ -1,0 +1,37 @@
+name: DB Contract Check
+
+# Verifies the calendar_occurrences venue/city override contract is in
+# place and not violated. Catches operator error from outside the app
+# (e.g. raw SQL admin work) that could re-introduce the venue-drift bug.
+# See migration 20260428120000_occurrence_venue_drift_fix_v1 in the
+# admin repo.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  contract-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run venue contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-venue-contract.mjs
