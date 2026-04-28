@@ -29,6 +29,13 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
 
   const showCity = showCityLine && Boolean(location.cityName);
 
+  // Address line: street + postcode, comma-separated. The comma is dropped
+  // when there is no postcode so the line never reads "10 Beak Street," with
+  // a trailing comma.
+  const addressLine = [location.address, location.postcode]
+    .filter((s): s is string => Boolean(s && s.trim()))
+    .join(', ');
+
   const href = location.venueId
     ? eventId
       ? `/venue-entity/${location.venueId}?from=event:${eventId}`
@@ -43,12 +50,12 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
             {location.venueName}
           </div>
         )}
-        {location.address && (
+        {addressLine && (
           <div
             className="text-[11px] leading-[1.3]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
-            {location.address}
+            {addressLine}
           </div>
         )}
         {showCity && (
@@ -57,6 +64,19 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
             style={{ color: 'hsl(var(--bento-fg-muted))', opacity: 0.8 }}
           >
             {location.cityName}
+          </div>
+        )}
+        {location.venueImageUrl && (
+          <div className="relative mt-[6px] h-[96px] w-full overflow-hidden rounded-[6px]">
+            <img
+              src={location.venueImageUrl}
+              alt={location.venueName ?? 'Venue'}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+            {/* 30% black overlay so the photo recedes — supporting context,
+                not the focus of the page. */}
+            <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
           </div>
         )}
         {hasWalkingLine && (
