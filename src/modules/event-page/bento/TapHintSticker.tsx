@@ -9,10 +9,11 @@ const DISMISS_KEY = 'bento-tap-hint-dismissed-v1';
 
 /**
  * Hand-written-looking yellow Post-it that hints to first-time visitors
- * that every tile in the bento grid is tappable. Sticks slightly off
- * vertical so it reads as a real note someone left, not part of the
- * page chrome. Self-dismisses on tap of the X and remembers the dismiss
- * via localStorage so repeat visits aren't pestered.
+ * that every tile in the bento grid is tappable. Sits on the right edge
+ * of the page so it doesn't dominate; tilts slightly so it reads as a
+ * real note someone left, not part of the page chrome. Self-dismisses
+ * on tap of the X and remembers the dismiss via localStorage so repeat
+ * visits aren't pestered.
  */
 export const TapHintSticker = () => {
   // Default false so SSR / first paint doesn't flash a sticker that the
@@ -44,19 +45,23 @@ export const TapHintSticker = () => {
   if (!visible) return null;
 
   return (
-    <div className="mb-3 flex justify-start">
+    // Right-aligned so the velvet/brass page decorations on the left stay
+    // visible. Positive tilt (+2.5deg) reads more natural for a note
+    // attached at the right edge — mirrors how a left-aligned Post-it
+    // would lean with a negative tilt.
+    <div className="mb-2 flex justify-end">
       <div
-        className="relative inline-flex max-w-[80%] items-start gap-2 rounded-[2px] px-3 py-2 text-[12px] font-medium leading-[1.35]"
+        className="relative inline-flex max-w-[60%] items-center gap-1 rounded-[2px] px-1.5 py-[3px] text-[9px] font-medium leading-[1.2]"
         style={{
           background: '#F4D55A',
           color: '#3A2A08',
-          transform: 'rotate(-2.5deg)',
-          boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+          transform: 'rotate(2.5deg)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
         }}
       >
         <span
           aria-hidden="true"
-          className="absolute left-4 -top-[7px] h-[11px] w-[38px] rounded-[1px]"
+          className="absolute right-2.5 -top-[4px] h-[6px] w-[22px] rounded-[1px]"
           style={{
             background: 'rgba(255,255,255,0.55)',
             transform: 'rotate(-2deg)',
@@ -67,10 +72,10 @@ export const TapHintSticker = () => {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss hint"
-          className="-mr-0.5 -mt-0.5 shrink-0 rounded-full p-0.5 hover:bg-black/10"
+          className="-mr-0.5 shrink-0 rounded-full p-0.5 hover:bg-black/10"
           style={{ color: '#3A2A08' }}
         >
-          <X className="h-3 w-3" />
+          <X className="h-2.5 w-2.5" />
         </button>
       </div>
     </div>

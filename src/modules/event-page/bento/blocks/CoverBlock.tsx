@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Images } from 'lucide-react';
+import { Images, Maximize2 } from 'lucide-react';
 import { ShareButton } from '@/components/ShareButton';
 import { GalleryLightbox } from '@/modules/event-page/bento/modals/GalleryLightbox';
 import { PinkFallback } from '@/modules/event-page/bento/blocks/PinkFallback';
@@ -226,6 +226,28 @@ export const CoverBlock = ({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Single-image case: when there is only one cover image we show
+            neither the Gallery button (only renders for >=2 images) nor
+            the Stories-style progress segments — leaving the cover
+            looking like a static photo with no tap affordance. Render a
+            small bottom caption strip so first-time visitors know the
+            cover can be tapped to open full-screen. pointer-events-none
+            so the tap still goes through to the underlying button. */}
+        {images.length === 1 && (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium text-white"
+            style={{
+              background:
+                'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))',
+              letterSpacing: '0.02em',
+            }}
+            aria-hidden="true"
+          >
+            <Maximize2 className="h-[11px] w-[11px]" />
+            <span>Tap to expand</span>
           </div>
         )}
       </div>
