@@ -26,6 +26,7 @@ import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
 import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
+import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
@@ -312,6 +313,8 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
             This event has ended.
           </div>
         )}
+
+        {state === 'ready' && !past && <TapHintSticker />}
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
 

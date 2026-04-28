@@ -19,9 +19,9 @@ const formatDayPart = (isoLike: string, timezone: string | null): { weekday: str
   const date = new Date(normalized);
   const opts = (part: 'weekday' | 'day' | 'month'): Intl.DateTimeFormatOptions => {
     const base: Intl.DateTimeFormatOptions = { timeZone: timezone ?? undefined };
-    if (part === 'weekday') return { ...base, weekday: 'short' };
+    if (part === 'weekday') return { ...base, weekday: 'long' };
     if (part === 'day') return { ...base, day: 'numeric' };
-    return { ...base, month: 'short' };
+    return { ...base, month: 'long' };
   };
   try {
     return {
@@ -31,9 +31,9 @@ const formatDayPart = (isoLike: string, timezone: string | null): { weekday: str
     };
   } catch {
     return {
-      weekday: date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase(),
+      weekday: date.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase(),
       day: String(date.getDate()),
-      month: date.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase(),
+      month: date.toLocaleDateString('en-GB', { month: 'long' }).toUpperCase(),
     };
   }
 };

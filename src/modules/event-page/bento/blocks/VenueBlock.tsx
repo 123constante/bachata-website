@@ -52,7 +52,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
         )}
         {addressLine && (
           <div
-            className="truncate text-[10px] leading-[1.3]"
+            className="line-clamp-3 text-[10px] leading-[1.3]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
             title={addressLine}
           >

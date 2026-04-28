@@ -14,19 +14,29 @@ export const DateBlock = ({ occurrence, onClick }: DateBlockProps) => {
   return (
     <BentoTile title={BLOCK_TITLES.date} color={BLOCK_COLORS.date} onClick={onClick}>
       {label ? (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex h-full w-full flex-1 flex-col items-center justify-center text-center">
+          {/* Full weekday name on its own line so long names like "WEDNESDAY"
+              don't overflow when paired with the day number. */}
           <div
-            className="text-[10px] font-bold uppercase tracking-[0.12em]"
+            className="text-[9px] font-bold uppercase leading-[1.1] tracking-[0.1em]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
-            {label.startWeekday} {label.startDay}
+            {label.startWeekday}
           </div>
-          <div className="text-[22px] font-black leading-none tracking-[-0.03em]">
+          {/* Day number is now the prominent element — matches the universal
+              calendar-icon pattern (weekday top, big day, month bottom). */}
+          <div className="mt-[1px] text-[22px] font-black leading-none tracking-[-0.03em]">
+            {label.startDay}
+          </div>
+          <div
+            className="mt-[1px] text-[10px] font-bold uppercase tracking-[0.12em]"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
             {label.startMonth}
           </div>
           {label.isMultiDay && label.endDay && (
             <div
-              className="mt-[2px] font-mono text-[9px] uppercase tracking-[0.14em]"
+              className="mt-[3px] font-mono text-[8px] uppercase leading-[1.2] tracking-[0.12em]"
               style={{ color: 'hsl(var(--bento-fg-muted))' }}
             >
               → {label.endWeekday} {label.endDay}
