@@ -37,6 +37,13 @@ const isClassyType = (type: string): boolean =>
 const isDefaultClassTitle = (title: string): boolean =>
   /^(class|classes|masterclass|masterclasses)(\s+\d+)?$/i.test(title.trim());
 
+// Same idea for parties: "Party", "Social" and their numbered cousins are
+// generic default labels (set by Smart Import / seeds), not distinctive event
+// names. The PARTY section header above already says it's a party, so showing
+// "Social" / "Party" inside the card is duplicate noise.
+const isDefaultPartyTitle = (title: string): boolean =>
+  /^(party|parties|social|socials)(\s+\d+)?$/i.test(title.trim());
+
 // Rank-card headline text. This is the at-a-glance differentiator for a
 // dancer scanning a parallel group of classes — "where do I go?".
 //   • masterclass       → "Master"
@@ -183,53 +190,62 @@ const PersonLink = ({
 const TimeSection = ({
   startMins,
   endMins,
-  pickYourLevel,
   format,
 }: {
   startMins: number;
   endMins: number;
-  pickYourLevel: boolean;
-  /** 'duration' renders "10:00 PM · 1 HR" — used for classes / masterclasses
-   *  where session length is the meaningful timing fact.
-   *  'range' renders "10:00 PM – 5:00 AM" — used when a slot includes a party,
-   *  because dancers care most about when it ENDS rather than how long it ran. */
+  /** 'duration' renders "10:00 PM · 1 HR" — used for class slots where
+   *  session length is the meaningful timing fact.
+   *  'range' renders "10:00 PM – 5:00 AM" — used when a slot includes a
+   *  party, because dancers care most about when it ENDS. The CLASS / PARTY
+   *  type label lives on the SectionHeader above; the time row stays clean. */
   format: 'duration' | 'range';
 }) => (
-  <div
-    className="mb-[10px] flex items-baseline gap-[8px] pb-[6px]"
-    style={{ borderBottom: '1px solid var(--bento-hairline)' }}
-  >
-    {format === 'range' ? (
-      <span
-        className="text-[15px] font-bold leading-none tracking-[-0.005em] tabular-nums"
-        style={{ color: 'hsl(var(--bento-fg))' }}
-      >
-        {fmtMins12(startMins)} – {fmtMins12(endMins)}
-      </span>
-    ) : (
-      <>
-        <span
-          className="text-[15px] font-bold leading-none tracking-[-0.005em] tabular-nums"
-          style={{ color: 'hsl(var(--bento-fg))' }}
-        >
-          {fmtMins12(startMins)}
-        </span>
-        <span
-          className="font-mono text-[9px] uppercase tracking-[0.14em]"
-          style={{ color: 'hsl(var(--bento-fg-muted))' }}
-        >
-          · {fmtDuration(startMins, endMins)}
-        </span>
-      </>
-    )}
-    {pickYourLevel && (
+  <div className="mb-[10px] flex flex-wrap items-baseline gap-[8px]">
+    <span
+      className="text-[15px] font-bold leading-none tracking-[-0.005em] tabular-nums"
+      style={{ color: 'hsl(var(--bento-fg))' }}
+    >
+      {format === 'range'
+        ? `${fmtMins12(startMins)} – ${fmtMins12(endMins)}`
+        : fmtMins12(startMins)}
+    </span>
+    {format === 'duration' && (
       <span
         className="font-mono text-[9px] uppercase tracking-[0.14em]"
         style={{ color: 'hsl(var(--bento-fg-muted))' }}
       >
-        · pick your level
+        · {fmtDuration(startMins, endMins)}
       </span>
     )}
+  </div>
+);
+
+// ─── Section header — "centered with rules" pattern (D style) ────────────────
+//
+// Sits above a run of consecutive same-kind slots. Replaces the per-row
+// CLASS / PARTY pill so the type label appears once per section instead of
+// once per time row.
+
+const SectionHeader = ({ label }: { label: string }) => (
+  <div className="my-[4px] flex items-center gap-[10px]">
+    <span
+      className="block h-px flex-1"
+      style={{ background: 'hsl(var(--bento-accent) / 0.30)' }}
+    />
+    <span
+      className="font-mono text-[10px] font-semibold uppercase"
+      style={{
+        letterSpacing: '0.18em',
+        color: 'hsl(var(--bento-accent))',
+      }}
+    >
+      {label}
+    </span>
+    <span
+      className="block h-px flex-1"
+      style={{ background: 'hsl(var(--bento-accent) / 0.30)' }}
+    />
   </div>
 );
 
@@ -249,10 +265,27 @@ const TimeSection = ({
 // read as separate options. Solo cards (`inGrid=false`) drop the card and
 // sit flat against the tile body, matching the Party section's treatment.
 
-const RankCard = ({ session, inGrid }: { session: ScheduleSession; inGrid: boolean }) => {
+const RankCard = ({
+  session,
+  inGrid,
+  isMultiRoom,
+}: {
+  session: ScheduleSession;
+  inGrid: boolean;
+  isMultiRoom: boolean;
+}) => {
   const rank = rankFor(session);
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
   const titleText = showTitle ? session.title : null;
+  // In multi-room mode the room becomes the headline ("Bachata Room" /
+  // "Salsa Room"). The rank text drops to a small subtitle. In single-room
+  // mode the rank stays as the headline and the room name is hidden.
+  const useRoomAsHeading = isMultiRoom && !!session.room && session.room.length > 0;
+  // When rank would render the muted "Class" placeholder (i.e. session has no
+  // levels set) and we have a real title, promote the title to be the heading
+  // — the CLASS pill in the time row already identifies the type, so showing
+  // "Class" again as a card heading is redundant.
+  const useTitleAsHeading = !useRoomAsHeading && rank.muted && !!titleText;
 
   return (
     <div
@@ -270,20 +303,57 @@ const RankCard = ({ session, inGrid }: { session: ScheduleSession; inGrid: boole
           : undefined
       }
     >
-      <div
-        className="font-medium leading-none"
-        style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontSize: '22px',
-          letterSpacing: '0.02em',
-          color: rank.muted ? 'hsl(var(--bento-fg-muted))' : 'hsl(var(--bento-accent))',
-        }}
-        title={LEVEL_LABEL_FULL_TOOLTIP(session)}
-      >
-        {rank.text}
-      </div>
+      {useRoomAsHeading ? (
+        <>
+          <div
+            className="font-medium leading-[1.1]"
+            style={{
+              fontFamily: '"Fraunces", Georgia, serif',
+              fontSize: '18px',
+              letterSpacing: '0.01em',
+              color: 'hsl(var(--bento-accent))',
+            }}
+          >
+            {session.room}
+          </div>
+          <div
+            className="mt-[3px] text-[11px] leading-[1.2]"
+            style={{
+              color: rank.muted ? 'hsl(var(--bento-fg-muted))' : 'hsl(var(--bento-fg))',
+            }}
+            title={LEVEL_LABEL_FULL_TOOLTIP(session)}
+          >
+            {rank.text}
+          </div>
+        </>
+      ) : useTitleAsHeading ? (
+        <div
+          className="font-medium leading-none"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: '22px',
+            letterSpacing: '0.02em',
+            color: 'hsl(var(--bento-accent))',
+          }}
+        >
+          {titleText}
+        </div>
+      ) : (
+        <div
+          className="font-medium leading-none"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: '22px',
+            letterSpacing: '0.02em',
+            color: rank.muted ? 'hsl(var(--bento-fg-muted))' : 'hsl(var(--bento-accent))',
+          }}
+          title={LEVEL_LABEL_FULL_TOOLTIP(session)}
+        >
+          {rank.text}
+        </div>
+      )}
 
-      {titleText && (
+      {titleText && !useTitleAsHeading && (
         <div
           className="mt-[6px] leading-[1.2]"
           style={{
@@ -293,15 +363,6 @@ const RankCard = ({ session, inGrid }: { session: ScheduleSession; inGrid: boole
           }}
         >
           {titleText}
-        </div>
-      )}
-
-      {session.room && (
-        <div
-          className="mt-[2px] text-[10px]"
-          style={{ color: 'hsl(var(--bento-fg-muted))' }}
-        >
-          {session.room}
         </div>
       )}
 
@@ -326,46 +387,120 @@ const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
   return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };
 
+// ─── Party DJ row — horizontal: avatar | name + role tag ────────────────────
+//
+// Used inside PartyCard. Each performer renders as an avatar on the left
+// with their name and role label (DJ / DANCER / PERFORMER) stacked on the
+// right. Profile-card feel; works for solo DJs and stacks nicely for nights
+// with multiple performers.
+
+const PartyDjRow = ({ person }: { person: Person }) => {
+  const initial = (person.name || '?').charAt(0).toUpperCase();
+  const body = (
+    <>
+      <div
+        className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] text-[18px] font-bold"
+        style={{
+          background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
+          borderColor: 'var(--bento-hairline)',
+          color: 'hsl(var(--bento-accent))',
+        }}
+      >
+        {person.avatarUrl ? (
+          <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <span>{initial}</span>
+        )}
+      </div>
+      <div className="min-w-0 text-left">
+        <div
+          className="leading-[1.1]"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: '15px',
+            color: 'hsl(var(--bento-accent))',
+          }}
+        >
+          {person.name}
+        </div>
+        {person.role && (
+          <div
+            className="mt-[3px] font-mono text-[9px] font-semibold uppercase"
+            style={{
+              letterSpacing: '0.14em',
+              color: 'hsl(var(--bento-fg-muted))',
+            }}
+          >
+            {person.role.toUpperCase()}
+          </div>
+        )}
+      </div>
+    </>
+  );
+  if (!person.href) {
+    return (
+      <div className="flex items-center gap-[12px] self-start" aria-label={person.name}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <Link
+      to={person.href}
+      className="flex items-center gap-[12px] self-start transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+    >
+      {body}
+    </Link>
+  );
+};
+
 // ─── Party card — used for party-type sessions ───────────────────────────────
 //
-// Parties don't have ranks, so they get their own treatment: title in serif,
-// "DJING" / "PERFORMING" role label, then DJs / performers.
+// Parties don't have ranks, so they get their own treatment: title in serif
+// (when distinctive — generic "Party" / "Social" suppressed), then a stack
+// of PartyDjRow rows, one per performer.
 
-const PartyCard = ({ session }: { session: ScheduleSession }) => {
-  const roleLabel = roleLabelFor(session);
-  // End time is now baked into the TimeSection's "10:00 PM – 5:00 AM" range
-  // header above, so the card itself doesn't repeat it.
+const PartyCard = ({
+  session,
+  isMultiRoom,
+}: {
+  session: ScheduleSession;
+  isMultiRoom: boolean;
+}) => {
+  // End time is in the TimeSection's "10:00 PM – 5:00 AM" header above, so
+  // the card itself doesn't repeat it. Room sits in the heading when
+  // multi-room; hidden when the event has only one room. When the title is
+  // a generic default ("Party", "Social"), the card heading is suppressed —
+  // the PARTY section header above already labels the section. Per-DJ rows
+  // below carry their own role tag, so no shared roleLabel here.
+  const useRoomAsHeading = isMultiRoom && !!session.room && session.room.length > 0;
+  const trimmedTitle = (session.title ?? '').trim();
+  const showTitleAsHeading =
+    !useRoomAsHeading && trimmedTitle.length > 0 && !isDefaultPartyTitle(trimmedTitle);
+  const headingText = useRoomAsHeading
+    ? session.room!
+    : showTitleAsHeading
+      ? trimmedTitle
+      : null;
+
   return (
-    <div className="min-w-0 px-1 text-center">
-      <div
-        className="text-[16px] font-semibold leading-[1.15] tracking-[-0.005em]"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
-      >
-        {session.title || 'Party'}
-      </div>
-
-      {session.room && (
+    <div className="min-w-0 px-1">
+      {headingText && (
         <div
-          className="mt-[4px] text-[11px]"
-          style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          className="mb-[2px] text-[16px] font-semibold leading-[1.15] tracking-[-0.005em]"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            color: useRoomAsHeading ? 'hsl(var(--bento-accent))' : 'hsl(var(--bento-fg))',
+          }}
         >
-          {session.room}
-        </div>
-      )}
-
-      {roleLabel && (
-        <div
-          className="mt-[6px] font-mono text-[9px] uppercase tracking-[0.14em]"
-          style={{ color: 'hsl(var(--bento-fg-muted))' }}
-        >
-          {roleLabel}
+          {headingText}
         </div>
       )}
 
       {session.people.length > 0 && (
-        <div className="mt-[8px] flex flex-wrap justify-center gap-[10px]">
+        <div className="mt-[10px] flex flex-col items-start gap-[10px]">
           {session.people.map((p, i) => (
-            <PersonLink key={`${p.id}-${i}`} person={p} />
+            <PartyDjRow key={`${p.id}-${i}`} person={p} />
           ))}
         </div>
       )}
@@ -470,12 +605,59 @@ const groupIntoSlots = (sessions: ScheduleSession[]): Slot[] => {
   return slots;
 };
 
+// ─── Section grouping ────────────────────────────────────────────────────────
+//
+// Walk the time-ordered slots and group consecutive same-kind slots into a
+// section. A "kind" is 'party' if the slot contains any party session,
+// otherwise 'class'. Most events end up with two sections (classes then
+// party); festivals can produce more.
+
+type Section = {
+  kind: 'class' | 'party';
+  slots: Slot[];
+};
+
+const groupIntoSections = (slots: Slot[]): Section[] => {
+  const sections: Section[] = [];
+  for (const slot of slots) {
+    const kind: 'class' | 'party' = slot.hasParty ? 'party' : 'class';
+    const last = sections[sections.length - 1];
+    if (last && last.kind === kind) {
+      last.slots.push(slot);
+    } else {
+      sections.push({ kind, slots: [slot] });
+    }
+  }
+  return sections;
+};
+
+// Section heading text. Plural for class sections with multiple slots OR a
+// single slot with multiple parallel cards. Party stays singular regardless.
+const sectionLabelFor = (section: Section): string => {
+  if (section.kind === 'party') return 'PARTY';
+  const isPlural =
+    section.slots.length > 1 ||
+    (section.slots[0]?.sessions.length ?? 0) > 1;
+  return isPlural ? 'CLASSES' : 'CLASS';
+};
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
   const { data: rawSessions = [], isLoading } = useProgramItems(eventId);
 
   const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
+
+  // Multi-room mode = ≥ 2 distinct non-null rooms anywhere in the event's
+  // sessions. When false, room names are hidden across the schedule.
+  const isMultiRoom = useMemo(() => {
+    const distinct = new Set<string>();
+    for (const s of sessions) {
+      if (s.room) distinct.add(s.room);
+    }
+    return distinct.size >= 2;
+  }, [sessions]);
+
   const uniqueDays = useMemo(
     () => Array.from(new Set(sessions.map((s) => s.day).filter((d): d is string => Boolean(d)))).sort(),
     [sessions],
@@ -491,9 +673,10 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
   }, [sessions, isMultiDay, currentDay]);
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
+  const sections = useMemo(() => groupIntoSections(slots), [slots]);
 
   return (
-    <BentoTile title={BLOCK_TITLES.schedule} color={BLOCK_COLORS.schedule} mode="container">
+    <BentoTile title="" color={BLOCK_COLORS.schedule} mode="container">
       {isMultiDay && currentDay && (
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
@@ -506,35 +689,64 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
           {isLoading ? 'Loading…' : 'Schedule coming soon'}
         </div>
       ) : (
-        <div className="flex flex-col gap-[18px]">
-          {slots.map((slot) => (
-            <div key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}>
-              <TimeSection
-                startMins={slot.startMins}
-                endMins={slot.endMins}
-                pickYourLevel={slot.isParallelClassy}
-                format={slot.hasParty ? 'range' : 'duration'}
-              />
-              {slot.isParallelClassy ? (
-                <div
-                  className="grid gap-[6px]"
-                  style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))' }}
-                >
-                  {slot.sessions.map((s) => (
-                    <RankCard key={s.id} session={s} inGrid={true} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-[8px]">
-                  {slot.sessions.map((s) =>
-                    s.type === 'party' ? (
-                      <PartyCard key={s.id} session={s} />
+        <div className="flex flex-col gap-[14px]">
+          {sections.map((section, sectionIdx) => (
+            <div
+              key={`section-${section.kind}-${sectionIdx}-${section.slots[0]?.startMins ?? 'x'}`}
+              className="flex flex-col gap-[14px]"
+            >
+              <SectionHeader label={sectionLabelFor(section)} />
+              {section.slots.map((slot) => {
+                const format: 'duration' | 'range' = slot.hasParty ? 'range' : 'duration';
+                const multiCard = slot.sessions.length >= 2;
+                // 2 cards → 2-col on every viewport. 3 cards → stack on mobile,
+                // side-by-side on tablet+. Single-card slots fall through to
+                // the flex-col branch and render full-width.
+                const gridCols =
+                  slot.sessions.length === 2
+                    ? 'grid grid-cols-2 gap-[6px]'
+                    : 'grid grid-cols-1 gap-[6px] sm:grid-cols-3';
+                return (
+                  <div key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}>
+                    <TimeSection
+                      startMins={slot.startMins}
+                      endMins={slot.endMins}
+                      format={format}
+                    />
+                    {multiCard ? (
+                      <div className={gridCols}>
+                        {slot.sessions.map((s) =>
+                          s.type === 'party' ? (
+                            <PartyCard key={s.id} session={s} isMultiRoom={isMultiRoom} />
+                          ) : (
+                            <RankCard
+                              key={s.id}
+                              session={s}
+                              inGrid={true}
+                              isMultiRoom={isMultiRoom}
+                            />
+                          ),
+                        )}
+                      </div>
                     ) : (
-                      <RankCard key={s.id} session={s} inGrid={false} />
-                    ),
-                  )}
-                </div>
-              )}
+                      <div className="flex flex-col gap-[8px]">
+                        {slot.sessions.map((s) =>
+                          s.type === 'party' ? (
+                            <PartyCard key={s.id} session={s} isMultiRoom={isMultiRoom} />
+                          ) : (
+                            <RankCard
+                              key={s.id}
+                              session={s}
+                              inGrid={false}
+                              isMultiRoom={isMultiRoom}
+                            />
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
