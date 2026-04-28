@@ -204,23 +204,28 @@ export function useProfileProgramAppearances(
         };
       });
 
-      // ── 5. Sort: upcoming soonest-first, then past most-recent-first ──────
-      const now = Date.now();
-      items.sort((a, b) => {
+      // ── 5. Filter to upcoming + sort soonest-first ────────────────────────
+      // Past events are excluded from public profile timelines — clamp at
+      // today's 00:00 so events that started earlier today still surface.
+      // Undated entries are preserved (rare, but legitimate).
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayMs = todayStart.getTime();
+      const upcoming = items.filter((item) => {
+        if (!item.event_start_time) return true;
+        return new Date(item.event_start_time).getTime() >= todayMs;
+      });
+      upcoming.sort((a, b) => {
         const aMs = a.event_start_time
           ? new Date(a.event_start_time).getTime()
-          : null;
+          : Number.POSITIVE_INFINITY;
         const bMs = b.event_start_time
           ? new Date(b.event_start_time).getTime()
-          : null;
-        const aUp = aMs !== null && aMs >= now;
-        const bUp = bMs !== null && bMs >= now;
-        if (aUp !== bUp) return aUp ? -1 : 1;
-        if (aMs !== null && bMs !== null) return aUp ? aMs - bMs : bMs - aMs;
-        return 0;
+          : Number.POSITIVE_INFINITY;
+        return aMs - bMs;
       });
 
-      return items.slice(0, limit);
+      return upcoming.slice(0, limit);
     },
   });
 }

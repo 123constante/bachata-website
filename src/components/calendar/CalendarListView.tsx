@@ -141,10 +141,22 @@ export const CalendarListView = ({
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   monthEnd.setHours(23, 59, 59, 999);
 
+  // When viewing the current month, hide days that have already passed.
+  // Past months stay fully visible so users can browse history; future
+  // months are unaffected. The clamp uses today's start-of-day (00:00
+  // local) so events still scheduled later today remain visible. Events
+  // whose endDate is earlier than today are filtered out.
+  const now = new Date();
+  const isCurrentMonth =
+    currentYear === now.getFullYear() && currentMonth === now.getMonth();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const effectiveStart =
+    isCurrentMonth && todayStart > monthStart ? todayStart : monthStart;
+
   const filtered = events
     .filter(
       (e) =>
-        e.endDate >= monthStart &&
+        e.endDate >= effectiveStart &&
         e.startDate <= monthEnd &&
         matchesCategory(e, selectedCategory),
     )

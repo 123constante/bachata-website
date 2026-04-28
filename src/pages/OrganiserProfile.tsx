@@ -83,7 +83,9 @@ const OrganiserProfile = () => {
         .eq('entity_id', id)
         .eq('role', 'organiser');
       if (error) return [];
-      const now = Date.now();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayMs = todayStart.getTime();
       type Row = { event_id: string; events: { id: string; name: string; date: string | null; start_time: string | null; is_active: boolean | null } | null };
       return (data as unknown as Row[])
         .map((r) => r.events)
@@ -92,7 +94,7 @@ const OrganiserProfile = () => {
         .filter((e) => {
           const raw = e.start_time ?? e.date;
           if (!raw) return true; // keep undated events
-          return new Date(raw).getTime() >= now - 24 * 60 * 60 * 1000;
+          return new Date(raw).getTime() >= todayMs;
         })
         .sort((a, b) => {
           const aT = a.start_time ?? a.date ?? '';
