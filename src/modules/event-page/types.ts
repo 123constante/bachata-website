@@ -9,6 +9,13 @@ export type EventPagePerson = {
   displayName: string | null;
   avatarUrl: string | null;
   href: string | null;
+  // Organiser card contact fields (Phase 1, 2026-04-28). Populated only on
+  // organisers; lineup people leave them undefined. Each is the raw value as
+  // stored on the entities table — caller decides how to display.
+  website?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  contactPhone?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +101,13 @@ export type EventPageSnapshot = {
     };
   };
   organisers: EventPagePerson[];
+  // Organiser card slot picks for the public event page (Phase 1, 2026-04-28).
+  // Each slot names which contact field to display on that pill column.
+  // Allowed: 'website' | 'instagram' | 'facebook' | 'contact_phone' | null.
+  organiserCard: {
+    slot1: string | null;
+    slot2: string | null;
+  };
   occurrences: EventPageSnapshotOccurrence[];
   occurrenceEffective: EventPageSnapshotOccurrence | null;
   locationDefault: {

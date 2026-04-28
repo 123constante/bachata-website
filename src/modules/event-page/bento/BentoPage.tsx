@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
@@ -15,7 +16,7 @@ import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { CoverBlock } from '@/modules/event-page/bento/blocks/CoverBlock';
 import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
-import { ContactsBlock } from '@/modules/event-page/bento/blocks/ContactsBlock';
+import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
 import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
@@ -139,13 +140,9 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
     // Guest list hides when disabled, past event, or data hasn't resolved yet.
     if (past || !guestList || !guestList.enabled) hidden.add('guest');
 
-    // Contacts hides when there are zero socials.
-    const hasContacts = Boolean(
-      pageModel.actions.websiteUrl ||
-        pageModel.actions.facebookUrl ||
-        pageModel.actions.instagramUrl,
-    );
-    if (!hasContacts) hidden.add('contacts');
+    // Organiser card hides when no organiser is linked. Per the Phase 1
+    // decision: every event should have one, so this is a defensive guard.
+    if (!snapshot || snapshot.organisers.length === 0) hidden.add('organiser-card');
 
     // Phase 6D — raffle tile hides when no raffle configured on this event.
     // While raffleConfig is still loading we keep the slot in (renders a
@@ -155,13 +152,17 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
     if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
 
     return hidden;
-  }, [isLoading, past, pageModel, guestList, raffleConfig]);
+  }, [isLoading, past, pageModel, guestList, raffleConfig, snapshot]);
 
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
     return (
       <GlobalLayout
-        breadcrumbs={[{ label: 'Events' }]}
+        breadcrumbs={buildBreadcrumbs('event.detail', {
+          entityName: state === 'ready' ? pageModel.identity.title : undefined,
+          eventType: state === 'ready' ? pageModel.identity.eventType : undefined,
+          isLoading: state !== 'ready',
+        })}
         // No emoji and no title text on error states — the page chrome
         // (breadcrumb + gradient) frames the page; the ErrorScreen below
         // owns the messaging. Avoids any generic stand-in like 'Event'.
@@ -227,14 +228,6 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
         );
       case 'description':
         return <DescriptionBlock body={pageModel.description.body} />;
-      case 'contacts':
-        return (
-          <ContactsBlock
-            websiteUrl={pageModel.actions.websiteUrl}
-            facebookUrl={pageModel.actions.facebookUrl}
-            instagramUrl={pageModel.actions.instagramUrl}
-          />
-        );
       case 'venue':
         // When the standalone CityBlock is hidden (because PromoBlock is
         // occupying the top-right slot), fold the city name into Venue as a
@@ -246,6 +239,14 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
             eventId={eventId}
           />
         );
+      case 'organiser-card':
+        return snapshot ? (
+          <OrganiserCardBlock
+            eventId={eventId}
+            organisers={snapshot.organisers}
+            card={snapshot.organiserCard}
+          />
+        ) : null;
       case 'schedule':
         return <ScheduleBlock eventId={eventId} />;
       case 'promo':
@@ -276,7 +277,11 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Events' }]}
+      breadcrumbs={buildBreadcrumbs('event.detail', {
+          entityName: state === 'ready' ? pageModel.identity.title : undefined,
+          eventType: state === 'ready' ? pageModel.identity.eventType : undefined,
+          isLoading: state !== 'ready',
+        })}
       // No emoji — title-only hero (the first GlobalLayout consumer to do
       // this). titleOrange is gated on state === 'ready' so the loading
       // window shows an empty hero rather than the 'Event' fallback that

@@ -9,11 +9,11 @@ export type BentoBlockId =
   | 'promo'
   | 'city'
   | 'venue'
+  | 'organiser-card'
   | 'schedule'
   | 'description'
   | 'raffle'
-  | 'guest'
-  | 'contacts';
+  | 'guest';
 
 // Every block id is placed inside the 4-col grid. Kept as a type alias so the
 // rest of the code (renderBlock callbacks, hidden sets) has a stable name.
@@ -47,11 +47,11 @@ export const BLOCK_COLORS: Record<BentoBlockId, string> = {
   promo: BENTO_SURFACE,
   city: BENTO_SURFACE,
   venue: BENTO_SURFACE,
+  'organiser-card': BENTO_SURFACE,
   schedule: BENTO_SURFACE,
   description: BENTO_SURFACE,
   raffle: BENTO_SURFACE,
   guest: BENTO_SURFACE,
-  contacts: BENTO_SURFACE,
 };
 
 // Empty strings for date/city/venue suppress the brass label strip — those
@@ -62,11 +62,11 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   promo: 'Promo',
   city: '',
   venue: '',
+  'organiser-card': '',
   schedule: 'Schedule',
   description: 'About',
   raffle: 'Raffle',
   guest: 'Guest list',
-  contacts: 'Contacts',
 };
 
 // Content-driven block spec. Replaces the old coordinate-based INITIAL_LAYOUT.
@@ -101,6 +101,9 @@ export const LAYOUT: BlockSpec[] = [
   // City/Promo, beside the lower two-thirds of Cover. The packer places it
   // at (x=2, y=1) because rows 1–2 cols 2–3 are the first free 2×2 slot.
   { id: 'venue', minW: 2, preferredW: 2, minH: 2 },
+  // Organiser card sits immediately above the schedule (Phase 2, 2026-04-28).
+  // Full-width, content-sized — height grows with the number of organisers.
+  { id: 'organiser-card', minW: 4, preferredW: 4 },
   { id: 'schedule', minW: 4, preferredW: 4 },
   { id: 'description', minW: 4, preferredW: 4 },
   // Raffle is a static "coming soon" placeholder — no data, no minH, so it
@@ -108,7 +111,6 @@ export const LAYOUT: BlockSpec[] = [
   // on past events (BentoPage never adds it to hiddenBlocks).
   { id: 'raffle', minW: 4, preferredW: 4 },
   { id: 'guest', minW: 4, preferredW: 4, minH: 2 },
-  { id: 'contacts', minW: 4, preferredW: 4, minH: 2 },
 ];
 
 const GRID_COLS = 4;

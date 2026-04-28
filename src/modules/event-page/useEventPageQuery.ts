@@ -69,6 +69,12 @@ const parsePerson = (value: unknown, hrefBase: string | null, label: string): Ev
     displayName: asString(raw.display_name),
     avatarUrl: asString(raw.avatar_url),
     href: hrefBase ? `${hrefBase}${id}` : null,
+    // Organiser-only contact fields. Snapshot RPC includes them only for
+    // organisers; lineup payloads omit them, in which case they read as null.
+    website: asString(raw.website),
+    instagram: asString(raw.instagram),
+    facebook: asString(raw.facebook),
+    contactPhone: asString(raw.contact_phone),
   };
 };
 
@@ -204,6 +210,13 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       },
     },
     organisers: parsePeople(payload.organisers, '/organisers/', 'snapshot.organisers'),
+    organiserCard: (() => {
+      const card = asObject(payload.organiser_card);
+      return {
+        slot1: asString(card?.slot_1),
+        slot2: asString(card?.slot_2),
+      };
+    })(),
     occurrences: requireArray(payload.occurrences, 'snapshot.occurrences')
       .map((item, index) => parseOccurrence(item, `snapshot.occurrences[${index}]`))
       .filter((item): item is EventPageSnapshotOccurrence => item !== null),

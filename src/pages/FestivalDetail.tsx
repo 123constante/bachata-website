@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { attendanceQueryKeys, useAttendance, type AttendanceStatus } from "@/hooks/useAttendance";
 import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 import { StickyTicketButton } from "@/modules/event-page/bento/StickyTicketButton";
+import { OrganiserCardBlock } from "@/modules/event-page/bento/blocks/OrganiserCardBlock";
+import type { EventPagePerson, EventPageSnapshot } from "@/modules/event-page/types";
 
 type FestivalEvent = {
   id: string;
@@ -68,6 +71,42 @@ const FestivalDetailInner = () => {
     },
     enabled: Boolean(festivalId),
   });
+
+  // Phase festival organiser-card (2026-04-28). Reuse the same snapshot RPC
+  // BentoPage uses so organiser data + slot picks come from a single
+  // canonical source. Lightweight enough to live alongside the existing
+  // festival-event query.
+  const { data: snapshotPayload } = useQuery({
+    queryKey: ['festival-snapshot', festivalId],
+    queryFn: async () => {
+      const { data, error: rpcError } = await supabase.rpc(
+        'get_event_page_snapshot_v2' as any,
+        { p_event_id: festivalId },
+      );
+      if (rpcError) throw rpcError;
+      return data as Record<string, any> | null;
+    },
+    enabled: Boolean(festivalId),
+  });
+
+  const organiserCardOrganisers: EventPagePerson[] = (() => {
+    const raw = (snapshotPayload?.organisers ?? []) as any[];
+    return raw.map((o) => ({
+      id: String(o.id),
+      displayName: typeof o.display_name === 'string' ? o.display_name : null,
+      avatarUrl: typeof o.avatar_url === 'string' ? o.avatar_url : null,
+      href: o.id ? `/organisers/${o.id}` : null,
+      website: typeof o.website === 'string' ? o.website : null,
+      instagram: typeof o.instagram === 'string' ? o.instagram : null,
+      facebook: typeof o.facebook === 'string' ? o.facebook : null,
+      contactPhone: typeof o.contact_phone === 'string' ? o.contact_phone : null,
+    }));
+  })();
+
+  const organiserCardConfig: EventPageSnapshot['organiserCard'] = {
+    slot1: typeof snapshotPayload?.organiser_card?.slot_1 === 'string' ? snapshotPayload!.organiser_card.slot_1 : null,
+    slot2: typeof snapshotPayload?.organiser_card?.slot_2 === 'string' ? snapshotPayload!.organiser_card.slot_2 : null,
+  };
 
   const { currentStatus, setStatus, isLoading: isUpdating, error } = useAttendance(festivalId);
 
@@ -203,11 +242,7 @@ const FestivalDetailInner = () => {
 
   return (
     <div className="min-h-screen pb-24 pt-20">
-      <PageBreadcrumb items={[
-        { label: 'Experience', path: '/experience' },
-        { label: 'Festivals', path: '/festivals' },
-        { label: festival.name }
-      ]} />
+      <PageBreadcrumb items={buildBreadcrumbs('festival.detail', { entityName: festival.name })} />
       {/* Header */}
       <div className="sticky top-[100px] z-40 bg-background/95 backdrop-blur-sm border-b border-border/50">
         <div className="flex items-center gap-3 px-4 py-3">
@@ -303,6 +338,21 @@ const FestivalDetailInner = () => {
           </div>
         </section>
       </ScrollReveal>
+
+      {/* Organiser card — same Variant C used by the bento event page.
+          Constrained to ~430px so the 3-column cells keep mobile-page
+          proportions even on a wider desktop festival layout. */}
+      {organiserCardOrganisers.length > 0 && (
+        <section className="px-4 mb-8">
+          <div className="mx-auto w-full max-w-[430px]">
+            <OrganiserCardBlock
+              eventId={festivalId}
+              organisers={organiserCardOrganisers}
+              card={organiserCardConfig}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Travel & Logistics */}
       <ScrollReveal animation="fadeUp" duration={0.8} delay={0.1}>
