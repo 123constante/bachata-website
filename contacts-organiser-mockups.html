@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Contacts + Organiser — mockup options</title>
+<style>
+  /* Real bento tokens lifted from src/index.css */
+  :root {
+    --bento-surface: #101F1C;
+    --bento-surface-raised: #1A2E2A;
+    --bento-accent: #B38A4E;          /* tarnished brass */
+    --bento-fg: #D8CCB0;              /* aged cream */
+    --bento-fg-muted: #A59474;
+    --bento-hairline: rgba(179,138,78,0.18);
+    --page-bg: #0B1614;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-bg);
+    color: var(--bento-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+  }
+  .page > h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--bento-fg);
+    margin: 0 0 6px;
+    letter-spacing: 0.01em;
+  }
+  .page > .lede {
+    color: var(--bento-fg-muted);
+    font-size: 13px;
+    margin: 0 0 28px;
+    max-width: 720px;
+    line-height: 1.5;
+  }
+  .lede code, .blurb code, .judgement code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--bento-accent);
+    background: rgba(179,138,78,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* Three columns at >=1100px, stack below */
+  .row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+  @media (max-width: 1100px) { .row { grid-template-columns: 1fr; } }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .col h2 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--bento-fg);
+    letter-spacing: 0.02em;
+  }
+  .col h2 .label {
+    color: var(--bento-accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    margin-right: 6px;
+  }
+  .col .blurb {
+    color: var(--bento-fg-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 360px;
+    max-width: 100%;
+    margin: 0 auto;
+    background: var(--bento-surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 36px;
+    padding: 18px 14px 26px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+    position: relative;
+  }
+  .phone::before {
+    content: "";
+    position: absolute; top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 90px; height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+  }
+  .phone-inner {
+    background: var(--bento-surface);
+    padding: 6px 0 0;
+  }
+  .ctx-above {
+    color: var(--bento-fg-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin: 6px 0 12px;
+    text-align: center;
+    opacity: 0.6;
+  }
+
+  /* The tile — matches BentoTile shell */
+  .tile {
+    position: relative;
+    border-radius: 22px;
+    background: var(--bento-surface);
+    border: 1px solid var(--bento-hairline);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 8px 16px rgba(0,0,0,0.45);
+    overflow: hidden;
+  }
+  .tile-title {
+    padding: 8px 10px 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bento-accent);
+  }
+  .tile-content {
+    padding: 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* External-link contact row (current Website/IG/FB shape) */
+  .ext-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px;
+    border-radius: 12px;
+    background: var(--bento-surface);
+    border: 1px solid var(--bento-hairline);
+    color: var(--bento-fg);
+    text-decoration: none;
+    transition: transform 0.15s ease;
+  }
+  .ext-row:active { transform: scale(0.97); }
+  .ext-row .glyph {
+    width: 14px; height: 14px;
+    color: var(--bento-fg);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .ext-row .glyph svg { width: 14px; height: 14px; display: block; }
+  .ext-row .meta { min-width: 0; flex: 1; }
+  .ext-row .lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--bento-fg-muted);
+  }
+  .ext-row .val {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--bento-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Avatar styling shared across approaches */
+  .avatar {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 999px;
+    background:
+      radial-gradient(120% 120% at 30% 20%, #C8A465 0%, #8B5E2F 55%, #3D2812 100%);
+    color: #1B0F03;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .avatar.lg { width: 44px; height: 44px; font-size: 16px; }
+  .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+  .chev {
+    flex-shrink: 0;
+    color: var(--bento-fg-muted);
+    width: 14px; height: 14px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .chev svg { width: 14px; height: 14px; display: block; }
+
+  /* === Option A: Hero profile header === */
+  .a-hero {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(179,138,78,0.16), rgba(179,138,78,0.06));
+    border: 1px solid rgba(179,138,78,0.32);
+    text-decoration: none;
+    color: var(--bento-fg);
+    transition: transform 0.15s ease;
+  }
+  .a-hero:active { transform: scale(0.97); }
+  .a-hero .meta { min-width: 0; flex: 1; }
+  .a-hero .lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--bento-accent);
+    font-weight: 700;
+  }
+  .a-hero .name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bento-fg);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* === Option C: Split — Hosted by / Contacts === */
+  .c-host {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+    text-decoration: none;
+    color: var(--bento-fg);
+    transition: transform 0.15s ease;
+  }
+  .c-host:active { transform: scale(0.97); }
+  .c-host .who { min-width: 0; flex: 1; }
+  .c-host .lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--bento-fg-muted);
+  }
+  .c-host .name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bento-fg);
+    margin-top: 1px;
+  }
+  .c-divider {
+    height: 1px;
+    background: var(--bento-hairline);
+    margin: 6px 2px;
+  }
+
+  /* Animated press demo — cycles a tap pulse on each option's
+     primary organiser target so static mockups still convey interaction */
+  @keyframes tapFlash {
+    0%, 70%, 100% { box-shadow: 0 0 0 0 rgba(179,138,78,0); transform: scale(1); }
+    72%  { transform: scale(0.97); box-shadow: 0 0 0 0 rgba(179,138,78,0.45); }
+    85%  { transform: scale(1); box-shadow: 0 0 0 6px rgba(179,138,78,0); }
+  }
+  .pulse-a, .pulse-b, .pulse-c {
+    animation: tapFlash 4.5s ease-in-out infinite;
+  }
+  .pulse-b { animation-delay: 1.5s; }
+  .pulse-c { animation-delay: 3s; }
+
+  /* Pros / cons block */
+  .judgement {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .judgement h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--bento-accent);
+    font-weight: 700;
+  }
+  .judgement ul {
+    list-style: none;
+    margin: 0; padding: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--bento-fg);
+  }
+  .judgement li { padding-left: 14px; position: relative; margin-bottom: 4px; }
+  .judgement li::before {
+    position: absolute; left: 0; top: 0; line-height: 1.55;
+    font-weight: 700;
+  }
+  .judgement li.pro::before { content: "+"; color: #6BBE8A; }
+  .judgement li.con::before { content: "\2212"; color: #C97C7C; }
+
+  /* Filmstrip — small horizontal sequence under each phone showing
+     idle -> focus -> press -> nav state */
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .strip-frame {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 8px 8px 6px;
+    background: rgba(255,255,255,0.02);
+    font-size: 9px;
+    color: var(--bento-fg-muted);
+    text-align: center;
+    line-height: 1.3;
+  }
+  .strip-frame .step {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--bento-accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .strip-frame .swatch {
+    height: 18px;
+    border-radius: 6px;
+    background: var(--bento-surface);
+    border: 1px solid var(--bento-hairline);
+    margin-bottom: 4px;
+  }
+  .strip-frame.hover .swatch { background: rgba(179,138,78,0.10); }
+  .strip-frame.press .swatch { background: rgba(179,138,78,0.20); transform: scale(0.94); }
+  .strip-frame.nav   .swatch { background: linear-gradient(90deg, rgba(179,138,78,0.20), transparent); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Event page · Contacts tile + Organiser routing</h1>
+  <p class="lede">
+    Today the bento tile <code>ContactsBlock</code> shows external links only (Website / Instagram / Facebook)
+    and a separate <code>EventOrganiserSection</code> renders the host as its own tile. The brief: pull the
+    organiser into the same tile so the user sees the host first and is routed to the on-platform profile,
+    not bounced out to Instagram. Tokens below mirror <code>--bento-*</code> from <code>src/index.css</code>:
+    forest-green surface, tarnished brass accents, aged-cream body. Sample organiser used throughout: Bos Dance.
+  </p>
+
+  <div class="row">
+
+    <!-- ========== Option A ========== -->
+    <div class="col">
+      <h2><span class="label">A</span>Featured profile header</h2>
+      <p class="blurb">
+        Organiser sits at the top of the Contacts tile in a slightly larger, brass-tinted row.
+        Distinct from the external-link rows below it. Reads as the primary call-to-action.
+      </p>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="ctx-above">...schedule &middot; attendance &middot; CONTACTS</div>
+          <div class="tile">
+            <div class="tile-title">Contacts</div>
+            <div class="tile-content">
+              <a class="a-hero pulse-a" href="#">
+                <div class="avatar lg">B</div>
+                <div class="meta">
+                  <div class="lbl">Event organiser</div>
+                  <div class="name">Bos Dance</div>
+                </div>
+                <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                <div class="meta"><div class="lbl">Website</div><div class="val">bosdance.com</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg></span>
+                <div class="meta"><div class="lbl">Instagram</div><div class="val">@bosdance</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></span>
+                <div class="meta"><div class="lbl">Facebook</div><div class="val">@bosdancelondon</div></div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="strip-frame"><div class="step">Idle</div><div class="swatch"></div>tile renders</div>
+        <div class="strip-frame hover"><div class="step">Focus</div><div class="swatch"></div>brass glow</div>
+        <div class="strip-frame press"><div class="step">Press</div><div class="swatch"></div>scale 0.97</div>
+        <div class="strip-frame nav"><div class="step">Nav</div><div class="swatch"></div>/organiser/bos</div>
+      </div>
+
+      <div class="judgement">
+        <h3>Pros / cons</h3>
+        <ul>
+          <li class="pro">Highest signal: organiser is unmistakably the primary contact, not equal to IG.</li>
+          <li class="pro">Visual cue (brass tint) maps to Bento's accent token &mdash; feels native, not bolted on.</li>
+          <li class="pro">Good for the platform's stated routing goal (keep users on-site via organiser profile).</li>
+          <li class="con">Tile gets ~32 px taller. On dense layouts this nudges the bento grid below.</li>
+          <li class="con">Visual weight risks pulling the eye <em>away</em> from the ticket CTA above.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ========== Option B ========== -->
+    <div class="col">
+      <h2><span class="label">B</span>Inline avatar row</h2>
+      <p class="blurb">
+        Organiser becomes one more row in the existing Website / IG / FB list, but with a
+        circular avatar instead of a generic icon and the label <code>ORGANISER</code>. Minimum visual change.
+      </p>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="ctx-above">...schedule &middot; attendance &middot; CONTACTS</div>
+          <div class="tile">
+            <div class="tile-title">Contacts</div>
+            <div class="tile-content">
+              <a class="ext-row pulse-b" href="#">
+                <span class="glyph"><div class="avatar sm">B</div></span>
+                <div class="meta"><div class="lbl">Organiser</div><div class="val">Bos Dance</div></div>
+                <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                <div class="meta"><div class="lbl">Website</div><div class="val">bosdance.com</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg></span>
+                <div class="meta"><div class="lbl">Instagram</div><div class="val">@bosdance</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></span>
+                <div class="meta"><div class="lbl">Facebook</div><div class="val">@bosdancelondon</div></div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="strip-frame"><div class="step">Idle</div><div class="swatch"></div>4 rows &middot; top is org</div>
+        <div class="strip-frame hover"><div class="step">Focus</div><div class="swatch"></div>same as siblings</div>
+        <div class="strip-frame press"><div class="step">Press</div><div class="swatch"></div>scale 0.97</div>
+        <div class="strip-frame nav"><div class="step">Nav</div><div class="swatch"></div>/organiser/bos</div>
+      </div>
+
+      <div class="judgement">
+        <h3>Pros / cons</h3>
+        <ul>
+          <li class="pro">Tiny diff: reuses the existing <code>ext-row</code> shape &mdash; minimal CSS, easy to ship.</li>
+          <li class="pro">Tile height grows by exactly one row; no grid disruption.</li>
+          <li class="pro">Chevron quietly signals "internal nav" vs the external rows (which open new tab).</li>
+          <li class="con">Organiser carries the same visual weight as Instagram. Doesn't actively steer eyes.</li>
+          <li class="con">External-vs-internal distinction is subtle (only the chevron). Easy to miss.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ========== Option C ========== -->
+    <div class="col">
+      <h2><span class="label">C</span>Split tile &middot; "Hosted by" + Contacts</h2>
+      <p class="blurb">
+        The tile is split into two zones with a hairline rule: an unboxed <em>internal-link</em> header at the top
+        for the organiser, and the boxed <em>external-link</em> rows below. Internal vs. external nav is read instantly.
+      </p>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="ctx-above">...schedule &middot; attendance &middot; CONTACTS</div>
+          <div class="tile">
+            <div class="tile-title">Contacts</div>
+            <div class="tile-content">
+              <a class="c-host pulse-c" href="#">
+                <div class="avatar">B</div>
+                <div class="who">
+                  <div class="lbl">Hosted by</div>
+                  <div class="name">Bos Dance</div>
+                </div>
+                <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </a>
+              <div class="c-divider"></div>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                <div class="meta"><div class="lbl">Website</div><div class="val">bosdance.com</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg></span>
+                <div class="meta"><div class="lbl">Instagram</div><div class="val">@bosdance</div></div>
+              </a>
+              <a class="ext-row" href="#">
+                <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></span>
+                <div class="meta"><div class="lbl">Facebook</div><div class="val">@bosdancelondon</div></div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="strip-frame"><div class="step">Idle</div><div class="swatch"></div>two-zone tile</div>
+        <div class="strip-frame hover"><div class="step">Focus</div><div class="swatch"></div>name brightens</div>
+        <div class="strip-frame press"><div class="step">Press</div><div class="swatch"></div>scale 0.97</div>
+        <div class="strip-frame nav"><div class="step">Nav</div><div class="swatch"></div>/organiser/bos</div>
+      </div>
+
+      <div class="judgement">
+        <h3>Pros / cons</h3>
+        <ul>
+          <li class="pro">Immediately legible split: "this is the platform host" vs "these are external links".</li>
+          <li class="pro">No row chrome on the organiser &rarr; reads as a name, not a button. Feels editorial.</li>
+          <li class="pro">Tile stays compact; growth is only the avatar row + 1 px divider.</li>
+          <li class="con">Departs from the existing all-rows pattern &mdash; slightly more bespoke CSS to maintain.</li>
+          <li class="con">Without a strong avatar, the unboxed row may look inert to some users.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

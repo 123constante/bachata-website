@@ -250,17 +250,18 @@ const CreateVendorProfile = () => {
 
       const { data: ownDancer } = await supabase
         .from("dancer_profiles")
-        .select("id, first_name, surname, based_city_id")
+        .select("id, first_name, surname, based_city_id, cities(name)")
         .eq("created_by", user.id)
         .maybeSingle();
 
       if (cancelled || !ownDancer?.id) return;
 
+      const ownCityName = ((ownDancer as any).cities?.name as string | undefined) || null;
       const ownDisplayName = `${ownDancer.first_name || ""} ${ownDancer.surname || ""}`.trim() || "Business owner";
       const ownMember: TeamMemberOption = {
         id: ownDancer.id,
         displayName: ownDisplayName,
-        city: null,
+        city: ownCityName,
         cityId: ownDancer.based_city_id || null,
       };
 
