@@ -21,7 +21,7 @@ interface PageBreadcrumbProps {
 
 const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
   return (
-    <div className="px-4 py-3 max-w-7xl mx-auto">
+    <div className="px-4 py-1.5 md:py-3 max-w-7xl mx-auto">
       <Breadcrumb>
         <BreadcrumbList>
           {/* Home */}

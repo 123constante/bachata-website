@@ -54,12 +54,12 @@ const DEFAULT_BREADCRUMBS: BreadcrumbItemType[] = [];
 //
 // - With hero: absolute top-0 relative to the page root, which sits just
 //   under the fixed 60px GlobalHeader (App.tsx renders a 60px spacer above
-//   <main>). The pt-9 shim on the hero reserves the 36px underneath so the
-//   emoji lands at the target Y position under the global header.
-//   Note: the Phase 2a brief specified `top-[60px]`, but inside the current
-//   App.tsx layout the positioning context already begins below the header,
-//   so top-0 is the correct literal value to achieve "flush under global
-//   header". Revisit if App.tsx's spacer is ever removed.
+//   <main>). On mobile the row sits tight under the global header (pt-3)
+//   to minimise the empty zone before content; desktop keeps the original
+//   pt-20 cushion that lines up with /parties' historical breadcrumb Y.
+//   The matching pt-3 md:pt-9 shim and pt-10 md:pt-20 PageHero topPadding
+//   below pull the emoji up in lockstep on mobile so we don't trade one
+//   empty zone for another.
 //
 // - Without hero: sticky at viewport-top+60px so the row pins under the
 //   global header on scroll. Takes its natural height.
@@ -81,17 +81,18 @@ const GlobalLayout = ({
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
 
-  // With hero: pt-20 puts the breadcrumb text at y=60+80+12=152, matching
-  // the position the old in-hero PageBreadcrumb sits at on /parties today.
-  // pointer-events-none on the outer wrapper so the pt-20 transparent zone
-  // (and any sub-header area outside the breadcrumb/actions) lets clicks
-  // pass through to the hero underneath (emoji's top ~5px sliver overlaps
-  // this wrapper). Inner interactive wrappers re-enable pointer events.
+  // With hero: pt-3 on mobile / pt-20 on desktop. Mobile keeps the breadcrumb
+  // tight under the 60px global header; desktop preserves the historical
+  // alignment (breadcrumb text at y≈152, matching the position the old
+  // in-hero PageBreadcrumb sits at on /parties today). pointer-events-none
+  // on the outer wrapper so the transparent zone (and any sub-header area
+  // outside the breadcrumb/actions) lets clicks pass through to the hero
+  // underneath. Inner interactive wrappers re-enable pointer events.
   //
   // Without hero: tight sticky bar, no top padding — the row takes its
   // natural height under the header.
   const subHeaderClasses = hero
-    ? 'absolute top-0 left-0 right-0 z-10 px-4 pt-20 flex items-center justify-between pointer-events-none'
+    ? 'absolute top-0 left-0 right-0 z-10 px-4 pt-3 md:pt-20 flex items-center justify-between pointer-events-none'
     : 'sticky top-[60px] z-10 min-h-9 px-4 bg-background/80 backdrop-blur-sm flex items-center justify-between';
 
   const subHeader = (
@@ -146,13 +147,15 @@ const GlobalLayout = ({
       {showSubheader && subHeader}
 
       {hero && (
-        // pt-9 shim reserves 36px under the absolute-positioned subheader so
-        // the emoji clears the breadcrumb row. When showSubheader=false there
-        // is no breadcrumb to clear, so we drop the shim AND shrink the hero's
-        // own top padding (pt-20 → pt-16) since that 80px also exists to push
-        // the title below the breadcrumb. Net effect on the landing page:
-        // ~100px less empty space between the global header and the emoji.
-        <div className={showSubheader ? 'pt-9' : ''}>
+        // pt-3 md:pt-9 shim reserves space under the absolute-positioned
+        // subheader so the emoji clears the breadcrumb row. Mobile uses pt-3
+        // (matches the tighter mobile subheader pt-3) so we don't introduce
+        // a new empty zone between breadcrumb and emoji on phones; desktop
+        // keeps pt-9 to match the historical 36px reservation. When
+        // showSubheader=false there is no breadcrumb to clear, so we drop the
+        // shim AND shrink the hero's own top padding (pt-20 → pt-16) since
+        // that 80px also exists to push the title below the breadcrumb.
+        <div className={showSubheader ? 'pt-3 md:pt-9' : ''}>
           <PageHero
             // emoji is typed as optional on GlobalLayout's HeroProps for future
             // BentoPage consumption (title-only hero). PageHero still requires
@@ -170,7 +173,7 @@ const GlobalLayout = ({
             floatingIcons={hero.floatingIcons}
             widgets={hero.widgets}
             highlightColor={hero.highlightColor}
-            topPadding={showSubheader ? 'pt-20' : 'pt-16'}
+            topPadding={showSubheader ? 'pt-10 md:pt-20' : 'pt-8 md:pt-16'}
           />
         </div>
       )}
