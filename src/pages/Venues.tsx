@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { VenueCard } from '@/components/venue/VenueCard';
 
@@ -85,10 +86,11 @@ const FilterChips = ({
           key={key}
           type="button"
           onClick={() => onToggle(key)}
+          style={isOn ? undefined : { backgroundColor: '#1a1410', borderColor: '#3a2e1c', color: '#a89875' }}
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
             isOn
               ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-              : 'bg-black border-slate-800 text-muted-foreground hover:border-primary/40 hover:text-white'
+              : 'hover:!border-primary/60 hover:!text-stone-100'
           }`}
         >
           <span aria-hidden="true">{emoji}</span>
@@ -142,7 +144,7 @@ const Venues = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Venues' }]}
+      breadcrumbs={buildBreadcrumbs('venues')}
       hero={{
         emoji: '🏛️',
         titleWhite: 'Dance',
@@ -197,12 +199,18 @@ const Venues = () => {
           <div className="space-y-8">
             {groups.map(({ city, venues: cityVenues }) => (
               <section key={city}>
-                <header className="flex items-baseline justify-between mb-3 border-b border-slate-800 pb-2">
-                  <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                <header
+                  style={{ borderColor: '#3a2e1c' }}
+                  className="flex items-baseline justify-between mb-3 border-b pb-2"
+                >
+                  <h2
+                    style={{ color: '#f7f3ea' }}
+                    className="text-base font-semibold flex items-center gap-2"
+                  >
                     <MapPin className="w-4 h-4 text-primary" />
                     {city}
                   </h2>
-                  <span className="text-xs text-muted-foreground">
+                  <span style={{ color: '#a89875' }} className="text-xs">
                     {cityVenues.length} {cityVenues.length === 1 ? 'venue' : 'venues'}
                   </span>
                 </header>
