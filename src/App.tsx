@@ -49,7 +49,6 @@ const CreateOrganiserProfile = lazy(() => import("./pages/CreateOrganiserProfile
 const CreateTeacherProfile = lazy(() => import("./pages/CreateTeacherProfile"));
 const CreateDJProfile = lazy(() => import("./pages/CreateDJProfile"));
 const CreateVideographerProfile = lazy(() => import("./pages/CreateVideographerProfile"));
-const CreateVendorProfile = lazy(() => import("./pages/CreateVendorProfile"));
 const VendorDashboardPage = lazy(() => import("./pages/VendorDashboardPage"));
 const Vendors = lazy(() => import("./pages/Vendors"));
 const VendorDetail = lazy(() => import("./pages/VendorDetail"));
@@ -166,11 +165,6 @@ const AnimatedRoutes = () => {
           <Route path="/create-videographer-profile" element={
             <AuthGuard>
               <PageTransition><CreateVideographerProfile /></PageTransition>
-            </AuthGuard>
-          } />
-          <Route path="/create-vendor-profile" element={
-            <AuthGuard>
-              <PageTransition><CreateVendorProfile /></PageTransition>
             </AuthGuard>
           } />
           <Route path="/profile" element={

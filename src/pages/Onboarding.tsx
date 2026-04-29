@@ -18,7 +18,6 @@ const VALID_ROLES: Record<string, string> = {
   teacher: "/create-teacher-profile",
   dj: "/create-dj-profile",
   videographer: "/create-videographer-profile",
-  vendor: "/create-vendor-profile",
 };
 
 const Onboarding = () => {

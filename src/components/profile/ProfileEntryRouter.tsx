@@ -18,7 +18,6 @@ const ROLE_CREATE_ROUTES: Record<string, string> = {
   teacher: '/create-teacher-profile',
   dj: '/create-dj-profile',
   videographer: '/create-videographer-profile',
-  vendor: '/create-vendor-profile',
 };
 
 interface ProfileEntryIds {

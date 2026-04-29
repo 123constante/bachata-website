@@ -186,7 +186,9 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     teacher: '/create-teacher-profile',
     dj: '/create-dj-profile',
     videographer: '/create-videographer-profile',
-    vendor: '/create-vendor-profile',
+    // Vendor signup parked 2026-04-28 — route falls back to /profile so the
+    // Record<UserRole,string> contract holds without exposing a dead form.
+    vendor: '/profile',
   };
 
   const handleCreateRole = (role: UserRole) => {

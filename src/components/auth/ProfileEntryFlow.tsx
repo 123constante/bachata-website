@@ -78,13 +78,6 @@ export const ProfileEntryFlow = ({
       icon: Camera,
       value: "videographer" as const,
     },
-    {
-      label: "Vendor",
-      description: "Sell products at events.",
-      route: "/create-vendor-profile",
-      icon: ShoppingBag,
-      value: "vendor" as const,
-    },
   ];
 
   useEffect(() => {
