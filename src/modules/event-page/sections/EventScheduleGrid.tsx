@@ -17,6 +17,11 @@ export type Person = {
   avatarUrl: string | null;
   role: string;
   profileType: string | null;
+  /** Phase C — public bento multi-room renderer. Per-person level binding
+   *  surfaced from event_program_people.level. NULL = applies to whole session
+   *  (default behaviour preserved). When non-null, RankCard groups people by
+   *  level so each level row shows its own teacher/DJ. */
+  level: SessionLevel | null;
 };
 
 export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
@@ -33,8 +38,8 @@ export type ScheduleSession = {
   endMins: number;
   /** Skill levels for this session (class / masterclass / workshop / bootcamp).
    *  Subset of {beginner, improver, intermediate, advanced, open_level}. Empty = unspecified.
-   *  All four named = "All levels". `open_level` alone = "Open Level" (suitable for all).
-   *  Always [] for parties / shows. */
+   *  `open_level` is the platform-wide term for "anyone, any level, no restriction"
+   *  — never use "all levels" or similar. Always [] for parties / shows. */
   levels: SessionLevel[];
   /** Optional room name — used to disambiguate parallel sessions. */
   room: string | null;
@@ -123,6 +128,7 @@ export function useProgramItems(eventId: string | null | undefined) {
         display_name: string | null;
         avatar_url: string | null;
         sort_order: number | null;
+        level: string | null;
       };
       type RpcItem = {
         id: string;
@@ -153,6 +159,8 @@ export function useProgramItems(eventId: string | null | undefined) {
             })
             .map((r): Person | null => {
               if (!r.profile_id) return null;
+              const lvl: SessionLevel | null =
+                r.level && LEVEL_SET.has(r.level) ? (r.level as SessionLevel) : null;
               return {
                 id: r.profile_id,
                 name: r.display_name || (r.profile_type === 'dj' ? 'DJ' : 'Teacher'),
@@ -160,6 +168,7 @@ export function useProgramItems(eventId: string | null | undefined) {
                 avatarUrl: r.avatar_url,
                 role: roleLabel(r.profile_type),
                 profileType: r.profile_type,
+                level: lvl,
               };
             })
             .filter((x): x is Person => x !== null);
@@ -205,6 +214,7 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
           avatarUrl: null,
           role: 'Teacher',
           profileType: 'teacher',
+          level: null,
         })),
         ...item.djs.map((p) => ({
           id: p.id,
@@ -213,6 +223,7 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
           avatarUrl: null,
           role: 'DJ',
           profileType: 'dj',
+          level: null,
         })),
       ];
       return {

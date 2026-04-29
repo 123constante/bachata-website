@@ -138,10 +138,10 @@ const PersonLink = ({
   const body = (
     <>
       <div
-        className={`flex ${t.dim} items-center justify-center overflow-hidden rounded-full border-[1.5px] ${t.font} font-bold`}
+        className={`flex ${t.dim} items-center justify-center overflow-hidden rounded-full ${t.font} font-bold ${person.avatarUrl ? '' : 'border-[1.5px]'}`}
         style={{
           background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-          borderColor: 'var(--bento-hairline)',
+          borderColor: person.avatarUrl ? undefined : 'var(--bento-hairline)',
           color: 'hsl(var(--bento-accent))',
         }}
       >
@@ -194,17 +194,15 @@ const TimeSection = ({
 }: {
   startMins: number;
   endMins: number;
-  /** 'duration' renders "10:00 PM · 1 HR" — used for class slots where
-   *  session length is the meaningful timing fact.
-   *  'range' renders "10:00 PM – 5:00 AM" — used when a slot includes a
-   *  party, because dancers care most about when it ENDS. The CLASS / PARTY
-   *  type label lives on the SectionHeader above; the time row stays clean. */
+  /** 'duration' renders prominent time + small muted duration ("8:00 PM · 55 MIN").
+   *  'range' renders prominent range ("9:20 PM – 3:00 AM").
+   *  Direction D — single brass colour for both, no section-specific tints. */
   format: 'duration' | 'range';
 }) => (
-  <div className="mb-[10px] flex flex-wrap items-baseline gap-[8px]">
+  <div className="mb-[10px] flex flex-wrap items-baseline justify-center gap-[8px]">
     <span
       className="text-[15px] font-bold leading-none tracking-[-0.005em] tabular-nums"
-      style={{ color: 'hsl(var(--bento-fg))' }}
+      style={{ color: 'hsl(var(--bento-accent))' }}
     >
       {format === 'range'
         ? `${fmtMins12(startMins)} – ${fmtMins12(endMins)}`
@@ -269,23 +267,25 @@ const RankCard = ({
   session,
   inGrid,
   isMultiRoom,
+  roomAccent,
 }: {
   session: ScheduleSession;
   inGrid: boolean;
   isMultiRoom: boolean;
+  /** Per-room accent color. Drives left-edge stripe + tints rank chip. */
+  roomAccent?: string;
 }) => {
   const rank = rankFor(session);
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
   const titleText = showTitle ? session.title : null;
-  // In multi-room mode the room becomes the headline ("Bachata Room" /
-  // "Salsa Room"). The rank text drops to a small subtitle. In single-room
-  // mode the rank stays as the headline and the room name is hidden.
-  const useRoomAsHeading = isMultiRoom && !!session.room && session.room.length > 0;
+  // Multi-room: the room is identified by the column header at the top of
+  // the schedule, so the card heading is always rank or title (never room).
+  const useRoomAsHeading = false;
   // When rank would render the muted "Class" placeholder (i.e. session has no
   // levels set) and we have a real title, promote the title to be the heading
   // — the CLASS pill in the time row already identifies the type, so showing
   // "Class" again as a card heading is redundant.
-  const useTitleAsHeading = !useRoomAsHeading && rank.muted && !!titleText;
+  const useTitleAsHeading = rank.muted && !!titleText;
 
   return (
     <div
@@ -294,71 +294,49 @@ const RankCard = ({
           ? 'min-w-0 rounded-[10px] px-[8px] pb-[8px] pt-[10px] text-center'
           : 'min-w-0 px-1 pt-[2px] text-center'
       }
-      style={
-        inGrid
-          ? {
-              background: 'hsl(var(--bento-surface))',
-              border: '1px solid var(--bento-hairline)',
-            }
-          : undefined
-      }
+      style={undefined}
     >
-      {useRoomAsHeading ? (
-        <>
-          <div
-            className="font-medium leading-[1.1]"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontSize: '18px',
-              letterSpacing: '0.01em',
-              color: 'hsl(var(--bento-accent))',
-            }}
-          >
-            {session.room}
-          </div>
-          <div
-            className="mt-[3px] text-[11px] leading-[1.2]"
-            style={{
-              color: rank.muted ? 'hsl(var(--bento-fg-muted))' : 'hsl(var(--bento-fg))',
-            }}
-            title={LEVEL_LABEL_FULL_TOOLTIP(session)}
-          >
-            {rank.text}
-          </div>
-        </>
-      ) : useTitleAsHeading ? (
+{/* Small uppercase level/rank label sits at the top of the card.
+           Drops the previous big serif headline so teacher names (below)
+           lead the visual hierarchy. Wraps freely if the label is long
+           ('Beg/Imp/Int'). */}
+      {!rank.muted && (
         <div
-          className="font-medium leading-none"
+          className="leading-tight tracking-[0.08em]"
           style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '22px',
-            letterSpacing: '0.02em',
-            color: 'hsl(var(--bento-accent))',
-          }}
-        >
-          {titleText}
-        </div>
-      ) : (
-        <div
-          className="font-medium leading-none"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '22px',
-            letterSpacing: '0.02em',
-            color: rank.muted ? 'hsl(var(--bento-fg-muted))' : 'hsl(var(--bento-accent))',
+            fontSize: '10px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            color: roomAccent ?? 'hsl(var(--bento-accent))',
+            wordBreak: 'break-word',
           }}
           title={LEVEL_LABEL_FULL_TOOLTIP(session)}
         >
           {rank.text}
         </div>
       )}
-
-      {titleText && !useTitleAsHeading && (
+      {rank.muted && !titleText && (
         <div
-          className="mt-[6px] leading-[1.2]"
+          className="leading-tight tracking-[0.08em] opacity-60"
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            color: 'hsl(var(--bento-fg-muted))',
+          }}
+        >
+          {rank.text}
+        </div>
+      )}
+
+      {/* Teacher names — primary content. Larger, serif, prominent. */}
+      {titleText && (
+        <div
+          className="mt-[4px] leading-[1.2]"
           style={{
             fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '12px',
+            fontSize: '14px',
+            fontWeight: 500,
             color: 'hsl(var(--bento-fg))',
           }}
         >
@@ -366,13 +344,71 @@ const RankCard = ({
         </div>
       )}
 
-      {session.people.length > 0 && (
-        <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
-          {session.people.map((p, i) => (
-            <PersonLink key={`${p.id}-${i}`} person={p} />
-          ))}
-        </div>
-      )}
+      {session.people.length > 0 && (() => {
+        // Phase C — per-level teacher rows. When at least one person has a
+        // non-null level binding AND the session has 2+ levels, group people
+        // by level so each level gets its own row (e.g. May Day's Cuban Room
+        // 9pm: Beginner=Carlton, Improver=Damarys, Intermediate=Oscle).
+        // Otherwise fall back to the existing flat avatar layout.
+        const hasLevelBinding = session.people.some(p => p.level != null);
+        if (!hasLevelBinding || session.levels.length < 2) {
+          return (
+            <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
+              {session.people.map((p, i) => (
+                <PersonLink key={`${p.id}-${i}`} person={p} />
+              ))}
+            </div>
+          );
+        }
+        // Group: one bucket per level present on the session, plus 'whole'
+        // for people with NULL level (apply across the whole session).
+        const sortedLevels = LEVEL_ORDER.filter(l => session.levels.includes(l));
+        const buckets = new Map<SessionLevel | 'whole', Person[]>();
+        for (const p of session.people) {
+          const key: SessionLevel | 'whole' = p.level ?? 'whole';
+          const arr = buckets.get(key) ?? [];
+          arr.push(p);
+          buckets.set(key, arr);
+        }
+        return (
+          <div className="mt-[8px] flex flex-col gap-[6px]">
+            {sortedLevels.map(lvl => {
+              const ppl = buckets.get(lvl);
+              if (!ppl || ppl.length === 0) return null;
+              return (
+                <div key={lvl} className="flex flex-wrap items-center justify-center gap-[6px]">
+                  <span
+                    className="text-[10px] uppercase tracking-wider opacity-70"
+                    style={{ color: 'hsl(var(--bento-fg))' }}
+                  >
+                    {LEVEL_LABEL_FULL[lvl]}
+                  </span>
+                  {ppl.map((p, i) => (
+                    <PersonLink key={`${p.id}-${i}`} person={p} />
+                  ))}
+                </div>
+              );
+            })}
+            {(() => {
+              const ppl = buckets.get('whole');
+              if (!ppl || ppl.length === 0) return null;
+              return (
+                <div className="flex flex-wrap items-center justify-center gap-[6px]">
+                  <span
+                    className="text-[10px] uppercase tracking-wider opacity-70"
+                    style={{ color: 'hsl(var(--bento-fg))' }}
+                  >
+                    Open Level
+                  </span>
+                  {ppl.map((p, i) => (
+                    <PersonLink key={`${p.id}-${i}`} person={p} />
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -383,7 +419,7 @@ const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
   if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
   if (session.levels.length === 0) return 'Level not specified';
   if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
-  if (session.levels.length === 4) return 'All four levels';
+  if (session.levels.length === 4) return 'Open Level — suitable for all dancers';
   return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };
 
@@ -398,11 +434,19 @@ const PartyDjRow = ({ person }: { person: Person }) => {
   const initial = (person.name || '?').charAt(0).toUpperCase();
   const body = (
     <>
+      {person.role && (
+        <div
+          className="mb-[3px] text-[9px] font-bold uppercase tracking-[0.10em] leading-tight"
+          style={{ color: 'hsl(var(--bento-accent))' }}
+        >
+          {person.role.toUpperCase()}
+        </div>
+      )}
       <div
-        className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] text-[18px] font-bold"
+        className={`flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full text-[18px] font-bold ${person.avatarUrl ? '' : 'border-[1.5px]'}`}
         style={{
           background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-          borderColor: 'var(--bento-hairline)',
+          borderColor: person.avatarUrl ? undefined : 'var(--bento-hairline)',
           color: 'hsl(var(--bento-accent))',
         }}
       >
@@ -412,34 +456,21 @@ const PartyDjRow = ({ person }: { person: Person }) => {
           <span>{initial}</span>
         )}
       </div>
-      <div className="min-w-0 text-left">
-        <div
-          className="leading-[1.1]"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '15px',
-            color: 'hsl(var(--bento-accent))',
-          }}
-        >
-          {person.name}
-        </div>
-        {person.role && (
-          <div
-            className="mt-[3px] font-mono text-[9px] font-semibold uppercase"
-            style={{
-              letterSpacing: '0.14em',
-              color: 'hsl(var(--bento-fg-muted))',
-            }}
-          >
-            {person.role.toUpperCase()}
-          </div>
-        )}
+      <div
+        className="mt-[4px] text-center leading-[1.2]"
+        style={{
+          fontFamily: '"Fraunces", Georgia, serif',
+          fontSize: '13px',
+          color: 'hsl(var(--bento-fg))',
+        }}
+      >
+        {person.name}
       </div>
     </>
   );
   if (!person.href) {
     return (
-      <div className="flex items-center gap-[12px] self-start" aria-label={person.name}>
+      <div className="flex flex-col items-center px-1" aria-label={person.name}>
         {body}
       </div>
     );
@@ -447,7 +478,7 @@ const PartyDjRow = ({ person }: { person: Person }) => {
   return (
     <Link
       to={person.href}
-      className="flex items-center gap-[12px] self-start transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+      className="flex flex-col items-center px-1 transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
     >
       {body}
     </Link>
@@ -463,42 +494,79 @@ const PartyDjRow = ({ person }: { person: Person }) => {
 const PartyCard = ({
   session,
   isMultiRoom,
+  roomAccent,
 }: {
   session: ScheduleSession;
   isMultiRoom: boolean;
+  /** Per-room accent color. Drives left-edge stripe + tints note tag. */
+  roomAccent?: string;
 }) => {
+  const isPerformance = session.type === 'performance' || session.type === 'show';
   // End time is in the TimeSection's "10:00 PM – 5:00 AM" header above, so
-  // the card itself doesn't repeat it. Room sits in the heading when
-  // multi-room; hidden when the event has only one room. When the title is
-  // a generic default ("Party", "Social"), the card heading is suppressed —
-  // the PARTY section header above already labels the section. Per-DJ rows
-  // below carry their own role tag, so no shared roleLabel here.
-  const useRoomAsHeading = isMultiRoom && !!session.room && session.room.length > 0;
+  // the card itself doesn't repeat it. Room is identified by the column
+  // header strip at the top of the schedule (when multi-room), so we never
+  // use it as the card heading. When the title is a generic default
+  // ("Party", "Social"), the card heading is suppressed — the PARTY section
+  // header above already labels the section. Per-DJ rows below carry their
+  // own role tag, so no shared roleLabel here.
   const trimmedTitle = (session.title ?? '').trim();
   const showTitleAsHeading =
-    !useRoomAsHeading && trimmedTitle.length > 0 && !isDefaultPartyTitle(trimmedTitle);
-  const headingText = useRoomAsHeading
-    ? session.room!
-    : showTitleAsHeading
-      ? trimmedTitle
-      : null;
+    trimmedTitle.length > 0 && !isDefaultPartyTitle(trimmedTitle);
+  const headingText = showTitleAsHeading ? trimmedTitle : null;
 
   return (
     <div className="min-w-0 px-1">
-      {headingText && (
+{isPerformance && (
         <div
-          className="mb-[2px] text-[16px] font-semibold leading-[1.15] tracking-[-0.005em]"
+          className="mb-[4px] inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[9px] font-bold uppercase tracking-[0.1em]"
           style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            color: useRoomAsHeading ? 'hsl(var(--bento-accent))' : 'hsl(var(--bento-fg))',
+            background: `${roomAccent ?? 'hsl(var(--bento-accent))'}33`,
+            color: roomAccent ?? 'hsl(var(--bento-accent))',
+            border: `1px solid ${roomAccent ?? 'hsl(var(--bento-accent))'}66`,
           }}
         >
-          {headingText}
+          ✦ Show
         </div>
       )}
+      {headingText && (() => {
+        // Split title on " · " so a trailing note (e.g. "Dance shows 11:30pm")
+        // renders below the main DJ names instead of bloating the heading.
+        const parts = headingText.split(' · ');
+        const main = parts[0];
+        const note = parts.slice(1).join(' · ');
+        return (
+          <>
+            <div
+              className="leading-[1.2]"
+              style={{
+                fontFamily: '"Fraunces", Georgia, serif',
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'hsl(var(--bento-fg))',
+              }}
+            >
+              {main}
+            </div>
+            {note && (
+              <div
+                className="mt-[3px] leading-tight"
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: roomAccent ?? 'hsl(var(--bento-accent))',
+                }}
+              >
+                {note}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {session.people.length > 0 && (
-        <div className="mt-[10px] flex flex-col items-start gap-[10px]">
+        <div className="mt-[10px] flex flex-col items-center gap-[10px]">
           {session.people.map((p, i) => (
             <PartyDjRow key={`${p.id}-${i}`} person={p} />
           ))}
@@ -600,7 +668,9 @@ const groupIntoSlots = (sessions: ScheduleSession[]): Slot[] => {
   for (const slot of slots) {
     slot.isParallelClassy =
       slot.sessions.length >= 2 && slot.sessions.every((s) => isClassyType(s.type));
-    slot.hasParty = slot.sessions.some((s) => s.type === 'party');
+    slot.hasParty = slot.sessions.some(
+      (s) => s.type === 'party' || s.type === 'performance' || s.type === 'show',
+    );
   }
   return slots;
 };
@@ -641,6 +711,165 @@ const sectionLabelFor = (section: Section): string => {
   return isPlural ? 'CLASSES' : 'CLASS';
 };
 
+// ─── Room column headers (multi-room only) ──────────────────────────────────
+//
+// One sticky-ish row at the top of the schedule that names each room column,
+// so individual cards don't have to repeat the room name. Uses the same
+// responsive column count as the slot grids below it, so columns align.
+
+const RoomColumnHeaders = ({ rooms }: { rooms: string[] }) => {
+  if (rooms.length < 2) return null;
+  return (
+    <div
+      className="mb-[10px] grid gap-[6px]"
+      style={{
+        gridTemplateColumns: `64px repeat(${rooms.length}, 1fr)`,
+        borderBottom: '1px solid var(--bento-hairline)',
+        paddingBottom: '6px',
+      }}
+    >
+      {/* Leading spacer aligned with the time column on each slot row below */}
+      <div />
+      {rooms.map((room) => (
+        <div
+          key={room}
+          className="text-center text-[11px] font-bold uppercase leading-tight"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            letterSpacing: '0.06em',
+            color: 'hsl(var(--bento-accent))',
+          }}
+        >
+          {room}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Single-room horizontal list row ───────────────────────────────────────
+//
+// Used when an event has 0 or 1 rooms. Each session renders as a horizontal
+// row: time + duration on the left, avatar in the middle, pill + names on the
+// right. No TimeSection band above — each row carries its own time.
+
+const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
+  const isParty = session.type === 'party';
+  const isPerformance = session.type === 'performance' || session.type === 'show';
+  const isPartyish = isParty || isPerformance;
+  const startStr = fmtMins12(session.startMins);
+  const endStr = fmtMins12(session.endMins);
+  const duration = fmtDuration(session.startMins, session.endMins);
+
+  const pillText = isPerformance ? 'Show' : isParty ? 'DJ' : 'Class';
+
+  // Title display — drop default placeholder titles ("Class 1", "Party"...).
+  const trimmed = (session.title ?? '').trim();
+  const showTitle = !isPartyish
+    ? !isDefaultClassTitle(session.title) && trimmed.length > 0
+    : !isDefaultPartyTitle(session.title) && trimmed.length > 0;
+  const titleText = showTitle ? trimmed : null;
+
+  // Rank chip text (Beg/Imp etc) for class/masterclass with levels.
+  const rank = !isPartyish ? rankFor(session) : null;
+  const rankInline = rank && !rank.muted ? rank.text : null;
+
+  const peopleNames = session.people.map((p) => p.name).filter(Boolean).join(' / ');
+  const firstAvatar = session.people[0];
+  const initial = (firstAvatar?.name || '?').charAt(0).toUpperCase();
+
+  // Compose the right-side label: title and people separated by " · " when both
+  // exist. e.g. "Bachata · Juan Soto" or just "Juan Soto" or "Bachata".
+  const rightLine = [titleText, peopleNames].filter(Boolean).join(' · ');
+
+  return (
+    <div
+      className="grid items-center gap-[12px] px-1 py-1"
+      style={{ gridTemplateColumns: '64px 40px 1fr' }}
+    >
+      {/* Time column */}
+      <div className="text-center">
+        <div
+          style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            color: 'hsl(var(--bento-accent))',
+            lineHeight: 1.1,
+          }}
+        >
+          {startStr}
+        </div>
+        <div
+          className="font-mono"
+          style={{
+            fontSize: '9px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.10em',
+            color: 'hsl(var(--bento-fg-muted))',
+            marginTop: '3px',
+          }}
+        >
+          {isPartyish ? `– ${endStr}` : duration}
+        </div>
+      </div>
+
+      {/* Avatar */}
+      <div>
+        {firstAvatar?.avatarUrl ? (
+          <img
+            src={firstAvatar.avatarUrl}
+            alt=""
+            className="h-10 w-10 rounded-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-[14px] font-bold ${firstAvatar ? 'border-[1.5px]' : ''}`}
+            style={{
+              background: 'hsl(var(--bento-surface))',
+              borderColor: 'var(--bento-hairline)',
+              color: 'hsl(var(--bento-accent))',
+            }}
+          >
+            {firstAvatar ? <span>{initial}</span> : null}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0">
+        <div
+          style={{
+            fontSize: '9px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.10em',
+            color: 'hsl(var(--bento-accent))',
+            lineHeight: 1.1,
+          }}
+          title={LEVEL_LABEL_FULL_TOOLTIP(session)}
+        >
+          {pillText}
+          {rankInline ? ` · ${rankInline}` : ''}
+        </div>
+        <div
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: '14px',
+            fontWeight: 500,
+            color: 'hsl(var(--bento-fg))',
+            marginTop: '3px',
+            lineHeight: 1.2,
+          }}
+        >
+          {rightLine || (isPartyish ? 'TBA' : pillText)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
@@ -657,6 +886,45 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
     }
     return distinct.size >= 2;
   }, [sessions]);
+
+  // Phase C — ordered list of rooms used as 2D-grid columns when isMultiRoom.
+  // Order = first appearance in the (already-sort_order-respecting) sessions
+  // array. This matches the venue's intended room order rather than the
+  // accident of alphabetical (e.g. flyer-order Salsa → Bachata → Cuban
+  // instead of alphabetical Bachata → Cuban → Salsa).
+  const orderedRooms = useMemo(() => {
+    if (!isMultiRoom) return [] as string[];
+    const seen = new Set<string>();
+    const order: string[] = [];
+    for (const s of sessions) {
+      if (s.room && !seen.has(s.room)) {
+        seen.add(s.room);
+        order.push(s.room);
+      }
+    }
+    return order;
+  }, [isMultiRoom, sessions]);
+
+  // Phase C polish — schedule-card background shading. Each room column sits
+  // on a different shade (alternating dark/light/dark for 3 rooms; alternating
+  // pattern continues for any N >= 2). The bg lives on the schedule's wrapper,
+  // not on per-column overlays — so the shading is part of the card itself
+  // rather than separate coloured columns. Hidden below sm: cards stack
+  // vertically and the stripes would be confusing.
+  const scheduleStripeBg = useMemo(() => {
+    if (!isMultiRoom || orderedRooms.length < 2) return undefined;
+    const n = orderedRooms.length;
+    const stops: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const start = ((i / n) * 100).toFixed(4);
+      const end = (((i + 1) / n) * 100).toFixed(4);
+      const color = i % 2 === 0
+        ? 'transparent'              // even-index (leftmost / outer) — no tint
+        : 'rgba(255,255,255,0.08)';  // odd-index (right / inner) — lighter side
+      stops.push(`${color} ${start}% ${end}%`);
+    }
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, [isMultiRoom, orderedRooms.length]);
 
   const uniqueDays = useMemo(
     () => Array.from(new Set(sessions.map((s) => s.day).filter((d): d is string => Boolean(d)))).sort(),
@@ -681,76 +949,206 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
 
-      {sessions.length === 0 ? (
+      <div style={{ position: 'relative' }}>
+        {/* Unified stripe overlay — sits behind the room column headers AND
+             all sections, so the L/D shading runs continuously top-to-bottom
+             as one rectangle per room. left=32px (24px label + 8px gap)
+             aligns the stripe boundaries with the card-column grid. */}
+        {scheduleStripeBg && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              bottom: '-10px',
+              left: '102px',
+              right: '-10px',
+              backgroundImage: scheduleStripeBg,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        {/* Room column headers — aligned to the section grid below
+             (24px spacer for the vertical CLASSES/PARTY label + 1fr containing
+             the room labels). */}
         <div
-          className="py-2 text-center text-[11px]"
-          style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          aria-hidden="true"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '24px 1fr',
+            gap: '8px',
+            position: 'relative',
+            zIndex: 1,
+          }}
         >
-          {isLoading ? 'Loading…' : 'Schedule coming soon'}
+          <div />
+          <RoomColumnHeaders rooms={orderedRooms} />
         </div>
-      ) : (
-        <div className="flex flex-col gap-[14px]">
+
+        {sessions.length === 0 ? (
+          <div
+            className="py-2 text-center text-[11px]"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
+            {isLoading ? 'Loading…' : 'Schedule coming soon'}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-[14px]" style={{ position: 'relative', zIndex: 1 }}>
           {sections.map((section, sectionIdx) => (
             <div
               key={`section-${section.kind}-${sectionIdx}-${section.slots[0]?.startMins ?? 'x'}`}
-              className="flex flex-col gap-[14px]"
+              style={{
+                // Direction D — no section bg tints. Hairline rule divides classes
+                // from party. Horizontal padding dropped so cards line up with the
+                // unified stripe overlay (at left=32px = 24px label + 8px gap).
+                padding: '8px 0',
+                display: 'grid',
+                gridTemplateColumns: '24px 1fr',
+                alignItems: 'stretch',
+                gap: '8px',
+                borderTop:
+                  sectionIdx > 0
+                    ? '0.5px solid hsl(var(--bento-accent) / 0.30)'
+                    : 'none',
+                paddingTop: sectionIdx > 0 ? '16px' : '8px',
+                marginTop: sectionIdx > 0 ? '4px' : '0',
+                position: 'relative',
+                zIndex: 1,
+              }}
             >
-              <SectionHeader label={sectionLabelFor(section)} />
+              {/* Vertical section label — book-spine style: rotated 180deg
+                   so it reads bottom-to-top with letters right-side up. */}
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.20em',
+                  fontFamily: '"Fraunces", Georgia, serif',
+                  color: 'hsl(var(--bento-accent))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px 0',
+                }}
+                aria-label={section.kind === 'party' ? 'Party section' : 'Classes section'}
+              >
+                {section.kind === 'party' ? 'Party' : 'Classes'}
+              </div>
+              <div className="flex flex-col gap-[14px] min-w-0">
               {section.slots.map((slot) => {
                 const format: 'duration' | 'range' = slot.hasParty ? 'range' : 'duration';
-                const multiCard = slot.sessions.length >= 2;
-                // 2 cards → 2-col on every viewport. 3 cards → stack on mobile,
-                // side-by-side on tablet+. Single-card slots fall through to
-                // the flex-col branch and render full-width.
-                const gridCols =
-                  slot.sessions.length === 2
-                    ? 'grid grid-cols-2 gap-[6px]'
-                    : 'grid grid-cols-1 gap-[6px] sm:grid-cols-3';
+
+                // Phase C — multi-room 2D grid. When the event has ≥ 2 rooms,
+                // each slot renders as fixed columns (one per room), with empty
+                // cells shown as a muted "—". Column order is stable across
+                // slots (alphabetical), so the user reads top-to-bottom in
+                // each room. Mobile collapses to single-column stacking via
+                // Tailwind's responsive grid (sm:grid-cols-N).
+                if (isMultiRoom && orderedRooms.length >= 2) {
+                  const startStr = fmtMins12(slot.startMins);
+                  const endStr = fmtMins12(slot.endMins);
+                  const durStr = fmtDuration(slot.startMins, slot.endMins);
+                  const isPartyish = format === 'range';
+                  return (
+                    <div
+                      key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}
+                      className="grid items-center gap-[6px]"
+                      style={{ gridTemplateColumns: `64px repeat(${orderedRooms.length}, 1fr)` }}
+                    >
+                      <div className="text-center">
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'hsl(var(--bento-accent))',
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {startStr}
+                        </div>
+                        <div
+                          className="font-mono"
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.10em',
+                            color: 'hsl(var(--bento-fg-muted))',
+                            marginTop: '3px',
+                          }}
+                        >
+                          {isPartyish ? `– ${endStr}` : durStr}
+                        </div>
+                      </div>
+                      {orderedRooms.map((room) => {
+                        const cellSessions = slot.sessions.filter((s) => s.room === room);
+                        if (cellSessions.length === 0) {
+                          return (
+                            <div
+                              key={`empty-${room}`}
+                              className="flex items-center justify-center rounded-[10px] py-2 opacity-25"
+                              style={{
+                                color: 'hsl(var(--bento-fg-muted))',
+                              }}
+                              aria-label={`No session in ${room} at this time`}
+                            >
+                              —
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            key={`cell-${room}`}
+                            className="flex flex-col gap-[6px]"
+                          >
+                            {cellSessions.map((s) =>
+                              s.type === 'party' || s.type === 'performance' || s.type === 'show' ? (
+                                <PartyCard
+                                  key={s.id}
+                                  session={s}
+                                  isMultiRoom={isMultiRoom}
+                                />
+                              ) : (
+                                <RankCard
+                                  key={s.id}
+                                  session={s}
+                                  inGrid={true}
+                                  isMultiRoom={isMultiRoom}
+                                />
+                              ),
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // Single-room (or zero-room) layout — horizontal list rows.
+                // Time column on the left, avatar in the middle, pill+name on
+                // the right. No TimeSection band — each row carries its own time.
                 return (
-                  <div key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}>
-                    <TimeSection
-                      startMins={slot.startMins}
-                      endMins={slot.endMins}
-                      format={format}
-                    />
-                    {multiCard ? (
-                      <div className={gridCols}>
-                        {slot.sessions.map((s) =>
-                          s.type === 'party' ? (
-                            <PartyCard key={s.id} session={s} isMultiRoom={isMultiRoom} />
-                          ) : (
-                            <RankCard
-                              key={s.id}
-                              session={s}
-                              inGrid={true}
-                              isMultiRoom={isMultiRoom}
-                            />
-                          ),
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-[8px]">
-                        {slot.sessions.map((s) =>
-                          s.type === 'party' ? (
-                            <PartyCard key={s.id} session={s} isMultiRoom={isMultiRoom} />
-                          ) : (
-                            <RankCard
-                              key={s.id}
-                              session={s}
-                              inGrid={false}
-                              isMultiRoom={isMultiRoom}
-                            />
-                          ),
-                        )}
-                      </div>
-                    )}
+                  <div
+                    key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}
+                    className="flex flex-col gap-[6px]"
+                  >
+                    {slot.sessions.map((s) => (
+                      <SingleRoomScheduleRow key={s.id} session={s} />
+                    ))}
                   </div>
                 );
               })}
+              </div>
             </div>
           ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </BentoTile>
   );
 };
