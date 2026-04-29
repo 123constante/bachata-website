@@ -29,6 +29,7 @@ export type EventPageSnapshotOccurrence = {
   localDate: string | null;
   timezone: string | null;
   isCancelled: boolean;
+  cancellationReasonLabel: string | null;
   isLive: boolean;
   isPast: boolean;
   isUpcoming: boolean;

@@ -3,6 +3,12 @@ import { Ticket } from 'lucide-react';
 
 type StickyTicketButtonProps = {
   ticketUrl: string | null;
+  /**
+   * When true the date is cancelled — hide the ticket CTA so dancers can't
+   * accidentally buy a ticket for an off date. The DateBlock already shows
+   * a CANCELLED badge so a second cancelled-state UI here would be noise.
+   */
+  cancelled?: boolean;
 };
 
 /**
@@ -19,7 +25,8 @@ type StickyTicketButtonProps = {
  * `position: absolute`, so the bar would scroll with the page. Portalling
  * escapes that ancestor and restores true viewport-fixed behaviour.
  */
-export const StickyTicketButton = ({ ticketUrl }: StickyTicketButtonProps) => {
+export const StickyTicketButton = ({ ticketUrl, cancelled = false }: StickyTicketButtonProps) => {
+  if (cancelled) return null;
   if (!ticketUrl) return null;
   if (typeof document === 'undefined') return null;
 

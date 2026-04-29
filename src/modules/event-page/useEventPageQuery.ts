@@ -96,6 +96,7 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
     localDate: asString(raw.local_date),
     timezone: asString(raw.timezone),
     isCancelled: asBoolean(raw.is_cancelled),
+    cancellationReasonLabel: asString(raw.cancellation_reason_label),
     isLive: asBoolean(raw.is_live),
     isPast: asBoolean(raw.is_past),
     isUpcoming: asBoolean(raw.is_upcoming),
