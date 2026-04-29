@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
@@ -6,7 +6,6 @@ import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
-import { RaffleCountdown } from '@/modules/event-page/bento/blocks/RaffleCountdown';
 import { Check, Sparkles, Trophy } from 'lucide-react';
 
 const GOLD = 'hsl(var(--bento-accent))';
@@ -20,22 +19,80 @@ const tryVibrate = (pattern: number | number[]) => {
 const enteredStorageKey = (eventId: string | undefined) =>
   eventId ? `bcal_raffle_entered_${eventId}` : null;
 
-function formatDrawDate(iso: string | null): string | null {
-  if (!iso) return null;
-  try {
-    const [y, m, d] = iso.split('-').map((s) => parseInt(s, 10));
-    if (!y || !m || !d) return iso;
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
-      .format(new Date(Date.UTC(y, m - 1, d)));
-  } catch { return iso; }
-}
-
 function formatDrawnAt(iso: string): string {
   try {
     return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
       .format(new Date(iso));
   } catch { return iso; }
 }
+
+function formatCloseClock(cutoffAt: string): string {
+  try {
+    const dt = new Date(cutoffAt);
+    const minutes = dt.getMinutes();
+    const hours12 = dt.getHours() % 12 || 12;
+    const ampm = dt.getHours() < 12 ? 'AM' : 'PM';
+    return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+  } catch {
+    return '—';
+  }
+}
+
+interface TimeLeftProps {
+  cutoffAt: string;
+}
+
+const TimeLeft: React.FC<TimeLeftProps> = ({ cutoffAt }) => {
+  const [now, setNow] = useState(() => Date.now());
+  const target = useMemo(() => {
+    const t = new Date(cutoffAt).getTime();
+    return Number.isFinite(t) ? t : null;
+  }, [cutoffAt]);
+
+  useEffect(() => {
+    if (target === null) return;
+    const remaining = target - now;
+    const interval = remaining <= 10 * 60 * 1000 ? 1_000 : 60_000;
+    const id = window.setInterval(() => setNow(Date.now()), interval);
+    return () => window.clearInterval(id);
+  }, [target, now]);
+
+  if (target === null) return null;
+  const ms = target - now;
+  if (ms <= 0) return null;
+
+  const totalSec = Math.floor(ms / 1000);
+  const totalMin = Math.floor(totalSec / 60);
+  const hr = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  const sec = totalSec % 60;
+
+  // > 24h: hide — clock time alone is enough.
+  if (hr >= 24) return null;
+
+  let label: string;
+  let color = 'hsl(var(--bento-fg-muted))';
+
+  if (hr >= 1) {
+    label = `${hr} hr${hr > 1 ? 's' : ''}${min > 0 ? ` ${min} min` : ''} left`;
+  } else if (totalMin >= 10) {
+    label = `${totalMin} min left`;
+    color = 'hsl(var(--bento-accent))';
+  } else if (totalMin >= 1) {
+    label = `${totalMin} min ${String(sec).padStart(2, '0')}s left`;
+    color = '#f5b95a';
+  } else {
+    label = `${sec}s left`;
+    color = '#f06a4a';
+  }
+
+  return (
+    <div className="text-[10px] mt-0.5 font-medium" style={{ color }}>
+      {label}
+    </div>
+  );
+};
+
 
 interface AnimatedChestProps {
   intensity: number;
@@ -341,48 +398,33 @@ export const RaffleBlock = () => {
   const canEnter = !closed && !hasEntered;
   const tileClickable = canEnter;
 
-  const renderSubLine = () => {
-    if (closed) {
-      return (
-        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-          Entries closed — winner drawn soon
-        </span>
-      );
-    }
-    if (hasEntered) {
-      return (
-        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-          You're entered — we'll call the winner
-        </span>
-      );
-    }
-    if (config?.cutoff_at) {
-      return <RaffleCountdown cutoffAt={config.cutoff_at} closed={false} />;
-    }
-    if (config?.draw_date) {
-      return (
-        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-          Draws {formatDrawDate(config.draw_date) ?? config.draw_date}
-        </span>
-      );
-    }
-    return (
-      <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-        Prize drawn after the event
-      </span>
-    );
-  };
-
   return (
     <>
       <BentoTile
-        title={BLOCK_TITLES.raffle}
+        title=""
         color={BLOCK_COLORS.raffle}
         onClick={tileClickable ? openEntryForm : undefined}
       >
+        <div className="flex items-center justify-between mb-2">
+          <span
+            className="text-[10px] font-bold uppercase"
+            style={{ letterSpacing: '0.04em', color: 'hsl(var(--bento-accent))' }}
+          >
+            Raffle
+          </span>
+          {canEnter && (
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
+              style={{ background: '#f5d563', color: '#1a2e2a', letterSpacing: '0.06em' }}
+            >
+              Free to enter
+            </span>
+          )}
+        </div>
+
         <div
           key={shakeKey}
-          className="flex items-center gap-3"
+          className="flex flex-col items-center text-center"
           style={{ animation: shakeKey > 0 ? 'raffle-shake 250ms ease' : undefined }}
         >
           <div className="relative">
@@ -405,73 +447,98 @@ export const RaffleBlock = () => {
               </motion.div>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            {canEnter && (
-              <div
-                className="inline-flex items-center mb-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
-                style={{
-                  background: '#f5d563',
-                  color: '#1a2e2a',
-                  letterSpacing: '0.06em',
-                }}
-                aria-label="Free to enter"
-              >
-                Free to enter
-              </div>
-            )}
-            <div
-              className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em] truncate"
-              style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
-            >
-              {config?.prize_text ?? 'Prize pool unlocking soon'}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-              {renderSubLine()}
-              {typeof config?.entry_count === 'number' && (
-                <>
-                  <span aria-hidden style={{ color: 'hsl(var(--bento-fg-muted))' }}>·</span>
-                  <motion.span
-                    key={config.entry_count}
-                    initial={{ opacity: 0.3, y: -2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                    style={{ color: 'hsl(var(--bento-fg-muted))' }}
-                  >
-                    {config.entry_count} entered
-                  </motion.span>
-                </>
-              )}
-            </div>
 
-            {canEnter && (
-              <motion.button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); openEntryForm(); }}
-                className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold shadow-md"
-                style={{
-                  background: GOLD,
-                  color: '#1A2E2A',
-                  boxShadow: '0 2px 8px rgba(179,138,78,0.35)',
-                }}
-                whileHover={{ scale: 1.04, boxShadow: '0 4px 14px rgba(245,213,99,0.45)' }}
-                whileTap={{ scale: 0.96 }}
-                animate={{
-                  boxShadow: [
-                    '0 2px 8px rgba(179,138,78,0.35)',
-                    '0 2px 14px rgba(245,213,99,0.55)',
-                    '0 2px 8px rgba(179,138,78,0.35)',
-                  ],
-                }}
-                transition={{ boxShadow: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}
-                aria-label="Enter the raffle"
-              >
-                <Sparkles className="w-3.5 h-3.5" aria-hidden />
-                Enter raffle
-                <span aria-hidden className="ml-0.5">→</span>
-              </motion.button>
-            )}
+          <div className="mt-1 text-[9px] uppercase" style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}>
+            You could win
+          </div>
+          <div
+            className="text-[16px] font-extrabold leading-[1.2] tracking-[-0.015em] px-1 mt-0.5"
+            style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
+          >
+            {config?.prize_text ?? 'Prize pool unlocking soon'}
           </div>
         </div>
+
+        <div
+          className="grid grid-cols-2 mt-3 py-2"
+          style={{
+            borderTop: '1px solid rgba(179,138,78,0.18)',
+            borderBottom: '1px solid rgba(179,138,78,0.18)',
+          }}
+        >
+          <div className="text-center" style={{ borderRight: '1px solid rgba(179,138,78,0.18)' }}>
+            <div
+              className="text-[9px] uppercase"
+              style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}
+            >
+              {closed ? 'Closed' : 'Closes'}
+            </div>
+            <div
+              className="text-[14px] font-bold mt-0.5"
+              style={{ color: 'hsl(var(--bento-fg))' }}
+            >
+              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : '—'}
+            </div>
+            {!closed && config?.cutoff_at && <TimeLeft cutoffAt={config.cutoff_at} />}
+          </div>
+          <div className="text-center">
+            <div
+              className="text-[9px] uppercase"
+              style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}
+            >
+              Entered
+            </div>
+            <motion.div
+              key={config?.entry_count ?? 0}
+              initial={{ opacity: 0.3, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="text-[14px] font-bold mt-0.5"
+              style={{ color: 'hsl(var(--bento-fg))' }}
+            >
+              {config?.entry_count ?? 0} {(config?.entry_count ?? 0) === 1 ? 'dancer' : 'dancers'}
+            </motion.div>
+          </div>
+        </div>
+
+        {(closed || hasEntered) && (
+          <div
+            className="text-center text-[11px] mt-2"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
+            {closed ? 'Entries closed — winner drawn soon' : "You're entered — we'll call the winner"}
+          </div>
+        )}
+
+        {canEnter && (
+          <div className="mt-3 flex justify-center">
+            <motion.button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openEntryForm(); }}
+              className="inline-flex items-center gap-1 rounded-full px-4 py-2 text-[12px] font-semibold shadow-md"
+              style={{
+                background: GOLD,
+                color: '#1A2E2A',
+                boxShadow: '0 2px 8px rgba(179,138,78,0.35)',
+              }}
+              whileHover={{ scale: 1.04, boxShadow: '0 4px 14px rgba(245,213,99,0.45)' }}
+              whileTap={{ scale: 0.96 }}
+              animate={{
+                boxShadow: [
+                  '0 2px 8px rgba(179,138,78,0.35)',
+                  '0 2px 14px rgba(245,213,99,0.55)',
+                  '0 2px 8px rgba(179,138,78,0.35)',
+                ],
+              }}
+              transition={{ boxShadow: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}
+              aria-label="Enter the raffle"
+            >
+              <Sparkles className="w-3.5 h-3.5" aria-hidden />
+              Enter raffle
+              <span aria-hidden className="ml-0.5">→</span>
+            </motion.button>
+          </div>
+        )}
       </BentoTile>
 
       {eventId && (
