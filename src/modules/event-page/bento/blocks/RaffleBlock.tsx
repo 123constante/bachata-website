@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
@@ -6,9 +6,9 @@ import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
+import { RaffleCountdown } from '@/modules/event-page/bento/blocks/RaffleCountdown';
 import { Check, Sparkles, Trophy } from 'lucide-react';
 
-// Brass — the bento's own accent token.
 const GOLD = 'hsl(var(--bento-accent))';
 
 const tryVibrate = (pattern: number | number[]) => {
@@ -37,40 +37,6 @@ function formatDrawnAt(iso: string): string {
   } catch { return iso; }
 }
 
-function useCountdown(cutoffTime: string | null) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  return useMemo(() => {
-    if (!cutoffTime) return null;
-    const match = /^([0-9]{2}):([0-9]{2})/.exec(cutoffTime);
-    if (!match) return null;
-    const hh = parseInt(match[1], 10);
-    const mm = parseInt(match[2], 10);
-    const target = new Date();
-    target.setHours(hh, mm, 0, 0);
-    const diff = target.getTime() - now;
-    if (diff <= 0) return null;
-    const totalMin = Math.floor(diff / 60_000);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    if (h > 0) return `${h}h ${m}m left`;
-    return `${m}m left`;
-  }, [cutoffTime, now]);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AnimatedChest — Framer-Motion-driven velvet-and-brass chest.
-// Props:
-//   - intensity: 0..1, brass glow strength (scales with entry count)
-//   - opening:   true while the modal is open / submitting — lid tilted,
-//                padlock falling away
-//   - celebrate: true for a brief window after a successful submit —
-//                sparkle burst + lid fully up
-//   - dimmed:    true when the block is non-interactive (closed cutoff)
-// ─────────────────────────────────────────────────────────────────────────────
 interface AnimatedChestProps {
   intensity: number;
   opening: boolean;
@@ -111,8 +77,6 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
     }
   }, [opening, celebrate, lidControls, padlockControls]);
 
-  // Glow: floor 0.35 (always visible), up to 0.9 when full (50+ entries) and
-  // pulse amplitude tightens as intensity grows. Hover adds a small boost.
   const glowBase = 0.35 + intensity * 0.45;
   const glowPeak = Math.min(0.95, glowBase + 0.2 + (hovered ? 0.1 : 0));
 
@@ -134,8 +98,6 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
         </filter>
       </defs>
 
-      {/* Thin wedge of gold light escaping through the lid/body gap.
-          Pulses every 4s; intensity scales amplitude and peak. */}
       <motion.ellipse
         cx="32"
         cy="26"
@@ -147,7 +109,6 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      {/* When celebrating, add a bigger softer halo under the sparkles */}
       <AnimatePresence>
         {celebrate && (
           <motion.ellipse
@@ -165,15 +126,13 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
         )}
       </AnimatePresence>
 
-      {/* Chest body */}
       <rect x="6" y="28" width="52" height="28" rx="2" fill="#2a1f17" stroke={GOLD} strokeWidth="1.5" />
       <line x1="6" y1="40" x2="58" y2="40" stroke={GOLD} strokeWidth="0.5" opacity="0.4" />
 
-      {/* Sparkle burst — 8 particles fly up from around the seam on celebrate. */}
       <AnimatePresence>
         {celebrate &&
           Array.from({ length: 8 }).map((_, i) => {
-            const angle = (i / 8) * Math.PI - Math.PI / 2; // fan upward
+            const angle = (i / 8) * Math.PI - Math.PI / 2;
             const dx = Math.cos(angle) * 14;
             const dy = -20 - Math.sin(-angle) * 6;
             return (
@@ -192,8 +151,6 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
           })}
       </AnimatePresence>
 
-      {/* Lid — rotates open when `opening` or `celebrate`. Origin is the hinge
-          at the rear-top of the chest body. */}
       <motion.g
         animate={lidControls}
         initial={{ rotate: -2, y: 0 }}
@@ -209,8 +166,6 @@ const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celeb
         <circle cx="52" cy="22" r="0.9" fill={GOLD} opacity="0.65" />
       </motion.g>
 
-      {/* Padlock — nested transform: static outer translate into position,
-          inner motion.g rotates and drops. */}
       <g transform="translate(32 42)">
         <motion.g
           animate={padlockControls}
@@ -258,7 +213,6 @@ export const RaffleBlock = () => {
     const key = enteredStorageKey(eventId);
     return key ? window.sessionStorage.getItem(key) === '1' : false;
   });
-  const countdown = useCountdown(config?.cutoff_time ?? null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -266,7 +220,6 @@ export const RaffleBlock = () => {
     setHasEntered(key ? window.sessionStorage.getItem(key) === '1' : false);
   }, [eventId]);
 
-  // Clear celebrate timer on unmount.
   useEffect(() => () => {
     if (celebrateTimerRef.current !== null) window.clearTimeout(celebrateTimerRef.current);
   }, []);
@@ -287,12 +240,8 @@ export const RaffleBlock = () => {
     setDialogOpen(true);
   }, []);
 
-  // Entry-count-driven glow intensity: min(1, entry_count / 50).
   const intensity = Math.min(1, (config?.entry_count ?? 0) / 50);
 
-  // ─── Phase 5E — per-dancer states. Must come before the public-winner
-  // block so the current user sees their own status (admin_excluded /
-  // already_won) rather than the generic winner card.
   if (config?.enabled && config.my_status?.status === 'admin_excluded') {
     const alt = config.my_status.alternate_event;
     return (
@@ -363,7 +312,6 @@ export const RaffleBlock = () => {
     );
   }
 
-  // ─── Winner already announced (public show_winner_publicly path) ─────
   if (config?.enabled && config.winner_display) {
     return (
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
@@ -385,29 +333,45 @@ export const RaffleBlock = () => {
     );
   }
 
-  // ─── No raffle on this event — render nothing.
-  // Phase 6D: BentoPage hides the 'raffle' slot from the grid packer when
-  // config.enabled is false, so this branch is normally unreachable. Defensive
-  // null-return guards against the slot being rendered before the parent's
-  // hidden-set updates (e.g. during a brief loading/transition window).
   if (!loading && (!config || !config.enabled)) {
     return null;
   }
 
-  // ─── Raffle enabled, pre-draw ─────────────────────────────────────────
   const closed = !!config?.cutoff_passed;
   const canEnter = !closed && !hasEntered;
   const tileClickable = canEnter;
 
-  const subtitle = closed
-    ? 'Entries closed — winner drawn soon'
-    : hasEntered
-    ? "You're entered — we'll call the winner"
-    : countdown
-    ? `Closes in ${countdown}`
-    : config?.draw_date
-    ? `Draws ${formatDrawDate(config.draw_date) ?? config.draw_date}`
-    : 'Prize drawn after the event';
+  const renderSubLine = () => {
+    if (closed) {
+      return (
+        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+          Entries closed — winner drawn soon
+        </span>
+      );
+    }
+    if (hasEntered) {
+      return (
+        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+          You're entered — we'll call the winner
+        </span>
+      );
+    }
+    if (config?.cutoff_at) {
+      return <RaffleCountdown cutoffAt={config.cutoff_at} closed={false} />;
+    }
+    if (config?.draw_date) {
+      return (
+        <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+          Draws {formatDrawDate(config.draw_date) ?? config.draw_date}
+        </span>
+      );
+    }
+    return (
+      <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+        Prize drawn after the event
+      </span>
+    );
+  };
 
   return (
     <>
@@ -442,22 +406,36 @@ export const RaffleBlock = () => {
             )}
           </div>
           <div className="flex-1 min-w-0">
+            {canEnter && (
+              <div
+                className="inline-flex items-center mb-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                style={{
+                  background: '#f5d563',
+                  color: '#1a2e2a',
+                  letterSpacing: '0.06em',
+                }}
+                aria-label="Free to enter"
+              >
+                Free to enter
+              </div>
+            )}
             <div
               className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em] truncate"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
             >
               {config?.prize_text ?? 'Prize pool unlocking soon'}
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-              <span>{subtitle}</span>
+            <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+              {renderSubLine()}
               {typeof config?.entry_count === 'number' && (
                 <>
-                  <span aria-hidden>·</span>
+                  <span aria-hidden style={{ color: 'hsl(var(--bento-fg-muted))' }}>·</span>
                   <motion.span
                     key={config.entry_count}
                     initial={{ opacity: 0.3, y: -2 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25 }}
+                    style={{ color: 'hsl(var(--bento-fg-muted))' }}
                   >
                     {config.entry_count} entered
                   </motion.span>
@@ -465,9 +443,6 @@ export const RaffleBlock = () => {
               )}
             </div>
 
-            {/* Explicit tap affordance — users shouldn't have to guess the
-                chest is interactive. Stops propagation so the tile onClick
-                doesn't double-fire. */}
             {canEnter && (
               <motion.button
                 type="button"
