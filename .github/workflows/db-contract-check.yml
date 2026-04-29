@@ -1,10 +1,16 @@
 name: DB Contract Check
 
-# Verifies the calendar_occurrences venue/city override contract is in
-# place and not violated. Catches operator error from outside the app
-# (e.g. raw SQL admin work) that could re-introduce the venue-drift bug.
-# See migration 20260428120000_occurrence_venue_drift_fix_v1 in the
-# admin repo.
+# Verifies database invariants:
+#  1. The calendar_occurrences venue/city override contract
+#     (migration 20260428120000_occurrence_venue_drift_fix_v1).
+#  2. The per-occurrence editing RPCs and their constraints
+#     (migration 20260429182000_test_per_occurrence_v1).
+#  3. The event-program duration contract — events.start_time/end_time
+#     must align (within 240 min) with meta_data.program span for standard
+#     events (admin migration 20260429320000_event_program_duration_contract_v1).
+#
+# Catches operator error from outside the app (e.g. raw SQL admin work)
+# that could re-introduce regressions.
 
 on:
   push:
@@ -35,3 +41,15 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-contract.mjs
+
+      - name: Run per-occurrence RPC test suite
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-per-occurrence-rpcs.mjs
+
+      - name: Run event-program duration contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-event-program-duration.mjs
