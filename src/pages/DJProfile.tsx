@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { buildFullName } from '@/lib/name-utils';
 
@@ -88,7 +89,7 @@ const DJProfile = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const djBreadcrumbs = [{ label: 'DJs', path: '/djs' }];
+  const djBreadcrumbs = buildBreadcrumbs('dj.detail', { entityName: dj?.dj_name ?? undefined, isLoading });
 
   if (isLoading) {
     return (

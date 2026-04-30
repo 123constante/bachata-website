@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
-const ALL_PROFILES_BREADCRUMBS = [{ label: 'All Profiles' }];
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+const ALL_PROFILES_BREADCRUMBS = buildBreadcrumbs('allProfiles');
 
 const roleColors: Record<string, string> = {
   dancer: 'bg-pink-100 text-pink-800',

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 const LAST_ACTIVE_ROLE_KEY = 'profile_last_active_role';
 
 const Profile = () => {
@@ -79,7 +80,7 @@ const Profile = () => {
     };
 
     return (
-        <GlobalLayout breadcrumbs={[{ label: 'Profile' }]}>
+        <GlobalLayout breadcrumbs={buildBreadcrumbs('profile')}>
             <ProfileEntryRouter
                 user={user}
                 loading={loading}

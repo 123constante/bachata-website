@@ -15,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const ROLE_CREATE_ROUTES: Record<string, string> = {
   organiser: '/create-organiser-profile',
-  teacher: '/create-teacher-profile',
   dj: '/create-dj-profile',
   videographer: '/create-videographer-profile',
 };

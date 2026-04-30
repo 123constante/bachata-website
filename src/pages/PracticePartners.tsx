@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -151,7 +152,7 @@ const PracticePartners = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Practice Partners' }]}
+      breadcrumbs={buildBreadcrumbs('practicePartners')}
       hero={{
         emoji: '💃',
         titleWhite: 'Practice',

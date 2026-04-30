@@ -1,5 +1,6 @@
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 // World map uses inline SVG rather than react-simple-maps + world-atlas.
 // Audit (gzipped):
 //   • react-simple-maps 3.x + d3-geo + topojson-client + world-atlas/110m =
@@ -96,7 +97,7 @@ const WorldMap = () => (
 const CitiesPage = () => {
   return (
     <GlobalLayout
-      breadcrumbs={[]}
+      breadcrumbs={buildBreadcrumbs('cities')}
       hero={{
         emoji: '🌍',
         titleWhite: '',

@@ -1,11 +1,12 @@
 import { Star, Sparkles } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { EventCalendar } from '@/components/EventCalendar';
 
 const Classes = () => {
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Classes' }]}
+      breadcrumbs={buildBreadcrumbs('classes')}
       hero={{
         emoji: '🎓',
         titleWhite: 'Learn',

@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
@@ -125,10 +126,7 @@ const TeacherProfile = () => {
     enabled: !!id,
   });
 
-  const teacherBreadcrumbs = [
-    { label: 'Classes', path: classesPath },
-    { label: 'Teachers', path: '/teachers' },
-  ];
+  const teacherBreadcrumbs = buildBreadcrumbs('teacher.detail', { entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined, isLoading });
 
   /* ── loading ──── */
   if (isLoading) {

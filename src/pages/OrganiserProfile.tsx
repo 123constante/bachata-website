@@ -14,6 +14,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
   Dialog,
   DialogContent,
@@ -259,7 +260,7 @@ const OrganiserProfile = () => {
     }
   };
 
-  const organiserBreadcrumbs = [{ label: 'Organisers', path: '/organisers' }];
+  const organiserBreadcrumbs = buildBreadcrumbs('organiser.detail', { entityName: entity?.name, isLoading: isLoading });
 
   if (isLoading) {
     return (

@@ -15,6 +15,7 @@ import BroadcastTicker from "@/components/BroadcastTicker";
 import { useChannelSwitch } from "@/components/ChannelSwitchOverlay";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 interface Event {
   id: number | string;
   name: string;
@@ -131,7 +132,7 @@ const Tonight = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'Tonight' }]}
+      breadcrumbs={buildBreadcrumbs('tonight')}
       showGradientBg={false}
       hero={{
         emoji: '🌙',

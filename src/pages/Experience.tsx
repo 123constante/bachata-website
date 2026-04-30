@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Music, Camera, Plane, Users, Zap } from "lucide-react";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { ExperienceTravel } from "@/components/experience/ExperienceTravel";
 import { ExperienceMedia } from "@/components/experience/ExperienceMedia";
 import { ExperienceStage } from "@/components/experience/ExperienceStage";
@@ -60,7 +61,7 @@ const Experience = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Experience' }, { label: activeConfig.label }]}
+      breadcrumbs={buildBreadcrumbs('experience')}
       hero={{
         emoji: activeConfig.hero.emoji,
         titleWhite: activeConfig.hero.titleWhite,

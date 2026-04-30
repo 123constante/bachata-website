@@ -33,6 +33,7 @@ import { useCity } from '@/contexts/CityContext';
 import { validateImageFile } from '@/lib/upload-validation';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 const cleanString = (str: string | undefined | null) => {
   if (!str) return null;
   const trimmed = str.trim();
@@ -199,7 +200,7 @@ const CreateEvent = () => {
   };
 
   return (
-    <GlobalLayout breadcrumbs={[{ label: 'Create event' }]} backHref='/profile?role=organiser'>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.createEvent')} backHref='/profile?role=organiser'>
     <div className='px-4 pb-24'>
       <div className='max-w-2xl mx-auto'>
         <ScrollReveal animation='fadeUp'>

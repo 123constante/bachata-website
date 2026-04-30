@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import {
@@ -198,7 +199,7 @@ const DancerProfile = () => {
     navigate(item.type === "festival" ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
-  const dancerBreadcrumbs = [{ label: 'Dancers', path: '/dancers' }];
+  const dancerBreadcrumbs = buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName, isLoading });
 
   if (isLoading) {
     return (

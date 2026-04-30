@@ -8,6 +8,7 @@ import {
   type ScheduleSession,
   type SessionLevel,
 } from '@/modules/event-page/sections/EventScheduleGrid';
+import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
 
 // ─── Level → headline text map ───────────────────────────────────────────────
 const LEVEL_LABEL_SHORT: Record<SessionLevel, string> = {
@@ -113,70 +114,6 @@ const roleLabelFor = (session: ScheduleSession): string | null => {
 };
 
 // ─── Person link (only clickable item inside a session) ──────────────────────
-
-// PersonLink size table — keep all dimension knobs for a given size on one row
-// so resizing later is a one-place edit.
-//   sm: 32 px avatar (legacy)
-//   md: 40 px avatar (legacy)
-//   lg: 64 px avatar — current default per Phase 8 visual polish (Ricky picked
-//       64 px headshots so the human element is the dominant scan target).
-const SIZE_TABLE = {
-  sm: { dim: 'h-8 w-8',   font: 'text-[12px]', wrap: 'w-[40px]', name: 'max-w-[60px]' },
-  md: { dim: 'h-10 w-10', font: 'text-[15px]', wrap: 'w-11',     name: 'max-w-[60px]' },
-  lg: { dim: 'h-16 w-16', font: 'text-[22px]', wrap: 'w-[72px]', name: 'max-w-[80px]' },
-} as const;
-
-const PersonLink = ({
-  person,
-  size = 'lg',
-}: {
-  person: Person;
-  size?: 'sm' | 'md' | 'lg';
-}) => {
-  const t = SIZE_TABLE[size];
-  const initial = (person.name || '?').charAt(0).toUpperCase();
-  const body = (
-    <>
-      <div
-        className={`flex ${t.dim} items-center justify-center overflow-hidden rounded-full ${t.font} font-bold ${person.avatarUrl ? '' : 'border-[1.5px]'}`}
-        style={{
-          background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-          borderColor: person.avatarUrl ? undefined : 'var(--bento-hairline)',
-          color: 'hsl(var(--bento-accent))',
-        }}
-      >
-        {person.avatarUrl ? (
-          <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-        ) : (
-          <span>{initial}</span>
-        )}
-      </div>
-      <div
-        className={`${t.name} truncate text-center text-[9px] leading-[1.1]`}
-        title={person.name}
-        style={{ color: 'hsl(var(--bento-fg))' }}
-      >
-        {person.name}
-      </div>
-    </>
-  );
-
-  if (!person.href) {
-    return (
-      <div className={`flex ${t.wrap} flex-col items-center gap-[3px]`} aria-label={person.name}>
-        {body}
-      </div>
-    );
-  }
-  return (
-    <Link
-      to={person.href}
-      className={`flex ${t.wrap} flex-col items-center gap-[3px] transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40`}
-    >
-      {body}
-    </Link>
-  );
-};
 
 // ─── Time section header ─────────────────────────────────────────────────────
 //
@@ -344,69 +281,20 @@ const RankCard = ({
         </div>
       )}
 
-      {session.people.length > 0 && (() => {
-        // Phase C — per-level teacher rows. When at least one person has a
-        // non-null level binding AND the session has 2+ levels, group people
-        // by level so each level gets its own row (e.g. May Day's Cuban Room
-        // 9pm: Beginner=Carlton, Improver=Damarys, Intermediate=Oscle).
-        // Otherwise fall back to the existing flat avatar layout.
-        const hasLevelBinding = session.people.some(p => p.level != null);
-        if (!hasLevelBinding || session.levels.length < 2) {
-          return (
-            <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
-              {session.people.map((p, i) => (
-                <PersonLink key={`${p.id}-${i}`} person={p} />
-              ))}
-            </div>
-          );
-        }
-        // Group: one bucket per level present on the session, plus 'whole'
-        // for people with NULL level (apply across the whole session).
-        const sortedLevels = LEVEL_ORDER.filter(l => session.levels.includes(l));
-        const buckets = new Map<SessionLevel | 'whole', Person[]>();
-        for (const p of session.people) {
-          const key: SessionLevel | 'whole' = p.level ?? 'whole';
-          const arr = buckets.get(key) ?? [];
-          arr.push(p);
-          buckets.set(key, arr);
-        }
+      {(() => {
+        // Per-level teacher rows when the session has 2+ declared levels and
+        // at least one person carries a per-person level binding (Phase C —
+        // e.g. May Day's Cuban Room 9pm: Beginner=Carlton, Improver=Damarys).
+        // Otherwise fall back to a flat avatar wrap. Both branches now go
+        // through PeopleStack so the layout is centrally maintained.
+        const hasLevelBinding = session.people.some((p) => p.level != null);
+        const useLeveled = hasLevelBinding && session.levels.length >= 2;
         return (
-          <div className="mt-[8px] flex flex-col gap-[6px]">
-            {sortedLevels.map(lvl => {
-              const ppl = buckets.get(lvl);
-              if (!ppl || ppl.length === 0) return null;
-              return (
-                <div key={lvl} className="flex flex-wrap items-center justify-center gap-[6px]">
-                  <span
-                    className="text-[10px] uppercase tracking-wider opacity-70"
-                    style={{ color: 'hsl(var(--bento-fg))' }}
-                  >
-                    {LEVEL_LABEL_FULL[lvl]}
-                  </span>
-                  {ppl.map((p, i) => (
-                    <PersonLink key={`${p.id}-${i}`} person={p} />
-                  ))}
-                </div>
-              );
-            })}
-            {(() => {
-              const ppl = buckets.get('whole');
-              if (!ppl || ppl.length === 0) return null;
-              return (
-                <div className="flex flex-wrap items-center justify-center gap-[6px]">
-                  <span
-                    className="text-[10px] uppercase tracking-wider opacity-70"
-                    style={{ color: 'hsl(var(--bento-fg))' }}
-                  >
-                    Open Level
-                  </span>
-                  {ppl.map((p, i) => (
-                    <PersonLink key={`${p.id}-${i}`} person={p} />
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
+          <PeopleStack
+            people={session.people}
+            variant={useLeveled ? 'wrap-leveled' : 'wrap-row'}
+            sessionLevels={session.levels}
+          />
         );
       })()}
     </div>
@@ -430,66 +318,11 @@ const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
 // right. Profile-card feel; works for solo DJs and stacks nicely for nights
 // with multiple performers.
 
-const PartyDjRow = ({ person }: { person: Person }) => {
-  const initial = (person.name || '?').charAt(0).toUpperCase();
-  const body = (
-    <>
-      {person.role && (
-        <div
-          className="mb-[3px] text-[9px] font-bold uppercase tracking-[0.10em] leading-tight"
-          style={{ color: 'hsl(var(--bento-accent))' }}
-        >
-          {person.role.toUpperCase()}
-        </div>
-      )}
-      <div
-        className={`flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full text-[18px] font-bold ${person.avatarUrl ? '' : 'border-[1.5px]'}`}
-        style={{
-          background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-          borderColor: person.avatarUrl ? undefined : 'var(--bento-hairline)',
-          color: 'hsl(var(--bento-accent))',
-        }}
-      >
-        {person.avatarUrl ? (
-          <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-        ) : (
-          <span>{initial}</span>
-        )}
-      </div>
-      <div
-        className="mt-[4px] text-center leading-[1.2]"
-        style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontSize: '13px',
-          color: 'hsl(var(--bento-fg))',
-        }}
-      >
-        {person.name}
-      </div>
-    </>
-  );
-  if (!person.href) {
-    return (
-      <div className="flex flex-col items-center px-1" aria-label={person.name}>
-        {body}
-      </div>
-    );
-  }
-  return (
-    <Link
-      to={person.href}
-      className="flex flex-col items-center px-1 transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-    >
-      {body}
-    </Link>
-  );
-};
-
 // ─── Party card — used for party-type sessions ───────────────────────────────
 //
 // Parties don't have ranks, so they get their own treatment: title in serif
-// (when distinctive — generic "Party" / "Social" suppressed), then a stack
-// of PartyDjRow rows, one per performer.
+// (when distinctive — generic "Party" / "Social" suppressed), then the
+// performer list (rendered by PeopleStack vertical-feature variant).
 
 const PartyCard = ({
   session,
@@ -565,13 +398,7 @@ const PartyCard = ({
         );
       })()}
 
-      {session.people.length > 0 && (
-        <div className="mt-[10px] flex flex-col items-center gap-[10px]">
-          {session.people.map((p, i) => (
-            <PartyDjRow key={`${p.id}-${i}`} person={p} />
-          ))}
-        </div>
-      )}
+      <PeopleStack people={session.people} variant="vertical-feature" />
     </div>
   );
 };
@@ -775,8 +602,6 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
   const rankInline = rank && !rank.muted ? rank.text : null;
 
   const peopleNames = session.people.map((p) => p.name).filter(Boolean).join(' / ');
-  const firstAvatar = session.people[0];
-  const initial = (firstAvatar?.name || '?').charAt(0).toUpperCase();
 
   // Compose the right-side label: title and people separated by " · " when both
   // exist. e.g. "Bachata · Juan Soto" or just "Juan Soto" or "Bachata".
@@ -785,7 +610,7 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
   return (
     <div
       className="grid items-center gap-[12px] px-1 py-1"
-      style={{ gridTemplateColumns: '64px 40px 1fr' }}
+      style={{ gridTemplateColumns: '64px auto 1fr' }}
     >
       {/* Time column */}
       <div className="text-center">
@@ -814,26 +639,22 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
         </div>
       </div>
 
-      {/* Avatar */}
+      {/* Avatar(s) — every session.people stacked overlapping. Was previously
+           hard-coded to people[0], silently dropping every other teacher/DJ
+           (the bug Phase 1 of the schedule renderer unification fixes). Now
+           routes through PeopleStack inline-row variant — first 4 visible,
+           rest collapse to a "+N" pill (plan_schedule_renderer_unification.md). */}
       <div>
-        {firstAvatar?.avatarUrl ? (
-          <img
-            src={firstAvatar.avatarUrl}
-            alt=""
-            className="h-10 w-10 rounded-full object-cover"
-            loading="lazy"
-          />
+        {session.people.length > 0 ? (
+          <PeopleStack people={session.people} variant="inline-row" />
         ) : (
           <div
-            className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-[14px] font-bold ${firstAvatar ? 'border-[1.5px]' : ''}`}
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
             style={{
               background: 'hsl(var(--bento-surface))',
-              borderColor: 'var(--bento-hairline)',
-              color: 'hsl(var(--bento-accent))',
+              border: '1.5px solid var(--bento-hairline)',
             }}
-          >
-            {firstAvatar ? <span>{initial}</span> : null}
-          </div>
+          />
         )}
       </div>
 

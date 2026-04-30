@@ -1,11 +1,12 @@
 import { Music, Sparkles } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { EventCalendar } from '@/components/EventCalendar';
 
 const Parties = () => {
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Parties' }]}
+      breadcrumbs={buildBreadcrumbs('parties')}
       hero={{
         emoji: '🎉',
         titleWhite: 'Find Your',

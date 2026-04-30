@@ -16,6 +16,7 @@ import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 const CreateDJProfile = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -257,7 +258,7 @@ const CreateDJProfile = () => {
   useUnsavedChangesGuard({ enabled: hasUnsavedProgress && !isSubmitting });
 
   return (
-    <GlobalLayout breadcrumbs={[{ label: 'Create DJ profile' }]} backHref='/profile?role=dj'>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.createDj')} backHref='/profile?role=dj'>
     <div className="px-4 pb-24">
       <div className="max-w-2xl mx-auto">
         {import.meta.env.DEV && (

@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -117,7 +118,7 @@ const Teachers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Classes', path: classesPath }, { label: 'Teachers' }]}
+      breadcrumbs={buildBreadcrumbs('teachers')}
       floatingCount={15}
       hero={{
         emoji: '🎓',
@@ -140,15 +141,6 @@ const Teachers = () => {
             >
               <span className="text-3xl md:text-4xl block mb-2">{'🔍'}</span>
               <h3 className="font-bold text-xs md:text-sm text-foreground">Browse Teachers</h3>
-            </motion.div>
-            <motion.div
-              onClick={() => navigate('/create-teacher-profile')}
-              className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-surface/80 to-surface/40 backdrop-blur-sm rounded-2xl border border-festival-pink/30 shadow-lg w-[140px] md:w-[160px]"
-              whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="text-3xl md:text-4xl block mb-2">{'✍️'}</span>
-              <h3 className="font-bold text-xs md:text-sm text-foreground">Get Listed</h3>
             </motion.div>
             <motion.div
               onClick={() => navigate(classesPath)}
@@ -371,9 +363,7 @@ const Teachers = () => {
             <p className="text-muted-foreground text-lg mb-4">
               {teachers.length === 0 ? 'No teachers listed yet. Be the first!' : 'No teachers match your filters.'}
             </p>
-            {teachers.length === 0 ? (
-              <Button onClick={() => navigate('/create-teacher-profile')}>Create Your Profile</Button>
-            ) : (
+            {teachers.length === 0 ? null : (
               <Button variant="outline" onClick={clearFilters}>
                 Clear filters
               </Button>
@@ -465,33 +455,6 @@ const Teachers = () => {
         )}
       </section>
 
-      {/* CTA Banner */}
-      <section className="px-4 mb-16 max-w-3xl mx-auto">
-        <ScrollReveal animation="fadeUp">
-          <Card className="relative overflow-hidden bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 border-primary/30">
-            <div className="p-8 md:p-12 text-center">
-              <motion.div
-                animate={{ rotate: [0, -5, 5, 0] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="text-5xl mb-4 inline-block"
-              >
-                {'🎓'}
-              </motion.div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">
-                <span className="text-foreground">Are you a </span>
-                <span className="text-primary">Teacher?</span>
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Create your profile, list your classes, and connect with students in your city.
-              </p>
-              <Button size="lg" onClick={() => navigate('/create-teacher-profile')} className="shadow-lg shadow-primary/20">
-                <GraduationCap className="w-5 h-5 mr-2" />
-                Create Your Profile
-              </Button>
-            </div>
-          </Card>
-        </ScrollReveal>
-      </section>
     </GlobalLayout>
   );
 };

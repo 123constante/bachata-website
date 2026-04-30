@@ -1,10 +1,11 @@
 ﻿import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Users, Trophy, Sparkles, Music, Star, Zap, Heart, Crown } from "lucide-react";
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 const Choreography = () => {
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Choreography' }]}
+      breadcrumbs={buildBreadcrumbs('choreography')}
       hero={{
         emoji: '🎭',
         titleWhite: 'Join the',

@@ -40,6 +40,75 @@ not affect DayDetailModal's appearance.
 If a task involves any of these excluded files, ask Ricky before changing
 anything in them.
 
+
+## Breadcrumbs (mandatory)
+
+Every page that uses `<GlobalLayout>` MUST pass `breadcrumbs={buildBreadcrumbs(routeId, ctx)}`
+from `@/lib/breadcrumbs`. Do NOT hand-roll breadcrumb arrays.
+
+```tsx
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+
+// Listing
+<GlobalLayout breadcrumbs={buildBreadcrumbs('parties')}>
+
+// Nested listing
+<GlobalLayout breadcrumbs={buildBreadcrumbs('djs')}>
+
+// Detail page (entity name supplied, isLoading flag handles loading state)
+<GlobalLayout breadcrumbs={buildBreadcrumbs('dancer.detail', {
+  entityName: dancer?.first_name,
+  isLoading,
+})}>
+
+// Event page (parent dispatches by event type)
+<GlobalLayout breadcrumbs={buildBreadcrumbs('event.detail', {
+  entityName: pageModel.identity.title,
+  eventType: pageModel.identity.eventType,
+  isLoading: state !== 'ready',
+})}>
+```
+
+Adding a new page:
+1. Add a one-line entry to `src/lib/breadcrumbs/siteIa.ts` (label, path, parent, entity flag).
+2. Use `buildBreadcrumbs('newRouteId', ctx)` on the page.
+3. The unit + tree-validity tests in `src/lib/breadcrumbs/__tests__/` will already cover it.
+
+The dev-only runtime warning in `GlobalLayout` flags pages that render the
+sub-header but pass no breadcrumbs — production never crashes.
+
+The visible breadcrumb is paired with a hidden `<script type="application/ld+json">`
+emitting Schema.org `BreadcrumbList` for SEO. No extra work — `PageBreadcrumb`
+emits it automatically from the `items` it receives.
+
+Pages that legitimately have no breadcrumb (Index, Auth, AuthCallback, Onboarding)
+must pass `showSubheader={false}`.
+
+
+## Calendar occurrence venue/city contract (mandatory)
+
+`calendar_occurrences.venue_id`, `city_id`, and `city_slug` are NULL by default.
+They may be set ONLY when `is_override = true` on the same row, indicating the
+occurrence has been deliberately moved away from the parent event's defaults.
+
+Read paths must use `COALESCE(co.venue_id, e.venue_id)` to fall back to the
+parent event when the override is unset. The shipped public RPCs already do
+this (`get_event_page_snapshot_v2`, `get_public_venues_list_v2/v3`,
+`get_public_event_detail`, `get_public_festival_detail`, `calendar_events_dto`).
+Any new public read path that touches venue MUST use the same pattern.
+
+Self-check + CI:
+- Health-check RPC `check_occurrence_venue_contract_v1()` returns aggregate
+  health JSON (anon-callable, no row data).
+- Workflow `.github/workflows/db-contract-check.yml` runs the check on every
+  push, PR, and daily 06:00 UTC. Fails the build on any contract violation.
+- Local check: `node scripts/check-venue-contract.mjs`.
+
+Contract migration: admin repo `20260428120000_occurrence_venue_drift_fix_v1.sql`.
+Helper-function alignment: admin repo
+`20260428160000_occurrence_venue_helpers_align_with_contract_v1.sql`.
+
+
 ## File-write safety (mandatory for agents)
 
 This repo lives on a Windows mount accessed from the Cowork Linux sandbox via

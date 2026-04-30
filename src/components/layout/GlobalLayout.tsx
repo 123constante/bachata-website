@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHero, { type HeroWidget } from '@/components/PageHero';
 import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { FloatingElements } from '@/components/FloatingElements';
@@ -80,6 +80,24 @@ const GlobalLayout = ({
 }: GlobalLayoutProps) => {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
+  const location = useLocation();
+
+  // Dev-mode safeguard: warn when a page renders the sub-header (which holds
+  // the breadcrumb) but doesn't pass any breadcrumbs. This catches the
+  // "added a new page but forgot to wire breadcrumbs" class of bug. Skipped
+  // in production so a missing breadcrumb never crashes the page; the user
+  // just sees [Home] alone, which is the legacy behaviour.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    if (!showSubheader) return;
+    if (breadcrumbs && breadcrumbs.length > 0) return;
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[GlobalLayout] Page "${location.pathname}" renders showSubheader but passes no breadcrumbs. ` +
+        'Pass breadcrumbs={buildBreadcrumbs("routeId", ctx)} from @/lib/breadcrumbs, ' +
+        'or set showSubheader={false} to opt out.',
+    );
+  }, [showSubheader, breadcrumbs, location.pathname]);
 
   // With hero: pt-3 on mobile / pt-20 on desktop. Mobile keeps the breadcrumb
   // tight under the 60px global header; desktop preserves the historical

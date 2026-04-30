@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Users, Sparkles, Music, Trophy, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -56,7 +57,7 @@ const Organisers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'Organisers' }]}
+      breadcrumbs={buildBreadcrumbs('organisers')}
       hero={{
         emoji: '🎪',
         titleWhite: 'Event',

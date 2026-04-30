@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -231,7 +232,7 @@ const Dancers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Dancers' }]}
+      breadcrumbs={buildBreadcrumbs('dancers')}
       hero={{
         emoji: '💃',
         titleWhite: 'Meet',

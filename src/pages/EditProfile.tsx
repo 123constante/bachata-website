@@ -21,9 +21,8 @@ import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
-const EDIT_PROFILE_BREADCRUMBS = [{ label: 'Profile', path: '/profile' }, { label: 'Edit' }];
-
-const DANCE_STYLES = ['Sensual', 'Moderna', 'Dominicana', 'Traditional', 'Fusion'];
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+const EDIT_PROFILE_BREADCRUMBS = buildBreadcrumbs('profile.edit');
 const PARTNER_ROLES = ['Leader', 'Follower', 'Both'];
 const SEARCH_ROLES = ['Leader', 'Follower', 'Both'];
 const LEVELS = ['Beginner', 'Improver', 'Intermediate', 'Advanced', 'Professional'];

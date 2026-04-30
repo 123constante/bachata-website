@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeStringArray } from "@/modules/vendor/utils";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 const PAGE_SIZE = 12;
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
@@ -51,7 +52,7 @@ const Vendors = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Vendors' }]}
+      breadcrumbs={buildBreadcrumbs('vendors')}
       hero={{
         emoji: '🛍️',
         titleWhite: 'Bachata',

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Home, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -9,6 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs';
 
 export interface BreadcrumbItemType {
   label: string;
@@ -20,11 +21,39 @@ interface PageBreadcrumbProps {
 }
 
 const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
+  const location = useLocation();
+
+  // Schema.org BreadcrumbList — search engines render breadcrumb-style
+  // result links from this. Origin is read at render time so SSR / static
+  // hosting environments resolve correctly. The current URL is used for the
+  // last crumb's `item` field (the visible breadcrumb omits path on the
+  // current page, but search engines still want an absolute URL there).
+  const origin =
+    typeof window !== 'undefined' && window.location
+      ? window.location.origin
+      : '';
+  const currentUrl = origin + location.pathname + (location.search || '');
+  const jsonLd = renderBreadcrumbListJsonLd({
+    crumbs: items,
+    origin,
+    currentUrl,
+  });
+
   return (
     <div className="px-4 py-1.5 md:py-3 max-w-7xl mx-auto">
+      {/*
+        Schema.org BreadcrumbList for SEO. Renders as a hidden <script> so
+        Google can read the breadcrumb without affecting layout. See
+        https://developers.google.com/search/docs/appearance/structured-data/breadcrumb
+      */}
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: jsonLd }}
+      />
       <Breadcrumb>
         <BreadcrumbList>
-          {/* Home */}
+          {/* Home — icon + label, both visible on every screen size. */}
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
@@ -33,12 +62,12 @@ const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
           >
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link 
-                  to="/" 
+                <Link
+                  to="/"
                   className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
                 >
                   <Home className="w-3.5 h-3.5" />
-                  <span className="sr-only md:not-sr-only">Home</span>
+                  <span>Home</span>
                 </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>

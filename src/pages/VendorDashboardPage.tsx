@@ -41,7 +41,8 @@ import { useCity } from '@/contexts/CityContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
-const VENDOR_DASHBOARD_BREADCRUMBS = [{ label: 'Profile', path: '/profile' }, { label: 'Vendor dashboard' }];
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+const VENDOR_DASHBOARD_BREADCRUMBS = buildBreadcrumbs('profile.vendorDashboard');
 
 const emptyForm: VendorDashboardFormState = {
   id: null,

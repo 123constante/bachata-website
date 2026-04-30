@@ -12,6 +12,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -212,7 +213,12 @@ const EditEvent = () => {
   };
 
   if (eventLoading || permissionsLoading) return (
-    <GlobalLayout breadcrumbs={[{ label: 'Edit event' }]} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('event.edit', {
+      entityName: eventData?.name,
+      eventType: (eventData as { event_type?: string | null } | undefined)?.event_type,
+      entityId: id,
+      isLoading: eventLoading,
+    })} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
       <div className="flex justify-center items-center min-h-[40vh]">
         <Loader2 className='w-8 h-8 animate-spin text-primary' />
       </div>
@@ -220,7 +226,12 @@ const EditEvent = () => {
   );
 
   return (
-    <GlobalLayout breadcrumbs={[{ label: 'Edit event' }]} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('event.edit', {
+      entityName: eventData?.name,
+      eventType: (eventData as { event_type?: string | null } | undefined)?.event_type,
+      entityId: id,
+      isLoading: eventLoading,
+    })} backHref={id ? `/event/${id}` : '/profile?role=organiser'}>
     <div className='px-4 pb-24'>
       <div className='max-w-2xl mx-auto'>
         <div className='flex items-center gap-4 mb-8'>

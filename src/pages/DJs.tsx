@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { buildFullName } from '@/lib/name-utils';
 
 type DJCard = {
@@ -42,7 +43,7 @@ const DJs = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={[{ label: 'Parties', path: '/parties' }, { label: 'DJs' }]}
+      breadcrumbs={buildBreadcrumbs('djs')}
       hero={{
         emoji: '🎧',
         titleWhite: 'Bachata',

@@ -19,7 +19,7 @@ type Props = {
   mode?: "card" | "strip";
 };
 
-type ClaimableEntityType = Extract<UserRole, "organiser" | "teacher" | "dj">;
+type ClaimableEntityType = Extract<UserRole, "organiser" | "dj">;
 
 type EntitySearchRow = {
   id: string;
@@ -29,7 +29,6 @@ type EntitySearchRow = {
 
 const CLAIM_TABLE_MAP: Record<ClaimableEntityType, string> = {
   organiser: 'entities',
-  teacher: 'teacher_profiles',
   dj: 'dj_profiles',
 };
 
@@ -165,9 +164,7 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
         .eq('id', entityId)
         .eq('type', 'organiser')
         .is('claimed_by', null)
-      : await supabase.rpc((claimType === 'teacher' ? 'claim_teacher_profile' : 'claim_dj_profile') as any, {
-        [claimType === 'teacher' ? 'p_teacher_id' : 'p_dj_id']: entityId,
-      } as any);
+      : await supabase.rpc('claim_dj_profile' as any, { p_dj_id: entityId } as any);
 
     if (error) {
       setClaimError(error.message || "Failed to claim profile.");
@@ -183,7 +180,9 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
   const ROLE_CREATE_ROUTES: Record<UserRole, string> = {
     dancer: '/profile',
     organiser: '/create-organiser-profile',
-    teacher: '/create-teacher-profile',
+    // Teacher signup parked 2026-04-30 — same pattern as vendor below: route
+    // falls back to /profile so the Record<UserRole,string> contract holds.
+    teacher: '/profile',
     dj: '/create-dj-profile',
     videographer: '/create-videographer-profile',
     // Vendor signup parked 2026-04-28 — route falls back to /profile so the
@@ -276,7 +275,7 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
                 <div className={`grid gap-2 ${isStrip ? "md:grid-cols-2" : ""}`}>
                   {missingAddableRoles.map((role) => {
                     const Icon = ROLE_META[role].icon;
-                    const isClaimable = role === "organiser" || role === "teacher" || role === "dj";
+                    const isClaimable = role === "organiser" || role === "dj";
 
                     return (
                       <div key={role} className={`flex items-center justify-between gap-2 rounded-lg border border-festival-teal/25 bg-background/50 ${isStrip ? "min-h-[36px] p-1.5" : "p-3"}`}>

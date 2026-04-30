@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { fetchPublicVenue } from '@/services/venuePublicService';
 import { VenueGalleryLightbox } from '@/components/venue/VenueGalleryLightbox';
 import { useFacilityLookup } from '@/hooks/useFacilityOptions';
@@ -121,15 +122,7 @@ const VenueEntity = () => {
   // Breadcrumb adapts to entry context. Cold = "Venues". Warm = source event.
   // Last item has no path → renders as the current-page label (non-clickable),
   // so the prior link (Venues / source event) stays clickable.
-  const venueBreadcrumbs = fromEventId
-    ? [
-        { label: sourceEvent?.name ?? 'Event', path: `/event/${fromEventId}` },
-        { label: venue?.name ?? 'Venue' },
-      ]
-    : [
-        { label: 'Venues', path: '/venues' },
-        { label: venue?.name ?? 'Venue' },
-      ];
+const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.name, isLoading });
   const backHref = fromEventId ? `/event/${fromEventId}` : '/venues';
 
   if (isLoading) {

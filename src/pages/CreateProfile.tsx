@@ -30,6 +30,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
     FAVORITE_STYLE_OPTIONS,
     PARTNER_PRACTICE_GOAL_OPTIONS,
@@ -965,7 +966,7 @@ const CreateProfile = () => {
         };
 
     return (
-        <GlobalLayout breadcrumbs={[{ label: 'Create dancer profile' }]} backHref='/profile?role=dancer'>
+        <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.createDancer')} backHref='/profile?role=dancer'>
         <div className='auth-noir pb-24 relative overflow-hidden'>
             <div className='absolute inset-0 bg-[radial-gradient(circle_at_top,_#FFF3D8,_transparent_60%)]' />
             <div className='absolute -top-16 -right-20 h-72 w-72 rounded-full bg-amber-200/70 blur-3xl' />

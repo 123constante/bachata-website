@@ -58,13 +58,6 @@ export const ProfileEntryFlow = ({
       value: "organiser" as const,
     },
     {
-      label: "Teacher",
-      description: "List workshops and classes.",
-      route: "/create-teacher-profile",
-      icon: GraduationCap,
-      value: "teacher" as const,
-    },
-    {
       label: "DJ",
       description: "Showcase mixes and gigs.",
       route: "/create-dj-profile",
