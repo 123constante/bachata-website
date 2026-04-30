@@ -16,11 +16,14 @@ import { CityProvider } from "@/contexts/CityContext";
 import { buildCityPath } from "@/lib/cityPath";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Analytics } from "@vercel/analytics/react";
+import ComingSoonGate from "@/components/ComingSoonGate";
+import { flags } from "@/lib/featureFlags";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
-// ─── Landing page: eager (most common entry point) ───────────────────────────
+// â”€â”€â”€ Landing page: eager (most common entry point) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import Index from "./pages/Index";
 
-// ─── All other pages: lazy-loaded ────────────────────────────────────────────
+// â”€â”€â”€ All other pages: lazy-loaded â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Parties = lazy(() => import("./pages/Parties"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Discounts = lazy(() => import("./pages/Discounts"));
@@ -46,7 +49,6 @@ const VenueEntity = lazy(() => import("./pages/VenueEntity"));
 const Cities = lazy(() => import("./pages/Cities"));
 const CreateProfile = lazy(() => import("./pages/CreateProfile"));
 const CreateOrganiserProfile = lazy(() => import("./pages/CreateOrganiserProfile"));
-const CreateDJProfile = lazy(() => import("./pages/CreateDJProfile"));
 const CreateVideographerProfile = lazy(() => import("./pages/CreateVideographerProfile"));
 const VendorDashboardPage = lazy(() => import("./pages/VendorDashboardPage"));
 const Vendors = lazy(() => import("./pages/Vendors"));
@@ -58,14 +60,14 @@ const Profile = lazy(() => import("./pages/Profile"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
 const EditEvent = lazy(() => import("./pages/EditEvent"));
 const CreateEvent = lazy(() => import("./pages/CreateEvent"));
-// Debug routes removed — security audit 2026-04-16
+// Debug routes removed â€” security audit 2026-04-16
 // const Debug = lazy(() => import("./pages/Debug"));
 // const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
-// Per-query staleTimes (2–5 min) still override where set. Events data changes on
-// the scale of days, not minutes — focus-refetch adds cost without user benefit.
+// Per-query staleTimes (2â€“5 min) still override where set. Events data changes on
+// the scale of days, not minutes â€” focus-refetch adds cost without user benefit.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -86,7 +88,7 @@ const RouteFallback = () => (
   </div>
 );
 
-/** Redirect bare `/` to `/city/<slug>` so the city is always visible in the URL. */
+/** Redirect bare slash to /city/<slug> so the city is always visible in the URL. */
 const CityRedirect = () => {
   const stored = localStorage.getItem('activeCitySlug');
   const slug = stored || 'london-gb';
@@ -124,19 +126,69 @@ const AnimatedRoutes = () => {
           <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
           <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
           <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
-          <Route path="/teachers" element={<PageTransition><Teachers /></PageTransition>} />
-          <Route path="/teachers/:id" element={<PageTransition><TeacherProfile /></PageTransition>} />
+          {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true
+              in dev (.env.development) and false in prod (.env.production /
+              Vercel project env). When gated, page component never mounts â€”
+              the gate renders GlobalLayout placeholder + ListingRequestForm
+              and sets noindex,nofollow on the document head. */}
+          <Route path="/teachers" element={
+            <ComingSoonGate
+              enabled={flags.teachersDirectory}
+              title="Teachers"
+              section="teachers_directory"
+              breadcrumbs={buildBreadcrumbs('teachers')}
+            >
+              <PageTransition><Teachers /></PageTransition>
+            </ComingSoonGate>
+          } />
+          <Route path="/teachers/:id" element={
+            <ComingSoonGate
+              enabled={flags.teacherDetail}
+              title="Teacher"
+              section="teacher_detail"
+              breadcrumbs={buildBreadcrumbs('teacher.detail', { entityName: undefined, isLoading: false })}
+            >
+              <PageTransition><TeacherProfile /></PageTransition>
+            </ComingSoonGate>
+          } />
           <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
           <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
           <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
           <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
           <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
-          <Route path="/organisers" element={<PageTransition><Organisers /></PageTransition>} />
-          <Route path="/organisers/:id" element={<PageTransition><OrganiserProfile /></PageTransition>} />
-          <Route path="/venue-entity/:id" element={<PageTransition><VenueEntity /></PageTransition>} />
+          <Route path="/organisers" element={
+            <ComingSoonGate
+              enabled={flags.organisersDirectory}
+              title="Organisers"
+              section="organisers_directory"
+              breadcrumbs={buildBreadcrumbs('organisers')}
+            >
+              <PageTransition><Organisers /></PageTransition>
+            </ComingSoonGate>
+          } />
+          <Route path="/organisers/:id" element={
+            <ComingSoonGate
+              enabled={flags.organiserDetail}
+              title="Organiser"
+              section="organiser_detail"
+              breadcrumbs={buildBreadcrumbs('organiser.detail', { entityName: undefined, isLoading: false })}
+            >
+              <PageTransition><OrganiserProfile /></PageTransition>
+            </ComingSoonGate>
+          } />
+          <Route path="/venue-entity/:id" element={
+            <ComingSoonGate
+              enabled={flags.venueDetail}
+              title="Venue"
+              section="venue_detail"
+              breadcrumbs={buildBreadcrumbs('venue.detail', { entityName: undefined, isLoading: false })}
+            >
+              <PageTransition><VenueEntity /></PageTransition>
+            </ComingSoonGate>
+          } />
           <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
 
-          {/* Phase 8 preview routes removed — winning variants (bento palette
+          {/* Phase 8 preview routes removed â€” winning variants (bento palette
               Vibe F, compact density, strong-button treatment, RaffleBlock B,
               CoverBlock) all promoted into the real /event/:id page. */}
 
@@ -149,11 +201,6 @@ const AnimatedRoutes = () => {
           <Route path="/create-organiser-profile" element={
             <AuthGuard>
               <PageTransition><CreateOrganiserProfile /></PageTransition>
-            </AuthGuard>
-          } />
-          <Route path="/create-dj-profile" element={
-            <AuthGuard>
-              <PageTransition><CreateDJProfile /></PageTransition>
             </AuthGuard>
           } />
           <Route path="/create-videographer-profile" element={
@@ -199,7 +246,7 @@ const AnimatedRoutes = () => {
               <PageTransition><Onboarding /></PageTransition>
             </AuthGuard>
           } />
-          {/* Debug routes removed — security audit 2026-04-16.
+          {/* Debug routes removed â€” security audit 2026-04-16.
               Restore behind admin-only AuthGuard if needed for production debugging.
           <Route path="/debug" element={<AuthGuard><PageTransition><Debug /></PageTransition></AuthGuard>} />
           <Route path="/debug/dashboard-patterns" element={<AuthGuard><PageTransition><DashboardPatternsDemo /></PageTransition></AuthGuard>} />

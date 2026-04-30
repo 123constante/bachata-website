@@ -5,15 +5,26 @@ const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacommunity.space';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
 
-const STATIC_PAGES: Array<{ path: string; changefreq: string; priority?: string }> = [
+// Phase 5 of listing-requests + smart-dashboard plan: skip gated routes from
+// the sitemap so search engines don't index placeholder pages. Vercel exposes
+// VITE_-prefixed env vars to API functions too â€” same source of truth as the
+// client-side flags object in src/lib/featureFlags.ts.
+const flags = {
+  teachersDirectory:   process.env.VITE_ENABLE_TEACHERS_DIRECTORY === 'true',
+  organisersDirectory: process.env.VITE_ENABLE_ORGANISERS_DIRECTORY === 'true',
+  // Detail flags aren't checked here because no detail routes appear in
+  // STATIC_PAGES â€” they'd only matter if we listed individual entity pages.
+} as const;
+
+const STATIC_PAGES: Array<{ path: string; changefreq: string; priority?: string; flag?: keyof typeof flags }> = [
   { path: '/', changefreq: 'daily', priority: '1.0' },
   { path: '/festivals', changefreq: 'daily', priority: '0.9' },
   { path: '/classes', changefreq: 'daily', priority: '0.8' },
   { path: '/parties', changefreq: 'daily', priority: '0.8' },
-  { path: '/teachers', changefreq: 'weekly', priority: '0.7' },
+  { path: '/teachers', changefreq: 'weekly', priority: '0.7', flag: 'teachersDirectory' },
   { path: '/djs', changefreq: 'weekly', priority: '0.7' },
   { path: '/dancers', changefreq: 'weekly', priority: '0.7' },
-  { path: '/organisers', changefreq: 'weekly', priority: '0.7' },
+  { path: '/organisers', changefreq: 'weekly', priority: '0.7', flag: 'organisersDirectory' },
   { path: '/venues', changefreq: 'weekly', priority: '0.6' },
 ];
 
@@ -69,8 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
   lines.push('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
 
-  // Static pages
+  // Static pages â€” filter out routes whose flag is false (Phase 5).
   for (const page of STATIC_PAGES) {
+    if (page.flag && !flags[page.flag]) continue;
     lines.push('  <url>');
     lines.push(`    <loc>${escapeXml(SITE_URL + page.path)}</loc>`);
     lines.push(`    <changefreq>${page.changefreq}</changefreq>`);
