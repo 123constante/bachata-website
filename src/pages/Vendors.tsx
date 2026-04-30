@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { emitProfileView } from "@/lib/profileViewEmit";
 import { CalendarDays, Globe, MapPin, Store } from "lucide-react";
 import { useVendorDirectory } from "@/hooks/vendor/useVendorDirectory";
 import { Card, CardContent } from "@/components/ui/card";
@@ -194,11 +195,11 @@ const Vendors = () => {
                   className="h-full overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                   role="link"
                   tabIndex={0}
-                  onClick={() => navigate(`/vendors/${vendor.id}`)}
+                  onClick={() => (emitProfileView({ personId: vendor.id, profileType: 'vendor', context: 'listing:vendors' }), navigate(`/vendors/${vendor.id}`))}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      navigate(`/vendors/${vendor.id}`);
+                      (emitProfileView({ personId: vendor.id, profileType: 'vendor', context: 'listing:vendors' }), navigate(`/vendors/${vendor.id}`));
                     }
                   }}
                 >
@@ -282,7 +283,7 @@ const Vendors = () => {
                           size="sm"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate(`/vendors/${vendor.id}?tab=products`);
+                            (emitProfileView({ personId: vendor.id, profileType: 'vendor', context: 'listing:vendors:products' }), navigate(`/vendors/${vendor.id}?tab=products`));
                           }}
                         >
                           Browse products

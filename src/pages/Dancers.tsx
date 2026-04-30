@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { emitProfileView } from '@/lib/profileViewEmit';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
@@ -321,7 +322,10 @@ const Dancers = () => {
                 <motion.div whileHover={{ y: -4, scale: 1.02 }} transition={{ duration: 0.3 }}>
                   <Card 
                     className="p-2 md:p-4 h-full bg-gradient-to-br from-surface to-background border-primary/20 hover:border-primary/50 transition-all duration-300 group cursor-pointer"
-                    onClick={() => navigate(`/dancers/${dancer.id}`)}
+                    onClick={() => {
+                      emitProfileView({ personId: dancer.id, profileType: 'dancer', context: 'listing:dancers' });
+                      navigate(`/dancers/${dancer.id}`);
+                    }}
                   >
                     {/* Avatar */}
                     <div className="flex justify-center mb-1 md:mb-2">

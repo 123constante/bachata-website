@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { CheckCircle2, Headphones, Music, Disc3, Radio, Volume2, Mic2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { emitProfileView } from '@/lib/profileViewEmit';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,10 @@ const DJs = () => {
 
               return (
                 <StaggerItem key={dj.id}>
-                  <Link to={`/djs/${dj.id}`}>
+                  <Link
+                  to={`/djs/${dj.id}`}
+                  onClick={() => emitProfileView({ personId: dj.id, profileType: 'dj', context: 'listing:djs' })}
+                >
                     <motion.div
                       whileHover={{ y: -4, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

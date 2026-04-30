@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { emitProfileView } from '@/lib/profileViewEmit';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Calendar, Users, Sparkles, Music, Trophy, Zap } from 'lucide-react';
@@ -96,7 +97,10 @@ const Organisers = () => {
 
               return (
                 <StaggerItem key={organiser.id}>
-                  <Link to={`/organisers/${organiser.id}`}>
+                  <Link
+                  to={`/organisers/${organiser.id}`}
+                  onClick={() => emitProfileView({ personId: organiser.id, profileType: 'organiser', context: 'listing:organisers' })}
+                >
                     <motion.div
                       whileHover={{ y: -4, scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}

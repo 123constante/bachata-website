@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
+import { emitProfileView } from '@/lib/profileViewEmit';
 
 type Teacher = {
   id: string;
@@ -379,7 +380,10 @@ const Teachers = () => {
                   <motion.div whileHover={{ y: -6, scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.25 }}>
                     <Card
                       className="p-5 h-full bg-gradient-to-br from-surface to-background border-primary/20 hover:border-primary/50 transition-all duration-300 cursor-pointer group"
-                      onClick={() => navigate(`/teachers/${teacher.id}`)}
+                      onClick={() => {
+                        emitProfileView({ personId: teacher.id, profileType: 'teacher', context: 'listing:teachers' });
+                        navigate(`/teachers/${teacher.id}`);
+                      }}
                     >
                       {/* Top row: avatar + name/meta */}
                       <div className="flex items-start gap-4 mb-3">
