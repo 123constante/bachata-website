@@ -405,7 +405,7 @@ export const RaffleBlock = () => {
         color={BLOCK_COLORS.raffle}
         onClick={tileClickable ? openEntryForm : undefined}
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-center gap-2 mb-2">
           <span
             className="text-[10px] font-bold uppercase"
             style={{ letterSpacing: '0.04em', color: 'hsl(var(--bento-accent))' }}
