@@ -23,7 +23,7 @@ import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 // dense surfaces; the outer hit area NEVER drops below 44 px (transparent
 // padding does the work — invisible but tappable).
 
-export type PersonChipSize = 'xs' | 'sm' | 'md' | 'lg';
+export type PersonChipSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 const SIZE_TABLE: Record<
   PersonChipSize,
@@ -39,7 +39,8 @@ const SIZE_TABLE: Record<
   xs: { avatarPx: 24, nameFontPx: 0,  showName: false, initialFontPx: 11, gapPx: 0, nameMaxCh: 0 },
   sm: { avatarPx: 28, nameFontPx: 13, showName: true,  initialFontPx: 12, gapPx: 7, nameMaxCh: 18 },
   md: { avatarPx: 40, nameFontPx: 14, showName: true,  initialFontPx: 15, gapPx: 8, nameMaxCh: 18 },
-  lg: { avatarPx: 52, nameFontPx: 14, showName: true,  initialFontPx: 18, gapPx: 9, nameMaxCh: 18 },
+  lg: { avatarPx: 52, nameFontPx: 13, showName: true,  initialFontPx: 18, gapPx: 9, nameMaxCh: 18 },
+  xl: { avatarPx: 64, nameFontPx: 9,  showName: true,  initialFontPx: 22, gapPx: 0, nameMaxCh: 0  },
 };
 
 // Minimum interactive hit area, per WCAG 2.5.5 / Material's 48 dp guideline.
@@ -71,9 +72,17 @@ export interface PersonChipProps {
    *  callsite force a contextual label (e.g. show "DJ" on a party row even
    *  if Person.role is empty). */
   roleOverride?: string;
-  /** When true, render the role tag above the avatar (only in `lg` size).
+  /** When true, render the role tag above the avatar in `lg` / `xl` size.
    *  Used by party headliner cards. */
   showRole?: boolean;
+  /** Override the chip's internal layout.
+   *   • 'row'     — avatar + name horizontal (default). Used by chip-row.
+   *   • 'stacked' — avatar above name, vertical. Used by class cards and
+   *                 party headliners. With showRole, the role tag stacks
+   *                 above the avatar.
+   *  When omitted, defaults to 'row' for sm/md and 'stacked' for lg/xl
+   *  with showRole, matching the most common callsite for each size. */
+  layout?: 'row' | 'stacked';
   /** Where this chip is being rendered. Currently unused; Phase 3 will wire
    *  click instrumentation against this label so we can attribute profile
    *  views per source ("schedule:event:abc", "search", "festival-lineup"). */
@@ -134,6 +143,7 @@ export const PersonChip = ({
   showRole = false,
   context,
   unlinked = 'dim',
+  layout,
 }: PersonChipProps) => {
   const t = SIZE_TABLE[size];
   const role = (roleOverride ?? person.role ?? '').trim();
@@ -146,57 +156,69 @@ export const PersonChip = ({
     ? person.name
     : `${person.name} — profile not yet on Bachata Calendar`;
 
-  // Inner anatomy. Size 'lg' with showRole renders role above avatar (matches
-  // legacy PartyDjRow); other sizes render avatar + name horizontally.
-  const inner =
-    size === 'lg' && showRole ? (
-      <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
-        {role && (
-          <div
-            className="mb-[3px] text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
-            style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1 }}
-          >
-            {role.toUpperCase()}
-          </div>
-        )}
-        <AvatarCircle person={person} size={size} dimmed={isDimmed} />
-        {t.showName && (
-          <div
-            className="mt-[4px] text-center leading-[1.2]"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontSize: t.nameFontPx,
-              color: 'hsl(var(--bento-fg))',
-              opacity: isDimmed ? 0.7 : 1,
-            }}
-          >
-            {person.name}
-          </div>
-        )}
-      </div>
-    ) : (
-      <div
-        className="flex items-center"
-        style={{ gap: t.gapPx, minHeight: HIT_AREA_MIN_PX }}
-      >
-        <AvatarCircle person={person} size={size} dimmed={isDimmed} />
-        {t.showName && (
-          <span
-            className="truncate"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontSize: t.nameFontPx,
-              fontWeight: 500,
-              color: 'hsl(var(--bento-fg))',
-              opacity: isDimmed ? 0.7 : 1,
-              maxWidth: `${t.nameMaxCh}ch`,
-            }}
-          >
-            {person.name}
-          </span>
-        )}
-      </div>
-    );
+  // Default layout picker — 'stacked' when the callsite asked for a role tag
+  // (party headliner) or when the size is 'xl' (class-card cell), 'row'
+  // otherwise (chip-row, default discovery shape).
+  const effectiveLayout: 'row' | 'stacked' =
+    layout ?? ((size === 'lg' && showRole) || size === 'xl' ? 'stacked' : 'row');
+
+  const stacked = effectiveLayout === 'stacked';
+  const inner = stacked ? (
+    <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
+      {showRole && role && (
+        <div
+          className="mb-[3px] text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
+          style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1 }}
+        >
+          {role.toUpperCase()}
+        </div>
+      )}
+      <AvatarCircle person={person} size={size} dimmed={isDimmed} />
+      {t.showName && (
+        <div
+          className="text-center leading-[1.1]"
+          style={{
+            // 'xl' (class-card) uses sans + 9 px to match the legacy WrapCell;
+            // 'lg' (party headliner) uses serif + 13 px to match FeatureCell.
+            fontFamily: size === 'xl' ? undefined : '"Fraunces", Georgia, serif',
+            fontSize: t.nameFontPx,
+            color: 'hsl(var(--bento-fg))',
+            opacity: isDimmed ? 0.7 : 1,
+            marginTop: size === 'xl' ? 3 : 4,
+            maxWidth: t.avatarPx + 16,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={person.name}
+        >
+          {person.name}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div
+      className="flex items-center"
+      style={{ gap: t.gapPx, minHeight: HIT_AREA_MIN_PX }}
+    >
+      <AvatarCircle person={person} size={size} dimmed={isDimmed} />
+      {t.showName && (
+        <span
+          className="truncate"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: t.nameFontPx,
+            fontWeight: 500,
+            color: 'hsl(var(--bento-fg))',
+            opacity: isDimmed ? 0.7 : 1,
+            maxWidth: `${t.nameMaxCh}ch`,
+          }}
+        >
+          {person.name}
+        </span>
+      )}
+    </div>
+  );
 
   // Common visual wrapper — radius, padding (for hit-area), focus ring.
   const visualStyle: React.CSSProperties = {

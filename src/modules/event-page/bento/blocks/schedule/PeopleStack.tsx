@@ -22,9 +22,7 @@ const MANY_TEACHERS_THRESHOLD = 6;
 const INLINE_ROW_VISIBLE_MAX = 4;
 
 const AVATAR_SIZES = {
-  inline: 32,   // overlapping in single-room rows; tight footprint
-  wrap: 64,     // class-card avatars; matches legacy PersonLink lg
-  feature: 52,  // party headliner avatars; matches legacy PartyDjRow
+  inline: 32,   // overlapping circles in the legacy InlineRow variant.
 } as const;
 
 // Level labels — duplicated here for now; Phase 2 (tokens) consolidates
@@ -125,85 +123,6 @@ const Avatar = ({ person, size }: { person: Person; size: number }) => {
         <span>{initial}</span>
       )}
     </div>
-  );
-};
-
-/** Wrap-cell — avatar + name beneath, optional <Link> wrapper when href is
- *  set. Used by wrap-row and wrap-leveled. Name is small (text-[9px]) to
- *  match the legacy PersonLink lg shape so this is a visual no-op. */
-const WrapCell = ({ person, size }: { person: Person; size: number }) => {
-  const body = (
-    <>
-      <Avatar person={person} size={size} />
-      <div
-        className="truncate text-center text-[9px] leading-[1.1]"
-        title={person.name}
-        style={{ color: 'hsl(var(--bento-fg))', maxWidth: size + 16 }}
-      >
-        {person.name}
-      </div>
-    </>
-  );
-  const cls = 'flex flex-col items-center gap-[3px]';
-  const style = { width: size + 8 };
-  if (!person.href) {
-    return (
-      <div className={cls} style={style} aria-label={person.name}>
-        {body}
-      </div>
-    );
-  }
-  return (
-    <Link
-      to={person.href}
-      className={`${cls} transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40`}
-      style={style}
-    >
-      {body}
-    </Link>
-  );
-};
-
-/** Feature-cell — role tag above, avatar in middle, serif name below.
- *  Matches the legacy PartyDjRow shape so PartyCard renders identically. */
-const FeatureCell = ({ person, size }: { person: Person; size: number }) => {
-  const body = (
-    <>
-      {person.role && (
-        <div
-          className="mb-[3px] text-[9px] font-bold uppercase tracking-[0.10em] leading-tight"
-          style={{ color: 'hsl(var(--bento-accent))' }}
-        >
-          {person.role.toUpperCase()}
-        </div>
-      )}
-      <Avatar person={person} size={size} />
-      <div
-        className="mt-[4px] text-center leading-[1.2]"
-        style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontSize: '13px',
-          color: 'hsl(var(--bento-fg))',
-        }}
-      >
-        {person.name}
-      </div>
-    </>
-  );
-  if (!person.href) {
-    return (
-      <div className="flex flex-col items-center px-1" aria-label={person.name}>
-        {body}
-      </div>
-    );
-  }
-  return (
-    <Link
-      to={person.href}
-      className="flex flex-col items-center px-1 transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-    >
-      {body}
-    </Link>
   );
 };
 
@@ -344,15 +263,17 @@ const InlineRow = ({ people }: { people: Person[] }) => {
   );
 };
 
-/** wrap-row — flex-wrap of WrapCell, with overflow collapse at threshold. */
+/** wrap-row — flex-wrap of <PersonChip size="xl" layout="stacked">, with overflow collapse at threshold. */
 const WrapRow = ({
   people,
   threshold,
   onOverflowClick,
+  context,
 }: {
   people: Person[];
   threshold: number;
   onOverflowClick?: () => void;
+  context?: string;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -366,7 +287,7 @@ const WrapRow = ({
   return (
     <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
       {people.map((p) => (
-        <WrapCell key={p.id} person={p} size={AVATAR_SIZES.wrap} />
+        <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
       ))}
     </div>
   );
@@ -378,11 +299,13 @@ const WrapLeveled = ({
   sessionLevels,
   threshold,
   onOverflowClick,
+  context,
 }: {
   people: Person[];
   sessionLevels: SessionLevel[];
   threshold: number;
   onOverflowClick?: () => void;
+  context?: string;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -416,7 +339,7 @@ const WrapLeveled = ({
               {LEVEL_LABEL_FULL[lvl]}
             </span>
             {ppl.map((p) => (
-              <WrapCell key={p.id} person={p} size={AVATAR_SIZES.wrap} />
+              <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
             ))}
           </div>
         );
@@ -430,7 +353,7 @@ const WrapLeveled = ({
             Open Level
           </span>
           {wholePpl.map((p) => (
-            <WrapCell key={p.id} person={p} size={AVATAR_SIZES.wrap} />
+            <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
           ))}
         </div>
       )}
@@ -438,13 +361,28 @@ const WrapLeveled = ({
   );
 };
 
-/** vertical-feature — stacked FeatureCells for parties / performances. */
-const VerticalFeature = ({ people }: { people: Person[] }) => {
+/** vertical-feature — stacked PersonChips (lg + showRole) for parties /
+ *  performances. Phase 2 collapses the former FeatureCell into PersonChip's
+ *  layout='stacked'+showRole shape. Visual no-op. */
+const VerticalFeature = ({
+  people,
+  context,
+}: {
+  people: Person[];
+  context?: string;
+}) => {
   if (people.length === 0) return null;
   return (
     <div className="mt-[10px] flex flex-col items-center gap-[10px]">
       {people.map((p) => (
-        <FeatureCell key={p.id} person={p} size={AVATAR_SIZES.feature} />
+        <PersonChip
+          key={p.id}
+          person={p}
+          size="lg"
+          layout="stacked"
+          showRole
+          context={context}
+        />
       ))}
     </div>
   );
@@ -478,6 +416,7 @@ export const PeopleStack = ({
           people={people}
           threshold={overflowThreshold}
           onOverflowClick={onOverflowClick}
+          context={context}
         />
       );
     case 'wrap-leveled':
@@ -487,10 +426,11 @@ export const PeopleStack = ({
           sessionLevels={sessionLevels ?? []}
           threshold={overflowThreshold}
           onOverflowClick={onOverflowClick}
+          context={context}
         />
       );
     case 'vertical-feature':
-      return <VerticalFeature people={people} />;
+      return <VerticalFeature people={people} context={context} />;
     default:
       return null;
   }
