@@ -13,7 +13,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventLink, setEventLink] = useState('');
-  // Honeypot field â€” bots fill, humans don't. Rejected on the server.
+  // Honeypot field &mdash; bots fill, humans don't. Rejected on the server.
   const [fieldUrlCheck, setFieldUrlCheck] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -66,7 +66,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
           return;
         }
         if (result?.error === 'invalid_section') {
-          setErrorMessage('Form configuration error â€” please refresh and try again.');
+          setErrorMessage('Form configuration error &mdash; please refresh and try again.');
           return;
         }
         // Unknown server error
@@ -94,7 +94,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
         role="status"
         className="rounded-lg border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900"
       >
-        Thanks â€” I&rsquo;ll call you soon.
+        Thanks &mdash; I&rsquo;ll call you soon.
       </div>
     );
   }
@@ -103,7 +103,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
     <form onSubmit={handleSubmit} className="space-y-3" noValidate>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="block text-sm font-medium mb-1">Your name</span>
+          <span className="block text-sm font-medium text-slate-900 mb-1">Your name</span>
           <input
             type="text"
             required
@@ -111,12 +111,12 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={submitting}
-            className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
+            className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
           />
         </label>
 
         <label className="block">
-          <span className="block text-sm font-medium mb-1">Phone</span>
+          <span className="block text-sm font-medium text-slate-900 mb-1">Phone</span>
           <input
             type="tel"
             required
@@ -125,13 +125,13 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={submitting}
-            className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
+            className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
           />
         </label>
       </div>
 
       <label className="block">
-        <span className="block text-sm font-medium mb-1">Event link</span>
+        <span className="block text-sm font-medium text-slate-900 mb-1">Event link</span>
         <input
           type="url"
           required
@@ -140,15 +140,15 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
           value={eventLink}
           onChange={(e) => setEventLink(e.target.value)}
           disabled={submitting}
-          className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
+          className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
         />
-        <span className="block text-xs text-slate-500 mt-1">
-          Paste a link to your event â€” your Facebook event, Eventbrite, Instagram post,
+        <span className="block text-xs text-slate-600 mt-1">
+          Paste a link to your event &mdash; your Facebook event, Eventbrite, Instagram post,
           your own site, anything.
         </span>
       </label>
 
-      {/* Honeypot â€” visually hidden but still focusable for bots that scan the DOM. */}
+      {/* Honeypot &mdash; visually hidden but still focusable for bots that scan the DOM. */}
       <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, overflow: 'hidden' }}>
         <label>
           Do not fill this in
@@ -171,7 +171,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
         disabled={submitting}
         className="inline-flex items-center justify-center rounded-md bg-orange-500 py-2 px-4 text-sm font-medium text-white hover:bg-orange-600 disabled:bg-orange-300 disabled:cursor-not-allowed"
       >
-        {submitting ? 'Sendingâ€¦' : 'Send my details'}
+        {submitting ? 'Sending&hellip;' : 'Send my details'}
       </button>
     </form>
   );

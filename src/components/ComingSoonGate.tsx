@@ -9,7 +9,7 @@ interface ComingSoonGateProps {
   enabled: boolean;
   /** Human-readable label shown in the placeholder header (e.g. "Teachers", "Venue"). */
   title: string;
-  /** Section value submitted with the listing request â€” must match the listing_request_section enum. */
+  /** Section value submitted with the listing request &mdash; must match the listing_request_section enum. */
   section: ListingSection;
   /** Breadcrumb trail for the placeholder branch. The real-page branch passes its own. */
   breadcrumbs: BreadcrumbItemType[];
@@ -61,13 +61,13 @@ export default function ComingSoonGate({
 
   return (
     <GlobalLayout breadcrumbs={breadcrumbs}>
-      <div className="max-w-prose mx-auto px-3 py-8 space-y-3">
-        <h1 className="text-lg font-semibold">Coming soon â€” {title}</h1>
-        <p className="text-sm text-slate-700">
-          This section is under construction. If you have an event you&rsquo;d like
-          on the calendar, drop your details below â€” Ricky will call you to add it.
-        </p>
-        <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="max-w-prose mx-auto px-3 py-8">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-slate-900 space-y-4">
+          <h1 className="text-lg font-semibold text-slate-900">Coming soon &mdash; {title}</h1>
+          <p className="text-sm text-slate-700">
+            This section is under construction. If you have an event you&rsquo;d like
+            on the calendar, drop your details below &mdash; Ricky will call you to add it.
+          </p>
           <ListingRequestForm section={section} />
         </div>
       </div>
