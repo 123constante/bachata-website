@@ -205,12 +205,16 @@ const RankCard = ({
   inGrid,
   isMultiRoom,
   roomAccent,
+  eventId,
 }: {
   session: ScheduleSession;
   inGrid: boolean;
   isMultiRoom: boolean;
   /** Per-room accent color. Drives left-edge stripe + tints rank chip. */
   roomAccent?: string;
+  /** Forwarded to PeopleStack → PersonChip → emitProfileView for click
+   *  attribution. */
+  eventId: string | null;
 }) => {
   const rank = rankFor(session);
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
@@ -294,6 +298,8 @@ const RankCard = ({
             people={session.people}
             variant={useLeveled ? 'wrap-leveled' : 'wrap-row'}
             sessionLevels={session.levels}
+            context="schedule:multi-room"
+            eventId={eventId}
           />
         );
       })()}
@@ -328,11 +334,14 @@ const PartyCard = ({
   session,
   isMultiRoom,
   roomAccent,
+  eventId,
 }: {
   session: ScheduleSession;
   isMultiRoom: boolean;
   /** Per-room accent color. Drives left-edge stripe + tints note tag. */
   roomAccent?: string;
+  /** Forwarded to PeopleStack → PersonChip → emitProfileView. */
+  eventId: string | null;
 }) => {
   const isPerformance = session.type === 'performance' || session.type === 'show';
   // End time is in the TimeSection's "10:00 PM – 5:00 AM" header above, so
@@ -398,7 +407,12 @@ const PartyCard = ({
         );
       })()}
 
-      <PeopleStack people={session.people} variant="vertical-feature" />
+      <PeopleStack
+        people={session.people}
+        variant="vertical-feature"
+        context="schedule:multi-room-party"
+        eventId={eventId}
+      />
     </div>
   );
 };
@@ -580,7 +594,13 @@ const RoomColumnHeaders = ({ rooms }: { rooms: string[] }) => {
 // row: time + duration on the left, avatar in the middle, pill + names on the
 // right. No TimeSection band above — each row carries its own time.
 
-const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
+const SingleRoomScheduleRow = ({
+  session,
+  eventId,
+}: {
+  session: ScheduleSession;
+  eventId: string | null;
+}) => {
   const isParty = session.type === 'party';
   const isPerformance = session.type === 'performance' || session.type === 'show';
   const isPartyish = isParty || isPerformance;
@@ -665,6 +685,7 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
               people={session.people}
               variant="chip-row"
               context="schedule:single-room"
+              eventId={eventId}
             />
           </div>
         ) : (
@@ -927,6 +948,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
                                   key={s.id}
                                   session={s}
                                   isMultiRoom={isMultiRoom}
+                                  eventId={eventId}
                                 />
                               ) : (
                                 <RankCard
@@ -934,6 +956,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
                                   session={s}
                                   inGrid={true}
                                   isMultiRoom={isMultiRoom}
+                                  eventId={eventId}
                                 />
                               ),
                             )}
@@ -953,7 +976,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
                     className="flex flex-col gap-[6px]"
                   >
                     {slot.sessions.map((s) => (
-                      <SingleRoomScheduleRow key={s.id} session={s} />
+                      <SingleRoomScheduleRow key={s.id} session={s} eventId={eventId} />
                     ))}
                   </div>
                 );

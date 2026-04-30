@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
+import { emitProfileView } from '@/lib/profileViewEmit';
 
 // ─── PersonChip — atomic per-person render primitive ─────────────────────────
 //
@@ -89,6 +90,11 @@ export interface PersonChipProps {
   context?: string;
   /** Behaviour when person.href is null. Default 'dim'. */
   unlinked?: UnlinkedMode;
+  /** When this chip is rendered inside a specific event surface (schedule
+   *  row, related-events strip), pass the event id so click telemetry can
+   *  attribute the discovery to that event. Optional — listings / search
+   *  callsites leave it null. */
+  eventId?: string | null;
 }
 
 // ─── Implementation ──────────────────────────────────────────────────────────
@@ -144,6 +150,7 @@ export const PersonChip = ({
   context,
   unlinked = 'dim',
   layout,
+  eventId,
 }: PersonChipProps) => {
   const t = SIZE_TABLE[size];
   const role = (roleOverride ?? person.role ?? '').trim();
@@ -239,6 +246,17 @@ export const PersonChip = ({
   };
 
   if (isLinked && person.href) {
+    // onClick fires synchronously before navigation. emitProfileView is
+    // fire-and-forget; we never block or delay the actual <Link> behaviour
+    // even on a failed RPC call.
+    const handleClick = () => {
+      emitProfileView({
+        personId: person.id,
+        profileType: person.profileType,
+        context: context ?? 'schedule',
+        eventId: eventId ?? null,
+      });
+    };
     return (
       <Link
         to={person.href}
@@ -246,6 +264,7 @@ export const PersonChip = ({
         aria-label={tooltip}
         className={cls}
         style={visualStyle}
+        onClick={handleClick}
         {...dataAttrs}
       >
         {inner}

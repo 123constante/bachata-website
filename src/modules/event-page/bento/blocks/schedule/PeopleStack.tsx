@@ -84,9 +84,13 @@ export interface PeopleStackProps {
    *  parents can wire one up later via this prop. */
   onOverflowClick?: () => void;
   /** Analytics context label forwarded to every PersonChip rendered inside
-   *  this stack. Phase 3 will wire the click-tracking pipeline against this
-   *  attribute (e.g. 'schedule:event:abc', 'search', 'festival-lineup'). */
+   *  this stack (e.g. 'schedule:single-room', 'schedule:multi-room',
+   *  'search', 'festival-lineup'). */
   context?: string;
+  /** Event id, forwarded to PersonChip → emitProfileView so click telemetry
+   *  can attribute discovery to a specific event. Pass when the stack
+   *  renders inside a schedule surface; leave null on listings / search. */
+  eventId?: string | null;
 }
 
 // ─── Internal leaf components ────────────────────────────────────────────────
@@ -178,11 +182,13 @@ const ChipRow = ({
   threshold,
   onOverflowClick,
   context,
+  eventId,
 }: {
   people: Person[];
   threshold: number;
   onOverflowClick?: () => void;
   context?: string;
+  eventId?: string | null;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -196,7 +202,7 @@ const ChipRow = ({
   return (
     <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
       {people.map((p) => (
-        <PersonChip key={p.id} person={p} size="sm" context={context} />
+        <PersonChip key={p.id} person={p} size="sm" context={context} eventId={eventId} />
       ))}
     </div>
   );
@@ -269,11 +275,13 @@ const WrapRow = ({
   threshold,
   onOverflowClick,
   context,
+  eventId,
 }: {
   people: Person[];
   threshold: number;
   onOverflowClick?: () => void;
   context?: string;
+  eventId?: string | null;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -287,7 +295,7 @@ const WrapRow = ({
   return (
     <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
       {people.map((p) => (
-        <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
+        <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
       ))}
     </div>
   );
@@ -300,12 +308,14 @@ const WrapLeveled = ({
   threshold,
   onOverflowClick,
   context,
+  eventId,
 }: {
   people: Person[];
   sessionLevels: SessionLevel[];
   threshold: number;
   onOverflowClick?: () => void;
   context?: string;
+  eventId?: string | null;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -339,7 +349,7 @@ const WrapLeveled = ({
               {LEVEL_LABEL_FULL[lvl]}
             </span>
             {ppl.map((p) => (
-              <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
+              <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
             ))}
           </div>
         );
@@ -353,7 +363,7 @@ const WrapLeveled = ({
             Open Level
           </span>
           {wholePpl.map((p) => (
-            <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} />
+            <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
           ))}
         </div>
       )}
@@ -367,9 +377,11 @@ const WrapLeveled = ({
 const VerticalFeature = ({
   people,
   context,
+  eventId,
 }: {
   people: Person[];
   context?: string;
+  eventId?: string | null;
 }) => {
   if (people.length === 0) return null;
   return (
@@ -382,6 +394,7 @@ const VerticalFeature = ({
           layout="stacked"
           showRole
           context={context}
+          eventId={eventId}
         />
       ))}
     </div>
@@ -397,6 +410,7 @@ export const PeopleStack = ({
   overflowThreshold = MANY_TEACHERS_THRESHOLD,
   onOverflowClick,
   context,
+  eventId,
 }: PeopleStackProps) => {
   switch (variant) {
     case 'chip-row':
@@ -406,6 +420,7 @@ export const PeopleStack = ({
           threshold={overflowThreshold}
           onOverflowClick={onOverflowClick}
           context={context}
+          eventId={eventId}
         />
       );
     case 'inline-row':
@@ -417,6 +432,7 @@ export const PeopleStack = ({
           threshold={overflowThreshold}
           onOverflowClick={onOverflowClick}
           context={context}
+          eventId={eventId}
         />
       );
     case 'wrap-leveled':
@@ -427,10 +443,11 @@ export const PeopleStack = ({
           threshold={overflowThreshold}
           onOverflowClick={onOverflowClick}
           context={context}
+          eventId={eventId}
         />
       );
     case 'vertical-feature':
-      return <VerticalFeature people={people} context={context} />;
+      return <VerticalFeature people={people} context={context} eventId={eventId} />;
     default:
       return null;
   }
