@@ -46,10 +46,10 @@ const DJs = () => {
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('djs')}
       hero={{
-        emoji: 'ðŸŽ§',
+        emoji: '\u{1F3A7}',
         titleWhite: 'Bachata',
         titleOrange: 'DJs',
-        subtitle: 'Discover the DJs behind the music â€” sensual, traditional, and everything in between.',
+        subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
         floatingIcons: [Headphones, Music, Disc3, Radio, Volume2, Mic2],
       }}
     >
@@ -67,7 +67,7 @@ const DJs = () => {
           </div>
         ) : djs.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-4xl mb-3">ðŸŽ§</div>
+            <Headphones className="w-10 h-10 mb-3 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">No DJs yet.</p>
           </div>
         ) : (

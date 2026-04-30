@@ -20,10 +20,10 @@ import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
-// â”€â”€â”€ Landing page: eager (most common entry point) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Landing page: eager (most common entry point) ---
 import Index from "./pages/Index";
 
-// â”€â”€â”€ All other pages: lazy-loaded â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- All other pages: lazy-loaded ---
 const Parties = lazy(() => import("./pages/Parties"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Discounts = lazy(() => import("./pages/Discounts"));
@@ -60,14 +60,14 @@ const Profile = lazy(() => import("./pages/Profile"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
 const EditEvent = lazy(() => import("./pages/EditEvent"));
 const CreateEvent = lazy(() => import("./pages/CreateEvent"));
-// Debug routes removed â€” security audit 2026-04-16
+// Debug routes removed -- security audit 2026-04-16
 // const Debug = lazy(() => import("./pages/Debug"));
 // const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
-// Per-query staleTimes (2â€“5 min) still override where set. Events data changes on
-// the scale of days, not minutes â€” focus-refetch adds cost without user benefit.
+// Per-query staleTimes (2--5 min) still override where set. Events data changes on
+// the scale of days, not minutes -- focus-refetch adds cost without user benefit.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -128,7 +128,7 @@ const AnimatedRoutes = () => {
           <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
           {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true
               in dev (.env.development) and false in prod (.env.production /
-              Vercel project env). When gated, page component never mounts â€”
+              Vercel project env). When gated, page component never mounts --
               the gate renders GlobalLayout placeholder + ListingRequestForm
               and sets noindex,nofollow on the document head. */}
           <Route path="/teachers" element={
@@ -188,7 +188,7 @@ const AnimatedRoutes = () => {
           } />
           <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
 
-          {/* Phase 8 preview routes removed â€” winning variants (bento palette
+          {/* Phase 8 preview routes removed -- winning variants (bento palette
               Vibe F, compact density, strong-button treatment, RaffleBlock B,
               CoverBlock) all promoted into the real /event/:id page. */}
 
@@ -246,7 +246,7 @@ const AnimatedRoutes = () => {
               <PageTransition><Onboarding /></PageTransition>
             </AuthGuard>
           } />
-          {/* Debug routes removed â€” security audit 2026-04-16.
+          {/* Debug routes removed -- security audit 2026-04-16.
               Restore behind admin-only AuthGuard if needed for production debugging.
           <Route path="/debug" element={<AuthGuard><PageTransition><Debug /></PageTransition></AuthGuard>} />
           <Route path="/debug/dashboard-patterns" element={<AuthGuard><PageTransition><DashboardPatternsDemo /></PageTransition></AuthGuard>} />

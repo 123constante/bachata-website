@@ -93,7 +93,7 @@ const DJProfile = () => {
         breadcrumbs={djBreadcrumbs}
         backHref="/djs"
         hero={{
-          emoji: 'ðŸŽ§',
+          emoji: '\u{1F3A7}',
           titleWhite: '',
           titleOrange: 'DJ',
           largeTitle: true,
@@ -117,7 +117,7 @@ const DJProfile = () => {
         breadcrumbs={djBreadcrumbs}
         backHref="/djs"
         hero={{
-          emoji: 'ðŸŽ§',
+          emoji: '\u{1F3A7}',
           titleWhite: 'DJ',
           titleOrange: 'not found',
           largeTitle: true,
@@ -151,14 +151,14 @@ const DJProfile = () => {
     dj.facebook && { label: 'Facebook', handle: 'Facebook', url: normalizeUrl(dj.facebook), icon: Globe, color: 'text-blue-500' },
   ].filter(Boolean) as { label: string; handle: string; url: string; icon: any; color: string }[];
 
-  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' Â· ');
+  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' · ');
 
   return (
     <GlobalLayout
       breadcrumbs={djBreadcrumbs}
       backHref="/djs"
       hero={{
-        emoji: 'ðŸŽ§',
+        emoji: '\u{1F3A7}',
         titleWhite: displayName,
         titleOrange: 'DJ',
         subtitle: djSubtitle,
@@ -171,8 +171,8 @@ const DJProfile = () => {
         initial="hidden"
         animate="show"
       >
-        {/* â”€â”€ Supporting identity (real name, genres) â€” name, city,
-            nationality now live in the hero. â”€â”€ */}
+        {/* Supporting identity (real name, genres) -- name, city,
+            nationality now live in the hero. */}
         {(realName && realName !== displayName) || genres.length > 0 ? (
           <motion.div variants={itemVariants} className="mb-6 flex flex-wrap items-center gap-3">
             {realName && realName !== displayName && (
@@ -190,7 +190,7 @@ const DJProfile = () => {
           </motion.div>
         ) : null}
 
-        {/* â”€â”€ Bio â”€â”€ */}
+        {/* Bio */}
         {dj.bio && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -199,7 +199,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* â”€â”€ Socials grid â”€â”€ */}
+        {/* Socials grid */}
         {socialLinks.length > 0 && (
           <motion.div variants={itemVariants} className="mb-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -222,7 +222,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* â”€â”€ Pricing â”€â”€ */}
+        {/* Pricing */}
         {dj.pricing && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -234,7 +234,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* â”€â”€ FAQ â”€â”€ */}
+        {/* FAQ */}
         {dj.faq && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -246,7 +246,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* â”€â”€ Gallery â”€â”€ */}
+        {/* Gallery */}
         {galleryUrls.length > 0 && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -269,7 +269,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* â”€â”€ Event appearances â”€â”€ */}
+        {/* Event appearances */}
         <motion.div variants={itemVariants}>
           <ProfileEventTimeline
             personType="dj"
