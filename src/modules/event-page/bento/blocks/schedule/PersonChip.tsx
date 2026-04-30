@@ -1,0 +1,248 @@
+import { Link } from 'react-router-dom';
+import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
+
+// ─── PersonChip — atomic per-person render primitive ─────────────────────────
+//
+// Phase 1.5 of the schedule renderer unification (decision locked 2026-04-30):
+// every place on the platform that names a person — schedule rows, class cards,
+// party headliners, search results, festival lineups, listing pages — funnels
+// through this one component. That guarantees:
+//
+//   • Every avatar+name is a real <Link> with a 44 px hit area (WCAG 2.5.5).
+//   • Focus ring + active state are consistent everywhere.
+//   • The "no profile yet" state is rendered uniformly (dim/hide/placeholder).
+//   • Click instrumentation lands once and works across every surface (Phase 3).
+//
+// PersonChip is intentionally low-level. It does NOT decide layout (overlap vs
+// row vs grid). PeopleStack picks the layout and renders zero or more chips
+// inside it. See plan_person_discoverability.md.
+
+// ─── Sizes ───────────────────────────────────────────────────────────────────
+//
+// Picked at the callsite. The avatar visual size shrinks down to 24 px for
+// dense surfaces; the outer hit area NEVER drops below 44 px (transparent
+// padding does the work — invisible but tappable).
+
+export type PersonChipSize = 'xs' | 'sm' | 'md' | 'lg';
+
+const SIZE_TABLE: Record<
+  PersonChipSize,
+  {
+    avatarPx: number;
+    nameFontPx: number;
+    showName: boolean;
+    initialFontPx: number;
+    gapPx: number;
+    nameMaxCh: number;
+  }
+> = {
+  xs: { avatarPx: 24, nameFontPx: 0,  showName: false, initialFontPx: 11, gapPx: 0, nameMaxCh: 0 },
+  sm: { avatarPx: 28, nameFontPx: 13, showName: true,  initialFontPx: 12, gapPx: 7, nameMaxCh: 18 },
+  md: { avatarPx: 40, nameFontPx: 14, showName: true,  initialFontPx: 15, gapPx: 8, nameMaxCh: 18 },
+  lg: { avatarPx: 52, nameFontPx: 14, showName: true,  initialFontPx: 18, gapPx: 9, nameMaxCh: 18 },
+};
+
+// Minimum interactive hit area, per WCAG 2.5.5 / Material's 48 dp guideline.
+// Outer wrapper enforces this with transparent padding so the visual chip can
+// stay compact without sacrificing tap reliability on mobile.
+const HIT_AREA_MIN_PX = 44;
+
+// ─── Unlinked behaviour ──────────────────────────────────────────────────────
+//
+// When a session names a person who doesn't yet have a profile in our DB
+// (Person.href is null), the chip needs a defined fallback:
+//
+//   • 'dim'         — show the chip greyed out, name visible, tooltip explains
+//                     why it's not a link. (Default, decision 2 locked
+//                     2026-04-30.)
+//   • 'hide'        — render nothing. Cheaper UX but loses the discovery hint.
+//   • 'placeholder' — show the chip at full opacity, but rendered as a non-link
+//                     `<div>`. Useful when the person is a known placeholder
+//                     name that shouldn't visually de-emphasise.
+
+export type UnlinkedMode = 'dim' | 'hide' | 'placeholder';
+
+// ─── Props ───────────────────────────────────────────────────────────────────
+
+export interface PersonChipProps {
+  person: Person;
+  size?: PersonChipSize;
+  /** Optional override — Person.role is the default. Passing here lets the
+   *  callsite force a contextual label (e.g. show "DJ" on a party row even
+   *  if Person.role is empty). */
+  roleOverride?: string;
+  /** When true, render the role tag above the avatar (only in `lg` size).
+   *  Used by party headliner cards. */
+  showRole?: boolean;
+  /** Where this chip is being rendered. Currently unused; Phase 3 will wire
+   *  click instrumentation against this label so we can attribute profile
+   *  views per source ("schedule:event:abc", "search", "festival-lineup"). */
+  context?: string;
+  /** Behaviour when person.href is null. Default 'dim'. */
+  unlinked?: UnlinkedMode;
+}
+
+// ─── Implementation ──────────────────────────────────────────────────────────
+
+const initialFor = (name: string): string => (name || '?').charAt(0).toUpperCase();
+
+/** The visible avatar circle. All sizes use the same anatomy — only the
+ *  pixel knobs differ. The outer wrapper handles hit-area, not this. */
+const AvatarCircle = ({
+  person,
+  size,
+  dimmed,
+}: {
+  person: Person;
+  size: PersonChipSize;
+  dimmed: boolean;
+}) => {
+  const t = SIZE_TABLE[size];
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
+      style={{
+        width: t.avatarPx,
+        height: t.avatarPx,
+        fontSize: t.initialFontPx,
+        background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
+        border: person.avatarUrl ? undefined : '1.5px solid var(--bento-hairline)',
+        color: 'hsl(var(--bento-accent))',
+        opacity: dimmed ? 0.55 : 1,
+      }}
+    >
+      {person.avatarUrl ? (
+        <img
+          src={person.avatarUrl}
+          alt=""
+          width={t.avatarPx}
+          height={t.avatarPx}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <span>{initialFor(person.name)}</span>
+      )}
+    </div>
+  );
+};
+
+export const PersonChip = ({
+  person,
+  size = 'sm',
+  roleOverride,
+  showRole = false,
+  context,
+  unlinked = 'dim',
+}: PersonChipProps) => {
+  const t = SIZE_TABLE[size];
+  const role = (roleOverride ?? person.role ?? '').trim();
+  const isLinked = !!person.href;
+
+  // Decide what to render based on linkedness + unlinked mode.
+  if (!isLinked && unlinked === 'hide') return null;
+  const isDimmed = !isLinked && unlinked === 'dim';
+  const tooltip = isLinked
+    ? person.name
+    : `${person.name} — profile not yet on Bachata Calendar`;
+
+  // Inner anatomy. Size 'lg' with showRole renders role above avatar (matches
+  // legacy PartyDjRow); other sizes render avatar + name horizontally.
+  const inner =
+    size === 'lg' && showRole ? (
+      <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
+        {role && (
+          <div
+            className="mb-[3px] text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
+            style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1 }}
+          >
+            {role.toUpperCase()}
+          </div>
+        )}
+        <AvatarCircle person={person} size={size} dimmed={isDimmed} />
+        {t.showName && (
+          <div
+            className="mt-[4px] text-center leading-[1.2]"
+            style={{
+              fontFamily: '"Fraunces", Georgia, serif',
+              fontSize: t.nameFontPx,
+              color: 'hsl(var(--bento-fg))',
+              opacity: isDimmed ? 0.7 : 1,
+            }}
+          >
+            {person.name}
+          </div>
+        )}
+      </div>
+    ) : (
+      <div
+        className="flex items-center"
+        style={{ gap: t.gapPx, minHeight: HIT_AREA_MIN_PX }}
+      >
+        <AvatarCircle person={person} size={size} dimmed={isDimmed} />
+        {t.showName && (
+          <span
+            className="truncate"
+            style={{
+              fontFamily: '"Fraunces", Georgia, serif',
+              fontSize: t.nameFontPx,
+              fontWeight: 500,
+              color: 'hsl(var(--bento-fg))',
+              opacity: isDimmed ? 0.7 : 1,
+              maxWidth: `${t.nameMaxCh}ch`,
+            }}
+          >
+            {person.name}
+          </span>
+        )}
+      </div>
+    );
+
+  // Common visual wrapper — radius, padding (for hit-area), focus ring.
+  const visualStyle: React.CSSProperties = {
+    paddingInline: 4,
+    paddingBlock: 2,
+    borderRadius: 9999,
+  };
+  const cls =
+    'inline-flex items-center transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none';
+
+  // data-* attributes so Phase 3 click instrumentation can attribute discovery
+  // sources without re-touching every callsite.
+  const dataAttrs = {
+    'data-person-id': person.id,
+    'data-profile-type': person.profileType ?? 'unknown',
+    'data-context': context ?? 'schedule',
+    'data-linked': isLinked ? 'true' : 'false',
+  };
+
+  if (isLinked && person.href) {
+    return (
+      <Link
+        to={person.href}
+        title={tooltip}
+        aria-label={tooltip}
+        className={cls}
+        style={visualStyle}
+        {...dataAttrs}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  // Unlinked → render as non-interactive span. Cursor stays default. Tooltip
+  // explains. Dimming (when chosen) signals "this person exists but isn't a
+  // profile we host yet" without hiding them outright.
+  return (
+    <span
+      title={tooltip}
+      aria-label={tooltip}
+      className="inline-flex items-center"
+      style={visualStyle}
+      {...dataAttrs}
+    >
+      {inner}
+    </span>
+  );
+};

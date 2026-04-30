@@ -601,19 +601,18 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
   const rank = !isPartyish ? rankFor(session) : null;
   const rankInline = rank && !rank.muted ? rank.text : null;
 
-  const peopleNames = session.people.map((p) => p.name).filter(Boolean).join(' / ');
-
-  // Compose the right-side label: title and people separated by " · " when both
-  // exist. e.g. "Bachata · Juan Soto" or just "Juan Soto" or "Bachata".
-  const rightLine = [titleText, peopleNames].filter(Boolean).join(' · ');
+  // Composite headline for the pill row (e.g. "CLASS · Bachata", "DJ", "SHOW · Opening").
+  // Title appears in the pill row when distinctive; people render as chips below.
+  const headlineRight = [titleText, rankInline].filter(Boolean).join(' · ');
+  const fullHeadline = [pillText, headlineRight].filter(Boolean).join(' · ');
 
   return (
     <div
-      className="grid items-center gap-[12px] px-1 py-1"
-      style={{ gridTemplateColumns: '64px auto 1fr' }}
+      className="grid items-start gap-[10px] px-1 py-1"
+      style={{ gridTemplateColumns: '64px 1fr' }}
     >
       {/* Time column */}
-      <div className="text-center">
+      <div className="text-center" style={{ paddingTop: '2px' }}>
         <div
           style={{
             fontSize: '12px',
@@ -639,53 +638,48 @@ const SingleRoomScheduleRow = ({ session }: { session: ScheduleSession }) => {
         </div>
       </div>
 
-      {/* Avatar(s) — every session.people stacked overlapping. Was previously
-           hard-coded to people[0], silently dropping every other teacher/DJ
-           (the bug Phase 1 of the schedule renderer unification fixes). Now
-           routes through PeopleStack inline-row variant — first 4 visible,
-           rest collapse to a "+N" pill (plan_schedule_renderer_unification.md). */}
-      <div>
-        {session.people.length > 0 ? (
-          <PeopleStack people={session.people} variant="inline-row" />
-        ) : (
-          <div
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
-            style={{
-              background: 'hsl(var(--bento-surface))',
-              border: '1.5px solid var(--bento-hairline)',
-            }}
-          />
-        )}
-      </div>
-
-      {/* Content */}
+      {/* Content column — pill + people chips. The dedicated avatar column was
+           dropped in Phase 1.5 of the renderer unification: per-person profile
+           discovery requires individual click targets, not overlapping circles.
+           Each PersonChip is its own Link with a 44 px hit area, wrapping when
+           the row runs out of width and collapsing to "+N teachers" past the
+           threshold. See plan_person_discoverability.md (Bachata Calendar PM). */}
       <div className="min-w-0">
         <div
           style={{
+            fontFamily: 'var(--font-mono, ui-monospace)',
             fontSize: '9px',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.10em',
             color: 'hsl(var(--bento-accent))',
-            lineHeight: 1.1,
+            lineHeight: 1.2,
           }}
           title={LEVEL_LABEL_FULL_TOOLTIP(session)}
         >
-          {pillText}
-          {rankInline ? ` · ${rankInline}` : ''}
+          {fullHeadline}
         </div>
-        <div
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '14px',
-            fontWeight: 500,
-            color: 'hsl(var(--bento-fg))',
-            marginTop: '3px',
-            lineHeight: 1.2,
-          }}
-        >
-          {rightLine || (isPartyish ? 'TBA' : pillText)}
-        </div>
+        {session.people.length > 0 ? (
+          <div style={{ marginTop: '8px' }}>
+            <PeopleStack
+              people={session.people}
+              variant="chip-row"
+              context="schedule:single-room"
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              fontFamily: '"Fraunces", Georgia, serif',
+              fontSize: '14px',
+              color: 'hsl(var(--bento-fg-muted))',
+              marginTop: '6px',
+              fontStyle: 'italic',
+            }}
+          >
+            {isPartyish ? 'TBA' : 'Teachers TBA'}
+          </div>
+        )}
       </div>
     </div>
   );

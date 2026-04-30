@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Person, SessionLevel } from '@/modules/event-page/sections/EventScheduleGrid';
+import { PersonChip } from '@/modules/event-page/bento/blocks/schedule/PersonChip';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 //
@@ -46,8 +47,15 @@ const LEVEL_ORDER: SessionLevel[] = [
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type PeopleStackVariant =
-  /** Overlapping circles only, no names. Used inside SingleRoomScheduleRow,
-   *  where the names render in the row's right-hand text column. */
+  /** Wrapping horizontal row of (avatar + name) chips. Each chip is its own
+   *  PersonChip — a Link with 44 px hit area and click-tracking attributes.
+   *  Default discovery layout for single-room schedule rows, search hits,
+   *  related-events strips. Decision locked 2026-04-30 — overlap is no
+   *  longer the default; opt into chip-overlap explicitly when needed. */
+  | 'chip-row'
+  /** [LEGACY — kept for backward compatibility while other surfaces migrate]
+   *  Overlapping circles only, no names. Was the single-room default
+   *  before chip-row was introduced. Avoid for new code. */
   | 'inline-row'
   /** Flex-wrap of (avatar + name beneath). Flat class card layout — used
    *  by RankCard when a session has 0 or 1 levels, or when no person has
@@ -69,13 +77,18 @@ export interface PeopleStackProps {
    *  display order; the renderer uses this to drive the per-level grouping. */
   sessionLevels?: SessionLevel[];
   /** Override the >N teacher overflow trigger. Default 6. Festival cells
-   *  may want to raise this. Only consulted by wrap-row and wrap-leveled. */
+   *  may want to raise this. Only consulted by wrap-row, wrap-leveled and
+   *  chip-row variants. */
   overflowThreshold?: number;
-  /** Click handler for the "+N teachers" pill in the wrap variants. If
+  /** Click handler for the "+N teachers" pill in the overflow variants. If
    *  unset, the pill renders as a non-interactive label with a hover
    *  tooltip listing the full name set. Phase 1 doesn't ship a modal —
    *  parents can wire one up later via this prop. */
   onOverflowClick?: () => void;
+  /** Analytics context label forwarded to every PersonChip rendered inside
+   *  this stack. Phase 3 will wire the click-tracking pipeline against this
+   *  attribute (e.g. 'schedule:event:abc', 'search', 'festival-lineup'). */
+  context?: string;
 }
 
 // ─── Internal leaf components ────────────────────────────────────────────────
@@ -234,6 +247,41 @@ const OverflowPill = ({
 };
 
 // ─── Variants ────────────────────────────────────────────────────────────────
+
+// ─── Variant: chip-row ───────────────────────────────────────────────────────
+//
+// Wrapping horizontal row of PersonChip (size='sm'). Each person is its own
+// link with a 44 px hit area, name visible, no overlap. Above the threshold
+// the whole row collapses to a "+N teachers" pill (decision 5).
+
+const ChipRow = ({
+  people,
+  threshold,
+  onOverflowClick,
+  context,
+}: {
+  people: Person[];
+  threshold: number;
+  onOverflowClick?: () => void;
+  context?: string;
+}) => {
+  if (people.length === 0) return null;
+  if (people.length > threshold) {
+    const overflowNames = people.map((p) => p.name).join(', ');
+    return (
+      <div className="flex">
+        <OverflowPill count={people.length} names={overflowNames} onClick={onOverflowClick} />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
+      {people.map((p) => (
+        <PersonChip key={p.id} person={p} size="sm" context={context} />
+      ))}
+    </div>
+  );
+};
 
 /** inline-row — overlapping avatars, no names, fixed footprint. */
 const InlineRow = ({ people }: { people: Person[] }) => {
@@ -410,8 +458,18 @@ export const PeopleStack = ({
   sessionLevels,
   overflowThreshold = MANY_TEACHERS_THRESHOLD,
   onOverflowClick,
+  context,
 }: PeopleStackProps) => {
   switch (variant) {
+    case 'chip-row':
+      return (
+        <ChipRow
+          people={people}
+          threshold={overflowThreshold}
+          onOverflowClick={onOverflowClick}
+          context={context}
+        />
+      );
     case 'inline-row':
       return <InlineRow people={people} />;
     case 'wrap-row':
