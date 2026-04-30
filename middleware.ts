@@ -283,17 +283,21 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
 }
 
 async function fetchDjMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&select=dj_name,first_name,surname,photo_url,bio,genres,cities!city_id(name)`;
-  const res = await supabaseFetch(`/rest/v1/dj_profiles?${query}`);
+  const res = await supabaseFetch('/rest/v1/rpc/get_public_dj_v1', {
+    method: 'POST',
+    body: JSON.stringify({ p_dj_id: id }),
+  });
   if (!res || !res.ok) return null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: any = await res.json();
-  const d = Array.isArray(rows) ? rows[0] : null;
+  const d: any = await res.json();
   if (!d) return null;
 
   const realName = `${d.first_name ?? ''} ${d.surname ?? ''}`.replace(/\s+/g, ' ').trim();
-  const titleRaw = (d.dj_name && String(d.dj_name).trim()) || realName || 'Bachata DJ';
+  const titleRaw = (d.display_name && String(d.display_name).trim())
+    || (d.dj_name && String(d.dj_name).trim())
+    || realName
+    || 'Bachata DJ';
   const title = truncate(titleRaw, 90);
 
   let description: string;
@@ -301,7 +305,7 @@ async function fetchDjMeta(id: string, url: string): Promise<OgMeta | null> {
     description = truncate(d.bio, 160);
   } else {
     let base = 'Bachata DJ';
-    if (d.cities?.name) base += ` in ${d.cities.name}`;
+    if (d.city_name) base += ` in ${d.city_name}`;
     if (Array.isArray(d.genres) && d.genres.length > 0) {
       base += ' \u2014 ' + d.genres.slice(0, 3).join(', ');
     }

@@ -152,7 +152,7 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
       }
     }
 
-    if (path.endsWith('/rest/v1/entities') || path.endsWith('/rest/v1/dj_profiles') || path.endsWith('/rest/v1/teacher_profiles') || path.endsWith('/rest/v1/videographers')) {
+    if (path.endsWith('/rest/v1/entities') || path.endsWith('/rest/v1/teacher_profiles') || path.endsWith('/rest/v1/videographers')) {
       if (method === 'GET') return json(route, null);
     }
 

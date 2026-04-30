@@ -15,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const ROLE_CREATE_ROUTES: Record<string, string> = {
   organiser: '/create-organiser-profile',
-  dj: '/create-dj-profile',
   videographer: '/create-videographer-profile',
 };
 
@@ -23,7 +22,6 @@ interface ProfileEntryIds {
   dancerId: string | null;
   organiserId: string | null;
   teacherId: string | null;
-  djId: string | null;
   videographerId: string | null;
   vendorId: string | null;
 }

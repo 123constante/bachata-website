@@ -65,6 +65,21 @@ export default {
           plum: "hsl(var(--bento-plum))",
           surface: "hsl(var(--bento-surface))",
         },
+        // Venue page — Latin Warm (2026-04-30). See index.css for token
+        // definitions. Extends, not replaces, the existing brand palette.
+        venue: {
+          bg: "hsl(var(--venue-bg))",
+          surface: "hsl(var(--venue-surface))",
+          "surface-hi": "hsl(var(--venue-surface-hi))",
+          line: "hsl(var(--venue-line))",
+          cream: "hsl(var(--venue-cream))",
+          "cream-mut": "hsl(var(--venue-cream-mut))",
+          brass: "hsl(var(--venue-brass))",
+          ember: "hsl(var(--venue-ember))",
+          rose: "hsl(var(--venue-rose))",
+          spice: "hsl(var(--venue-spice))",
+          cumin: "hsl(var(--venue-cumin))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

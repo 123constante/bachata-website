@@ -30,3 +30,9 @@ jobs:
 
       - name: Run integrity guard (sealed wrapper)
         run: bin/check-integrity.sh
+
+      - name: Run legacy-tables guardrail (event_profile_links*)
+        run: npm run check:legacy-tables
+
+      - name: Run runtime architecture guard
+        run: npm run lint:architecture

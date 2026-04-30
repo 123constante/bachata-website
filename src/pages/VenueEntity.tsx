@@ -14,7 +14,10 @@ import { cn } from '@/lib/utils';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { fetchPublicVenue } from '@/services/venuePublicService';
-import { VenueGalleryLightbox } from '@/components/venue/VenueGalleryLightbox';
+import { VenueHero } from '@/components/venue/VenueHero';
+import { VenueAtAGlance } from '@/components/venue/VenueAtAGlance';
+import { VenueActionRow } from '@/components/venue/VenueActionRow';
+import { computeVenueOpenStatus } from '@/lib/venueOpenStatus';
 import { useFacilityLookup } from '@/hooks/useFacilityOptions';
 
 type VenueOccurrenceRow = {
@@ -233,8 +236,8 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
     (parkingJson.parking_available !== null || !!parkingJson.nearby_parking_notes);
   const hasFaq = faqItems.length > 0;
 
-  const venueSubtitle = addressPillText;
-
+  // Address subtitle removed from page-header 2026-04-30 (Ricky's call) —
+  // address still surfaces below in the identity strip + Getting Here tile.
   return (
     <GlobalLayout
       breadcrumbs={venueBreadcrumbs}
@@ -243,7 +246,6 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
         emoji: '🏛️',
         titleWhite: venue.name ?? '',
         titleOrange: 'Venue',
-        subtitle: venueSubtitle,
         largeTitle: true,
       }}
     >
@@ -251,7 +253,7 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
         {/* Merged media block */}
         <div className="mb-3">
           {allImages.length > 0 ? (
-            <VenueGalleryLightbox allImages={allImages} venueName={venue.name} />
+            <VenueHero allImages={allImages} venueName={venue.name} />
           ) : (
             <div className="aspect-video w-full rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 flex items-center justify-center">
               <Building2 className="w-10 h-10 text-primary/40" />
@@ -260,31 +262,32 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
         </div>
 
 
-        {/* Identity strip — pills */}
-        {(addressPillText || venue.capacity) && (
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {addressPillText && (
-              mapsUrl ? (
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className={PILL_CLASS}>
-                  <MapPin className="w-3 h-3 flex-shrink-0 text-primary" />
-                  <span className="truncate max-w-[70vw] sm:max-w-md">{addressPillText}</span>
-                </a>
-              ) : (
-                <span className={cn(PILL_CLASS, 'hover:bg-muted/50 cursor-default')}>
-                  <MapPin className="w-3 h-3 flex-shrink-0 text-primary" />
-                  <span className="truncate max-w-[70vw] sm:max-w-md">{addressPillText}</span>
-                </span>
-              )
-            )}
-            {venue.capacity && (
-              <span className={cn(PILL_CLASS, 'hover:bg-muted/50 cursor-default')}>
-                <Users className="w-3 h-3 flex-shrink-0 text-primary" />
-                <span className="font-medium">{venue.capacity}</span>
-                <span className="text-muted-foreground">capacity</span>
-              </span>
-            )}
-          </div>
-        )}
+        {/* At-a-glance + action row (Phase 2c — replaces identity pill strip).
+            Open-now status, walking-from-tube, capacity, floor, bar/cloak/ID
+            chips, then primary actions: Directions / Save / Share / Events. */}
+        {(() => {
+          const openStatus = computeVenueOpenStatus(
+            openingHours as Parameters<typeof computeVenueOpenStatus>[0],
+            (venue as { timezone?: string | null }).timezone ?? null,
+            new Date(),
+          );
+          const scrollToEvents = () => {
+            const el = document.getElementById('venue-upcoming-events');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          };
+          return (
+            <>
+              <VenueAtAGlance venue={venue} status={openStatus} />
+              <VenueActionRow
+                venueId={id ?? ''}
+                venueName={venue.name ?? 'venue'}
+                mapsUrl={mapsUrl}
+                upcomingCount={events?.length ?? 0}
+                onScrollToEvents={scrollToEvents}
+              />
+            </>
+          );
+        })()}
 
         {/* Description — full width prose */}
         {venue.description && (
@@ -545,8 +548,9 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
           </div>
         )}
 
-        {/* Upcoming Events — heading flips to "Other events" on warm entry */}
-        <div className="bg-card border border-border rounded-lg p-3">
+        {/* Upcoming Events — heading flips to "Other events" on warm entry.
+            id is the scroll target for the "Events" action row button. */}
+        <div id="venue-upcoming-events" className="bg-card border border-border rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
             <Calendar className="w-3.5 h-3.5 text-primary" />
             <h2 className="text-xs font-semibold text-foreground">

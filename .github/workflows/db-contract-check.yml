@@ -8,6 +8,10 @@ name: DB Contract Check
 #  3. The event-program duration contract — events.start_time/end_time
 #     must align (within 240 min) with meta_data.program span for standard
 #     events (admin migration 20260429320000_event_program_duration_contract_v1).
+#  4. The session-people display_name_override contract — Phase A.5 of the
+#     unified profile model plan (admin migrations 20260430180000 /
+#     20260430180100 / 20260430180200). No override may equal the canonical
+#     render (would indicate snapshot-pattern regression).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -53,3 +57,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-program-duration.mjs
+
+      - name: Run session-people display_name override contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-session-people-display-name-contract.mjs

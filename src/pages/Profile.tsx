@@ -14,7 +14,7 @@ const Profile = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user, signOut } = useAuth();
-    const { dancerId, organiserId, teacherId, djId, videographerId, vendorId, loading, refetch } = useUserIds();
+    const { dancerId, organiserId, teacherId, videographerId, vendorId, loading, refetch } = useUserIds();
     const [activeRole, setActiveRole] = useState<UserRole>('dancer');
     const [isSignOutOpen, setIsSignOutOpen] = useState(false);
     const [isSigningOut, setIsSigningOut] = useState(false);
@@ -24,10 +24,9 @@ const Profile = () => {
         dancerId ? 'dancer' : null,
         organiserId ? 'organiser' : null,
         teacherId ? 'teacher' : null,
-        djId ? 'dj' : null,
         videographerId ? 'videographer' : null,
         vendorId ? 'vendor' : null
-    ].filter(Boolean) as UserRole[], [dancerId, organiserId, teacherId, djId, videographerId, vendorId]);
+    ].filter(Boolean) as UserRole[], [dancerId, organiserId, teacherId, videographerId, vendorId]);
 
     const requestedRole = searchParams.get('role') as UserRole | null;
     const availableRolesKey = availableRoles.join('|');
@@ -68,7 +67,6 @@ const Profile = () => {
         dancerId,
         organiserId,
         teacherId,
-        djId,
         videographerId,
         vendorId,
     };

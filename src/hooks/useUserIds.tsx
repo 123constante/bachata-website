@@ -8,7 +8,6 @@ export type UserRole = 'dancer' | 'organiser' | 'dj' | 'teacher' | 'videographer
 export interface UserIds {
   dancerId: string | null;
   organiserId: string | null;
-  djId: string | null;
   teacherId: string | null;
   videographerId: string | null;
   vendorId: string | null;
@@ -20,7 +19,6 @@ export const useUserIds = () => {
   const [ids, setIds] = useState<UserIds>({
     dancerId: null,
     organiserId: null,
-    djId: null,
     teacherId: null,
     videographerId: null,
     vendorId: null,
@@ -50,18 +48,12 @@ export const useUserIds = () => {
         const dancer = dancerRes.data;
 
         // Parallel fetching for performance (dependent dancer fetch already resolved)
-        const [organiserRes, djRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
+        const [organiserRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
           supabase
             .from('entities')
             .select('id, city_id, cities(name)')
             .eq('claimed_by', user.id)
             .eq('type', 'organiser')
-            .maybeSingle(),
-
-          supabase
-            .from('dj_profiles')
-            .select('id')
-            .eq('user_id', user.id)
             .maybeSingle(),
 
           supabase
@@ -84,7 +76,6 @@ export const useUserIds = () => {
         ]);
 
         const organiser = organiserRes.data;
-        const dj = djRes.data;
         const teacher = teacherRes.data;
         const videographer = videographerRes.data;
         let vendor: { id: string } | null = vendorRes.data?.id ? { id: vendorRes.data.id } : null;
@@ -132,7 +123,6 @@ export const useUserIds = () => {
         setIds({
           dancerId: dancer?.id || null,
           organiserId: organiser ? organiser.id : null,
-          djId: dj ? dj.id : null,
           teacherId: teacher ? teacher.id : null,
           videographerId: videographer?.id || null,
           vendorId: vendor?.id || null,

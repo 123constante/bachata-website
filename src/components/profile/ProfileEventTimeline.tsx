@@ -13,7 +13,7 @@ type ProfileEventTimelineProps = {
   /**
    * The profile-table ID for this person:
    *   teacher      → teacher_profiles.id
-   *   dj           → dj_profiles.id        (NOT entities.id)
+   *   dj           → dancer_profiles.id    (NOT entities.id)
    *   vendor       → vendors.id
    *   videographer → videographers.id
    *   dancer       → dancer_profiles.id

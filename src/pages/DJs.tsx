@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, Headphones, Music, Disc3, Radio, Volume2, Mic2 } from 'lucide-react';
+import { Headphones, Music, Disc3, Radio, Volume2, Mic2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { useQuery } from '@tanstack/react-query';
@@ -14,30 +14,30 @@ import { buildFullName } from '@/lib/name-utils';
 
 type DJCard = {
   id: string;
+  display_name: string | null;
   dj_name: string | null;
   first_name: string | null;
   surname: string | null;
-  hide_real_name: boolean | null;
   photo_url: string | string[] | null;
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
-  verified: boolean | null;
-  city: string | null;
-  cities?: { name: string } | null;
+  city_id: string | null;
+  city_name: string | null;
+  city_slug: string | null;
+  person_entity_id: string | null;
 };
 
 const DJs = () => {
   const { data: djs = [], isLoading } = useQuery({
     queryKey: ['dj-profiles-directory'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('dj_profiles')
-        .select('id, dj_name, first_name, surname, hide_real_name, photo_url, bio, genres, nationality, verified, city, cities!city_id(name)')
-        .or('is_active.is.null,is_active.eq.true')
-        .order('dj_name', { ascending: true, nullsFirst: false });
+      const { data, error } = await supabase.rpc('list_public_djs_v1', {
+        p_city_id: null,
+        p_limit: 200,
+      });
       if (error) throw error;
-      return (data ?? []) as unknown as DJCard[];
+      return ((data ?? []) as unknown) as DJCard[];
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -46,10 +46,10 @@ const DJs = () => {
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('djs')}
       hero={{
-        emoji: '🎧',
+        emoji: 'ðŸŽ§',
         titleWhite: 'Bachata',
         titleOrange: 'DJs',
-        subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
+        subtitle: 'Discover the DJs behind the music â€” sensual, traditional, and everything in between.',
         floatingIcons: [Headphones, Music, Disc3, Radio, Volume2, Mic2],
       }}
     >
@@ -67,17 +67,17 @@ const DJs = () => {
           </div>
         ) : djs.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-4xl mb-3">🎧</div>
+            <div className="text-4xl mb-3">ðŸŽ§</div>
             <p className="text-muted-foreground">No DJs yet.</p>
           </div>
         ) : (
           <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {djs.map((dj) => {
-              const displayName = dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
+              const displayName = dj.display_name || dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
               const coverPhoto = Array.isArray(dj.photo_url)
                 ? (dj.photo_url[0] ?? null)
                 : ((dj.photo_url as string | null) ?? null);
-              const cityName = dj.cities?.name || dj.city;
+              const cityName = dj.city_name;
               const genres = (dj.genres ?? []).filter(Boolean);
 
               return (
@@ -98,9 +98,6 @@ const DJs = () => {
                             {displayName.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        {dj.verified && (
-                          <CheckCircle2 className="w-4 h-4 text-primary absolute -bottom-0.5 -right-0.5 bg-card rounded-full" />
-                        )}
                       </div>
 
                       <p className="font-bold text-sm text-foreground leading-tight mb-0.5 line-clamp-1">{displayName}</p>

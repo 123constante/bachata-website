@@ -416,9 +416,9 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
 
     </motion.div>
 
-    {/* Event-level appearances from event_profile_links (dancer role).
+    {/* Event appearances resolved from event_program_people (canonical EPP).
         dancer.id === dancer_profiles.id, which is the profile_id stored in
-        event_profile_links for profile_type = 'dancer'. */}
+        event_program_people for profile_type = 'dancer'. */}
     <div className="mt-6">
       <ProfileEventTimeline
         personType="dancer"

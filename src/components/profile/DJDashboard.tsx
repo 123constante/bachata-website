@@ -26,7 +26,6 @@ export const DJDashboard = () => {
             </div>
           </div>
           <div className='flex items-center gap-2'>
-            <Button size='sm' variant='ghost' className='h-7 text-[10px] text-muted-foreground hover:text-foreground' onClick={() => navigate('/create-dj-profile')}>Use wizard</Button>
             <Button size='sm' className='h-7 text-[11px]' onClick={() => navigate('/create-event')}>{DASHBOARD_LABELS.addGig}</Button>
           </div>
         </div>

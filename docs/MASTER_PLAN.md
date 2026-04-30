@@ -5,7 +5,7 @@
 ### What's done
 - Admin dashboard: event-people linking rebuilt with single authority (event_program_people)
 - 8 Phase B migrations applied + 2 pre-B2 fixes
-- Legacy dual-authority eliminated (replace_or_patch_lineup removed, event_profile_links frozen)
+- Legacy dual-authority eliminated (replace_or_patch_lineup removed; event_profile_links frozen 2026-04-15 and dropped 2026-04-30)
 - Session identity stabilised (upsert by legacy_id)
 - People tab (SessionPeopleLinkPanel) fully built with UX polish
 - Festival schedule tab rewired to read from event_program_people
@@ -14,7 +14,7 @@
 - Promo code alias created (Phase D)
 
 ### What's broken / incomplete
-- Public website reads from event_profile_links (frozen) — lineup invisible for People-tab links
+- Public site reads canonical event_program_people; legacy event_profile_links retired 2026-04-30.
 - 4 cleanup items not completed from rebuild audit (see Phase 0 below)
 - Session identity stability not verified via SQL check
 - Public site not tested on mobile
@@ -50,7 +50,7 @@ Apply all pending migrations via supabase db push.
 - Modify get_event_page_snapshot (v2 or v3) to read lineup from event_program_people
 - Modify get_public_festival_detail to read lineup from event_program_people
 - Festival schedule RPCs return per-session teacher/DJ names
-- Remove all reads from event_profile_links in public RPCs
+- Removed all EPL reads from public RPCs (Phases B1, B4).
 
 ### 1b. Venue geocoding
 - Add lat/lng columns to venues table

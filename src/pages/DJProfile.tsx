@@ -2,8 +2,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Music, Instagram, Globe, Mail, ExternalLink,
-  Disc3, Youtube, Mic2, CheckCircle2, DollarSign, BookOpen, Image,
+  ArrowLeft, Music, Instagram, Globe, ExternalLink,
+  Disc3, BookOpen, Image, DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,30 +17,30 @@ import { buildFullName } from '@/lib/name-utils';
 
 type DJRow = {
   id: string;
+  display_name: string | null;
   dj_name: string | null;
   first_name: string | null;
   surname: string | null;
-  hide_real_name: boolean | null;
   photo_url: string | string[] | null;
+  cover_url: string | null;
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
+  city_id: string | null;
+  city_name: string | null;
+  city_slug: string | null;
+  person_entity_id: string | null;
   instagram: string | null;
   facebook: string | null;
   website: string | null;
   soundcloud: string | null;
-  youtube_url: string | null;
-  youtube: string | null;
   mixcloud: string | null;
-  public_email: string | null;
-  booking_email: string | null;
-  sample_mix_urls: string[] | null;
-  gallery_urls: string[] | null;
-  faq: string | null;
   pricing: string | null;
-  verified: boolean | null;
-  city: string | null;
-  cities?: { name: string } | null;
+  faq: string | null;
+  gallery_urls: string[] | null;
+  languages: string[] | null;
+  achievements: string[] | null;
+  upcoming_events: unknown;
 };
 
 const normalizeUrl = (raw: string | null) => {
@@ -76,11 +76,7 @@ const DJProfile = () => {
     queryKey: ['dj-profile', id],
     queryFn: async () => {
       if (!id) throw new Error('DJ ID is required');
-      const { data, error } = await supabase
-        .from('dj_profiles')
-        .select('*, cities!city_id(name)')
-        .eq('id', id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_public_dj_v1', { p_dj_id: id });
       if (error) throw error;
       if (!data) throw new Error('DJ not found');
       return data as unknown as DJRow;
@@ -89,7 +85,7 @@ const DJProfile = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const djBreadcrumbs = buildBreadcrumbs('dj.detail', { entityName: dj?.dj_name ?? undefined, isLoading });
+  const djBreadcrumbs = buildBreadcrumbs('dj.detail', { entityName: dj?.display_name ?? dj?.dj_name ?? undefined, isLoading });
 
   if (isLoading) {
     return (
@@ -97,7 +93,7 @@ const DJProfile = () => {
         breadcrumbs={djBreadcrumbs}
         backHref="/djs"
         hero={{
-          emoji: '🎧',
+          emoji: 'ðŸŽ§',
           titleWhite: '',
           titleOrange: 'DJ',
           largeTitle: true,
@@ -121,7 +117,7 @@ const DJProfile = () => {
         breadcrumbs={djBreadcrumbs}
         backHref="/djs"
         hero={{
-          emoji: '🎧',
+          emoji: 'ðŸŽ§',
           titleWhite: 'DJ',
           titleOrange: 'not found',
           largeTitle: true,
@@ -139,40 +135,30 @@ const DJProfile = () => {
     );
   }
 
-  const displayName = dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
-  const realName = (!dj.hide_real_name && (dj.first_name || dj.surname))
+  const displayName = dj.display_name || dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
+  const realName = (dj.first_name || dj.surname)
     ? buildFullName(dj.first_name, dj.surname)
     : null;
-  const cityName = dj.cities?.name || dj.city;
-  const coverPhoto = Array.isArray(dj.photo_url)
-    ? (dj.photo_url[0] ?? null)
-    : (dj.photo_url ?? null);
+  const cityName = dj.city_name;
   const genres = Array.isArray(dj.genres) ? dj.genres.filter(Boolean) : [];
   const galleryUrls = Array.isArray(dj.gallery_urls) ? dj.gallery_urls.filter(Boolean) : [];
-  const sampleMixes = Array.isArray(dj.sample_mix_urls) ? dj.sample_mix_urls.filter(Boolean) : [];
 
   const socialLinks = [
     dj.instagram && { label: 'Instagram', handle: getInstagramHandle(dj.instagram), url: normalizeUrl(dj.instagram), icon: Instagram, color: 'text-pink-400' },
     dj.website && { label: 'Website', handle: dj.website.replace(/^https?:\/\//, '').split('/')[0], url: normalizeUrl(dj.website), icon: Globe, color: 'text-blue-400' },
     dj.soundcloud && { label: 'SoundCloud', handle: 'SoundCloud', url: normalizeUrl(dj.soundcloud), icon: Music, color: 'text-orange-400' },
-    (dj.youtube_url || dj.youtube) && { label: 'YouTube', handle: 'YouTube', url: normalizeUrl(dj.youtube_url || dj.youtube), icon: Youtube, color: 'text-red-400' },
     dj.mixcloud && { label: 'Mixcloud', handle: 'Mixcloud', url: normalizeUrl(dj.mixcloud), icon: Disc3, color: 'text-purple-400' },
     dj.facebook && { label: 'Facebook', handle: 'Facebook', url: normalizeUrl(dj.facebook), icon: Globe, color: 'text-blue-500' },
   ].filter(Boolean) as { label: string; handle: string; url: string; icon: any; color: string }[];
 
-  const contactLinks = [
-    dj.booking_email && { label: 'Booking', value: dj.booking_email, url: `mailto:${dj.booking_email}`, icon: Mail },
-    dj.public_email && { label: 'Contact', value: dj.public_email, url: `mailto:${dj.public_email}`, icon: Mail },
-  ].filter(Boolean) as { label: string; value: string; url: string; icon: any }[];
-
-  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' · ');
+  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' Â· ');
 
   return (
     <GlobalLayout
       breadcrumbs={djBreadcrumbs}
       backHref="/djs"
       hero={{
-        emoji: '🎧',
+        emoji: 'ðŸŽ§',
         titleWhite: displayName,
         titleOrange: 'DJ',
         subtitle: djSubtitle,
@@ -185,16 +171,10 @@ const DJProfile = () => {
         initial="hidden"
         animate="show"
       >
-        {/* ── Supporting identity (verified, real name, genres) — name, city,
-            nationality now live in the hero. ── */}
-        {(realName && realName !== displayName) || dj.verified || genres.length > 0 ? (
+        {/* â”€â”€ Supporting identity (real name, genres) â€” name, city,
+            nationality now live in the hero. â”€â”€ */}
+        {(realName && realName !== displayName) || genres.length > 0 ? (
           <motion.div variants={itemVariants} className="mb-6 flex flex-wrap items-center gap-3">
-            {dj.verified && (
-              <span className="inline-flex items-center gap-1 text-sm text-primary">
-                <CheckCircle2 className="w-4 h-4" />
-                Verified
-              </span>
-            )}
             {realName && realName !== displayName && (
               <span className="text-sm text-muted-foreground">{realName}</span>
             )}
@@ -210,7 +190,7 @@ const DJProfile = () => {
           </motion.div>
         ) : null}
 
-        {/* ── Bio ── */}
+        {/* â”€â”€ Bio â”€â”€ */}
         {dj.bio && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -219,7 +199,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* ── Socials grid ── */}
+        {/* â”€â”€ Socials grid â”€â”€ */}
         {socialLinks.length > 0 && (
           <motion.div variants={itemVariants} className="mb-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -242,53 +222,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* ── Contact / Booking ── */}
-        {contactLinks.length > 0 && (
-          <motion.div variants={itemVariants} className="mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {contactLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.url}
-                  className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-card px-3 py-2.5 text-sm hover:border-primary/40 hover:bg-primary/5 transition-colors group"
-                >
-                  <link.icon className="w-4 h-4 shrink-0 text-primary" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{link.label}</p>
-                    <p className="truncate text-foreground text-xs font-medium">{link.value}</p>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Sample mixes ── */}
-        {sampleMixes.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <Card className="mb-4 p-5 bg-card border-border/50">
-              <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-                <Mic2 className="w-4 h-4 text-primary" /> Mixes
-              </h2>
-              <div className="space-y-2">
-                {sampleMixes.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{url.replace(/^https?:\/\//, '')}</span>
-                  </a>
-                ))}
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* ── Pricing ── */}
+        {/* â”€â”€ Pricing â”€â”€ */}
         {dj.pricing && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -300,7 +234,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* ── FAQ ── */}
+        {/* â”€â”€ FAQ â”€â”€ */}
         {dj.faq && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -312,7 +246,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* ── Gallery ── */}
+        {/* â”€â”€ Gallery â”€â”€ */}
         {galleryUrls.length > 0 && (
           <motion.div variants={itemVariants}>
             <Card className="mb-4 p-5 bg-card border-border/50">
@@ -335,7 +269,7 @@ const DJProfile = () => {
           </motion.div>
         )}
 
-        {/* ── Event appearances ── */}
+        {/* â”€â”€ Event appearances â”€â”€ */}
         <motion.div variants={itemVariants}>
           <ProfileEventTimeline
             personType="dj"

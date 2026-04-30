@@ -19,13 +19,19 @@ export type ProfileAppearanceItem = {
   event_start_time: string | null;
   /**
    * Accurate label from the source table:
-   *   'instructor'  — from event_program_instructors  (session-level)
-   *   'dj_set'      — from event_program_djs          (session-level)
-   *   role string   — from event_profile_links.role   (event-level)
+   *   'instructor'  — teacher session in event_program_people
+   *   'dj_set'      — DJ session in event_program_people
+   *   role string   — event_program_people.role for non-teacher/dj profile_types
    */
   connection_label: string;
   is_primary: boolean;
-  /** Semantic origin: 'program' = session-level slot, 'link' = event-level lineup */
+  /**
+   * Semantic origin: 'program' = session-level slot resolved via the program
+   * fetch path, 'link' = surfaced via the lineup fetch path. Both paths read
+   * event_program_people post-EPL retirement; the distinction is now whether
+   * the event was first found by the teacher/dj program fetch or by the
+   * universal lineup fetch.
+   */
   source: 'program' | 'link';
 };
 
@@ -34,16 +40,18 @@ export type ProfileAppearanceItem = {
 /**
  * Resolve the set of profile_id values that should match this person in
  * event_program_people. Admin tooling sometimes stores the profile-table PK
- * (teacher_profiles.id / dj_profiles.id) and sometimes the shared
- * person_entity_id, so both forms must be queried.
+ * and sometimes the shared person_entity_id, so both forms must be queried.
+ *
+ * Post-DJ-table retirement (2026-04-30): both teachers and DJs now resolve
+ * via dancer_profiles, which carries person_entity_id for the unified person
+ * model.
  */
 async function resolveProfileIdForms(
   profileId: string,
-  profileType: 'teacher' | 'dj',
+  _profileType: 'teacher' | 'dj',
 ): Promise<string[]> {
-  const table = profileType === 'teacher' ? 'teacher_profiles' : 'dj_profiles';
   const { data } = await supabase
-    .from(table)
+    .from('dancer_profiles')
     .select('id, person_entity_id')
     .eq('id', profileId)
     .maybeSingle();
@@ -75,14 +83,18 @@ async function fetchProgramEventIds(
   return [...new Set(ids)];
 }
 
-type LinkRow = { event_id: string; role: string; is_primary: boolean };
+type LinkRow = { event_id: string; role: string; is_primary?: boolean };
 
 /**
- * Event-level: active event_profile_links rows for any profile type.
+ * Lineup rows for any profile type, sourced from event_program_people (the
+ * canonical post-EPL authority). EPP has one row per program item the
+ * profile is on, so the same (event_id, profile_id) pair can appear multiple
+ * times within one event — collapse to one row per event_id, preferring the
+ * first non-empty role string for the connection label.
  *
  * profile_id column meanings per profile_type:
- *   teacher      → teacher_profiles.id
- *   dj           → dj_profiles.id
+ *   teacher      → dancer_profiles.id (or person_entity_id form)
+ *   dj           → dancer_profiles.id  (or person_entity_id form)
  *   vendor       → vendors.id
  *   videographer → videographers.id
  *   dancer       → dancer_profiles.id
@@ -93,14 +105,23 @@ async function fetchLinkRows(
   profileType: PersonType,
 ): Promise<LinkRow[]> {
   const { data, error } = await supabase
-    .from('event_profile_links')
-    .select('event_id, role, is_primary')
+    .from('event_program_people')
+    .select('event_id, profile_id, profile_type, role')
     .eq('profile_id', profileId)
-    .eq('profile_type', profileType)
-    .eq('status', 'active')
-    .is('archived_at', null);
+    .eq('profile_type', profileType);
   if (error) throw error;
-  return (data ?? []) as LinkRow[];
+
+  const rowsByEventId = new Map<string, LinkRow>();
+  for (const raw of (data ?? []) as { event_id: string | null; role: string | null }[]) {
+    const eventId = raw?.event_id;
+    if (!eventId) continue;
+    const role = typeof raw?.role === 'string' ? raw.role : '';
+    const existing = rowsByEventId.get(eventId);
+    if (!existing || (!existing.role && role)) {
+      rowsByEventId.set(eventId, { event_id: eventId, role });
+    }
+  }
+  return [...rowsByEventId.values()];
 }
 
 type EventRow = {
@@ -135,18 +156,19 @@ async function keepPublishedAndActive(eventIds: string[]): Promise<EventRow[]> {
  *
  * Semantic contract
  * ─────────────────
- * • Teachers and DJs: event_program_instructors / event_program_djs are the
- *   primary source (session-level program slots).  active event_profile_links
- *   rows are also fetched, but only events that are NOT already represented
- *   in the program tables are surfaced from that source.  This preserves the
- *   distinction between "they have a scheduled session" and "they are on the
- *   event's general lineup".
+ * • Teachers and DJs: a program-id resolution step (resolveProfileIdForms)
+ *   resolves both the profile-table PK and person_entity_id forms, then
+ *   reads event_program_people for the session-level event ids. A second
+ *   universal lineup fetch (also event_program_people) catches any rows
+ *   whose profile_id form was not in the program path. Per-event de-dup
+ *   collapses EPP's per-program-item rows.
  *
  * • All other profile types (dancer, organiser, vendor, videographer): only
- *   event_profile_links is queried (event-level lineup only).
+ *   the universal lineup fetch path runs.
  *
- * All results are gated on events.is_published = true AND events.is_active = true.
- * The admin-only get_profile_event_timeline RPC is never called.
+ * All results are gated on events.is_active != false (matching the directory
+ * page behaviour). The admin-only get_profile_event_timeline RPC is never
+ * called.
  */
 export function useProfileProgramAppearances(
   personType: PersonType | undefined,

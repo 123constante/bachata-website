@@ -19,7 +19,7 @@ type Props = {
   mode?: "card" | "strip";
 };
 
-type ClaimableEntityType = Extract<UserRole, "organiser" | "dj">;
+type ClaimableEntityType = Extract<UserRole, "organiser">;
 
 type EntitySearchRow = {
   id: string;
@@ -29,7 +29,6 @@ type EntitySearchRow = {
 
 const CLAIM_TABLE_MAP: Record<ClaimableEntityType, string> = {
   organiser: 'entities',
-  dj: 'dj_profiles',
 };
 
 const resolveProfileName = (row: any): string => {
@@ -75,7 +74,6 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
       dancer: ids.dancerId,
       organiser: ids.organiserId,
       teacher: ids.teacherId,
-      dj: ids.djId,
       videographer: ids.videographerId,
       vendor: ids.vendorId,
     }),
@@ -122,9 +120,7 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
         .select("*")
         .limit(100);
 
-      const { data, error } = claimType === 'organiser'
-        ? await query.eq('type', 'organiser').is('claimed_by', null)
-        : await query.is('user_id', null);
+      const { data, error } = await query.eq('type', 'organiser').is('claimed_by', null);
 
       if (error) {
         setClaimError(error.message || "Failed to search profiles.");
@@ -157,14 +153,12 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     setClaimPending(true);
     setClaimError(null);
 
-    const { error } = claimType === 'organiser'
-      ? await supabase
-        .from('entities')
-        .update({ claimed_by: user.id })
-        .eq('id', entityId)
-        .eq('type', 'organiser')
-        .is('claimed_by', null)
-      : await supabase.rpc('claim_dj_profile' as any, { p_dj_id: entityId } as any);
+    const { error } = await supabase
+      .from('entities')
+      .update({ claimed_by: user.id })
+      .eq('id', entityId)
+      .eq('type', 'organiser')
+      .is('claimed_by', null);
 
     if (error) {
       setClaimError(error.message || "Failed to claim profile.");
@@ -183,7 +177,9 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     // Teacher signup parked 2026-04-30 — same pattern as vendor below: route
     // falls back to /profile so the Record<UserRole,string> contract holds.
     teacher: '/profile',
-    dj: '/create-dj-profile',
+    // DJ self-serve creation removed — admins create DJ profiles. Route
+    // falls back to /profile so the Record<UserRole,string> contract holds.
+    dj: '/profile',
     videographer: '/create-videographer-profile',
     // Vendor signup parked 2026-04-28 — route falls back to /profile so the
     // Record<UserRole,string> contract holds without exposing a dead form.
@@ -275,7 +271,7 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
                 <div className={`grid gap-2 ${isStrip ? "md:grid-cols-2" : ""}`}>
                   {missingAddableRoles.map((role) => {
                     const Icon = ROLE_META[role].icon;
-                    const isClaimable = role === "organiser" || role === "dj";
+                    const isClaimable = role === "organiser";
 
                     return (
                       <div key={role} className={`flex items-center justify-between gap-2 rounded-lg border border-festival-teal/25 bg-background/50 ${isStrip ? "min-h-[36px] p-1.5" : "p-3"}`}>

@@ -13,6 +13,7 @@
  * missing from the EventPageSnapshot or EventPageModel types.
  */
 
+import { describe, expect, it } from 'vitest';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
 
 // ============================================================================
@@ -92,3 +93,12 @@ const _: [_EventFieldCheck, _ModelSliceCheck] = [
 // c) Renamed a field in the type but didn't update the contract
 //
 // The contract is intentionally strict to catch schema misalignment early.
+
+// vitest 1.6 fails files without at least one test/it block ("No test suite
+// found"). The real contract is checked above at compile time; this stub
+// keeps the file discoverable by the runner without weakening the guardrail.
+describe('event page compile-time contract', () => {
+  it('compile-time-only contract is satisfied', () => {
+    expect(true).toBe(true);
+  });
+});

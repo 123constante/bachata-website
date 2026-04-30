@@ -85,7 +85,7 @@ function useProgramItems(eventId: string | null | undefined) {
 
       // Read lineup from event_program_people (single authority).
       // display_name + avatar_url are already denormalized on the row,
-      // so no secondary joins to teacher_profiles / dj_profiles are needed.
+      // so no secondary joins to per-profile tables are needed.
       const { data: peopleRows } = await supabase
         .from('event_program_people' as never)
         .select('program_item_id, profile_id, profile_type, display_name, avatar_url, sort_order')

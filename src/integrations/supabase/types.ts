@@ -12,33 +12,74 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
+      admin_action_log: {
+        Row: {
+          action_category: string
+          actor_email: string | null
+          actor_role: string | null
+          actor_user_id: string | null
+          created_at: string
+          duration_ms: number | null
+          entity_display_name: string | null
+          entity_id: string | null
+          entity_type: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          ip_address: unknown
+          params: Json
+          request_id: string | null
+          rpc_name: string
+          snapshot_before: Json | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          action_category: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entity_display_name?: string | null
+          entity_id?: string | null
+          entity_type: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown
+          params?: Json
+          request_id?: string | null
+          rpc_name: string
+          snapshot_before?: Json | null
+          success: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          action_category?: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entity_display_name?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown
+          params?: Json
+          request_id?: string | null
+          rpc_name?: string
+          snapshot_before?: Json | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       admin_link_managers: {
         Row: {
           created_at: string
@@ -227,6 +268,7 @@ export type Database = {
       }
       calendar_occurrences: {
         Row: {
+          cancellation_reason_label: string | null
           city_id: string | null
           city_slug: string | null
           created_at: string
@@ -242,6 +284,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          cancellation_reason_label?: string | null
           city_id?: string | null
           city_slug?: string | null
           created_at?: string
@@ -257,6 +300,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          cancellation_reason_label?: string | null
           city_id?: string | null
           city_slug?: string | null
           created_at?: string
@@ -273,6 +317,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "calendar_occurrences_cancellation_label_fk"
+            columns: ["cancellation_reason_label"]
+            isOneToOne: false
+            referencedRelation: "cancellation_reasons"
+            referencedColumns: ["label"]
+          },
+          {
             foreignKeyName: "calendar_occurrences_city_id_fkey"
             columns: ["city_id"]
             isOneToOne: false
@@ -283,24 +334,10 @@ export type Database = {
             foreignKeyName: "calendar_occurrences_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "calendar_occurrences_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "calendar_occurrences_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
-          {
             foreignKeyName: "fk_calendar_occurrences_venue_id"
             columns: ["venue_id"]
             isOneToOne: false
@@ -312,13 +349,6 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "admin_venues_read"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "fk_calendar_occurrences_venue_id"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venue_city_audit_view"
             referencedColumns: ["venue_id"]
           },
           {
@@ -330,12 +360,41 @@ export type Database = {
           },
         ]
       }
+      cancellation_reasons: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           country_code: string
           country_name: string | null
           created_at: string | null
+          description: string | null
           header_image_url: string | null
+          hero_image_url: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -347,7 +406,9 @@ export type Database = {
           country_code: string
           country_name?: string | null
           created_at?: string | null
+          description?: string | null
           header_image_url?: string | null
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -359,7 +420,9 @@ export type Database = {
           country_code?: string
           country_name?: string | null
           created_at?: string | null
+          description?: string | null
           header_image_url?: string | null
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -379,22 +442,15 @@ export type Database = {
             foreignKeyName: "cities_id_fkey_entities"
             columns: ["id"]
             isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cities_id_fkey_entities"
-            columns: ["id"]
-            isOneToOne: true
             referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "cities_id_fkey_entities"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "organisers"
-            referencedColumns: ["id"]
+            foreignKeyName: "fk_cities_country"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -519,31 +575,49 @@ export type Database = {
       }
       countries: {
         Row: {
+          alpha3: string | null
           code: string
           created_at: string
+          flag: string | null
+          is_active: boolean
           name: string
+          native_name: string | null
         }
         Insert: {
+          alpha3?: string | null
           code: string
           created_at?: string
+          flag?: string | null
+          is_active?: boolean
           name: string
+          native_name?: string | null
         }
         Update: {
+          alpha3?: string | null
           code?: string
           created_at?: string
+          flag?: string | null
+          is_active?: boolean
           name?: string
+          native_name?: string | null
         }
         Relationships: []
       }
       dancer_profiles: {
         Row: {
           achievements: string[]
+          archived_at: string | null
           avatar_url: string | null
           based_city_id: string | null
+          claimed_by: string | null
+          cover_url: string | null
           created_at: string
           created_by: string | null
           dance_role: string | null
           dance_started_year: number | null
+          description: string | null
+          display_name: string | null
+          email: string | null
           facebook: string | null
           favorite_songs: string[]
           favorite_styles: string[]
@@ -552,6 +626,7 @@ export type Database = {
           id: string
           instagram: string | null
           is_active: boolean | null
+          languages: string[] | null
           looking_for_partner: boolean
           meta_data: Json
           nationality: string | null
@@ -560,20 +635,29 @@ export type Database = {
           partner_search_level: string[]
           partner_search_role: string | null
           person_entity_id: string | null
+          phone: string | null
+          photo_url: string | null
           profile_source: string | null
           surname: string | null
           updated_at: string
           website: string | null
+          website_url: string | null
           whatsapp: string | null
         }
         Insert: {
           achievements?: string[]
+          archived_at?: string | null
           avatar_url?: string | null
           based_city_id?: string | null
+          claimed_by?: string | null
+          cover_url?: string | null
           created_at?: string
           created_by?: string | null
           dance_role?: string | null
           dance_started_year?: number | null
+          description?: string | null
+          display_name?: string | null
+          email?: string | null
           facebook?: string | null
           favorite_songs?: string[]
           favorite_styles?: string[]
@@ -582,6 +666,7 @@ export type Database = {
           id: string
           instagram?: string | null
           is_active?: boolean | null
+          languages?: string[] | null
           looking_for_partner?: boolean
           meta_data?: Json
           nationality?: string | null
@@ -590,20 +675,29 @@ export type Database = {
           partner_search_level?: string[]
           partner_search_role?: string | null
           person_entity_id?: string | null
+          phone?: string | null
+          photo_url?: string | null
           profile_source?: string | null
           surname?: string | null
           updated_at?: string
           website?: string | null
+          website_url?: string | null
           whatsapp?: string | null
         }
         Update: {
           achievements?: string[]
+          archived_at?: string | null
           avatar_url?: string | null
           based_city_id?: string | null
+          claimed_by?: string | null
+          cover_url?: string | null
           created_at?: string
           created_by?: string | null
           dance_role?: string | null
           dance_started_year?: number | null
+          description?: string | null
+          display_name?: string | null
+          email?: string | null
           facebook?: string | null
           favorite_songs?: string[]
           favorite_styles?: string[]
@@ -612,6 +706,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           is_active?: boolean | null
+          languages?: string[] | null
           looking_for_partner?: boolean
           meta_data?: Json
           nationality?: string | null
@@ -620,10 +715,13 @@ export type Database = {
           partner_search_level?: string[]
           partner_search_role?: string | null
           person_entity_id?: string | null
+          phone?: string | null
+          photo_url?: string | null
           profile_source?: string | null
           surname?: string | null
           updated_at?: string
           website?: string | null
+          website_url?: string | null
           whatsapp?: string | null
         }
         Relationships: [
@@ -645,21 +743,7 @@ export type Database = {
             foreignKeyName: "dancer_profiles_person_entity_id_fkey"
             columns: ["person_entity_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dancer_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dancer_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
         ]
@@ -812,180 +896,62 @@ export type Database = {
           },
         ]
       }
-      dj_profiles: {
+      dj_role_details: {
         Row: {
-          bio: string | null
-          booking_email: string | null
-          city: string | null
-          city_id: string | null
-          country: string | null
-          country_code: string | null
           created_at: string | null
-          created_by: string | null
-          dj_name: string
-          email: string | null
-          facebook: string | null
-          faq: string | null
-          first_name: string | null
-          gallery_urls: string[] | null
+          dj_name: string | null
+          faq: Json | null
           genres: string[] | null
-          hide_real_name: boolean | null
           id: string
-          instagram: string | null
-          is_active: boolean | null
-          meta_data: Json | null
+          legacy_dj_id: string | null
           mixcloud: string | null
-          music_styles: string[] | null
-          name: string | null
-          nationality: string | null
-          person_entity_id: string | null
-          phone: string | null
-          photo_url: string | null
+          person_id: string
           pricing: string | null
-          profile_source: string | null
-          public_email: string | null
-          real_name: string | null
-          sample_mix_urls: string[] | null
           soundcloud: string | null
-          surname: string | null
-          upcoming_events: string[] | null
+          upcoming_events: Json | null
           updated_at: string | null
-          user_id: string | null
-          verified: boolean | null
-          website: string | null
-          whatsapp: string | null
-          youtube: string | null
-          youtube_url: string | null
         }
         Insert: {
-          bio?: string | null
-          booking_email?: string | null
-          city?: string | null
-          city_id?: string | null
-          country?: string | null
-          country_code?: string | null
           created_at?: string | null
-          created_by?: string | null
-          dj_name: string
-          email?: string | null
-          facebook?: string | null
-          faq?: string | null
-          first_name?: string | null
-          gallery_urls?: string[] | null
+          dj_name?: string | null
+          faq?: Json | null
           genres?: string[] | null
-          hide_real_name?: boolean | null
           id?: string
-          instagram?: string | null
-          is_active?: boolean | null
-          meta_data?: Json | null
+          legacy_dj_id?: string | null
           mixcloud?: string | null
-          music_styles?: string[] | null
-          name?: string | null
-          nationality?: string | null
-          person_entity_id?: string | null
-          phone?: string | null
-          photo_url?: string | null
+          person_id: string
           pricing?: string | null
-          profile_source?: string | null
-          public_email?: string | null
-          real_name?: string | null
-          sample_mix_urls?: string[] | null
           soundcloud?: string | null
-          surname?: string | null
-          upcoming_events?: string[] | null
+          upcoming_events?: Json | null
           updated_at?: string | null
-          user_id?: string | null
-          verified?: boolean | null
-          website?: string | null
-          whatsapp?: string | null
-          youtube?: string | null
-          youtube_url?: string | null
         }
         Update: {
-          bio?: string | null
-          booking_email?: string | null
-          city?: string | null
-          city_id?: string | null
-          country?: string | null
-          country_code?: string | null
           created_at?: string | null
-          created_by?: string | null
-          dj_name?: string
-          email?: string | null
-          facebook?: string | null
-          faq?: string | null
-          first_name?: string | null
-          gallery_urls?: string[] | null
+          dj_name?: string | null
+          faq?: Json | null
           genres?: string[] | null
-          hide_real_name?: boolean | null
           id?: string
-          instagram?: string | null
-          is_active?: boolean | null
-          meta_data?: Json | null
+          legacy_dj_id?: string | null
           mixcloud?: string | null
-          music_styles?: string[] | null
-          name?: string | null
-          nationality?: string | null
-          person_entity_id?: string | null
-          phone?: string | null
-          photo_url?: string | null
+          person_id?: string
           pricing?: string | null
-          profile_source?: string | null
-          public_email?: string | null
-          real_name?: string | null
-          sample_mix_urls?: string[] | null
           soundcloud?: string | null
-          surname?: string | null
-          upcoming_events?: string[] | null
+          upcoming_events?: Json | null
           updated_at?: string | null
-          user_id?: string | null
-          verified?: boolean | null
-          website?: string | null
-          whatsapp?: string | null
-          youtube?: string | null
-          youtube_url?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "dj_profiles_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
+            foreignKeyName: "dj_role_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "dj_profiles_country_code_fkey"
-            columns: ["country_code"]
-            isOneToOne: false
-            referencedRelation: "countries"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "dj_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dj_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dj_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dj_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
+            foreignKeyName: "dj_role_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -1175,6 +1141,13 @@ export type Database = {
             referencedRelation: "cities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_entities_city"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_attendance: {
@@ -1217,13 +1190,6 @@ export type Database = {
             referencedRelation: "calendar_occurrences"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_attendance_occurrence_id_fkey"
-            columns: ["occurrence_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["occurrence_id"]
-          },
         ]
       }
       event_attendees: {
@@ -1257,22 +1223,8 @@ export type Database = {
             foreignKeyName: "event_attendees_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_attendees_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_attendees_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -1312,6 +1264,53 @@ export type Database = {
         }
         Relationships: []
       }
+      event_drafts: {
+        Row: {
+          base_event_updated_at: string | null
+          created_at: string
+          discarded_at: string | null
+          editor_user_id: string
+          event_id: string | null
+          id: string
+          payload: Json
+          published_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          base_event_updated_at?: string | null
+          created_at?: string
+          discarded_at?: string | null
+          editor_user_id: string
+          event_id?: string | null
+          id?: string
+          payload?: Json
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          base_event_updated_at?: string | null
+          created_at?: string
+          discarded_at?: string | null
+          editor_user_id?: string
+          event_id?: string | null
+          id?: string
+          payload?: Json
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_drafts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_entities: {
         Row: {
           created_at: string
@@ -1333,53 +1332,54 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "event_entities_entity_id_fkey"
+            foreignKeyName: "event_entities_entity_id_fk"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_entities_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_entities_entity_id_fkey"
+            foreignKeyName: "event_entities_entity_id_fk"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_entities_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_entities_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_entities_event_id_fkey"
+            foreignKeyName: "event_entities_event_id_fk"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      event_guest_list_entries: {
+        Row: {
+          created_at: string
+          event_id: string
+          first_name: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          first_name: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          first_name?: string
+          id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "event_entities_event_id_fkey"
+            foreignKeyName: "event_guest_list_entries_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1455,22 +1455,8 @@ export type Database = {
             foreignKeyName: "event_passes_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_passes_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_passes_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -1501,22 +1487,8 @@ export type Database = {
             foreignKeyName: "event_permissions_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_permissions_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_permissions_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -1592,298 +1564,7 @@ export type Database = {
             foreignKeyName: "event_profile_connections_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_profile_connections_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_connections_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
-        ]
-      }
-      event_profile_link_audit: {
-        Row: {
-          action: string
-          actor_id: string | null
-          created_at: string
-          event_id: string
-          id: string
-          link_id: string | null
-          payload: Json
-          profile_id: string | null
-          profile_type: string | null
-          reason: string | null
-          role: string | null
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          created_at?: string
-          event_id: string
-          id?: string
-          link_id?: string | null
-          payload?: Json
-          profile_id?: string | null
-          profile_type?: string | null
-          reason?: string | null
-          role?: string | null
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          created_at?: string
-          event_id?: string
-          id?: string
-          link_id?: string | null
-          payload?: Json
-          profile_id?: string | null
-          profile_type?: string | null
-          reason?: string | null
-          role?: string | null
-        }
-        Relationships: []
-      }
-      event_profile_link_suggestions: {
-        Row: {
-          confidence: number
-          created_at: string
-          event_id: string
-          id: string
-          profile_id: string
-          profile_type: string
-          reason: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          role: string
-          source: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          confidence?: number
-          created_at?: string
-          event_id: string
-          id?: string
-          profile_id: string
-          profile_type: string
-          reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          role: string
-          source?: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          confidence?: number
-          created_at?: string
-          event_id?: string
-          id?: string
-          profile_id?: string
-          profile_type?: string
-          reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          role?: string
-          source?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_profile_link_suggestions_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_profile_link_suggestions_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_link_suggestions_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
-        ]
-      }
-      event_profile_links: {
-        Row: {
-          archived_at: string | null
-          archived_by: string | null
-          created_at: string
-          created_by: string | null
-          event_id: string
-          id: string
-          is_primary: boolean
-          occurrence_id: string | null
-          person_entity_id: string | null
-          profile_id: string
-          profile_type: string
-          reason: string | null
-          role: string
-          source: string
-          status: string
-          updated_at: string
-          updated_by: string | null
-          verified: boolean
-        }
-        Insert: {
-          archived_at?: string | null
-          archived_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          event_id: string
-          id?: string
-          is_primary?: boolean
-          occurrence_id?: string | null
-          person_entity_id?: string | null
-          profile_id: string
-          profile_type: string
-          reason?: string | null
-          role: string
-          source?: string
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-          verified?: boolean
-        }
-        Update: {
-          archived_at?: string | null
-          archived_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          event_id?: string
-          id?: string
-          is_primary?: boolean
-          occurrence_id?: string | null
-          person_entity_id?: string | null
-          profile_id?: string
-          profile_type?: string
-          reason?: string | null
-          role?: string
-          source?: string
-          status?: string
-          updated_at?: string
-          updated_by?: string | null
-          verified?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_profile_links_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_profile_links_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_program_djs: {
-        Row: {
-          id: string
-          profile_id: string | null
-          program_item_id: string | null
-        }
-        Insert: {
-          id?: string
-          profile_id?: string | null
-          program_item_id?: string | null
-        }
-        Update: {
-          id?: string
-          profile_id?: string | null
-          program_item_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_program_djs_program_item_id_fkey"
-            columns: ["program_item_id"]
-            isOneToOne: false
-            referencedRelation: "event_program_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_program_instructors: {
-        Row: {
-          id: string
-          profile_id: string | null
-          program_item_id: string | null
-        }
-        Insert: {
-          id?: string
-          profile_id?: string | null
-          program_item_id?: string | null
-        }
-        Update: {
-          id?: string
-          profile_id?: string | null
-          program_item_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_program_instructors_program_item_id_fkey"
-            columns: ["program_item_id"]
-            isOneToOne: false
-            referencedRelation: "event_program_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1897,12 +1578,15 @@ export type Database = {
           event_id: string | null
           id: string
           legacy_id: string | null
+          levels: string[]
           room: string | null
           sort_order: number
           start_time: string | null
           title: string
           track_id: string | null
           type: string
+          updated_at: string
+          venue_room_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1912,12 +1596,15 @@ export type Database = {
           event_id?: string | null
           id?: string
           legacy_id?: string | null
+          levels?: string[]
           room?: string | null
           sort_order?: number
           start_time?: string | null
           title: string
           track_id?: string | null
           type: string
+          updated_at?: string
+          venue_room_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1927,21 +1614,17 @@ export type Database = {
           event_id?: string | null
           id?: string
           legacy_id?: string | null
+          levels?: string[]
           room?: string | null
           sort_order?: number
           start_time?: string | null
           title?: string
           track_id?: string | null
           type?: string
+          updated_at?: string
+          venue_room_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "event_program_items_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
           {
             foreignKeyName: "event_program_items_event_id_fkey"
             columns: ["event_id"]
@@ -1950,11 +1633,206 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_program_items_event_id_fkey"
+            foreignKeyName: "event_program_items_venue_room_id_fkey"
+            columns: ["venue_room_id"]
+            isOneToOne: false
+            referencedRelation: "venue_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_program_people: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string | null
+          display_name_override: string | null
+          event_id: string
+          id: string
+          level: string | null
+          profile_id: string
+          profile_type: string
+          program_item_id: string
+          role: string
+          sort_order: number
+          source: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name_override?: string | null
+          event_id: string
+          id?: string
+          level?: string | null
+          profile_id: string
+          profile_type: string
+          program_item_id: string
+          role: string
+          sort_order?: number
+          source?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name_override?: string | null
+          event_id?: string
+          id?: string
+          level?: string | null
+          profile_id?: string
+          profile_type?: string
+          program_item_id?: string
+          role?: string
+          sort_order?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_program_people_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_program_people_program_item_id_fkey"
+            columns: ["program_item_id"]
+            isOneToOne: false
+            referencedRelation: "event_program_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_raffle_draws: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          drawn_at: string | null
+          drawn_by: string | null
+          entries_snapshot: Json | null
+          event_id: string
+          id: string
+          is_active: boolean
+          pick_method: string
+          prior_draw_id: string | null
+          reason: string | null
+          winner_entry_id: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          drawn_at?: string | null
+          drawn_by?: string | null
+          entries_snapshot?: Json | null
+          event_id: string
+          id?: string
+          is_active?: boolean
+          pick_method?: string
+          prior_draw_id?: string | null
+          reason?: string | null
+          winner_entry_id?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          drawn_at?: string | null
+          drawn_by?: string | null
+          entries_snapshot?: Json | null
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          pick_method?: string
+          prior_draw_id?: string | null
+          reason?: string | null
+          winner_entry_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_raffle_draws_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_raffle_draws_prior_draw_id_fkey"
+            columns: ["prior_draw_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffle_draws"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_raffle_draws_winner_entry_id_fkey"
+            columns: ["winner_entry_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffle_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_raffle_entries: {
+        Row: {
+          consent_version: string | null
+          created_at: string
+          deleted_at: string | null
+          eligibility_override: boolean
+          eligibility_override_at: string | null
+          eligibility_override_by: string | null
+          eligibility_override_reason: string | null
+          event_id: string
+          first_name: string | null
+          id: string
+          ineligible_at: string | null
+          ineligible_by: string | null
+          ineligible_notes: string | null
+          ineligible_reason: string | null
+          phone_e164: string
+          session_id: string | null
+        }
+        Insert: {
+          consent_version?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          eligibility_override?: boolean
+          eligibility_override_at?: string | null
+          eligibility_override_by?: string | null
+          eligibility_override_reason?: string | null
+          event_id: string
+          first_name?: string | null
+          id?: string
+          ineligible_at?: string | null
+          ineligible_by?: string | null
+          ineligible_notes?: string | null
+          ineligible_reason?: string | null
+          phone_e164: string
+          session_id?: string | null
+        }
+        Update: {
+          consent_version?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          eligibility_override?: boolean
+          eligibility_override_at?: string | null
+          eligibility_override_by?: string | null
+          eligibility_override_reason?: string | null
+          event_id?: string
+          first_name?: string | null
+          id?: string
+          ineligible_at?: string | null
+          ineligible_by?: string | null
+          ineligible_notes?: string | null
+          ineligible_reason?: string | null
+          phone_e164?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_raffle_entries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1997,24 +1875,102 @@ export type Database = {
             foreignKeyName: "event_registrations_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
+            referencedRelation: "events"
+            referencedColumns: ["id"]
           },
+        ]
+      }
+      event_save_audit: {
+        Row: {
+          diff_summary: Json
+          event_id: string
+          id: string
+          idempotency_token: string
+          outcome: string
+          payload_version: number
+          response_payload: Json | null
+          saved_at: string
+          saved_by: string | null
+        }
+        Insert: {
+          diff_summary?: Json
+          event_id: string
+          id?: string
+          idempotency_token: string
+          outcome: string
+          payload_version: number
+          response_payload?: Json | null
+          saved_at?: string
+          saved_by?: string | null
+        }
+        Update: {
+          diff_summary?: Json
+          event_id?: string
+          id?: string
+          idempotency_token?: string
+          outcome?: string
+          payload_version?: number
+          response_payload?: Json | null
+          saved_at?: string
+          saved_by?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "event_registrations_event_id_fkey"
+            foreignKeyName: "event_save_audit_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_registrations_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
         ]
+      }
+      event_time_derive_audit: {
+        Row: {
+          actor_uid: string | null
+          client_end: string | null
+          client_start: string | null
+          derived_end: string
+          derived_start: string
+          event_id: string
+          id: string
+          notes: string | null
+          occurred_at: string
+          program_day_offset: number | null
+          program_max_hhmm: string | null
+          program_min_hhmm: string | null
+          reason: string
+        }
+        Insert: {
+          actor_uid?: string | null
+          client_end?: string | null
+          client_start?: string | null
+          derived_end: string
+          derived_start: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          program_day_offset?: number | null
+          program_max_hhmm?: string | null
+          program_min_hhmm?: string | null
+          reason: string
+        }
+        Update: {
+          actor_uid?: string | null
+          client_end?: string | null
+          client_start?: string | null
+          derived_end?: string
+          derived_start?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          program_day_offset?: number | null
+          program_max_hhmm?: string | null
+          program_min_hhmm?: string | null
+          reason?: string
+        }
+        Relationships: []
       }
       event_tracks: {
         Row: {
@@ -2052,22 +2008,8 @@ export type Database = {
             foreignKeyName: "event_tracks_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "event_tracks_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_tracks_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -2076,28 +2018,27 @@ export type Database = {
           event_id: string
           id: string
           source: string | null
+          user_agent: string | null
           viewed_at: string
+          viewer_session_id: string | null
         }
         Insert: {
           event_id: string
           id?: string
           source?: string | null
+          user_agent?: string | null
           viewed_at?: string
+          viewer_session_id?: string | null
         }
         Update: {
           event_id?: string
           id?: string
           source?: string | null
+          user_agent?: string | null
           viewed_at?: string
+          viewer_session_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "event_views_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
           {
             foreignKeyName: "event_views_event_id_fkey"
             columns: ["event_id"]
@@ -2105,17 +2046,11 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_views_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
         ]
       }
       events: {
         Row: {
+          archived_at: string | null
           attendance_count: number | null
           city: string | null
           city_id: string | null
@@ -2132,25 +2067,28 @@ export type Database = {
           festival_config: Json | null
           guestlist_config: string | null
           has_guestlist: boolean | null
-          has_raffle: boolean | null
+          has_raffle: boolean
           id: string
           instagram_url: string | null
           is_active: boolean | null
-          is_published: boolean | null
           key_times: Json | null
+          level: string | null
           lifecycle_status: string
           location: string | null
           meta_data: Json | null
           name: string
+          organiser_card_slot_1: string | null
+          organiser_card_slot_2: string | null
           parent_event_id: string | null
           payment_methods: string | null
           photographer_ids: string[] | null
           poster_url: string | null
           pricing: Json | null
           promo_codes: string | null
-          raffle_config: string | null
+          raffle_preset_id: string | null
           recurrence: Json | null
           schedule_type: string | null
+          series_key: string | null
           source_occurrence_id: string | null
           start_time: string | null
           ticket_url: string | null
@@ -2163,6 +2101,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          archived_at?: string | null
           attendance_count?: number | null
           city?: string | null
           city_id?: string | null
@@ -2179,25 +2118,28 @@ export type Database = {
           festival_config?: Json | null
           guestlist_config?: string | null
           has_guestlist?: boolean | null
-          has_raffle?: boolean | null
+          has_raffle?: boolean
           id?: string
           instagram_url?: string | null
           is_active?: boolean | null
-          is_published?: boolean | null
           key_times?: Json | null
+          level?: string | null
           lifecycle_status?: string
           location?: string | null
           meta_data?: Json | null
           name: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           parent_event_id?: string | null
           payment_methods?: string | null
           photographer_ids?: string[] | null
           poster_url?: string | null
           pricing?: Json | null
           promo_codes?: string | null
-          raffle_config?: string | null
+          raffle_preset_id?: string | null
           recurrence?: Json | null
           schedule_type?: string | null
+          series_key?: string | null
           source_occurrence_id?: string | null
           start_time?: string | null
           ticket_url?: string | null
@@ -2210,6 +2152,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          archived_at?: string | null
           attendance_count?: number | null
           city?: string | null
           city_id?: string | null
@@ -2226,25 +2169,28 @@ export type Database = {
           festival_config?: Json | null
           guestlist_config?: string | null
           has_guestlist?: boolean | null
-          has_raffle?: boolean | null
+          has_raffle?: boolean
           id?: string
           instagram_url?: string | null
           is_active?: boolean | null
-          is_published?: boolean | null
           key_times?: Json | null
+          level?: string | null
           lifecycle_status?: string
           location?: string | null
           meta_data?: Json | null
           name?: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           parent_event_id?: string | null
           payment_methods?: string | null
           photographer_ids?: string[] | null
           poster_url?: string | null
           pricing?: Json | null
           promo_codes?: string | null
-          raffle_config?: string | null
+          raffle_preset_id?: string | null
           recurrence?: Json | null
           schedule_type?: string | null
+          series_key?: string | null
           source_occurrence_id?: string | null
           start_time?: string | null
           ticket_url?: string | null
@@ -2275,22 +2221,15 @@ export type Database = {
             foreignKeyName: "events_parent_event_id_fkey"
             columns: ["parent_event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "events_parent_event_id_fkey"
-            columns: ["parent_event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "events_parent_event_id_fkey"
-            columns: ["parent_event_id"]
+            foreignKeyName: "events_raffle_preset_id_fkey"
+            columns: ["raffle_preset_id"]
             isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
+            referencedRelation: "raffle_presets"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "events_source_occurrence_id_fkey"
@@ -2307,13 +2246,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "events_source_occurrence_id_fkey"
-            columns: ["source_occurrence_id"]
-            isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["occurrence_id"]
-          },
-          {
             foreignKeyName: "events_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
@@ -2325,13 +2257,6 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "admin_venues_read"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venue_city_audit_view"
             referencedColumns: ["venue_id"]
           },
           {
@@ -2342,6 +2267,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      facility_options: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          dancer_facing: boolean
+          display_order: number
+          emoji: string | null
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          dancer_facing?: boolean
+          display_order?: number
+          emoji?: string | null
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          dancer_facing?: boolean
+          display_order?: number
+          emoji?: string | null
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       feature_flags: {
         Row: {
@@ -2364,6 +2325,36 @@ export type Database = {
         }
         Relationships: []
       }
+      floor_type_options: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          display_order: number
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          display_order?: number
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          display_order?: number
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       guest_dancer_profiles: {
         Row: {
           avatar_url: string | null
@@ -2374,6 +2365,7 @@ export type Database = {
           first_name: string
           id: string
           instagram: string | null
+          person_entity_id: string | null
           surname: string | null
           updated_at: string
         }
@@ -2386,6 +2378,7 @@ export type Database = {
           first_name: string
           id?: string
           instagram?: string | null
+          person_entity_id?: string | null
           surname?: string | null
           updated_at?: string
         }
@@ -2398,6 +2391,7 @@ export type Database = {
           first_name?: string
           id?: string
           instagram?: string | null
+          person_entity_id?: string | null
           surname?: string | null
           updated_at?: string
         }
@@ -2407,6 +2401,20 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_dancer_profiles_person_entity_id_fkey"
+            columns: ["person_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_dancer_profiles_person_entity_id_fkey"
+            columns: ["person_entity_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
         ]
@@ -2495,6 +2503,188 @@ export type Database = {
         }
         Relationships: []
       }
+      listing_request_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          provider_response: Json | null
+          request_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          provider_response?: Json | null
+          request_id?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          provider_response?: Json | null
+          request_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_request_email_log_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "listing_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listing_request_status_history: {
+        Row: {
+          changed_at: string
+          from_status:
+            | Database["public"]["Enums"]["listing_request_status"]
+            | null
+          id: string
+          notes: string | null
+          request_id: string
+          to_status: Database["public"]["Enums"]["listing_request_status"]
+          triggered_by: string
+        }
+        Insert: {
+          changed_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["listing_request_status"]
+            | null
+          id?: string
+          notes?: string | null
+          request_id: string
+          to_status: Database["public"]["Enums"]["listing_request_status"]
+          triggered_by?: string
+        }
+        Update: {
+          changed_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["listing_request_status"]
+            | null
+          id?: string
+          notes?: string | null
+          request_id?: string
+          to_status?: Database["public"]["Enums"]["listing_request_status"]
+          triggered_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_request_status_history_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "listing_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listing_request_throttle: {
+        Row: {
+          count: number
+          ip: unknown
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          ip: unknown
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          ip?: unknown
+          window_start?: string
+        }
+        Relationships: []
+      }
+      listing_requests: {
+        Row: {
+          created_at: string
+          duplicate_of_request_id: string | null
+          event_link: string
+          id: string
+          imported_draft_event_id: string | null
+          name: string
+          phone: string
+          published_at: string | null
+          published_event_id: string | null
+          section: Database["public"]["Enums"]["listing_request_section"]
+          smart_import_attempted_at: string | null
+          smart_import_error: string | null
+          smart_import_status: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["listing_request_status"]
+          status_changed_at: string | null
+          status_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duplicate_of_request_id?: string | null
+          event_link: string
+          id?: string
+          imported_draft_event_id?: string | null
+          name: string
+          phone: string
+          published_at?: string | null
+          published_event_id?: string | null
+          section: Database["public"]["Enums"]["listing_request_section"]
+          smart_import_attempted_at?: string | null
+          smart_import_error?: string | null
+          smart_import_status?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["listing_request_status"]
+          status_changed_at?: string | null
+          status_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duplicate_of_request_id?: string | null
+          event_link?: string
+          id?: string
+          imported_draft_event_id?: string | null
+          name?: string
+          phone?: string
+          published_at?: string | null
+          published_event_id?: string | null
+          section?: Database["public"]["Enums"]["listing_request_section"]
+          smart_import_attempted_at?: string | null
+          smart_import_error?: string | null
+          smart_import_status?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["listing_request_status"]
+          status_changed_at?: string | null
+          status_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_requests_duplicate_of_request_id_fkey"
+            columns: ["duplicate_of_request_id"]
+            isOneToOne: false
+            referencedRelation: "listing_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_requests_imported_draft_event_id_fkey"
+            columns: ["imported_draft_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_requests_published_event_id_fkey"
+            columns: ["published_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_profiles: {
         Row: {
           auth_user_id: string | null
@@ -2539,6 +2729,120 @@ export type Database = {
           },
         ]
       }
+      occurrence_action_audit: {
+        Row: {
+          action: string
+          actor_kind: string
+          actor_uid: string | null
+          after_state: Json | null
+          before_state: Json | null
+          correlation_id: string | null
+          event_id: string | null
+          id: number
+          idempotency_key: string | null
+          logged_at: string
+          occurrence_id: string | null
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_kind?: string
+          actor_uid?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          correlation_id?: string | null
+          event_id?: string | null
+          id?: number
+          idempotency_key?: string | null
+          logged_at?: string
+          occurrence_id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_kind?: string
+          actor_uid?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          correlation_id?: string | null
+          event_id?: string | null
+          id?: number
+          idempotency_key?: string | null
+          logged_at?: string
+          occurrence_id?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      occurrence_idempotency_keys: {
+        Row: {
+          actor_uid: string
+          claimed_at: string
+          completed_at: string | null
+          key: string
+        }
+        Insert: {
+          actor_uid: string
+          claimed_at?: string
+          completed_at?: string | null
+          key: string
+        }
+        Update: {
+          actor_uid?: string
+          claimed_at?: string
+          completed_at?: string | null
+          key?: string
+        }
+        Relationships: []
+      }
+      occurrence_write_audit: {
+        Row: {
+          actor_uid: string | null
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          event_id: string | null
+          function_name: string
+          id: number
+          ids_matched_count: number | null
+          jwt_role: string | null
+          logged_at: string
+          occurrence_count: number | null
+          replace_mode: boolean | null
+          success: boolean
+        }
+        Insert: {
+          actor_uid?: string | null
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          function_name: string
+          id?: never
+          ids_matched_count?: number | null
+          jwt_role?: string | null
+          logged_at?: string
+          occurrence_count?: number | null
+          replace_mode?: boolean | null
+          success: boolean
+        }
+        Update: {
+          actor_uid?: string | null
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          function_name?: string
+          id?: never
+          ids_matched_count?: number | null
+          jwt_role?: string | null
+          logged_at?: string
+          occurrence_count?: number | null
+          replace_mode?: boolean | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       onboarding_targets: {
         Row: {
           category: string
@@ -2570,6 +2874,61 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organiser_card_clicks: {
+        Row: {
+          clicked_at: string
+          event_id: string
+          id: string
+          organiser_id: string
+          source: string | null
+          user_agent: string | null
+          viewer_session_id: string | null
+          zone: string
+        }
+        Insert: {
+          clicked_at?: string
+          event_id: string
+          id?: string
+          organiser_id: string
+          source?: string | null
+          user_agent?: string | null
+          viewer_session_id?: string | null
+          zone: string
+        }
+        Update: {
+          clicked_at?: string
+          event_id?: string
+          id?: string
+          organiser_id?: string
+          source?: string | null
+          user_agent?: string | null
+          viewer_session_id?: string | null
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_card_clicks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_card_clicks_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_card_clicks_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
         ]
@@ -2643,21 +3002,7 @@ export type Database = {
             foreignKeyName: "organiser_team_members_organiser_entity_id_fkey"
             columns: ["organiser_entity_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organiser_team_members_organiser_entity_id_fkey"
-            columns: ["organiser_entity_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organiser_team_members_organiser_entity_id_fkey"
-            columns: ["organiser_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
           {
@@ -2671,21 +3016,127 @@ export type Database = {
             foreignKeyName: "organiser_team_members_person_entity_id_fkey"
             columns: ["person_entity_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organiser_team_members_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      pending_canonical_keys: {
+        Row: {
+          first_seen_at: string
+          key: string
+          kind: string
+          last_seen_at: string
+          proposal_count: number
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_to_key: string | null
+          status: string
+          venue_ids: string[]
+        }
+        Insert: {
+          first_seen_at?: string
+          key: string
+          kind: string
+          last_seen_at?: string
+          proposal_count?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_to_key?: string | null
+          status?: string
+          venue_ids?: string[]
+        }
+        Update: {
+          first_seen_at?: string
+          key?: string
+          kind?: string
+          last_seen_at?: string
+          proposal_count?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_to_key?: string | null
+          status?: string
+          venue_ids?: string[]
+        }
+        Relationships: []
+      }
+      pending_venue_rooms: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          raw_name: string
+          resolved_at: string | null
+          resolved_by: string | null
+          source: string | null
+          source_event_id: string | null
+          status: string
+          suggested_room_id: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          raw_name: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string | null
+          source_event_id?: string | null
+          status?: string
+          suggested_room_id?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          raw_name?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string | null
+          source_event_id?: string | null
+          status?: string
+          suggested_room_id?: string | null
+          venue_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "organiser_team_members_person_entity_id_fkey"
-            columns: ["person_entity_id"]
+            foreignKeyName: "pending_venue_rooms_source_event_id_fkey"
+            columns: ["source_event_id"]
             isOneToOne: false
-            referencedRelation: "organisers"
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_venue_rooms_suggested_room_id_fkey"
+            columns: ["suggested_room_id"]
+            isOneToOne: false
+            referencedRelation: "venue_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "pending_venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2746,6 +3197,45 @@ export type Database = {
         }
         Relationships: []
       }
+      person_merge_decisions: {
+        Row: {
+          created_at: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          id: string
+          notes: string | null
+          profile_id_a: string
+          profile_id_b: string
+          source_table_a: string
+          source_table_b: string
+        }
+        Insert: {
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          notes?: string | null
+          profile_id_a: string
+          profile_id_b: string
+          source_table_a: string
+          source_table_b: string
+        }
+        Update: {
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          notes?: string | null
+          profile_id_a?: string
+          profile_id_b?: string
+          source_table_a?: string
+          source_table_b?: string
+        }
+        Relationships: []
+      }
       person_merge_log: {
         Row: {
           id: string
@@ -2783,21 +3273,7 @@ export type Database = {
             foreignKeyName: "person_merge_log_merged_from_id_fkey"
             columns: ["merged_from_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_merge_log_merged_from_id_fkey"
-            columns: ["merged_from_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_merge_log_merged_from_id_fkey"
-            columns: ["merged_from_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
           {
@@ -2811,21 +3287,7 @@ export type Database = {
             foreignKeyName: "person_merge_log_merged_into_id_fkey"
             columns: ["merged_into_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_merge_log_merged_into_id_fkey"
-            columns: ["merged_into_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_merge_log_merged_into_id_fkey"
-            columns: ["merged_into_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
         ]
@@ -2858,6 +3320,48 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "person_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          person_id: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          person_id: string
+          role: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          person_id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_roles_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_roles_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -2951,6 +3455,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      profile_view_events: {
+        Row: {
+          event_id: string | null
+          id: string
+          person_id: string
+          profile_type: string
+          source_context: string
+          user_agent: string | null
+          viewed_at: string
+          viewer_session_id: string | null
+        }
+        Insert: {
+          event_id?: string | null
+          id?: string
+          person_id: string
+          profile_type: string
+          source_context: string
+          user_agent?: string | null
+          viewed_at?: string
+          viewer_session_id?: string | null
+        }
+        Update: {
+          event_id?: string | null
+          id?: string
+          person_id?: string
+          profile_type?: string
+          source_context?: string
+          user_agent?: string | null
+          viewed_at?: string
+          viewer_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_view_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -3078,24 +3623,85 @@ export type Database = {
             foreignKeyName: "promo_codes_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "promo_codes_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "promo_codes_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
         ]
+      }
+      raffle_presets: {
+        Row: {
+          consent_version: string
+          created_at: string
+          created_by: string | null
+          cutoff_offset_minutes: number
+          id: string
+          is_archived: boolean
+          name: string
+          prize_text: string
+          show_winner_publicly: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          consent_version?: string
+          created_at?: string
+          created_by?: string | null
+          cutoff_offset_minutes: number
+          id?: string
+          is_archived?: boolean
+          name: string
+          prize_text: string
+          show_winner_publicly?: boolean
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          consent_version?: string
+          created_at?: string
+          created_by?: string | null
+          cutoff_offset_minutes?: number
+          id?: string
+          is_archived?: boolean
+          name?: string
+          prize_text?: string
+          show_winner_publicly?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reference_data_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: number
+          key: string
+          op: string
+          payload_after: Json | null
+          payload_before: Json | null
+          table_name: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          key: string
+          op: string
+          payload_after?: Json | null
+          payload_before?: Json | null
+          table_name: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          key?: string
+          op?: string
+          payload_after?: Json | null
+          payload_before?: Json | null
+          table_name?: string
+        }
+        Relationships: []
       }
       rpc_city_compat_audit: {
         Row: {
@@ -3163,6 +3769,53 @@ export type Database = {
         }
         Relationships: []
       }
+      search_queries: {
+        Row: {
+          city_id: string | null
+          id: string
+          normalized_query: string | null
+          query: string
+          results_count: number | null
+          searched_at: string
+          searched_hour_bucket: string | null
+          source: string
+          user_agent: string | null
+          viewer_session_id: string | null
+        }
+        Insert: {
+          city_id?: string | null
+          id?: string
+          normalized_query?: string | null
+          query: string
+          results_count?: number | null
+          searched_at?: string
+          searched_hour_bucket?: string | null
+          source?: string
+          user_agent?: string | null
+          viewer_session_id?: string | null
+        }
+        Update: {
+          city_id?: string | null
+          id?: string
+          normalized_query?: string | null
+          query?: string
+          results_count?: number | null
+          searched_at?: string
+          searched_hour_bucket?: string | null
+          source?: string
+          user_agent?: string | null
+          viewer_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_queries_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       songs: {
         Row: {
           artist: string
@@ -3211,171 +3864,68 @@ export type Database = {
         }
         Relationships: []
       }
-      teacher_profiles: {
+      teacher_role_details: {
         Row: {
-          achievements: string[] | null
-          availability: string | null
-          city_id: string | null
-          country: string | null
-          country_code: string | null
+          availability: Json | null
           created_at: string | null
-          created_by: string | null
-          email: string | null
-          facebook: string | null
-          faq: string | null
-          first_name: string | null
-          gallery_urls: string[] | null
-          hide_surname: boolean | null
+          faq: Json | null
           id: string
-          instagram: string | null
-          is_active: boolean | null
-          journey: string | null
-          languages: string[] | null
-          meta_data: Json | null
-          nationality: string | null
-          offers_group: boolean | null
+          legacy_teacher_id: string | null
           offers_private: boolean | null
-          person_entity_id: string | null
-          phone: string | null
-          photo_url: string | null
+          partner_role: string | null
+          person_id: string
           private_lesson_locations: string[] | null
           private_lesson_types: string[] | null
-          private_travel_distance: number | null
-          profile_source: string | null
-          public_email: string | null
-          socials: Json | null
-          surname: string | null
+          private_travel_distance: string | null
           teaching_styles: string[] | null
-          travel_willingness: string | null
-          upcoming_events: string | null
           updated_at: string | null
-          user_id: string | null
-          website: string | null
           years_teaching: number | null
         }
         Insert: {
-          achievements?: string[] | null
-          availability?: string | null
-          city_id?: string | null
-          country?: string | null
-          country_code?: string | null
+          availability?: Json | null
           created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          facebook?: string | null
-          faq?: string | null
-          first_name?: string | null
-          gallery_urls?: string[] | null
-          hide_surname?: boolean | null
+          faq?: Json | null
           id?: string
-          instagram?: string | null
-          is_active?: boolean | null
-          journey?: string | null
-          languages?: string[] | null
-          meta_data?: Json | null
-          nationality?: string | null
-          offers_group?: boolean | null
+          legacy_teacher_id?: string | null
           offers_private?: boolean | null
-          person_entity_id?: string | null
-          phone?: string | null
-          photo_url?: string | null
+          partner_role?: string | null
+          person_id: string
           private_lesson_locations?: string[] | null
           private_lesson_types?: string[] | null
-          private_travel_distance?: number | null
-          profile_source?: string | null
-          public_email?: string | null
-          socials?: Json | null
-          surname?: string | null
+          private_travel_distance?: string | null
           teaching_styles?: string[] | null
-          travel_willingness?: string | null
-          upcoming_events?: string | null
           updated_at?: string | null
-          user_id?: string | null
-          website?: string | null
           years_teaching?: number | null
         }
         Update: {
-          achievements?: string[] | null
-          availability?: string | null
-          city_id?: string | null
-          country?: string | null
-          country_code?: string | null
+          availability?: Json | null
           created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          facebook?: string | null
-          faq?: string | null
-          first_name?: string | null
-          gallery_urls?: string[] | null
-          hide_surname?: boolean | null
+          faq?: Json | null
           id?: string
-          instagram?: string | null
-          is_active?: boolean | null
-          journey?: string | null
-          languages?: string[] | null
-          meta_data?: Json | null
-          nationality?: string | null
-          offers_group?: boolean | null
+          legacy_teacher_id?: string | null
           offers_private?: boolean | null
-          person_entity_id?: string | null
-          phone?: string | null
-          photo_url?: string | null
+          partner_role?: string | null
+          person_id?: string
           private_lesson_locations?: string[] | null
           private_lesson_types?: string[] | null
-          private_travel_distance?: number | null
-          profile_source?: string | null
-          public_email?: string | null
-          socials?: Json | null
-          surname?: string | null
+          private_travel_distance?: string | null
           teaching_styles?: string[] | null
-          travel_willingness?: string | null
-          upcoming_events?: string | null
           updated_at?: string | null
-          user_id?: string | null
-          website?: string | null
           years_teaching?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "teacher_profiles_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
+            foreignKeyName: "teacher_role_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "teacher_profiles_country_code_fkey"
-            columns: ["country_code"]
-            isOneToOne: false
-            referencedRelation: "countries"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "teacher_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "teacher_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "teacher_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "teacher_profiles_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
+            foreignKeyName: "teacher_role_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -3430,6 +3980,46 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_venue_favourites: {
+        Row: {
+          created_at: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_venue_favourites_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_venue_favourites_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "user_venue_favourites_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_is_admin: {
         Row: {
@@ -3596,21 +4186,130 @@ export type Database = {
             foreignKeyName: "vendors_person_entity_id_fkey"
             columns: ["person_entity_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendors_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      venue_room_aliases: {
+        Row: {
+          alias: string
+          canonical_room_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          venue_id: string
+        }
+        Insert: {
+          alias: string
+          canonical_room_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          venue_id: string
+        }
+        Update: {
+          alias?: string
+          canonical_room_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          venue_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "vendors_person_entity_id_fkey"
-            columns: ["person_entity_id"]
+            foreignKeyName: "venue_room_aliases_canonical_room_id_fkey"
+            columns: ["canonical_room_id"]
             isOneToOne: false
-            referencedRelation: "organisers"
+            referencedRelation: "venue_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_room_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_room_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "venue_room_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_rooms: {
+        Row: {
+          archived_at: string | null
+          capacity: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          photo_url: string | null
+          slug: string
+          sort_order: number
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          capacity?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          slug: string
+          sort_order?: number
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          capacity?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_venues_read"
+            referencedColumns: ["venue_id"]
+          },
+          {
+            foreignKeyName: "venue_rooms_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3634,6 +4333,7 @@ export type Database = {
           faq: string | null
           faq_json: Json | null
           floor_type: string | null
+          food_situation: string | null
           gallery_urls: string[] | null
           google_maps_link: string | null
           google_maps_url: string | null
@@ -3642,21 +4342,28 @@ export type Database = {
           id_required: boolean | null
           instagram: string | null
           last_entry_time: string | null
+          lat: number | null
+          late_night_notes: string | null
+          lng: number | null
           meta_data: Json | null
           name: string
           opening_hours: Json | null
           parking: string | null
+          parking_cost_notes: string | null
           parking_json: Json | null
           phone: string | null
           photo_url: string[] | null
           postcode: string | null
+          publish_state: string
           rules: string[] | null
+          temperature_feel: string | null
           timezone: string | null
           transport: string | null
           transport_json: Json | null
           user_id: string
           venue_rating: number | null
           video_urls: string[] | null
+          water_situation: string | null
           website: string | null
         }
         Insert: {
@@ -3677,6 +4384,7 @@ export type Database = {
           faq?: string | null
           faq_json?: Json | null
           floor_type?: string | null
+          food_situation?: string | null
           gallery_urls?: string[] | null
           google_maps_link?: string | null
           google_maps_url?: string | null
@@ -3685,21 +4393,28 @@ export type Database = {
           id_required?: boolean | null
           instagram?: string | null
           last_entry_time?: string | null
+          lat?: number | null
+          late_night_notes?: string | null
+          lng?: number | null
           meta_data?: Json | null
           name: string
           opening_hours?: Json | null
           parking?: string | null
+          parking_cost_notes?: string | null
           parking_json?: Json | null
           phone?: string | null
           photo_url?: string[] | null
           postcode?: string | null
+          publish_state?: string
           rules?: string[] | null
+          temperature_feel?: string | null
           timezone?: string | null
           transport?: string | null
           transport_json?: Json | null
           user_id: string
           venue_rating?: number | null
           video_urls?: string[] | null
+          water_situation?: string | null
           website?: string | null
         }
         Update: {
@@ -3720,6 +4435,7 @@ export type Database = {
           faq?: string | null
           faq_json?: Json | null
           floor_type?: string | null
+          food_situation?: string | null
           gallery_urls?: string[] | null
           google_maps_link?: string | null
           google_maps_url?: string | null
@@ -3728,21 +4444,28 @@ export type Database = {
           id_required?: boolean | null
           instagram?: string | null
           last_entry_time?: string | null
+          lat?: number | null
+          late_night_notes?: string | null
+          lng?: number | null
           meta_data?: Json | null
           name?: string
           opening_hours?: Json | null
           parking?: string | null
+          parking_cost_notes?: string | null
           parking_json?: Json | null
           phone?: string | null
           photo_url?: string[] | null
           postcode?: string | null
+          publish_state?: string
           rules?: string[] | null
+          temperature_feel?: string | null
           timezone?: string | null
           transport?: string | null
           transport_json?: Json | null
           user_id?: string
           venue_rating?: number | null
           video_urls?: string[] | null
+          water_situation?: string | null
           website?: string | null
         }
         Relationships: [
@@ -3757,21 +4480,7 @@ export type Database = {
             foreignKeyName: "fk_venues_entity_id"
             columns: ["entity_id"]
             isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
-            isOneToOne: true
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
-            isOneToOne: true
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
         ]
@@ -3920,37 +4629,13 @@ export type Database = {
             foreignKeyName: "videographers_person_entity_id_fkey"
             columns: ["person_entity_id"]
             isOneToOne: false
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "videographers_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
             referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "videographers_person_entity_id_fkey"
-            columns: ["person_entity_id"]
-            isOneToOne: false
-            referencedRelation: "organisers"
             referencedColumns: ["id"]
           },
         ]
       }
     }
     Views: {
-      admin_people_view: {
-        Row: {
-          has_auth: boolean | null
-          has_identity: boolean | null
-          role: string | null
-          role_row_id: string | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
       admin_venues_read: {
         Row: {
           address: string | null
@@ -4002,10 +4687,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "entities"
+            foreignKeyName: "fk_entities_city"
+            columns: ["entity_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
           {
@@ -4019,21 +4704,7 @@ export type Database = {
             foreignKeyName: "fk_venues_entity_id"
             columns: ["venue_entity_id"]
             isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
-            isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
           {
@@ -4047,14 +4718,7 @@ export type Database = {
             foreignKeyName: "fk_venues_entity_id"
             columns: ["venue_entity_id"]
             isOneToOne: true
-            referencedRelation: "organisers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
-            isOneToOne: true
-            referencedRelation: "organisers"
+            referencedRelation: "organiser_admin_dashboard_v2"
             referencedColumns: ["id"]
           },
         ]
@@ -4086,24 +4750,10 @@ export type Database = {
             foreignKeyName: "calendar_occurrences_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "event_instances"
-            referencedColumns: ["event_id"]
-          },
-          {
-            foreignKeyName: "calendar_occurrences_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "calendar_occurrences_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "v_event_page_snapshot"
-            referencedColumns: ["event_id"]
-          },
-          {
             foreignKeyName: "events_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
@@ -4115,55 +4765,6 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "admin_venues_read"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venue_city_audit_view"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_instances: {
-        Row: {
-          city_slug: string | null
-          event_id: string | null
-          event_name: string | null
-          instance_end: string | null
-          instance_start: string | null
-          occurrence_id: string | null
-          venue_id: string | null
-          venue_name: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "admin_venues_read"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "admin_venues_read"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venue_city_audit_view"
             referencedColumns: ["venue_id"]
           },
           {
@@ -4191,31 +4792,6 @@ export type Database = {
           {
             foreignKeyName: "member_profiles_based_city_id_fkey"
             columns: ["based_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      organiser_admin_dashboard_v1: {
-        Row: {
-          avatar_url: string | null
-          city_id: string | null
-          city_name: string | null
-          claimed_by: string | null
-          contact_phone: string | null
-          id: string | null
-          instagram: string | null
-          name: string | null
-          organisation_category: string | null
-          socials: Json | null
-          type: string | null
-          website: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entities_city_id_fkey"
-            columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
             referencedColumns: ["id"]
@@ -4255,93 +4831,8 @@ export type Database = {
             referencedRelation: "cities"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      organisers: {
-        Row: {
-          city: string | null
-          city_id: string | null
-          city_slug: string | null
-          created_at: string | null
-          description: string | null
-          email: string | null
-          facebook: string | null
-          faq: string | null
-          first_name: string | null
-          id: string | null
-          instagram: string | null
-          is_active: boolean | null
-          linked_events: string[] | null
-          meta_data: Json | null
-          organisation_name: string | null
-          phone: string | null
-          photo_url: string | null
-          surname: string | null
-          team: Json | null
-          team_members: string | null
-          updated_at: string | null
-          user_id: string | null
-          verified: boolean | null
-          website: string | null
-          whatsapp: string | null
-        }
-        Insert: {
-          city?: string | null
-          city_id?: string | null
-          city_slug?: never
-          created_at?: string | null
-          description?: string | null
-          email?: never
-          facebook?: never
-          faq?: never
-          first_name?: never
-          id?: string | null
-          instagram?: never
-          is_active?: boolean | null
-          linked_events?: never
-          meta_data?: Json | null
-          organisation_name?: string | null
-          phone?: never
-          photo_url?: string | null
-          surname?: never
-          team?: never
-          team_members?: never
-          updated_at?: never
-          user_id?: string | null
-          verified?: never
-          website?: never
-          whatsapp?: never
-        }
-        Update: {
-          city?: string | null
-          city_id?: string | null
-          city_slug?: never
-          created_at?: string | null
-          description?: string | null
-          email?: never
-          facebook?: never
-          faq?: never
-          first_name?: never
-          id?: string | null
-          instagram?: never
-          is_active?: boolean | null
-          linked_events?: never
-          meta_data?: Json | null
-          organisation_name?: string | null
-          phone?: never
-          photo_url?: string | null
-          surname?: never
-          team?: never
-          team_members?: never
-          updated_at?: never
-          user_id?: string | null
-          verified?: never
-          website?: never
-          whatsapp?: never
-        }
-        Relationships: [
           {
-            foreignKeyName: "entities_city_id_fkey"
+            foreignKeyName: "fk_entities_city"
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
@@ -4387,136 +4878,8 @@ export type Database = {
           },
         ]
       }
-      v_event_page_snapshot: {
-        Row: {
-          city_display: Json | null
-          city_id: string | null
-          created_by: string | null
-          default_city_id: string | null
-          default_venue_id: string | null
-          description: string | null
-          event_id: string | null
-          event_timezone: string | null
-          facebook_url: string | null
-          instagram_url: string | null
-          is_published: boolean | null
-          name: string | null
-          poster_url: string | null
-          pricing: Json | null
-          status: string | null
-          ticket_url: string | null
-          website: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "events_city_id_fkey"
-            columns: ["default_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["default_venue_id"]
-            isOneToOne: false
-            referencedRelation: "admin_venues_read"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["default_venue_id"]
-            isOneToOne: false
-            referencedRelation: "admin_venues_read"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["default_venue_id"]
-            isOneToOne: false
-            referencedRelation: "venue_city_audit_view"
-            referencedColumns: ["venue_id"]
-          },
-          {
-            foreignKeyName: "events_venue_id_fkey"
-            columns: ["default_venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      venue_city_audit_view: {
-        Row: {
-          drift_flag: boolean | null
-          entity_city_id: string | null
-          needs_backfill: boolean | null
-          venue_city_id: string | null
-          venue_entity_id: string | null
-          venue_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entities_city_id_fkey"
-            columns: ["entity_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entities_city_id_fkey"
-            columns: ["venue_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v1"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "organiser_admin_dashboard_v2"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
-            isOneToOne: true
-            referencedRelation: "organisers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Functions: {
-      _archive_link_for_occurrence: {
-        Args: {
-          p_event_id: string
-          p_occurrence_id: string
-          p_profile_id: string
-          p_role: string
-        }
-        Returns: undefined
-      }
       _derive_event_organiser_ids: {
         Args: { p_event_id: string }
         Returns: string[]
@@ -4528,25 +4891,55 @@ export type Database = {
         Args: { p_member_profile_id: string }
         Returns: string
       }
+      _occurrence_idempotent_check: {
+        Args: { p_actor: string; p_key: string }
+        Returns: boolean
+      }
+      _occurrence_idempotent_complete: {
+        Args: { p_actor: string; p_key: string }
+        Returns: undefined
+      }
       _secdef_probe: { Args: never; Returns: string }
-      _upsert_link: {
+      account_exists_by_email: { Args: { p_email: string }; Returns: boolean }
+      add_favourite_venue_v1: {
+        Args: { p_venue_id: string }
+        Returns: undefined
+      }
+      admin_alias_pending_facility_v1: {
         Args: {
-          p_event_id: string
-          p_is_primary: boolean
-          p_occurrence_id: string
-          p_profile_id: string
-          p_role: string
-          p_source: string
+          p_apply_to_venues?: boolean
+          p_canonical_key: string
+          p_key: string
         }
         Returns: undefined
       }
-      account_exists_by_email: { Args: { p_email: string }; Returns: boolean }
-      admin_archive_event_profile_link: {
+      admin_alias_pending_floor_type_v1: {
         Args: {
-          p_event_id: string
-          p_profile_id: string
-          p_reason?: string
-          p_role: string
+          p_apply_to_venues?: boolean
+          p_canonical_key: string
+          p_key: string
+        }
+        Returns: undefined
+      }
+      admin_archive_event_v1: { Args: { p_event_id: string }; Returns: Json }
+      admin_archive_person_v1: { Args: { p_person_id: string }; Returns: Json }
+      admin_archive_raffle_preset_v1: {
+        Args: { p_preset_id: string }
+        Returns: Json
+      }
+      admin_assign_raffle_preset_v1: {
+        Args: { p_event_id: string; p_preset_id?: string }
+        Returns: Json
+      }
+      admin_bulk_assign_raffle_preset_v1: {
+        Args: { p_event_ids: string[]; p_preset_id?: string }
+        Returns: Json
+      }
+      admin_clear_occurrence_override_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_occurrence_id: string
         }
         Returns: Json
       }
@@ -4592,16 +4985,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      admin_create_event_profile_link: {
-        Args: {
-          p_event_id: string
-          p_is_primary?: boolean
-          p_profile_id: string
-          p_profile_type?: string
-          p_reason?: string
-          p_role: string
-          p_verified?: boolean
-        }
+      admin_create_new_event_draft_v1: {
+        Args: { p_initial_payload?: Json }
         Returns: Json
       }
       admin_create_organisation_signup: {
@@ -4623,6 +5008,7 @@ export type Database = {
         Returns: Json
       }
       admin_create_person_entity_v1: { Args: { p_name: string }; Returns: Json }
+      admin_create_person_v1: { Args: { p_payload: Json }; Returns: Json }
       admin_create_vendor: {
         Args: { p_target_user_id: string; p_vendor_payload: Json }
         Returns: {
@@ -4653,11 +5039,41 @@ export type Database = {
           upcoming_events_count: number
         }[]
       }
+      admin_delete_dancer_v1: { Args: { p_user_id: string }; Returns: Json }
+      admin_delete_dj_v1: { Args: { p_entity_id: string }; Returns: Json }
+      admin_delete_e2e_test_events_v1: { Args: never; Returns: number }
+      admin_delete_event_v1: { Args: { p_event_id: string }; Returns: Json }
+      admin_delete_facility_option_v1: {
+        Args: { p_expected_updated_at: string; p_key: string }
+        Returns: undefined
+      }
+      admin_delete_floor_type_option_v1: {
+        Args: { p_expected_updated_at: string; p_key: string }
+        Returns: undefined
+      }
       admin_delete_organiser: {
         Args: { p_organiser_entity_id: string }
         Returns: Json
       }
+      admin_delete_person_v1: { Args: { p_person_id: string }; Returns: Json }
       admin_delete_promo_code: { Args: { p_id: string }; Returns: undefined }
+      admin_delete_standard_class_session_v1: {
+        Args: { p_session_id: string }
+        Returns: boolean
+      }
+      admin_delete_vendor_v1: { Args: { p_entity_id: string }; Returns: Json }
+      admin_delete_videographer_v1: {
+        Args: { p_entity_id: string }
+        Returns: Json
+      }
+      admin_discard_event_draft_v1: {
+        Args: { p_draft_id: string }
+        Returns: Json
+      }
+      admin_draw_raffle_winner_v1: {
+        Args: { p_event_id: string; p_reason?: string }
+        Returns: Json
+      }
       admin_entity_lifecycle: {
         Args: {
           p_action: string
@@ -4666,6 +5082,15 @@ export type Database = {
           p_reason: string
         }
         Returns: undefined
+      }
+      admin_error: {
+        Args: {
+          p_code: string
+          p_detail?: string
+          p_field?: string
+          p_message: string
+        }
+        Returns: Json
       }
       admin_event_create_draft:
         | {
@@ -4700,17 +5125,13 @@ export type Database = {
             }
             Returns: undefined
           }
-      admin_generate_event_link_suggestions: {
-        Args: { p_event_id: string; p_limit?: number; p_role?: string }
+      admin_event_views_top_v1: {
+        Args: { p_limit?: number; p_window?: string }
         Returns: {
-          confidence: number
           event_id: string
-          profile_id: string
-          profile_type: string
-          reason: string
-          role: string
-          status: string
-          suggestion_id: string
+          event_name: string
+          poster_url: string
+          views: number
         }[]
       }
       admin_get_broken_reference_queue: {
@@ -4766,39 +5187,6 @@ export type Database = {
           whatsapp: string
         }[]
       }
-      admin_get_dj_v1: {
-        Args: { p_entity_id: string }
-        Returns: {
-          city: string
-          city_id: string
-          created_at: string
-          dj_name: string
-          email: string
-          entity_id: string
-          facebook: string
-          faq: string
-          first_name: string
-          gallery_urls: string[]
-          genres: string[]
-          id: string
-          instagram: string
-          is_active: boolean
-          meta_data: Json
-          mixcloud: string
-          nationality: string
-          phone: string
-          photo_url: string
-          pricing: string
-          profile_source: string
-          soundcloud: string
-          surname: string
-          upcoming_events: string[]
-          updated_at: string
-          website: string
-          whatsapp: string
-          youtube_url: string
-        }[]
-      }
       admin_get_djs_by_ids_v1: {
         Args: { p_ids: string[] }
         Returns: {
@@ -4846,6 +5234,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      admin_get_listing_request_detail_v1: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       admin_get_merge_history_v1: {
         Args: { p_person_entity_id: string }
         Returns: {
@@ -4875,6 +5267,10 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      admin_get_or_create_event_draft_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
       }
       admin_get_organiser_display_rows_v1: {
         Args: { p_ids: string[] }
@@ -4911,6 +5307,15 @@ export type Database = {
           role_type: string
         }[]
       }
+      admin_get_person_v1: { Args: { p_person_id: string }; Returns: Json }
+      admin_get_prev_raffle_config_v1: {
+        Args: { p_before_date?: string; p_series_key: string }
+        Returns: Json
+      }
+      admin_get_session_people_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       admin_get_suspected_duplicate_profiles: {
         Args: {
           p_city?: string
@@ -4924,42 +5329,6 @@ export type Database = {
           normalized_name: string
           profile_ids: string[]
           profile_type: string
-        }[]
-      }
-      admin_get_teacher_v1: {
-        Args: { p_entity_id: string }
-        Returns: {
-          achievements: string[]
-          availability: string
-          city: string
-          city_id: string
-          created_at: string
-          email: string
-          entity_id: string
-          facebook: string
-          faq: string
-          first_name: string
-          gallery_urls: string[]
-          hide_surname: boolean
-          id: string
-          instagram: string
-          is_active: boolean
-          journey: string
-          languages: string[]
-          meta_data: Json
-          nationality: string
-          offers_private: boolean
-          phone: string
-          photo_url: string
-          private_lesson_locations: string[]
-          private_lesson_types: string[]
-          private_travel_distance: number
-          profile_source: string
-          surname: string
-          teaching_styles: string[]
-          updated_at: string
-          website: string
-          years_teaching: number
         }[]
       }
       admin_get_unlinked_events_queue: {
@@ -5048,26 +5417,40 @@ export type Database = {
           country: string
           created_at: string
           description: string
+          email: string
           entity_id: string
+          facebook: string
           facilities_new: string[]
           faq_json: Json
           floor_type: string
+          food_situation: string
           gallery_urls: string[]
           google_maps_link: string
           id: string
           id_required: boolean
+          instagram: string
           last_entry_time: string
+          lat: number
+          late_night_notes: string
+          lng: number
           meta_data: Json
           name: string
           opening_hours: Json
+          parking_cost_notes: string
           parking_json: Json
+          phone: string
           photo_url: string[]
           postcode: string
+          publish_state: string
+          rules: string[]
+          temperature_feel: string
           timezone: string
           transport_json: Json
           user_id: string
           venue_rating: number
           video_urls: string[]
+          water_situation: string
+          website: string
         }[]
       }
       admin_get_videographer_v1: {
@@ -5117,6 +5500,24 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_link_session_people_v1: {
+        Args: {
+          p_action?: string
+          p_profile_id: string
+          p_profile_type: string
+          p_program_item_id: string
+          p_role?: string
+        }
+        Returns: Json
+      }
+      admin_list_cancellation_reasons_v1: {
+        Args: never
+        Returns: {
+          key: string
+          label: string
+          sort_order: number
+        }[]
+      }
       admin_list_dancers_v1: {
         Args: { p_limit?: number; p_offset?: number; p_query?: string }
         Returns: {
@@ -5136,21 +5537,46 @@ export type Database = {
           updated_at: string
         }[]
       }
-      admin_list_djs_v1: {
-        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+      admin_list_facility_options_v1: {
+        Args: never
         Returns: {
-          city: string
-          city_id: string
-          display_name: string
-          dj_name: string
-          entity_id: string
-          first_name: string
-          id: string
-          is_active: boolean
-          photo_url: string
-          surname: string
+          aliases: string[]
+          dancer_facing: boolean
+          display_order: number
+          emoji: string
+          key: string
+          label: string
           updated_at: string
+          updated_by: string
+          usage_count: number
         }[]
+      }
+      admin_list_floor_type_options_v1: {
+        Args: never
+        Returns: {
+          aliases: string[]
+          display_order: number
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string
+          usage_count: number
+        }[]
+      }
+      admin_list_listing_requests_v1: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_section?: string
+          p_stale_only?: boolean
+          p_status?: string
+        }
+        Returns: Json
+      }
+      admin_list_occurrences_for_event_v1: {
+        Args: { p_event_id: string; p_include_past?: boolean; p_limit?: number }
+        Returns: Json
       }
       admin_list_organiser_options_v1: {
         Args: {
@@ -5163,6 +5589,69 @@ export type Database = {
           name: string
         }[]
       }
+      admin_list_pending_canonical_keys_v1: {
+        Args: { p_kind?: string; p_status?: string }
+        Returns: {
+          first_seen_at: string
+          key: string
+          kind: string
+          last_seen_at: string
+          proposal_count: number
+          resolved_at: string
+          resolved_by: string
+          resolved_to_key: string
+          status: string
+          venue_ids: string[]
+        }[]
+      }
+      admin_list_persons_v1:
+        | {
+            Args: {
+              p_limit?: number
+              p_offset?: number
+              p_role?: string
+              p_search?: string
+            }
+            Returns: {
+              avatar_url: string
+              based_city_id: string
+              claimed_by: string
+              created_at: string
+              display_name: string
+              first_name: string
+              id: string
+              is_active: boolean
+              nationality: string
+              photo_url: string
+              roles: string[]
+              surname: string
+              updated_at: string
+            }[]
+          }
+        | {
+            Args: {
+              p_include_archived?: boolean
+              p_limit?: number
+              p_offset?: number
+              p_role?: string
+              p_search?: string
+            }
+            Returns: {
+              avatar_url: string
+              based_city_id: string
+              claimed_by: string
+              created_at: string
+              display_name: string
+              first_name: string
+              id: string
+              is_active: boolean
+              nationality: string
+              photo_url: string
+              roles: string[]
+              surname: string
+              updated_at: string
+            }[]
+          }
       admin_list_promo_codes_v1: {
         Args: never
         Returns: {
@@ -5190,19 +5679,30 @@ export type Database = {
           valid_until: string
         }[]
       }
-      admin_list_teachers_v1: {
-        Args: { p_limit?: number; p_offset?: number; p_query?: string }
-        Returns: {
-          city: string
-          city_id: string
-          display_name: string
-          entity_id: string
-          first_name: string
-          id: string
-          is_active: boolean
-          photo_url: string
-          surname: string
-        }[]
+      admin_list_raffle_draws_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      admin_list_raffle_entries_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      admin_list_raffle_events_v1: { Args: never; Returns: Json }
+      admin_list_raffle_picker_events_v1: {
+        Args: { p_days_ahead?: number }
+        Returns: Json
+      }
+      admin_list_raffle_picker_events_v2: {
+        Args: { p_days_ahead?: number }
+        Returns: Json
+      }
+      admin_list_raffle_presets_v1: {
+        Args: { p_include_archived?: boolean }
+        Returns: Json
+      }
+      admin_list_series_upcoming_event_ids_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
       }
       admin_list_vendors_v1: {
         Args: { p_limit?: number; p_offset?: number; p_query?: string }
@@ -5218,6 +5718,14 @@ export type Database = {
           verified: boolean
         }[]
       }
+      admin_list_venue_picker_options_v1: {
+        Args: never
+        Returns: {
+          city_name: string
+          id: string
+          name: string
+        }[]
+      }
       admin_list_venues_v1: {
         Args: { p_limit?: number; p_offset?: number; p_query?: string }
         Returns: {
@@ -5231,6 +5739,33 @@ export type Database = {
           id: string
           name: string
           photo_url: string
+        }[]
+      }
+      admin_list_venues_v2: {
+        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+        Returns: {
+          address: string
+          capacity: number
+          city: string
+          city_id: string
+          country: string
+          created_at: string
+          display_name: string
+          entity_id: string
+          facilities_count: number
+          has_address: boolean
+          has_facilities_min_3: boolean
+          has_food_situation: boolean
+          has_opening_hours: boolean
+          has_parking: boolean
+          has_photo: boolean
+          has_transport: boolean
+          has_water_situation: boolean
+          id: string
+          name: string
+          photo_url: string
+          publish_state: string
+          total_score: number
         }[]
       }
       admin_list_videographers_v1: {
@@ -5249,6 +5784,23 @@ export type Database = {
           updated_at: string
         }[]
       }
+      admin_listing_request_kpis_v1: { Args: never; Returns: Json }
+      admin_log_action: {
+        Args: {
+          p_action_category: string
+          p_duration_ms?: number
+          p_entity_display_name: string
+          p_entity_id: string
+          p_entity_type: string
+          p_error_code?: string
+          p_error_message?: string
+          p_params: Json
+          p_rpc_name: string
+          p_snapshot_before: Json
+          p_success: boolean
+        }
+        Returns: undefined
+      }
       admin_log_link_action: {
         Args: {
           p_action: string
@@ -5262,11 +5814,31 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_mark_raffle_entry_eligible_v1: {
+        Args: { p_entry_id: string }
+        Returns: Json
+      }
+      admin_mark_raffle_entry_ineligible_v1: {
+        Args: { p_entry_id: string; p_notes?: string; p_reason: string }
+        Returns: Json
+      }
+      admin_mark_request_contacted_v1: {
+        Args: { p_id: string; p_method?: string; p_note?: string }
+        Returns: Json
+      }
       admin_merge_person_entities_v1: {
         Args: { p_from_id: string; p_into_id: string }
         Returns: Json
       }
       admin_normalize_name: { Args: { p_name: string }; Returns: string }
+      admin_organiser_card_clicks_summary_v1: {
+        Args: { p_days?: number; p_organiser_id: string }
+        Returns: Json
+      }
+      admin_override_raffle_eligibility_v1: {
+        Args: { p_entry_id: string; p_override: boolean; p_reason?: string }
+        Returns: Json
+      }
       admin_people_audit: {
         Args: never
         Returns: {
@@ -5291,41 +5863,22 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_people_search_v2:
-        | {
-            Args: { p_limit?: number; p_offset?: number; p_query?: string }
-            Returns: {
-              avatar_url: string
-              display_name: string
-              entity_id: string
-              id: string
-              person_key: string
-              role_types: string[]
-              user_id: string
-            }[]
-          }
-        | { Args: { p_request: Json }; Returns: Json }
-      admin_people_search_v3:
-        | {
-            Args: { p_limit?: number; p_offset?: number; p_query?: string }
-            Returns: {
-              avatar_url: string
-              display_name: string
-              id: string
-              person_entity_id: string
-              role_types: string[]
-              user_id: string
-            }[]
-          }
-        | {
-            Args: { search_term: string }
-            Returns: {
-              city_name: string
-              full_name: string
-              id: string
-              roles: string[]
-            }[]
-          }
+      admin_people_search_v2: {
+        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          entity_id: string
+          id: string
+          person_key: string
+          role_types: string[]
+          user_id: string
+        }[]
+      }
+      admin_pick_raffle_winner_v1: {
+        Args: { p_entry_id: string; p_event_id: string; p_reason?: string }
+        Returns: Json
+      }
       admin_profile_exists: {
         Args: { p_profile_id: string; p_profile_type: string }
         Returns: boolean
@@ -5339,8 +5892,95 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_profile_views_top_v1: {
+        Args: { p_limit?: number; p_window?: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          last_viewed: string
+          person_id: string
+          profile_type: string
+          views: number
+        }[]
+      }
+      admin_promote_pending_facility_v1: {
+        Args: {
+          p_apply_to_venues?: boolean
+          p_dancer_facing?: boolean
+          p_display_order?: number
+          p_emoji?: string
+          p_key: string
+          p_label: string
+        }
+        Returns: undefined
+      }
+      admin_promote_pending_floor_type_v1: {
+        Args: {
+          p_apply_to_venues?: boolean
+          p_display_order?: number
+          p_key: string
+          p_label: string
+        }
+        Returns: undefined
+      }
+      admin_publish_event_draft_v1: {
+        Args: {
+          p_draft_id: string
+          p_event_id: string
+          p_event_payload: Json
+          p_expected_updated_at: string
+          p_idempotency_token: string
+          p_payload_version: number
+          p_session_people?: Json
+        }
+        Returns: Json
+      }
+      admin_record_merge_decision_v1: {
+        Args: {
+          p_decision: string
+          p_notes?: string
+          p_profile_id_a: string
+          p_profile_id_b: string
+          p_source_table_a: string
+          p_source_table_b: string
+        }
+        Returns: {
+          created_at: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          id: string
+          notes: string | null
+          profile_id_a: string
+          profile_id_b: string
+          source_table_a: string
+          source_table_b: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "person_merge_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_record_pending_facility_keys_v1: {
+        Args: { p_keys: string[] }
+        Returns: number
+      }
+      admin_reject_pending_canonical_key_v1: {
+        Args: { p_key: string; p_kind: string }
+        Returns: undefined
+      }
       admin_rename_person_v1: {
         Args: { p_name: string; p_person_entity_id: string }
+        Returns: Json
+      }
+      admin_reset_occurrence_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_occurrence_id: string
+        }
         Returns: Json
       }
       admin_resolve_city: {
@@ -5357,6 +5997,7 @@ export type Database = {
         Args: { p_email: string }
         Returns: string
       }
+      admin_retry_smart_import_v1: { Args: { p_id: string }; Returns: Json }
       admin_review_event_link_suggestion: {
         Args: {
           p_action: string
@@ -5410,76 +6051,121 @@ export type Database = {
           whatsapp: string
         }[]
       }
-      admin_save_dj_v1: {
-        Args: { p_entity_id: string; p_payload: Json }
-        Returns: {
-          city: string
-          city_id: string
-          created_at: string
-          dj_name: string
-          email: string
-          facebook: string
-          faq: string
-          first_name: string
-          gallery_urls: string[]
-          genres: string[]
-          id: string
-          instagram: string
-          is_active: boolean
-          meta_data: Json
-          mixcloud: string
-          nationality: string
-          person_entity_id: string
-          phone: string
-          photo_url: string
-          pricing: string
-          profile_source: string
-          soundcloud: string
-          surname: string
-          upcoming_events: string[]
-          updated_at: string
-          website: string
-          whatsapp: string
-          youtube_url: string
-        }[]
+      admin_save_event_draft_v1: {
+        Args: { p_draft_id: string; p_payload: Json }
+        Returns: Json
+      }
+      admin_save_event_program_v1: {
+        Args: {
+          p_event_id: string
+          p_event_payload: Json
+          p_expected_updated_at: string
+          p_idempotency_token: string
+          p_payload_version: number
+          p_session_people?: Json
+        }
+        Returns: Json
       }
       admin_save_event_v2: { Args: { p_payload: Json }; Returns: Json }
       admin_save_event_v2_impl: { Args: { p_payload: Json }; Returns: Json }
-      admin_save_teacher_v1: {
-        Args: { p_entity_id: string; p_payload: Json }
+      admin_save_facility_option_v1: {
+        Args: {
+          p_aliases: string[]
+          p_dancer_facing: boolean
+          p_display_order: number
+          p_emoji: string
+          p_expected_updated_at: string
+          p_key: string
+          p_label: string
+        }
+        Returns: string
+      }
+      admin_save_floor_type_option_v1: {
+        Args: {
+          p_aliases: string[]
+          p_display_order: number
+          p_expected_updated_at: string
+          p_key: string
+          p_label: string
+        }
+        Returns: string
+      }
+      admin_save_occurrence_override_v1: {
+        Args: {
+          p_event_id: string
+          p_occurrence_id: string
+          p_override_payload: Json
+        }
+        Returns: Json
+      }
+      admin_save_occurrence_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_occurrence_id: string
+          p_patch: Json
+        }
+        Returns: Json
+      }
+      admin_save_organiser_v1: {
+        Args: {
+          p_avatar_url?: string
+          p_city_id?: string
+          p_claimed_by?: string
+          p_contact_phone?: string
+          p_id?: string
+          p_instagram?: string
+          p_is_active?: boolean
+          p_name?: string
+          p_organisation_category?: string
+          p_profile_source?: string
+          p_socials?: Json
+          p_team_members?: Json
+          p_website?: string
+        }
+        Returns: Json
+      }
+      admin_save_person_v1: {
+        Args: { p_payload: Json; p_person_id: string }
+        Returns: Json
+      }
+      admin_save_promo_code_v1: {
+        Args: { p_id?: string; p_payload?: Json }
         Returns: {
-          achievements: string[]
-          availability: string
-          city: string
           city_id: string
+          code: string
           created_at: string
-          email: string
-          facebook: string
-          faq: string
-          first_name: string
-          gallery_urls: string[]
-          hide_surname: boolean
+          created_by: string
+          currency: string
+          description: string
+          discount_type: string
+          discount_value: number
+          event_id: string
+          external_url: string
           id: string
-          instagram: string
-          is_active: boolean
-          journey: string
-          languages: string[]
-          meta_data: Json
-          nationality: string
-          offers_private: boolean
-          person_entity_id: string
-          phone: string
-          photo_url: string
-          private_lesson_locations: string[]
-          private_lesson_types: string[]
-          private_travel_distance: number
-          profile_source: string
-          surname: string
-          teaching_styles: string[]
+          is_featured: boolean
+          owner_display_name: string
+          owner_id: string
+          owner_type: string
+          status: string
+          terms: string
+          title: string
           updated_at: string
-          website: string
-          years_teaching: number
+          valid_from: string
+          valid_until: string
         }[]
+      }
+      admin_save_raffle_preset_v1: {
+        Args: {
+          p_consent_version?: string
+          p_cutoff_offset_minutes?: number
+          p_id?: string
+          p_name?: string
+          p_prize_text?: string
+          p_show_winner_publicly?: boolean
+          p_slug?: string
+        }
+        Returns: Json
       }
       admin_save_vendor_v1: {
         Args: { p_entity_id: string; p_payload: Json }
@@ -5577,15 +6263,63 @@ export type Database = {
           whatsapp: string
         }[]
       }
-      admin_search_existing_persons_v1: {
-        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+      admin_search_profiles_v1: {
+        Args: {
+          p_exclude_program_item_id?: string
+          p_limit?: number
+          p_profile_type: string
+          p_query?: string
+        }
+        Returns: Json
+      }
+      admin_search_queries_top_v1: {
+        Args: { p_limit?: number; p_window?: string; p_zero_only?: boolean }
         Returns: {
-          avatar_url: string
-          display_name: string
-          person_key: string
-          role_types: string[]
-          user_id: string
+          avg_results: number
+          last_searched_at: string
+          normalized_query: string
+          total_searches: number
+          unique_sessions: number
         }[]
+      }
+      admin_set_occurrence_cancellation_v1: {
+        Args: {
+          p_apply_to?: string
+          p_cancelled: boolean
+          p_idempotency_key?: string
+          p_occurrence_id: string
+          p_reason?: string
+          p_reason_category?: string
+        }
+        Returns: Json
+      }
+      admin_set_occurrence_override_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_occurrence_id: string
+          p_patch: Json
+        }
+        Returns: Json
+      }
+      admin_set_occurrence_time_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_instance_end: string
+          p_instance_start: string
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
+      admin_set_occurrence_venue_v1: {
+        Args: {
+          p_apply_to?: string
+          p_idempotency_key?: string
+          p_occurrence_id: string
+          p_venue_id: string
+        }
+        Returns: Json
       }
       admin_settings_audit_insert: {
         Args: {
@@ -5597,8 +6331,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_start_onboarding_v1: { Args: { p_id: string }; Returns: Json }
+      admin_success: { Args: { p_data?: Json }; Returns: Json }
+      admin_suggest_event_teachers_v1: {
+        Args: { p_event_title: string; p_limit?: number }
+        Returns: Json
+      }
       admin_sync_event_links_to_event_row: {
         Args: { p_event_id: string }
+        Returns: Json
+      }
+      admin_unarchive_event_v1: { Args: { p_event_id: string }; Returns: Json }
+      admin_unarchive_person_v1: {
+        Args: { p_person_id: string }
         Returns: Json
       }
       admin_unlink_role_from_person_v1: {
@@ -5607,6 +6352,10 @@ export type Database = {
           p_profile_id: string
           p_role: string
         }
+        Returns: Json
+      }
+      admin_update_listing_request_status_v1: {
+        Args: { p_id: string; p_note?: string; p_status: string }
         Returns: Json
       }
       admin_update_my_notes: { Args: { p_notes: string }; Returns: Json }
@@ -5621,21 +6370,12 @@ export type Database = {
         }
         Returns: Json
       }
-      admin_upsert_organiser: {
+      admin_update_session_person_role_v1: {
         Args: {
-          p_avatar_url?: string
-          p_city_id?: string
-          p_claimed_by?: string
-          p_contact_phone?: string
-          p_id?: string
-          p_instagram?: string
-          p_is_active?: boolean
-          p_name?: string
-          p_organisation_category?: string
-          p_profile_source?: string
-          p_socials?: Json
-          p_team_members?: Json
-          p_website?: string
+          p_profile_id: string
+          p_profile_type: string
+          p_program_item_id: string
+          p_role: string
         }
         Returns: Json
       }
@@ -5665,6 +6405,24 @@ export type Database = {
           valid_until: string
         }[]
       }
+      admin_upsert_standard_class_session_v1: {
+        Args: {
+          p_end_time: string
+          p_event_id: string
+          p_legacy_id: string
+          p_levels: string[]
+          p_session_id: string
+          p_start_time: string
+          p_title: string
+          p_type: string
+        }
+        Returns: string
+      }
+      admin_venue_completeness_v1: {
+        Args: { p_entity_id: string }
+        Returns: Json
+      }
+      admin_venue_snapshot_v1: { Args: { p_venue_id: string }; Returns: Json }
       approve_city_request: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -5714,22 +6472,37 @@ export type Database = {
         Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
       }
+      check_event_program_duration_contract_v1: { Args: never; Returns: Json }
+      check_occurrence_venue_contract_v1: { Args: never; Returns: Json }
+      check_program_room_contract_v1: { Args: never; Returns: Json }
+      check_session_people_display_name_contract_v1: {
+        Args: never
+        Returns: Json
+      }
       claim_dancer_profile: { Args: { p_dancer_id: string }; Returns: string }
-      claim_dj_profile: { Args: { p_dj_id: string }; Returns: string }
       claim_organiser_profile: {
         Args: { p_organiser_id: string }
         Returns: string
       }
-      claim_teacher_profile: { Args: { p_teacher_id: string }; Returns: string }
       claim_vendor_profile_for_current_user: {
         Args: { p_vendor_id: string }
         Returns: string
+      }
+      cleanup_occurrence_write_audit: {
+        Args: { p_retain_days?: number }
+        Returns: number
+      }
+      compute_event_times_from_program_v1: {
+        Args: { p_anchor_date: string; p_event: Json }
+        Returns: Json
       }
       dancer_completeness: { Args: { p_user_id: string }; Returns: Json }
       dashboard_events_summary_dto: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json[]
       }
+      debug_delete_test: { Args: { p_event_id: string }; Returns: Json }
+      debug_name_test: { Args: { p_payload: Json }; Returns: Json }
       delete_venue_admin: {
         Args: { actor_user_id: string; p_entity_id: string }
         Returns: Json
@@ -5752,6 +6525,27 @@ export type Database = {
         }
         Returns: string
       }
+      find_venue_duplicates_v1: {
+        Args: {
+          p_country_code?: string
+          p_exclude_entity_id?: string
+          p_instagram?: string
+          p_lat?: number
+          p_lng?: number
+          p_name?: string
+        }
+        Returns: {
+          address: string
+          city: string
+          country: string
+          distance_meters: number
+          entity_id: string
+          instagram: string
+          match_reason: string
+          match_score: number
+          venue_name: string
+        }[]
+      }
       generate_occurrences_for_event: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -5769,6 +6563,26 @@ export type Database = {
           slug: string
         }[]
       }
+      get_all_profiles_v1: {
+        Args: never
+        Returns: {
+          bio: string
+          city_id: string
+          city_name: string
+          country_code: string
+          display_name: string
+          instagram: string
+          is_active: boolean
+          is_verified: boolean
+          nationality: string
+          person_entity_id: string
+          photo_url: string
+          profile_id: string
+          role: string
+          specialties: string[]
+          website: string
+        }[]
+      }
       get_based_city_prefill: {
         Args: never
         Returns: {
@@ -5777,33 +6591,38 @@ export type Database = {
         }[]
       }
       get_calendar_events: {
-          Args: {
-            range_start: string
-            range_end: string
-            city_slug_param?: string
-          }
-          Returns: {
-            city_slug: string
-            class_end: string
-            class_start: string
-            cover_image_url: string
-            end_time: string
-            event_id: string
-            has_class: boolean
-            has_party: boolean
-            instance_date: string
-            is_recurring: boolean
-            key_times: Json
-            location: string
-            meta_data: Json
-            name: string
-            party_end: string
-            party_start: string
-            photo_url: string[]
-            start_time: string
-            type: string
-          }[]
+        Args: {
+          city_slug_param?: string
+          p_include_past?: boolean
+          range_end: string
+          range_start: string
         }
+        Returns: {
+          city_slug: string
+          city_timezone: string
+          class_end: string
+          class_start: string
+          cover_image_url: string
+          end_time: string
+          event_id: string
+          has_class: boolean
+          has_party: boolean
+          instance_date: string
+          is_recurring: boolean
+          key_times: Json
+          location: string
+          meta_data: Json
+          name: string
+          occurrence_ends_at: string
+          occurrence_id: string
+          occurrence_starts_at: string
+          party_end: string
+          party_start: string
+          photo_url: string[]
+          start_time: string
+          type: string
+        }[]
+      }
       get_current_user_organiser_entity_ids_v1: {
         Args: never
         Returns: {
@@ -5836,6 +6655,14 @@ export type Database = {
           photo_url: string[]
         }[]
       }
+      get_event_attendance_counts: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          event_id: string
+          going_count: number
+          interested_count: number
+        }[]
+      }
       get_event_engagement: {
         Args: { p_event_id: string }
         Returns: {
@@ -5843,6 +6670,7 @@ export type Database = {
           interested_count: number
         }[]
       }
+      get_event_guest_list: { Args: { p_event_id: string }; Returns: Json }
       get_event_page_snapshot: {
         Args: { p_event_id: string; p_occurrence_id?: string }
         Returns: Json
@@ -5864,6 +6692,11 @@ export type Database = {
           person_type: string
           sort_order: number
         }[]
+      }
+      get_event_program_v1: { Args: { p_event_id: string }; Returns: Json }
+      get_event_raffle: {
+        Args: { p_event_id: string; p_session_id?: string }
+        Returns: Json
       }
       get_festival_attendance: { Args: { p_event_id: string }; Returns: Json }
       get_occurrences_by_canonical_venue: {
@@ -5897,7 +6730,22 @@ export type Database = {
           id: string
           lifecycle_status: string
           name: string
+          occurrence_count: number
           start_time: string
+        }[]
+      }
+      get_profile_event_appearances: {
+        Args: { p_profile_id: string }
+        Returns: {
+          event_id: string
+          item_day: string
+          item_end_time: string
+          item_start_time: string
+          item_title: string
+          item_type: string
+          link_table: string
+          program_item_id: string
+          role: string
         }[]
       }
       get_profile_event_timeline: {
@@ -5939,27 +6787,7 @@ export type Database = {
           website: string
         }[]
       }
-      get_public_dj_preview_v1: {
-        Args: { p_entity_id: string }
-        Returns: {
-          city: string
-          city_id: string
-          dj_name: string
-          email: string
-          entity_id: string
-          facebook: string
-          first_name: string
-          genres: string[]
-          instagram: string
-          nationality: string
-          phone: string
-          photo_url: string
-          soundcloud: string
-          surname: string
-          website: string
-          youtube_url: string
-        }[]
-      }
+      get_public_dj_v1: { Args: { p_dj_id: string }; Returns: Json }
       get_public_event_detail: {
         Args: { p_event_id: string; p_occurrence_id?: string }
         Returns: Json
@@ -6088,6 +6916,9 @@ export type Database = {
           postcode: string
         }[]
       }
+      get_public_venues_list_v1: { Args: never; Returns: Json[] }
+      get_public_venues_list_v2: { Args: never; Returns: Json[] }
+      get_public_venues_list_v3: { Args: never; Returns: Json[] }
       get_public_videographer_preview_v1: {
         Args: { p_entity_id: string }
         Returns: {
@@ -6129,16 +6960,6 @@ export type Database = {
         }[]
       }
       get_venue_detail: { Args: { p_venue_id: string }; Returns: Json }
-      get_venue_events: {
-        Args: { p_city_slug?: string; p_venue_id: string }
-        Returns: {
-          date: string
-          id: string
-          is_published: boolean
-          location: string
-          name: string
-        }[]
-      }
       idempotency_claim: {
         Args: { p_key: string; p_request_hash: string }
         Returns: boolean
@@ -6165,8 +6986,26 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_current_user_admin: { Args: never; Returns: boolean }
+      is_standard_multi_day: {
+        Args: { p_end: string; p_start: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: { p_user_id?: string }; Returns: boolean }
       is_valid_city_slug: { Args: { p_slug: string }; Returns: boolean }
+      is_venue_favourited_v1: { Args: { p_venue_id: string }; Returns: boolean }
+      lineup_health_check_v1: {
+        Args: never
+        Returns: {
+          event_id: string
+          event_name: string
+          health: string
+          lifecycle_status: string
+          orphan_program_items: number
+          program_items_count: number
+          program_people_count: number
+        }[]
+      }
+      lineup_health_summary_v1: { Args: never; Returns: Json }
       list_events_dto: {
         Args: {
           p_city_id?: string
@@ -6178,10 +7017,47 @@ export type Database = {
         }
         Returns: Json[]
       }
+      list_my_favourite_venues_v1: {
+        Args: never
+        Returns: {
+          city_name: string
+          favourited_at: string
+          image_url: Json
+          name: string
+          venue_id: string
+        }[]
+      }
+      list_public_djs_v1: {
+        Args: { p_city_id?: string; p_limit?: number }
+        Returns: Json
+      }
+      listing_request_is_stale: {
+        Args: {
+          p_status: Database["public"]["Enums"]["listing_request_status"]
+          p_status_changed_at: string
+        }
+        Returns: boolean
+      }
+      normalize_dance_role: { Args: { p_value: string }; Returns: string }
       normalize_event_instances: {
         Args: { p_event_row?: Json; p_instances: Json }
         Returns: Json
       }
+      normalize_facility_keys: {
+        Args: { p_keys: string[] }
+        Returns: {
+          canonical_keys: string[]
+          dropped_keys: string[]
+        }[]
+      }
+      normalize_floor_type_key: {
+        Args: { p_key: string }
+        Returns: {
+          canonical_key: string
+          dropped: boolean
+        }[]
+      }
+      normalize_instagram_handle: { Args: { p_input: string }; Returns: string }
       organiser_get_event_snapshot_v1: {
         Args: { p_event_id: string }
         Returns: Json
@@ -6190,6 +7066,7 @@ export type Database = {
         Args: { p_event_id: string; p_payload: Json }
         Returns: Json
       }
+      override_payload_allowed_keys: { Args: never; Returns: string[] }
       pg_advisory_lock_event: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -6202,6 +7079,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: boolean
       }
+      profile_safe_to_delete_v1: {
+        Args: { p_profile_id: string; p_profile_type: string }
+        Returns: Json
+      }
       propagate_event_venue_to_future_occurrences: {
         Args: {
           _event_id: string
@@ -6210,20 +7091,64 @@ export type Database = {
         }
         Returns: number
       }
+      purge_stale_event_drafts: { Args: never; Returns: Json }
+      record_event_view_v1: {
+        Args: {
+          p_event_id: string
+          p_session_id: string
+          p_source: string
+          p_user_agent: string
+        }
+        Returns: undefined
+      }
+      record_organiser_card_click_v1: {
+        Args: {
+          p_event_id: string
+          p_organiser_id: string
+          p_session_id: string
+          p_source: string
+          p_user_agent: string
+          p_zone: string
+        }
+        Returns: undefined
+      }
+      record_pending_canonical_key: {
+        Args: { p_key: string; p_kind: string; p_venue_id: string }
+        Returns: undefined
+      }
+      record_profile_view_v1: {
+        Args: {
+          p_context: string
+          p_event_id: string
+          p_person_id: string
+          p_profile_type: string
+          p_session_id: string
+          p_user_agent: string
+        }
+        Returns: undefined
+      }
+      record_search_query_v1: {
+        Args: {
+          p_city_id?: string
+          p_query: string
+          p_results_count?: number
+          p_session_id?: string
+          p_source?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      recover_pending_smart_imports_v1: { Args: never; Returns: number }
       reject_city_request: {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      remove_favourite_venue_v1: {
+        Args: { p_venue_id: string }
+        Returns: undefined
+      }
       replace_event_program: {
         Args: { p_event_id: string; p_meta_data: Json }
-        Returns: undefined
-      }
-      replace_or_patch_guest_dancers: {
-        Args: { p_event_id: string; p_guest_dancers: Json; p_replace: boolean }
-        Returns: undefined
-      }
-      replace_or_patch_lineup: {
-        Args: { p_event_id: string; p_lineup: Json; p_replace: boolean }
         Returns: undefined
       }
       replace_or_patch_occurrences: {
@@ -6244,6 +7169,13 @@ export type Database = {
           guest_profile_id: string
           occurrence_id: string
           role: string
+        }[]
+      }
+      resolve_venue_city: {
+        Args: { p_fallback_city_id: string; p_venue_id: string }
+        Returns: {
+          city_id: string
+          city_slug: string
         }[]
       }
       save_event_core: {
@@ -6285,18 +7217,32 @@ export type Database = {
         }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      submit_guest_list_entry: {
+        Args: { p_event_id: string; p_first_name: string }
+        Returns: Json
+      }
+      submit_listing_request_v1: { Args: { p_payload: Json }; Returns: Json }
+      submit_raffle_entry: {
+        Args: {
+          p_consent_version: string
+          p_event_id: string
+          p_first_name: string
+          p_honeypot?: string
+          p_phone_e164: string
+          p_session_id?: string
+        }
+        Returns: Json
+      }
+      sync_standard_event_sessions: {
+        Args: { p_event_id: string; p_key_times: Json }
+        Returns: undefined
+      }
+      test_listing_request_autopromote_v1: { Args: never; Returns: Json }
+      test_per_occurrence_actor_kind_v1: { Args: never; Returns: Json }
+      test_per_occurrence_v1: { Args: never; Returns: Json }
       unaccent: { Args: { "": string }; Returns: string }
-      upsert_event_guest_dancer_link:
-        | { Args: { _payload: Json }; Returns: undefined }
-        | {
-            Args: {
-              p_actor?: string
-              p_event_id: string
-              p_occurrence_id?: string
-              p_profile_id: string
-            }
-            Returns: undefined
-          }
       upsert_event_profile_connection: {
         Args: {
           p_connection_label: string
@@ -6341,45 +7287,24 @@ export type Database = {
         }
         Returns: Json
       }
-      upsert_guest_dancer: {
-        Args: {
-          p_archived_at?: string
-          p_event_id: string
-          p_occurrence_id?: string
-          p_profile_id: string
-        }
-        Returns: {
-          archived_at: string | null
-          archived_by: string | null
-          created_at: string
-          created_by: string | null
-          event_id: string
-          id: string
-          is_primary: boolean
-          occurrence_id: string | null
-          person_entity_id: string | null
-          profile_id: string
-          profile_type: string
-          reason: string | null
-          role: string
-          source: string
-          status: string
-          updated_at: string
-          updated_by: string | null
-          verified: boolean
-        }
-        SetofOptions: {
-          from: "*"
-          to: "event_profile_links"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       upsert_venue_atomic: { Args: { payload: Json }; Returns: Json }
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
     }
     Enums: {
       event_entity_role: "organiser"
+      listing_request_section:
+        | "teachers_directory"
+        | "teacher_detail"
+        | "organisers_directory"
+        | "organiser_detail"
+        | "venue_detail"
+      listing_request_status:
+        | "new"
+        | "contacted"
+        | "onboarding"
+        | "posted"
+        | "archived"
+        | "declined"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -6505,12 +7430,24 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       event_entity_role: ["organiser"],
+      listing_request_section: [
+        "teachers_directory",
+        "teacher_detail",
+        "organisers_directory",
+        "organiser_detail",
+        "venue_detail",
+      ],
+      listing_request_status: [
+        "new",
+        "contacted",
+        "onboarding",
+        "posted",
+        "archived",
+        "declined",
+      ],
     },
   },
 } as const

@@ -1,8 +1,0 @@
-{
-  "session_id": "pid-3",
-  "started_at_iso": "2026-04-30T07:15:52Z",
-  "stale_after_iso": "2026-04-30T15:15:52Z",
-  "pid": 3,
-  "host": "claude",
-  "branch": "main"
-}

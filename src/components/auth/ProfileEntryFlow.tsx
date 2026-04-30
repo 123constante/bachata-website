@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles, Sun, Calendar, GraduationCap, Music, Camera, ShoppingBag } from "lucide-react";
+import { Sparkles, Sun, Calendar, GraduationCap, Camera, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
 import { AuthStepper } from "@/components/auth/AuthStepper";
@@ -20,7 +20,7 @@ type ProfileEntryFlowProps = {
   className?: string;
 };
 
-type EntryRole = "dancer" | "vendor" | "organiser" | "teacher" | "dj" | "videographer";
+type EntryRole = "dancer" | "vendor" | "organiser" | "teacher" | "videographer";
 
 export const ProfileEntryFlow = ({
   returnTo = "/",
@@ -38,7 +38,7 @@ export const ProfileEntryFlow = ({
   const [path, setPath] = useState<"returning" | "new" | null>(null);
   const [selectedRole, setSelectedRole] = useState<EntryRole>("dancer");
 
-  const resolvedUserType = ["dancer", "vendor", "organiser", "teacher", "dj", "videographer"].includes(userType || "")
+  const resolvedUserType = ["dancer", "vendor", "organiser", "teacher", "videographer"].includes(userType || "")
     ? (userType as EntryRole)
     : undefined;
 
@@ -56,13 +56,6 @@ export const ProfileEntryFlow = ({
       route: "/create-organiser-profile",
       icon: Calendar,
       value: "organiser" as const,
-    },
-    {
-      label: "DJ",
-      description: "Showcase mixes and gigs.",
-      route: "/create-dj-profile",
-      icon: Music,
-      value: "dj" as const,
     },
     {
       label: "Videographer",

@@ -37,18 +37,17 @@ type ModuleSlot = {
   profileFocus?: ProfileEditorFocus;
 };
 
-type SecondaryRole = Exclude<UserRole, "vendor">;
+type SecondaryRole = Exclude<UserRole, "vendor" | "dj">;
 
 const PROFILE_ROLE_META: Record<SecondaryRole, { label: string; createRoute: string; canClaim: boolean }> = {
   dancer: { label: "Dancer", createRoute: "/create-dancers-profile", canClaim: false },
   organiser: { label: "Organiser", createRoute: "/create-organiser-profile", canClaim: true },
   // Teacher signup parked 2026-04-30 — createRoute falls back to /profile.
   teacher: { label: "Teacher", createRoute: "/profile", canClaim: false },
-  dj: { label: "DJ", createRoute: "/create-dj-profile", canClaim: true },
   videographer: { label: "Videographer", createRoute: "/create-videographer-profile", canClaim: false },
 };
 
-const SECONDARY_ROLES: SecondaryRole[] = ["dancer", "organiser", "teacher", "dj", "videographer"];
+const SECONDARY_ROLES: SecondaryRole[] = ["dancer", "organiser", "teacher", "videographer"];
 
 const spanClass = (slot: Pick<ModuleSlot, "colSpan" | "rowSpan">) => {
   const colMap: Record<ModuleSlot["colSpan"], string> = {
@@ -75,7 +74,6 @@ export const VendorDashboard = () => {
     dancerId,
     organiserId,
     teacherId,
-    djId,
     videographerId,
     vendorId,
     loading: roleIdsLoading,
@@ -95,11 +93,10 @@ export const VendorDashboard = () => {
       dancer: dancerId,
       organiser: organiserId,
       teacher: teacherId,
-      dj: djId,
       videographer: videographerId,
       vendor: vendorId,
     }),
-    [dancerId, organiserId, teacherId, djId, videographerId, vendorId]
+    [dancerId, organiserId, teacherId, videographerId, vendorId]
   );
 
   const existingSecondaryRoles = useMemo(

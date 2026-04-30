@@ -43,7 +43,7 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     // The snapshot RPC builds lineup per-occurrence. If the event has no
     // calendar_occurrences (occurrence_effective=null), the lineup is empty.
     // Fall back to the event-level lineup from the festival detail query,
-    // which uses event_profile_links without an occurrence filter.
+    // which reads event_program_people across all program items for the event.
     if (!model.lineup.hasAny && festivalQuery.data?.lineup && !isFestival) {
       const fl = festivalQuery.data.lineup;
       const groups = (

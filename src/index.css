@@ -301,6 +301,34 @@
     --bento-hairline: hsl(var(--bento-accent) / 0.18);
     --bento-plum: 280 35% 25%;           /* #2C1F3E — deep aubergine, pairs brass+velvet for the bento gradient palette */
 
+    /* Venue page — Latin Warm palette (locked 2026-04-30).
+       Extends the existing 39° orange + 45° gold + bento brass into the
+       0-30° hue band (reds/spice). Used by the public venue detail page
+       (/venue-entity/:id) to land a Latin-nightlife mood without
+       fighting the rest of the site palette.
+         --venue-bg          page background (deep mahogany ink)
+         --venue-surface     section tile body (warm charcoal)
+         --venue-surface-hi  hover / inset
+         --venue-line        hairline borders
+         --venue-cream       primary text on dark
+         --venue-cream-mut   secondary text
+         --venue-brass       eyebrow labels, dividers, hairlines
+         --venue-ember       primary CTA, "Open now" pill
+         --venue-rose        favourite / accent
+         --venue-spice       hero gradient depth ink
+         --venue-cumin       star rating, soft highlight */
+    --venue-bg:         20 30% 6%;       /* #160E08 — deep mahogany ink */
+    --venue-surface:    18 22% 10%;      /* #1F1612 — warm charcoal */
+    --venue-surface-hi: 16 22% 13%;      /* #2A1D17 — hover / inset */
+    --venue-line:       20 18% 18%;      /* #2F231C — hairline */
+    --venue-cream:      38 50% 90%;      /* #F4E8D6 — body text on dark */
+    --venue-cream-mut:  38 30% 75%;      /* #DACFB9 — secondary */
+    --venue-brass:      38 55% 55%;      /* #C28F4A — labels / dividers */
+    --venue-ember:      16 75% 53%;      /* #E5662C — primary CTA */
+    --venue-rose:       341 56% 50%;     /* #C7375E — favourite accent */
+    --venue-spice:      8 70% 35%;       /* #9B2D14 — gradient depth ink */
+    --venue-cumin:      38 60% 56%;      /* #D4A04A — soft highlight */
+
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 39 100% 50%;
