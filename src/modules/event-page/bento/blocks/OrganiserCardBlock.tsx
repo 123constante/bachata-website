@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Globe, Instagram, Facebook, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { emitProfileView } from '@/lib/profileViewEmit';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPagePerson, EventPageSnapshot } from '@/modules/event-page/types';
@@ -267,6 +268,12 @@ export const OrganiserCardBlock = ({ eventId, organisers, card }: OrganiserCardB
                 aria-label={ariaLabel}
                 onClick={() => {
                   if (eventId) recordCardClick(eventId, org.id, 'profile');
+                  emitProfileView({
+                    personId: org.id,
+                    profileType: 'organiser',
+                    context: 'event-page:organiser-card',
+                    eventId: eventId ?? null,
+                  });
                 }}
               >
                 {renderCellContent(profileCell)}
@@ -319,6 +326,14 @@ export const OrganiserCardBlock = ({ eventId, organisers, card }: OrganiserCardB
                     aria-label={ariaLabel}
                     onClick={() => {
                       if (eventId) recordCardClick(eventId, org.id, zone);
+                      if (zone === 'profile') {
+                        emitProfileView({
+                          personId: org.id,
+                          profileType: 'organiser',
+                          context: 'event-page:organiser-card',
+                          eventId: eventId ?? null,
+                        });
+                      }
                     }}
                   >
                     {renderCellContent(cell)}

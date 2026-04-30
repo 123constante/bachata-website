@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { emitProfileView } from "@/lib/profileViewEmit";
 import { ArrowLeft, CalendarDays, Facebook, Globe, Instagram, Mail, MessageCircle, Package, Store, Tag, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { VendorPublicDetail } from "@/modules/vendor/types";
@@ -514,7 +515,20 @@ const VendorDetail = () => {
                       {teamItems.map((member, index) => {
                         const href = member.dancerId ? `/dancers/${member.dancerId}` : "/dancers";
                         return (
-                          <Link key={`${member.name}-${index}`} to={href} className="inline-flex">
+                          <Link
+                            key={`${member.name}-${index}`}
+                            to={href}
+                            className="inline-flex"
+                            onClick={() => {
+                              if (member.dancerId) {
+                                emitProfileView({
+                                  personId: member.dancerId,
+                                  profileType: 'dancer',
+                                  context: 'vendor-detail:team',
+                                });
+                              }
+                            }}
+                          >
                             <Button variant="outline" size="sm" className="gap-2">
                               <Users className="h-4 w-4" />
                               {member.name}{member.isLeader ? " (Leader)" : ""}
