@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/generate-sitemap.mjs && vite build",
     "build:dev": "vite build --mode development",
     "lint": "npm run check:integrity && npm run check:legacy-tables && npm run lint:architecture && eslint .",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
