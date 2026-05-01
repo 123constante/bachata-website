@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, ArrowUpRight, Copy, Check, X } from 'lucide-react';
 import type { EventPageModel } from '@/modules/event-page/types';
+import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 
 const GOLD = '#FFA500';
 const SUCCESS = '#1D9E75';
@@ -13,6 +14,8 @@ type Props = {
   actions: EventPageModel['actions'];
   promoCodes: EventPageModel['promoCodes'];
   organiser: EventPageModel['organiser'];
+  /** Bundle E.2 — needed by record_event_link_click_v1; null is a no-op. */
+  eventId: string | null;
 };
 
 const pillClass =
@@ -28,8 +31,21 @@ const VenuePill = ({ id, name }: { id: string; name: string }) => (
   </Link>
 );
 
-const TicketsPill = ({ href }: { href: string }) => (
-  <a href={href} target="_blank" rel="noopener noreferrer" className={pillClass}>
+const TicketsPill = ({ href, eventId }: { href: string; eventId: string | null }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={() => {
+      recordEventLinkClick({
+        eventId,
+        linkType: 'ticket',
+        targetUrl: href,
+        source: 'classic_hero_pill',
+      });
+    }}
+    className={pillClass}
+  >
     <span className="shrink-0 text-[14px] leading-none" aria-hidden>🎟️</span>
     <span className={pillLabel} style={{ color: GOLD }}>Tickets</span>
     <ArrowUpRight className="h-3 w-3 shrink-0 text-black/40" />
@@ -173,6 +189,7 @@ export const EventHeroMetaBlock = ({
   actions,
   promoCodes,
   organiser,
+  eventId,
 }: Props) => {
   const hasVenue = Boolean(location.venueName && location.venueId);
   const hasTickets = Boolean(actions.ticketUrl);
@@ -210,7 +227,7 @@ export const EventHeroMetaBlock = ({
           </div>
         )}
         {hasVenue && <VenuePill id={location.venueId!} name={location.venueName!} />}
-        {hasTickets && <TicketsPill href={actions.ticketUrl!} />}
+        {hasTickets && <TicketsPill href={actions.ticketUrl!} eventId={eventId} />}
         {hasPromo && (
           promoCodes.items.length === 1
             ? <SinglePromoPill code={promoCodes.items[0].code} />

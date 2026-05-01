@@ -111,9 +111,10 @@ export const EventPageScreen = ({
           actions={actions}
           promoCodes={pageModel.promoCodes}
           organiser={pageModel.organiser}
+          eventId={pageModel.identity.eventId}
         />
 
-        <EventSocialIcons actions={actions} />
+        <EventSocialIcons actions={actions} eventId={pageModel.identity.eventId} />
 
         {festivalDetail ? (
           <FestivalProgramSection schedule={festivalDetail.schedule} />

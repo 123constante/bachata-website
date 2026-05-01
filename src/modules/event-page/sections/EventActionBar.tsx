@@ -2,6 +2,7 @@ import { Heart, Share2, Check } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { EventPageModel } from '@/modules/event-page/types';
 import type { RsvpStatus } from '@/modules/event-page/useEventPageRsvpMutation';
+import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 
 const GOLD = '#FFA500';
 const GOLD_INK = '#4A1B0C';
@@ -57,6 +58,12 @@ export const EventActionBar = ({
           text: subtitle ?? undefined,
           url,
         });
+        recordEventLinkClick({
+          eventId: identity.eventId,
+          linkType: 'share',
+          targetUrl: url,
+          source: 'classic_action_bar:web_share',
+        });
         return;
       } catch {
         // User cancelled or share failed — fall through
@@ -66,16 +73,25 @@ export const EventActionBar = ({
       try {
         await navigator.clipboard.writeText(url);
         toast({ title: 'Link copied to clipboard' });
+        recordEventLinkClick({
+          eventId: identity.eventId,
+          linkType: 'share',
+          targetUrl: url,
+          source: 'classic_action_bar:clipboard',
+        });
         return;
       } catch {
         // fall through to WhatsApp
       }
     }
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(text)}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    recordEventLinkClick({
+      eventId: identity.eventId,
+      linkType: 'whatsapp',
+      targetUrl: waUrl,
+      source: 'classic_action_bar:share_fallback',
+    });
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
   const baseBtn =

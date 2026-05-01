@@ -336,7 +336,11 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           Self-hides when no ticket URL is set. Fixed-positioned, sits above
           the BottomNav. Placed outside the centred content column so the
           viewport-centered layout is correct on wide screens. */}
-      <StickyTicketButton ticketUrl={pageModel.actions.ticketUrl} cancelled={!!occurrence?.isCancelled} />
+      <StickyTicketButton
+        ticketUrl={pageModel.actions.ticketUrl}
+        eventId={eventId}
+        cancelled={!!occurrence?.isCancelled}
+      />
     </GlobalLayout>
   );
 };

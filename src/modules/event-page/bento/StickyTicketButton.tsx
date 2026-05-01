@@ -1,10 +1,13 @@
 import { createPortal } from 'react-dom';
 import { Ticket } from 'lucide-react';
+import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 
 type StickyTicketButtonProps = {
   ticketUrl: string | null;
+  /** eventId passes through to record_event_link_click_v1 â€” no-op when null. */
+  eventId: string | null;
   /**
-   * When true the date is cancelled — hide the ticket CTA so dancers can't
+   * When true the date is cancelled â€” hide the ticket CTA so dancers can't
    * accidentally buy a ticket for an off date. The DateBlock already shows
    * a CANCELLED badge so a second cancelled-state UI here would be noise.
    */
@@ -12,7 +15,7 @@ type StickyTicketButtonProps = {
 };
 
 /**
- * Sticky "Get Tickets" CTA — Variant A (translucent bar + brass pill).
+ * Sticky "Get Tickets" CTA â€” Variant A (translucent bar + brass pill).
  *
  * Full-width blurred dark bar sitting flush above the 58 px BottomNav, with
  * a centred brass pill inside. Backdrop blur lets bento content show through
@@ -25,7 +28,7 @@ type StickyTicketButtonProps = {
  * `position: absolute`, so the bar would scroll with the page. Portalling
  * escapes that ancestor and restores true viewport-fixed behaviour.
  */
-export const StickyTicketButton = ({ ticketUrl, cancelled = false }: StickyTicketButtonProps) => {
+export const StickyTicketButton = ({ ticketUrl, eventId, cancelled = false }: StickyTicketButtonProps) => {
   if (cancelled) return null;
   if (!ticketUrl) return null;
   if (typeof document === 'undefined') return null;
@@ -45,6 +48,14 @@ export const StickyTicketButton = ({ ticketUrl, cancelled = false }: StickyTicke
         href={ticketUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => {
+          recordEventLinkClick({
+            eventId,
+            linkType: 'ticket',
+            targetUrl: ticketUrl,
+            source: 'bento_sticky_cta',
+          });
+        }}
         className="inline-flex w-full max-w-[300px] items-center justify-center gap-2 rounded-full px-5 py-[11px] text-sm font-bold tracking-wide transition-[filter] hover:brightness-110 active:brightness-95"
         style={{
           background: 'hsl(var(--bento-accent))',
