@@ -127,9 +127,9 @@ export const EventPageScreen = ({
         )}
 
         {festivalDetail ? (
-          <FestivalLineupSection lineup={festivalDetail.lineup} />
+          <FestivalLineupSection lineup={festivalDetail.lineup} eventId={pageModel.identity.eventId} />
         ) : (
-          <EventLineupSection lineup={pageModel.lineup} />
+          <EventLineupSection lineup={pageModel.lineup} eventId={pageModel.identity.eventId} />
         )}
 
         <EventDescriptionSection description={pageModel.description} />
@@ -140,7 +140,7 @@ export const EventPageScreen = ({
 
         <EventAttendanceSection attendance={pageModel.attendance} />
 
-        <EventGuestDancersSection guestDancers={guestDancers} />
+        <EventGuestDancersSection guestDancers={guestDancers} eventId={pageModel.identity.eventId} />
 
         <EventGallerySection galleryUrls={galleryUrls} />
 
