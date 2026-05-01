@@ -90,30 +90,14 @@ const VenueEntity = () => {
   const { lookup: facilityLookup } = useFacilityLookup({ dancerFacingOnly: true });
 
   // Warm-entry context: dancer arrived by clicking the venue card on an
-  // event page. Filter the source event out of "events here" and surface a
-  // thin breadcrumb back to that event.
+  // event page. Filter the source event out of "events here" and provide a
+  // back link to that event.
   const fromEventId = parseFromEventParam(location.search);
 
   const { data: venue, isLoading } = useQuery({
     queryKey: ['public-venue', id],
     queryFn: () => fetchPublicVenue(id!),
     enabled: !!id,
-  });
-
-  // Source-event name for the warm-entry breadcrumb. Keep the query cheap —
-  // single column, single row, only fires when fromEventId is present.
-  const { data: sourceEvent } = useQuery({
-    queryKey: ['venue-from-event-name', fromEventId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('events')
-        .select('id, name')
-        .eq('id', fromEventId!)
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-    enabled: !!fromEventId,
-    staleTime: 5 * 60 * 1000,
   });
 
   const { data: events } = useQuery({
@@ -135,9 +119,7 @@ const VenueEntity = () => {
     enabled: !!id && !!venue,
   });
 
-  // Breadcrumb adapts to entry context. Cold = "Venues". Warm = source event.
-  // Last item has no path → renders as the current-page label (non-clickable),
-  // so the prior link (Venues / source event) stays clickable.
+  // Breadcrumb always shows Home > Venues > [name] regardless of entry context.
 const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.name, isLoading });
   const backHref = fromEventId ? `/event/${fromEventId}` : '/venues';
 
