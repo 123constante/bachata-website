@@ -79,6 +79,13 @@ export default {
           rose: "hsl(var(--venue-rose))",
           spice: "hsl(var(--venue-spice))",
           cumin: "hsl(var(--venue-cumin))",
+          open: "hsl(var(--venue-open))",
+          card: "hsl(var(--venue-card))",
+          "card-fg": "hsl(var(--venue-card-fg))",
+          "card-mut": "hsl(var(--venue-card-mut))",
+          "card-pill": "hsl(var(--venue-card-pill))",
+          "card-pill-fg": "hsl(var(--venue-card-pill-fg))",
+          "card-border": "hsl(var(--venue-card-border))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

@@ -328,6 +328,16 @@
     --venue-rose:       341 56% 50%;     /* #C7375E — favourite accent */
     --venue-spice:      8 70% 35%;       /* #9B2D14 — gradient depth ink */
     --venue-cumin:      38 60% 56%;      /* #D4A04A — soft highlight */
+    --venue-open:       145 65% 42%;     /* #25A35A — exciting green for "open now" pill (Ricky 2026-04-30) */
+    /* Cream card palette — matches VenueCard.tsx in venue directory.
+       Decided 2026-04-30 (Ricky): section tiles on the venue detail
+       page should match the cream cards on the venue directory. */
+    --venue-card:           41 53% 95%;     /* #F7F3EA — cream surface */
+    --venue-card-fg:        28 47% 12%;     /* #2A1F10 — warm near-black text */
+    --venue-card-mut:       32 35% 17%;     /* #3A2E1C — softer warm body */
+    --venue-card-pill:      41 39% 87%;     /* #EBE3D0 — deeper cream pill */
+    --venue-card-pill-fg:   36 30% 27%;     /* #5A4A30 — pill text */
+    --venue-card-border:    41 39% 80%;     /* #E0D6BC — cream border */
 
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;

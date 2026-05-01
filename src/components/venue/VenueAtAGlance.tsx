@@ -1,12 +1,6 @@
-import { Train, Users, Layers, Beer, Shirt, BadgeCheck } from 'lucide-react';
+import { Users, Layers, Beer, Shirt, BadgeCheck } from 'lucide-react';
 import { OpeningStatusPill } from './OpeningStatusPill';
 import type { VenueOpenStatus } from '@/lib/venueOpenStatus';
-
-type Station = {
-  station?: string | null;
-  line_names?: string[] | null;
-  walking_distance_minutes?: number | null;
-};
 
 type AtAGlanceVenue = {
   capacity?: number | string | null;
@@ -14,28 +8,18 @@ type AtAGlanceVenue = {
   bar_available?: boolean | null;
   cloakroom_available?: boolean | null;
   id_required?: boolean | null;
-  transport_json?: { nearest_stations?: Station[] | null } | null;
 };
 
 /**
- * VenueAtAGlance — the row of small chips that sits between the
- * gallery hero and the action row. Compresses the venue's most
- * scannable facts:
- *   - Open / Closed status (live, computed from opening_hours)
- *   - Walking distance from the closest tube/rail
- *   - Capacity
- *   - Floor type (first declared)
- *   - Bar / Cloakroom / ID-required flags
+ * VenueAtAGlance — chip strip between gallery hero and action row.
  *
- * Mobile (default): horizontally scrollable strip (`overflow-x-auto`)
- *   with snap-x so the user flicks through chips one at a time.
- *   Hides scrollbar.
- * Desktop (md+): inline flex-wrap so all chips are visible at once.
+ * Decided 2026-04-30 (Ricky):
+ *   - The "X min from station" chip used to sit here; removed because
+ *     the Getting Here section already carries that info richly.
+ *     Avoid duplication — let Getting Here own the journey UX.
  *
- * Each chip is data-gated — empty data = no chip. Honours Ricky's
- * "never fake content" rule.
- *
- * Plan: plan_venue_page_redesign.md (Phase 2c).
+ * Remaining chips: open status, capacity, floor type, bar / cloakroom
+ * / ID-required. Each is data-gated.
  */
 export const VenueAtAGlance = ({
   venue,
@@ -44,22 +28,6 @@ export const VenueAtAGlance = ({
   venue: AtAGlanceVenue;
   status: VenueOpenStatus;
 }) => {
-  // Closest station (shortest walking time wins).
-  const stations = Array.isArray(venue.transport_json?.nearest_stations)
-    ? venue.transport_json!.nearest_stations
-    : [];
-  const closest = stations.length
-    ? stations.reduce<Station | null>((best, s) => {
-        const m = typeof s?.walking_distance_minutes === 'number'
-          ? s.walking_distance_minutes
-          : null;
-        if (m == null) return best;
-        if (best == null) return s;
-        const bm = best.walking_distance_minutes ?? Infinity;
-        return m < bm ? s : best;
-      }, null)
-    : null;
-
   const floorType = Array.isArray(venue.floor_type) && venue.floor_type.length > 0
     ? String(venue.floor_type[0])
     : typeof venue.floor_type === 'string' && venue.floor_type.length > 0
@@ -70,15 +38,6 @@ export const VenueAtAGlance = ({
 
   if (status.status !== 'unknown') {
     chips.push(<OpeningStatusPill key="status" status={status} />);
-  }
-
-  if (closest && typeof closest.walking_distance_minutes === 'number') {
-    chips.push(
-      <span key="tube" className={CHIP_CLASS}>
-        <Train className="w-3 h-3 flex-shrink-0 text-venue-brass" aria-hidden="true" />
-        {closest.walking_distance_minutes} min from {closest.station ?? 'station'}
-      </span>,
-    );
   }
 
   if (venue.capacity) {

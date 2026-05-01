@@ -14,10 +14,23 @@ import { cn } from '@/lib/utils';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { fetchPublicVenue } from '@/services/venuePublicService';
-import { VenueHero } from '@/components/venue/VenueHero';
-import { VenueAtAGlance } from '@/components/venue/VenueAtAGlance';
+import { VenueMediaHero } from '@/components/venue/VenueMediaHero';
+import { CityCard } from '@/components/venue/CityCard';
+import { FeaturePillsRow } from '@/components/venue/FeaturePillsRow';
+import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { VenueActionRow } from '@/components/venue/VenueActionRow';
+import { OpeningStatusPill } from '@/components/venue/OpeningStatusPill';
 import { computeVenueOpenStatus } from '@/lib/venueOpenStatus';
+import { AboutSection } from '@/components/venue/sections/AboutSection';
+import { RulesSection } from '@/components/venue/sections/RulesSection';
+import { TheFloorSection } from '@/components/venue/sections/TheFloorSection';
+import { GettingHereSection } from '@/components/venue/sections/GettingHereSection';
+import { ParkingSection } from '@/components/venue/sections/ParkingSection';
+import { OpeningHoursSection } from '@/components/venue/sections/OpeningHoursSection';
+import { ContactSection } from '@/components/venue/sections/ContactSection';
+import { AccessibilitySection } from '@/components/venue/sections/AccessibilitySection';
+import { FaqSection } from '@/components/venue/sections/FaqSection';
+import { VenueUpcomingTile } from '@/components/venue/VenueUpcomingTile';
 import { useFacilityLookup } from '@/hooks/useFacilityOptions';
 
 type VenueOccurrenceRow = {
@@ -117,7 +130,7 @@ const VenueEntity = () => {
       const rows = (data as VenueOccurrenceRow[] | null) ?? [];
       // Warm entry: hide the event the user just came from.
       const filtered = fromEventId ? rows.filter((r) => r.event_id !== fromEventId) : rows;
-      return filtered.slice(0, 5);
+      return filtered.slice(0, 12);
     },
     enabled: !!id && !!venue,
   });
@@ -250,343 +263,122 @@ const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.n
       }}
     >
       <div className="max-w-2xl mx-auto px-3 pb-20">
-        {/* Merged media block */}
-        <div className="mb-3">
-          {allImages.length > 0 ? (
-            <VenueHero allImages={allImages} venueName={venue.name} />
-          ) : (
-            <div className="aspect-video w-full rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 flex items-center justify-center">
-              <Building2 className="w-10 h-10 text-primary/40" />
-            </div>
-          )}
-        </div>
+        {/* JSON-LD LocalBusiness schema — SEO master plan Phase 1.
+            Emitted as inline <script> so crawlers and rich-result
+            previews index the venue with correct hours + address. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              buildVenueJsonLd({
+                name: venue.name,
+                description: venue.description,
+                image: allImages,
+                address: venue.address,
+                postcode: venue.postcode,
+                city_name: venue.city_name,
+                country: venue.country,
+                telephone: venue.phone,
+                url: typeof window !== 'undefined' ? window.location.href : '',
+                opening_hours: openingHours as Parameters<typeof buildVenueJsonLd>[0]['opening_hours'],
+              }),
+            ),
+          }}
+        />
 
-
-        {/* At-a-glance + action row (Phase 2c — replaces identity pill strip).
-            Open-now status, walking-from-tube, capacity, floor, bar/cloak/ID
-            chips, then primary actions: Directions / Save / Share / Events. */}
+        {/* Open-now status banner — first thing in body (Ricky 2026-04-30).
+            Big + colour-keyed by current opening hours. Pulse on the dot
+            when open. */}
         {(() => {
           const openStatus = computeVenueOpenStatus(
             openingHours as Parameters<typeof computeVenueOpenStatus>[0],
             (venue as { timezone?: string | null }).timezone ?? null,
             new Date(),
           );
-          const scrollToEvents = () => {
-            const el = document.getElementById('venue-upcoming-events');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          };
+          if (openStatus.status === 'unknown') return null;
           return (
-            <>
-              <VenueAtAGlance venue={venue} status={openStatus} />
-              <VenueActionRow
-                venueId={id ?? ''}
-                venueName={venue.name ?? 'venue'}
-                mapsUrl={mapsUrl}
-                upcomingCount={events?.length ?? 0}
-                onScrollToEvents={scrollToEvents}
-              />
-            </>
+            <div className="mb-3 flex justify-center">
+              <OpeningStatusPill status={openStatus} size="lg" />
+            </div>
           );
         })()}
 
-        {/* Description — full width prose */}
-        {venue.description && (
-          <div className="bg-card border border-border rounded-lg p-3 mb-3">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Info className="w-3.5 h-3.5 text-primary" />
-              <h2 className="text-xs font-semibold text-foreground">About</h2>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">{venue.description}</p>
+        {/* Address line + City button — plain text, no card wrapping. */}
+        {(addressPillText || venue.city_name) && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {addressPillText && (
+              <a
+                href={mapsUrl ?? undefined}
+                target={mapsUrl ? '_blank' : undefined}
+                rel={mapsUrl ? 'noopener noreferrer' : undefined}
+                className="text-sm text-venue-cream underline decoration-venue-ember decoration-1 underline-offset-4 hover:decoration-2"
+              >
+                {addressPillText}
+              </a>
+            )}
+            <CityCard
+              cityId={(venue as { city_id?: string | null }).city_id ?? null}
+              cityName={venue.city_name ?? null}
+            />
           </div>
         )}
 
-        {/* Rules — full width */}
-        {hasRules && (
-          <div className="bg-card border border-border rounded-lg p-3 mb-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <AlertCircle className="w-3.5 h-3.5 text-destructive" />
-              <h2 className="text-xs font-semibold text-foreground">Venue Rules</h2>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {rules!.map((rule, i) => (
-                <Badge key={i} variant="destructive" className="text-[10px] px-1.5 py-0">
-                  {rule}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Media hero — video left, 2 thumbs right, Gallery button. */}
+        <VenueMediaHero
+          allImages={allImages}
+          videoUrls={(venue as { video_urls?: string[] | null }).video_urls ?? null}
+          venueName={venue.name}
+        />
 
-        {/* Two-column body grid */}
-        {(hasDetails || hasContact || hasTransport || hasParking || hasHours || hasFeatures || hasFaq) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 auto-rows-min mb-3">
-            {/* Venue Details */}
-            {hasDetails && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Layers className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">Venue Details</h2>
-                </div>
-                <div className="space-y-2">
-                  {floorType && floorType.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Floor Type</p>
-                      <div className="flex flex-wrap gap-1">
-                        {floorType.map((type, i) => (
-                          <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {type}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {facilities && facilities.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Facilities</p>
-                      <div className="flex flex-wrap gap-1">
-                        {facilities.map((key) => {
-                          const meta = facilityLookup.get(key);
-                          if (!meta) return null;
-                          return (
-                            <Badge key={key} variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
-                              {meta.emoji && <span aria-hidden="true">{meta.emoji}</span>}
-                              {meta.label}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {venue.accessibility && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                        <Accessibility className="w-3 h-3" />
-                        Accessibility
-                      </p>
-                      <p className="text-xs text-foreground leading-relaxed">{venue.accessibility}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+        {/* Feature pills — floor mini-row above the rest, then capacity +
+            facilities + flags. The single source of truth for what the
+            venue offers. */}
+        <FeaturePillsRow
+          facilities={facilities}
+          floorType={floorType}
+          capacity={venue.capacity}
+          barAvailable={venue.bar_available}
+          cloakroomAvailable={venue.cloakroom_available}
+          idRequired={venue.id_required}
+        />
 
-            {/* Contact */}
-            {hasContact && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Phone className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">Contact</h2>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {venue.phone && (
-                    <a href={`tel:${venue.phone}`} className="bg-muted/50 rounded-md p-2 text-center hover:bg-muted transition-colors">
-                      <Phone className="w-4 h-4 mx-auto mb-1 text-primary" />
-                      <p className="text-[10px] text-muted-foreground">Call</p>
-                    </a>
-                  )}
-                  {venue.email && (
-                    <a href={`mailto:${venue.email}`} className="bg-muted/50 rounded-md p-2 text-center hover:bg-muted transition-colors">
-                      <Mail className="w-4 h-4 mx-auto mb-1 text-primary" />
-                      <p className="text-[10px] text-muted-foreground">Email</p>
-                    </a>
-                  )}
-                  {venue.website && (
-                    <a href={venue.website} target="_blank" rel="noopener noreferrer" className="bg-muted/50 rounded-md p-2 text-center hover:bg-muted transition-colors">
-                      <Globe className="w-4 h-4 mx-auto mb-1 text-primary" />
-                      <p className="text-[10px] text-muted-foreground">Website</p>
-                    </a>
-                  )}
-                  {venue.instagram && (
-                    <a href={`https://instagram.com/${venue.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="bg-muted/50 rounded-md p-2 text-center hover:bg-muted transition-colors">
-                      <Instagram className="w-4 h-4 mx-auto mb-1 text-primary" />
-                      <p className="text-[10px] text-muted-foreground">Instagram</p>
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Getting Here */}
-            {hasTransport && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Train className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">Getting here</h2>
-                </div>
-                {Array.isArray(transportJson!.nearest_stations) && transportJson!.nearest_stations.length > 0 && (
-                  <div className="flex flex-col gap-1.5 mb-2">
-                    {transportJson!.nearest_stations.map((s, i) => {
-                      const label = s.station || 'Station';
-                      return (
-                        <a
-                          key={i}
-                          href={stationMapUrl(label)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(PILL_CLASS, 'justify-between')}
-                        >
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            <Train className="w-3 h-3 text-primary shrink-0" />
-                            <span className="text-foreground font-medium truncate">{label}</span>
-                            {Array.isArray(s.line_names) && s.line_names.length > 0 && (
-                              <span className="flex gap-1 flex-wrap">
-                                {s.line_names.map((line, j) => (
-                                  <Badge key={j} variant="outline" className="text-[9px] px-1 py-0">{line}</Badge>
-                                ))}
-                              </span>
-                            )}
-                          </span>
-                          {typeof s.walking_distance_minutes === 'number' && (
-                            <span className="text-muted-foreground whitespace-nowrap ml-2">
-                              {s.walking_distance_minutes} min
-                            </span>
-                          )}
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-                {transportJson!.notes && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">{transportJson!.notes}</p>
-                )}
-              </div>
-            )}
-
-            {/* Parking */}
-            {hasParking && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Car className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">Parking</h2>
-                </div>
-                {parkingJson!.parking_available !== null && parkingJson!.parking_available !== undefined && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-[10px] mb-1',
-                      parkingJson!.parking_available
-                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                        : 'border-muted-foreground/30 bg-muted/20 text-muted-foreground',
-                    )}
-                  >
-                    {parkingJson!.parking_available ? 'On-site parking available' : 'No on-site parking'}
-                  </Badge>
-                )}
-                {parkingJson!.nearby_parking_notes && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">{parkingJson!.nearby_parking_notes}</p>
-                )}
-              </div>
-            )}
-
-            {/* Opening Hours */}
-            {hasHours && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">Opening Hours</h2>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  {Object.entries(openingHours!).map(([day, hours]) => {
-                    let displayHours = '';
-                    if (typeof hours === 'string') {
-                      displayHours = hours;
-                    } else if (hours && typeof hours === 'object') {
-                      const h = hours as { open?: string; close?: string; isOpen?: boolean };
-                      if (h.isOpen === false) {
-                        displayHours = 'Closed';
-                      } else if (h.open && h.close) {
-                        displayHours = `${h.open} - ${h.close}`;
-                      }
-                    }
-                    if (!displayHours) return null;
-                    return (
-                      <div key={day} className="flex justify-between text-xs">
-                        <span className="text-muted-foreground capitalize">{day}</span>
-                        <span className="text-foreground">{displayHours}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Features */}
-            {hasFeatures && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <h2 className="text-xs font-semibold text-foreground mb-2">Features</h2>
-                <div className="flex flex-wrap gap-2">
-                  {venue.bar_available && (
-                    <Badge variant="outline" className="text-[10px]">🍹 Bar available</Badge>
-                  )}
-                  {venue.cloakroom_available && (
-                    <Badge variant="outline" className="text-[10px]">🧥 Cloakroom</Badge>
-                  )}
-                  {venue.id_required && (
-                    <Badge variant="outline" className="text-[10px]">🪪 ID required</Badge>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* FAQ */}
-            {hasFaq && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Info className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-xs font-semibold text-foreground">FAQ</h2>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {faqItems.map((item, i) => (
-                    <div key={i}>
-                      {item.q && <p className="text-sm font-medium text-foreground">{item.q}</p>}
-                      {item.a && <p className="text-xs text-muted-foreground leading-relaxed">{item.a}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upcoming Events — heading flips to "Other events" on warm entry.
-            id is the scroll target for the "Events" action row button. */}
-        <div id="venue-upcoming-events" className="bg-card border border-border rounded-lg p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
-            <h2 className="text-xs font-semibold text-foreground">
-              {fromEventId ? 'Other events at this venue' : 'Upcoming events at this venue'}
-            </h2>
-          </div>
-          {events && events.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {events.map((event) => (
-                <Link
-                  key={event.occurrence_id}
-                  to={`/event/${event.event_id}?occurrenceId=${event.occurrence_id}`}
-                  className="flex items-center gap-2 rounded-md bg-muted/50 hover:bg-muted p-2 transition-colors"
-                >
-                  <div className="w-10 h-10 aspect-square rounded-sm overflow-hidden bg-muted/40 shrink-0">
-                    {event.poster_url ? (
-                      <img src={event.poster_url} alt={event.name} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{event.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {format(new Date(event.instance_start), 'EEE d MMM, HH:mm')}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">No upcoming events at this venue yet</p>
-          )}
+        {/* Share button on its own row */}
+        <div className="flex justify-end mb-3">
+          <VenueActionRow venueName={venue.name ?? 'venue'} />
         </div>
+
+        {/* Tight-mosaic section grid (Phase 3 — replaces vertical stack of bg-card boxes).
+            Mobile (375px): grid-cols-2. sm: 3, md: 4, lg: 6. About + FAQ + (Rules
+            when long) span 2 columns; everything else fits half-width on mobile.
+            Each section is data-gated and renders nothing if empty — no fake
+            content, no empty tiles. Decided 2026-04-30 (Ricky). */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-3 auto-rows-min">
+          <AboutSection description={venue.description} />
+          <TheFloorSection floorType={floorType} facilities={facilities} />
+          <GettingHereSection
+            stations={transportJson?.nearest_stations ?? null}
+            notes={transportJson?.notes ?? null}
+          />
+          <OpeningHoursSection hours={openingHours} />
+          <ContactSection
+            phone={venue.phone}
+            email={venue.email}
+            website={venue.website}
+            instagram={venue.instagram}
+          />
+          <ParkingSection
+            available={parkingJson?.parking_available ?? null}
+            notes={parkingJson?.nearby_parking_notes ?? null}
+          />
+          <AccessibilitySection text={venue.accessibility} />
+          <RulesSection rules={rules} />
+          <FaqSection items={faqItems} />
+        </div>
+
+        {/* Upcoming events — moved to the BOTTOM of the page (Ricky 2026-04-30).
+            Cream tile, mobile-2-col events grid. Scroll-target id preserved. */}
+        <VenueUpcomingTile events={events} fromEventContext={!!fromEventId} />
+
       </div>
     </GlobalLayout>
   );

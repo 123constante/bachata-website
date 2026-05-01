@@ -1,56 +1,35 @@
 import { useCallback, useState } from 'react';
-import { Heart, MapPin, Share2, Calendar } from 'lucide-react';
-import { useFavouriteVenue } from '@/hooks/useFavouriteVenue';
+import { Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 /**
- * VenueActionRow — primary actions for the public venue page.
+ * VenueActionRow — single Share button (post 2026-04-30 Ricky decisions).
  *
- *   Directions  → opens venue.google_maps_url (or constructed query)
- *   Save        → server-backed, see useFavouriteVenue
- *   Share       → navigator.share if supported, else copy URL
- *   Events      → scrolls to the upcoming events tile
+ * Decided 2026-04-30:
+ *   - NO Save / favourite button.
+ *   - NO Directions button (address text-link replaces it).
+ *   - NO Events button (the upcoming-events tile lives at the bottom
+ *     of the page and is independently scrollable).
  *
- * On mobile the buttons inline as a flex row of 2-4 columns. On md+
- * the same row sits to the right of the at-a-glance strip if the
- * parent layout chooses to combine them; this component just renders
- * a horizontal button row and lets the parent compose.
- *
- * Density: every button is py-2 px-3 per the public-site density
- * rules. Icons are w-4 h-4. Labels are text-xs.
- *
- * Plan: plan_venue_page_redesign.md (Phase 2c).
+ * What remains is just Share. Kept as a small horizontal button so
+ * the share affordance stays one-tap.
  */
-export const VenueActionRow = ({
-  venueId,
-  venueName,
-  mapsUrl,
-  upcomingCount,
-  onScrollToEvents,
-}: {
-  venueId: string;
-  venueName: string;
-  mapsUrl: string | null;
-  upcomingCount: number;
-  onScrollToEvents?: () => void;
-}) => {
+export const VenueActionRow = ({ venueName }: { venueName: string }) => {
   const { toast } = useToast();
-  const { isFavourited, isPending, toggle } = useFavouriteVenue(venueId);
-  const [shareSpinning, setShareSpinning] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const handleShare = useCallback(async () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
-        setShareSpinning(true);
+        setBusy(true);
         await navigator.share({ title: venueName, url });
       } catch (err) {
-        // AbortError on user-cancel is fine; ignore silently.
         if ((err as { name?: string })?.name !== 'AbortError') {
           console.warn('[VenueActionRow] share failed', err);
         }
       } finally {
-        setShareSpinning(false);
+        setBusy(false);
       }
       return;
     }
@@ -69,65 +48,17 @@ export const VenueActionRow = ({
   }, [venueName, toast]);
 
   return (
-    <div
-      className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3"
-      role="group"
-      aria-label="Venue actions"
+    <button
+      type="button"
+      onClick={handleShare}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-md border border-venue-line bg-venue-surface hover:bg-venue-surface-hi transition-colors px-3.5 py-2.5 text-xs font-medium min-h-[44px] min-w-[44px] text-venue-cream-mut hover:text-venue-cream disabled:opacity-60 disabled:cursor-not-allowed"
+      aria-label="Share this venue"
     >
-      {mapsUrl && (
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={ACTION_CLASS}
-        >
-          <MapPin className="w-4 h-4 flex-shrink-0 text-venue-ember" aria-hidden="true" />
-          Directions
-        </a>
-      )}
-
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={isPending}
-        className={`${ACTION_CLASS} ${isFavourited ? 'border-venue-rose/40 text-venue-rose' : ''}`}
-        aria-pressed={isFavourited}
-        aria-label={isFavourited ? 'Remove venue from saved' : 'Save venue to your favourites'}
-      >
-        <Heart
-          className={`w-4 h-4 flex-shrink-0 ${isFavourited ? 'fill-venue-rose text-venue-rose' : 'text-venue-rose'}`}
-          aria-hidden="true"
-        />
-        {isFavourited ? 'Saved' : 'Save'}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleShare}
-        disabled={shareSpinning}
-        className={ACTION_CLASS}
-        aria-label="Share this venue"
-      >
-        <Share2 className="w-4 h-4 flex-shrink-0 text-venue-brass" aria-hidden="true" />
-        Share
-      </button>
-
-      {upcomingCount > 0 && (
-        <button
-          type="button"
-          onClick={onScrollToEvents}
-          className={ACTION_CLASS}
-          aria-label={`View ${upcomingCount} upcoming events at this venue`}
-        >
-          <Calendar className="w-4 h-4 flex-shrink-0 text-venue-cumin" aria-hidden="true" />
-          Events ({upcomingCount})
-        </button>
-      )}
-    </div>
+      <Share2 className="w-3.5 h-3.5 flex-shrink-0 text-venue-brass" aria-hidden="true" />
+      Share
+    </button>
   );
 };
-
-const ACTION_CLASS =
-  'inline-flex items-center justify-center gap-1.5 rounded-md border border-venue-line bg-venue-surface hover:bg-venue-surface-hi transition-colors px-3 py-2 text-xs font-medium text-venue-cream disabled:opacity-60 disabled:cursor-not-allowed';
 
 export default VenueActionRow;

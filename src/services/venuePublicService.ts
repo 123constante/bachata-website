@@ -32,8 +32,10 @@ export interface PublicVenue {
   cloakroom_available: boolean | null;
   id_required: boolean | null;
   accessibility: string | null;
+  city_id?: string | null;
   city_name?: string | null;
   rules?: string[] | null;
+  video_urls?: string[] | null;
 }
 
 export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | null> {
