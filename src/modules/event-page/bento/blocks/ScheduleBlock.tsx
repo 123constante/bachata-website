@@ -124,37 +124,24 @@ const roleLabelFor = (session: ScheduleSession): string | null => {
 // "pick your level" suffix only appears when the time slot holds 2+ classy
 // sessions (a parallel class group). For a solo class or party, just time + dur.
 
-const TimeSection = ({
-  startMins,
-  endMins,
-  format,
-}: {
-  startMins: number;
-  endMins: number;
-  /** 'duration' renders prominent time + small muted duration ("8:00 PM · 55 MIN").
-   *  'range' renders prominent range ("9:20 PM – 3:00 AM").
-   *  Direction D — single brass colour for both, no section-specific tints. */
-  format: 'duration' | 'range';
-}) => (
-  <div className="mb-[10px] flex flex-wrap items-baseline justify-center gap-[8px]">
-    <span
-      className="text-[15px] font-bold leading-none tracking-[-0.005em] tabular-nums"
-      style={{ color: 'hsl(var(--bento-accent))' }}
-    >
-      {format === 'range'
-        ? `${fmtMins12(startMins)} – ${fmtMins12(endMins)}`
-        : fmtMins12(startMins)}
-    </span>
-    {format === 'duration' && (
-      <span
-        className="font-mono text-[9px] uppercase tracking-[0.14em]"
-        style={{ color: 'hsl(var(--bento-fg-muted))' }}
-      >
-        · {fmtDuration(startMins, endMins)}
-      </span>
-    )}
-  </div>
-);
+// F.2.e — TimeSection (formerly defined here) was unused after the per-row
+// time-on-the-right refactor. Kept its name in the row-component comments
+// below as a historical reference; the component itself is deleted.
+
+// Tooltip helper: spell out the rank for screen-reader / hover context, since
+// abbreviations like "Beg/Adv" are ambiguous in isolation.
+//
+// F.2.e — moved above its first call site (RankCard's title prop, ~line 220)
+// so the binding initialises before reads. The previous location below
+// RankCard relied on JSX render-time evaluation rather than module-load
+// hoisting; visually a no-op, semantically tighter.
+const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
+  if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
+  if (session.levels.length === 0) return 'Level not specified';
+  if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
+  if (session.levels.length === 4) return 'Open Level — suitable for all dancers';
+  return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
+};
 
 // ─── Section header — "centered with rules" pattern (D style) ────────────────
 //
@@ -219,14 +206,10 @@ const RankCard = ({
   const rank = rankFor(session);
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
   const titleText = showTitle ? session.title : null;
-  // Multi-room: the room is identified by the column header at the top of
-  // the schedule, so the card heading is always rank or title (never room).
-  const useRoomAsHeading = false;
-  // When rank would render the muted "Class" placeholder (i.e. session has no
-  // levels set) and we have a real title, promote the title to be the heading
-  // — the CLASS pill in the time row already identifies the type, so showing
-  // "Class" again as a card heading is redundant.
-  const useTitleAsHeading = rank.muted && !!titleText;
+  // F.2.e — `useRoomAsHeading` (always false post-Phase-C) and
+  // `useTitleAsHeading` (computed but never read) deleted. Multi-room cards
+  // are identified by the column header above; the rank/title decision is
+  // made directly inline below with rank.muted + titleText checks.
 
   return (
     <div
@@ -305,16 +288,6 @@ const RankCard = ({
       })()}
     </div>
   );
-};
-
-// Tooltip helper: spell out the rank for screen-reader / hover context, since
-// abbreviations like "Beg/Adv" are ambiguous in isolation.
-const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
-  if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
-  if (session.levels.length === 0) return 'Level not specified';
-  if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
-  if (session.levels.length === 4) return 'Open Level — suitable for all dancers';
-  return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };
 
 // ─── Party DJ row — horizontal: avatar | name + role tag ────────────────────
@@ -466,7 +439,7 @@ const DayTabs = ({
 const normalize = (sessions: ScheduleSession[]): ScheduleSession[] => {
   if (!sessions.length) return [];
   return [...sessions]
-    .sort((a, b) => a.startMins - b.startMins)
+    .sort((a, b) => a.startMins - b.startMins || a.id.localeCompare(b.id))
     .map((s) => {
       let end = s.endMins;
       if (end > 0 && end <= s.startMins) end += 24 * 60;
@@ -823,12 +796,16 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
           <RoomColumnHeaders rooms={orderedRooms} />
         </div>
 
-        {sessions.length === 0 ? (
+        {visibleSessions.length === 0 ? (
           <div
             className="py-2 text-center text-[11px]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
-            {isLoading ? 'Loading…' : 'Schedule coming soon'}
+            {isLoading
+              ? 'Loading…'
+              : sessions.length === 0
+              ? 'Schedule coming soon'
+              : 'No sessions on this day'}
           </div>
         ) : (
           <div className="flex flex-col gap-[14px]" style={{ position: 'relative', zIndex: 1 }}>
