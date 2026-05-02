@@ -1,65 +1,35 @@
-import { Link } from 'react-router-dom';
 import type { EventPageModel, EventPagePerson } from '@/modules/event-page/types';
+import { PersonChip } from '@/modules/event-page/bento/blocks/schedule/PersonChip';
+import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 
 type EventLineupSectionProps = {
   lineup: EventPageModel['lineup'];
+  /** F.1.a Phase 4 rollout â€” forwarded to emitProfileView for click attribution. */
+  eventId: string | null;
 };
 
 type RoleKey = EventPageModel['lineup']['groups'][number]['key'];
 
-const ROLE_COLORS: Record<RoleKey, { bg: string; text: string }> = {
-  teachers: { bg: '#534AB7', text: '#EEEDFE' },
-  djs: { bg: '#D85A30', text: '#FAECE7' },
-  vendors: { bg: '#FFA500', text: '#4A1B0C' },
-  videographers: { bg: '#185FA5', text: '#E6F1FB' },
+// Map the lineup group key onto the profile_type the click-telemetry RPC
+// expects. Anything else collapses to 'unknown' inside emitProfileView.
+const PROFILE_TYPE_FOR_GROUP: Record<RoleKey, string> = {
+  teachers: 'teacher',
+  djs: 'dj',
+  vendors: 'vendor',
+  videographers: 'videographer',
 };
 
-const LineupPerson = ({ person, groupKey }: { person: EventPagePerson; groupKey: RoleKey }) => {
-  const colors = ROLE_COLORS[groupKey];
-  const initial = (person.displayName ?? '').trim().charAt(0).toUpperCase() || '•';
+const adaptPerson = (p: EventPagePerson, groupKey: RoleKey): Person => ({
+  id: p.id,
+  name: p.displayName ?? '',
+  href: p.href ?? null,
+  avatarUrl: p.avatarUrl ?? null,
+  role: '',
+  profileType: PROFILE_TYPE_FOR_GROUP[groupKey] ?? null,
+  level: null,
+});
 
-  const avatarNode = (
-    <div
-      className="h-[52px] w-[52px] overflow-hidden rounded-full"
-      style={{ backgroundColor: colors.bg }}
-    >
-      {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <span
-          className="flex h-full w-full items-center justify-center text-[18px] font-semibold"
-          style={{ color: colors.text }}
-          aria-hidden
-        >
-          {initial}
-        </span>
-      )}
-    </div>
-  );
-
-  const nameNode = (
-    <span className="mt-1 block w-full truncate text-center text-[12px] font-medium text-white">
-      {person.displayName}
-    </span>
-  );
-
-  if (person.href) {
-    return (
-      <Link to={person.href} className="flex min-w-0 flex-col items-center">
-        {avatarNode}
-        {nameNode}
-      </Link>
-    );
-  }
-  return (
-    <div className="flex min-w-0 flex-col items-center">
-      {avatarNode}
-      {nameNode}
-    </div>
-  );
-};
-
-export const EventLineupSection = ({ lineup }: EventLineupSectionProps) => {
+export const EventLineupSection = ({ lineup, eventId }: EventLineupSectionProps) => {
   if (!lineup.hasAny) return null;
 
   return (
@@ -68,9 +38,16 @@ export const EventLineupSection = ({ lineup }: EventLineupSectionProps) => {
         {lineup.groups.map((group) => (
           <div key={group.key}>
             <p className="mb-3 text-[13px] font-medium text-white/55">{group.label}</p>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-3.5">
+            <div className="flex flex-wrap gap-x-2 gap-y-3.5">
               {group.items.map((p) => (
-                <LineupPerson key={`${group.key}-${p.id}`} person={p} groupKey={group.key} />
+                <PersonChip
+                  key={`${group.key}-${p.id}`}
+                  person={adaptPerson(p, group.key)}
+                  size="lg"
+                  layout="stacked"
+                  context={`lineup:${group.key}`}
+                  eventId={eventId}
+                />
               ))}
             </div>
           </div>

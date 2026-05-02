@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
+import { emitProfileView } from '@/lib/profileViewEmit';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -219,7 +220,7 @@ function sessionStyle(type: string) {
 const PX_PER_MIN = 1.35;
 const MIN_BLOCK_PX = 54;
 
-function Timeline({ sessions }: { sessions: TimelineSession[] }) {
+function Timeline({ sessions, eventId }: { sessions: TimelineSession[]; eventId: string | null }) {
   const normalized = normalizeSessions(sessions);
   if (!normalized.length) return null;
 
@@ -310,9 +311,17 @@ function Timeline({ sessions }: { sessions: TimelineSession[] }) {
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {session.people.slice(0, 4).map((p) => (
                       <Link
-                        key={p.id}
+                        key={`${session.id}:${p.id}`}
                         to={p.href}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          emitProfileView({
+                            personId: p.id,
+                            profileType: session.type === 'class' ? 'teacher' : 'unknown',
+                            context: `event-timeline:${session.type}`,
+                            eventId,
+                          });
+                        }}
                         className={`inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] py-0.5 pl-0.5 pr-2 text-[11px] leading-none transition-colors hover:border-white/25 ${s.link}`}
                       >
                         {p.avatarUrl ? (
@@ -419,7 +428,7 @@ export const EventTimelineSection = ({
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />
         </div>
       ) : sessions.length > 0 ? (
-        <Timeline sessions={sessions} />
+        <Timeline sessions={sessions} eventId={eventId} />
       ) : null}
     </section>
   );

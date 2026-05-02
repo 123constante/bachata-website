@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, ArrowUpRight, Copy, Check, X } from 'lucide-react';
 import type { EventPageModel } from '@/modules/event-page/types';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
+import { emitProfileView } from '@/lib/profileViewEmit';
 
 const GOLD = '#FFA500';
 const SUCCESS = '#1D9E75';
@@ -155,13 +156,22 @@ const MultiPromoPill = ({ codes }: { codes: EventPageModel['promoCodes']['items'
 
 const OrganiserPill = ({
   person,
+  eventId,
 }: {
   person: NonNullable<EventPageModel['organiser']['person']>;
+  eventId: string | null;
 }) => {
   const navigate = useNavigate();
   const initial = (person.displayName ?? '').trim().charAt(0).toUpperCase() || '•';
   const onClick = () => {
-    if (person.href) navigate(person.href);
+    if (!person.href) return;
+    emitProfileView({
+      personId: person.id,
+      profileType: 'organiser',
+      context: 'event-page:hero-organiser-pill',
+      eventId,
+    });
+    navigate(person.href);
   };
   return (
     <button type="button" onClick={onClick} disabled={!person.href} className={pillClass}>
@@ -233,7 +243,7 @@ export const EventHeroMetaBlock = ({
             ? <SinglePromoPill code={promoCodes.items[0].code} />
             : <MultiPromoPill codes={promoCodes.items} />
         )}
-        {hasOrganiser && <OrganiserPill person={organiser.person!} />}
+        {hasOrganiser && <OrganiserPill person={organiser.person!} eventId={eventId} />}
       </div>
     </section>
   );

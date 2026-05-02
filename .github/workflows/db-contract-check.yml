@@ -12,6 +12,9 @@ name: DB Contract Check
 #     unified profile model plan (admin migrations 20260430180000 /
 #     20260430180100 / 20260430180200). No override may equal the canonical
 #     render (would indicate snapshot-pattern regression).
+#  5. The guest-entries contract — raffle + guest_list status/qr_token
+#     invariants, 90-day retention purge running, no stale erasure tokens
+#     (admin migrations 20260502120000 through 20260502160000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -63,3 +66,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-session-people-display-name-contract.mjs
+
+      - name: Run guest-entries contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-guest-entries-contract.mjs

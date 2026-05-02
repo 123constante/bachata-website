@@ -1,4 +1,7 @@
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 import type { Person, SessionLevel } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PersonChip } from '@/modules/event-page/bento/blocks/schedule/PersonChip';
 
@@ -55,6 +58,14 @@ export type PeopleStackVariant =
    *  Overlapping circles only, no names. Was the single-room default
    *  before chip-row was introduced. Avoid for new code. */
   | 'inline-row'
+  /** F.1.b — opt-in compact variant. Renders overlapping circles as a single
+   *  44 px tap target (or Enter / Space when keyboard-focused). Tapping opens
+   *  a popover (or bottom-sheet on mobile <640px) with a chip-row of full
+   *  PersonChips for individual click-through. Use ONLY where density is the
+   *  hard constraint and per-person tap-through can live one tap deeper —
+   *  e.g. ultra-dense listing pages, calendar day cells. WCAG 2.5.5 hit area
+   *  on the trigger; popover is keyboard-traversable, Esc closes. */
+  | 'chip-overlap'
   /** Flex-wrap of (avatar + name beneath). Flat class card layout — used
    *  by RankCard when a session has 0 or 1 levels, or when no person has
    *  a per-person level binding. */
@@ -401,6 +412,271 @@ const VerticalFeature = ({
   );
 };
 
+// ─── Variant: chip-overlap ───────────────────────────────────────────────────
+//
+// Single-tap-target overlapping avatars (visual lookalike of inline-row) that
+// open a popover with a real chip-row underneath. The trigger respects WCAG
+// 2.5.5 (44 px minimum hit target). Popover handles Esc + click-outside +
+// focus-return-on-close. Mobile (<640 px) renders as a bottom-sheet so the
+// popover doesn't fall outside the viewport on tight calendar cells.
+
+const MOBILE_BREAKPOINT_PX = 640;
+
+const useIsMobile = (): boolean => {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < MOBILE_BREAKPOINT_PX;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener?.('change', handler);
+    return () => mql.removeEventListener?.('change', handler);
+  }, []);
+  return isMobile;
+};
+
+const ChipOverlapPopover = ({
+  people,
+  context,
+  eventId,
+  triggerRect,
+  isMobile,
+  onClose,
+  popoverId,
+  labelId,
+}: {
+  people: Person[];
+  context?: string;
+  eventId?: string | null;
+  triggerRect: DOMRect | null;
+  isMobile: boolean;
+  onClose: () => void;
+  popoverId: string;
+  labelId: string;
+}) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Esc closes; click-outside closes. Run on mount; re-bind only if onClose
+  // identity changes (it's stable from useCallback in the parent).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    const onPointer = (e: MouseEvent | TouchEvent) => {
+      const node = containerRef.current;
+      const target = e.target;
+      if (!node || !(target instanceof Node)) return;
+      if (!node.contains(target)) onClose();
+    };
+    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('mousedown', onPointer, true);
+    document.addEventListener('touchstart', onPointer, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('mousedown', onPointer, true);
+      document.removeEventListener('touchstart', onPointer, true);
+    };
+  }, [onClose]);
+
+  // Focus the first focusable on mount so keyboard users land inside the
+  // popover. Light focus-return is handled by the trigger button's parent.
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const focusable = node.querySelector<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    focusable?.focus({ preventScroll: true });
+  }, []);
+
+  if (typeof document === 'undefined') return null;
+
+  // Positioning — desktop: float above/below the trigger; mobile: bottom sheet
+  // anchored to the viewport bottom so it never clips off-screen.
+  const positionStyle: React.CSSProperties = isMobile
+    ? {
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        maxHeight: '60vh',
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        boxShadow: '0 -10px 30px rgba(0,0,0,0.45)',
+      }
+    : (() => {
+        const rect = triggerRect;
+        const top = rect ? rect.bottom + window.scrollY + 8 : 0;
+        const left = rect ? Math.max(8, rect.left + window.scrollX) : 8;
+        return {
+          position: 'absolute',
+          top,
+          left,
+          maxWidth: 'min(calc(100vw - 16px), 360px)',
+          borderRadius: 12,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+        };
+      })();
+
+  const node = (
+    <>
+      {/* Backdrop on mobile only — desktop click-outside is enough. */}
+      {isMobile && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/55"
+          aria-hidden
+          onClick={onClose}
+        />
+      )}
+      <div
+        ref={containerRef}
+        id={popoverId}
+        role="dialog"
+        aria-modal={isMobile ? 'true' : 'false'}
+        aria-labelledby={labelId}
+        className="z-[61] p-3"
+        style={{
+          ...positionStyle,
+          background: 'hsl(var(--bento-surface))',
+          border: '1px solid var(--bento-hairline)',
+          color: 'hsl(var(--bento-fg))',
+        }}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span id={labelId} className="text-[11px] uppercase tracking-[0.12em] opacity-70">
+            {people.length} {people.length === 1 ? 'person' : 'people'}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1 opacity-70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
+          {people.map((p) => (
+            <PersonChip
+              key={p.id}
+              person={p}
+              size="sm"
+              context={context ? `${context}:overlap-popover` : 'overlap-popover'}
+              eventId={eventId}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+  return createPortal(node, document.body);
+};
+
+const ChipOverlap = ({
+  people,
+  context,
+  eventId,
+}: {
+  people: Person[];
+  context?: string;
+  eventId?: string | null;
+}) => {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRectRef = useRef<DOMRect | null>(null);
+  const isMobile = useIsMobile();
+  const popoverId = useId();
+  const labelId = useId();
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    // Return focus to the trigger when the popover closes.
+    triggerRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const handleOpen = () => {
+    triggerRectRef.current = triggerRef.current?.getBoundingClientRect() ?? null;
+    setOpen(true);
+  };
+
+  if (people.length === 0) return null;
+
+  const visible = people.slice(0, INLINE_ROW_VISIBLE_MAX);
+  const overflow = people.length - visible.length;
+  const overflowNames = people.slice(INLINE_ROW_VISIBLE_MAX).map((p) => p.name).join(', ');
+  const allNames = people.map((p) => p.name).join(', ');
+  const size = AVATAR_SIZES.inline;
+  const ringStyle = '1.5px solid hsl(var(--bento-bg, var(--bento-surface)))';
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleOpen}
+        className="inline-flex items-center rounded-full p-1 transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none"
+        style={{ minHeight: 44, minWidth: 44 }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? popoverId : undefined}
+        aria-label={`${people.length} ${people.length === 1 ? 'person' : 'people'}: ${allNames}. Open list.`}
+        title={allNames}
+      >
+        {visible.map((p, i) => (
+          <span
+            key={p.id}
+            style={{
+              marginLeft: i === 0 ? 0 : -10,
+              zIndex: visible.length - i,
+              border: ringStyle,
+              borderRadius: '9999px',
+              display: 'inline-flex',
+            }}
+          >
+            <Avatar person={p} size={size} />
+          </span>
+        ))}
+        {overflow > 0 && (
+          <span
+            className="flex items-center justify-center rounded-full text-[11px] font-bold"
+            title={overflowNames}
+            style={{
+              width: size,
+              height: size,
+              marginLeft: -10,
+              background: 'hsl(var(--bento-surface))',
+              border: ringStyle,
+              color: 'hsl(var(--bento-fg))',
+              zIndex: 0,
+            }}
+          >
+            +{overflow}
+          </span>
+        )}
+      </button>
+      {open && (
+        <ChipOverlapPopover
+          people={people}
+          context={context}
+          eventId={eventId}
+          triggerRect={triggerRectRef.current}
+          isMobile={isMobile}
+          onClose={handleClose}
+          popoverId={popoverId}
+          labelId={labelId}
+        />
+      )}
+    </>
+  );
+};
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export const PeopleStack = ({
@@ -425,6 +701,8 @@ export const PeopleStack = ({
       );
     case 'inline-row':
       return <InlineRow people={people} />;
+    case 'chip-overlap':
+      return <ChipOverlap people={people} context={context} eventId={eventId} />;
     case 'wrap-row':
       return (
         <WrapRow
