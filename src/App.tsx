@@ -64,6 +64,8 @@ const CreateEvent = lazy(() => import("./pages/CreateEvent"));
 // const Debug = lazy(() => import("./pages/Debug"));
 // const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const EraseGuestEntry = lazy(() => import("./pages/EraseGuestEntry"));
+const ExportGuestEntry = lazy(() => import("./pages/ExportGuestEntry"));
 
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
 // Per-query staleTimes (2--5 min) still override where set. Events data changes on
@@ -252,6 +254,8 @@ const AnimatedRoutes = () => {
           <Route path="/debug/dashboard-patterns" element={<AuthGuard><PageTransition><DashboardPatternsDemo /></PageTransition></AuthGuard>} />
           */}
 
+          <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
+          <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </Suspense>
