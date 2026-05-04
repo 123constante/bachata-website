@@ -17,9 +17,7 @@
     "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
     "check:integrity": "bin/check-integrity.sh",
     "postinstall": "node bin/install-hooks.cjs",
-    "repair:corrupt": "bin/repair-corrupt.sh",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "repair:corrupt": "bin/repair-corrupt.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -102,13 +100,6 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vitest": "^1.6.0",
-    "storybook": "^10.3.6",
-    "@storybook/react-vite": "^10.3.6",
-    "@chromatic-com/storybook": "^5.1.2",
-    "@storybook/addon-docs": "^10.3.6",
-    "eslint-plugin-storybook": "^10.3.6",
-    "@vitest/browser": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "vitest": "^1.6.0"
   }
 }
