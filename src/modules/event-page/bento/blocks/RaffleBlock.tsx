@@ -424,7 +424,7 @@ export const RaffleBlock = () => {
 
         <div
           key={shakeKey}
-          className="flex flex-col items-center text-center"
+          className="flex flex-1 flex-col items-center justify-center text-center"
           style={{ animation: shakeKey > 0 ? 'raffle-shake 250ms ease' : undefined }}
         >
           <div className="relative">
