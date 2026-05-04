@@ -13,7 +13,17 @@
 - App composition and global providers are defined in `src/App.tsx` and `src/main.tsx`.
 - Route-level pages live in `src/pages/*`; reusable UI and feature pieces live in `src/components/*`.
 - Shared state and integrations should stay in existing boundaries: `src/hooks/*`, `src/contexts/*`, and `src/integrations/*`.
+- Complex features get vertical slices in `src/modules/<feature>/` with their own hooks, types, components, and query layer.
+- The event-page module uses a **bento grid** system (`src/modules/event-page/bento/`); new content blocks are `bento/blocks/*.tsx`.
+- Data adapters: `src/adapters/`; single-entity public services: `src/services/`.
 - Use existing docs in `docs/*` for feature-specific implementation plans before introducing new patterns.
+
+## Feature Flags
+- Registry: `src/lib/featureFlags.ts`. Read via `flags.<name>`; register new flags there before referencing them.
+
+## Breadcrumbs and Design Density
+- `CLAUDE.md` (workspace root) contains **mandatory** rules agents must follow: compact design density, calendar file exemptions, breadcrumb requirements per page, and the occurrence venue/city DB contract.
+- Every `<GlobalLayout>` page must use `buildBreadcrumbs(routeId, ctx)` from `@/lib/breadcrumbs`; new routes also need a one-line entry in `src/lib/breadcrumbs/siteIa.ts`.
 
 ## Code Style
 - Use TypeScript + React function components and existing naming patterns in surrounding files.

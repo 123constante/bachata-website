@@ -107,7 +107,71 @@ const roleLabel = (profileType: string | null): string => {
   return '';
 };
 
-// ─── Data hook — mirror of useProgramItems from EventTimelineSection ─────────
+// ─── Occurrence override program hook ────────────────────────────────────────
+
+/** Fetches override_payload.program for the given occurrence via RPC.
+ *  Returns null when: no occurrenceId, no override, or RPC not deployed yet. */
+function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): ScheduleSession[] | null {
+  const { data } = useQuery<ScheduleSession[] | null>({
+    queryKey: ['occurrence-override-program', occurrenceId],
+    queryFn: async () => {
+      if (!occurrenceId) return null;
+      const { data, error } = await (supabase.rpc as any)('get_occurrence_override_program_v1', {
+        p_occurrence_id: occurrenceId,
+      });
+      if (error || data === null || data === undefined) return null;
+      // data is a jsonb array from the RPC
+      const items: unknown[] = Array.isArray(data) ? data : [];
+      return items
+        .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+        .map((item): ScheduleSession | null => {
+          const startMins = toMins(item.startTime as string | null);
+          if (startMins === null) return null;
+          const endMins = toMins(item.endTime as string | null) ?? startMins + 60;
+          const people: Person[] = (Array.isArray(item.people) ? item.people : [])
+            .map((p: unknown): Person | null => {
+              if (!p || typeof p !== 'object') return null;
+              const r = p as Record<string, unknown>;
+              const pid = typeof r.profile_id === 'string' ? r.profile_id : null;
+              const ptype = typeof r.profile_type === 'string' ? r.profile_type : null;
+              if (!pid) return null;
+              return {
+                id: pid,
+                name: typeof r.display_name === 'string' && r.display_name ? r.display_name
+                      : ptype === 'dj' ? 'DJ' : 'Teacher',
+                href: ptype === 'teacher' ? `/teachers/${pid}`
+                      : ptype === 'dj' ? `/djs/${pid}`
+                      : ptype === 'dancer' ? `/dancers/${pid}` : null,
+                avatarUrl: typeof r.avatar_url === 'string' ? r.avatar_url : null,
+                role: typeof r.role === 'string' ? r.role : (ptype ?? ''),
+                profileType: ptype,
+                level: null,
+              };
+            })
+            .filter((x): x is Person => x !== null);
+          return {
+            id: typeof item.id === 'string' ? item.id : `occ-${startMins}`,
+            title: typeof item.title === 'string' && item.title
+              ? item.title
+              : item.type === 'party' ? 'Party' : 'Class',
+            type: typeof item.type === 'string' ? item.type : 'class',
+            day: null,
+            startMins,
+            endMins,
+            levels: sanitizeLevels(item.levels),
+            room: typeof item.room === 'string' && item.room.trim() ? item.room.trim() : null,
+            people,
+          };
+        })
+        .filter((x): x is ScheduleSession => x !== null);
+    },
+    enabled: Boolean(occurrenceId),
+    staleTime: 1000 * 60 * 5,
+  });
+  return data ?? null;
+}
+
+
 // Same queryKey so React Query deduplicates across both components.
 
 export function useProgramItems(eventId: string | null | undefined) {
@@ -393,17 +457,24 @@ const DayBlock = ({
 type EventScheduleGridProps = {
   schedule: EventPageModel['schedule'];
   eventId: string | null;
+  occurrenceId?: string | null;
   fallbackSchedule?: FestivalScheduleItem[] | null;
 };
 
 export const EventScheduleGrid = ({
   schedule,
   eventId,
+  occurrenceId,
   fallbackSchedule,
 }: EventScheduleGridProps) => {
-  const { data: programItems = [], isLoading } = useProgramItems(eventId);
+  const overrideProgram = useOccurrenceOverrideProgram(occurrenceId);
+  const { data: programItems = [], isLoading } = useProgramItems(overrideProgram ? null : eventId);
 
   const sessions: ScheduleSession[] = useMemo(() => {
+    // Priority 1: Per-occurrence override program
+    if (overrideProgram?.length) return normalizeSessions(overrideProgram);
+
+    // Priority 2: Parent event's event_program_items (from DB)
     if (programItems.length) {
       if (fallbackSchedule?.length) {
         const fbPeople = new Map<string, Person[]>();

@@ -122,6 +122,7 @@ export const EventPageScreen = ({
           <EventScheduleGrid
             schedule={pageModel.schedule}
             eventId={pageModel.identity.eventId}
+            occurrenceId={pageModel.identity.occurrenceId}
             fallbackSchedule={eventSchedule}
           />
         )}

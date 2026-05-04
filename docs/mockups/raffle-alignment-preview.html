@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raffle Alignment — Before / After</title>
+  <style>
+    :root {
+      --bg: #0f1714;
+      --panel: #1a2420;
+      --panel-2: #223129;
+      --line: rgba(245,213,99,0.22);
+      --text: #f3efe5;
+      --muted: #a8a49a;
+      --accent: #f5d563;
+      --ok: #9ad1b5;
+      --bad: #f08a6a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 700px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ── Tile shell ─────────────────────────────────────── */
+    .tile {
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #1e2c26 0%, #192420 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 8px 20px rgba(0,0,0,.45);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 340px;
+      cursor: pointer;
+      transition: transform 150ms ease;
+      user-select: none;
+    }
+
+    .tile:active { transform: scale(0.98); }
+
+    /* Title strip */
+    .strip {
+      padding: 8px 10px 2px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    /* Content wrapper */
+    .content {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Badge row ──────────────────────────────────────── */
+    .badges {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    .badge.outline {
+      border: 1px solid rgba(245,213,99,.4);
+      color: var(--accent);
+    }
+
+    .badge.fill {
+      background: var(--accent);
+      color: #1a2e2a;
+    }
+
+    /* ── Chest cluster ──────────────────────────────────── */
+    .cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    /* BEFORE: top-anchored, no flex-1 / justify-center */
+    .cluster.before {
+      /* intentionally NO flex:1 and NO justify-content:center */
+    }
+
+    /* AFTER: centered in the remaining vertical space */
+    .cluster.after {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .chest-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      background: radial-gradient(circle at 32% 30%, #f9e890, #b38a4e 70%);
+      display: grid;
+      place-items: center;
+      font-size: 34px;
+      box-shadow: 0 0 0 2px rgba(245,213,99,.5) inset, 0 4px 14px rgba(179,138,78,.4);
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+
+    .tile:hover .chest-icon {
+      transform: translateY(-3px);
+      box-shadow: 0 0 0 2px rgba(245,213,99,.7) inset, 0 8px 20px rgba(179,138,78,.55);
+    }
+
+    .could-win {
+      margin-top: 6px;
+      font-size: 9px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .prize {
+      margin-top: 4px;
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -.015em;
+      padding: 0 4px;
+    }
+
+    /* ── Stats row ──────────────────────────────────────── */
+    .stats {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+    }
+
+    .stat { text-align: center; }
+    .stat + .stat { border-left: 1px solid var(--line); }
+
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      margin-top: 3px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* ── CTA ────────────────────────────────────────────── */
+    .cta-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .cta {
+      border: none;
+      border-radius: 999px;
+      padding: 9px 22px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #1a2e2a;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+      box-shadow: 0 3px 10px rgba(245,213,99,.35);
+    }
+
+    .cta:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(245,213,99,.5); }
+    .cta:active { transform: scale(0.96); }
+
+    /* ── Annotation ─────────────────────────────────────── */
+    .note {
+      margin-top: 10px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .note.bad  { background: rgba(240,138,106,.12); color: var(--bad);  border: 1px solid rgba(240,138,106,.25); }
+    .note.good { background: rgba(154,209,181,.10); color: var(--ok);   border: 1px solid rgba(154,209,181,.22); }
+
+    /* ── Label above each tile ──────────────────────────── */
+    .label {
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .label.before { color: var(--bad); }
+    .label.after  { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>Raffle Section — Alignment Preview</h1>
+
+  <div class="grid">
+
+    <!-- BEFORE -->
+    <div>
+      <div class="label before">Before (misaligned)</div>
+      <div class="tile">
+        <div class="strip">Raffle</div>
+        <div class="content">
+
+          <div class="badges">
+            <span class="badge outline">Raffle</span>
+            <span class="badge fill">Free to enter</span>
+          </div>
+
+          <!-- cluster: top-anchored, no centering -->
+          <div class="cluster before">
+            <div class="chest-icon">🎁</div>
+            <div class="could-win">You could win</div>
+            <div class="prize">Weekend Festival Pass</div>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-label">Closes</div>
+              <div class="stat-value">9:30 PM</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Entered</div>
+              <div class="stat-value">127 dancers</div>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <button class="cta" onclick="alert('Entered! 🎉')">Enter Now</button>
+          </div>
+
+          <div class="note bad">
+            Chest + prize cluster sits too high — large gap between prize text and stats row.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="label after">After (fixed)</div>
+      <div class="tile">
+        <div class="strip">Raffle</div>
+        <div class="content">
+
+          <div class="badges">
+            <span class="badge outline">Raffle</span>
+            <span class="badge fill">Free to enter</span>
+          </div>
+
+          <!-- cluster: flex-1 + justify-center centres it between badges and stats -->
+          <div class="cluster after">
+            <div class="chest-icon">🎁</div>
+            <div class="could-win">You could win</div>
+            <div class="prize">Weekend Festival Pass</div>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-label">Closes</div>
+              <div class="stat-value">9:30 PM</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Entered</div>
+              <div class="stat-value">127 dancers</div>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <button class="cta" onclick="alert('Entered! 🎉')">Enter Now</button>
+          </div>
+
+          <div class="note good">
+            Chest + prize cluster is vertically centred between badge row and stats. ✓
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
