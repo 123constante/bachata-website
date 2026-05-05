@@ -18,6 +18,10 @@ name: DB Contract Check
 #  6. The Program editor Phase 0 schema contract — Day/Section/Section-Room
 #     tables populated and event_program_items.day_id / section_id NOT NULL
 #     (admin migrations 20260504050000 / 20260504050001).
+#  7. The Phase 1 v2 program-save idempotency contract — admin_save_program_v2
+#     never produces duplicate-success rows for the same (event_id, token)
+#     and surfaces failed_saves_last_24h above baseline (admin migration
+#     20260505010000_admin_save_program_v2_v1).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -81,3 +85,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-schema-contract.mjs
+
+      - name: Run program save (Phase 1 v2) idempotency contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-program-save-idempotency-contract.mjs
