@@ -44,6 +44,29 @@ export type ScheduleSession = {
   /** Optional room name — used to disambiguate parallel sessions. */
   room: string | null;
   people: Person[];
+  /** Phase 2B step 2e — section context surfaced from get_event_program_v1.
+   *  Null for legacy events that have not been migrated to the program-tree
+   *  tables. When present, the renderer groups sessions by section_id and
+   *  uses section_label (label_override fallback to kind) for section
+   *  headers. */
+  sectionId: string | null;
+  sectionKind: string | null;
+  sectionLabel: string | null;
+};
+
+/** Phase 2B step 2e — section row from get_event_program_sections_v1.
+ *  Includes empty sections (item_count=0) so the renderer can surface
+ *  structural intent the user added before populating items. */
+export type ProgramSection = {
+  id: string;
+  kind: string;
+  labelOverride: string | null;
+  label: string;
+  sortOrder: number;
+  dayId: string;
+  dayEventDate: string | null;
+  daySortOrder: number;
+  itemCount: number;
 };
 
 const LEVEL_SET = new Set<string>(ALL_SESSION_LEVELS);
@@ -161,6 +184,9 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
             levels: sanitizeLevels(item.levels),
             room: typeof item.room === 'string' && item.room.trim() ? item.room.trim() : null,
             people,
+            sectionId: null,
+            sectionKind: null,
+            sectionLabel: null,
           };
         })
         .filter((x): x is ScheduleSession => x !== null);
@@ -204,6 +230,12 @@ export function useProgramItems(eventId: string | null | undefined) {
         levels: string[] | null;
         room: string | null;
         people: RpcPerson[] | null;
+        // Phase 2B step 2d — additive section context (Phase 2B step 2e
+        // surfaces these into ScheduleSession so the renderer can group by
+        // database section instead of inferring from item type).
+        section_id: string | null;
+        section_kind: string | null;
+        section_label: string | null;
       };
 
       const items = (data as unknown as RpcItem[]) ?? [];
@@ -254,8 +286,62 @@ export function useProgramItems(eventId: string | null | undefined) {
             levels: sanitizeLevels(item.levels),
             room: typeof item.room === 'string' && item.room.trim().length > 0 ? item.room.trim() : null,
             people,
+            sectionId: typeof item.section_id === 'string' ? item.section_id : null,
+            sectionKind: typeof item.section_kind === 'string' ? item.section_kind : null,
+            sectionLabel: typeof item.section_label === 'string' && item.section_label.trim().length > 0
+              ? item.section_label
+              : null,
           };
         });
+    },
+    enabled: Boolean(eventId),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+// Phase 2B step 2e — companion hook that fetches the full section list
+// (including empty sections) so the bento renderer can surface structural
+// intent the user added before populating items. Legacy events without
+// program-tree rows get an empty array; the renderer falls back to its
+// type-inference path when sections is empty.
+export function useProgramSections(eventId: string | null | undefined) {
+  return useQuery<ProgramSection[]>({
+    queryKey: ['event-program-sections', eventId],
+    queryFn: async () => {
+      if (!eventId) return [];
+
+      const { data, error } = await (supabase.rpc as any)('get_event_program_sections_v1', {
+        p_event_id: eventId,
+      });
+
+      if (error || !data) return [];
+
+      type RpcSection = {
+        id: string;
+        kind: string;
+        label_override: string | null;
+        label: string;
+        sort_order: number | null;
+        day_id: string;
+        day_event_date: string | null;
+        day_sort_order: number | null;
+        item_count: number | null;
+      };
+
+      const rows = (data as unknown as RpcSection[]) ?? [];
+      return rows.map((r): ProgramSection => ({
+        id: r.id,
+        kind: r.kind,
+        labelOverride: r.label_override && r.label_override.trim().length > 0
+          ? r.label_override
+          : null,
+        label: typeof r.label === 'string' && r.label.length > 0 ? r.label : r.kind,
+        sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0,
+        dayId: r.day_id,
+        dayEventDate: r.day_event_date,
+        daySortOrder: typeof r.day_sort_order === 'number' ? r.day_sort_order : 0,
+        itemCount: typeof r.item_count === 'number' ? r.item_count : 0,
+      }));
     },
     enabled: Boolean(eventId),
     staleTime: 1000 * 60 * 5,
@@ -300,6 +386,9 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),
         room: typeof item.venueRoom === 'string' && item.venueRoom.trim().length > 0 ? item.venueRoom.trim() : null,
         people,
+        sectionId: null,
+        sectionKind: null,
+        sectionLabel: null,
       };
     })
     .filter((x): x is ScheduleSession => x !== null);
@@ -310,12 +399,12 @@ function fromKeyTimes(kt: NonNullable<EventPageModel['schedule']['keyTimes']>): 
   if (kt.classes?.start) {
     const s = toMins(kt.classes.start) ?? 0;
     const e = toMins(kt.classes.end) ?? s + 60;
-    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, levels: [], room: null, people: [] });
+    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
   }
   if (kt.party?.start) {
     const s = toMins(kt.party.start) ?? 0;
     const e = toMins(kt.party.end) ?? s + 60;
-    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, levels: [], room: null, people: [] });
+    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
   }
   return out;
 }

@@ -4,7 +4,9 @@ import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import {
   useProgramItems,
+  useProgramSections,
   type Person,
+  type ProgramSection,
   type ScheduleSession,
   type SessionLevel,
 } from '@/modules/event-page/sections/EventScheduleGrid';
@@ -491,17 +493,62 @@ const groupIntoSlots = (sessions: ScheduleSession[]): Slot[] => {
 
 // ─── Section grouping ────────────────────────────────────────────────────────
 //
-// Walk the time-ordered slots and group consecutive same-kind slots into a
-// section. A "kind" is 'party' if the slot contains any party session,
-// otherwise 'class'. Most events end up with two sections (classes then
-// party); festivals can produce more.
+// Phase 2B step 2e — sections come from the database (event_program_sections,
+// surfaced via get_event_program_sections_v1) when available, with the
+// label_override the user typed in the editor. Falls back to the old
+// type-inference grouping for legacy events that haven't been migrated to
+// the program-tree tables (those events have no rows in
+// event_program_sections, so the sections list is empty).
+//
+// Empty sections — sections the user added structurally before populating
+// items — are surfaced too so the renderer can show a header + empty state.
+// (Brief: "Don't hide it.")
 
 type Section = {
-  kind: 'class' | 'party';
+  /** Stable id for React keys. Server uuid for db-backed sections; synthetic
+   *  for legacy type-inferred sections. */
+  id: string;
+  /** Section kind: server enum ('classes', 'masterclass', 'party', 'social',
+   *  'showcase', 'competition', 'concert', 'ceremony') for db-backed sections;
+   *  derived 'class' | 'party' for legacy fallback. Used for aria-label and
+   *  to decide whether a card row is partyish (range time format). */
+  kind: string;
+  /** Display label — `label_override` verbatim when the user provided one,
+   *  otherwise derived from kind. CSS uppercases the rendered text either
+   *  way; verbatim means we use the user's WORDS not their casing. */
+  label: string;
+  /** True when the slot block should render in 'range' format (party-style
+   *  time header). Driven by content for db-backed sections, kind for
+   *  legacy. */
+  hasParty: boolean;
   slots: Slot[];
 };
 
-const groupIntoSections = (slots: Slot[]): Section[] => {
+const KIND_LABEL: Record<string, string> = {
+  classes: 'Classes',
+  masterclass: 'Masterclass',
+  party: 'Party',
+  social: 'Social',
+  showcase: 'Showcase',
+  competition: 'Competition',
+  concert: 'Concert',
+  ceremony: 'Ceremony',
+};
+
+const labelFromKind = (kind: string, slots: Slot[]): string => {
+  if (kind === 'classes') {
+    // Singularise only when there's exactly one slot with one session — the
+    // existing "CLASS" vs "CLASSES" rhythm. Empty sections default to plural.
+    const isSingular =
+      slots.length === 1 && (slots[0]?.sessions.length ?? 0) === 1;
+    return isSingular ? 'Class' : 'Classes';
+  }
+  return KIND_LABEL[kind] ?? kind;
+};
+
+// Legacy fallback: derive sections from slot kind (party-vs-class). Used when
+// the event has no rows in event_program_sections (pre-Phase-2B events).
+const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
   const sections: Section[] = [];
   for (const slot of slots) {
     const kind: 'class' | 'party' = slot.hasParty ? 'party' : 'class';
@@ -509,20 +556,77 @@ const groupIntoSections = (slots: Slot[]): Section[] => {
     if (last && last.kind === kind) {
       last.slots.push(slot);
     } else {
-      sections.push({ kind, slots: [slot] });
+      sections.push({
+        id: `legacy-${kind}-${slot.startMins}`,
+        kind,
+        label: '',
+        hasParty: kind === 'party',
+        slots: [slot],
+      });
     }
   }
-  return sections;
+  // Apply singular/plural label after slots are settled.
+  return sections.map((s) => {
+    if (s.kind === 'party') return { ...s, label: 'Party' };
+    const isPlural = s.slots.length > 1 || (s.slots[0]?.sessions.length ?? 0) > 1;
+    return { ...s, label: isPlural ? 'Classes' : 'Class' };
+  });
 };
 
-// Section heading text. Plural for class sections with multiple slots OR a
-// single slot with multiple parallel cards. Party stays singular regardless.
-const sectionLabelFor = (section: Section): string => {
-  if (section.kind === 'party') return 'PARTY';
-  const isPlural =
-    section.slots.length > 1 ||
-    (section.slots[0]?.sessions.length ?? 0) > 1;
-  return isPlural ? 'CLASSES' : 'CLASS';
+// Phase 2B step 2e — primary path: walk the server-provided section list and
+// bucket slots by their session's `sectionId`. Empty sections (no slots)
+// remain in the result so the renderer surfaces them. Slots whose sessions
+// have a `sectionId` not present in `programSections` (shouldn't normally
+// happen — would mean items.section_id points at a section the section RPC
+// didn't return) are appended via the legacy grouping as a defensive
+// fallback so they're never dropped on the floor.
+const groupIntoSectionsFromServer = (
+  slots: Slot[],
+  programSections: ProgramSection[],
+): Section[] => {
+  const byId = new Map<string, Section>();
+  const result: Section[] = [];
+
+  for (const ps of programSections) {
+    const isCustom = ps.labelOverride !== null;
+    const section: Section = {
+      id: ps.id,
+      kind: ps.kind,
+      label: isCustom ? ps.labelOverride! : labelFromKind(ps.kind, []),
+      hasParty: ps.kind === 'party' || ps.kind === 'social' || ps.kind === 'showcase',
+      slots: [],
+    };
+    byId.set(ps.id, section);
+    result.push(section);
+  }
+
+  const orphaned: Slot[] = [];
+  for (const slot of slots) {
+    const sid = slot.sessions[0]?.sectionId ?? null;
+    const target = sid ? byId.get(sid) : undefined;
+    if (target) {
+      target.slots.push(slot);
+      // Section's hasParty refines once we know what's actually in it.
+      if (slot.hasParty) target.hasParty = true;
+    } else {
+      orphaned.push(slot);
+    }
+  }
+
+  // Re-derive labels for db-backed sections now that slot counts are settled
+  // (singular/plural for 'classes' kind only — custom labels stay verbatim).
+  for (const s of result) {
+    const ps = programSections.find((p) => p.id === s.id);
+    if (ps && ps.labelOverride === null) {
+      s.label = labelFromKind(ps.kind, s.slots);
+    }
+  }
+
+  if (orphaned.length > 0) {
+    result.push(...groupIntoSectionsLegacy(orphaned));
+  }
+
+  return result;
 };
 
 // ─── Room column headers (multi-room only) ──────────────────────────────────
@@ -683,6 +787,10 @@ const SingleRoomScheduleRow = ({
 
 export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
   const { data: rawSessions = [], isLoading } = useProgramItems(eventId);
+  // Phase 2B step 2e — section list (incl. empty sections) drives the
+  // section-header rendering: label_override (verbatim) when set, else kind.
+  // Empty sections render a header + muted "No sessions scheduled yet."
+  const { data: programSections = [] } = useProgramSections(eventId);
 
   const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
 
@@ -750,7 +858,24 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
   }, [sessions, isMultiDay, currentDay]);
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
-  const sections = useMemo(() => groupIntoSections(slots), [slots]);
+
+  // Phase 2B step 2e — when the server returned a non-empty section list,
+  // bucket slots by their session's sectionId so empty sections (item_count=0)
+  // surface as headers with empty-state copy. When the server returned [],
+  // the event is legacy (pre-program-tree) — fall back to type inference.
+  const sections = useMemo(() => {
+    // Filter sections to only those whose day matches the active day; for
+    // single-day events all sections pass through.
+    const sectionsForDay = (() => {
+      if (!isMultiDay || !currentDay) return programSections;
+      return programSections.filter((ps) => ps.dayEventDate === currentDay);
+    })();
+
+    if (sectionsForDay.length > 0) {
+      return groupIntoSectionsFromServer(slots, sectionsForDay);
+    }
+    return groupIntoSectionsLegacy(slots);
+  }, [slots, programSections, isMultiDay, currentDay]);
 
   return (
     <BentoTile title="" color={BLOCK_COLORS.schedule} mode="container">
@@ -796,7 +921,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
           <RoomColumnHeaders rooms={orderedRooms} />
         </div>
 
-        {visibleSessions.length === 0 ? (
+        {visibleSessions.length === 0 && sections.length === 0 ? (
           <div
             className="py-2 text-center text-[11px]"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
@@ -811,7 +936,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
           <div className="flex flex-col gap-[14px]" style={{ position: 'relative', zIndex: 1 }}>
           {sections.map((section, sectionIdx) => (
             <div
-              key={`section-${section.kind}-${sectionIdx}-${section.slots[0]?.startMins ?? 'x'}`}
+              key={`section-${section.id}`}
               style={{
                 // Direction D — no section bg tints. Hairline rule divides classes
                 // from party. Horizontal padding dropped so cards line up with the
@@ -832,7 +957,9 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
               }}
             >
               {/* Vertical section label — book-spine style: rotated 180deg
-                   so it reads bottom-to-top with letters right-side up. */}
+                   so it reads bottom-to-top with letters right-side up.
+                   Phase 2B step 2e: text comes from section.label, which is
+                   label_override verbatim when set, else derived from kind. */}
               <div
                 style={{
                   writingMode: 'vertical-rl',
@@ -848,12 +975,23 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
                   justifyContent: 'center',
                   padding: '8px 0',
                 }}
-                aria-label={section.kind === 'party' ? 'Party section' : 'Classes section'}
+                aria-label={`${section.label} section`}
               >
-                {section.kind === 'party' ? 'Party' : 'Classes'}
+                {section.label}
               </div>
               <div className="flex flex-col gap-[14px] min-w-0">
-              {section.slots.map((slot) => {
+              {section.slots.length === 0 ? (
+                <div
+                  className="py-3 text-[12px]"
+                  style={{
+                    color: 'hsl(var(--bento-fg-muted))',
+                    fontFamily: '"Fraunces", Georgia, serif',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  No sessions scheduled yet.
+                </div>
+              ) : section.slots.map((slot) => {
                 const format: 'duration' | 'range' = slot.hasParty ? 'range' : 'duration';
 
                 // Phase C — multi-room 2D grid. When the event has ≥ 2 rooms,
