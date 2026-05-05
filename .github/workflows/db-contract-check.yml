@@ -22,6 +22,11 @@ name: DB Contract Check
 #     never produces duplicate-success rows for the same (event_id, token)
 #     and surfaces failed_saves_last_24h above baseline (admin migration
 #     20260505010000_admin_save_program_v2_v1).
+#  8. The day-rollover consistency contract — sessions starting between
+#     00:00 and 08:00 of the day after the event start belong to the prior
+#     day. Mirror logic in admin (lib/programDayRollover.ts) and Website
+#     (src/lib/programDayRollover.ts) MUST match the canonical fixtures.
+#     (Phase 1F brief §6.2.5; admin lib/programDayRollover.ts.)
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -91,3 +96,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-save-idempotency-contract.mjs
+
+      - name: Run day-rollover consistency contract check (Phase 1F)
+        # No Supabase secrets needed — the gate is pure-JS fixture verification
+        # against src/lib/programDayRollover.ts. Cross-repo gap noted in script
+        # header: admin lib is manually mirrored here. See script for TODO.
+        run: node scripts/check-day-rollover-consistency-v1.mjs
