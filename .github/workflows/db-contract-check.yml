@@ -18,6 +18,11 @@ name: DB Contract Check
 #  6. The Program editor Phase 0 schema contract — Day/Section/Section-Room
 #     tables populated and event_program_items.day_id / section_id NOT NULL
 #     (admin migrations 20260504050000 / 20260504050001).
+#  7. The day-rollover consistency contract — sessions starting between
+#     00:00 and 08:00 of the day after the event start belong to the prior
+#     day. Mirror logic in admin (lib/programDayRollover.ts) and Website
+#     (src/lib/programDayRollover.ts) MUST match the canonical fixtures.
+#     (Phase 1F brief §6.2.5; admin lib/programDayRollover.ts.)
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -81,3 +86,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-schema-contract.mjs
+
+      - name: Run day-rollover consistency contract check (Phase 1F)
+        # No Supabase secrets needed — the gate is pure-JS fixture verification
+        # against src/lib/programDayRollover.ts. Cross-repo gap noted in script
+        # header: admin lib is manually mirrored here. See script for TODO.
+        run: node scripts/check-day-rollover-consistency-v1.mjs
