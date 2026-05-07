@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
+import { captureException } from "@/lib/sentry";
 
 interface Props {
   children?: ReactNode;
@@ -8,24 +9,31 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  eventId: string | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
+    eventId: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, eventId: null };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
+    const eventId = captureException(error, {
+      boundary: "ErrorBoundary",
+      componentStack: errorInfo.componentStack,
+    });
+    if (eventId) this.setState({ eventId });
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, eventId: null });
   };
 
   public render() {
@@ -40,6 +48,11 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="mt-1 text-sm text-muted-foreground">
               This section couldn't load. Tap below to try again.
             </p>
+            {this.state.eventId && (
+              <p className="mt-2 font-mono text-[10px] text-muted-foreground/70">
+                Ref: {this.state.eventId}
+              </p>
+            )}
           </div>
           <button
             onClick={this.handleRetry}
@@ -57,18 +70,23 @@ export class ErrorBoundary extends Component<Props, State> {
 
 /** Full-page error boundary — for page-level wrapping */
 export class PageErrorBoundary extends Component<Props, State> {
-  public state: State = { hasError: false, error: null };
+  public state: State = { hasError: false, error: null, eventId: null };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, eventId: null };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("PageErrorBoundary caught:", error, errorInfo);
+    const eventId = captureException(error, {
+      boundary: "PageErrorBoundary",
+      componentStack: errorInfo.componentStack,
+    });
+    if (eventId) this.setState({ eventId });
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, eventId: null });
   };
 
   public render() {
@@ -80,6 +98,11 @@ export class PageErrorBoundary extends Component<Props, State> {
           <p className="max-w-sm text-muted-foreground">
             This page ran into an unexpected error. Tap below to retry.
           </p>
+          {this.state.eventId && (
+            <p className="font-mono text-[10px] text-muted-foreground/70">
+              Ref: {this.state.eventId}
+            </p>
+          )}
           <button
             onClick={this.handleRetry}
             className="mt-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"

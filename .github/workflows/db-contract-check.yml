@@ -34,6 +34,14 @@ name: DB Contract Check
 #     meta_data.program session count must match its event_program_items count.
 #     Drift baseline is 0 after Phase F backfill (2026-05-07)
 #     (admin migrations 20260510030000 / 20260510040000 / 20260510050000).
+# 11. The Phase 2/3 security-hardening policy contract — the nine policies
+#     applied by admin migration 20260511010000 (Admin read on
+#     event_program_items / organiser_team_members; Public read on
+#     calendar_occurrences; Service role all on those three; Insert for
+#     published events only on event_views; Admin insert on event_attendees /
+#     songs) must all remain present. Catches raw-SQL drift outside the
+#     migration channel. Health-check RPC: check_security_phase2_3_policies_v1
+#     (admin migration 20260511030000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -121,3 +129,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-replace-event-program-canvas-consistency.mjs
+
+      - name: Run Phase 2/3 security-hardening policy contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-security-phase2-3-policies.mjs

@@ -112,16 +112,69 @@ const TeacherProfile = () => {
     queryKey: ['teacher-profile', id],
     queryFn: async () => {
       if (!id) throw new Error('Teacher ID is required');
-      
-      const { data, error } = await supabase
-        .from('teacher_profiles')
-        .select('id, first_name, surname, hide_surname, photo_url, teaching_styles, years_teaching, offers_group, offers_private, private_lesson_types, private_lesson_locations, private_travel_distance, travel_willingness, instagram, facebook, website, public_email, phone, nationality, languages, achievements, availability, faq, journey, gallery_urls, person_entity_id, city:cities!city_id(name)')
-        .eq('id', id)
-        .maybeSingle();
+
+      const { data, error } = await supabase.rpc('get_public_teacher_detail_v1', { p_entity_id: id });
 
       if (error) throw error;
-      if (!data) throw new Error('Teacher not found');
-      return data as unknown as TeacherRow;
+      const row = (data ?? [])[0] as
+        | {
+            entity_id: string;
+            first_name: string | null;
+            surname: string | null;
+            photo_url: string | null;
+            gallery_urls: string[] | null;
+            city: string | null;
+            nationality: string | null;
+            years_teaching: number | null;
+            teaching_styles: string[] | null;
+            languages: string[] | null;
+            achievements: string[] | null;
+            faq: string | null;
+            journey: string | null;
+            offers_private: boolean | null;
+            availability: string | null;
+            private_lesson_types: string[] | null;
+            private_lesson_locations: string[] | null;
+            private_travel_distance: number | null;
+            website: string | null;
+            instagram: string | null;
+            facebook: string | null;
+            email: string | null;
+            phone: string | null;
+          }
+        | undefined;
+      if (!row) throw new Error('Teacher not found');
+
+      const mapped: TeacherRow = {
+        id: row.entity_id,
+        first_name: row.first_name,
+        surname: row.surname,
+        hide_surname: false,
+        photo_url: row.photo_url,
+        teaching_styles: row.teaching_styles,
+        years_teaching: row.years_teaching,
+        offers_group: false,
+        offers_private: row.offers_private,
+        private_lesson_types: row.private_lesson_types,
+        private_lesson_locations: row.private_lesson_locations,
+        private_travel_distance: row.private_travel_distance,
+        travel_willingness: null,
+        instagram: row.instagram,
+        facebook: row.facebook,
+        website: row.website,
+        public_email: row.email,
+        phone: row.phone,
+        nationality: row.nationality,
+        languages: row.languages,
+        achievements: row.achievements,
+        availability: row.availability,
+        faq: row.faq,
+        journey: row.journey,
+        gallery_urls: row.gallery_urls,
+        person_entity_id: null,
+        city: row.city ? { name: row.city } : null,
+      };
+      return mapped;
     },
     enabled: !!id,
   });

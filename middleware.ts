@@ -255,9 +255,14 @@ async function fetchVenueMeta(id: string, url: string): Promise<OgMeta | null> {
 }
 
 async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&select=first_name,surname,photo_url,teaching_styles,years_teaching,city:cities!city_id(name)`;
-  const res = await supabaseFetch(`/rest/v1/teacher_profiles?${query}`);
-  if (!res || !res.ok) return null;
+  const res = await supabaseFetch('/rest/v1/rpc/get_public_teacher_preview_v1', {
+    method: 'POST',
+    body: JSON.stringify({ p_entity_id: id }),
+  });
+  if (!res || !res.ok) {
+    console.error(`[middleware-og-fallback] teacher ${id} status=${res?.status ?? 'no-res'}`);
+    return null;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: any = await res.json();
@@ -268,7 +273,7 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
   const title = truncate(nameRaw || 'Bachata Teacher', 90);
 
   let base = 'Bachata teacher';
-  if (t.city?.name) base += ` in ${t.city.name}`;
+  if (t.city) base += ` in ${t.city}`;
   if (Array.isArray(t.teaching_styles) && t.teaching_styles.length > 0) {
     base += ' \u2014 ' + t.teaching_styles.slice(0, 3).join(', ');
   }

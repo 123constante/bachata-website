@@ -51,14 +51,44 @@ const Teachers = () => {
   const { data: teachers = [], isLoading } = useQuery({
     queryKey: ['teacher-profiles-directory'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('teacher_profiles')
-        .select('id, first_name, surname, photo_url, teaching_styles, years_teaching, offers_group, offers_private, instagram, website, languages, nationality, hide_surname, city:cities(name)')
-        .not('is_active', 'is', false)
-        .order('first_name');
+      const { data, error } = await supabase.rpc('get_public_teachers_list_v1', {
+        p_city_slug: null,
+        p_limit: 200,
+        p_offset: 0,
+      });
 
       if (error) throw error;
-      return (data ?? []) as unknown as Teacher[];
+      return (data ?? []).map((row: {
+        entity_id: string;
+        first_name: string | null;
+        surname: string | null;
+        photo_url: string | null;
+        city: string | null;
+        nationality: string | null;
+        years_teaching: number | null;
+        teaching_styles: string[] | null;
+        offers_group: boolean | null;
+        offers_private: boolean | null;
+        hide_surname: boolean | null;
+        languages: string[] | null;
+        instagram: string | null;
+        website: string | null;
+      }) => ({
+        id: row.entity_id,
+        first_name: row.first_name,
+        surname: row.surname,
+        photo_url: row.photo_url,
+        teaching_styles: row.teaching_styles,
+        years_teaching: row.years_teaching,
+        offers_group: row.offers_group,
+        offers_private: row.offers_private,
+        instagram: row.instagram,
+        website: row.website,
+        languages: row.languages,
+        nationality: row.nationality,
+        hide_surname: row.hide_surname,
+        city: row.city ? { name: row.city } : null,
+      })) as Teacher[];
     },
   });
 

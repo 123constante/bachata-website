@@ -47,6 +47,22 @@ export const useUserIds = () => {
 
         const dancer = dancerRes.data;
 
+        // Teacher identity post phase4_drop_teacher_profiles_table_v1: teacherId is
+        // the dancer profile id if (and only if) person_roles has an active 'teaching'
+        // role for that person. Skip the lookup entirely when there's no dancer
+        // profile — there can be no canonical teacher without one.
+        const teacherRolePromise: Promise<{ data: { id: string } | null }> = (async () => {
+          if (!dancer?.id) return { data: null };
+          const res = await supabase
+            .from('person_roles')
+            .select('id:person_id')
+            .eq('person_id', dancer.id)
+            .eq('role', 'teaching')
+            .eq('is_active', true)
+            .maybeSingle();
+          return { data: (res.data as { id: string } | null) ?? null };
+        })();
+
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
           supabase
@@ -56,11 +72,7 @@ export const useUserIds = () => {
             .eq('type', 'organiser')
             .maybeSingle(),
 
-          supabase
-            .from('teacher_profiles')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle(),
+          teacherRolePromise,
 
           supabase
             .from('videographers')
