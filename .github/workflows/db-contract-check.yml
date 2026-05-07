@@ -42,6 +42,16 @@ name: DB Contract Check
 #     songs) must all remain present. Catches raw-SQL drift outside the
 #     migration channel. Health-check RPC: check_security_phase2_3_policies_v1
 #     (admin migration 20260511030000).
+# 12. The Phase 1 FK-index contract — the five FK indexes added by admin
+#     migration 20260512000000 (cities.country_code, djs.user_id,
+#     event_attendees.dancer_id, event_raffle_draws.prior_draw_id,
+#     guest_dancer_profiles.city_id) must remain present. Health-check RPC:
+#     check_fk_indexes_v1 (admin migration 20260512030000).
+# 13. The event_attendees FK-target contract — the dancer_id FK must
+#     reference public.dancer_profiles, never the archived
+#     dancers_archive_april2026 table. Health-check RPC:
+#     check_event_attendees_fk_target_v1 (admin migrations 20260512020000 /
+#     20260512030000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -135,3 +145,15 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-security-phase2-3-policies.mjs
+
+      - name: Run Phase 1 FK-index contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-fk-indexes.mjs
+
+      - name: Run event_attendees FK-target contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-event-attendees-fk-target.mjs
