@@ -2,91 +2,169 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bachatacalendar.co.uk/</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/parties</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/classes</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/festivals</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/venues</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/teachers</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/dancers</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/djs</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/organisers</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/tonight</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/discounts</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/cities</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/videographers</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/practice-partners</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-07</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://bachatacalendar.co.uk/event/7a922c99-99ce-496a-b9f5-21dc1264be77</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/514d773e-688b-4424-8d7e-f24286000051</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/e181d89b-bc7a-4770-940b-8f92b610e339</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/8fac4298-17ba-4a98-92ed-64bbc85c0cc6</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/0ba8bc1e-0345-44bf-9fe6-6c64df071f20</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/f5137ee5-67f7-48fd-92d7-66d15ce2b72d</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/460e499a-4915-4af2-b62a-d1e7b84e0ffd</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/49762b9b-a0cb-46a4-a9e7-1b15698b62ce</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/0000e780-3fa7-40b2-bbb8-59b66feb8324</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/713cfcf7-f76e-47e7-9c44-3a2e6f016345</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/2e144785-e4f1-4b00-86c6-61cd31892900</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://bachatacalendar.co.uk/event/94943592-0bd1-4585-b64b-338d2d36fc4d</loc>
-    <lastmod>2026-05-02</lastmod>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/e24a98c4-05eb-4bbf-b04e-33320047f8f2</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/event/87e86b0a-cf8b-4d9a-8b83-c412072e0e35</loc>
+    <lastmod>2026-05-03</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -115,18 +193,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/event/e24a98c4-05eb-4bbf-b04e-33320047f8f2</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/713cfcf7-f76e-47e7-9c44-3a2e6f016345</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://bachatacalendar.co.uk/event/f8b5f367-d8b1-4480-87bc-a9a5376e0474</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>daily</changefreq>
@@ -140,12 +206,6 @@
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/event/b1ce7158-fbe7-40ac-95ff-d8a99c76a2ca</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/0ba8bc1e-0345-44bf-9fe6-6c64df071f20</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
@@ -169,18 +229,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/event/f5137ee5-67f7-48fd-92d7-66d15ce2b72d</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/8fac4298-17ba-4a98-92ed-64bbc85c0cc6</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://bachatacalendar.co.uk/event/4ec7a3d5-02bb-4e80-9439-9db4766b00b2</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>daily</changefreq>
@@ -199,31 +247,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/event/2e144785-e4f1-4b00-86c6-61cd31892900</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/49762b9b-a0cb-46a4-a9e7-1b15698b62ce</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/460e499a-4915-4af2-b62a-d1e7b84e0ffd</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://bachatacalendar.co.uk/event/7d43c2b1-ca9a-4bd1-8031-22b57d782c30</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/0000e780-3fa7-40b2-bbb8-59b66feb8324</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
@@ -237,12 +261,6 @@
   <url>
     <loc>https://bachatacalendar.co.uk/event/5c33406a-1412-4ef9-a7a2-ca976d7f2488</loc>
     <lastmod>2026-04-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/e181d89b-bc7a-4770-940b-8f92b610e339</loc>
-    <lastmod>2026-04-25</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -267,12 +285,6 @@
   <url>
     <loc>https://bachatacalendar.co.uk/event/a722aed1-41eb-45a5-b738-3fa6fa428fa0</loc>
     <lastmod>2026-04-22</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/event/514d773e-688b-4424-8d7e-f24286000051</loc>
-    <lastmod>2026-04-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -307,14 +319,14 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/venue-entity/ab280ff2-a1bd-455a-b27e-7337a6781b81</loc>
-    <lastmod>2026-04-08</lastmod>
+    <loc>https://bachatacalendar.co.uk/venue-entity/ca98c29b-00c5-41a6-b826-5845865ef0bf</loc>
+    <lastmod>2026-04-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/venue-entity/ca98c29b-00c5-41a6-b826-5845865ef0bf</loc>
-    <lastmod>2026-04-15</lastmod>
+    <loc>https://bachatacalendar.co.uk/venue-entity/fef405cf-d9fa-4140-99dc-11ce8a8a0d2c</loc>
+    <lastmod>2026-05-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -355,6 +367,36 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://bachatacalendar.co.uk/venue-entity/ab280ff2-a1bd-455a-b27e-7337a6781b81</loc>
+    <lastmod>2026-04-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/dancers/8cbced3d-c437-4e0d-bc71-0e8b8b787fe1</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/teachers/8cbced3d-c437-4e0d-bc71-0e8b8b787fe1</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/dancers/7d6068f8-9132-4e85-a27a-fc662a23f88f</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/teachers/7d6068f8-9132-4e85-a27a-fc662a23f88f</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://bachatacalendar.co.uk/dancers/220b31fd-6fd5-45ef-ae43-0f11ee918792</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
@@ -379,13 +421,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/dancers/456af8d2-aa47-4055-8d5d-08afaa90cfb4</loc>
+    <loc>https://bachatacalendar.co.uk/dancers/a61e7b72-1fb2-42a9-b8e1-b843183ad562</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/teachers/456af8d2-aa47-4055-8d5d-08afaa90cfb4</loc>
+    <loc>https://bachatacalendar.co.uk/teachers/a61e7b72-1fb2-42a9-b8e1-b843183ad562</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -398,18 +440,6 @@
   </url>
   <url>
     <loc>https://bachatacalendar.co.uk/teachers/3eac9b2b-c61c-4d2b-95d1-53679a7afa23</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/dancers/8cbced3d-c437-4e0d-bc71-0e8b8b787fe1</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/teachers/8cbced3d-c437-4e0d-bc71-0e8b8b787fe1</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -439,18 +469,6 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/dancers/e367f682-995b-47b0-b5bc-ae066094e9e1</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://bachatacalendar.co.uk/teachers/e367f682-995b-47b0-b5bc-ae066094e9e1</loc>
-    <lastmod>2026-04-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://bachatacalendar.co.uk/dancers/c41c5cdd-8d78-4869-871e-d1d4babed0ab</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
@@ -463,13 +481,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/dancers/5f03c7a5-2d17-4f5e-bcc2-f02c99b3df32</loc>
+    <loc>https://bachatacalendar.co.uk/dancers/e367f682-995b-47b0-b5bc-ae066094e9e1</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/teachers/5f03c7a5-2d17-4f5e-bcc2-f02c99b3df32</loc>
+    <loc>https://bachatacalendar.co.uk/teachers/e367f682-995b-47b0-b5bc-ae066094e9e1</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -487,13 +505,25 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/dancers/a61e7b72-1fb2-42a9-b8e1-b843183ad562</loc>
+    <loc>https://bachatacalendar.co.uk/dancers/5f03c7a5-2d17-4f5e-bcc2-f02c99b3df32</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://bachatacalendar.co.uk/teachers/a61e7b72-1fb2-42a9-b8e1-b843183ad562</loc>
+    <loc>https://bachatacalendar.co.uk/teachers/5f03c7a5-2d17-4f5e-bcc2-f02c99b3df32</loc>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/dancers/456af8d2-aa47-4055-8d5d-08afaa90cfb4</loc>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bachatacalendar.co.uk/teachers/456af8d2-aa47-4055-8d5d-08afaa90cfb4</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
