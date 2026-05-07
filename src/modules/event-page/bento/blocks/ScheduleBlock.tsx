@@ -5,6 +5,7 @@ import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid
 import {
   useProgramItems,
   useProgramSections,
+  useOccurrenceProgram,
   type Person,
   type ProgramSection,
   type ScheduleSession,
@@ -72,6 +73,12 @@ const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => 
 
 type ScheduleBlockProps = {
   eventId: string | null;
+  /** Phase C — when the visitor is viewing a specific occurrence date,
+   *  the schedule shows that occurrence's merged program (cancelled
+   *  sessions hidden, time/title overrides applied, hidden people
+   *  removed) via get_occurrence_program_v1. Null/undefined = series
+   *  mode (default behaviour, calls get_event_program_v1). */
+  occurrenceId?: string | null;
 };
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
@@ -788,11 +795,21 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
-  const { data: rawSessions = [], isLoading } = useProgramItems(eventId);
+export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => {
+  // Phase C — occurrence mode. When occurrenceId is set, pull the merged
+  // program from get_occurrence_program_v1 and disable the series query
+  // (passing null hits the hook's enabled guard). Same shape comes back, so
+  // the rest of this component is mode-agnostic.
+  const occurrenceQuery = useOccurrenceProgram(occurrenceId ?? null);
+  const eventQuery = useProgramItems(occurrenceId ? null : eventId);
+  const { data: rawSessions = [], isLoading } =
+    occurrenceId ? occurrenceQuery : eventQuery;
+
   // Phase 2B step 2e — section list (incl. empty sections) drives the
   // section-header rendering: label_override (verbatim) when set, else kind.
   // Empty sections render a header + muted "No sessions scheduled yet."
+  // Sections RPC remains series-level; sectionsForDay below filters to the
+  // occurrence's day in occurrence mode.
   const { data: programSections = [] } = useProgramSections(eventId);
 
   const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
@@ -869,7 +886,15 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
   const sections = useMemo(() => {
     // Filter sections to only those whose day matches the active day; for
     // single-day events all sections pass through.
+    //
+    // Phase C — in occurrence mode the program contains a single day's
+    // sessions, but useProgramSections returns the WHOLE series. Without
+    // the extra clause below, multi-day series viewed via ?occurrenceId
+    // would render empty section headers for the unrelated days.
     const sectionsForDay = (() => {
+      if (occurrenceId && uniqueDays.length === 1) {
+        return programSections.filter((ps) => ps.dayEventDate === uniqueDays[0]);
+      }
       if (!isMultiDay || !currentDay) return programSections;
       return programSections.filter((ps) => ps.dayEventDate === currentDay);
     })();
@@ -878,7 +903,7 @@ export const ScheduleBlock = ({ eventId }: ScheduleBlockProps) => {
       return groupIntoSectionsFromServer(slots, sectionsForDay);
     }
     return groupIntoSectionsLegacy(slots);
-  }, [slots, programSections, isMultiDay, currentDay]);
+  }, [slots, programSections, isMultiDay, currentDay, occurrenceId, uniqueDays]);
 
   return (
     <BentoTile title="" color={BLOCK_COLORS.schedule} mode="container">

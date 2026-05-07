@@ -248,7 +248,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           />
         ) : null;
       case 'schedule':
-        return <ScheduleBlock eventId={eventId} />;
+        return <ScheduleBlock eventId={eventId} occurrenceId={occurrenceId} />;
       case 'promo':
         return <PromoBlock codes={pageModel.promoCodes.items} />;
       case 'city':

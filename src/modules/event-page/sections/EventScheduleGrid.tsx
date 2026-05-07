@@ -198,103 +198,127 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
 }
 
 
-// Same queryKey so React Query deduplicates across both components.
+// Phase C — both useProgramItems (series) and useOccurrenceProgram
+// (occurrence-merged) consume the same jsonb shape from their respective
+// RPCs (get_event_program_v1 / get_occurrence_program_v1, Phase 2N). The
+// parser below is shared so the two hooks stay in lockstep.
+
+type RpcPerson = {
+  profile_id: string | null;
+  profile_type: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  sort_order: number | null;
+  level: string | null;
+};
+type RpcItem = {
+  id: string;
+  title: string | null;
+  type: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  sort_order: number | null;
+  levels: string[] | null;
+  room: string | null;
+  people: RpcPerson[] | null;
+  // Phase 2B step 2d — additive section context (Phase 2B step 2e
+  // surfaces these into ScheduleSession so the renderer can group by
+  // database section instead of inferring from item type).
+  section_id: string | null;
+  section_kind: string | null;
+  section_label: string | null;
+};
+
+function parseProgramItems(data: unknown): ScheduleSession[] {
+  const items = (data as unknown as RpcItem[]) ?? [];
+  return items
+    .filter((item) => toMins(item.start_time) !== null)
+    .map((item): ScheduleSession => {
+      const startMins = toMins(item.start_time)!;
+      const endMins = toMins(item.end_time) ?? startMins + 60;
+
+      const people: Person[] = (item.people ?? [])
+        .slice()
+        .sort((a, b) => {
+          const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+          const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+          return ao - bo;
+        })
+        .map((r): Person | null => {
+          if (!r.profile_id) return null;
+          const lvl: SessionLevel | null =
+            r.level && LEVEL_SET.has(r.level) ? (r.level as SessionLevel) : null;
+          return {
+            id: r.profile_id,
+            name: r.display_name || (r.profile_type === 'dj' ? 'DJ' : 'Teacher'),
+            href: hrefFor(r.profile_type, r.profile_id),
+            avatarUrl: r.avatar_url,
+            role: roleLabel(r.profile_type),
+            profileType: r.profile_type,
+            level: lvl,
+          };
+        })
+        .filter((x): x is Person => x !== null);
+
+      // Extract local-wall-clock date prefix. The RPC stores times as naive
+      // local (see toMins, which ignores any offset); the YYYY-MM-DD prefix
+      // matches what DayBlock/formatDayLabel expect.
+      const dayMatch =
+        typeof item.start_time === 'string' ? item.start_time.match(/^(\d{4}-\d{2}-\d{2})/) : null;
+      const day = dayMatch ? dayMatch[1] : null;
+
+      return {
+        id: item.id,
+        title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
+        type: item.type || 'class',
+        day,
+        startMins,
+        endMins,
+        levels: sanitizeLevels(item.levels),
+        room: typeof item.room === 'string' && item.room.trim().length > 0 ? item.room.trim() : null,
+        people,
+        sectionId: typeof item.section_id === 'string' ? item.section_id : null,
+        sectionKind: typeof item.section_kind === 'string' ? item.section_kind : null,
+        sectionLabel: typeof item.section_label === 'string' && item.section_label.trim().length > 0
+          ? item.section_label
+          : null,
+      };
+    });
+}
 
 export function useProgramItems(eventId: string | null | undefined) {
   return useQuery<ScheduleSession[]>({
     queryKey: ['event-program-items', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-
       const { data, error } = await supabase.rpc('get_event_program_v1' as any, {
         p_event_id: eventId,
       });
-
       if (error || !data) return [];
-
-      type RpcPerson = {
-        profile_id: string | null;
-        profile_type: string | null;
-        display_name: string | null;
-        avatar_url: string | null;
-        sort_order: number | null;
-        level: string | null;
-      };
-      type RpcItem = {
-        id: string;
-        title: string | null;
-        type: string | null;
-        start_time: string | null;
-        end_time: string | null;
-        sort_order: number | null;
-        levels: string[] | null;
-        room: string | null;
-        people: RpcPerson[] | null;
-        // Phase 2B step 2d — additive section context (Phase 2B step 2e
-        // surfaces these into ScheduleSession so the renderer can group by
-        // database section instead of inferring from item type).
-        section_id: string | null;
-        section_kind: string | null;
-        section_label: string | null;
-      };
-
-      const items = (data as unknown as RpcItem[]) ?? [];
-
-      return items
-        .filter((item) => toMins(item.start_time) !== null)
-        .map((item): ScheduleSession => {
-          const startMins = toMins(item.start_time)!;
-          const endMins = toMins(item.end_time) ?? startMins + 60;
-
-          const people: Person[] = (item.people ?? [])
-            .slice()
-            .sort((a, b) => {
-              const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
-              const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
-              return ao - bo;
-            })
-            .map((r): Person | null => {
-              if (!r.profile_id) return null;
-              const lvl: SessionLevel | null =
-                r.level && LEVEL_SET.has(r.level) ? (r.level as SessionLevel) : null;
-              return {
-                id: r.profile_id,
-                name: r.display_name || (r.profile_type === 'dj' ? 'DJ' : 'Teacher'),
-                href: hrefFor(r.profile_type, r.profile_id),
-                avatarUrl: r.avatar_url,
-                role: roleLabel(r.profile_type),
-                profileType: r.profile_type,
-                level: lvl,
-              };
-            })
-            .filter((x): x is Person => x !== null);
-
-          // Extract local-wall-clock date prefix. The RPC stores times as naive
-          // local (see toMins, which ignores any offset); the YYYY-MM-DD prefix
-          // matches what DayBlock/formatDayLabel expect.
-          const dayMatch =
-            typeof item.start_time === 'string' ? item.start_time.match(/^(\d{4}-\d{2}-\d{2})/) : null;
-          const day = dayMatch ? dayMatch[1] : null;
-
-          return {
-            id: item.id,
-            title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
-            type: item.type || 'class',
-            day,
-            startMins,
-            endMins,
-            levels: sanitizeLevels(item.levels),
-            room: typeof item.room === 'string' && item.room.trim().length > 0 ? item.room.trim() : null,
-            people,
-            sectionId: typeof item.section_id === 'string' ? item.section_id : null,
-            sectionKind: typeof item.section_kind === 'string' ? item.section_kind : null,
-            sectionLabel: typeof item.section_label === 'string' && item.section_label.trim().length > 0
-              ? item.section_label
-              : null,
-          };
-        });
+      return parseProgramItems(data);
     },
     enabled: Boolean(eventId),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+// Phase C — occurrence-aware program reader. Calls get_occurrence_program_v1
+// (Phase 2N), which returns the same jsonb shape as get_event_program_v1 but
+// with per-occurrence overrides merged: cancelled sessions filtered out, time
+// / title overrides applied, hidden people removed. ScheduleBlock branches
+// on occurrenceId to pick this hook over useProgramItems.
+export function useOccurrenceProgram(occurrenceId: string | null | undefined) {
+  return useQuery<ScheduleSession[]>({
+    queryKey: ['occurrence-program', occurrenceId],
+    queryFn: async () => {
+      if (!occurrenceId) return [];
+      const { data, error } = await (supabase.rpc as any)('get_occurrence_program_v1', {
+        p_occurrence_id: occurrenceId,
+      });
+      if (error || !data) return [];
+      return parseProgramItems(data);
+    },
+    enabled: Boolean(occurrenceId),
     staleTime: 1000 * 60 * 5,
   });
 }
