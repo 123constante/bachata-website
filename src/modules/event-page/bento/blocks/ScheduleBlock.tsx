@@ -685,8 +685,6 @@ const SingleRoomScheduleRow = ({
   const endStr = fmtMins12(session.endMins);
   const duration = fmtDuration(session.startMins, session.endMins);
 
-  const pillText = isPerformance ? 'Show' : isParty ? 'DJ' : 'Class';
-
   // Title display — drop default placeholder titles ("Class 1", "Party"...).
   const trimmed = (session.title ?? '').trim();
   const showTitle = !isPartyish
@@ -698,10 +696,13 @@ const SingleRoomScheduleRow = ({
   const rank = !isPartyish ? rankFor(session) : null;
   const rankInline = rank && !rank.muted ? rank.text : null;
 
-  // Composite headline for the pill row (e.g. "CLASS · Bachata", "DJ", "SHOW · Opening").
-  // Title appears in the pill row when distinctive; people render as chips below.
-  const headlineRight = [titleText, rankInline].filter(Boolean).join(' · ');
-  const fullHeadline = [pillText, headlineRight].filter(Boolean).join(' · ');
+  // Headline for the pill row — title + optional rank (e.g. "Bachata · Imp",
+  // "Footwork/Styling", "Social"). The leading CLASS / DJ / SHOW pill was
+  // dropped: the surrounding section already carries a vertical CLASSES /
+  // PARTY label (book-spine), so repeating the type on every card duplicates
+  // the grouping affordance. Empty when no title and no rank — that case
+  // skips rendering the headline div below so the row collapses cleanly.
+  const fullHeadline = [titleText, rankInline].filter(Boolean).join(' · ');
 
   return (
     <div
@@ -742,20 +743,22 @@ const SingleRoomScheduleRow = ({
            the row runs out of width and collapsing to "+N teachers" past the
            threshold. See plan_person_discoverability.md (Bachata Calendar PM). */}
       <div className="min-w-0">
-        <div
-          style={{
-            fontFamily: 'var(--font-mono, ui-monospace)',
-            fontSize: '9px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.10em',
-            color: 'hsl(var(--bento-accent))',
-            lineHeight: 1.2,
-          }}
-          title={LEVEL_LABEL_FULL_TOOLTIP(session)}
-        >
-          {fullHeadline}
-        </div>
+        {fullHeadline && (
+          <div
+            style={{
+              fontFamily: 'var(--font-mono, ui-monospace)',
+              fontSize: '9px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.10em',
+              color: 'hsl(var(--bento-accent))',
+              lineHeight: 1.2,
+            }}
+            title={LEVEL_LABEL_FULL_TOOLTIP(session)}
+          >
+            {fullHeadline}
+          </div>
+        )}
         {session.people.length > 0 ? (
           <div style={{ marginTop: '8px' }}>
             <PeopleStack
