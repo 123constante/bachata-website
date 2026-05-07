@@ -27,6 +27,13 @@ name: DB Contract Check
 #     day. Mirror logic in admin (lib/programDayRollover.ts) and Website
 #     (src/lib/programDayRollover.ts) MUST match the canonical fixtures.
 #     (Phase 1F brief §6.2.5; admin lib/programDayRollover.ts.)
+#  9. The admin_list_occurrences_for_event_v1 null-venue tolerance contract —
+#     draft events with no venue set must not cause a 55000 error in the admin
+#     list-occurrences RPC (admin migration 20260510020000).
+# 10. The replace_event_program canvas consistency contract — every event's
+#     meta_data.program session count must match its event_program_items count.
+#     Drift baseline is 0 after Phase F backfill (2026-05-07)
+#     (admin migrations 20260510030000 / 20260510040000 / 20260510050000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -102,3 +109,15 @@ jobs:
         # against src/lib/programDayRollover.ts. Cross-repo gap noted in script
         # header: admin lib is manually mirrored here. See script for TODO.
         run: node scripts/check-day-rollover-consistency-v1.mjs
+
+      - name: Run admin-list-occurrences null-venue tolerance contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-admin-list-occurrences-null-venue-contract.mjs
+
+      - name: Run replace-event-program canvas consistency contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-replace-event-program-canvas-consistency.mjs
