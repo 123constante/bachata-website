@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
@@ -102,7 +103,11 @@ export interface PersonChipProps {
 const initialFor = (name: string): string => (name || '?').charAt(0).toUpperCase();
 
 /** The visible avatar circle. All sizes use the same anatomy — only the
- *  pixel knobs differ. The outer wrapper handles hit-area, not this. */
+ *  pixel knobs differ. The outer wrapper handles hit-area, not this.
+ *
+ *  Avatar load failure → fall back to initials (mirrors OrganiserAvatar in
+ *  OrganiserCardBlock.tsx). Without this, broken/expired storage URLs render
+ *  the browser's missing-image glyph. */
 const AvatarCircle = ({
   person,
   size,
@@ -113,6 +118,8 @@ const AvatarCircle = ({
   dimmed: boolean;
 }) => {
   const t = SIZE_TABLE[size];
+  const [errored, setErrored] = useState(false);
+  const showAvatar = Boolean(person.avatarUrl) && !errored;
   return (
     <div
       className="flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
@@ -120,20 +127,21 @@ const AvatarCircle = ({
         width: t.avatarPx,
         height: t.avatarPx,
         fontSize: t.initialFontPx,
-        background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-        border: person.avatarUrl ? undefined : '1.5px solid var(--bento-hairline)',
+        background: showAvatar ? undefined : 'hsl(var(--bento-surface))',
+        border: showAvatar ? undefined : '1.5px solid var(--bento-hairline)',
         color: 'hsl(var(--bento-accent))',
         opacity: dimmed ? 0.55 : 1,
       }}
     >
-      {person.avatarUrl ? (
+      {showAvatar ? (
         <img
-          src={person.avatarUrl}
+          src={person.avatarUrl as string}
           alt=""
           width={t.avatarPx}
           height={t.avatarPx}
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={() => setErrored(true)}
         />
       ) : (
         <span>{initialFor(person.name)}</span>
