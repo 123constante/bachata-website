@@ -21,6 +21,8 @@ type VenueOccurrenceRow = {
   type: string | null;
 };
 
+type FaqItem = { q: string; a: string };
+
 type TransportJson = {
   notes?: string | null;
   nearest_stations?: {
@@ -40,7 +42,7 @@ const FACILITY_MAP: Record<string, { emoji: string; label: string }> = {
   sound_system: { emoji: '\u{1F50A}', label: 'Sound system' },
   changing_area: { emoji: '\u{1F6BF}', label: 'Changing area' },
   wifi: { emoji: '\u{1F4F6}', label: 'Wi-Fi' },
-  wheelchair_access: { emoji: '♿', label: 'Wheelchair access' },
+  wheelchair_access: { emoji: '♥️', label: 'Wheelchair access' },
   air_conditioning: { emoji: '❄️', label: 'Air con' },
   drinking_water: { emoji: '\u{1F4A7}', label: 'Drinking water' },
   bottle_refill: { emoji: '\u{1FAD7}', label: 'Bottle refill' },
@@ -51,6 +53,15 @@ const FACILITY_MAP: Record<string, { emoji: string; label: string }> = {
   late_train_friendly: { emoji: '\u{1F686}', label: 'Late train' },
   stage: { emoji: '\u{1F3AD}', label: 'Stage' },
   outdoor_space: { emoji: '\u{1F333}', label: 'Outdoor space' },
+};
+
+const FLOOR_TYPE_MAP: Record<string, { emoji: string; label: string }> = {
+  sprung: { emoji: '\u{1F3C3}', label: 'Sprung floor' },
+  wood: { emoji: '\u{1FAB5}', label: 'Wood floor' },
+  parquet: { emoji: '\u{1FAB5}', label: 'Parquet floor' },
+  concrete: { emoji: '\u{1F9F1}', label: 'Concrete floor' },
+  vinyl: { emoji: '\u{1F3B5}', label: 'Vinyl floor' },
+  carpet: { emoji: '\u{1F6CF}️', label: 'Carpet' },
 };
 
 const LINE_COLOURS: Record<string, { bg: string; textBlack?: boolean }> = {
@@ -162,8 +173,8 @@ const VenueEntity = () => {
 
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showGradientBg={false}>
-        <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: 12 }}>
+      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+        <div style={{ minHeight: '100vh', padding: 12 }}>
           <Skeleton className="w-full h-[180px] rounded-none bg-[#1e1e1e]" />
           <div style={{ padding: '12px 0' }}>
             <Skeleton className="h-4 w-1/2 mb-2 bg-[#1e1e1e]" />
@@ -176,9 +187,9 @@ const VenueEntity = () => {
 
   if (!venue) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showGradientBg={false}>
+      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
         <div style={{
-          backgroundColor: '#0a0a0a', minHeight: '100vh',
+          minHeight: '100vh',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', padding: 24,
         }}>
@@ -244,12 +255,18 @@ const VenueEntity = () => {
     return null;
   })();
 
-  // Amenity pills: facilities_new entries matching FACILITY_MAP, plus bar + cloakroom flags.
+  // Amenity pills: facilities_new entries + floor type + ID required + bar + cloakroom.
   const facilityPills: { key: string; emoji: string; label: string }[] = [];
   if (facilitiesRaw) {
     for (const key of facilitiesRaw) {
       if (FACILITY_MAP[key]) facilityPills.push({ key, ...FACILITY_MAP[key] });
     }
+  }
+  if (venue.floor_type && FLOOR_TYPE_MAP[venue.floor_type]) {
+    facilityPills.push({ key: 'floor_' + venue.floor_type, ...FLOOR_TYPE_MAP[venue.floor_type] });
+  }
+  if (venue.id_required) {
+    facilityPills.push({ key: 'id_required', emoji: '\u{1F194}', label: 'ID required' });
   }
   if (venue.bar_available) facilityPills.push({ key: 'bar', emoji: '\u{1F379}', label: 'Bar' });
   if (venue.cloakroom_available) facilityPills.push({ key: 'cloakroom', emoji: '\u{1F9E5}', label: 'Cloakroom' });
@@ -296,6 +313,15 @@ const VenueEntity = () => {
     );
   }
 
+  const faqItems = Array.isArray(venue.faq_json)
+    ? (venue.faq_json as unknown[]).filter((item): item is FaqItem =>
+        typeof item === 'object' && item !== null && 'q' in item && 'a' in item)
+    : [];
+
+  const rulesArr = Array.isArray(venue.rules)
+    ? (venue.rules as string[]).filter(Boolean)
+    : [];
+
   const hasHours = hoursRows.length > 0;
   const hasParking =
     (parkingJson?.parking_available !== null && parkingJson?.parking_available !== undefined) ||
@@ -305,8 +331,8 @@ const VenueEntity = () => {
   const hasMore = eventList.length > 3;
 
   return (
-    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showGradientBg={false}>
-      <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+      <div style={{ minHeight: '100vh' }}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -403,6 +429,11 @@ const VenueEntity = () => {
               {venue.description}
             </p>
           )}
+          {venue.capacity && (
+            <p style={{ fontSize: 11, color: '#666', marginTop: 6, textAlign: 'center' }}>
+              {'Capacity: up to ' + venue.capacity + ' guests'}
+            </p>
+          )}
         </div>
 
         {/* Section 4: Info grid */}
@@ -460,7 +491,7 @@ const VenueEntity = () => {
                     </div>
                     {station.walking_distance_minutes != null && (
                       <p style={{ fontSize: 11, color: '#888', margin: 0 }}>
-                        {station.walking_distance_minutes} min walk
+                        {station.walking_distance_minutes + ' min walk'}
                       </p>
                     )}
                   </div>
@@ -528,7 +559,49 @@ const VenueEntity = () => {
           )}
         </div>
 
-        {/* Section 5: Upcoming events */}
+        {/* Section 5: House rules */}
+        {rulesArr.length > 0 && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <p style={LABEL}>House rules</p>
+            <div style={DARK_CARD}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {rulesArr.map((rule, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex', gap: 5, fontSize: 11, color: '#aaa',
+                      lineHeight: 1.5, marginBottom: i < rulesArr.length - 1 ? 4 : 0,
+                    }}
+                  >
+                    <span style={{ color: '#f97316', flexShrink: 0 }}>{'•'}</span>
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Section 6: FAQ */}
+        {faqItems.length > 0 && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <p style={LABEL}>FAQ</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {faqItems.map((item, i) => (
+                <div key={i} style={{ ...DARK_CARD, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 500, color: '#f1f1f1', margin: '0 0 4px' }}>
+                    {item.q}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#aaa', margin: 0, lineHeight: 1.5 }}>
+                    {item.a}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section 7: Upcoming events */}
         <div style={{ padding: '16px 12px 20px' }}>
           <p style={LABEL}>Upcoming events here</p>
           {eventList.length === 0 ? (
