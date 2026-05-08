@@ -21,6 +21,7 @@ export interface PublicVenue {
   google_maps_href: string | null;
   website: string | null;
   instagram: string | null;
+  facebook: string | null;
   phone: string | null;
   email: string | null;
   transport: string | null;
@@ -37,6 +38,10 @@ export interface PublicVenue {
   rules?: string[] | null;
   video_urls?: string[] | null;
   parking_cost_notes?: string | null;
+  water_situation?: string | null;
+  food_situation?: string | null;
+  late_night_notes?: string | null;
+  last_entry_time?: string | null;
 }
 
 export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | null> {

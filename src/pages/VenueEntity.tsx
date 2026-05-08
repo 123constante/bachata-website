@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Globe, Instagram, Facebook, Play } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -256,10 +256,14 @@ const VenueEntity = () => {
   })();
 
   // Amenity pills: facilities_new entries + floor type + ID required + bar + cloakroom.
+  // Unknown keys (custom tags from admin) get a generic pill with a humanised label.
   const facilityPills: { key: string; emoji: string; label: string }[] = [];
+  const humaniseFacility = (k: string) =>
+    k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   if (facilitiesRaw) {
     for (const key of facilitiesRaw) {
       if (FACILITY_MAP[key]) facilityPills.push({ key, ...FACILITY_MAP[key] });
+      else facilityPills.push({ key, emoji: '\u{2728}', label: humaniseFacility(key) });
     }
   }
   if (venue.floor_type && FLOOR_TYPE_MAP[venue.floor_type]) {
@@ -329,6 +333,79 @@ const VenueEntity = () => {
   const eventList = Array.isArray(events) ? events : [];
   const visibleEvents = showAll ? eventList : eventList.slice(0, 3);
   const hasMore = eventList.length > 3;
+
+  // last_entry_time may arrive as 'HH:MM' or 'HH:MM:SS' — display HH:MM only.
+  const lastEntryDisplay = (() => {
+    const raw = venue.last_entry_time;
+    if (!raw || typeof raw !== 'string') return null;
+    const m = raw.match(/^(\d{2}:\d{2})/);
+    return m ? m[1] : null;
+  })();
+
+  const galleryStrip = galleryUrls ?? [];
+  const videoUrls = parseStrArray(venue.video_urls) ?? [];
+
+  // Dancer essentials block — water/food/late_night
+  type Essential = { key: string; label: string; text: string };
+  const essentials: Essential[] = [];
+  if (venue.water_situation)
+    essentials.push({ key: 'water', label: 'Water', text: venue.water_situation });
+  if (venue.food_situation)
+    essentials.push({ key: 'food', label: 'Food', text: venue.food_situation });
+  if (venue.late_night_notes)
+    essentials.push({ key: 'late', label: 'Late night', text: venue.late_night_notes });
+
+  // Contact links — phone / email / website / instagram / facebook
+  const contactLinks: { key: string; href: string; label: string; icon: JSX.Element }[] = [];
+  if (venue.phone) {
+    contactLinks.push({
+      key: 'phone',
+      href: 'tel:' + venue.phone.replace(/\s+/g, ''),
+      label: venue.phone,
+      icon: <Phone className="w-3.5 h-3.5" />,
+    });
+  }
+  if (venue.email) {
+    contactLinks.push({
+      key: 'email',
+      href: 'mailto:' + venue.email,
+      label: venue.email,
+      icon: <Mail className="w-3.5 h-3.5" />,
+    });
+  }
+  if (venue.website) {
+    const display = venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    contactLinks.push({
+      key: 'website',
+      href: venue.website,
+      label: display,
+      icon: <Globe className="w-3.5 h-3.5" />,
+    });
+  }
+  if (venue.instagram) {
+    const handle = venue.instagram.startsWith('@')
+      ? venue.instagram.slice(1)
+      : venue.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '');
+    contactLinks.push({
+      key: 'instagram',
+      href: 'https://instagram.com/' + handle,
+      label: '@' + handle,
+      icon: <Instagram className="w-3.5 h-3.5" />,
+    });
+  }
+  if (venue.facebook) {
+    const display = venue.facebook
+      .replace(/^https?:\/\/(www\.)?facebook\.com\//, '')
+      .replace(/\/$/, '');
+    contactLinks.push({
+      key: 'facebook',
+      href: venue.facebook.startsWith('http')
+        ? venue.facebook
+        : 'https://facebook.com/' + venue.facebook,
+      label: display || 'Facebook',
+      icon: <Facebook className="w-3.5 h-3.5" />,
+    });
+  }
 
   return (
     <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
@@ -436,6 +513,48 @@ const VenueEntity = () => {
           )}
         </div>
 
+        {/* Section 3b: Gallery strip */}
+        {galleryStrip.length > 0 && (
+          <div style={{ padding: '12px 12px 0' }}>
+            <p style={LABEL}>Gallery</p>
+            <div
+              style={{
+                display: 'flex',
+                gap: 6,
+                overflowX: 'auto',
+                paddingBottom: 4,
+                scrollbarWidth: 'thin',
+              }}
+            >
+              {galleryStrip.map((src) => (
+                <a
+                  key={src}
+                  href={src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    flex: '0 0 auto',
+                    width: 110,
+                    height: 80,
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    border: '1px solid #1e1e1e',
+                    background: '#111',
+                    display: 'block',
+                  }}
+                >
+                  <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Section 4: Info grid */}
         <div style={{ padding: '16px 12px 0' }}>
           {/* Getting There -- full width */}
@@ -531,6 +650,11 @@ const VenueEntity = () => {
                       </Fragment>
                     ))}
                   </div>
+                  {lastEntryDisplay && (
+                    <p style={{ fontSize: 10, color: '#666', marginTop: 6, marginBottom: 0 }}>
+                      {'Last entry ' + lastEntryDisplay}
+                    </p>
+                  )}
                 </div>
               )}
               {hasParking && (
@@ -559,7 +683,34 @@ const VenueEntity = () => {
           )}
         </div>
 
-        {/* Section 5: House rules */}
+        {/* Section 5a: Dancer essentials */}
+        {essentials.length > 0 && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <p style={LABEL}>Dancer essentials</p>
+            <div style={DARK_CARD}>
+              {essentials.map((e, i) => (
+                <div
+                  key={e.key}
+                  style={{
+                    marginBottom: i < essentials.length - 1 ? 8 : 0,
+                  }}
+                >
+                  <p style={{
+                    fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    color: '#fb923c', margin: '0 0 2px',
+                  }}>
+                    {e.label}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#aaa', lineHeight: 1.5, margin: 0 }}>
+                    {e.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section 5b: House rules */}
         {rulesArr.length > 0 && (
           <div style={{ padding: '16px 12px 0' }}>
             <p style={LABEL}>House rules</p>
@@ -578,6 +729,88 @@ const VenueEntity = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Section 5c: Contact */}
+        {contactLinks.length > 0 && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <p style={LABEL}>Contact</p>
+            <div style={DARK_CARD}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {contactLinks.map((c, i) => (
+                  <li
+                    key={c.key}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      marginBottom: i < contactLinks.length - 1 ? 6 : 0,
+                    }}
+                  >
+                    <span style={{ color: '#f97316', flexShrink: 0 }}>{c.icon}</span>
+                    <a
+                      href={c.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 12, color: '#aaa', textDecoration: 'none',
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {c.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Section 5d: Videos */}
+        {videoUrls.length > 0 && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <p style={LABEL}>Videos</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {videoUrls.map((url) => {
+                const display = url
+                  .replace(/^https?:\/\/(www\.)?/, '')
+                  .replace(/\/$/, '');
+                return (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      ...DARK_CARD,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 26, height: 26,
+                        borderRadius: '50%',
+                        background: '#1c1008',
+                        border: '1px solid #7c2d12',
+                        color: '#fb923c',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Play className="w-3 h-3" />
+                    </span>
+                    <span style={{ fontSize: 12, color: '#aaa', wordBreak: 'break-all' }}>
+                      {display}
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </div>
         )}
