@@ -110,9 +110,15 @@ const initialFor = (name: string): string => (name || '?').charAt(0).toUpperCase
 
 /** Bare avatar circle. Renders an `<img>` (with width/height for CLS
  *  protection) when avatarUrl is present, otherwise the initial inside
- *  a hairline border. Used by every variant — single source of truth. */
+ *  a hairline border. Used by every variant — single source of truth.
+ *
+ *  Avatar load failure → fall back to initials (mirrors OrganiserAvatar in
+ *  OrganiserCardBlock.tsx). Without this, broken/expired storage URLs render
+ *  the browser's missing-image glyph. */
 const Avatar = ({ person, size }: { person: Person; size: number }) => {
   const initial = initialFor(person.name);
+  const [errored, setErrored] = useState(false);
+  const showAvatar = Boolean(person.avatarUrl) && !errored;
   return (
     <div
       className="flex items-center justify-center overflow-hidden rounded-full font-bold"
@@ -120,19 +126,20 @@ const Avatar = ({ person, size }: { person: Person; size: number }) => {
         width: size,
         height: size,
         fontSize: Math.round(size * 0.34),
-        background: person.avatarUrl ? undefined : 'hsl(var(--bento-surface))',
-        border: person.avatarUrl ? undefined : '1.5px solid var(--bento-hairline)',
+        background: showAvatar ? undefined : 'hsl(var(--bento-surface))',
+        border: showAvatar ? undefined : '1.5px solid var(--bento-hairline)',
         color: 'hsl(var(--bento-accent))',
       }}
     >
-      {person.avatarUrl ? (
+      {showAvatar ? (
         <img
-          src={person.avatarUrl}
+          src={person.avatarUrl as string}
           alt=""
           width={size}
           height={size}
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={() => setErrored(true)}
         />
       ) : (
         <span>{initial}</span>

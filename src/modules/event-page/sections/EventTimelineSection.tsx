@@ -157,13 +157,13 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): TimelineSession[] 
           id: p.id,
           name: p.displayName ?? 'Teacher',
           href: `/teachers/${p.id}`,
-          avatarUrl: null,
+          avatarUrl: p.avatarUrl ?? null,
         })),
         ...item.djs.map((p) => ({
           id: p.id,
           name: p.displayName ?? 'DJ',
           href: `/djs/${p.id}`,
-          avatarUrl: null,
+          avatarUrl: p.avatarUrl ?? null,
         })),
       ];
       return {
