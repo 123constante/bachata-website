@@ -4,7 +4,8 @@ import { emitProfileView } from "@/lib/profileViewEmit";
 import { ArrowLeft, CalendarDays, Facebook, Globe, Instagram, Mail, MessageCircle, Package, Store, Tag, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { VendorPublicDetail } from "@/modules/vendor/types";
-import { normalizeLink, normalizeProducts, normalizeStringArray } from "@/modules/vendor/utils";
+import { normalizeLink, normalizeProducts } from "@/modules/vendor/utils";
+import { recordVendorLinkClick, type VendorLinkType } from "@/lib/vendorLinkClicks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,22 +64,20 @@ const VendorDetail = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from("vendors")
-        .select(
-          "id, business_name, city_id, cities(name), photo_url, product_categories, products, faq, public_email, whatsapp, promo_code, upcoming_events, ships_international, team, website, instagram, facebook",
-        )
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error: fetchError } = await supabase.rpc(
+        "get_public_vendor_detail_v1",
+        { p_id: id },
+      );
 
       if (fetchError) {
         setError(fetchError.message || "Failed to load vendor.");
         setVendor(null);
-      } else if (!data) {
+      } else if (!data || (Array.isArray(data) && data.length === 0)) {
         setError("Vendor not found.");
         setVendor(null);
       } else {
-        setVendor(data as VendorPublicDetail);
+        const row = (Array.isArray(data) ? data[0] : data) as VendorPublicDetail;
+        setVendor(row);
       }
 
       setLoading(false);
@@ -93,7 +92,9 @@ const VendorDetail = () => {
 
   useEffect(() => {
     const loadEventItems = async () => {
-      const eventIds = normalizeStringArray(vendor?.upcoming_events);
+      const eventIds = (vendor?.upcoming_events || []).filter(
+        (eventId): eventId is string => typeof eventId === "string" && eventId.length > 0,
+      );
       if (eventIds.length === 0) {
         setEventItems([]);
         return;
@@ -129,11 +130,12 @@ const VendorDetail = () => {
     const productImages = products
       .map((product) => (product.image_url || "").trim())
       .filter(Boolean);
-    const all = [...normalizeStringArray(vendor.photo_url), ...productImages];
-    return Array.from(new Set(all));
+    const heroImage = vendor.photo_url ? [vendor.photo_url] : [];
+    const all = [...heroImage, ...(vendor.gallery_urls || []), ...productImages];
+    return Array.from(new Set(all.filter(Boolean)));
   }, [vendor, products]);
-  const cityLabel = [vendor?.cities?.name].filter(Boolean).join(", ");
-  const categoryItems = useMemo(() => normalizeStringArray(vendor?.product_categories), [vendor?.product_categories]);
+  const cityLabel = vendor?.city || "";
+  const categoryItems = useMemo(() => vendor?.product_categories || [], [vendor?.product_categories]);
   const teamItems = useMemo<TeamLinkItem[]>(() => {
     if (!Array.isArray(vendor?.team)) return [];
 
@@ -155,21 +157,21 @@ const VendorDetail = () => {
     ? `https://wa.me/${vendor.whatsapp.replace(/[^\d]/g, "")}`
     : null;
   const contactActions = useMemo(() => {
-    const actions: Array<{ label: string; href: string; external?: boolean }> = [];
+    const actions: Array<{ label: string; href: string; external?: boolean; linkType: VendorLinkType }> = [];
     if (vendor?.website) {
-      actions.push({ label: "Website", href: normalizeLink(vendor.website), external: true });
+      actions.push({ label: "Website", href: normalizeLink(vendor.website), external: true, linkType: "website" });
     }
     if (vendor?.instagram) {
-      actions.push({ label: "Instagram", href: normalizeLink(vendor.instagram), external: true });
+      actions.push({ label: "Instagram", href: normalizeLink(vendor.instagram), external: true, linkType: "instagram" });
     }
     if (vendor?.facebook) {
-      actions.push({ label: "Facebook", href: normalizeLink(vendor.facebook), external: true });
+      actions.push({ label: "Facebook", href: normalizeLink(vendor.facebook), external: true, linkType: "facebook" });
     }
     if (vendor?.public_email) {
-      actions.push({ label: "Email", href: `mailto:${vendor.public_email}` });
+      actions.push({ label: "Email", href: `mailto:${vendor.public_email}`, linkType: "public_email" });
     }
     if (whatsappHref) {
-      actions.push({ label: "WhatsApp", href: whatsappHref, external: true });
+      actions.push({ label: "WhatsApp", href: whatsappHref, external: true, linkType: "whatsapp" });
     }
     return actions;
   }, [vendor?.website, vendor?.instagram, vendor?.facebook, vendor?.public_email, whatsappHref]);
@@ -189,10 +191,26 @@ const VendorDetail = () => {
     try {
       await navigator.clipboard.writeText(vendor.promo_code);
       setPromoCopied(true);
+      recordVendorLinkClick({
+        vendorId: vendor.id,
+        linkType: "promo_copy",
+        targetUrl: vendor.promo_code,
+        source: "vendor-detail:promo-copy",
+      });
       window.setTimeout(() => setPromoCopied(false), 1500);
     } catch {
       setPromoCopied(false);
     }
+  };
+
+  const trackOutbound = (linkType: VendorLinkType, targetUrl: string | null | undefined, source: string) => {
+    if (!vendor?.id) return;
+    recordVendorLinkClick({
+      vendorId: vendor.id,
+      linkType,
+      targetUrl: targetUrl ?? null,
+      source,
+    });
   };
 
   const vendorBreadcrumbs = buildBreadcrumbs('vendor.detail', { entityName: vendor?.business_name, isLoading });
@@ -311,6 +329,7 @@ const VendorDetail = () => {
                     href={action.href}
                     target={action.external ? "_blank" : undefined}
                     rel={action.external ? "noreferrer" : undefined}
+                    onClick={() => trackOutbound(action.linkType, action.href, "vendor-detail:hero")}
                   >
                     <Button variant="outline" className="gap-2">
                       {action.label}
@@ -380,19 +399,19 @@ const VendorDetail = () => {
                   <h2 className="text-lg font-semibold">Quick links</h2>
                   <div className="space-y-2">
                     {vendor.website && (
-                      <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("website", vendor.website, "vendor-detail:overview-quicklinks")}>
                         <Globe className="h-4 w-4" />
                         {websiteLabel || "Website"}
                       </a>
                     )}
                     {vendor.instagram && (
-                      <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("instagram", vendor.instagram, "vendor-detail:overview-quicklinks")}>
                         <Instagram className="h-4 w-4" />
                         Instagram
                       </a>
                     )}
                     {vendor.facebook && (
-                      <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("facebook", vendor.facebook, "vendor-detail:overview-quicklinks")}>
                         <Facebook className="h-4 w-4" />
                         Facebook
                       </a>
@@ -547,7 +566,7 @@ const VendorDetail = () => {
                 <h2 className="text-xl font-semibold">Contact</h2>
                 <div className="flex flex-wrap gap-2">
                   {vendor.website && (
-                    <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer">
+                    <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("website", vendor.website, "vendor-detail:about-contact")}>
                       <Button variant="outline" className="gap-2">
                         <Globe className="h-4 w-4" />
                         Website
@@ -555,7 +574,7 @@ const VendorDetail = () => {
                     </a>
                   )}
                   {vendor.instagram && (
-                    <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer">
+                    <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("instagram", vendor.instagram, "vendor-detail:about-contact")}>
                       <Button variant="outline" className="gap-2">
                         <Instagram className="h-4 w-4" />
                         Instagram
@@ -563,7 +582,7 @@ const VendorDetail = () => {
                     </a>
                   )}
                   {vendor.facebook && (
-                    <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer">
+                    <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("facebook", vendor.facebook, "vendor-detail:about-contact")}>
                       <Button variant="outline" className="gap-2">
                         <Facebook className="h-4 w-4" />
                         Facebook
@@ -571,7 +590,7 @@ const VendorDetail = () => {
                     </a>
                   )}
                   {vendor.public_email && (
-                    <a href={`mailto:${vendor.public_email}`}>
+                    <a href={`mailto:${vendor.public_email}`} onClick={() => trackOutbound("public_email", vendor.public_email, "vendor-detail:about-contact")}>
                       <Button variant="outline" className="gap-2">
                         <Mail className="h-4 w-4" />
                         Email
@@ -579,7 +598,7 @@ const VendorDetail = () => {
                     </a>
                   )}
                   {whatsappHref && (
-                    <a href={whatsappHref} target="_blank" rel="noreferrer">
+                    <a href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => trackOutbound("whatsapp", whatsappHref, "vendor-detail:about-contact")}>
                       <Button variant="outline" className="gap-2">
                         <MessageCircle className="h-4 w-4" />
                         WhatsApp

@@ -36,25 +36,18 @@ export const useVendorDirectory = ({
       setLoading(true);
       setError(null);
 
-      const from = Math.max(0, (page - 1) * pageSize);
-      const to = from + pageSize - 1;
+      const offset = Math.max(0, (page - 1) * pageSize);
+      const trimmedCity = city.trim();
+      const trimmedSearch = search.trim();
+      const trimmedCategory = category.trim();
 
-      let query = supabase
-        .from("vendors")
-        .select("id, business_name, city_id, cities(name), photo_url, product_categories, upcoming_events, ships_international", { count: "exact" })
-        .order("business_name", { ascending: true })
-        .range(from, to);
-
-      if (search.trim()) {
-        query = query.ilike("business_name", `%${search.trim()}%`);
-      }
-
-      if (city.trim()) {
+      let cityId: string | null = null;
+      if (trimmedCity) {
         const { data: cityMatches, error: cityError } = await supabase
           .from("cities")
           .select("id")
-          .ilike("name", `%${city.trim()}%`)
-          .limit(50);
+          .ilike("name", trimmedCity)
+          .limit(1);
 
         if (cityError) {
           if (cancelled) return;
@@ -65,23 +58,26 @@ export const useVendorDirectory = ({
           return;
         }
 
-        const cityIds = (cityMatches || []).map((row: any) => row.id).filter(Boolean);
-        if (cityIds.length === 0) {
+        cityId = (cityMatches || [])[0]?.id || null;
+        if (!cityId) {
           if (cancelled) return;
           setVendors([]);
           setTotal(0);
           setLoading(false);
           return;
         }
-
-        query = query.in("city_id", cityIds);
       }
 
-      if (category.trim()) {
-        query = query.contains("product_categories", [category.trim()]);
-      }
-
-      const { data, count, error: fetchError } = await query;
+      const { data, error: fetchError } = await supabase.rpc(
+        "get_public_vendor_directory_v1",
+        {
+          p_query: trimmedSearch || null,
+          p_city_id: cityId,
+          p_category: trimmedCategory || null,
+          p_limit: pageSize,
+          p_offset: offset,
+        },
+      );
 
       if (cancelled) return;
 
@@ -90,8 +86,9 @@ export const useVendorDirectory = ({
         setVendors([]);
         setTotal(0);
       } else {
-        setVendors((data || []) as VendorPublicCard[]);
-        setTotal(count || 0);
+        const rows = (data || []) as VendorPublicCard[];
+        setVendors(rows);
+        setTotal(rows.length > 0 ? Number(rows[0].total_count) || 0 : 0);
       }
 
       setLoading(false);

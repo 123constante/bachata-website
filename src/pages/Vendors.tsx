@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { normalizeStringArray } from "@/modules/vendor/utils";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -184,10 +183,10 @@ const Vendors = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {vendors.map((vendor) => {
-              const primaryImage = vendor.photo_url?.[0] || FALLBACK_IMAGE;
-              const location = [vendor.cities?.name].filter(Boolean).join(", ");
+              const primaryImage = vendor.photo_url || FALLBACK_IMAGE;
+              const location = vendor.city || "";
               const vendorName = vendor.business_name || "Untitled vendor";
-              const upcomingEventCount = normalizeStringArray(vendor.upcoming_events).length;
+              const upcomingEventCount = vendor.upcoming_event_count || 0;
 
               return (
                 <Card
@@ -224,7 +223,7 @@ const Vendors = () => {
 
                       <div className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        {vendor.cities?.name ? (
+                        {vendor.city ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -232,11 +231,11 @@ const Vendors = () => {
                             className="h-7 px-2 text-xs"
                             onClick={(event) => {
                               event.stopPropagation();
-                              setCity(vendor.cities?.name || "");
+                              setCity(vendor.city || "");
                               setPage(1);
                             }}
                           >
-                            {vendor.cities?.name}
+                            {vendor.city}
                           </Button>
                         ) : (
                           <span>{location || "Location not specified"}</span>

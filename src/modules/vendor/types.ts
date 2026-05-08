@@ -14,31 +14,52 @@ export type VendorRowWithCity = VendorRow & {
   cities?: { name: string } | null;
 };
 
-export type VendorPublicCard = Pick<
-  VendorRowWithCity,
-  "id" | "business_name" | "city_id" | "photo_url" | "product_categories" | "upcoming_events" | "ships_international" | "cities"
->;
+// ─── Public RPC return shapes (Vendors Phase 1) ─────────────────────────────
+// These mirror the SQL TABLE returns of get_public_vendor_directory_v1 and
+// get_public_vendor_detail_v1. The scalar photo_url + scalar city flattening
+// is intentional: directory cards show one hero image and one city label.
 
-export type VendorPublicDetail = Pick<
-  VendorRowWithCity,
-  | "id"
-  | "business_name"
-  | "city_id"
-  | "photo_url"
-  | "product_categories"
-  | "products"
-  | "faq"
-  | "public_email"
-  | "whatsapp"
-  | "promo_code"
-  | "upcoming_events"
-  | "ships_international"
-  | "team"
-  | "website"
-  | "instagram"
-  | "facebook"
-  | "cities"
->;
+export type VendorPublicCard = {
+  id: string;
+  business_name: string | null;
+  photo_url: string | null;
+  city_id: string | null;
+  city: string | null;
+  country: string | null;
+  product_categories: string[];
+  ships_international: boolean;
+  has_promo_code: boolean;
+  verified: boolean;
+  upcoming_event_count: number;
+  total_count: number;
+};
+
+export type VendorPublicDetail = {
+  id: string;
+  business_name: string | null;
+  photo_url: string | null;
+  gallery_urls: string[];
+  city_id: string | null;
+  city: string | null;
+  country: string | null;
+  description: string | null;
+  short_description: string | null;
+  faq: string | null;
+  products: Json;
+  product_categories: string[];
+  ships_international: boolean;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  whatsapp: string | null;
+  public_email: string | null;
+  promo_code: string | null;
+  promo_discount_type: VendorPromoDiscountType | null;
+  promo_discount_value: number | null;
+  team: Json;
+  upcoming_events: string[];
+  verified: boolean;
+};
 
 export type VendorProduct = {
   id?: string;
