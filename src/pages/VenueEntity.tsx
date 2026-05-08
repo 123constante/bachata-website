@@ -274,17 +274,24 @@ const VenueEntity = () => {
   }
   if (venue.bar_available) facilityPills.push({ key: 'bar', emoji: '\u{1F379}', label: 'Bar' });
   if (venue.cloakroom_available) facilityPills.push({ key: 'cloakroom', emoji: '\u{1F9E5}', label: 'Cloakroom' });
+  if (venue.capacity != null) {
+    facilityPills.push({
+      key: 'capacity',
+      emoji: '\u{1F465}',
+      label: venue.capacity + ' guests',
+    });
+  }
 
   const station = transportJson?.nearest_stations?.[0] ?? null;
   const hasTransport = !!station || !!transportJson?.notes;
 
-  // Opening hours rows, starting from today and wrapping through 7 days.
-  const todayDayIdx = JS_DAY_TO_ORDER[new Date().getDay()];
+  // Opening hours rows in a fixed Mon-first order. Today's row is highlighted
+  // but the order never changes.
+  const todayDayKey = DAY_ORDER[JS_DAY_TO_ORDER[new Date().getDay()]];
   const hoursRows: { day: string; display: string; isToday: boolean }[] = [];
   if (openingHours) {
     for (let i = 0; i < 7; i++) {
-      const dayIdx = (todayDayIdx + i) % 7;
-      const dayKey = DAY_ORDER[dayIdx];
+      const dayKey = DAY_ORDER[i];
       let raw: unknown;
       for (const k of Object.keys(openingHours)) {
         if (k.toLowerCase() === dayKey) {
@@ -301,7 +308,7 @@ const VenueEntity = () => {
         if (h.isOpen === false) display = 'Closed';
         else if (h.open && h.close) display = h.open + '–' + h.close;
       }
-      if (display) hoursRows.push({ day: DAY_ABBR[dayKey], display, isToday: i === 0 });
+      if (display) hoursRows.push({ day: DAY_ABBR[dayKey], display, isToday: dayKey === todayDayKey });
     }
   }
 
@@ -430,26 +437,39 @@ const VenueEntity = () => {
           }}
         />
 
-        {/* Section 1: Hero */}
-        <div style={{ position: 'relative', height: 180, overflow: 'hidden', backgroundColor: '#111' }}>
-          {heroImage && (
-            <img
-              src={heroImage}
-              alt={venue.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }}
-            />
-          )}
+        {/* Section 1: Hero — inset photo card so the global warm gradient
+            frames it on all sides. The photo is opaque but the wrapper has
+            no background, letting GlobalLayout's gradient + floating icons
+            show in the gutter around it. */}
+        <div style={{ padding: '12px 12px 0' }}>
           <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0, height: 100,
-            background: 'linear-gradient(to top, #0a0a0a, transparent)',
-          }} />
-          <div style={{ position: 'absolute', bottom: 12, left: 12 }}>
-            <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#f97316', margin: 0 }}>
-              VENUE
-            </p>
-            <p style={{ fontSize: 17, fontWeight: 500, color: 'white', margin: 0 }}>
-              {venue.name}
-            </p>
+            position: 'relative',
+            height: 180,
+            overflow: 'hidden',
+            borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            {heroImage ? (
+              <img
+                src={heroImage}
+                alt={venue.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', background: '#111' }} />
+            )}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 100,
+              background: 'linear-gradient(to top, rgba(10,10,10,0.92), transparent)',
+            }} />
+            <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12 }}>
+              <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#f97316', margin: 0 }}>
+                VENUE
+              </p>
+              <p style={{ fontSize: 17, fontWeight: 500, color: 'white', margin: 0 }}>
+                {venue.name}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -506,11 +526,6 @@ const VenueEntity = () => {
               {venue.description}
             </p>
           )}
-          {venue.capacity && (
-            <p style={{ fontSize: 11, color: '#666', marginTop: 6, textAlign: 'center' }}>
-              {'Capacity: up to ' + venue.capacity + ' guests'}
-            </p>
-          )}
         </div>
 
         {/* Section 3b: Gallery strip */}
@@ -563,30 +578,33 @@ const VenueEntity = () => {
               <p style={LABEL}>Getting there</p>
               {station && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                  {/* TfL Roundel */}
-                  <div style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    border: '4px solid #e1251b', position: 'relative',
-                    flexShrink: 0, overflow: 'hidden', background: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <div style={{
-                      position: 'absolute', left: 0, right: 0,
-                      top: '50%', transform: 'translateY(-50%)', height: 9,
-                      background: station.line_names?.[0] && LINE_COLOURS[station.line_names[0]]
-                        ? LINE_COLOURS[station.line_names[0]].bg
-                        : '#e1251b',
-                    }} />
-                    <span style={{
-                      position: 'relative', fontSize: 7, fontWeight: 700,
-                      color: '#fff', letterSpacing: '0.02em',
-                      textShadow: '0 0 2px rgba(0,0,0,0.8)',
-                    }}>
-                      {(station.line_names ?? []).some(
-                        (l) => l === 'Overground' || l === 'Elizabeth',
-                      ) ? 'LO' : 'LU'}
-                    </span>
-                  </div>
+                  {/* Station marker — solid line-colour fill with a centred train icon */}
+                  {(() => {
+                    const primaryLine = station.line_names?.[0];
+                    const primaryColour =
+                      (primaryLine && LINE_COLOURS[primaryLine]?.bg) || '#e1251b';
+                    return (
+                      <div
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: '50%',
+                          background: primaryColour,
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                          fontSize: 16,
+                          lineHeight: 1,
+                          boxShadow: '0 0 0 1px rgba(255,255,255,0.08)',
+                        }}
+                        aria-label={(primaryLine ?? 'Station') + ' marker'}
+                      >
+                        <span style={{ fontSize: 16 }}>{'\u{1F687}'}</span>
+                      </div>
+                    );
+                  })()}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 500, color: '#f1f1f1', margin: '0 0 4px' }}>
                       {station.station}
