@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { buildFullName } from "@/lib/name-utils";
 import { useToast } from "@/hooks/use-toast";
+import { captureException } from "@/lib/sentry";
 
 type Dancer = {
   id: string;
@@ -48,7 +49,7 @@ const PracticePartners = () => {
         if (error) throw error;
         setPartners(data || []);
       } catch (error) {
-        console.error("Error fetching partners:", error);
+        captureException(error, { context: "PracticePartners.fetchPartners" });
       } finally {
         setLoading(false);
       }

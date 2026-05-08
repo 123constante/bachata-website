@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/useAuth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -192,7 +193,7 @@ const CreateEvent = () => {
       toast({ title: 'Event created' });
       navigate(`/event/${newEvent.id}`);
     } catch (error: any) {
-       console.error(error);
+      captureException(error, { context: 'CreateEvent.submit' });
       toast({ title: 'Failed to create', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);

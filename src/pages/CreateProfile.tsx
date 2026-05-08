@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AvatarUpload } from '@/components/profile/AvatarUpload';
@@ -852,7 +853,7 @@ const CreateProfile = () => {
         } as any);
 
         if (claimError) {
-          console.error('Error claiming entity:', claimError);
+          captureException(claimError, { context: 'CreateProfile.claimEntity' });
         }
       }
       

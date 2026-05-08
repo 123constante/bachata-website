@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/sentry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
@@ -160,7 +161,7 @@ const AuthCallback = () => {
             localStorage.removeItem("pending_profile_role");
             return;
           } catch (profileErr) {
-            console.error("AuthCallback auto-create profile failed:", profileErr);
+            captureException(profileErr, { context: "AuthCallback.autoCreateProfile" });
             navigateToOnboardingFallback("profile");
             return;
           }
@@ -168,7 +169,7 @@ const AuthCallback = () => {
 
         navigateToOnboardingFallback("metadata");
       } catch (err) {
-        console.error("AuthCallback dancer check failed:", err);
+        captureException(err, { context: "AuthCallback.dancerCheck" });
         navigateToOnboardingFallback("lookup");
       }
     };

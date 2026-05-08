@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Cloud, CloudLightning, CloudRain, Moon, Snowflake, Loader2, Sparkles, Umbrella, Thermometer, RefreshCw, Droplets } from "lucide-react";
 import { format, addDays, subDays, getHours } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { captureException } from "@/lib/sentry";
 
 export const WeatherWidget = () => {
   const [data, setData] = useState<{
@@ -73,7 +74,7 @@ export const WeatherWidget = () => {
       setLastUpdated(new Date());
       setError(false);
     } catch (err) {
-      console.error("Failed to load weather", err);
+      captureException(err, { context: "WeatherWidget.fetchWeather" });
       setError(true);
     } finally {
       setLoading(false);

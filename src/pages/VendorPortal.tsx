@@ -5,6 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { captureException } from "@/lib/sentry";
 import { validateImageFile } from "@/lib/upload-validation";
 import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorRowWithCity, VendorPromoDiscountType } from "@/modules/vendor/types";
 import {
@@ -267,7 +268,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
           });
 
           if (rpcError) {
-            console.error("Failed to load calendar events:", rpcError);
+            captureException(rpcError, { context: "VendorPortal.loadCalendarEvents" });
             setEventSuggestions([]);
           } else {
             const raw = Array.isArray(data) ? data : [];
@@ -307,7 +308,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
 
           const { data, error: eventsError } = await query;
           if (eventsError) {
-            console.error("Failed to load fallback event suggestions:", eventsError);
+            captureException(eventsError, { context: "VendorPortal.loadFallbackEvents" });
             setEventSuggestions([]);
           } else {
             const mapped = Array.isArray(data)

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/sentry";
 import { CityPicker } from "@/components/ui/city-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -129,7 +130,7 @@ const Onboarding = () => {
       localStorage.removeItem("auth_last_email");
       localStorage.removeItem("profile_last_active_role");
     } catch (err: any) {
-      console.error("Onboarding insert failed:", err);
+      captureException(err, { context: "Onboarding.insert" });
       toast({ title: "Something went wrong", description: err?.message || "Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);

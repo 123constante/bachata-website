@@ -3,7 +3,9 @@ import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { captureException } from "@/lib/sentry";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
@@ -70,7 +72,19 @@ const ExportGuestEntry = lazy(() => import("./pages/ExportGuestEntry"));
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
 // Per-query staleTimes (2--5 min) still override where set. Events data changes on
 // the scale of days, not minutes -- focus-refetch adds cost without user benefit.
+//
+// Phase 2: QueryCache/MutationCache route every silently-swallowed query and
+// mutation error to Sentry so consumers that read .data without checking .error
+// no longer hide failures from ops.
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (err, query) =>
+      captureException(err, { queryKey: query.queryKey }),
+  }),
+  mutationCache: new MutationCache({
+    onError: (err, _vars, _ctx, mutation) =>
+      captureException(err, { mutationKey: mutation.options.mutationKey }),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 60_000,
@@ -102,8 +116,9 @@ const AnimatedRoutes = () => {
 
   return (
     <AnimatePresence mode="wait">
-      <Suspense fallback={<RouteFallback />}>
-        <Routes location={location} key={location.pathname}>
+      <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes location={location} key={location.pathname}>
           <Route path="/" element={<CityRedirect />} />
           <Route path="/city/:slug" element={<PageTransition><Index /></PageTransition>} />
           <Route path="/city/:slug/calendar" element={<PageTransition><Index /></PageTransition>} />
@@ -257,8 +272,9 @@ const AnimatedRoutes = () => {
           <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
           <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </AnimatePresence>
   );
 };

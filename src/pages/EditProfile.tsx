@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -136,7 +137,7 @@ const EditProfile = () => {
           setInitialFormSnapshot(JSON.stringify(loadedForm));
         }
       } catch (error) {
-        console.error('Error fetching dancer data:', error);
+        captureException(error, { context: 'EditProfile.fetchDancer' });
         toast({
           title: 'Error loading profile',
           description: 'Could not load your profile data.',

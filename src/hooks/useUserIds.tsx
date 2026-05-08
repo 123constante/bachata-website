@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import type { Json } from '@/integrations/supabase/types';
 
 export type UserRole = 'dancer' | 'organiser' | 'dj' | 'teacher' | 'videographer' | 'vendor';
@@ -142,7 +143,7 @@ export const useUserIds = () => {
         });
 
       } catch (error) {
-        console.error('Error fetching user IDs:', error);
+        captureException(error, { context: 'useUserIds.fetchIds' });
         setIds(prev => ({ ...prev, loading: false }));
       }
     };

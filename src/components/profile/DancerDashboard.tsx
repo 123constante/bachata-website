@@ -23,6 +23,7 @@ import { buildCityPath } from '@/lib/cityPath';
 import { useToast } from '@/hooks/use-toast';
 import { setAttendanceRpc } from '@/hooks/useAttendance';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import type { Json } from '@/integrations/supabase/types';
 import { getPhotoUrl, parsePartnerDetails, serializePartnerDetails, type PartnerDetailsValue } from '@/lib/utils';
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
@@ -356,7 +357,7 @@ export const DancerDashboard = () => {
         setSelectedEvents(normalizedRows.filter((item) => item.kind === 'events'));
         setSelectedFestivals(normalizedRows.filter((item) => item.kind === 'festivals'));
       } catch (error) {
-        console.error('Error loading dancer dashboard data:', error);
+        captureException(error, { context: 'DancerDashboard.fetchData' });
       } finally {
         setIsLoading(false);
       }
@@ -660,7 +661,7 @@ export const DancerDashboard = () => {
 
         setEventSearchResults(result);
       } catch (error) {
-        console.error('Event search failed:', error);
+        captureException(error, { context: 'DancerDashboard.eventSearch' });
       } finally {
         setIsSearchingEvents(false);
       }
@@ -699,7 +700,7 @@ export const DancerDashboard = () => {
         const result = ((data || []) as AttendanceSearchResult[]).filter((item) => !selectedIds.has(item.id));
         setFestivalSearchResults(result);
       } catch (error) {
-        console.error('Festival search failed:', error);
+        captureException(error, { context: 'DancerDashboard.festivalSearch' });
       } finally {
         setIsSearchingFestivals(false);
       }
@@ -828,7 +829,7 @@ export const DancerDashboard = () => {
         });
 
         if (metadataError) {
-          console.error('Failed to sync auth metadata', metadataError);
+          captureException(metadataError, { context: 'DancerDashboard.syncAuthMetadata' });
         }
       }
 

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/sentry";
 
 export type EnsureDancerProfileParams = {
   userId: string;
@@ -94,7 +95,7 @@ export const ensureDancerProfile = async ({
       .maybeSingle();
 
     if (cityError) {
-      console.error("Error looking up city:", cityError);
+      captureException(cityError, { context: "ensureDancerProfile.cityLookup" });
       // We don't throw; we proceed to try insert with just name if possible, 
       // but likely it will fail DB constraint if city_id is creating issues.
       // However, if the DB enforces NOT NULL on city_id, we must have it.

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { useForm } from 'react-hook-form';
@@ -205,7 +206,7 @@ const EditEvent = () => {
       toast({ title: 'Event updated' });
       navigate(`/event/${id}`);
     } catch (error) {
-       console.error(error);
+      captureException(error, { context: 'EditEvent.submit' });
       toast({ title: 'Failed to update', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
