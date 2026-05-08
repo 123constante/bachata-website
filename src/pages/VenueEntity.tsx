@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -155,6 +155,8 @@ const VenueEntity = () => {
     enabled: !!id && !!venue,
   });
 
+  const [showAll, setShowAll] = useState(false);
+
   const venueBreadcrumbs = buildBreadcrumbs('venue.detail', { entityName: venue?.name, isLoading });
   const backHref = fromEventId ? '/event/' + fromEventId : '/venues';
 
@@ -299,6 +301,8 @@ const VenueEntity = () => {
     (parkingJson?.parking_available !== null && parkingJson?.parking_available !== undefined) ||
     parkingBullets.length > 0;
   const eventList = Array.isArray(events) ? events : [];
+  const visibleEvents = showAll ? eventList : eventList.slice(0, 3);
+  const hasMore = eventList.length > 3;
 
   return (
     <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showGradientBg={false}>
@@ -532,53 +536,68 @@ const VenueEntity = () => {
               No upcoming events — check back soon
             </p>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5 }}>
-              {eventList.map((ev) => (
-                <Link
-                  key={ev.occurrence_id}
-                  to={'/event/' + ev.event_id + '?occurrenceId=' + ev.occurrence_id}
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5 }}>
+                {visibleEvents.map((ev) => (
+                  <Link
+                    key={ev.occurrence_id}
+                    to={'/event/' + ev.event_id + '?occurrenceId=' + ev.occurrence_id}
+                    style={{
+                      width: 'calc(33.33% - 4px)', background: '#141414',
+                      border: '1px solid #222', borderRadius: 8, overflow: 'hidden',
+                      display: 'block', textDecoration: 'none',
+                    }}
+                  >
+                    <div style={{ position: 'relative', height: 50, background: '#1e1e3a' }}>
+                      {ev.poster_url && (
+                        <img
+                          src={ev.poster_url}
+                          alt={ev.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )}
+                      <span style={{
+                        position: 'absolute', top: 3, left: 3,
+                        background: '#ea580c', color: 'white', fontSize: 8,
+                        textTransform: 'uppercase', borderRadius: 3, padding: '1px 4px',
+                      }}>
+                        {ev.type ?? 'EVENT'}
+                      </span>
+                    </div>
+                    <div style={{ padding: '5px 6px' }}>
+                      <p style={{
+                        fontSize: 10, fontWeight: 500, color: '#f1f1f1', margin: 0,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      } as CSSProperties}>
+                        {ev.name}
+                      </p>
+                      <p style={{ fontSize: 9, color: '#888', margin: '2px 0 0' }}>
+                        {format(new Date(ev.instance_start), 'EEE d MMM')}
+                      </p>
+                      <p style={{ fontSize: 9, color: '#a78bfa', fontWeight: 500, margin: '1px 0 0' }}>
+                        {countdown(ev.instance_start)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              {hasMore && !showAll && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
                   style={{
-                    width: 'calc(33.33% - 4px)', background: '#141414',
-                    border: '1px solid #222', borderRadius: 8, overflow: 'hidden',
-                    display: 'block', textDecoration: 'none',
+                    width: '100%', background: '#141414', border: '1px solid #333',
+                    borderRadius: 8, padding: 10, fontSize: 12, color: '#f97316',
+                    marginTop: 8, cursor: 'pointer',
                   }}
                 >
-                  <div style={{ position: 'relative', height: 50, background: '#1e1e3a' }}>
-                    {ev.poster_url && (
-                      <img
-                        src={ev.poster_url}
-                        alt={ev.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    )}
-                    <span style={{
-                      position: 'absolute', top: 3, left: 3,
-                      background: '#ea580c', color: 'white', fontSize: 8,
-                      textTransform: 'uppercase', borderRadius: 3, padding: '1px 4px',
-                    }}>
-                      {ev.type ?? 'EVENT'}
-                    </span>
-                  </div>
-                  <div style={{ padding: '5px 6px' }}>
-                    <p style={{
-                      fontSize: 10, fontWeight: 500, color: '#f1f1f1', margin: 0,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    } as CSSProperties}>
-                      {ev.name}
-                    </p>
-                    <p style={{ fontSize: 9, color: '#888', margin: '2px 0 0' }}>
-                      {format(new Date(ev.instance_start), 'EEE d MMM')}
-                    </p>
-                    <p style={{ fontSize: 9, color: '#a78bfa', fontWeight: 500, margin: '1px 0 0' }}>
-                      {countdown(ev.instance_start)}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  Show more events
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
