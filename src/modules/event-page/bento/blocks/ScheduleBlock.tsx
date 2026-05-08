@@ -633,6 +633,18 @@ const groupIntoSectionsFromServer = (
     result.push(...groupIntoSectionsLegacy(orphaned));
   }
 
+  // Sort sections by the earliest slot's startMins so the public schedule
+  // reads top-to-bottom in chronological order regardless of the admin's
+  // manually-set event_program_sections.sort_order. Slots within a section
+  // are already in startMins-ascending order (groupIntoSlots walks the
+  // normalize()-sorted session list), so slots[0] is the earliest. Empty
+  // sections (deliberately surfaced headers with no items) sink to the end.
+  result.sort((a, b) => {
+    const aMin = a.slots[0]?.startMins ?? Number.MAX_SAFE_INTEGER;
+    const bMin = b.slots[0]?.startMins ?? Number.MAX_SAFE_INTEGER;
+    return aMin - bMin;
+  });
+
   return result;
 };
 
@@ -766,7 +778,7 @@ const SingleRoomScheduleRow = ({
             {fullHeadline}
           </div>
         )}
-        {session.people.length > 0 ? (
+        {session.people.length > 0 && (
           <div style={{ marginTop: '8px' }}>
             <PeopleStack
               people={session.people}
@@ -774,18 +786,6 @@ const SingleRoomScheduleRow = ({
               context="schedule:single-room"
               eventId={eventId}
             />
-          </div>
-        ) : (
-          <div
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontSize: '14px',
-              color: 'hsl(var(--bento-fg-muted))',
-              marginTop: '6px',
-              fontStyle: 'italic',
-            }}
-          >
-            {isPartyish ? 'TBA' : 'Teachers TBA'}
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 import { Sparkles, Star, Heart, Music, Zap, PartyPopper, LucideIcon } from "lucide-react";
 
@@ -15,10 +16,15 @@ export interface BreadcrumbItem {
 }
 
 interface PageHeroProps {
-  emoji: string;
+  // ReactNode so callers can pass a string emoji *or* a richer node such as
+  // a profile avatar image. The wrapper motion.div animation applies to
+  // either content type.
+  emoji: ReactNode;
   titleWhite: string;
   titleOrange: string;
-  subtitle: string;
+  // ReactNode so callers can swap the plain-text subtitle for a clickable
+  // <Link> (e.g. a city link on profile pages). Strings are still valid.
+  subtitle: ReactNode;
   children?: React.ReactNode;
   widgets?: HeroWidget[];
   gradientFrom?: string;
@@ -70,7 +76,7 @@ const PageHero = ({
             style={{ backgroundSize: "200% 200%" }}
           />
         )}
-        
+
         {/* Overlay gradient for smooth fade */}
         {!hideBackground && (
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
@@ -110,25 +116,29 @@ const PageHero = ({
         ))}
 
         <div className="relative z-10 text-center">
-          {/* Animated Emoji with enhanced bounce */}
-          <motion.div
-            animate={{ 
-              scale: [1, 1.15, 1], 
-              rotate: [-5, 5, -5],
-              y: [0, -8, 0]
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className={`${largeTitle ? 'text-7xl md:text-9xl' : 'text-4xl'} mb-4`}
-          >
-            {emoji}
-          </motion.div>
+          {/* Animated emoji / avatar with bounce. Hidden when caller passes
+              a falsy value (e.g. an empty string) so a title-only hero can
+              skip the placeholder and reclaim the spacing. */}
+          {emoji && (
+            <motion.div
+              animate={{
+                scale: [1, 1.15, 1],
+                rotate: [-5, 5, -5],
+                y: [0, -8, 0],
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className={`${largeTitle ? 'text-7xl md:text-9xl' : 'text-4xl'} mb-4 inline-flex items-center justify-center`}
+            >
+              {emoji}
+            </motion.div>
+          )}
 
           {/* Two-tone Title with animated orange part */}
           <h1 className={`font-black mb-2 tracking-tight ${largeTitle ? 'text-5xl md:text-7xl lg:text-8xl' : 'text-3xl md:text-4xl'}`}>
             <span className="text-foreground">{titleWhite}</span>{" "}
-            <motion.span 
+            <motion.span
               className={`${highlightColor} inline-block`}
-              animate={{ 
+              animate={{
                 scale: [1, 1.02, 1],
               }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -137,7 +147,7 @@ const PageHero = ({
             </motion.span>
           </h1>
 
-          {/* Subtitle */}
+          {/* Subtitle. May be a plain string OR a richer node (e.g. a Link). */}
           {subtitle && (
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto mb-3 sm:mb-6">
               {subtitle}
@@ -155,16 +165,16 @@ const PageHero = ({
                 const middleIndex = (totalWidgets - 1) / 2;
                 const rotation = card3DEffect ? (i - middleIndex) * 8 : 0;
                 const translateZ = card3DEffect ? Math.abs(i - middleIndex) * -10 : 0;
-                
+
                 return (
                   <motion.div
                     key={widget.title}
                     initial={false}
                     animate={{ rotateY: rotation }}
                     transition={{ delay: 0.1 * i, type: "spring", stiffness: 100 }}
-                    whileHover={{ 
-                      scale: 1.1, 
-                      y: -8, 
+                    whileHover={{
+                      scale: 1.1,
+                      y: -8,
                       rotateY: 0,
                       z: 50,
                       boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
@@ -175,13 +185,13 @@ const PageHero = ({
                     style={{
                       transformStyle: 'preserve-3d',
                       transform: card3DEffect ? `rotateY(${rotation}deg) translateZ(${translateZ}px)` : undefined,
-                      boxShadow: card3DEffect 
-                        ? `0 ${8 + Math.abs(translateZ) * 0.5}px ${16 + Math.abs(translateZ)}px rgba(0,0,0,0.2), 
-                           inset 0 1px 0 rgba(255,255,255,0.1)` 
+                      boxShadow: card3DEffect
+                        ? `0 ${8 + Math.abs(translateZ) * 0.5}px ${16 + Math.abs(translateZ)}px rgba(0,0,0,0.2),
+                           inset 0 1px 0 rgba(255,255,255,0.1)`
                         : undefined,
                     }}
                   >
-                    <motion.span 
+                    <motion.span
                       className="text-xl block mb-1"
                       animate={{ rotate: [-3, 3, -3] }}
                       transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
@@ -201,4 +211,3 @@ const PageHero = ({
 };
 
 export default PageHero;
-

@@ -8,14 +8,14 @@ import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadc
 import { FloatingElements } from '@/components/FloatingElements';
 
 interface HeroProps {
-  // emoji is typed as optional for future BentoPage consumption (title-only hero).
-  // Current runtime still delegates to PageHero which requires emoji — an empty
-  // string renders an invisible but layout-occupying motion div. Full omission
-  // will be wired when BentoPage migrates in Phase 2c.
-  emoji?: string;
+  // ReactNode so detail pages can render a profile avatar in place of an
+  // emoji. Strings still work for the 36+ existing consumers.
+  emoji?: ReactNode;
   titleWhite: string;
   titleOrange: string;
-  subtitle?: string;
+  // ReactNode so the subtitle can host a clickable element (e.g. a city
+  // <Link>) instead of plain text. Strings still work.
+  subtitle?: ReactNode;
   widgets?: HeroWidget[];
   floatingIcons?: LucideIcon[];
   highlightColor?: string;
@@ -175,13 +175,9 @@ const GlobalLayout = ({
         // that 80px also exists to push the title below the breadcrumb.
         <div className={showSubheader ? 'pt-3 md:pt-9' : ''}>
           <PageHero
-            // emoji is typed as optional on GlobalLayout's HeroProps for future
-            // BentoPage consumption (title-only hero). PageHero still requires
-            // a string, so absent emojis pass through as ''. This renders an
-            // invisible motion div that still occupies the mb-4 spacing slot.
-            // Full omission (no motion div at all) will be wired when BentoPage
-            // migrates in Phase 2c — it's the first consumer that actually
-            // needs a title-only hero.
+            // ReactNode passes through unchanged. Empty / null / undefined
+            // emoji is collapsed to '' so PageHero's truthiness check skips
+            // the bouncing slot entirely (BentoPage etc.).
             emoji={hero.emoji ?? ''}
             titleWhite={hero.titleWhite}
             titleOrange={hero.titleOrange}

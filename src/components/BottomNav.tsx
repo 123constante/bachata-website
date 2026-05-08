@@ -3,10 +3,15 @@ import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 
-const BASE_NAV_LINKS = [
+const BASE_NAV_LINKS: Array<{
+  segment: string;
+  label: string;
+  emoji: string;
+  fixedPath?: string;
+}> = [
   { segment: 'parties', label: 'Parties', emoji: '🎉' },
   { segment: 'classes', label: 'Classes', emoji: '🎓' },
-  { segment: 'venues', label: 'Venues', emoji: '🏛️' },
+  { segment: 'organisers', label: 'Organisers', emoji: '🎪', fixedPath: '/organisers' },
 ];
 
 const emojiAnimations = {
@@ -18,8 +23,8 @@ const emojiAnimations = {
     animate: { y: [0, -6, 0] },
     transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' as const },
   },
-  '🏛️': {
-    animate: { scale: [1, 1.08, 1] },
+  '🎪': {
+    animate: { rotate: [0, -3, 3, 0], scale: [1, 1.05, 1] },
     transition: { repeat: Infinity, duration: 2.5, ease: 'easeInOut' as const },
   },
   '💫': {
@@ -38,7 +43,7 @@ export const BottomNav = () => {
 
   const navLinks = BASE_NAV_LINKS.map((link) => ({
     ...link,
-    path: buildCityPath(citySlug, link.segment || undefined),
+    path: link.fixedPath ?? buildCityPath(citySlug, link.segment || undefined),
   }));
 
   const isActive = (path: string) => location.pathname === path || location.pathname === `/${path.split('/').pop()}`;

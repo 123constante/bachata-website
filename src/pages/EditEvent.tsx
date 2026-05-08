@@ -3,15 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { captureException } from '@/lib/sentry';
-import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Upload,
-  Loader2,
-} from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { Button } from '@/components/ui/button';
@@ -34,6 +30,29 @@ const cleanString = (str: string | undefined | null) => {
   const trimmed = str.trim();
   return trimmed === '' ? null : trimmed;
 };
+
+function buildEventTimestamps(
+  date: string,
+  times: { class_start?: string; class_end?: string; party_start?: string; party_end?: string },
+) {
+  const { class_start, class_end, party_start, party_end } = times;
+  const iso = (d: string, t: string) => `${d}T${t}:00`;
+  const nextDay = (d: string) => {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, day + 1)).toISOString().slice(0, 10);
+  };
+  const startCandidates = [class_start, party_start].filter(Boolean) as string[];
+  const start_time = startCandidates.length ? iso(date, startCandidates.sort()[0]) : null;
+  const endCandidates: string[] = [];
+  if (class_end) endCandidates.push(iso(date, class_end));
+  if (party_end && party_start) {
+    endCandidates.push(iso(party_end <= party_start ? nextDay(date) : date, party_end));
+  } else if (party_end) {
+    endCandidates.push(iso(date, party_end));
+  }
+  const end_time = endCandidates.length ? endCandidates.sort().reverse()[0] : null;
+  return { start_time, end_time };
+}
 
 const eventSchema = z.object({
   name: z.string().min(1, 'Event name is required').max(200),
@@ -65,7 +84,6 @@ const EditEvent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth(); // Removed authLoading, handled by AuthGuard
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string>('');
@@ -84,9 +102,9 @@ const EditEvent = () => {
   const { data: eventData, isLoading: eventLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: async () => {
-       const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
-       if(error) throw error;
-       return data;
+      const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
     },
     enabled: !!id
   });
@@ -96,9 +114,9 @@ const EditEvent = () => {
   useEffect(() => {
     if (!eventLoading && !permissionsLoading && !canEdit) {
       toast({
-        title: "Unauthorized",
-        description: "You do not have permission to edit this event.",
-        variant: "destructive",
+        title: 'Unauthorized',
+        description: 'You do not have permission to edit this event.',
+        variant: 'destructive',
       });
       navigate('/');
     }
@@ -115,23 +133,27 @@ const EditEvent = () => {
 
   useEffect(() => {
     if (eventData) {
+      const kt = eventData.key_times as {
+        classes?: { start?: string; end?: string };
+        party?:   { start?: string; end?: string };
+      } | null;
       reset({
-        name: eventData.name,
-        description: eventData.description || '',
-        date: eventData.date,
-        venue_id: eventData.venue_id,
-        class_start: (eventData as any).class_start || '',
-        class_end: (eventData as any).class_end || '',
-        party_start: (eventData as any).party_start || '',
-        party_end: (eventData as any).party_end || '',
-        tickets: eventData.tickets || '',
-        ticket_url: eventData.ticket_url || '',
+        name:            eventData.name,
+        description:     eventData.description || '',
+        date:            eventData.date,
+        venue_id:        eventData.venue_id,
+        class_start:     kt?.classes?.start  ?? '',
+        class_end:       kt?.classes?.end    ?? '',
+        party_start:     kt?.party?.start    ?? '',
+        party_end:       kt?.party?.end      ?? '',
+        tickets:         eventData.tickets || '',
+        ticket_url:      eventData.ticket_url || '',
         payment_methods: eventData.payment_methods || '',
-        facebook_url: eventData.facebook_url || '',
-        instagram_url: eventData.instagram_url || '',
-        website: eventData.website || '',
+        facebook_url:    eventData.facebook_url || '',
+        instagram_url:   eventData.instagram_url || '',
+        website:         eventData.website || '',
       });
-      setCoverImageUrl(eventData.cover_image_url || '');
+      setCoverImageUrl(eventData.poster_url || '');
     }
   }, [eventData, reset]);
 
@@ -158,49 +180,32 @@ const EditEvent = () => {
   };
 
   const onSubmit = async (data: EventFormData) => {
+    if (!id) return;
     if (!coverImageUrl) {
       toast({ title: 'Cover image required', variant: 'destructive' });
       return;
     }
     setIsSubmitting(true);
     try {
-      const hasClass = !!(data.class_start && data.class_end);
-      const hasParty = !!(data.party_start && data.party_end);
-
-      const keyTimes = {
-        classes: {
-          active: hasClass,
-          start: data.class_start || null,
-          end: data.class_end || null
+      const { start_time, end_time } = buildEventTimestamps(data.date, data);
+      const { data: result, error } = await (supabase.rpc as any)('organiser_save_event_v1', {
+        p_event_id: id,
+        p_payload: {
+          name:          data.name.trim(),
+          description:   data.description.trim(),
+          venue_id:      data.venue_id,
+          poster_url:    coverImageUrl || null,
+          ticket_url:    cleanString(data.ticket_url),
+          website:       cleanString(data.website),
+          facebook_url:  cleanString(data.facebook_url),
+          instagram_url: cleanString(data.instagram_url),
+          start_time,
+          end_time,
         },
-        party: {
-          active: hasParty,
-          start: data.party_start || null,
-          end: data.party_end || null
-        }
-      };
-
-      const eventPayload = {
-        name: data.name.trim(),
-        description: data.description.trim(),
-        date: data.date,
-        venue_id: data.venue_id,
-        cover_image_url: coverImageUrl,
-        class_start: cleanString(data.class_start),
-        class_end: cleanString(data.class_end),
-        party_start: cleanString(data.party_start),
-        party_end: cleanString(data.party_end),
-        key_times: JSON.stringify(keyTimes),
-        tickets: cleanString(data.tickets),
-        ticket_url: cleanString(data.ticket_url),
-        payment_methods: cleanString(data.payment_methods),
-        facebook_url: cleanString(data.facebook_url),
-        instagram_url: cleanString(data.instagram_url),
-        website: cleanString(data.website),
-      };
-
-      const { error } = await supabase.from('events').update(eventPayload).eq('id', id);
+      });
       if (error) throw error;
+      const body = result as { success: boolean; errors?: { code: string; message: string }[] };
+      if (!body.success) throw new Error(body.errors?.[0]?.message ?? 'Save failed');
       queryClient.invalidateQueries({ queryKey: ['event-page-snapshot', id] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast({ title: 'Event updated' });
@@ -236,25 +241,25 @@ const EditEvent = () => {
     <div className='px-4 pb-24'>
       <div className='max-w-2xl mx-auto'>
         <div className='flex items-center gap-4 mb-8'>
-            <h1 className='text-2xl font-bold'>Edit Event</h1>
+          <h1 className='text-2xl font-bold'>Edit Event</h1>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
           <Card>
-             <CardHeader><CardTitle>Cover Image</CardTitle></CardHeader>
-             <CardContent>
-               {coverImageUrl ? (
-                 <div className='relative'>
-                   <img src={coverImageUrl} alt='Cover' className='w-full h-48 object-cover rounded-lg' />
-                   <Button type='button' variant='secondary' size='sm' className='absolute bottom-3 right-3' onClick={() => setCoverImageUrl('')}>Change</Button>
-                 </div>
-               ) : (
-                 <label className='flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg cursor-pointer'>
-                   <input type='file' accept='image/*' onChange={handleImageUpload} className='hidden' disabled={isUploading} />
-                   <Upload className='w-8 h-8 text-muted-foreground' />
-                   <span className='text-sm text-muted-foreground mt-2'>Upload Cover</span>
-                 </label>
-               )}
-             </CardContent>
+            <CardHeader><CardTitle>Cover Image</CardTitle></CardHeader>
+            <CardContent>
+              {coverImageUrl ? (
+                <div className='relative'>
+                  <img src={coverImageUrl} alt='Cover' className='w-full h-48 object-cover rounded-lg' />
+                  <Button type='button' variant='secondary' size='sm' className='absolute bottom-3 right-3' onClick={() => setCoverImageUrl('')}>Change</Button>
+                </div>
+              ) : (
+                <label className='flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg cursor-pointer'>
+                  <input type='file' accept='image/*' onChange={handleImageUpload} className='hidden' disabled={isUploading} />
+                  <Upload className='w-8 h-8 text-muted-foreground' />
+                  <span className='text-sm text-muted-foreground mt-2'>Upload Cover</span>
+                </label>
+              )}
+            </CardContent>
           </Card>
 
           <Card>
@@ -264,13 +269,13 @@ const EditEvent = () => {
               <div><Label>Description</Label><Textarea {...register('description')} />{errors.description && <p className='text-red-500'>{errors.description.message}</p>}</div>
               <div><Label>Date</Label><Input type='date' {...register('date')} />{errors.date && <p className='text-red-500'>{errors.date.message}</p>}</div>
               <div>
-                  <Label>Venue</Label>
-                  <Select onValueChange={(v) => setValue('venue_id', v)} value={eventData?.venue_id}>
-                    <SelectTrigger><SelectValue placeholder='Select Venue' /></SelectTrigger>
-                    <SelectContent>
-                      {venues?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <Label>Venue</Label>
+                <Select onValueChange={(v) => setValue('venue_id', v)} value={eventData?.venue_id}>
+                  <SelectTrigger><SelectValue placeholder='Select Venue' /></SelectTrigger>
+                  <SelectContent>
+                    {venues?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
@@ -278,22 +283,22 @@ const EditEvent = () => {
           <Card>
             <CardHeader><CardTitle>Times</CardTitle></CardHeader>
             <CardContent className='space-y-4'>
-               <div className='grid grid-cols-2 gap-4'>
-                 <div><Label>Class Start</Label><Input type='time' {...register('class_start')} /></div>
-                 <div><Label>Class End</Label><Input type='time' {...register('class_end')} /></div>
-               </div>
-               <div className='grid grid-cols-2 gap-4'>
-                 <div><Label>Party Start</Label><Input type='time' {...register('party_start')} /></div>
-                 <div><Label>Party End</Label><Input type='time' {...register('party_end')} /></div>
-               </div>
-               {errors.class_start && <p className='text-red-500'>{errors.class_start.message}</p>}
+              <div className='grid grid-cols-2 gap-4'>
+                <div><Label>Class Start</Label><Input type='time' {...register('class_start')} /></div>
+                <div><Label>Class End</Label><Input type='time' {...register('class_end')} /></div>
+              </div>
+              <div className='grid grid-cols-2 gap-4'>
+                <div><Label>Party Start</Label><Input type='time' {...register('party_start')} /></div>
+                <div><Label>Party End</Label><Input type='time' {...register('party_end')} /></div>
+              </div>
+              {errors.class_start && <p className='text-red-500'>{errors.class_start.message}</p>}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Tickets & Links</CardTitle></CardHeader>
             <CardContent className='space-y-4'>
-              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. £10' /></div>
+              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. Â£10' /></div>
               <div><Label>Ticket URL</Label><Input {...register('ticket_url')} placeholder='https://' /></div>
               <div><Label>Payment Methods</Label><Input {...register('payment_methods')} placeholder='Cash, Card...' /></div>
               <div><Label>Facebook Event</Label><Input {...register('facebook_url')} placeholder='https://' /></div>
