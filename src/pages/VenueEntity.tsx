@@ -173,7 +173,16 @@ const VenueEntity = () => {
 
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref={backHref}
+        hero={{
+          emoji: '📍',
+          titleWhite: '',
+          titleOrange: 'Venue',
+          largeTitle: true,
+        }}
+      >
         <div style={{ minHeight: '100vh', padding: 12 }}>
           <Skeleton className="w-full h-[180px] rounded-none bg-[#1e1e1e]" />
           <div style={{ padding: '12px 0' }}>
@@ -187,7 +196,16 @@ const VenueEntity = () => {
 
   if (!venue) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref={backHref}
+        hero={{
+          emoji: '📍',
+          titleWhite: 'Venue',
+          titleOrange: 'not found',
+          largeTitle: true,
+        }}
+      >
         <div style={{
           minHeight: '100vh',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -415,7 +433,16 @@ const VenueEntity = () => {
   }
 
   return (
-    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+    <GlobalLayout
+      breadcrumbs={venueBreadcrumbs}
+      backHref={backHref}
+      hero={{
+        emoji: '📍',
+        titleWhite: venue.name,
+        titleOrange: 'Venue',
+        largeTitle: true,
+      }}
+    >
       <div style={{ minHeight: '100vh' }}>
         <script
           type="application/ld+json"
