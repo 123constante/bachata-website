@@ -213,7 +213,7 @@ const VendorDetail = () => {
     });
   };
 
-  const vendorBreadcrumbs = buildBreadcrumbs('vendor.detail', { entityName: vendor?.business_name, isLoading });
+  const vendorBreadcrumbs = buildBreadcrumbs('vendor.detail', { entityName: vendor?.business_name, isLoading: loading });
 
   if (loading) {
     return (
