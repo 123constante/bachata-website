@@ -36,6 +36,7 @@ export interface PublicVenue {
   city_name?: string | null;
   rules?: string[] | null;
   video_urls?: string[] | null;
+  parking_cost_notes?: string | null;
 }
 
 export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | null> {
