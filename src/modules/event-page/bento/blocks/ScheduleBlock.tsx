@@ -262,6 +262,28 @@ const RankCard = ({
         </div>
       )}
 
+      {/* Arc 6 / Premium D (2026-05-30) — "Special tonight" chip on added-only
+           sessions. The flag arrives via get_occurrence_program_v1.added_only
+           (Bundle 1, 2026-05-30). Quiet on series sessions (most cards). */}
+      {session.addedOnly && (
+        <div
+          data-testid={`schedule-special-chip-${session.id}`}
+          className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
+          style={{
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'hsl(var(--bento-accent))',
+            background: 'hsl(var(--bento-accent) / 0.12)',
+            border: '1px solid hsl(var(--bento-accent) / 0.4)',
+          }}
+          title="Added for this date only — won't appear on other dates"
+        >
+          ★ Special tonight
+        </div>
+      )}
+
       {/* Teacher names — primary content. Larger, serif, prominent. */}
       {titleText && (
         <div
@@ -790,6 +812,27 @@ const SingleRoomScheduleRow = ({
            the row runs out of width and collapsing to "+N teachers" past the
            threshold. See plan_person_discoverability.md (Bachata Calendar PM). */}
       <div className="min-w-0">
+        {/* Arc 6 / Premium D (2026-05-30) — Special tonight chip on
+             added-only sessions. Sits above the headline so it reads
+             "this is a one-off" before the title. */}
+        {session.addedOnly && (
+          <div
+            data-testid={`schedule-special-chip-${session.id}`}
+            className="inline-flex items-center px-1.5 py-0.5 rounded-full mb-[4px]"
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'hsl(var(--bento-accent))',
+              background: 'hsl(var(--bento-accent) / 0.12)',
+              border: '1px solid hsl(var(--bento-accent) / 0.4)',
+            }}
+            title="Added for this date only — won't appear on other dates"
+          >
+            ★ Special tonight
+          </div>
+        )}
         {fullHeadline && (
           <div
             style={{

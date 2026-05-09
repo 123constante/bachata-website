@@ -52,6 +52,11 @@ export type ScheduleSession = {
   sectionId: string | null;
   sectionKind: string | null;
   sectionLabel: string | null;
+  /** Arc 6 / Premium D (2026-05-30) — true when this session was created via
+   *  the per-occurrence "+ Add session" UI (calendar_occurrence_added_sessions),
+   *  not as part of the recurring series program. The schedule renderer surfaces
+   *  a "Special tonight" chip on these so visitors know it's a one-off. */
+  addedOnly?: boolean;
 };
 
 /** Phase 2B step 2e — section row from get_event_program_sections_v1.
@@ -227,6 +232,11 @@ type RpcItem = {
   section_id: string | null;
   section_kind: string | null;
   section_label: string | null;
+  /** Arc 6 / Premium D (2026-05-30) — true on rows that came from
+   *  calendar_occurrence_added_sessions. Surfaced by get_occurrence_program_v1
+   *  post-Bundle 1; the schedule renderer renders a "Special tonight" chip
+   *  on these so visitors recognise them as one-off additions. */
+  added_only?: boolean | null;
 };
 
 function parseProgramItems(data: unknown): ScheduleSession[] {
@@ -282,6 +292,7 @@ function parseProgramItems(data: unknown): ScheduleSession[] {
         sectionLabel: typeof item.section_label === 'string' && item.section_label.trim().length > 0
           ? item.section_label
           : null,
+        addedOnly: item.added_only === true,
       };
     });
 }
