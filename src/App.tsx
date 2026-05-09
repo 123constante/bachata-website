@@ -1,5 +1,5 @@
 import { GlobalBackground } from "@/components/GlobalBackground";
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, type ComponentType, type LazyExoticComponent } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,49 +25,75 @@ import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 // --- Landing page: eager (most common entry point) ---
 import Index from "./pages/Index";
 
+// Wraps lazy() so a chunk-load failure (typically: stale cached HTML referencing
+// a chunk URL that 404s after a Vercel deploy → "Failed to fetch dynamically
+// imported module" / MIME error) triggers ONE reload to pick up the fresh HTML.
+// sessionStorage flag prevents reload loops if the chunk genuinely can't load.
+const CHUNK_RELOAD_KEY = 'chunk-reload-attempted';
+function lazyWithRetry<T extends ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>,
+): LazyExoticComponent<T> {
+  return lazy(async () => {
+    try {
+      const mod = await factory();
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      return mod;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isChunkErr = /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+      if (isChunkErr && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      throw err;
+    }
+  });
+}
+
 // --- All other pages: lazy-loaded ---
-const Parties = lazy(() => import("./pages/Parties"));
-const Classes = lazy(() => import("./pages/Classes"));
-const Discounts = lazy(() => import("./pages/Discounts"));
-const Tonight = lazy(() => import("./pages/Tonight"));
-const EventPage = lazy(() => import("./pages/EventPage"));
-const PracticePartners = lazy(() => import("./pages/PracticePartners"));
-const FestivalHub = lazy(() => import("./pages/FestivalHub"));
-const FestivalDetail = lazy(() => import("./pages/FestivalDetail"));
-const Experience = lazy(() => import("./pages/Experience"));
-const Videographers = lazy(() => import("./pages/Videographers"));
-const Choreography = lazy(() => import("./pages/Choreography"));
-const Dancers = lazy(() => import("./pages/Dancers"));
-const DancerProfile = lazy(() => import("./pages/DancerProfile"));
-const Teachers = lazy(() => import("./pages/Teachers"));
-const TeacherProfile = lazy(() => import("./pages/TeacherProfile"));
-const DJs = lazy(() => import("./pages/DJs"));
-const DJProfile = lazy(() => import("./pages/DJProfile"));
-const Venues = lazy(() => import("./pages/Venues"));
-const Organisers = lazy(() => import("./pages/Organisers"));
-const OrganiserProfile = lazy(() => import("./pages/OrganiserProfile"));
-const AllProfiles = lazy(() => import("./pages/AllProfiles"));
-const VenueEntity = lazy(() => import("./pages/VenueEntity"));
-const Cities = lazy(() => import("./pages/Cities"));
-const CreateProfile = lazy(() => import("./pages/CreateProfile"));
-const CreateOrganiserProfile = lazy(() => import("./pages/CreateOrganiserProfile"));
-const CreateVideographerProfile = lazy(() => import("./pages/CreateVideographerProfile"));
-const VendorDashboardPage = lazy(() => import("./pages/VendorDashboardPage"));
-const Vendors = lazy(() => import("./pages/Vendors"));
-const VendorDetail = lazy(() => import("./pages/VendorDetail"));
-const Auth = lazy(() => import("./pages/Auth"));
-const AuthCallback = lazy(() => import("./pages/AuthCallback"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
-const Profile = lazy(() => import("./pages/Profile"));
-const EditProfile = lazy(() => import("./pages/EditProfile"));
-const EditEvent = lazy(() => import("./pages/EditEvent"));
-const CreateEvent = lazy(() => import("./pages/CreateEvent"));
+const Parties = lazyWithRetry(() => import("./pages/Parties"));
+const Classes = lazyWithRetry(() => import("./pages/Classes"));
+const Discounts = lazyWithRetry(() => import("./pages/Discounts"));
+const Tonight = lazyWithRetry(() => import("./pages/Tonight"));
+const EventPage = lazyWithRetry(() => import("./pages/EventPage"));
+const PracticePartners = lazyWithRetry(() => import("./pages/PracticePartners"));
+const FestivalHub = lazyWithRetry(() => import("./pages/FestivalHub"));
+const FestivalDetail = lazyWithRetry(() => import("./pages/FestivalDetail"));
+const Experience = lazyWithRetry(() => import("./pages/Experience"));
+const Videographers = lazyWithRetry(() => import("./pages/Videographers"));
+const Choreography = lazyWithRetry(() => import("./pages/Choreography"));
+const Dancers = lazyWithRetry(() => import("./pages/Dancers"));
+const DancerProfile = lazyWithRetry(() => import("./pages/DancerProfile"));
+const Teachers = lazyWithRetry(() => import("./pages/Teachers"));
+const TeacherProfile = lazyWithRetry(() => import("./pages/TeacherProfile"));
+const DJs = lazyWithRetry(() => import("./pages/DJs"));
+const DJProfile = lazyWithRetry(() => import("./pages/DJProfile"));
+const Venues = lazyWithRetry(() => import("./pages/Venues"));
+const Organisers = lazyWithRetry(() => import("./pages/Organisers"));
+const OrganiserProfile = lazyWithRetry(() => import("./pages/OrganiserProfile"));
+const AllProfiles = lazyWithRetry(() => import("./pages/AllProfiles"));
+const VenueEntity = lazyWithRetry(() => import("./pages/VenueEntity"));
+const Cities = lazyWithRetry(() => import("./pages/Cities"));
+const CreateProfile = lazyWithRetry(() => import("./pages/CreateProfile"));
+const CreateOrganiserProfile = lazyWithRetry(() => import("./pages/CreateOrganiserProfile"));
+const CreateVideographerProfile = lazyWithRetry(() => import("./pages/CreateVideographerProfile"));
+const VendorDashboardPage = lazyWithRetry(() => import("./pages/VendorDashboardPage"));
+const Vendors = lazyWithRetry(() => import("./pages/Vendors"));
+const VendorDetail = lazyWithRetry(() => import("./pages/VendorDetail"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const AuthCallback = lazyWithRetry(() => import("./pages/AuthCallback"));
+const Onboarding = lazyWithRetry(() => import("./pages/Onboarding"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
+const EditProfile = lazyWithRetry(() => import("./pages/EditProfile"));
+const EditEvent = lazyWithRetry(() => import("./pages/EditEvent"));
+const CreateEvent = lazyWithRetry(() => import("./pages/CreateEvent"));
 // Debug routes removed -- security audit 2026-04-16
-// const Debug = lazy(() => import("./pages/Debug"));
-// const DashboardPatternsDemo = lazy(() => import("./pages/DashboardPatternsDemo"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const EraseGuestEntry = lazy(() => import("./pages/EraseGuestEntry"));
-const ExportGuestEntry = lazy(() => import("./pages/ExportGuestEntry"));
+// const Debug = lazyWithRetry(() => import("./pages/Debug"));
+// const DashboardPatternsDemo = lazyWithRetry(() => import("./pages/DashboardPatternsDemo"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const EraseGuestEntry = lazyWithRetry(() => import("./pages/EraseGuestEntry"));
+const ExportGuestEntry = lazyWithRetry(() => import("./pages/ExportGuestEntry"));
 
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
 // Per-query staleTimes (2--5 min) still override where set. Events data changes on

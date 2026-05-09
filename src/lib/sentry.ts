@@ -29,6 +29,25 @@ export function isSentryEnabled(): boolean {
   return Boolean(SENTRY_DSN);
 }
 
+// Coerces anything thrown/captured into a real Error. Supabase PostgREST errors
+// arrive as plain objects ({ code, message, details, hint }); without this they
+// surface in Sentry as "Object captured as exception with keys: cod...".
+function toError(value: unknown): Error {
+  if (value instanceof Error) return value;
+  if (value && typeof value === 'object') {
+    const v = value as Record<string, unknown>;
+    const msg =
+      (typeof v.message === 'string' && v.message) ||
+      (typeof v.error_description === 'string' && v.error_description) ||
+      (typeof v.code === 'string' && `Supabase error ${v.code}`) ||
+      JSON.stringify(value);
+    const err = new Error(msg);
+    (err as Error & { original?: unknown }).original = value;
+    return err;
+  }
+  return new Error(String(value));
+}
+
 export function initSentry(): void {
   if (_initialized) return;
   if (!SENTRY_DSN) {
@@ -49,6 +68,15 @@ export function initSentry(): void {
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
     sendDefaultPii: false,
+    beforeSend(event, hint) {
+      const orig = hint?.originalException;
+      if (orig && !(orig instanceof Error) && typeof orig === 'object') {
+        const e = toError(orig);
+        event.exception = { values: [{ type: 'Error', value: e.message }] };
+        event.message = e.message;
+      }
+      return event;
+    },
   });
   _initialized = true;
 }
@@ -64,7 +92,7 @@ export function captureException(
     }
     return undefined;
   }
-  return Sentry.captureException(err, context ? { extra: context } : undefined);
+  return Sentry.captureException(toError(err), context ? { extra: context } : undefined);
 }
 
 export function captureMessage(

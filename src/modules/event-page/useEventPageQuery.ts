@@ -305,7 +305,10 @@ export const useEventPageQuery = (eventId?: string | null, occurrenceId?: string
       }
 
       const { data, error } = await supabase.rpc('get_event_page_snapshot_v2', args);
-      if (error) throw error;
+      if (error) {
+        // Wrap raw PostgrestError so Sentry receives a real Error, not an object.
+        throw new Error(error.message ?? JSON.stringify(error));
+      }
 
       return parseEventPageSnapshot(data);
     },
