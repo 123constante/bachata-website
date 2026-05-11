@@ -74,8 +74,9 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   const raffleSessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
   const { config: raffleConfig } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
 
-  // Mount-time 3s-delay view recording. Identical to old EventPage behaviour.
-  useRecordEventView(eventId, 'public_event_page');
+  // Mount-time 3s-delay view recording. Arc 15: forward occurrenceId so analytics
+  // can bucket views by occurrence, not just by event.
+  useRecordEventView(eventId, 'public_event_page', occurrenceId);
 
   // Guest list fetched once at page level. React Query dedupes by key
   // so GuestListBlock (which self-fetches) hits the same cache. The

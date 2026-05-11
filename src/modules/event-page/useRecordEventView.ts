@@ -5,6 +5,7 @@ import { getViewerSession } from '@/lib/viewerSession';
 export function useRecordEventView(
   eventId: string | null | undefined,
   source: string = 'public_event_page',
+  occurrenceId?: string | null,
 ): void {
   useEffect(() => {
     if (!eventId) return;
@@ -21,10 +22,11 @@ export function useRecordEventView(
           p_session_id: sessionId,
           p_source: source,
           p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+          ...(occurrenceId ? { p_occurrence_id: occurrenceId } : {}),
         })
         .then(() => undefined, () => undefined);
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [eventId, source]);
+  }, [eventId, source, occurrenceId]);
 }
