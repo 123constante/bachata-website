@@ -57,6 +57,11 @@ export type ScheduleSession = {
    *  not as part of the recurring series program. The schedule renderer surfaces
    *  a "Special tonight" chip on these so visitors know it's a one-off. */
   addedOnly?: boolean;
+  /** Arc 13 / Premium D — true when this session was cancelled for this
+   *  occurrence via admin_set_session_attribute_override (cancelled: true).
+   *  Only present when events.show_cancelled_publicly = true; the schedule
+   *  renderer shows a struck-through card so visitors see the honest programme. */
+  cancelled?: boolean;
 };
 
 /** Phase 2B step 2e — section row from get_event_program_sections_v1.
@@ -237,6 +242,10 @@ type RpcItem = {
    *  post-Bundle 1; the schedule renderer renders a "Special tonight" chip
    *  on these so visitors recognise them as one-off additions. */
   added_only?: boolean | null;
+  /** Arc 13 / Premium D — true when cancelled IS TRUE on the session override
+   *  row and events.show_cancelled_publicly = true. Always false for added
+   *  sessions (they can be deleted instead of cancelled). */
+  cancelled?: boolean | null;
 };
 
 function parseProgramItems(data: unknown): ScheduleSession[] {
@@ -293,6 +302,7 @@ function parseProgramItems(data: unknown): ScheduleSession[] {
           ? item.section_label
           : null,
         addedOnly: item.added_only === true,
+        cancelled: item.cancelled === true,
       };
     });
 }

@@ -227,7 +227,7 @@ const RankCard = ({
           ? 'min-w-0 rounded-[10px] px-[8px] pb-[8px] pt-[10px] text-center'
           : 'min-w-0 px-1 pt-[2px] text-center'
       }
-      style={undefined}
+      style={session.cancelled ? { opacity: 0.5 } : undefined}
     >
 {/* Small uppercase level/rank label sits at the top of the card.
            Drops the previous big serif headline so teacher names (below)
@@ -281,6 +281,30 @@ const RankCard = ({
           title="Added for this date only — won't appear on other dates"
         >
           ★ Special tonight
+        </div>
+      )}
+
+      {/* Arc 13 / Premium D — "Cancelled" chip + card dimming when a session
+           has been individually cancelled for this occurrence and the event's
+           show_cancelled_publicly flag is on. The flag arrives via
+           get_occurrence_program_v1.cancelled (Arc 13, 2026-05-11). */}
+      {session.cancelled && (
+        <div
+          data-testid={`schedule-cancelled-chip-${session.id}`}
+          className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
+          style={{
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'hsl(var(--bento-fg-muted))',
+            background: 'hsl(var(--bento-fg-muted) / 0.10)',
+            border: '1px solid hsl(var(--bento-fg-muted) / 0.30)',
+            textDecoration: 'line-through',
+          }}
+          title="This session has been cancelled for this date"
+        >
+          Cancelled
         </div>
       )}
 
