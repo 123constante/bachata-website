@@ -136,7 +136,7 @@ export const useEventGuestList = (eventId: string | null | undefined) => {
       const { data, error } = await (supabase.rpc as any)('get_event_guest_list', {
         p_event_id: eventId,
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!data || typeof data !== 'object') return EMPTY_GUEST_LIST;
       return data as EventGuestList;
     },

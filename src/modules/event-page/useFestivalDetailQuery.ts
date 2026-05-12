@@ -295,7 +295,7 @@ export const useFestivalDetailQuery = (eventId?: string | null, enabled = false)
       const { data, error } = await supabase.rpc('get_public_festival_detail', {
         p_event_id: eventId,
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
       return parseFestivalDetail(data);
     },
     enabled: Boolean(eventId) && enabled,

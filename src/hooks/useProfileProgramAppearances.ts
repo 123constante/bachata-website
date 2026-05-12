@@ -76,7 +76,7 @@ async function fetchProgramEventIds(
     .select('event_id')
     .in('profile_id', idForms)
     .eq('profile_type', profileType);
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? JSON.stringify(error));
   const ids = ((data ?? []) as unknown as { event_id: string | null }[])
     .map((r) => r.event_id)
     .filter((id): id is string => Boolean(id));
@@ -109,7 +109,7 @@ async function fetchLinkRows(
     .select('event_id, profile_id, profile_type, role')
     .eq('profile_id', profileId)
     .eq('profile_type', profileType);
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? JSON.stringify(error));
 
   const rowsByEventId = new Map<string, LinkRow>();
   for (const raw of (data ?? []) as { event_id: string | null; role: string | null }[]) {
@@ -144,7 +144,7 @@ async function keepPublishedAndActive(eventIds: string[]): Promise<EventRow[]> {
     .from('events')
     .select('id, name, location, city, start_time, is_active')
     .in('id', eventIds);
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? JSON.stringify(error));
   return ((data ?? []) as (EventRow & { is_active: boolean | null })[])
     .filter((r) => r.is_active !== false);
 }

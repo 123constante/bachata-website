@@ -166,8 +166,8 @@ const OrganiserProfile = () => {
         .eq('id', id)
         .eq('type', 'organiser')
         .maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('Organiser not found');
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
+      if (!data) return null;
       return data;
     },
     enabled: !!id,

@@ -40,7 +40,7 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
       return mod;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const isChunkErr = /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+      const isChunkErr = /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|is not a valid JavaScript MIME type/i.test(msg);
       if (isChunkErr && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
         sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
         window.location.reload();

@@ -17,15 +17,30 @@ const FestivalFallback = () => (
   </div>
 );
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const EventPageInner = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const requestedOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
 
+  // Guard: non-UUID IDs (e.g. /event/fdfdg) would cause Postgres to throw
+  // "invalid input syntax for type uuid". Disable all queries and show not-found.
+  const validId = id && UUID_RE.test(id) ? id : null;
+
   // isFestival resolution lives inside useEventPage (festival detail RPC +
   // dayed-schedule / passes check). Calling it at this level means both
   // branches share the same query cache.
-  const { isFestival } = useEventPage(id, requestedOccurrenceId);
+  const { isFestival } = useEventPage(validId, requestedOccurrenceId);
+
+  if (!validId) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 pt-24 pb-24 text-center">
+        <p className="text-lg font-semibold text-foreground mb-2">Event not found</p>
+        <p className="text-sm text-muted-foreground">The event you're looking for doesn't exist or the link may be broken.</p>
+      </div>
+    );
+  }
 
   if (isFestival) {
     return (
@@ -35,7 +50,7 @@ const EventPageInner = () => {
     );
   }
 
-  return <BentoPage eventId={id ?? null} occurrenceId={requestedOccurrenceId} />;
+  return <BentoPage eventId={validId} occurrenceId={requestedOccurrenceId} />;
 };
 
 const EventPage = () => (
