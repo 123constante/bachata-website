@@ -312,8 +312,9 @@ export function useProgramItems(eventId: string | null | undefined) {
     queryKey: ['event-program-items', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const { data, error } = await supabase.rpc('get_event_program_v1' as any, {
-        p_event_id: eventId,
+      const { data, error } = await (supabase.rpc as any)('event_view_p5', {
+        p_target: { series_id: eventId },
+        p_viewer: { role: 'anon', shape: 'legacy_compat' },
       });
       if (error || !data) return [];
       return parseProgramItems(data);
@@ -333,8 +334,9 @@ export function useOccurrenceProgram(occurrenceId: string | null | undefined) {
     queryKey: ['occurrence-program', occurrenceId],
     queryFn: async () => {
       if (!occurrenceId) return [];
-      const { data, error } = await (supabase.rpc as any)('get_occurrence_program_v1', {
-        p_occurrence_id: occurrenceId,
+      const { data, error } = await (supabase.rpc as any)('event_view_p5', {
+        p_target: { occurrence_id: occurrenceId },
+        p_viewer: { role: 'anon', shape: 'legacy_compat' },
       });
       if (error || !data) return [];
       return parseProgramItems(data);
