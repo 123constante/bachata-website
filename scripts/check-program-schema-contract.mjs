@@ -9,21 +9,19 @@
  * Exit policy:
  *   - items_missing_day > 0                                -> exit 1 (fail; backfill broken)
  *   - items_missing_section > 0                            -> exit 1 (fail; backfill broken)
- *   - sections_with_zero_rooms_but_items > BASELINE        -> exit 1 (fail; new regression)
- *   - sections_with_zero_rooms_but_items <= BASELINE       -> exit 0 (pass)
- *   - sections_with_zero_items, orphan_days                -> informational only
+ *   - sections_with_zero_rooms_but_items > 0               -> exit 1 (fail; actionable drift)
+ *   - sections_with_zero_rooms_but_items = 0               -> exit 0 (pass)
+ *   - sections_with_zero_items, orphan_days,
+ *     sections_roomless_by_design                          -> informational only
  *
- * Items that legitimately predate the venue_rooms table or were never migrated
- * to use venue_room_id. Phase 0 backfill cannot derive event_program_section_rooms
- * for these items because there's no FK to derive from. Phase 2 (room redesign)
- * will migrate or explicitly mark these as roomless and drive this baseline to 0.
- *
- * Baseline established 2026-05-05 from check_event_program_section_consistency_v1.
- * Any regression above this fails CI.
- *
- * TODO(Phase 2): drive SECTION_ROOMS_MISSING_BASELINE to 0 once room
- * redesign migrates legacy items into proper venue_rooms or marks them
- * as explicitly roomless. Tracked in project_program_editor_phase0_shipped.md.
+ * 2026-05-13 — the contract was narrowed (admin migration 20260601040600) so
+ * `sections_with_zero_rooms_but_items` now only counts ACTIONABLE drift:
+ * sections whose event venue has at least one venue_room. Sections whose
+ * event has no venue, or whose venue has zero venue_rooms, are surfaced
+ * separately as `sections_roomless_by_design` — the schema's NOT-NULL
+ * venue_room_id FK gives them nothing to point at until Phase 2 room
+ * redesign lands, so they're observable but no longer count as violations.
+ * Baseline tolerance was dropped at the same time; strict zero is required.
  *
  * Local:  node scripts/check-program-schema-contract.mjs   (reads .env)
  * CI:     same script, env vars supplied as repo secrets:
@@ -38,8 +36,6 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-
-const SECTION_ROOMS_MISSING_BASELINE = 64;
 
 function loadEnv() {
   const env = { ...process.env };
@@ -70,6 +66,8 @@ if (!url || !key) {
   process.exit(2);
 }
 
+// Baseline retired 2026-05-13 — contract narrowed to actionable drift only
+// (admin migration 20260601040600). Strict zero required.
 const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -116,11 +114,11 @@ if (itemsMissingSection > 0) {
   failed = true;
 }
 
-if (sectionsZeroRooms > SECTION_ROOMS_MISSING_BASELINE) {
+if (sectionsZeroRooms > 0) {
   console.error(
-    `\nFAIL: ${sectionsZeroRooms} sections have items but no row in ` +
-    `event_program_section_rooms (baseline: ${SECTION_ROOMS_MISSING_BASELINE}). ` +
-    `New regression introduced.`,
+    `\nFAIL: ${sectionsZeroRooms} actionable section(s) have items but no row ` +
+    `in event_program_section_rooms (strict zero required after the ` +
+    `2026-05-13 contract narrowing — actionable = event venue has venue_rooms).`,
   );
   failed = true;
 }
@@ -129,9 +127,13 @@ if (failed) {
   process.exit(1);
 }
 
+const roomlessByDesign = Number.isFinite(data?.sections_roomless_by_design)
+  ? data.sections_roomless_by_design
+  : 0;
 console.log(
   `\nOK: ${totalItems} program items, ` +
-  `${sectionsZeroRooms} sections-without-rooms (baseline: ${SECTION_ROOMS_MISSING_BASELINE}). ` +
+  `0 actionable section_rooms violations, ` +
+  `${roomlessByDesign} sections roomless-by-design (venue has no venue_rooms — Phase 2 territory). ` +
   `Contract holds.`,
 );
 process.exit(0);
