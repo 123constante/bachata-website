@@ -108,6 +108,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # ── Precheck: validate Supabase secret SHAPE before any downstream
+      #    contract step crashes inside @supabase/supabase-js with a cryptic
+      #    "Invalid supabaseUrl" stack trace. From inception (2026-04-28)
+      #    through 2026-05-13, the workflow failed 77 consecutive runs on
+      #    "Run venue contract check" because VITE_SUPABASE_URL was malformed —
+      #    every downstream contract was silently un-watched the entire time.
+      #    This precheck makes the failure mode visible and actionable.
+      - name: Precheck Supabase secrets
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/precheck-supabase-secrets.mjs
+
       - name: Run venue contract check
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
