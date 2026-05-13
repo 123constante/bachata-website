@@ -1,0 +1,37 @@
+name: Workflow Lint
+
+# Guards against BOM-prefixed workflow files.
+# A BOM in any workflow causes a YAML parse error before any step runs,
+# making the problem impossible to detect from within that workflow.
+# This separate file catches it on push/PR.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  bom-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check workflow files for BOM
+        run: |
+          FAILED=0
+          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
+            [ -f "$f" ] || continue
+            # Detect standard BOM (ef bb bf) or double-encoded BOM (c3 af ...)
+            FIRST=$(head -c 3 "$f" | xxd -p)
+            if [ "$FIRST" = "efbbbf" ] || echo "$FIRST" | grep -q "^c3af"; then
+              echo "BOM detected in $f (first bytes: $FIRST)"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "Fix: strip the BOM and re-write via safe-write.py --lf"
+            exit 1
+          fi
+          echo "No BOMs found in .github/workflows/"
