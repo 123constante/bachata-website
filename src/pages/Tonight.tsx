@@ -1,54 +1,89 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, MapPin, Clock, ArrowRight, Heart, Share2, Crown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { WeatherWidget } from "@/components/WeatherWidget";
-import { useCity } from "@/contexts/CityContext";
-import { resolveEventImage } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import BroadcastTicker from "@/components/BroadcastTicker";
-import { useChannelSwitch } from "@/components/ChannelSwitchOverlay";
-import GlobalLayout from "@/components/layout/GlobalLayout";
-
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { MapPin, Clock, Crown } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useCity } from '@/contexts/CityContext';
+import { resolveEventImage } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import { haversineKm } from '@/lib/geo/haversineKm';
+import LocationBanner from '@/pages/tonight/LocationBanner';
+import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-interface Event {
-  id: number | string;
+
+type TonightEvent = {
+  id: string;
   name: string;
   location: string;
-  time: string;
+  occurrenceStartsAt: string | null;
+  occurrenceEndsAt: string | null;
   image: string;
-  attendees: number;
-  tags: string[];
-  description: string;
-  organizer: string;
-  leadFollowRatio: number; // 0 to 1 (0.5 is balanced)
-  liveStatus: "starting-soon" | "live" | "popular";
-}
+  hasClass: boolean;
+  hasParty: boolean;
+  classStart: string | null;
+  classEnd: string | null;
+  partyStart: string | null;
+  partyEnd: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
+  primaryOrganiserName: string | null;
+  type: string;
+};
+
+const formatHHmm = (value?: string | null) => {
+  if (!value) return null;
+  const sep = value.indexOf('T') !== -1 ? value.indexOf('T') : value.indexOf(' ');
+  const timePart = sep !== -1 && sep > 4 ? value.substring(sep + 1) : value;
+  return timePart.substring(0, 5);
+};
+
+type CountdownState = { label: string; tone: 'soon' | 'live' } | null;
+
+const computeCountdown = (
+  startsAt: string | null,
+  endsAt: string | null,
+  now: Date,
+): CountdownState => {
+  if (!startsAt) return null;
+  const start = new Date(startsAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = endsAt ? new Date(endsAt) : null;
+  const nowMs = now.getTime();
+  if (nowMs < start.getTime()) {
+    const diffMin = Math.max(0, Math.round((start.getTime() - nowMs) / 60000));
+    if (diffMin < 1) return { label: 'Starts in <1min', tone: 'soon' };
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    const label =
+      hours > 0
+        ? `Starts in ${hours}hr ${mins}min`
+        : `Starts in ${mins}min`;
+    return { label, tone: 'soon' };
+  }
+  if (end && nowMs < end.getTime()) {
+    return { label: 'On now', tone: 'live' };
+  }
+  return null;
+};
 
 const Tonight = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [likedEventIds, setLikedEventIds] = useState<Record<string, boolean>>({});
   const { citySlug } = useCity();
-  const { ChannelOverlay } = useChannelSwitch();
+  const { status: locStatus, coords, request, clear, setManualCoords } = useUserLocation();
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
 
-  const { data: liveEvents = [] } = useQuery({
+  const { data: rawEvents = [] } = useQuery({
     queryKey: ['tonight-events', citySlug],
-    queryFn: async () => {
-      if (!citySlug) {
-        return [] as Event[];
-      }
+    queryFn: async (): Promise<TonightEvent[]> => {
+      if (!citySlug) return [];
 
       const startDate = new Date();
       startDate.setHours(0, 0, 0, 0);
@@ -61,173 +96,165 @@ const Tonight = () => {
         city_slug_param: citySlug,
       });
 
-      if (error || !data) {
-        return [] as Event[];
-      }
+      if (error || !data) return [];
 
-      const formatTime = (value?: string | null) => (value ? value.substring(0, 5) : 'TBA');
+      return (data as any[]).map((event) => {
+        const keyTimes = event.key_times as any;
+        const classData = keyTimes?.classes;
+        const partyData = keyTimes?.party;
 
-      return (data as any[]).slice(0, 6).map((event) => ({
-        id: event.event_id,
-        name: event.name,
-        location: event.location || 'Location TBD',
-        time: `${formatTime(event.start_time)} - ${formatTime(event.end_time)}`,
-        image: resolveEventImage(event.photo_url, null) || "https://images.unsplash.com/photo-1546707012-c46675f12716",
-        attendees: 0,
-        tags: ['Bachata', event.has_party ? 'Party' : 'Class'],
-        description: 'Tonight\'s bachata event in your city.',
-        organizer: 'Bachata Calendar',
-        leadFollowRatio: 0.5,
-        liveStatus: 'starting-soon' as const,
-      }));
+        // Fallback: derive class/party times from meta_data.program when key_times is absent.
+        // Program items have type "class"|"party" and ISO start_time/end_time strings.
+        type ProgramItem = { type: string; start_time?: string; end_time?: string };
+        const program: ProgramItem[] = Array.isArray(event.meta_data?.program)
+          ? event.meta_data.program
+          : [];
+        const classItems = program.filter(p => p.type === 'class' && p.start_time && p.end_time);
+        const partyItems = program.filter(p => p.type === 'party' && p.start_time && p.end_time);
+
+        const minStr = (items: ProgramItem[], key: 'start_time' | 'end_time') =>
+          items.length ? items.reduce((m, p) => (p[key]! < m ? p[key]! : m), items[0][key]!) : null;
+        const maxStr = (items: ProgramItem[], key: 'start_time' | 'end_time') =>
+          items.length ? items.reduce((m, p) => (p[key]! > m ? p[key]! : m), items[0][key]!) : null;
+
+        return {
+          id: String(event.event_id),
+          name: event.name as string,
+          location: (event.location as string) || 'Location TBD',
+          occurrenceStartsAt: (event.occurrence_starts_at as string | null) ?? null,
+          occurrenceEndsAt: (event.occurrence_ends_at as string | null) ?? null,
+          image:
+            resolveEventImage(event.photo_url, null) ||
+            'https://images.unsplash.com/photo-1546707012-c46675f12716',
+          hasClass: Boolean(classData) || classItems.length > 0,
+          hasParty: Boolean(partyData) || partyItems.length > 0,
+          classStart: classData ? formatHHmm(classData.start) : formatHHmm(minStr(classItems, 'start_time')),
+          classEnd:   classData ? formatHHmm(classData.end)   : formatHHmm(maxStr(classItems, 'end_time')),
+          partyStart: partyData ? formatHHmm(partyData.start) : formatHHmm(minStr(partyItems, 'start_time')),
+          partyEnd:   partyData ? formatHHmm(partyData.end)   : formatHHmm(maxStr(partyItems, 'end_time')),
+          venueLat: typeof event.venue_lat === 'number' ? event.venue_lat : null,
+          venueLng: typeof event.venue_lng === 'number' ? event.venue_lng : null,
+          primaryOrganiserName: (event.primary_organiser_name as string | null) ?? null,
+          type: (event.type as string | null) ?? '',
+        };
+      });
     },
     enabled: !!citySlug,
   });
 
-  const events = liveEvents;
-
-  const handleShareEvent = async (event: Event) => {
-    const eventUrl = `${window.location.origin}/event/${event.id}`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: event.name,
-          text: `${event.name} tonight at ${event.location}`,
-          url: eventUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(eventUrl);
-        toast({
-          title: "Link copied",
-          description: "Event link copied to clipboard.",
-        });
+  const events = useMemo(() => {
+    if (!coords) {
+      return [...rawEvents].sort((a, b) => {
+        const ta = a.occurrenceStartsAt ? new Date(a.occurrenceStartsAt).getTime() : Infinity;
+        const tb = b.occurrenceStartsAt ? new Date(b.occurrenceStartsAt).getTime() : Infinity;
+        return ta - tb;
+      });
+    }
+    const withDistance = rawEvents.map((e) => ({
+      ev: e,
+      km:
+        e.venueLat != null && e.venueLng != null
+          ? haversineKm(coords.lat, coords.lng, e.venueLat, e.venueLng)
+          : null,
+    }));
+    withDistance.sort((a, b) => {
+      if (a.km == null && b.km == null) {
+        const ta = a.ev.occurrenceStartsAt ? new Date(a.ev.occurrenceStartsAt).getTime() : Infinity;
+        const tb = b.ev.occurrenceStartsAt ? new Date(b.ev.occurrenceStartsAt).getTime() : Infinity;
+        return ta - tb;
       }
-    } catch {
-      // Ignore cancelled native share dialogs
+      if (a.km == null) return 1;
+      if (b.km == null) return -1;
+      return a.km - b.km;
+    });
+    return withDistance.map((x) => x.ev);
+  }, [rawEvents, coords]);
+
+  const distanceByEventId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!coords) return map;
+    for (const e of rawEvents) {
+      if (e.venueLat != null && e.venueLng != null) {
+        map.set(e.id, haversineKm(coords.lat, coords.lng, e.venueLat, e.venueLng));
+      }
     }
-  };
-
-  const handleJoinList = (eventId: Event["id"]) => {
-    navigate(`/event/${eventId}`);
-  };
-
-  const getRatioVisuals = (ratio: number) => {
-    const leadPercent = Math.round(ratio * 100);
-    const followPercent = 100 - leadPercent;
-
-    let label = "Balanced";
-    let colorClass = "bg-green-500";
-
-    if (leadPercent > 60) {
-      label = "Leads Heavy";
-      colorClass = "bg-blue-500";
-    } else if (followPercent > 60) {
-      label = "Follows Heavy";
-      colorClass = "bg-pink-500";
-    }
-
-    return { leadPercent, followPercent, label, colorClass };
-  };
+    return map;
+  }, [rawEvents, coords]);
 
   return (
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('tonight')}
       showGradientBg={false}
       hero={{
-        emoji: '🌙',
+        emoji: '\u{1F319}',
         titleWhite: 'Tonight in',
         titleOrange: 'Bachata',
-        subtitle: 'Happening right now — live events tonight',
         largeTitle: true,
       }}
     >
-      {/* Full-viewport black page backdrop — replaces the old outer `bg-black`
-          so the broadcast design language still lands with GlobalLayout owning
-          the chrome. */}
       <div className="fixed inset-0 -z-20 bg-black pointer-events-none" aria-hidden="true" />
 
-      <div className="text-neutral-200 font-sans selection:bg-red-500/30 pb-32">
-        <ChannelOverlay />
-        {/* Broadcast Overlay Effects — z-5 sits below GlobalLayout's
-            sub-header row (z-10) so scanlines don't bleed across the
-            breadcrumb text, while staying above the page backdrop. */}
-        <div className="fixed inset-0 pointer-events-none z-[5]">
-          {/* Vignette */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.4)_100%)]" />
-          {/* Scanlines - subtle */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02)_50%,transparent_50%)] bg-[length:100%_4px]" />
-        </div>
-
-        {/* Dynamic Background */}
+      <div className="text-neutral-200 font-sans pb-16">
         <div className="fixed inset-0 pointer-events-none -z-10">
           <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-red-600/10 rounded-full blur-[100px] animate-pulse" />
           <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] animate-pulse delay-1000" />
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-6">
 
-          {/* Broadcast Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 border-b border-white/10 pb-6">
-            <div className="space-y-2">
-               <div className="flex items-center gap-3">
-                 <span className="flex h-3 w-3 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                 </span>
-                 <span className="text-red-500 font-bold tracking-widest text-sm uppercase">Live Broadcast</span>
-                 <span className="text-white/20">|</span>
-                 <span className="font-mono text-sm text-white/60 tabular-nums">
-                   {currentTime.toLocaleTimeString('en-GB')}
-                 </span>
-               </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-sm font-mono text-white/60 bg-white/5 px-4 py-2 rounded-lg border border-white/5 backdrop-blur-sm">
-               <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-primary" />
-                  <span className="text-white font-bold">1,204</span>
-                  <span className="hidden sm:inline">watching</span>
-               </div>
-               <span className="text-white/20">|</span>
-               <div className="flex items-center gap-2">
-                  <span className="text-green-400">●</span>
-                  <span>{events.length} Cams Active</span>
-               </div>
-            </div>
+          <div className="max-w-md mx-auto mb-12">
+            <LocationBanner
+              status={locStatus}
+              onRequest={request}
+              onClear={clear}
+              onManualCoords={setManualCoords}
+            />
           </div>
 
-          {/* Old ticker removed — replaced by sticky BroadcastTicker */}
-
-          <div className="mb-8">
-            <WeatherWidget />
-          </div>
-
-          {/* Events Grid */}
           {events.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <Clock className="w-8 h-8 text-white/30" />
               </div>
               <h3 className="text-white/70 text-xl font-bold mb-2">No events tonight</h3>
-              <p className="text-white/40 text-sm max-w-xs">There are no events scheduled in your city tonight. Check back later or switch city.</p>
+              <p className="text-white/40 text-sm max-w-xs">
+                There are no events scheduled in your city tonight. Check back later or switch city.
+              </p>
             </div>
           )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event, index) => {
-              const ratio = getRatioVisuals(event.leadFollowRatio);
+              const countdown = computeCountdown(
+                event.occurrenceStartsAt,
+                event.occurrenceEndsAt,
+                now,
+              );
+              const km = distanceByEventId.get(event.id);
+              const startLabel = formatHHmm(event.occurrenceStartsAt);
+              const endLabel = formatHHmm(event.occurrenceEndsAt);
 
               return (
                 <motion.div
                   key={event.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: Math.min(index * 0.04, 0.4) }}
                   className="group relative"
                 >
-                  <Card className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col">
-
-                    {/* Card Image Area */}
+                  <Card
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Open ${event.name}`}
+                    onClick={() => navigate(`/event/${event.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigate(`/event/${event.id}`);
+                      }
+                    }}
+                    className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col cursor-pointer"
+                  >
                     <div className="relative h-48 overflow-hidden">
                       <img
                         src={event.image}
@@ -236,132 +263,110 @@ const Tonight = () => {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
 
-                      {/* Live Status Badge */}
-                      <div className="absolute top-4 left-4">
-                        {event.liveStatus === 'live' && (
-                          <Badge className="bg-red-500/90 hover:bg-red-500 border-none text-white animate-pulse shadow-lg shadow-red-500/20">
-                            LIVE NOW
-                          </Badge>
-                        )}
-                         {event.liveStatus === 'starting-soon' && (
-                          <Badge className="bg-yellow-500/90 hover:bg-yellow-500 border-none text-black font-semibold shadow-lg shadow-yellow-500/20">
-                            STARTING SOON
-                          </Badge>
-                        )}
-                        {event.liveStatus === 'popular' && (
-                          <Badge className="bg-festival-teal/90 hover:bg-festival-teal border-none text-black font-semibold shadow-lg shadow-festival-teal/20">
-                            POPULAR
-                          </Badge>
-                        )}
-                      </div>
+                      {countdown && (
+                        <div className="absolute top-4 left-4">
+                          {countdown.tone === 'live' ? (
+                            <Badge className="bg-red-500/90 hover:bg-red-500 border-none text-white animate-pulse shadow-lg shadow-red-500/20">
+                              {countdown.label}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-500/90 hover:bg-yellow-500 border-none text-black font-semibold shadow-lg shadow-yellow-500/20">
+                              {countdown.label}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
 
-                      {/* Quick Action Overlay */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
-                          onClick={() => setLikedEventIds((prev) => ({ ...prev, [String(event.id)]: !prev[String(event.id)] }))}
-                        >
-                          <Heart className="w-5 h-5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="rounded-full w-10 h-10 bg-white/90 hover:bg-white text-black border-none"
-                          onClick={() => handleShareEvent(event)}
-                        >
-                          <Share2 className="w-5 h-5" />
-                        </Button>
-                      </div>
+                      {coords && km != null && (
+                        <div className="absolute top-4 right-4">
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-primary text-white shadow-lg shadow-black/40 ring-1 ring-white/20"
+                          >
+                            <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+                            {km.toFixed(1)}&nbsp;km
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <CardContent className="p-5 flex-1 flex flex-col">
+                      <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight">
+                        {event.name}
+                      </h3>
 
-                      {/* Title & Tags */}
-                      <div className="mb-4">
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {event.tags.map(tag => (
-                            <span key={tag} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm bg-white/10 text-gray-300 border border-white/5">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight">
-                          {event.name}
-                        </h3>
-                        <p className="text-sm text-gray-300 line-clamp-2">{event.description}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                          <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {event.location}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" />
-                            {event.time}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-400 flex items-center mt-2">
-                          <Crown className="w-3 h-3 mr-1.5 text-yellow-500" />
-                          <span className="text-gray-500 text-xs uppercase tracking-wide mr-1">Hosted by</span>
-                          {event.organizer}
-                        </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {event.location}
+                        </span>
                       </div>
 
-                      {/* Social Proof & Ratio Section */}
-                      <div className="mt-auto space-y-4">
+                      {/* Unified labelled time rows */}
+                      {(() => {
+                        const PERF_TYPES = new Set(['performance', 'showcase', 'competition', 'concert', 'ceremony']);
+                        const CLASS_TYPES = new Set(['class', 'masterclass']);
+                        const rows = [];
 
-                        {/* Lead/Follow Ratio Bar */}
-                        <div>
-                          <div className="flex justify-between text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wider">
-                            <span>Leads</span>
-                            <span className={ratio.colorClass === 'bg-green-500' ? 'text-green-400' : 'text-gray-400'}>
-                               {ratio.label}
-                            </span>
-                            <span>Follows</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden flex">
-                            <div
-                              style={{ width: `${ratio.leadPercent}%` }}
-                              className="h-full bg-blue-500/80"
-                            />
-                            <div
-                              style={{ width: `${ratio.followPercent}%` }}
-                              className="h-full bg-pink-500/80"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Attendee Stack */}
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex -space-x-2">
-                            {[1,2,3].map((i) => (
-                              <div key={i} className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-gray-400">
-                                {String.fromCharCode(64+i)}
-                              </div>
-                            ))}
-                            <div className="w-8 h-8 rounded-full border-2 border-neutral-900 bg-neutral-800 flex items-center justify-center text-[9px] font-bold text-gray-400 pl-0.5">
-                              +{event.attendees}
+                        if (event.hasClass && event.classStart && event.classEnd) {
+                          rows.push(
+                            <div key="class" className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
+                              <span className="font-bold">Class</span>
+                              <span className="font-mono opacity-90">{event.classStart} – {event.classEnd}</span>
                             </div>
+                          );
+                        }
+                        if (event.hasParty && event.partyStart && event.partyEnd) {
+                          rows.push(
+                            <div key="party" className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
+                              <span className="font-bold">Party</span>
+                              <span className="font-mono opacity-90">{event.partyStart} – {event.partyEnd}</span>
+                            </div>
+                          );
+                        }
+                        if (rows.length > 0) return rows;
+
+                        if (!startLabel) return null;
+                        const timeRange = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
+                        if (CLASS_TYPES.has(event.type)) {
+                          return (
+                            <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
+                              <span className="font-bold">Class</span>
+                              <span className="font-mono opacity-90">{timeRange}</span>
+                            </div>
+                          );
+                        }
+                        if (PERF_TYPES.has(event.type)) {
+                          return (
+                            <div className="mt-2 flex items-center gap-1.5 text-xs text-yellow-400">
+                              <span className="font-bold">Performance</span>
+                              <span className="font-mono opacity-90">{timeRange}</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
+                            <span className="font-bold">Party</span>
+                            <span className="font-mono opacity-90">{timeRange}</span>
                           </div>
+                        );
+                      })()}
 
-                          <Button className="h-9 rounded-full bg-white text-black hover:bg-gray-200 text-xs font-bold px-5 transition-colors" onClick={() => handleJoinList(event.id)}>
-                            Join List
-                            <ArrowRight className="w-3 h-3 ml-2" />
-                          </Button>
-                        </div>
-
-                      </div>
+                      {event.primaryOrganiserName && (
+                        <p className="text-sm text-gray-400 flex items-center mt-3">
+                          <Crown className="w-3 h-3 mr-1.5 text-yellow-500" />
+                          <span className="text-gray-500 text-xs uppercase tracking-wide mr-1">
+                            Hosted by
+                          </span>
+                          {event.primaryOrganiserName}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
               );
             })}
           </div>
-
         </div>
-
-        <BroadcastTicker eventCount={events.length} />
       </div>
     </GlobalLayout>
   );
