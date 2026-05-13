@@ -52,6 +52,34 @@ name: DB Contract Check
 #     dancers_archive_april2026 table. Health-check RPC:
 #     check_event_attendees_fk_target_v1 (admin migrations 20260512020000 /
 #     20260512030000).
+# 14. The epp.display_name drift contract — no public routine body may
+#     reference event_program_people.display_name (column dropped Phase A.5,
+#     replaced by display_name_override + canonical resolution from
+#     dancer_profiles). Health-check RPC: check_epp_display_name_drift_v1
+#     (admin migration 20260505160000).
+# 15. The epp.avatar_url drift contract — no public routine body may
+#     reference event_program_people.avatar_url (column dropped Phase A.5,
+#     resolved from canonical profile instead). Sibling of #14; added after
+#     four live RPCs were found referencing the dropped column on
+#     2026-05-09. Health-check RPC: check_epp_avatar_url_drift_v1
+#     (admin migration 20260527040000).
+# 16. The venue coords contract — venues with raw location data (postcode /
+#     google_maps_link / google_maps_url) must have lat/lng populated, so
+#     the public calendar's "near me" distance sort can place them. BEFORE
+#     INSERT/UPDATE trigger pulls @lat,lng from URLs in-DB; an edge fn
+#     (venue-resolve-coords) handles shortlinks + postcodes.io + Nominatim
+#     for the cases the trigger can't. CHECK constraint is the floor.
+#     Health-check RPC: check_venue_coords_contract_v1 (admin migrations
+#     20260601040000 / 20260601040100 / 20260601040200).
+# 17. The teacher / DJ event-program assignment integrity contract — every
+#     person flagged as an active teacher or active DJ in person_roles
+#     must appear at least once in event_program_people in the matching
+#     capacity (profile_type or role). Drift means a canonical-role person
+#     is being shown on /teachers or /djs without any event attribution.
+#     Local-only at write time; soft-passes when the RPC is not yet on
+#     prod and when baselines are unset. Health-check RPC:
+#     check_teacher_dj_assignment_integrity_v1 (admin migration
+#     20260513070000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -86,6 +114,12 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-contract.mjs
 
+      - name: Run venue coords contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-venue-coords.mjs
+
       - name: Run per-occurrence RPC test suite
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -103,6 +137,18 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-session-people-display-name-contract.mjs
+
+      - name: Run epp.display_name drift check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-epp-display-name-drift.mjs
+
+      - name: Run epp.avatar_url drift check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-epp-avatar-url-drift.mjs
 
       - name: Run guest-entries contract check
         env:
@@ -157,3 +203,9 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-attendees-fk-target.mjs
+
+      - name: Run teacher/DJ event-program assignment integrity contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-teacher-dj-assignment-integrity.mjs
