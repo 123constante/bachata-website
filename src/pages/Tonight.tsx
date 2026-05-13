@@ -72,7 +72,14 @@ const computeCountdown = (
 const Tonight = () => {
   const navigate = useNavigate();
   const { citySlug } = useCity();
-  const { status: locStatus, coords, request, clear, setManualCoords } = useUserLocation();
+  const {
+    status: locStatus,
+    reason: locReason,
+    coords,
+    request,
+    clear,
+    setManualCoords,
+  } = useUserLocation();
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -181,14 +188,24 @@ const Tonight = () => {
     return map;
   }, [rawEvents, coords]);
 
+  const nearestSummary = useMemo(() => {
+    if (!coords) return null;
+    for (const ev of events) {
+      const km = distanceByEventId.get(ev.id);
+      if (typeof km === 'number') {
+        return { name: ev.name, km };
+      }
+    }
+    return null;
+  }, [coords, events, distanceByEventId]);
+
   return (
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('tonight')}
       showGradientBg={false}
       hero={{
-        emoji: '\u{1F319}',
-        titleWhite: 'Tonight in',
-        titleOrange: 'Bachata',
+        titleWhite: "What's On",
+        titleOrange: 'Tonight',
         largeTitle: true,
       }}
     >
@@ -202,14 +219,30 @@ const Tonight = () => {
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-6">
 
-          <div className="max-w-md mx-auto mb-12">
+          <div className="max-w-md mx-auto mb-6">
             <LocationBanner
               status={locStatus}
+              reason={locReason}
               onRequest={request}
               onClear={clear}
               onManualCoords={setManualCoords}
             />
           </div>
+
+          {nearestSummary && (
+            <div
+              className="max-w-md mx-auto mb-8 text-center text-xs text-gray-400"
+              data-testid="tonight-nearest-summary"
+            >
+              Nearest tonight:{' '}
+              <span className="text-white font-semibold">
+                {nearestSummary.name}
+              </span>{' '}
+              <span className="text-primary font-semibold">
+                ({nearestSummary.km.toFixed(1)} km)
+              </span>
+            </div>
+          )}
 
           {events.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -278,9 +311,9 @@ const Tonight = () => {
                       )}
 
                       {coords && km != null && (
-                        <div className="absolute top-4 right-4">
+                        <div className="absolute top-4 right-4" data-testid="distance-badge">
                           <span
-                            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-primary text-white shadow-lg shadow-black/40 ring-1 ring-white/20"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-primary text-white shadow-lg shadow-black/40 ring-1 ring-black/30"
                           >
                             <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                             {km.toFixed(1)}&nbsp;km
@@ -311,7 +344,7 @@ const Tonight = () => {
                           rows.push(
                             <div key="class" className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
                               <span className="font-bold">Class</span>
-                              <span className="font-mono opacity-90">{event.classStart} – {event.classEnd}</span>
+                              <span className="font-mono opacity-90">{event.classStart} â€“ {event.classEnd}</span>
                             </div>
                           );
                         }
@@ -319,14 +352,14 @@ const Tonight = () => {
                           rows.push(
                             <div key="party" className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
                               <span className="font-bold">Party</span>
-                              <span className="font-mono opacity-90">{event.partyStart} – {event.partyEnd}</span>
+                              <span className="font-mono opacity-90">{event.partyStart} â€“ {event.partyEnd}</span>
                             </div>
                           );
                         }
                         if (rows.length > 0) return rows;
 
                         if (!startLabel) return null;
-                        const timeRange = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
+                        const timeRange = endLabel ? `${startLabel} â€“ ${endLabel}` : startLabel;
                         if (CLASS_TYPES.has(event.type)) {
                           return (
                             <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
