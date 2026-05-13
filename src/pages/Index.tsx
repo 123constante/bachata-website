@@ -1,11 +1,12 @@
 import { Suspense, lazy, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Loader2, Sparkles, GraduationCap } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { buildCityPath } from '@/lib/cityPath';
+import { TonightMarqueeCta } from '@/components/TonightMarqueeCta';
+import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
 
 // Lazy load the heavy calendar component
 const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
@@ -37,14 +38,23 @@ const Index = () => {
   });
 
   const stats = useMemo(() => {
-    if (!weekEvents?.length) return { thisWeek: 0, classesTonight: 0 };
+    if (!weekEvents?.length) {
+      return { thisWeek: 0, classesTonight: 0, partiesTonight: 0, hasEventsTonight: false };
+    }
+    // RPC-level has_class/has_party are unreliable — use the same program/key_times
+    // derivation that the calendar uses.
+    const items = transformCalendarEvents(weekEvents);
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
-    const thisWeek = weekEvents.length;
-    const classesTonight = weekEvents.filter(
-      (e) => e.instance_date === todayStr && e.has_class
-    ).length;
-    return { thisWeek, classesTonight };
+    const tonightItems = items.filter((e) => e.instanceDateIso === todayStr);
+    const classesTonight = tonightItems.filter((e) => e.hasClass).length;
+    const partiesTonight = tonightItems.filter((e) => e.hasParty).length;
+    return {
+      thisWeek: weekEvents.length,
+      classesTonight,
+      partiesTonight,
+      hasEventsTonight: classesTonight > 0 || partiesTonight > 0,
+    };
   }, [weekEvents]);
 
   // Update document meta tags for city SEO
@@ -70,29 +80,28 @@ const Index = () => {
 
   return (
     <PageErrorBoundary>
-      <GlobalLayout
-        showSubheader={false}
-        hero={{
-          emoji: '💃',
-          titleWhite: 'Bachata',
-          titleOrange: cityDisplayName,
-          subtitle: `The most comprehensive calendar for Bachata classes, socials, and festivals in ${cityDisplayName}.`,
-          largeTitle: true,
-          floatingIcons: [Sparkles],
-        }}
-      >
-        {/* CITY STATS STRIP */}
-        {stats.classesTonight > 0 && (
-          <div className="container mx-auto px-4 pb-4">
-            <div className="flex flex-wrap items-center justify-center gap-3 max-w-lg mx-auto">
-              <Link
-                to={buildCityPath(citySlug, 'tonight')}
-                className="flex items-center gap-2 rounded-full bg-festival-blue/10 border border-festival-blue/20 px-4 py-2 text-sm font-medium text-festival-blue hover:bg-festival-blue/20 transition-colors"
-              >
-                <GraduationCap className="w-4 h-4" />
-                <span>{stats.classesTonight} class{stats.classesTonight !== 1 ? 'es' : ''} tonight</span>
-              </Link>
+      <GlobalLayout showSubheader={false}>
+        {/* COMPACT BRAND STRIP */}
+        <div className="relative px-4 pt-4 pb-2 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-center gap-3">
+            <span className="text-3xl select-none" aria-hidden="true">💃</span>
+            <div>
+              <h1 className="text-xl font-black tracking-tight leading-tight">
+                What's on in{' '}
+                <span className="text-primary">{cityDisplayName}</span>
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Bachata classes, socials &amp; festivals
+              </p>
             </div>
+          </div>
+        </div>
+
+        {/* CINEMA MARQUEE TONIGHT CTA */}
+        {stats.hasEventsTonight && (
+          <div className="container mx-auto px-4 py-3">
+            <TonightMarqueeCta to={buildCityPath(citySlug, 'tonight')} />
           </div>
         )}
 
