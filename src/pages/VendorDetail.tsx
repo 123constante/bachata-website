@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { emitProfileView } from "@/lib/profileViewEmit";
 import { ArrowLeft, CalendarDays, Facebook, Globe, Instagram, Mail, MessageCircle, Package, Store, Tag, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,30 +27,22 @@ type TeamLinkItem = {
   name: string;
   city: string | null;
   isLeader: boolean;
+  role: string | null;
+  avatarUrl: string | null;
 };
 
-type VendorTab = "overview" | "products" | "events" | "about";
+type ViewTab = "overview" | "products" | "faq";
 
-const tabValues: VendorTab[] = ["overview", "products", "events", "about"];
-
-const getInitialTab = (queryString: string): VendorTab => {
-  const candidate = new URLSearchParams(queryString).get("tab");
-  if (candidate && tabValues.includes(candidate as VendorTab)) {
-    return candidate as VendorTab;
-  }
-
-  return "overview";
-};
+const tabValues: ViewTab[] = ["overview", "products", "faq"];
 
 const VendorDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
   const [vendor, setVendor] = useState<VendorPublicDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [eventItems, setEventItems] = useState<EventLinkItem[]>([]);
-  const [activeTab, setActiveTab] = useState<VendorTab>(() => getInitialTab(location.search));
+  const [activeTab, setActiveTab] = useState<ViewTab>("overview");
   const [promoCopied, setPromoCopied] = useState(false);
 
   useEffect(() => {
@@ -86,9 +78,6 @@ const VendorDetail = () => {
     void fetchVendor();
   }, [id]);
 
-  useEffect(() => {
-    setActiveTab(getInitialTab(location.search));
-  }, [location.search]);
 
   useEffect(() => {
     const loadEventItems = async () => {
@@ -148,8 +137,10 @@ const VendorDetail = () => {
         const name = typeof record.name === "string" && record.name.trim().length > 0 ? record.name.trim() : "Team member";
         const city = typeof record.city === "string" && record.city.trim().length > 0 ? record.city.trim() : null;
         const isLeader = Boolean(record.is_leader);
+        const role = typeof record.role === "string" && record.role.trim().length > 0 ? record.role.trim() : null;
+        const avatarUrl = typeof record.avatar_url === "string" && record.avatar_url.trim().length > 0 ? record.avatar_url.trim() : null;
 
-        return { dancerId, name, city, isLeader } satisfies TeamLinkItem;
+        return { dancerId, name, city, isLeader, role, avatarUrl } satisfies TeamLinkItem;
       })
       .filter((item): item is TeamLinkItem => Boolean(item));
   }, [vendor?.team]);
@@ -272,205 +263,261 @@ const VendorDetail = () => {
       }}
     >
       <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
-        <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-muted/40">
-          <CardContent className="pt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-            <div className="space-y-5">
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {categoryItems.slice(0, 5).map((category) => (
-                    <Link key={category} to={`/vendors?category=${encodeURIComponent(category)}`}>
-                      <Badge variant="secondary">{category}</Badge>
-                    </Link>
-                  ))}
-                  {categoryItems.length === 0 && (
-                    <Badge variant="outline">
-                      <Store className="h-3 w-3 mr-1" />
-                      No categories listed
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Products</p>
-                    <p className="text-xl font-semibold">{products.length}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Upcoming events</p>
-                    <p className="text-xl font-semibold">{upcomingEventCount}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Team members</p>
-                    <p className="text-xl font-semibold">{teamItems.length}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Shipping</p>
-                    <p className="text-sm font-semibold">{vendor.ships_international ? "International" : "Local only"}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => setActiveTab("products")} className="gap-2">
-                  <Package className="h-4 w-4" />
-                  Browse products/menu
-                </Button>
-                {contactActions.map((action) => (
-                  <a
-                    key={action.label}
-                    href={action.href}
-                    target={action.external ? "_blank" : undefined}
-                    rel={action.external ? "noreferrer" : undefined}
-                    onClick={() => trackOutbound(action.linkType, action.href, "vendor-detail:hero")}
-                  >
-                    <Button variant="outline" className="gap-2">
-                      {action.label}
-                    </Button>
-                  </a>
-                ))}
-              </div>
-
-              {vendor.promo_code && (
-                <p className="text-xs text-muted-foreground">
-                  Promo available in the Products tab.
-                </p>
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {categoryItems.slice(0, 5).map((category) => (
+                <Link key={category} to={`/vendors?category=${encodeURIComponent(category)}`}>
+                  <Badge variant="secondary">{category}</Badge>
+                </Link>
+              ))}
+              {categoryItems.length === 0 && (
+                <Badge variant="outline">
+                  <Store className="h-3 w-3 mr-1" />
+                  No categories
+                </Badge>
               )}
             </div>
 
-            <div className="rounded-lg overflow-hidden bg-muted/60 min-h-[240px]">
-              <img
-                src={gallery[0] || FALLBACK_IMAGE}
-                alt={vendor.business_name || "Vendor"}
-                className="h-full w-full object-cover"
-              />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Products</p>
+                  <p className="text-lg font-semibold">{products.length}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Events</p>
+                  <p className="text-lg font-semibold">{upcomingEventCount}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Team</p>
+                  <p className="text-lg font-semibold">{teamItems.length}</p>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as VendorTab)} className="space-y-4">
-          <div className="sticky top-[84px] z-20">
-            <TabsList className="grid w-full grid-cols-4 h-10 bg-background/90 backdrop-blur border border-border/70">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="products">Products</TabsTrigger>
-              <TabsTrigger value="events">Events</TabsTrigger>
-              <TabsTrigger value="about">About & FAQ</TabsTrigger>
-            </TabsList>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setActiveTab("products")} className="gap-2">
+                <Package className="h-4 w-4" />
+                Browse products
+              </Button>
+              {contactActions.slice(0, 2).map((action) => (
+                <a
+                  key={action.label}
+                  href={action.href}
+                  target={action.external ? "_blank" : undefined}
+                  rel={action.external ? "noreferrer" : undefined}
+                  onClick={() => trackOutbound(action.linkType, action.href, "vendor-detail:hero")}
+                >
+                  <Button variant="outline" size="sm" className="gap-2">
+                    {action.label === "Website" && <Globe className="h-4 w-4" />}
+                    {action.label === "Instagram" && <Instagram className="h-4 w-4" />}
+                    {action.label === "Facebook" && <Facebook className="h-4 w-4" />}
+                    {action.label === "Email" && <Mail className="h-4 w-4" />}
+                    {action.label === "WhatsApp" && <MessageCircle className="h-4 w-4" />}
+                    {action.label}
+                  </Button>
+                </a>
+              ))}
+            </div>
           </div>
 
+          <div className="rounded-lg overflow-hidden bg-muted/60 min-h-[240px]">
+            <img
+              src={gallery[0] || FALLBACK_IMAGE}
+              alt={vendor.business_name || "Vendor"}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              Events they&apos;re attending
+            </h2>
+            {eventItems.length === 0 ? (
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">No upcoming events listed yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {eventItems.map((event) => (
+                  <Link key={event.id} to={`/event/${event.id}`}>
+                    <Button variant="outline" className="w-full justify-start text-left gap-3 h-auto p-3">
+                      <CalendarDays className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm font-medium">{event.name}</span>
+                    </Button>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team members
+            </h2>
+            {teamItems.length === 0 ? (
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">No team members listed.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {teamItems.map((member, index) => {
+                  const roleLabel = member.isLeader
+                    ? "Leader"
+                    : member.role && member.role !== "Member"
+                    ? member.role
+                    : null;
+                  const memberContent = (
+                    <Card className="bg-white/[0.04] border-white/10 h-full">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          {member.avatarUrl ? (
+                            <img
+                              src={member.avatarUrl}
+                              alt=""
+                              aria-hidden
+                              className="h-5 w-5 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <span className="text-sm font-medium truncate">{member.name}</span>
+                        </div>
+                        {roleLabel && (
+                          <p className="text-xs text-muted-foreground">{roleLabel}</p>
+                        )}
+                        {member.city && (
+                          <p className="text-xs text-muted-foreground">{member.city}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                  return member.dancerId ? (
+                    <Link
+                      key={`${member.name}-${index}`}
+                      to={`/dancers/${member.dancerId}`}
+                      onClick={() => {
+                        emitProfileView({
+                          personId: member.dancerId!,
+                          profileType: "dancer",
+                          context: "vendor-detail:team",
+                        });
+                      }}
+                    >
+                      {memberContent}
+                    </Link>
+                  ) : (
+                    <div key={`${member.name}-${index}`}>
+                      {memberContent}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ViewTab)} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 h-10 bg-white/[0.04] border border-white/10">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="faq">FAQ & Contact</TabsTrigger>
+          </TabsList>
+
           <TabsContent value="overview" className="m-0 space-y-4">
-            <div className="grid gap-4 lg:grid-cols-3">
-              <Card className="lg:col-span-2">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="bg-white/[0.04] border-white/10">
                 <CardContent className="pt-6 space-y-3">
-                  <h2 className="text-xl font-semibold">Highlights</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {categoryItems.map((category) => (
-                      <Link key={`overview-${category}`} to={`/vendors?category=${encodeURIComponent(category)}`}>
-                        <Badge variant="outline" className="gap-1">
-                          <Tag className="h-3 w-3" />
-                          {category}
-                        </Badge>
-                      </Link>
-                    ))}
-                    {categoryItems.length === 0 && <p className="text-sm text-muted-foreground">Categories are being updated.</p>}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Button variant="outline" className="justify-start" onClick={() => setActiveTab("products")}>
-                      <Package className="h-4 w-4 mr-2" />
-                      Browse full catalog
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={() => setActiveTab("events")}>
-                      <CalendarDays className="h-4 w-4 mr-2" />
-                      View upcoming events
-                    </Button>
-                  </div>
+                  <h3 className="text-base font-semibold">Categories</h3>
+                  {categoryItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Categories being updated.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {categoryItems.map((category) => (
+                        <Link key={`overview-${category}`} to={`/vendors?category=${encodeURIComponent(category)}`}>
+                          <Badge variant="outline" className="gap-1">
+                            <Tag className="h-3 w-3" />
+                            {category}
+                          </Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-white/[0.04] border-white/10">
                 <CardContent className="pt-6 space-y-3">
-                  <h2 className="text-lg font-semibold">Quick links</h2>
-                  <div className="space-y-2">
-                    {vendor.website && (
-                      <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("website", vendor.website, "vendor-detail:overview-quicklinks")}>
-                        <Globe className="h-4 w-4" />
-                        {websiteLabel || "Website"}
-                      </a>
-                    )}
-                    {vendor.instagram && (
-                      <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("instagram", vendor.instagram, "vendor-detail:overview-quicklinks")}>
-                        <Instagram className="h-4 w-4" />
-                        Instagram
-                      </a>
-                    )}
-                    {vendor.facebook && (
-                      <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => trackOutbound("facebook", vendor.facebook, "vendor-detail:overview-quicklinks")}>
-                        <Facebook className="h-4 w-4" />
-                        Facebook
-                      </a>
-                    )}
-                    {!vendor.website && !vendor.instagram && !vendor.facebook && (
-                      <p className="text-sm text-muted-foreground">Public links not added yet.</p>
-                    )}
-                  </div>
+                  <h3 className="text-base font-semibold">Shipping</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {vendor.ships_international ? "International shipping available" : "Local only"}
+                  </p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="products" className="m-0 space-y-4">
             {vendor.promo_code && (
-              <Card className="border-primary/30">
-                <CardContent className="pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <Card className="bg-white/[0.04] border-primary/30">
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Promo code</p>
+                    <p className="text-xs text-muted-foreground">Promo code</p>
                     <p className="font-semibold text-lg inline-flex items-center gap-2">
                       <Tag className="h-4 w-4" />
                       {vendor.promo_code}
                     </p>
                   </div>
-                  <Button variant="outline" onClick={copyPromoCode}>
-                    {promoCopied ? "Copied" : "Copy code"}
+                  <Button variant="outline" size="sm" onClick={copyPromoCode}>
+                    {promoCopied ? "Copied" : "Copy"}
                   </Button>
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
 
+          <TabsContent value="products" className="m-0 space-y-4">
             {products.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-muted-foreground">No products listed yet.</CardContent>
+              <Card className="bg-white/[0.04] border-white/10">
+                <CardContent className="pt-6 text-sm text-muted-foreground">No products listed yet.</CardContent>
               </Card>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map((product, index) => (
-                  <Card key={`${product.name}-${index}`} className="h-full">
-                    <CardContent className="pt-6 space-y-3 h-full">
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="font-medium leading-snug">{product.name}</h3>
-                        {typeof product.price === "number" && (
-                          <Badge variant="outline">£{product.price}</Badge>
+                  <Card key={`${product.name}-${index}`} className="bg-white/[0.04] border-white/10 h-full">
+                    <CardContent className="pt-4 space-y-3 h-full flex flex-col">
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-medium text-sm leading-snug">{product.name}</h3>
+                          {typeof product.price === "number" && (
+                            <Badge variant="outline" className="text-xs">£{product.price}</Badge>
+                          )}
+                        </div>
+
+                        {product.image_url && (
+                          <div className="rounded-md overflow-hidden bg-muted h-32 mb-3">
+                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                          </div>
+                        )}
+
+                        {product.description && (
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">{product.description}</p>
                         )}
                       </div>
 
                       {product.image_url && (
-                        <div className="rounded-md overflow-hidden bg-muted h-36">
-                          <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
-                        </div>
-                      )}
-
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{product.description}</p>
-                      )}
-
-                      {product.image_url && (
-                        <a href={normalizeLink(product.image_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                        <a href={normalizeLink(product.image_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                           View media
                           <Globe className="h-3 w-3" />
                         </a>
@@ -482,132 +529,49 @@ const VendorDetail = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="events" className="m-0 space-y-4">
-            <Card>
-              <CardContent className="pt-6 space-y-3">
-                <h2 className="text-xl font-semibold">Upcoming Events</h2>
-                {eventItems.length === 0 ? (
-                  <p className="text-muted-foreground">No upcoming events listed yet.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {eventItems.map((event) => (
-                      <Link key={event.id} to={`/event/${event.id}`}>
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <CalendarDays className="h-4 w-4" />
-                          {event.name}
-                        </Button>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <ProfileEventTimeline
-              personType="vendor"
-              personId={vendor.id}
-              title="Event timeline"
-              emptyText="No connected events yet."
-            />
-          </TabsContent>
-
-          <TabsContent value="about" className="m-0 space-y-4">
+          <TabsContent value="faq" className="m-0 space-y-4">
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
+              <Card className="bg-white/[0.04] border-white/10">
                 <CardContent className="pt-6 space-y-4">
-                  <h2 className="text-xl font-semibold">FAQ</h2>
+                  <h3 className="text-base font-semibold">FAQ</h3>
                   {vendor.faq ? (
                     <p className="text-sm whitespace-pre-wrap text-muted-foreground">{vendor.faq}</p>
                   ) : (
-                    <p className="text-muted-foreground">No FAQ provided yet.</p>
+                    <p className="text-sm text-muted-foreground">No FAQ provided yet.</p>
                   )}
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-white/[0.04] border-white/10">
                 <CardContent className="pt-6 space-y-4">
-                  <h2 className="text-xl font-semibold">Team</h2>
-                  {teamItems.length === 0 ? (
-                    <p className="text-muted-foreground">No team members listed.</p>
+                  <h3 className="text-base font-semibold">Contact</h3>
+                  {contactActions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Contact methods not added yet.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {teamItems.map((member, index) => {
-                        const href = member.dancerId ? `/dancers/${member.dancerId}` : "/dancers";
-                        return (
-                          <Link
-                            key={`${member.name}-${index}`}
-                            to={href}
-                            className="inline-flex"
-                            onClick={() => {
-                              if (member.dancerId) {
-                                emitProfileView({
-                                  personId: member.dancerId,
-                                  profileType: 'dancer',
-                                  context: 'vendor-detail:team',
-                                });
-                              }
-                            }}
-                          >
-                            <Button variant="outline" size="sm" className="gap-2">
-                              <Users className="h-4 w-4" />
-                              {member.name}{member.isLeader ? " (Leader)" : ""}
-                            </Button>
-                          </Link>
-                        );
-                      })}
+                    <div className="flex flex-col gap-2">
+                      {contactActions.map((action) => (
+                        <a
+                          key={action.label}
+                          href={action.href}
+                          target={action.external ? "_blank" : undefined}
+                          rel={action.external ? "noreferrer" : undefined}
+                          onClick={() => trackOutbound(action.linkType, action.href, "vendor-detail:faq-contact")}
+                        >
+                          <Button variant="outline" className="w-full gap-2 text-xs h-9">
+                            {action.label === "Website" && <Globe className="h-3.5 w-3.5" />}
+                            {action.label === "Instagram" && <Instagram className="h-3.5 w-3.5" />}
+                            {action.label === "Facebook" && <Facebook className="h-3.5 w-3.5" />}
+                            {action.label === "Email" && <Mail className="h-3.5 w-3.5" />}
+                            {action.label === "WhatsApp" && <MessageCircle className="h-3.5 w-3.5" />}
+                            {action.label}
+                          </Button>
+                        </a>
+                      ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
             </div>
-
-            <Card>
-              <CardContent className="pt-6 space-y-3">
-                <h2 className="text-xl font-semibold">Contact</h2>
-                <div className="flex flex-wrap gap-2">
-                  {vendor.website && (
-                    <a href={normalizeLink(vendor.website)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("website", vendor.website, "vendor-detail:about-contact")}>
-                      <Button variant="outline" className="gap-2">
-                        <Globe className="h-4 w-4" />
-                        Website
-                      </Button>
-                    </a>
-                  )}
-                  {vendor.instagram && (
-                    <a href={normalizeLink(vendor.instagram)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("instagram", vendor.instagram, "vendor-detail:about-contact")}>
-                      <Button variant="outline" className="gap-2">
-                        <Instagram className="h-4 w-4" />
-                        Instagram
-                      </Button>
-                    </a>
-                  )}
-                  {vendor.facebook && (
-                    <a href={normalizeLink(vendor.facebook)} target="_blank" rel="noreferrer" onClick={() => trackOutbound("facebook", vendor.facebook, "vendor-detail:about-contact")}>
-                      <Button variant="outline" className="gap-2">
-                        <Facebook className="h-4 w-4" />
-                        Facebook
-                      </Button>
-                    </a>
-                  )}
-                  {vendor.public_email && (
-                    <a href={`mailto:${vendor.public_email}`} onClick={() => trackOutbound("public_email", vendor.public_email, "vendor-detail:about-contact")}>
-                      <Button variant="outline" className="gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email
-                      </Button>
-                    </a>
-                  )}
-                  {whatsappHref && (
-                    <a href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => trackOutbound("whatsapp", whatsappHref, "vendor-detail:about-contact")}>
-                      <Button variant="outline" className="gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        WhatsApp
-                      </Button>
-                    </a>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
