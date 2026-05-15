@@ -260,7 +260,7 @@ const TrophyCircle = () => (
 export const RaffleBlock = () => {
   const { id: eventId } = useParams<{ id: string }>();
   const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
+  const { config, loading, error, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [shakeKey, setShakeKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
@@ -313,7 +313,7 @@ export const RaffleBlock = () => {
               Thanks for entering!
             </div>
             <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-              This raffle has a special rule you don’t meet this time.
+              This raffle has a special rule you don't meet this time.
               {alt && (
                 <>
                   {' '}Try{' '}
