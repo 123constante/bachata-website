@@ -1,8 +1,8 @@
 .tonight-cta-wrap {
   --cm-cream: #f7efde;
-  --cm-ochre: #e6b85a;
-  --cm-burgundy: #5a1d22;
-  --cm-burgundy-2: #3a1216;
+  --cm-ochre: #ffd700;
+  --cm-burgundy: #b22d2d;
+  --cm-burgundy-2: #8b1d1d;
   position: relative;
   display: block;
   width: min(122px, calc(100vw - 32px));
@@ -25,8 +25,8 @@
   border-radius: 50%;
   background: var(--cm-ochre);
   box-shadow:
-    0 0 3px rgba(230, 184, 90, 0.9),
-    0 0 7px rgba(230, 184, 90, 0.55);
+    0 0 3px rgba(255, 215, 0, 0.9),
+    0 0 7px rgba(255, 215, 0, 0.55);
   transform: translate(-50%, -50%);
 }
 
@@ -52,7 +52,7 @@
   border-radius: 999px;
   background: var(--cm-burgundy-2);
   color: var(--cm-cream);
-  border: 1px solid rgba(230, 184, 90, 0.4);
+  border: 1px solid rgba(255, 215, 0, 0.4);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -71,7 +71,7 @@
 
 .tonight-cta-pill small {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-weight: 500;
+  font-weight: 700;
   font-size: 9px;
   letter-spacing: 0;
   text-transform: uppercase;

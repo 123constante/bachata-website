@@ -64,7 +64,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const [view, setView] = useState<ViewType>(() => {
     if (typeof window === 'undefined') return 'calendar';
     const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-    return stored === 'list' || stored === 'calendar' ? stored : 'list';
+    return stored === 'list' || stored === 'calendar' ? stored : 'calendar';
   });
 
   useEffect(() => {

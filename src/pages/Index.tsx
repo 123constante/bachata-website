@@ -82,19 +82,13 @@ const Index = () => {
     <PageErrorBoundary>
       <GlobalLayout showSubheader={false}>
         {/* COMPACT BRAND STRIP */}
-        <div className="relative px-4 pt-4 pb-2 overflow-hidden">
+        <div className="relative px-4 pt-12 pb-6 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
-          <div className="relative z-10 flex items-center justify-center gap-3">
-            <span className="text-3xl select-none" aria-hidden="true">💃</span>
-            <div>
-              <h1 className="text-xl font-black tracking-tight leading-tight">
-                What's on in{' '}
-                <span className="text-primary">{cityDisplayName}</span>
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Bachata classes, socials &amp; festivals
-              </p>
-            </div>
+          <div className="relative z-10 flex flex-col items-center justify-center text-center">
+            <h1 className="text-5xl font-black tracking-tight leading-tight mb-2">
+              What's on in{' '}
+              <span className="text-primary">{cityDisplayName}</span>
+            </h1>
           </div>
         </div>
 

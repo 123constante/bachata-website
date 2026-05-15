@@ -35,7 +35,7 @@ export const GlobalHeader = () => {
       </a>
       <nav className="flex items-center justify-center h-[58px] px-4">
         <Link to={homePath} className="flex items-center shrink-0" aria-label="Bachata Calendar home">
-          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-8 w-auto" />
+          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-6 w-auto" />
         </Link>
       </nav>
 
