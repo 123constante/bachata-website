@@ -100,6 +100,7 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
+      style={{ display: 'flex', justifyContent: 'center' }}
     >
       <Link
         to={event.eventLink}
@@ -113,14 +114,18 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
           border: '1px solid rgba(58, 36, 24, 0.12)',
           boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
           textDecoration: 'none',
+          width: '75%',
         }}
       >
         {/* Info — left, flex-1 */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{
-            fontSize: 15, fontWeight: 700, lineHeight: 1.2,
+            fontSize: 15, fontWeight: 700, lineHeight: 1.3,
             color: INK, letterSpacing: -0.1,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
           }}>
             {event.title}
           </div>
@@ -201,11 +206,6 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
           )}
         </div>
 
-        {/* Chevron */}
-        <svg width={14} height={14} viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M5 3 L9 7 L5 11" stroke={INK} strokeWidth="1.6"
-            strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </Link>
     </motion.div>
   );
