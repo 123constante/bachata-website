@@ -422,7 +422,7 @@ function SectionHeader({
   onAction?: () => void;
 }) {
   return (
-    <div className="flex items-baseline justify-between mb-3 relative">
+    <div className="flex items-baseline justify-center mb-3 relative">
       <div className="relative inline-flex items-center gap-2">
         <span
           className="text-[10px] uppercase tracking-[0.22em] relative"
@@ -434,8 +434,8 @@ function SectionHeader({
           —
         </span>
         <h2
-          className="text-[15px] font-medium tracking-tight relative"
-          style={{ color: 'var(--text)' }}
+          className="text-[18px] font-semibold tracking-tight relative"
+          style={{ color: 'var(--accent)' }}
         >
           {children}
         </h2>
