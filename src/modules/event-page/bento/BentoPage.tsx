@@ -238,6 +238,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
             location={pageModel.location}
             showCityLine={hiddenBlocks.has('city')}
             eventId={eventId}
+            occurrenceId={pageModel.identity.occurrenceId}
           />
         );
       case 'organiser-card':

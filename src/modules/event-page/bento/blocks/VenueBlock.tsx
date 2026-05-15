@@ -14,9 +14,13 @@ type VenueBlockProps = {
   // so the venue page can run its warm-entry flow (filter the source event
   // out of "events here", show a thin breadcrumb back to the event).
   eventId?: string | null;
+  // Source occurrence id — appended as `&occ=<id>` when present, for
+  // occurrence-level filtering (only suppress the specific occurrence the user
+  // came from, not the entire recurring series).
+  occurrenceId?: string | null;
 };
 
-export const VenueBlock = ({ location, showCityLine = false, eventId = null }: VenueBlockProps) => {
+export const VenueBlock = ({ location, showCityLine = false, eventId = null, occurrenceId = null }: VenueBlockProps) => {
   const hasVenueIdentity = Boolean(location.venueName || location.address);
   if (!hasVenueIdentity) return null;
 
@@ -38,7 +42,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null }: V
 
   const href = location.venueId
     ? eventId
-      ? `/venue-entity/${location.venueId}?from=event:${eventId}`
+      ? `/venue-entity/${location.venueId}?from=event:${eventId}${occurrenceId ? '&occ=' + occurrenceId : ''}`
       : `/venue-entity/${location.venueId}`
     : undefined;
 

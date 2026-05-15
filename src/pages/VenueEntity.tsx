@@ -1225,6 +1225,7 @@ const VenueEntity = () => {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const fromEventId = parseFromEventParam(location.search);
+  const fromOccurrenceId = new URLSearchParams(location.search).get('occ') ?? null;
 
   const { data: venue, isLoading } = useQuery({
     queryKey: ['public-venue', id],
@@ -1233,7 +1234,7 @@ const VenueEntity = () => {
   });
 
   const { data: events } = useQuery({
-    queryKey: ['venue-upcoming-events', id, fromEventId],
+    queryKey: ['venue-upcoming-events', id, fromEventId, fromOccurrenceId],
     queryFn: async () => {
       const now = new Date().toISOString();
       const sixtyDaysLater = new Date(Date.now() + 60 * 86400000).toISOString();
@@ -1244,7 +1245,9 @@ const VenueEntity = () => {
         p_venue_id: id,
       } as never);
       const rows = (data as VenueOccurrenceRow[] | null) ?? [];
-      const filtered = fromEventId
+      const filtered = fromOccurrenceId
+        ? rows.filter((r) => r.occurrence_id !== fromOccurrenceId)
+        : fromEventId
         ? rows.filter((r) => r.event_id !== fromEventId)
         : rows;
       return filtered.slice(0, 9);
