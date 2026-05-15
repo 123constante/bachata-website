@@ -7,13 +7,13 @@ type DescriptionBlockProps = {
 };
 
 // A body shorter than this renders naturally with no fade + no button. The
-// threshold is a heuristic for "probably longer than 6 visible lines" — it
+// threshold is a heuristic for "probably longer than 6 visible lines" â€” it
 // matches the contract established in Phase 7, preserved here so event
 // pages that currently render short descriptions don't suddenly sprout an
 // expand button pointing at nothing.
 const TRUNCATE_AT = 240;
 
-// 13 px font × 1.5 line-height = 19.5 px per line. 6 visible lines ≈ 120 px.
+// 13 px font Ã— 1.5 line-height = 19.5 px per line. 6 visible lines â‰ˆ 120 px.
 const COLLAPSED_PX = 120;
 
 // Gradient fade spans ~2 lines of text at the bottom of the collapsed body.
@@ -22,7 +22,7 @@ const FADE_PX = 40;
 export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   const [expanded, setExpanded] = useState(false);
   // Full content height (of the unclipped body). Measured by the inner ref
-  // via ResizeObserver so no artificial max-height ceiling is needed — the
+  // via ResizeObserver so no artificial max-height ceiling is needed â€” the
   // expanded state grows exactly to the body's actual height, even if the
   // description is extremely long.
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -65,14 +65,14 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
 
   // Long body: clamp to COLLAPSED_PX with fade, or animate to full measured
   // height on expand. If contentHeight hasn't resolved yet (initial layout
-  // effect not run), fall back to COLLAPSED_PX — the ResizeObserver fires
+  // effect not run), fall back to COLLAPSED_PX â€” the ResizeObserver fires
   // synchronously in useLayoutEffect so in practice this branch is hit once
   // on first render, then contentHeight is known from the next paint on.
   const expandedTarget = contentHeight ?? COLLAPSED_PX;
   const maxHeight = expanded ? expandedTarget : COLLAPSED_PX;
 
   return (
-    <div className="relative">
+    <div className="relative mb-4">
       <BentoTile
         title={BLOCK_TITLES.description}
         color={surface}
@@ -132,7 +132,7 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
         }}
         aria-expanded={expanded}
       >
-        {expanded ? 'Read less ↑' : 'Read more ↓'}
+        {expanded ? 'Read less â†‘' : 'Read more â†“'}
       </button>
     </div>
   );

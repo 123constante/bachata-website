@@ -34,7 +34,7 @@ function formatCloseClock(cutoffAt: string): string {
     const ampm = dt.getHours() < 12 ? 'AM' : 'PM';
     return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
   } catch {
-    return '—';
+    return 'â€”';
   }
 }
 
@@ -67,7 +67,7 @@ const TimeLeft: React.FC<TimeLeftProps> = ({ cutoffAt }) => {
   const min = totalMin % 60;
   const sec = totalSec % 60;
 
-  // > 24h: hide — clock time alone is enough.
+  // > 24h: hide â€” clock time alone is enough.
   if (hr >= 24) return null;
 
   let label: string;
@@ -345,7 +345,7 @@ export const RaffleBlock = () => {
               className="text-[14px] font-extrabold leading-[1.15] tracking-[-0.015em]"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
             >
-              You won this one! 🎉
+              You won this one! ðŸŽ‰
             </div>
             <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
               Organiser will be in touch.
@@ -379,7 +379,7 @@ export const RaffleBlock = () => {
               className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em] truncate"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
             >
-              🎉 {config.winner_display.first_name} won!
+              ðŸŽ‰ {config.winner_display.first_name} won!
             </div>
             <div className="mt-1 text-[11px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
               Drawn {formatDrawnAt(config.winner_display.drawn_at)}
@@ -396,14 +396,13 @@ export const RaffleBlock = () => {
 
   const closed = !!config?.cutoff_passed;
   const canEnter = !closed && !hasEntered;
-  const tileClickable = canEnter;
 
   return (
     <>
       <BentoTile
         title=""
         color={BLOCK_COLORS.raffle}
-        onClick={tileClickable ? openEntryForm : undefined}
+        mode="multi-target"
       >
         <div className="flex items-center justify-center gap-2 mb-2">
           <span
@@ -477,7 +476,7 @@ export const RaffleBlock = () => {
               className="text-[14px] font-bold mt-0.5"
               style={{ color: 'hsl(var(--bento-fg))' }}
             >
-              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : '—'}
+              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : 'â€”'}
             </div>
             {!closed && config?.cutoff_at && <TimeLeft cutoffAt={config.cutoff_at} />}
           </div>
@@ -506,7 +505,7 @@ export const RaffleBlock = () => {
             className="text-center text-[11px] mt-2"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
-            {closed ? 'Entries closed — winner drawn soon' : "You're entered — we'll call the winner"}
+            {closed ? 'Entries closed â€” winner drawn soon' : "You're entered â€” we'll call the winner"}
           </div>
         )}
 
@@ -535,7 +534,7 @@ export const RaffleBlock = () => {
             >
               <Sparkles className="w-3.5 h-3.5" aria-hidden />
               Enter raffle
-              <span aria-hidden className="ml-0.5">→</span>
+              <span aria-hidden className="ml-0.5">â†’</span>
             </motion.button>
           </div>
         )}
