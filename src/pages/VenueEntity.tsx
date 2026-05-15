@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   Clock,
   Train,
-  Heart,
   Share2,
   Play,
   Phone,
@@ -51,6 +50,7 @@ import { fetchPublicVenue } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { computeVenueOpenStatus } from '@/lib/venueOpenStatus';
 import { resolveTubeLine } from '@/lib/tubeLineColour';
+import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
 
 // ============================================================
 // Types
@@ -390,11 +390,12 @@ function GhostButton({
   );
 }
 
-function IconBtn({ children, label }: { children: ReactNode; label: string }) {
+function IconBtn({ children, label, onClick }: { children: ReactNode; label: string; onClick?: () => void }) {
   return (
     <button
       aria-label={label}
       type="button"
+      onClick={onClick}
       className="inline-flex items-center justify-center rounded-full transition-colors select-none active:scale-[0.97] w-9 h-9"
       style={{
         background: 'rgba(0,0,0,0.55)',
@@ -430,7 +431,7 @@ function SectionHeader({
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
           }}
         >
-          â€”
+          —
         </span>
         <h2
           className="text-[15px] font-medium tracking-tight relative"
@@ -663,6 +664,10 @@ function VideoTile({
   className?: string;
 }) {
   const label = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  const parsed = parseVenueVideoUrl(url);
+  const thumbUrl = parsed?.kind === 'youtube'
+    ? `https://img.youtube.com/vi/${parsed.videoId}/hqdefault.jpg`
+    : null;
   return (
     <a
       href={url}
@@ -671,7 +676,13 @@ function VideoTile({
       className={`group relative overflow-hidden block ${className}`}
       style={{ borderRadius: 'var(--radius)' }}
     >
-      <Placeholder aspect="16/10" />
+      {thumbUrl ? (
+        <div style={{ aspectRatio: '16/10' }}>
+          <img src={thumbUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+        </div>
+      ) : (
+        <Placeholder aspect="16/10" />
+      )}
       <div
         className="absolute inset-0"
         style={{
@@ -939,7 +950,7 @@ function NearestStation({
                   {walkMin != null && (
                     <span style={{ color: 'var(--text-3)' }}>
                       {' '}
-                      Â· {walkMin} min walk
+                      · {walkMin} min walk
                     </span>
                   )}
                 </span>
@@ -964,7 +975,7 @@ function NearestStation({
 // ============================================================
 // Event card â€” horizontal (desktop grid) and row (mobile list)
 // ============================================================
-function EventCardTile({ ev }: { ev: VenueOccurrenceRow }) {
+function EventCardTile({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring?: boolean }) {
   const start = new Date(ev.instance_start);
   const dayLabel = format(start, 'EEE');
   const dateLabel = format(start, 'd MMM');
@@ -1033,7 +1044,7 @@ function EventCardTile({ ev }: { ev: VenueOccurrenceRow }) {
             color: 'var(--text-3)',
           }}
         >
-          {dateLabel} Â· {timeLabel}
+          {dateLabel} · {timeLabel}
         </div>
         <h3
           className="text-sm font-medium leading-snug line-clamp-2 mb-1"
@@ -1055,6 +1066,14 @@ function EventCardTile({ ev }: { ev: VenueOccurrenceRow }) {
             Tickets <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
           </span>
         </div>
+        {isRecurring && (
+          <span
+            className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded mt-1 inline-block"
+            style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--accent-2)', border: '1px solid rgba(16,185,129,0.28)' }}
+          >
+            Recurring
+          </span>
+        )}
       </div>
       <span
         aria-hidden
@@ -1068,7 +1087,7 @@ function EventCardTile({ ev }: { ev: VenueOccurrenceRow }) {
   );
 }
 
-function EventCardRow({ ev }: { ev: VenueOccurrenceRow }) {
+function EventCardRow({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring?: boolean }) {
   const start = new Date(ev.instance_start);
   return (
     <Link
@@ -1143,6 +1162,14 @@ function EventCardRow({ ev }: { ev: VenueOccurrenceRow }) {
         >
           {ev.name}
         </h3>
+        {isRecurring && (
+          <span
+            className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded mt-1 inline-block"
+            style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--accent-2)', border: '1px solid rgba(16,185,129,0.28)' }}
+          >
+            Recurring
+          </span>
+        )}
       </div>
     </Link>
   );
@@ -1239,7 +1266,7 @@ const VenueEntity = () => {
   // ----------------------------------------------------------
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
         <div
           ref={rootRef}
           className="relative antialiased min-h-screen"
@@ -1280,7 +1307,7 @@ const VenueEntity = () => {
   // ----------------------------------------------------------
   if (!venue) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
         <div
           className="relative antialiased min-h-screen flex flex-col items-center justify-center p-6"
           style={{
@@ -1360,17 +1387,17 @@ const VenueEntity = () => {
     openStatus.status === 'open' || openStatus.status === 'closing-soon';
   const statusText = (() => {
     if (openStatus.status === 'open' || openStatus.status === 'closing-soon')
-      return 'Open Â· until ' + openStatus.closesAt;
+      return 'Open · until ' + openStatus.closesAt;
     if (openStatus.status === 'opens-soon')
-      return 'Closed Â· opens ' + openStatus.opensAt;
+      return 'Closed · opens ' + openStatus.opensAt;
     if (openStatus.status === 'closed') {
       if (
         openStatus.opensAt &&
         openStatus.opensDayLabel &&
         openStatus.opensDayLabel !== 'today'
       )
-        return 'Closed Â· opens ' + openStatus.opensDayLabel;
-      if (openStatus.opensAt) return 'Closed Â· opens ' + openStatus.opensAt;
+        return 'Closed · opens ' + openStatus.opensDayLabel;
+      if (openStatus.opensAt) return 'Closed · opens ' + openStatus.opensAt;
       return 'Closed';
     }
     return null;
@@ -1444,7 +1471,7 @@ const VenueEntity = () => {
       } else if (typeof raw === 'object') {
         const h = raw as { open?: string; close?: string; isOpen?: boolean };
         if (h.isOpen === false) display = 'Closed';
-        else if (h.open && h.close) display = h.open + 'â€“' + h.close;
+        else if (h.open && h.close) display = h.open + '–' + h.close;
       }
       if (display)
         hoursRows.push({
@@ -1576,22 +1603,36 @@ const VenueEntity = () => {
   const nextEvent = eventList[0] ?? null;
   const mobileEvents = eventList.slice(0, 4);
 
+  const eventIdCounts = new Map<string, number>();
+  eventList.forEach(ev => eventIdCounts.set(ev.event_id, (eventIdCounts.get(ev.event_id) ?? 0) + 1));
+  const recurringEventIds = new Set([...eventIdCounts.entries()].filter(([, c]) => c > 1).map(([id]) => id));
+
   const heroEyebrow = (() => {
     const postcodeDistrict = venue.postcode
       ? venue.postcode.split(' ')[0]
       : null;
     const parts = [postcodeDistrict, venue.city_name].filter(Boolean);
-    return parts.join(' Â· ').toUpperCase();
+    return parts.join(' · ').toUpperCase();
   })();
 
   const tagline = (() => {
     if (facilities.length === 0) return null;
     const top = facilities.slice(0, 3).map((f) => f.label);
-    return top.join(' Â· ');
+    return top.join(' · ');
   })();
 
+  const handleShare = () => {
+    const url = window.location.href;
+    const title = venue?.name ?? '';
+    if (navigator.share) {
+      navigator.share({ title, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
+  };
+
   return (
-    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref}>
+    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
       <div
         ref={rootRef}
         className="relative antialiased overflow-hidden"
@@ -1648,10 +1689,7 @@ const VenueEntity = () => {
                 </Link>
               </IconBtn>
               <div className="flex gap-1.5">
-                <IconBtn label="Save">
-                  <Heart className="w-4 h-4" strokeWidth={1.4} />
-                </IconBtn>
-                <IconBtn label="Share">
+                <IconBtn label="Share" onClick={handleShare}>
                   <Share2 className="w-4 h-4" strokeWidth={1.4} />
                 </IconBtn>
               </div>
@@ -1833,7 +1871,7 @@ const VenueEntity = () => {
                               style={{ color: 'var(--accent)' }}
                               className="shrink-0"
                             >
-                              â€¢
+                              •
                             </span>
                             <span>{b}</span>
                           </li>
@@ -1900,7 +1938,7 @@ const VenueEntity = () => {
                         style={{ color: 'var(--accent)' }}
                         className="shrink-0"
                       >
-                        â€¢
+                        •
                       </span>
                       <span>{rule}</span>
                     </li>
@@ -1994,7 +2032,7 @@ const VenueEntity = () => {
             ) : (
               <Card className="px-3">
                 {mobileEvents.map((ev) => (
-                  <EventCardRow key={ev.occurrence_id} ev={ev} />
+                  <EventCardRow key={ev.occurrence_id} ev={ev} isRecurring={recurringEventIds.has(ev.event_id)} />
                 ))}
               </Card>
             )}
@@ -2026,7 +2064,7 @@ const VenueEntity = () => {
                     fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                   }}
                 >
-                  Next event Â· {countdown(nextEvent.instance_start)}
+                  Next event · {countdown(nextEvent.instance_start)}
                 </div>
                 <div
                   className="text-sm font-medium truncate"
@@ -2051,13 +2089,26 @@ const VenueEntity = () => {
         {/* ============ DESKTOP LAYOUT (â‰¥ md) ============ */}
         <div className="hidden md:block">
           {/* Hero */}
-          <div className="px-8 pt-5 relative">
-            <Hero
-              images={heroImages}
-              height="440px"
-              rounded
-              venueName={venue.name}
-            />
+          <div className="px-8 pt-5">
+            <div className="relative">
+              <Hero
+                images={heroImages}
+                height="440px"
+                rounded
+                venueName={venue.name}
+              />
+              <div className="absolute top-3 left-3 z-20">
+                <IconBtn label="Back">
+                  <Link
+                    to={backHref}
+                    className="w-full h-full flex items-center justify-center"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    <ChevronLeft className="w-4 h-4" strokeWidth={1.4} />
+                  </Link>
+                </IconBtn>
+              </div>
+            </div>
           </div>
 
           {/* Title strip */}
@@ -2117,17 +2168,14 @@ const VenueEntity = () => {
                   </span>
                   {venue.city_name && (
                     <span style={{ color: 'var(--text-3)' }}>
-                      Â· View on map
+                      · View on map
                     </span>
                   )}
                 </a>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <GhostButton>
-                <Heart className="w-4 h-4" strokeWidth={1.4} /> Save
-              </GhostButton>
-              <GhostButton>
+              <GhostButton onClick={handleShare}>
                 <Share2 className="w-4 h-4" strokeWidth={1.4} /> Share
               </GhostButton>
               {mapsUrl && (
@@ -2255,7 +2303,7 @@ const VenueEntity = () => {
                                   style={{ color: 'var(--accent)' }}
                                   className="shrink-0"
                                 >
-                                  â€¢
+                                  •
                                 </span>
                                 <span>{b}</span>
                               </li>
@@ -2320,7 +2368,7 @@ const VenueEntity = () => {
                             style={{ color: 'var(--accent)' }}
                             className="shrink-0"
                           >
-                            â€¢
+                            •
                           </span>
                           <span>{rule}</span>
                         </li>
@@ -2430,13 +2478,13 @@ const VenueEntity = () => {
                     className="text-sm text-center"
                     style={{ color: 'var(--text-3)' }}
                   >
-                    No upcoming events yet â€” check back soon.
+                    No upcoming events yet — check back soon.
                   </p>
                 </Card>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
                   {eventList.map((ev) => (
-                    <EventCardTile key={ev.occurrence_id} ev={ev} />
+                    <EventCardTile key={ev.occurrence_id} ev={ev} isRecurring={recurringEventIds.has(ev.event_id)} />
                   ))}
                 </div>
               )}
