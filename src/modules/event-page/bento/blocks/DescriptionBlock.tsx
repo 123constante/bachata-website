@@ -112,6 +112,7 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
             style={{
               color: 'hsl(var(--bento-fg))',
               borderTop: '1px solid rgba(255,255,255,0.07)',
+              background: 'rgba(255,255,255,0.06)',
             }}
             aria-expanded={expanded}
           >
@@ -122,4 +123,5 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
     </BentoTile>
   );
 };
+
 
