@@ -85,6 +85,7 @@ const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const AuthCallback = lazyWithRetry(() => import("./pages/AuthCallback"));
 const Onboarding = lazyWithRetry(() => import("./pages/Onboarding"));
 const Profile = lazyWithRetry(() => import("./pages/Profile"));
+const MyAttendance = lazyWithRetry(() => import("./pages/MyAttendance"));
 const EditProfile = lazyWithRetry(() => import("./pages/EditProfile"));
 const EditEvent = lazyWithRetry(() => import("./pages/EditEvent"));
 const CreateEvent = lazyWithRetry(() => import("./pages/CreateEvent"));
@@ -254,6 +255,11 @@ const AnimatedRoutes = () => {
           <Route path="/profile" element={
             <AuthGuard>
               <PageTransition><Profile /></PageTransition>
+            </AuthGuard>
+          } />
+          <Route path="/my-attendance" element={
+            <AuthGuard>
+              <PageTransition><MyAttendance /></PageTransition>
             </AuthGuard>
           } />
           <Route path="/dashboard/vendor" element={

@@ -5,10 +5,17 @@ export type VendorPromoDiscountType = "percent" | "fixed";
 type VendorContractFields = {
   promo_discount_type: VendorPromoDiscountType | null;
   promo_discount_value: number | null;
-  team: Json | null;
 };
 
-export type VendorRow = Database["public"]["Tables"]["vendors"]["Row"] & VendorContractFields;
+// Phase 5.5 dropped vendors.team (jsonb) and vendors.upcoming_events (text[]).
+// Both are excluded from VendorRow now so TS catches stale readers; the
+// canonical sources are vendor_team_members and event_vendor_booths,
+// surfaced through get_public_vendor_detail_v1 (team jsonb) and the
+// admin RPCs.
+export type VendorRow = Omit<
+  Database["public"]["Tables"]["vendors"]["Row"],
+  "team" | "upcoming_events"
+> & VendorContractFields;
 
 export type VendorRowWithCity = VendorRow & {
   cities?: { name: string } | null;
@@ -34,6 +41,11 @@ export type VendorPublicCard = {
   total_count: number;
 };
 
+// VendorPublicDetail mirrors get_public_vendor_detail_v1's RETURN signature.
+// The signature was preserved across Phase 5 — `team` is still jsonb (now
+// resolved from vendor_team_members + member_profiles + dancer_profiles)
+// and `upcoming_events` is still text[] of event ids (now sourced from
+// event_vendor_booths).
 export type VendorPublicDetail = {
   id: string;
   business_name: string | null;
@@ -70,17 +82,19 @@ export type VendorProduct = {
   image_url?: string;
 };
 
+// Phase 5.5: "events" and "team" sections retired from the self-service portal.
+// Event linking now goes through admin_attach_vendor_to_event_v1 (Phase 3) and
+// team membership through admin_set_vendor_team_v1 (Phase 5). Keep entries here
+// so legacy progress maps don't blow up, but the portal no longer renders them.
 export const VENDOR_DASHBOARD_SECTIONS = [
   "profile",
   "media",
   "products",
   "categories",
   "promo",
-  "events",
   "contact",
   "social",
   "faq",
-  "team",
   "save",
   "advanced",
 ] as const;
@@ -121,7 +135,5 @@ export type VendorDashboardFormState = {
   instagram: string;
   facebook: string;
   faq: string;
-  upcoming_events: string[];
   meta_data: Json | null;
-  team: Json | null;
 };

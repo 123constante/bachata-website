@@ -118,8 +118,10 @@ const CONTROL_EVENT_ID = '2a1522d2-7cb6-4ee2-8c46-c75014b86ba0'; // Mock Party â
 test('CONTROL: real RPC returns is_cancelled=false on non-cancelled event', async ({ page }) => {
   let rpcBody: Record<string, unknown> | null = null;
 
+  // Phase 5.6 cutover: page now calls event_view_p5(snapshot_compat) which
+  // is byte-equal to the legacy get_event_page_snapshot_v2.
   page.on('response', async (resp) => {
-    if (resp.url().includes('get_event_page_snapshot_v2') && resp.status() === 200) {
+    if (resp.url().includes('event_view_p5') && resp.status() === 200) {
       try { rpcBody = await resp.json(); } catch { /* ignore */ }
     }
   });

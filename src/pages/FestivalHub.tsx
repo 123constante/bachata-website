@@ -135,7 +135,7 @@ const FestivalHubInner = () => {
     return map;
   }, [countRows]);
 
-  // Read current user's festival attendance status via occurrence-based lookup
+  // Read current user's festival attendance status via new public RPC
   const {
     data: statusRows = [],
     refetch: refetchStatuses,
@@ -144,31 +144,16 @@ const FestivalHubInner = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Get all occurrences for these festivals
-      const { data: occurrences, error: occError } = await supabase
-        .from('calendar_occurrences')
-        .select('id, event_id')
-        .in('event_id', festivalIds);
-
-      if (occError || !occurrences?.length) {
-        return [];
-      }
-
-      const occurrenceIds = occurrences.map((o) => o.id);
-      const occurrenceToEvent = new Map(occurrences.map((o) => [o.id, o.event_id]));
-
-      const { data: attendanceRows, error: attError } = await supabase
-        .from('event_attendance')
-        .select('occurrence_id, status')
-        .in('occurrence_id', occurrenceIds)
-        .eq('user_id', user.id);
+      const { data: allAttendance, error: attError } = await supabase.rpc('get_my_event_attendance_v1');
 
       if (attError) throw attError;
 
-      return (attendanceRows || []).map((row) => ({
-        event_id: occurrenceToEvent.get(row.occurrence_id) ?? '',
-        status: row.status,
-      })).filter((r) => r.event_id);
+      return (allAttendance || [])
+        .filter((row: any) => festivalIds.includes(row.event_id))
+        .map((row: any) => ({
+          event_id: row.event_id,
+          status: row.status,
+        }));
     },
     enabled: festivalIds.length > 0 && Boolean(user?.id),
     staleTime: 1000 * 15,

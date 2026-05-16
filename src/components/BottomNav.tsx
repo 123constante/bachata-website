@@ -11,7 +11,7 @@ const BASE_NAV_LINKS: Array<{
 }> = [
   { segment: 'parties', label: 'Parties', emoji: '🎉' },
   { segment: 'classes', label: 'Classes', emoji: '🎓' },
-  { segment: 'organisers', label: 'Organisers', emoji: '🎪', fixedPath: '/organisers' },
+  { segment: 'venues', label: 'Venues', emoji: '🏛️' },
 ];
 
 const emojiAnimations = {
@@ -23,8 +23,8 @@ const emojiAnimations = {
     animate: { y: [0, -6, 0] },
     transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' as const },
   },
-  '🎪': {
-    animate: { rotate: [0, -3, 3, 0], scale: [1, 1.05, 1] },
+  '🏛️': {
+    animate: { scale: [1, 1.08, 1] },
     transition: { repeat: Infinity, duration: 2.5, ease: 'easeInOut' as const },
   },
   '💫': {
@@ -83,8 +83,8 @@ export const BottomNav = () => {
               <span
                 className={
                   isActive(link.path)
-                    ? 'text-primary font-bold'
-                    : 'text-muted-foreground/50 group-hover:text-foreground'
+                    ? 'text-white font-bold'
+                    : 'text-white group-hover:text-white'
                 }
               >
                 {link.label}

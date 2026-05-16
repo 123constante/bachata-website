@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Organiser profile — Approach B · Bento balanced</title>
+<style>
+  :root {
+    --bg: #050505;
+    --surface: rgba(255,255,255,0.03);
+    --surface-raised: rgba(255,255,255,0.05);
+    --hairline: rgba(255,255,255,0.08);
+    --hairline-soft: rgba(255,255,255,0.05);
+    --orange: #f97316;
+    --orange-soft: rgba(249,115,22,0.12);
+    --orange-soft-strong: rgba(249,115,22,0.18);
+    --orange-border: rgba(249,115,22,0.30);
+    --orange-fg: #fdba74;
+    --fg: #ffffff;
+    --fg-muted: rgba(255,255,255,0.62);
+    --fg-faint: rgba(255,255,255,0.42);
+  }
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #0a0a0a; color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, ui-sans-serif, sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100%;
+  }
+  body { padding: 24px 24px 80px; }
+
+  .page-header { max-width: 1500px; margin: 0 auto 28px; }
+  .page-header .badge {
+    display: inline-block; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--orange); background: var(--orange-soft); padding: 4px 10px; border-radius: 9999px;
+    border: 1px solid var(--orange-border); font-weight: 700;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-top: 10px; letter-spacing: -0.01em; }
+  .page-header p { font-size: 13px; color: var(--fg-muted); margin-top: 6px; max-width: 760px; line-height: 1.5; }
+  .page-header .judgement {
+    margin-top: 14px; font-size: 12px; color: var(--fg-faint);
+    background: rgba(255,255,255,0.02); border: 1px solid var(--hairline-soft);
+    padding: 10px 12px; border-radius: 8px; max-width: 760px; line-height: 1.6;
+  }
+  .page-header .judgement strong { color: var(--orange-fg); }
+
+  .layout {
+    display: grid; grid-template-columns: 391px minmax(0, 1fr); gap: 32px;
+    max-width: 1500px; margin: 0 auto; align-items: start;
+  }
+  @media (max-width: 1080px) { .layout { grid-template-columns: 1fr; } }
+
+  .frame-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--fg-faint); margin-bottom: 10px; font-weight: 700;
+  }
+  .frame-label .dim { color: var(--fg-faint); font-weight: 400; margin-left: 6px; }
+
+  .phone {
+    width: 391px; border-radius: 36px; background: #000;
+    box-shadow: 0 0 0 7px #1a1a1a, 0 0 0 8px #2a2a2a, 0 36px 80px rgba(0,0,0,0.65);
+    overflow: hidden;
+  }
+  .phone-notch {
+    height: 28px; background: #000; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; font-size: 11px; color: rgba(255,255,255,0.55);
+  }
+  .phone-notch .right { display: flex; gap: 4px; align-items: center; font-weight: 600; }
+  .phone-content { background: var(--bg); position: relative; }
+
+  .fold-line { position: relative; height: 0; border-top: 2px dashed rgba(249,115,22,0.55); margin: 0; }
+  .fold-line::after {
+    content: 'iPhone SE fold (≈ 587 px content visible)'; position: absolute; right: 8px; top: -10px;
+    background: var(--orange); color: #000; font-size: 9px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em;
+  }
+
+  .desktop { background: #000; border-radius: 12px; border: 1px solid var(--hairline); overflow: hidden; }
+  .desktop-bar {
+    height: 28px; background: #161616; display: flex; align-items: center; padding: 0 14px; gap: 7px;
+    border-bottom: 1px solid var(--hairline-soft);
+  }
+  .desktop-bar span { width: 11px; height: 11px; border-radius: 50%; background: #4b5563; }
+  .desktop-bar span:nth-child(1) { background: #ff5f57; }
+  .desktop-bar span:nth-child(2) { background: #febc2e; }
+  .desktop-bar span:nth-child(3) { background: #28c840; }
+  .desktop-bar .url {
+    margin-left: 14px; font-size: 11px; color: var(--fg-faint);
+    background: #0a0a0a; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--hairline-soft);
+  }
+  .desktop-content { background: var(--bg); }
+
+  .breadcrumb {
+    padding: 12px 16px; font-size: 11px; color: var(--fg-faint);
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  }
+  .breadcrumb a { color: var(--fg-muted); text-decoration: none; }
+  .breadcrumb .sep { color: rgba(255,255,255,0.25); margin: 0 2px; }
+  .breadcrumb .current { color: var(--fg); font-weight: 500; }
+
+  .hero {
+    padding: 28px 16px 32px; text-align: center;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.16) 0%, rgba(249,115,22,0) 55%),
+      var(--bg);
+    border-bottom: 1px solid var(--hairline-soft);
+  }
+  .hero .emoji { font-size: 42px; line-height: 1; margin-bottom: 14px; filter: drop-shadow(0 4px 12px rgba(249,115,22,0.35)); }
+  .hero h1 { font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; }
+  .hero h1 .orange-label { display: block; color: var(--orange); font-size: 17px; font-weight: 700; margin-top: 4px; }
+  .hero .subtitle { color: var(--fg-muted); font-size: 13px; margin-top: 10px; display: inline-flex; align-items: center; gap: 5px; }
+
+  /* === BENTO TILES === */
+  .bento {
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .tile:nth-child(2) { animation-delay: 0.05s; }
+  .tile:nth-child(3) { animation-delay: 0.10s; }
+  .tile:nth-child(4) { animation-delay: 0.15s; }
+  .tile.span-2 { grid-column: span 2; }
+  .tile.accent { background: rgba(249,115,22,0.05); border-color: var(--orange-border); }
+
+  .tile-label {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--fg-faint);
+  }
+  .tile-label.accent { color: var(--orange-fg); }
+
+  /* Identity tile (compact, half-width) */
+  .identity-tile { gap: 6px; }
+  .identity-row { display: flex; align-items: center; gap: 8px; }
+  .avatar-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #f97316, #c2410c);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+    border: 2px solid var(--orange-border);
+  }
+  .identity-name { font-size: 12.5px; font-weight: 700; line-height: 1.15; }
+  .identity-meta { font-size: 9.5px; color: var(--fg-faint); margin-top: 1px; line-height: 1.2; }
+  .stat-rows { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+  .stat-line {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; color: var(--fg-muted);
+  }
+  .stat-line .v { color: var(--fg); font-weight: 700; font-size: 11px; }
+  .stat-line .v.accent { color: var(--orange-fg); }
+
+  /* Connect tile (half-width, social grid) */
+  .connect-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 4px;
+  }
+  .connect-btn {
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 8px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--fg-muted);
+    cursor: pointer; transition: all 0.15s;
+    font-size: 9px; font-weight: 600;
+  }
+  .connect-btn:hover { background: var(--orange-soft); border-color: var(--orange-border); color: var(--orange-fg); }
+  .connect-btn svg { width: 14px; height: 14px; }
+
+  /* Events tile (full-width, 2-col mobile event cards with poster) */
+  .events-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+  .event-card {
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: all 0.18s; cursor: pointer;
+    animation: fadeUp 0.35s ease both;
+  }
+  .event-card:hover { border-color: var(--orange-border); transform: translateY(-2px); }
+  .event-card:nth-child(2) { animation-delay: 0.05s; }
+  .event-card:nth-child(3) { animation-delay: 0.10s; }
+  .event-card:nth-child(4) { animation-delay: 0.15s; }
+  .event-poster {
+    aspect-ratio: 16/10;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.85); font-size: 22px;
+    position: relative;
+  }
+  .event-poster .date-overlay {
+    position: absolute; top: 6px; left: 6px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    color: #fff; font-size: 9.5px; font-weight: 700;
+    padding: 3px 6px; border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+  .ep-1 { background: linear-gradient(135deg, #f97316, #be123c); }
+  .ep-2 { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+  .ep-3 { background: linear-gradient(135deg, #059669, #0891b2); }
+  .ep-4 { background: linear-gradient(135deg, #c026d3, #f59e0b); }
+  .event-info { padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .event-name { font-size: 12px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+  .event-meta { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--fg-faint); }
+  .event-meta svg { width: 9px; height: 9px; flex-shrink: 0; }
+
+  /* Bio */
+  .bio { font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.82); white-space: pre-wrap; }
+
+  /* Team grid 3-col (within tile) */
+  .team-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
+  .team-card {
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 7px 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-align: center;
+  }
+  .team-card.head { border-color: var(--orange-border); background: rgba(249,115,22,0.06); }
+  .team-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #475569, #334155);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+  }
+  .team-card.head .team-avatar { background: linear-gradient(135deg, #f97316, #c2410c); }
+  .team-name { font-size: 9.5px; font-weight: 600; line-height: 1.2; }
+  .team-role { font-size: 8.5px; color: var(--fg-faint); line-height: 1.15; }
+  .team-card.head .team-role { color: var(--orange-fg); }
+
+  /* Gallery 3-col */
+  .gallery-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 4px; }
+  .gallery-cell {
+    aspect-ratio: 4/3; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; opacity: 0.85; cursor: pointer; transition: all 0.18s;
+  }
+  .gallery-cell:hover { opacity: 1; transform: scale(1.02); }
+  .gc-1 { background: linear-gradient(135deg, #f97316, #be123c); }
+  .gc-2 { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+  .gc-3 { background: linear-gradient(135deg, #059669, #0891b2); }
+  .gc-4 { background: linear-gradient(135deg, #c026d3, #f59e0b); }
+  .gc-5 { background: linear-gradient(135deg, #1d4ed8, #dc2626); }
+  .gc-6 { background: linear-gradient(135deg, #4f46e5, #f97316); }
+
+  /* Timeline tile */
+  .timeline-card {
+    background: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .timeline-card + .timeline-card { margin-top: 5px; }
+  .timeline-info { flex: 1; min-width: 0; }
+  .timeline-title { font-size: 11.5px; font-weight: 600; line-height: 1.2; }
+  .timeline-meta { font-size: 9.5px; color: var(--fg-faint); margin-top: 2px; }
+  .timeline-badge {
+    background: var(--orange-soft); color: var(--orange-fg);
+    font-size: 8px; padding: 2px 5px; border-radius: 9999px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; flex-shrink: 0;
+  }
+
+  /* Pills used in tiles */
+  .pill {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: var(--surface-raised); border: 1px solid var(--hairline);
+    border-radius: 9999px; padding: 2px 7px;
+    font-size: 9.5px; color: rgba(255,255,255,0.78); white-space: nowrap;
+  }
+  .pill.accent { background: var(--orange-soft); border-color: var(--orange-border); color: var(--orange-fg); }
+
+  /* Section header */
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--fg-muted); display: flex; align-items: center; gap: 6px;
+  }
+  .section-title .count { background: var(--orange-soft); color: var(--orange-fg); font-size: 9px; padding: 1px 6px; border-radius: 9999px; font-weight: 700; }
+  .section-title .see-all { margin-left: auto; font-weight: 500; color: var(--fg-faint); font-size: 10px; text-transform: none; letter-spacing: 0; }
+
+  /* Desktop overrides */
+  .desktop-content .breadcrumb { padding: 18px 32px; font-size: 12px; }
+  .desktop-content .hero { padding: 56px 32px 64px; }
+  .desktop-content .hero .emoji { font-size: 56px; margin-bottom: 18px; }
+  .desktop-content .hero h1 { font-size: 56px; }
+  .desktop-content .hero h1 .orange-label { font-size: 30px; margin-top: 6px; }
+  .desktop-content .bento { max-width: 1100px; margin: 0 auto; padding: 24px 32px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .desktop-content .tile { padding: 16px; gap: 10px; border-radius: 12px; }
+  .desktop-content .tile.identity-desk { grid-column: span 2; }   /* identity = 2 cols of 4 */
+  .desktop-content .tile.connect-desk { grid-column: span 1; }
+  .desktop-content .tile.events-desk { grid-column: span 4; }
+  .desktop-content .tile.about-desk { grid-column: span 2; }
+  .desktop-content .tile.team-desk { grid-column: span 4; }
+  .desktop-content .tile.gallery-desk { grid-column: span 4; }
+  .desktop-content .tile.timeline-desk { grid-column: span 4; }
+  .desktop-content .events-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .desktop-content .event-name { font-size: 13px; }
+  .desktop-content .team-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .desktop-content .team-avatar { width: 44px; height: 44px; font-size: 13px; }
+  .desktop-content .team-name { font-size: 12px; }
+  .desktop-content .team-role { font-size: 10.5px; }
+  .desktop-content .gallery-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+  .desktop-content .bio { font-size: 14px; }
+  .desktop-content .avatar-circle { width: 56px; height: 56px; font-size: 17px; }
+  .desktop-content .identity-name { font-size: 18px; }
+  .desktop-content .identity-meta { font-size: 12px; }
+  .desktop-content .stat-line { font-size: 12px; }
+  .desktop-content .stat-line .v { font-size: 13px; }
+  .desktop-content .connect-btn { padding: 10px 6px; font-size: 10.5px; }
+  .desktop-content .connect-btn svg { width: 18px; height: 18px; }
+  .desktop-content .timeline-title { font-size: 13px; }
+  .desktop-content .timeline-meta { font-size: 11px; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <span class="badge">Approach B</span>
+  <h1>Bento balanced</h1>
+  <p>Bento grid below the hero. The first row pairs a compact identity tile with a Connect tile (50/50), keeping the upcoming-events tile high enough that the first row of events appears on screen. Mirrors the established Teacher / Dancer pattern so it slots into the rest of the site.</p>
+  <div class="judgement">
+    <strong>Above-fold honesty:</strong> identity + Connect tiles share one row at ~135px tall on mobile, lifting the events tile header to ~520px from the top. The first event row appears just at the fold (≈587px) — visible without scroll on most phones, off-screen by ~20px on iPhone SE with Safari chrome. <strong>Trade-off:</strong> events drop to <strong>2-col mobile</strong> (the readability fall-back the PM note recommended) so cards can show a poster + clear name. Bento layout is most consistent with sibling profile pages.
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ MOBILE FILMSTRIP ============ -->
+  <section>
+    <div class="frame-label">Mobile<span class="dim">· iPhone SE-equivalent · 375 px</span></div>
+    <div class="phone">
+      <div class="phone-notch"><span>9:41</span><span class="right">●●● ▮ 100%</span></div>
+      <div class="phone-content">
+
+        <div class="breadcrumb">
+          <a>Home</a><span class="sep">›</span>
+          <a>Parties</a><span class="sep">›</span>
+          <a>Organisers</a><span class="sep">›</span>
+          <span class="current">Bachata Nights London</span>
+        </div>
+
+        <div class="hero">
+          <div class="emoji">🎪</div>
+          <h1>Bachata Nights London<span class="orange-label">Organiser</span></h1>
+          <div class="subtitle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            London
+          </div>
+        </div>
+
+        <!-- BENTO -->
+        <div class="bento">
+
+          <!-- Row 1: Identity (left) + Connect (right) — 2 cols of 2 -->
+          <div class="tile identity-tile">
+            <div class="identity-row">
+              <div class="avatar-circle">BN</div>
+              <div style="flex:1; min-width:0;">
+                <div class="identity-name">Bachata Nights London</div>
+                <div class="identity-meta">Collective</div>
+              </div>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-line"><span>Since</span><span class="v accent">2018</span></div>
+              <div class="stat-line"><span>Events run</span><span class="v">47</span></div>
+              <div class="stat-line"><span>Team</span><span class="v">4</span></div>
+            </div>
+          </div>
+
+          <div class="tile">
+            <div class="tile-label">Connect</div>
+            <div class="connect-grid">
+              <button class="connect-btn" title="Instagram">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                IG
+              </button>
+              <button class="connect-btn" title="Facebook">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                FB
+              </button>
+              <button class="connect-btn" title="Website">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Web
+              </button>
+              <button class="connect-btn" title="Email">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Mail
+              </button>
+            </div>
+          </div>
+
+          <!-- The fold marker — events header should sit just above -->
+          <div class="tile span-2" style="padding: 0; background: transparent; border: 0; margin: 0;">
+            <div class="fold-line"></div>
+          </div>
+
+          <!-- Row 2: Upcoming events (full width, 2-col) -->
+          <div class="tile span-2">
+            <div class="section-title">Upcoming <span class="count">4</span><span class="see-all">See all →</span></div>
+            <div class="events-grid">
+              <div class="event-card">
+                <div class="event-poster ep-1"><span class="date-overlay">SAT 10 MAY</span>🎶</div>
+                <div class="event-info">
+                  <div class="event-name">Latin Saturdays at The Loft</div>
+                  <div class="event-meta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    9pm · Wandsworth
+                  </div>
+                </div>
+              </div>
+              <div class="event-card">
+                <div class="event-poster ep-2"><span class="date-overlay">FRI 16 MAY</span>🎶</div>
+                <div class="event-info">
+                  <div class="event-name">Bachata Festival Pre-Party</div>
+                  <div class="event-meta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    8pm · Camden
+                  </div>
+                </div>
+              </div>
+              <div class="event-card">
+                <div class="event-poster ep-3"><span class="date-overlay">SUN 18 MAY</span>🎶</div>
+                <div class="event-info">
+                  <div class="event-name">Sensual Sundays</div>
+                  <div class="event-meta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    7pm · Shoreditch
+                  </div>
+                </div>
+              </div>
+              <div class="event-card">
+                <div class="event-poster ep-4"><span class="date-overlay">SAT 24 MAY</span>🎶</div>
+                <div class="event-info">
+                  <div class="event-name">Workshop · Carlos &amp; Lucia</div>
+                  <div class="event-meta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    4pm · Brixton
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- About -->
+          <div class="tile span-2">
+            <div class="section-title">About</div>
+            <div class="bio">We've been running London's friendliest bachata socials since 2018. Every Friday at The Loft Wandsworth — beginner class 8pm, social 9pm–2am.</div>
+          </div>
+
+          <!-- Team -->
+          <div class="tile span-2">
+            <div class="section-title">Team <span class="count">4</span></div>
+            <div class="team-grid">
+              <div class="team-card head">
+                <div class="team-avatar">CR</div>
+                <div class="team-name">Carlos R.</div>
+                <div class="team-role">Lead</div>
+              </div>
+              <div class="team-card">
+                <div class="team-avatar">LG</div>
+                <div class="team-name">Lucia G.</div>
+                <div class="team-role">Co-org.</div>
+              </div>
+              <div class="team-card">
+                <div class="team-avatar">MS</div>
+                <div class="team-name">Marta S.</div>
+                <div class="team-role">DJ coord.</div>
+              </div>
+              <div class="team-card">
+                <div class="team-avatar">TB</div>
+                <div class="team-name">Tom B.</div>
+                <div class="team-role">Door &amp; PR</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gallery -->
+          <div class="tile span-2">
+            <div class="section-title">Gallery</div>
+            <div class="gallery-grid">
+              <div class="gallery-cell gc-1">📸</div>
+              <div class="gallery-cell gc-2">📸</div>
+              <div class="gallery-cell gc-3">📸</div>
+              <div class="gallery-cell gc-4">📸</div>
+              <div class="gallery-cell gc-5">📸</div>
+              <div class="gallery-cell gc-6">📸</div>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="tile span-2">
+            <div class="section-title">Connected events</div>
+            <div class="timeline-card">
+              <div class="timeline-info">
+                <div class="timeline-title">Sensual Sundays · Sept 2025</div>
+                <div class="timeline-meta">21 Sep · Shoreditch</div>
+              </div>
+              <span class="timeline-badge">Organiser</span>
+            </div>
+            <div class="timeline-card">
+              <div class="timeline-info">
+                <div class="timeline-title">Bachata Beach Festival</div>
+                <div class="timeline-meta">14 Aug · Brighton</div>
+              </div>
+              <span class="timeline-badge">Organiser</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DESKTOP PREVIEW ============ -->
+  <section>
+    <div class="frame-label">Desktop<span class="dim">· 1280 px wide · 4-col bento (2/1/4 split on row 1)</span></div>
+    <div class="desktop">
+      <div class="desktop-bar">
+        <span></span><span></span><span></span>
+        <span class="url">bachatanights.co.uk/organisers/bachata-nights-london</span>
+      </div>
+      <div class="desktop-content">
+
+        <div class="breadcrumb">
+          <a>Home</a><span class="sep">›</span>
+          <a>Parties</a><span class="sep">›</span>
+          <a>Organisers</a><span class="sep">›</span>
+          <span class="current">Bachata Nights London</span>
+        </div>
+
+        <div class="hero">
+          <div class="emoji">🎪</div>
+          <h1>Bachata Nights London<span class="orange-label">Organiser</span></h1>
+          <div class="subtitle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            London
+          </div>
+        </div>
+
+        <div class="bento">
+          <div class="tile identity-tile identity-desk">
+            <div class="identity-row">
+              <div class="avatar-circle">BN</div>
+              <div style="flex:1; min-width:0;">
+                <div class="identity-name">Bachata Nights London</div>
+                <div class="identity-meta">Collective · run by Carlos Rivera</div>
+              </div>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-line"><span>Since</span><span class="v accent">2018</span></div>
+              <div class="stat-line"><span>Events run</span><span class="v">47</span></div>
+              <div class="stat-line"><span>Team members</span><span class="v">4</span></div>
+              <div class="stat-line"><span>Based in</span><span class="v">London</span></div>
+            </div>
+          </div>
+
+          <div class="tile connect-desk">
+            <div class="tile-label">Connect</div>
+            <div class="connect-grid">
+              <button class="connect-btn" title="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>Instagram</button>
+              <button class="connect-btn" title="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>Facebook</button>
+              <button class="connect-btn" title="Website"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Website</button>
+              <button class="connect-btn" title="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Email</button>
+            </div>
+          </div>
+
+          <div class="tile about-desk">
+            <div class="tile-label">About</div>
+            <div class="bio">We've been running London's friendliest bachata socials since 2018. Every Friday at The Loft Wandsworth — beginner class 8pm, social 9pm–2am. Newcomers are met by a host. We pair you up with leaders so nobody sits out.</div>
+          </div>
+
+          <div class="tile events-desk">
+            <div class="section-title">Upcoming <span class="count">4</span><span class="see-all">See all upcoming →</span></div>
+            <div class="events-grid">
+              <div class="event-card"><div class="event-poster ep-1"><span class="date-overlay">SAT 10 MAY</span>🎶</div><div class="event-info"><div class="event-name">Latin Saturdays at The Loft</div><div class="event-meta">9pm – 2am · Wandsworth</div></div></div>
+              <div class="event-card"><div class="event-poster ep-2"><span class="date-overlay">FRI 16 MAY</span>🎶</div><div class="event-info"><div class="event-name">Bachata Festival Pre-Party</div><div class="event-meta">8pm – 2am · Camden Assembly</div></div></div>
+              <div class="event-card"><div class="event-poster ep-3"><span class="date-overlay">SUN 18 MAY</span>🎶</div><div class="event-info"><div class="event-name">Sensual Sundays</div><div class="event-meta">7pm – 11pm · Shoreditch</div></div></div>
+              <div class="event-card"><div class="event-poster ep-4"><span class="date-overlay">SAT 24 MAY</span>🎶</div><div class="event-info"><div class="event-name">Workshop · Carlos &amp; Lucia</div><div class="event-meta">4pm – 8pm · Brixton</div></div></div>
+            </div>
+          </div>
+
+          <div class="tile team-desk">
+            <div class="section-title">Team <span class="count">4</span></div>
+            <div class="team-grid">
+              <div class="team-card head"><div class="team-avatar">CR</div><div class="team-name">Carlos Rivera</div><div class="team-role">Lead organiser</div></div>
+              <div class="team-card"><div class="team-avatar">LG</div><div class="team-name">Lucia Gómez</div><div class="team-role">Co-organiser</div></div>
+              <div class="team-card"><div class="team-avatar">MS</div><div class="team-name">Marta Silva</div><div class="team-role">DJ coordinator</div></div>
+              <div class="team-card"><div class="team-avatar">TB</div><div class="team-name">Tom Bell</div><div class="team-role">Door &amp; PR</div></div>
+            </div>
+          </div>
+
+          <div class="tile gallery-desk">
+            <div class="section-title">Gallery</div>
+            <div class="gallery-grid">
+              <div class="gallery-cell gc-1">📸</div>
+              <div class="gallery-cell gc-2">📸</div>
+              <div class="gallery-cell gc-3">📸</div>
+              <div class="gallery-cell gc-4">📸</div>
+              <div class="gallery-cell gc-5">📸</div>
+              <div class="gallery-cell gc-6">📸</div>
+            </div>
+          </div>
+
+          <div class="tile timeline-desk">
+            <div class="section-title">Connected events</div>
+            <div class="timeline-card"><div class="timeline-info"><div class="timeline-title">Sensual Sundays · Sept 2025</div><div class="timeline-meta">21 Sep 2025 · Shoreditch Studio</div></div><span class="timeline-badge">Organiser</span></div>
+            <div class="timeline-card"><div class="timeline-info"><div class="timeline-title">Bachata Beach Festival</div><div class="timeline-meta">14 Aug 2025 · Brighton Beach</div></div><span class="timeline-badge">Organiser</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

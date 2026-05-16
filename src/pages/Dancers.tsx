@@ -94,17 +94,15 @@ const Dancers = () => {
     queryKey: ['dancer-attendance', user?.id],
     queryFn: async () => {
       if (!user?.id) return [] as AttendanceRow[];
-      const { data, error } = await supabase
-        .from('event_attendance')
-        .select('status, updated_at, calendar_occurrences!inner(event_id)')
-        .eq('user_id', user.id)
-        .in('status', ['going', 'interested']);
+      const { data, error } = await supabase.rpc('get_my_event_attendance_v1');
       if (error) throw error;
-      return (data || []).map((r: any) => ({
-        event_id: r.calendar_occurrences.event_id as string,
-        status: r.status as 'going' | 'interested',
-        updated_at: r.updated_at as string | null,
-      }));
+      return (data || [])
+        .filter((r: any) => r.status === 'going' || r.status === 'interested')
+        .map((r: any) => ({
+          event_id: r.event_id as string,
+          status: r.status as 'going' | 'interested',
+          updated_at: r.updated_at as string | null,
+        }));
     },
     enabled: Boolean(user?.id),
     staleTime: 1000 * 20,

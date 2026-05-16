@@ -173,7 +173,12 @@ export const VendorDashboard = () => {
 
   const productsCount = allProducts.length;
   const productCategoriesCount = Array.isArray(vendor?.product_categories) ? vendor.product_categories.length : 0;
-  const linkedEventsCount = Array.isArray(vendor?.upcoming_events) ? vendor.upcoming_events.length : 0;
+  // Phase 5.5: vendors.upcoming_events dropped — count is now derived
+  // server-side via get_public_vendor_directory_v1.upcoming_event_count
+  // (sourced from event_vendor_booths). The dashboard tile that used this
+  // count is no longer wired to the legacy column. Default to 0 here so
+  // existing UI guards stay intact; the canonical surface is the public RPC.
+  const linkedEventsCount = 0;
   const hasBusinessProfile = Boolean(vendor?.business_name?.trim());
   const hasLogo = Boolean(vendor?.photo_url?.[0]);
   const hasContact = Boolean(vendor?.public_email || vendor?.whatsapp || vendor?.website || vendor?.instagram || vendor?.facebook);

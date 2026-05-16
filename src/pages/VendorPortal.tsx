@@ -48,9 +48,7 @@ const emptyForm: VendorDashboardFormState = {
   instagram: "",
   facebook: "",
   faq: "",
-  upcoming_events: [],
   meta_data: null,
-  team: null,
 };
 
 const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
@@ -73,44 +71,26 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   instagram: vendor.instagram || "",
   facebook: vendor.facebook || "",
   faq: vendor.faq || "",
-  upcoming_events: normalizeStringArray(vendor.upcoming_events),
   meta_data: vendor.meta_data,
-  team: vendor.team,
 });
 
+// Phase 5.5 retired the "events" and "team" sections from the self-service
+// portal. Both surfaces are now admin-managed via Phase 3 booth RPCs and the
+// Phase 5 vendor_team_members RPCs respectively.
 const DASHBOARD_SECTIONS = [
   "profile",
   "media",
   "products",
   "categories",
   "promo",
-  "events",
   "contact",
   "social",
   "faq",
-  "team",
   "save",
   "advanced",
 ] as const;
 
 type DashboardSection = (typeof DASHBOARD_SECTIONS)[number];
-
-type EventSuggestion = {
-  id: string;
-  name: string;
-  date: string | null;
-  city: string | null;
-  location?: string | null;
-  imageUrl?: string | null;
-  hasParty?: boolean;
-  hasClass?: boolean;
-};
-
-type TeamMemberOption = {
-  id: string;
-  displayName: string;
-  city: string | null;
-};
 
 type VendorDashboardProps = {
   forcedSection?: DashboardSection | null;
@@ -118,15 +98,12 @@ type VendorDashboardProps = {
   onSaved?: () => void;
 };
 
-const getFriendlyVendorSaveError = (error: any, eventsOnlyMode: boolean): string => {
+const getFriendlyVendorSaveError = (error: any): string => {
   const message = String(error?.message || "");
   const schemaPattern = /Could not find the '([^']+)' column of 'vendors'/i;
   const schemaMatch = message.match(schemaPattern);
 
   if (schemaMatch) {
-    if (eventsOnlyMode) {
-      return "Vendor profile schema is outdated. Event links were processed in events-only mode; refresh and try again if needed.";
-    }
     return "Vendor profile schema is outdated. Some profile fields need a schema sync before full save works.";
   }
 
@@ -151,19 +128,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
   const [focusedSection, setFocusedSection] = useState<string | null>(null);
 
   const [primaryFile, setPrimaryFile] = useState<File | null>(null);
-  const [teamInput, setTeamInput] = useState("");
   const [categoryInput, setCategoryInput] = useState("");
-  const [upcomingEventsInput, setUpcomingEventsInput] = useState("");
-  const [eventSearchInput, setEventSearchInput] = useState("");
-  const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
-  const [loadingEventSuggestions, setLoadingEventSuggestions] = useState(false);
-  const [pendingEventIds, setPendingEventIds] = useState<string[]>([]);
-  
-  // Team search
-  const [teamSearch, setTeamSearch] = useState("");
-  const [teamResults, setTeamResults] = useState<TeamMemberOption[]>([]);
-  const [isSearchingTeam, setIsSearchingTeam] = useState(false);
-  const [teamSearchError, setTeamSearchError] = useState<string | null>(null);
 
   const [touched, setTouched] = useState({
     businessName: false,
@@ -177,10 +142,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       ? (requestedSection as DashboardSection)
       : null;
 
-  const eventsOnlyMode = embedded && activeDashboardSection === "events";
-
   const showSection = (section: DashboardSection) => {
-    if (eventsOnlyMode && section === "save") return false;
     if (!activeDashboardSection) return true;
     return activeDashboardSection === section || section === "save";
   };
@@ -212,10 +174,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       } else if (data) {
         const nextForm = toFormState(data as VendorRow);
         setForm(nextForm);
-        setTeamInput(nextForm.team ? JSON.stringify(nextForm.team, null, 2) : "");
       } else {
         setForm(emptyForm);
-        setTeamInput("");
       }
 
       setFetchingVendor(false);
@@ -246,191 +206,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
     return () => window.clearTimeout(timer);
   }, [searchParams, authLoading, fetchingVendor, activeDashboardSection, embedded]);
 
-  useEffect(() => {
-    const loadEventSuggestions = async () => {
-      if (!user?.id) {
-        setEventSuggestions([]);
-        return;
-      }
-
-      setLoadingEventSuggestions(true);
-
-      try {
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 60);
-
-        if (citySlug) {
-          const { data, error: rpcError } = await supabase.rpc('get_calendar_events' as any, {
-            range_start: startDate.toISOString(),
-            range_end: endDate.toISOString(),
-            city_slug_param: citySlug,
-          });
-
-          if (rpcError) {
-            captureException(rpcError, { context: "VendorPortal.loadCalendarEvents" });
-            setEventSuggestions([]);
-          } else {
-            const raw = Array.isArray(data) ? data : [];
-            const dedupedById = new Map<string, EventSuggestion>();
-
-            for (const row of raw as any[]) {
-              if (!row?.event_id || !row?.name) continue;
-              const eventId = String(row.event_id);
-              if (!dedupedById.has(eventId)) {
-                dedupedById.set(eventId, {
-                  id: eventId,
-                  name: String(row.name),
-                  date: row.instance_date ? String(row.instance_date) : null,
-                  city: null,
-                  location: row.location ? String(row.location) : null,
-                  imageUrl: resolveEventImage(row.photo_url, row.cover_image_url),
-                  hasParty: Boolean(row.has_party),
-                  hasClass: Boolean(row.has_class),
-                });
-              }
-            }
-
-            setEventSuggestions(Array.from(dedupedById.values()));
-          }
-        } else {
-          const today = new Date().toISOString().slice(0, 10);
-          let query = (supabase as any)
-            .from("events")
-            .select("id, name, date, city")
-            .gte("date", today)
-            .order("date", { ascending: true })
-            .limit(20);
-
-          if (form.city?.trim()) {
-            query = query.ilike("city", `%${form.city.trim()}%`);
-          }
-
-          const { data, error: eventsError } = await query;
-          if (eventsError) {
-            captureException(eventsError, { context: "VendorPortal.loadFallbackEvents" });
-            setEventSuggestions([]);
-          } else {
-            const mapped = Array.isArray(data)
-              ? data
-                  .filter((row: any) => row?.id && row?.name)
-                  .map((row: any) => ({
-                    id: String(row.id),
-                    name: String(row.name),
-                    date: row.date ? String(row.date) : null,
-                    city: row.city ? String(row.city) : null,
-                    location: null,
-                    imageUrl: null,
-                    hasParty: false,
-                    hasClass: false,
-                  }))
-              : [];
-            setEventSuggestions(mapped);
-          }
-        }
-      } finally {
-        setLoadingEventSuggestions(false);
-      }
-    };
-
-    if (!authLoading && !fetchingVendor) {
-      void loadEventSuggestions();
-    }
-  }, [authLoading, fetchingVendor, user?.id, form.city, citySlug]);
-
-  useEffect(() => {
-    const query = teamSearch.trim();
-    setTeamSearchError(null);
-    if (query.length < 2) {
-      setTeamResults([]);
-      setIsSearchingTeam(false);
-      return;
-    }
-
-    const loadTeamMatches = async () => {
-      setIsSearchingTeam(true);
-      try {
-        const safeQuery = query.replace(/[,%()]/g, " ").trim();
-        if (!safeQuery) {
-          setTeamResults([]);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("dancer_profiles")
-          .select("id, first_name, surname")
-          .or(`first_name.ilike.%${safeQuery}%,surname.ilike.%${safeQuery}%`)
-          .limit(8);
-
-        if (error) throw error;
-
-        const mapped: TeamMemberOption[] = (data || []).map((row: any) => {
-          const displayName = `${row.first_name || ""} ${row.surname || ""}`.trim() || "Unnamed dancer";
-          return {
-            id: row.id,
-            displayName,
-            city: null,
-          };
-        });
-
-        setTeamResults(mapped);
-      } catch {
-        setTeamResults([]);
-        setTeamSearchError("Couldn’t load dancer matches. Create/select dancers first, then link them here.");
-      } finally {
-        setIsSearchingTeam(false);
-      }
-    };
-
-    const timer = window.setTimeout(loadTeamMatches, 250);
-    return () => window.clearTimeout(timer);
-  }, [teamSearch]);
-
-  const addTeamMember = (member: TeamMemberOption) => {
-    setTeamSearch("");
-    setTeamResults([]);
-    
-    // Parse current team array
-    let currentTeam: any[] = [];
-    try {
-      if (teamInput.trim()) {
-        const parsed = JSON.parse(teamInput);
-        if (Array.isArray(parsed)) currentTeam = parsed;
-      }
-    } catch {
-      // ignore
-    }
-
-    // Check overlap
-    if (currentTeam.some((t: any) => t.dancer_id === member.id)) {
-      toast({ title: "Already in team" });
-      return;
-    }
-
-    const newEntry = {
-      dancer_id: member.id,
-      name: member.displayName,
-      city: member.city || null,
-    };
-
-    const nextTeam = [...currentTeam, newEntry];
-    setTeamInput(JSON.stringify(nextTeam, null, 2));
-    toast({ title: "Team member added" });
-  };
-
-  const removeTeamMember = (dancerId: number) => {
-    let currentTeam: any[] = [];
-    try {
-      if (teamInput.trim()) {
-        const parsed = JSON.parse(teamInput);
-        if (Array.isArray(parsed)) currentTeam = parsed;
-      }
-    } catch {
-      // ignore
-    }
-    const nextTeam = currentTeam.filter((t: any) => t.dancer_id !== dancerId);
-    setTeamInput(JSON.stringify(nextTeam, null, 2));
-  };
+  // Phase 5.5 retired in-portal event linking and team editing. Both flows
+  // are now admin-managed via Phase 3 booth RPCs and the Phase 5
+  // vendor_team_members RPCs respectively. The "events" and "team" sections
+  // were removed from DASHBOARD_SECTIONS so the navigation never lands here.
 
   const embeddedCardClass = embedded
     ? "dashboard-card border-festival-teal/35 bg-background/70 backdrop-blur-sm"
@@ -470,96 +249,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
     setCategoryInput("");
   };
 
-  const addUpcomingEvent = () => {
-    const value = upcomingEventsInput.trim();
-    if (!value) return;
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: Array.from(new Set([...prev.upcoming_events, value])),
-    }));
-    setUpcomingEventsInput("");
-  };
-
-  const addUpcomingEventId = (eventId: string) => {
-    const value = eventId.trim();
-    if (!value) return;
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: Array.from(new Set([...prev.upcoming_events, value])),
-    }));
-  };
-
-  const removeUpcomingEvent = (value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: prev.upcoming_events.filter((item) => item !== value),
-    }));
-  };
-
-  const formatEventDate = (value: string | null) => {
-    if (!value) return "TBA";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "TBA";
-    return parsed.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const filteredEventSuggestions = useMemo(() => {
-    const term = eventSearchInput.trim().toLowerCase();
-    const base = !term
-      ? eventSuggestions
-      : eventSuggestions.filter((event) => event.name.toLowerCase().includes(term));
-
-    return [...base].sort((a, b) => {
-      const aSelected = form.upcoming_events.includes(a.id) ? 1 : 0;
-      const bSelected = form.upcoming_events.includes(b.id) ? 1 : 0;
-      return bSelected - aSelected;
-    });
-  }, [eventSuggestions, eventSearchInput, form.upcoming_events]);
-
-  const selectedEventItems = useMemo(() => {
-    return form.upcoming_events.map((eventId) => {
-      const match = eventSuggestions.find((event) => event.id === eventId);
-      return {
-        id: eventId,
-        name: match?.name || `Event ${eventId}`,
-        date: match?.date || null,
-        city: match?.city || null,
-        location: match?.location || null,
-        imageUrl: match?.imageUrl || null,
-        hasParty: Boolean(match?.hasParty),
-        hasClass: Boolean(match?.hasClass),
-      };
-    });
-  }, [form.upcoming_events, eventSuggestions]);
-
-  const addableEventSuggestions = useMemo(() => {
-    return filteredEventSuggestions.filter((event) => !form.upcoming_events.includes(event.id));
-  }, [filteredEventSuggestions, form.upcoming_events]);
-
-  const togglePendingEvent = (eventId: string) => {
-    setPendingEventIds((prev) =>
-      prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
-    );
-  };
-
-  const addPendingEvents = () => {
-    if (pendingEventIds.length === 0) return;
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: Array.from(new Set([...prev.upcoming_events, ...pendingEventIds])),
-    }));
-    const count = pendingEventIds.length;
-    setPendingEventIds([]);
-    toast({ title: `${count} event(s) added` });
-  };
-
-  const quickAddEvents = useMemo(() => {
-    return addableEventSuggestions.slice(0, 3);
-  }, [addableEventSuggestions]);
+  // Phase 5.5: upcoming_events helpers retired; admin attaches vendors to
+  // events via admin_attach_vendor_to_event_v1 (Phase 3).
 
   const removeCategory = (value: string) => {
     setForm((prev) => ({
@@ -672,69 +363,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
     return parsed;
   }, [form.products]);
 
-  const parsedTeamDisplay = useMemo(() => {
-    try {
-      if (!teamInput.trim()) return [];
-      const parsed = JSON.parse(teamInput);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }, [teamInput]);
-
   const saveVendor = async () => {
     if (!user?.id) return;
-
-    if (eventsOnlyMode) {
-      if (!isEditMode || !form.id) {
-        toast({
-          title: "Create vendor profile first",
-          description: "You need a vendor profile before linking events.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setSavePending(true);
-      setError(null);
-      setNotAuthorized(false);
-
-      try {
-        const mergedEvents = normalizeStringArray([...form.upcoming_events, ...pendingEventIds]);
-        const { error: updateError } = await supabase
-          .from("vendors")
-          .update({
-            upcoming_events: mergedEvents.length > 0 ? mergedEvents : null,
-          })
-          .eq("id", form.id)
-          .eq("user_id", user.id);
-
-        if (updateError) {
-          if (isRlsError(updateError)) {
-            setNotAuthorized(true);
-            return;
-          }
-          throw updateError;
-        }
-
-        setForm((prev) => ({ ...prev, upcoming_events: mergedEvents }));
-        setPendingEventIds([]);
-        toast({ title: "Events updated" });
-        onSaved?.();
-      } catch (saveError: any) {
-        const friendlyMessage = getFriendlyVendorSaveError(saveError, true);
-        setError(friendlyMessage);
-        toast({
-          title: "Save issue",
-          description: friendlyMessage,
-          variant: "destructive",
-        });
-      } finally {
-        setSavePending(false);
-      }
-
-      return;
-    }
 
     setTouched({
       businessName: true,
@@ -770,21 +400,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       return;
     }
 
-    let parsedTeam: Json | null = null;
-    const teamText = teamInput.trim();
-    if (teamText) {
-      try {
-        parsedTeam = JSON.parse(teamText) as Json;
-      } catch {
-        toast({
-          title: "Invalid team JSON",
-          description: "Team must be valid JSON (example: [{\"name\":\"Ana\",\"role\":\"Sales\"}]).",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
     setSavePending(true);
     setError(null);
     setNotAuthorized(false);
@@ -799,8 +414,11 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
 
       const promoValue = toNullableNumber(form.promo_discount_value);
       const categories = normalizeStringArray(form.product_categories);
-      const upcomingEvents = normalizeStringArray(form.upcoming_events);
 
+      // Phase 5.5: vendors.team and vendors.upcoming_events were dropped.
+      // Team membership is admin-managed via admin_set_vendor_team_v1
+      // (Phase 5); event linking via admin_attach_vendor_to_event_v1
+      // (Phase 3). Both keys must NOT appear in this payload.
       const payload = {
         business_name: businessName,
         city_id: canonicalCity.cityId,
@@ -818,9 +436,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
         faq: form.faq.trim() || null,
-        upcoming_events: upcomingEvents.length > 0 ? upcomingEvents : null,
         meta_data: form.meta_data,
-        team: parsedTeam,
       };
 
       if (isEditMode && form.id) {
@@ -841,7 +457,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         }
 
         setForm(toFormState(data as VendorRow));
-        setTeamInput(data?.team ? JSON.stringify(data.team, null, 2) : "");
         setPrimaryFile(null);
         toast({ title: "Vendor profile updated" });
         onSaved?.();
@@ -861,13 +476,12 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         }
 
         setForm(toFormState(data as VendorRow));
-        setTeamInput(data?.team ? JSON.stringify(data.team, null, 2) : "");
         setPrimaryFile(null);
         toast({ title: "Vendor profile created" });
         onSaved?.();
       }
     } catch (saveError: any) {
-      const friendlyMessage = getFriendlyVendorSaveError(saveError, false);
+      const friendlyMessage = getFriendlyVendorSaveError(saveError);
       setError(friendlyMessage);
       toast({
         title: "Save issue",
@@ -901,7 +515,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       }
     } else {
       setForm(emptyForm);
-      setTeamInput("");
       setPrimaryFile(null);
       toast({ title: "Vendor profile deleted" });
     }
@@ -1244,168 +857,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         </Card>
         )}
 
-        {showSection("events") && (
-        <Card id="portal-section-events" className={sectionCardClass("events")}>
-          <CardHeader><CardTitle>Upcoming events</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">Select from your live calendar feed and add multiple events in one click.</p>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Selected events</p>
-              <div className="space-y-2">
-                {selectedEventItems.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between gap-3 rounded-md border border-festival-teal/25 p-2">
-                    <div className="min-w-0 flex items-center gap-2.5">
-                      <div className="h-12 w-12 rounded-md overflow-hidden border border-border/50 bg-muted/20 shrink-0">
-                        {event.imageUrl ? (
-                          <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-                            <CalendarDays className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{event.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatEventDate(event.date)}{event.location ? ` • ${event.location}` : event.city ? ` • ${event.city}` : ""}</p>
-                        <div className="flex gap-1 mt-1">
-                          {event.hasParty && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Party</Badge>}
-                          {event.hasClass && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Class</Badge>}
-                        </div>
-                      </div>
-                    </div>
-                    <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => removeUpcomingEvent(event.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-                {selectedEventItems.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No events selected yet.</p>
-                )}
-              </div>
-            </div>
-
-            {quickAddEvents.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Quick add</p>
-                <div className="flex flex-wrap gap-2">
-                  {quickAddEvents.map((event) => (
-                    <Button
-                      key={`quick-${event.id}`}
-                      type="button"
-                      size="sm"
-                      className="h-7 text-[11px]"
-                      variant="outline"
-                      onClick={() => {
-                        addUpcomingEventId(event.id);
-                        toast({ title: "Event added" });
-                      }}
-                    >
-                      {event.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Input
-              placeholder="Search events by name"
-              value={eventSearchInput}
-              onChange={(e) => setEventSearchInput(e.target.value)}
-            />
-
-            <div className="space-y-2 rounded-md border border-festival-teal/25 p-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">Calendar events</p>
-                <Button type="button" size="sm" className="h-7 text-[11px]" disabled={pendingEventIds.length === 0} onClick={addPendingEvents}>
-                  Add selected{pendingEventIds.length ? ` (${pendingEventIds.length})` : ""}
-                </Button>
-              </div>
-
-              {loadingEventSuggestions ? (
-                <p className="text-xs text-muted-foreground">Loading calendar events…</p>
-              ) : addableEventSuggestions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No suggested events found.</p>
-              ) : (
-                addableEventSuggestions.slice(0, 8).map((event) => {
-                  return (
-                    <div key={event.id} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-2">
-                      <label className="flex items-start gap-3 min-w-0 flex-1 cursor-pointer">
-                        <Checkbox checked={pendingEventIds.includes(event.id)} onCheckedChange={() => togglePendingEvent(event.id)} className="mt-0.5" />
-                        <span className="min-w-0 flex items-center gap-2.5">
-                          <span className="h-12 w-12 rounded-md overflow-hidden border border-border/50 bg-muted/20 shrink-0">
-                            {event.imageUrl ? (
-                              <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="h-full w-full flex items-center justify-center text-muted-foreground"><CalendarDays className="h-4 w-4" /></span>
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="text-sm font-medium truncate block">{event.name}</span>
-                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location || event.city || "Location TBA"}</span>
-                            <span className="text-xs text-muted-foreground block">{formatEventDate(event.date)}</span>
-                            <span className="flex gap-1 mt-1">
-                              {event.hasParty && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5"><Flame className="h-3 w-3 mr-0.5" />Party</Badge>}
-                              {event.hasClass && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Class</Badge>}
-                            </span>
-                          </span>
-                        </span>
-                      </label>
-                      <Button type="button" size="sm" className="h-7 text-[11px]" variant="outline" onClick={() => {
-                        addUpcomingEventId(event.id);
-                        toast({ title: "Event added" });
-                      }}>
-                        Add
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <details className="rounded-md border border-border/50 p-2.5">
-              <summary className="cursor-pointer text-xs text-muted-foreground">Advanced: add by event ID</summary>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  placeholder="Add event id"
-                  value={upcomingEventsInput}
-                  onChange={(e) => setUpcomingEventsInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addUpcomingEvent();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addUpcomingEvent}>Add</Button>
-              </div>
-            </details>
-
-            {eventsOnlyMode && (
-              <div className="sticky bottom-0 z-20 border border-festival-teal/35 bg-background/95 backdrop-blur-sm rounded-lg p-2.5 flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
-                  disabled={pendingEventIds.length === 0}
-                  onClick={addPendingEvents}
-                >
-                  Add selected{pendingEventIds.length ? ` (${pendingEventIds.length})` : ""}
-                </Button>
-                <Button
-                  type="button"
-                  className="h-8 text-[12px]"
-                  disabled={savePending || uploadPending || deletePending}
-                  onClick={saveVendor}
-                >
-                  {savePending ? "Saving..." : "Done"}
-                </Button>
-              </div>
-            )}
-
-          </CardContent>
-        </Card>
-        )}
+        {/* Phase 5.5: events section retired — admins link vendors to events
+            via the admin event editor (admin_attach_vendor_to_event_v1). */}
 
         {showSection("contact") && (
         <Card id="portal-section-contact" className={sectionCardClass("contact")}>
@@ -1461,107 +914,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
         </Card>
         )}
 
-        {showSection("team") && (
-        <Card id="portal-section-team" className={sectionCardClass("team")}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle>Team</CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/dancers')}>
-              Manage Dancers
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Add team member</Label>
-              <div className="relative">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search dancers by name..."
-                      value={teamSearch}
-                      onChange={(e) => setTeamSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-                
-                {(teamResults.length > 0 || isSearchingTeam || teamSearchError) && (
-                  <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
-                    {isSearchingTeam && (
-                      <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    )}
-                    
-                    {teamSearchError && (
-                      <div className="p-2 text-sm text-destructive">{teamSearchError}</div>
-                    )}
-
-                    {!isSearchingTeam && teamResults.length === 0 && !teamSearchError && (
-                       <div className="p-2 text-sm text-muted-foreground">No matches found.</div>
-                    )}
-
-                    {!isSearchingTeam && teamResults.map((dancer) => (
-                      <button
-                        key={dancer.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground border-b last:border-0 transition-colors"
-                        onClick={() => addTeamMember(dancer)}
-                      >
-                        <div className="font-medium">{dancer.displayName}</div>
-                        {dancer.city && <div className="text-xs text-muted-foreground">{dancer.city}</div>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Current team</Label>
-              <div className="space-y-2">
-                {parsedTeamDisplay.length === 0 && (
-                  <p className="text-sm text-muted-foreground italic">No team members added yet.</p>
-                )}
-                {parsedTeamDisplay.map((member: any, i: number) => (
-                  <div key={member.dancer_id || i} className="flex items-center justify-between border rounded-md p-2 bg-background/50">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                        {(member.name || "?")[0]}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">{member.name}</div>
-                        {member.city && <div className="text-xs text-muted-foreground">{member.city}</div>}
-                      </div>
-                    </div>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0"
-                      onClick={() => removeTeamMember(member.dancer_id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <details className="pt-2">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:underline">Advanced: Edit raw JSON</summary>
-               <Textarea
-                rows={5}
-                value={teamInput}
-                onChange={(e) => setTeamInput(e.target.value)}
-                placeholder='[{"name":"Ana","role":"Sales"}]'
-                className="mt-2 text-xs font-mono"
-              />
-            </details>
-          </CardContent>
-        </Card>
-        )}
+        {/* Phase 5.5: team section retired — admins manage vendor team
+            membership via the admin VendorTeamTab (admin_set_vendor_team_v1).
+            The Phase 5 invariant requires every active vendor to have ≥1
+            Leader; the admin tab enforces this with toast + UI guard. */}
 
         {showSection("save") && (
         <Card id="portal-section-save" className={sectionCardClass("save")}>

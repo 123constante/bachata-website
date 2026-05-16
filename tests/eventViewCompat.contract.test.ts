@@ -110,3 +110,65 @@ describe('event_view_p5(legacy_compat) — contract', () => {
     expect((data as unknown[]).length).toBe(0);
   });
 });
+
+describe('event_view_p5(snapshot_compat) — contract', () => {
+  it('series path is byte-equal to get_event_page_snapshot_v2(event_id, NULL)', async () => {
+    const fixture = await pickFixture();
+    expect(fixture, 'expected a published event with occurrences').toBeTruthy();
+
+    const [{ data: legacy }, { data: compat }] = await Promise.all([
+      anon.rpc('get_event_page_snapshot_v2' as never, {
+        p_event_id: fixture!.eventId,
+      } as never),
+      anon.rpc('event_view_p5' as never, {
+        p_target: { series_id: fixture!.eventId },
+        p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+      } as never),
+    ]);
+
+    expect(compat).toEqual(legacy);
+  });
+
+  it('occurrence path is byte-equal to get_event_page_snapshot_v2(event_id, occurrence_id)', async () => {
+    const fixture = await pickFixture();
+    if (!fixture) return;
+
+    const [{ data: legacy }, { data: compat }] = await Promise.all([
+      anon.rpc('get_event_page_snapshot_v2' as never, {
+        p_event_id: fixture.eventId,
+        p_occurrence_id: fixture.occurrenceId,
+      } as never),
+      anon.rpc('event_view_p5' as never, {
+        p_target: {
+          series_id: fixture.eventId,
+          occurrence_id: fixture.occurrenceId,
+        },
+        p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+      } as never),
+    ]);
+
+    expect(compat).toEqual(legacy);
+  });
+
+  it('is anon-callable', async () => {
+    const fixture = await pickFixture();
+    if (!fixture) return;
+
+    const { error } = await anon.rpc('event_view_p5' as never, {
+      p_target: { series_id: fixture.eventId },
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+    } as never);
+
+    expect(error, 'event_view_p5(snapshot_compat) must be anon-callable').toBeNull();
+  });
+
+  it('raises invalid_target when series_id is missing', async () => {
+    const { error } = await anon.rpc('event_view_p5' as never, {
+      p_target: {},
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+    } as never);
+
+    expect(error).not.toBeNull();
+    expect(error?.message ?? '').toMatch(/invalid_target/);
+  });
+});

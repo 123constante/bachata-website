@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Section Design Explorations</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bento-fg: 206 23% 92%;
+      --bento-fg-muted: 206 12% 68%;
+      --bento-accent: 33 97% 61%;
+      --bento-surface: 166 47% 18%;
+      --bento-surface-raised: 166 45% 23%;
+    }
+
+    * {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .serif {
+      font-family: 'Fraunces', Georgia, serif;
+    }
+
+    .bg-card {
+      background-color: hsl(var(--bento-surface-raised));
+    }
+
+    .text-primary {
+      color: hsl(var(--bento-fg));
+    }
+
+    .text-muted {
+      color: hsl(var(--bento-fg-muted));
+    }
+
+    .text-accent {
+      color: hsl(var(--bento-accent));
+    }
+
+    .rounded-card {
+      border-radius: 22px;
+    }
+
+    .bg-page {
+      background-color: hsl(var(--bento-surface));
+    }
+
+    /* ===== APPROACH A: Fade Gradient (Current) ===== */
+    .fade-collapse {
+      position: relative;
+      overflow: hidden;
+      max-height: 120px;
+      transition: max-height 300ms ease;
+    }
+
+    .fade-collapse.expanded {
+      max-height: 500px;
+    }
+
+    .fade-gradient {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(to bottom, transparent, hsl(var(--bento-surface-raised)));
+      pointer-events: none;
+    }
+
+    .fade-collapse.expanded .fade-gradient {
+      display: none;
+    }
+
+    /* ===== APPROACH B: Smooth Accordion ===== */
+    .accordion-toggle {
+      cursor: pointer;
+      user-select: none;
+      transition: all 300ms ease;
+    }
+
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .accordion-content.open {
+      max-height: 500px;
+    }
+
+    /* ===== APPROACH C: Preview Lines ===== */
+    .preview-mode {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      transition: all 300ms ease;
+    }
+
+    .preview-mode.expanded {
+      -webkit-line-clamp: unset;
+      overflow: visible;
+    }
+
+    /* ===== APPROACH D: Stacked Reveal ===== */
+    .stacked-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .divider-line {
+      height: 1px;
+      background: rgba(179, 138, 78, 0.2);
+      transition: opacity 300ms ease;
+    }
+
+    .stacked-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 400ms ease;
+    }
+
+    .stacked-content.open {
+      max-height: 400px;
+    }
+
+    .chevron {
+      transition: transform 300ms ease;
+      display: inline-block;
+    }
+
+    .chevron.rotated {
+      transform: rotate(180deg);
+    }
+
+    /* Common */
+    .button-pill {
+      background-color: hsl(var(--bento-accent));
+      color: #1a2e2a;
+      border-radius: 9999px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 150ms ease;
+    }
+
+    .button-pill:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(245, 213, 99, 0.3);
+    }
+
+    .button-pill:active {
+      transform: scale(0.97);
+    }
+
+    .approach {
+      margin-bottom: 3rem;
+      scroll-margin-top: 2rem;
+    }
+
+    .approach-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+      opacity: 0.7;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body class="bg-page text-primary p-8">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-12 text-accent">About Section Design Explorations</h1>
+
+    <!-- APPROACH A: Fade Gradient (Current) -->
+    <div class="approach">
+      <div class="approach-label">Approach A: Fade Gradient (Current Design)</div>
+      <p class="text-muted text-sm mb-2">Smooth max-height animation with bottom fade gradient. Clean and subtle.</p>
+
+      <div class="section-title">ABOUT</div>
+      <div class="bg-card rounded-card p-6 mb-4">
+        <div class="fade-collapse" id="fadeCollapse">
+          <p class="text-sm leading-[1.5] serif font-medium text-primary mb-0">
+            This is what you've been waiting for. After the powerful launch of the RITMO LATINO DANCE STUDIO, we are bringing back what the London Bachata scene has been missing. Our new sessions combine the best of traditional bachata with modern fusion techniques, creating an unforgettable experience for dancers of all levels.
+          </p>
+          <div class="fade-gradient"></div>
+        </div>
+      </div>
+      <div class="flex justify-center">
+        <button class="button-pill" onclick="toggleFade()">READ MORE ↓</button>
+      </div>
+    </div>
+
+    <!-- APPROACH B: Smooth Accordion -->
+    <div class="approach">
+      <div class="approach-label">Approach B: Smooth Accordion with Header</div>
+      <p class="text-muted text-sm mb-2">Card header toggles reveal. Expands in place with smooth animation.</p>
+
+      <div class="section-title">ABOUT</div>
+      <div class="bg-card rounded-card overflow-hidden mb-4">
+        <div class="accordion-toggle p-6 border-b border-white/10 hover:bg-white/5" onclick="toggleAccordion()" id="accordionHeader">
+          <div class="flex items-center justify-between">
+            <p class="text-sm leading-[1.5] serif font-medium text-primary m-0">
+              This is what you've been waiting for.
+            </p>
+            <span class="chevron text-accent" id="accordionChevron">↓</span>
+          </div>
+        </div>
+        <div class="accordion-content" id="accordionContent">
+          <div class="p-6 pt-4">
+            <p class="text-sm leading-[1.5] serif font-medium text-primary">
+              After the powerful launch of the RITMO LATINO DANCE STUDIO, we are bringing back what the London Bachata scene has been missing. Our new sessions combine the best of traditional bachata with modern fusion techniques, creating an unforgettable experience for dancers of all levels.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPROACH C: Preview Lines -->
+    <div class="approach">
+      <div class="approach-label">Approach C: Preview Lines (3-line truncation)</div>
+      <p class="text-muted text-sm mb-2">Shows first 3 lines of text, smooth expand to full. Minimalist pill button.</p>
+
+      <div class="section-title">ABOUT</div>
+      <div class="bg-card rounded-card p-6 mb-4">
+        <p class="preview-mode text-sm leading-[1.5] serif font-medium text-primary" id="previewText">
+          This is what you've been waiting for. After the powerful launch of the RITMO LATINO DANCE STUDIO, we are bringing back what the London Bachata scene has been missing. Our new sessions combine the best of traditional bachata with modern fusion techniques, creating an unforgettable experience for dancers of all levels.
+        </p>
+      </div>
+      <div class="flex justify-center">
+        <button class="button-pill" onclick="togglePreview()" id="previewBtn">EXPAND ↓</button>
+      </div>
+    </div>
+
+    <!-- APPROACH D: Stacked Reveal with Divider -->
+    <div class="approach">
+      <div class="approach-label">Approach D: Stacked Reveal with Visual Divider</div>
+      <p class="text-muted text-sm mb-2">Summary line, divider, then expandable detailed text below. Strong visual structure.</p>
+
+      <div class="section-title">ABOUT</div>
+      <div class="bg-card rounded-card overflow-hidden mb-4">
+        <div class="stacked-container">
+          <!-- Summary -->
+          <div class="p-6">
+            <p class="text-sm leading-[1.5] serif font-medium text-primary m-0">
+              This is what you've been waiting for.
+            </p>
+          </div>
+
+          <!-- Divider -->
+          <div class="divider-line" id="stackedDivider"></div>
+
+          <!-- Expandable detail -->
+          <div class="stacked-content" id="stackedContent">
+            <div class="p-6">
+              <p class="text-sm leading-[1.5] serif font-medium text-primary m-0">
+                After the powerful launch of the RITMO LATINO DANCE STUDIO, we are bringing back what the London Bachata scene has been missing. Our new sessions combine the best of traditional bachata with modern fusion techniques, creating an unforgettable experience for dancers of all levels.
+              </p>
+            </div>
+          </div>
+
+          <!-- Toggle button always visible -->
+          <button class="w-full py-3 text-center text-accent text-sm font-bold uppercase tracking-widest hover:bg-white/5 transition-colors" onclick="toggleStacked()" id="stackedBtn">
+            <span class="chevron" id="stackedChevron">▼</span> MORE INFO
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="mt-16 pt-8 border-t border-white/10">
+      <h2 class="text-xl font-bold text-accent mb-6">Design Comparison</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-white/10">
+              <th class="text-left p-3 text-accent font-bold">Approach</th>
+              <th class="text-left p-3 text-accent font-bold">Interaction</th>
+              <th class="text-left p-3 text-accent font-bold">Pros</th>
+              <th class="text-left p-3 text-accent font-bold">Cons</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-white/10">
+              <td class="p-3"><strong>A: Fade Gradient</strong></td>
+              <td class="p-3">External pill button</td>
+              <td class="p-3">Subtle, elegant, familiar</td>
+              <td class="p-3">Fade gradient may get cut off on some text</td>
+            </tr>
+            <tr class="border-b border-white/10">
+              <td class="p-3"><strong>B: Accordion</strong></td>
+              <td class="p-3">Card header clickable</td>
+              <td class="p-3">Self-contained, discoverable header</td>
+              <td class="p-3">Click target smaller than pill</td>
+            </tr>
+            <tr class="border-b border-white/10">
+              <td class="p-3"><strong>C: Preview</strong></td>
+              <td class="p-3">External pill button</td>
+              <td class="p-3">Clear preview, smooth expand</td>
+              <td class="p-3">Line clamping varies by font</td>
+            </tr>
+            <tr>
+              <td class="p-3"><strong>D: Stacked</strong></td>
+              <td class="p-3">Full-width footer button</td>
+              <td class="p-3">Clear structure, obvious intent</td>
+              <td class="p-3">Tallest closed state</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Approach A: Fade Gradient
+    function toggleFade() {
+      const elem = document.getElementById('fadeCollapse');
+      const btn = event.target;
+      elem.classList.toggle('expanded');
+      btn.textContent = elem.classList.contains('expanded') ? 'READ LESS ↑' : 'READ MORE ↓';
+    }
+
+    // Approach B: Accordion
+    function toggleAccordion() {
+      const content = document.getElementById('accordionContent');
+      const chevron = document.getElementById('accordionChevron');
+      content.classList.toggle('open');
+      chevron.classList.toggle('rotated');
+      chevron.textContent = content.classList.contains('open') ? '↑' : '↓';
+    }
+
+    // Approach C: Preview Lines
+    function togglePreview() {
+      const text = document.getElementById('previewText');
+      const btn = document.getElementById('previewBtn');
+      text.classList.toggle('expanded');
+      btn.textContent = text.classList.contains('expanded') ? 'COLLAPSE ↑' : 'EXPAND ↓';
+    }
+
+    // Approach D: Stacked
+    function toggleStacked() {
+      const content = document.getElementById('stackedContent');
+      const btn = document.getElementById('stackedBtn');
+      const chevron = document.getElementById('stackedChevron');
+      const divider = document.getElementById('stackedDivider');
+
+      content.classList.toggle('open');
+      chevron.classList.toggle('rotated');
+      divider.style.opacity = content.classList.contains('open') ? '0' : '1';
+      btn.textContent = content.classList.contains('open') ? '▲ LESS INFO' : '▼ MORE INFO';
+    }
+  </script>
+</body>
+</html>

@@ -62,9 +62,7 @@ const emptyForm: VendorDashboardFormState = {
   instagram: "",
   facebook: "",
   faq: "",
-  upcoming_events: [],
   meta_data: null,
-  team: null,
 };
 
 const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
@@ -85,9 +83,7 @@ const toFormState = (vendor: VendorRow): VendorDashboardFormState => ({
   instagram: vendor.instagram || "",
   facebook: vendor.facebook || "",
   faq: vendor.faq || "",
-  upcoming_events: normalizeStringArray(vendor.upcoming_events),
   meta_data: vendor.meta_data,
-  team: vendor.team,
 });
 
 const QUICK_CATEGORY_OPTIONS = [
@@ -103,23 +99,6 @@ const QUICK_CATEGORY_OPTIONS = [
   "Makeup",
 ] as const;
 
-type EventSuggestion = {
-  id: string;
-  name: string;
-  date: string | null;
-  city: string | null;
-  location?: string | null;
-  imageUrl?: string | null;
-  hasParty?: boolean;
-  hasClass?: boolean;
-};
-
-type TeamMemberOption = {
-  id: string;
-  displayName: string;
-  city: string | null;
-};
-
 type VendorDashboardProps = {
   forcedSection?: VendorDashboardSection | null;
   embedded?: boolean;
@@ -128,29 +107,27 @@ type VendorDashboardProps = {
   onProgressChange?: (progress: VendorDashboardProgressMap) => void;
 };
 
+// Phase 5.5: "events" and "team" are no longer self-service-editable. Both
+// move to admin-managed RPCs (admin_attach_vendor_to_event_v1 from Phase 3
+// and admin_set_vendor_team_v1 from Phase 5).
 const SECTION_SAVE_TARGETS: VendorDashboardSection[] = [
   "profile",
   "media",
   "categories",
   "products",
   "promo",
-  "events",
   "contact",
   "social",
   "faq",
-  "team",
   "save",
 ];
 
-const getFriendlyVendorSaveError = (error: any, eventsOnlyMode: boolean): string => {
+const getFriendlyVendorSaveError = (error: any): string => {
   const message = String(error?.message || "");
   const schemaPattern = /Could not find the '([^']+)' column of 'vendors'/i;
   const schemaMatch = message.match(schemaPattern);
 
   if (schemaMatch) {
-    if (eventsOnlyMode) {
-      return "Vendor profile schema is outdated. Event links were processed in events-only mode; refresh and try again if needed.";
-    }
     return "Vendor profile schema is outdated. Some profile fields need a schema sync before full save works.";
   }
 
@@ -204,75 +181,15 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
   const [sectionSavedAt, setSectionSavedAt] = useState<Partial<Record<VendorDashboardSection, string>>>({});
 
   const [primaryFile, setPrimaryFile] = useState<File | null>(null);
-  const [teamInput, setTeamInput] = useState("");
   const [categoryInput, setCategoryInput] = useState("");
-  const [upcomingEventsInput, setUpcomingEventsInput] = useState("");
-  const [eventSearchInput, setEventSearchInput] = useState("");
-  const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
-  const [loadingEventSuggestions, setLoadingEventSuggestions] = useState(false);
-  const [pendingEventIds, setPendingEventIds] = useState<string[]>([]);
-  
-  // Team search
-  const [teamSearch, setTeamSearch] = useState("");
-  const [teamResults, setTeamResults] = useState<TeamMemberOption[]>([]);
-  const [isSearchingTeam, setIsSearchingTeam] = useState(false);
-  const [teamSearchError, setTeamSearchError] = useState<string | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [localDraftSavedAt, setLocalDraftSavedAt] = useState<string | null>(null);
 
-  const getCurrentLeaderId = () => {
-    const meta = form.meta_data;
-    if (meta && typeof meta === "object" && !Array.isArray(meta)) {
-      const value = (meta as Record<string, unknown>).business_leader_dancer_id;
-      return typeof value === "string" ? value : null;
-    }
-    return null;
-  };
-
-  const updateLeaderMeta = (leaderId: string | null, leaderName: string | null) => {
-    setForm((prev) => {
-      const currentMeta = (prev.meta_data && typeof prev.meta_data === "object" && !Array.isArray(prev.meta_data))
-        ? { ...(prev.meta_data as Record<string, unknown>) }
-        : {};
-
-      if (leaderId) {
-        currentMeta.business_leader_dancer_id = leaderId;
-        currentMeta.business_leader_name = leaderName || null;
-      } else {
-        delete currentMeta.business_leader_dancer_id;
-        delete currentMeta.business_leader_name;
-      }
-
-      return {
-        ...prev,
-        meta_data: Object.keys(currentMeta).length > 0 ? (currentMeta as Json) : null,
-      };
-    });
-  };
-
-  const setTeamLeader = (leaderDancerId: string) => {
-    let currentTeam: any[] = [];
-    try {
-      if (teamInput.trim()) {
-        const parsed = JSON.parse(teamInput);
-        if (Array.isArray(parsed)) currentTeam = parsed;
-      }
-    } catch {
-      return;
-    }
-
-    const leaderMember = currentTeam.find((member: any) => String(member.dancer_id) === String(leaderDancerId));
-    if (!leaderMember) return;
-
-    const normalizedTeam = currentTeam.map((member: any) => ({
-      ...member,
-      is_leader: String(member.dancer_id) === String(leaderDancerId),
-    }));
-
-    setTeamInput(JSON.stringify(normalizedTeam, null, 2));
-    updateLeaderMeta(String(leaderDancerId), typeof leaderMember.name === "string" ? leaderMember.name : null);
-    toast({ title: "Business leader updated" });
-  };
+  // Phase 5.5: getCurrentLeaderId / updateLeaderMeta / setTeamLeader all
+  // retired — leader assignment goes through admin_set_vendor_team_v1
+  // (which raises 'vendor_requires_leader' if the resulting team has no
+  // active Leader). meta_data.business_leader_dancer_id is now a
+  // legacy-only marker and no longer written by the self-service portal.
 
   const [touched, setTouched] = useState({
     businessName: false,
@@ -290,7 +207,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       ? (requestedSection as VendorDashboardSection)
       : null;
 
-  const eventsOnlyMode = embedded && activeDashboardSection === "events";
   const isEmbeddedFocusedSectionMode = embedded && Boolean(forcedSection);
   const draftStorageKey = user?.id ? `vendor_dashboard_draft_${user.id}` : null;
 
@@ -320,25 +236,18 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
     if (isEditMode) {
       setCategoryInput("");
-      setUpcomingEventsInput("");
-      setEventSearchInput("");
       toast({ title: "Draft cleared", description: "Saved profile data is still loaded." });
       return;
     }
 
     setForm(emptyForm);
-    setTeamInput("");
     setCategoryInput("");
-    setUpcomingEventsInput("");
-    setEventSearchInput("");
-    setPendingEventIds([]);
     setPrimaryFile(null);
     toast({ title: "Draft cleared" });
   };
 
   const showSection = (section: VendorDashboardSection) => {
     if (isEmbeddedFocusedSectionMode) return activeDashboardSection === section;
-    if (eventsOnlyMode && section === "save") return false;
     if (!activeDashboardSection) return true;
     return activeDashboardSection === section || section === "save";
   };
@@ -370,7 +279,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       } else if (data) {
         const nextForm = toFormState(data as VendorRow);
         setForm(nextForm);
-        setTeamInput(nextForm.team ? JSON.stringify(nextForm.team, null, 2) : "");
         const createdAt = (data as VendorRow)?.created_at || null;
         if (createdAt) {
           setSectionSavedAt(
@@ -382,7 +290,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         }
       } else {
         setForm(emptyForm);
-        setTeamInput("");
         setSectionSavedAt({});
       }
 
@@ -415,19 +322,15 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         savedAt?: string;
       };
 
+      // Phase 5.5: teamInput / upcomingEventsInput / eventSearchInput drafts
+      // ignored — those flows moved to admin RPCs. Keep the stash key shape
+      // backward-compatible (older payloads still parse, just ignored).
       const hasRestoredDraft = Boolean(
-        parsed.form ||
-          typeof parsed.teamInput === "string" ||
-          typeof parsed.categoryInput === "string" ||
-          typeof parsed.upcomingEventsInput === "string" ||
-          typeof parsed.eventSearchInput === "string"
+        parsed.form || typeof parsed.categoryInput === "string"
       );
 
       if (parsed.form) setForm(parsed.form);
-      if (typeof parsed.teamInput === "string") setTeamInput(parsed.teamInput);
       if (typeof parsed.categoryInput === "string") setCategoryInput(parsed.categoryInput);
-      if (typeof parsed.upcomingEventsInput === "string") setUpcomingEventsInput(parsed.upcomingEventsInput);
-      if (typeof parsed.eventSearchInput === "string") setEventSearchInput(parsed.eventSearchInput);
       if (typeof parsed.expertMode === "boolean") setExpertMode(parsed.expertMode);
       if (typeof parsed.savedAt === "string") setLocalDraftSavedAt(parsed.savedAt);
 
@@ -449,10 +352,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       const savedAt = new Date().toISOString();
       const payload = {
         form,
-        teamInput,
         categoryInput,
-        upcomingEventsInput,
-        eventSearchInput,
         expertMode,
         savedAt,
       };
@@ -467,12 +367,9 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     categoryInput,
     draftHydrated,
     draftStorageKey,
-    eventSearchInput,
     expertMode,
     fetchingVendor,
     form,
-    teamInput,
-    upcomingEventsInput,
   ]);
 
   useEffect(() => {
@@ -495,239 +392,25 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     return () => window.clearTimeout(timer);
   }, [searchParams, authLoading, fetchingVendor, activeDashboardSection, embedded]);
 
-  useEffect(() => {
-    const loadEventSuggestions = async () => {
-      if (!user?.id) {
-        setEventSuggestions([]);
-        return;
-      }
-
-      setLoadingEventSuggestions(true);
-
-      try {
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 60);
-
-        if (citySlug) {
-          const { data, error: rpcError } = await supabase.rpc('get_calendar_events' as any, {
-            range_start: startDate.toISOString(),
-            range_end: endDate.toISOString(),
-            city_slug_param: citySlug,
-          });
-
-          if (rpcError) {
-            captureException(rpcError, { context: "VendorDashboardPage.loadCalendarEvents" });
-            setEventSuggestions([]);
-          } else {
-            const raw = Array.isArray(data) ? data : [];
-            const dedupedById = new Map<string, EventSuggestion>();
-
-            for (const row of raw as any[]) {
-              if (!row?.event_id || !row?.name) continue;
-              const eventId = String(row.event_id);
-              if (!dedupedById.has(eventId)) {
-                dedupedById.set(eventId, {
-                  id: eventId,
-                  name: String(row.name),
-                  date: row.instance_date ? String(row.instance_date) : null,
-                  city: null,
-                  location: row.location ? String(row.location) : null,
-                  imageUrl: resolveEventImage(row.photo_url, row.cover_image_url),
-                  hasParty: Boolean(row.has_party),
-                  hasClass: Boolean(row.has_class),
-                });
-              }
-            }
-
-            setEventSuggestions(Array.from(dedupedById.values()));
-          }
-        } else {
-          const today = new Date().toISOString().slice(0, 10);
-          let query = (supabase as any)
-            .from("events")
-            .select("id, name, date, city")
-            .gte("date", today)
-            .order("date", { ascending: true })
-            .limit(20);
-
-          if (form.city?.trim()) {
-            query = query.ilike("city", `%${form.city.trim()}%`);
-          }
-
-          const { data, error: eventsError } = await query;
-          if (eventsError) {
-            captureException(eventsError, { context: "VendorDashboardPage.loadFallbackEvents" });
-            setEventSuggestions([]);
-          } else {
-            const mapped = Array.isArray(data)
-              ? data
-                  .filter((row: any) => row?.id && row?.name)
-                  .map((row: any) => ({
-                    id: String(row.id),
-                    name: String(row.name),
-                    date: row.date ? String(row.date) : null,
-                    city: row.city ? String(row.city) : null,
-                    location: null,
-                    imageUrl: null,
-                    hasParty: false,
-                    hasClass: false,
-                  }))
-              : [];
-            setEventSuggestions(mapped);
-          }
-        }
-      } finally {
-        setLoadingEventSuggestions(false);
-      }
-    };
-
-    if (!authLoading && !fetchingVendor) {
-      void loadEventSuggestions();
-    }
-  }, [authLoading, fetchingVendor, user?.id, form.city, citySlug]);
-
-  useEffect(() => {
-    const query = teamSearch.trim();
-    setTeamSearchError(null);
-    if (query.length < 2) {
-      setTeamResults([]);
-      setIsSearchingTeam(false);
-      return;
-    }
-
-    const loadTeamMatches = async () => {
-      setIsSearchingTeam(true);
-      try {
-        const safeQuery = query.replace(/[,%()]/g, " ").trim();
-        if (!safeQuery) {
-          setTeamResults([]);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("dancer_profiles")
-          .select("id, first_name, surname")
-          .or(`first_name.ilike.%${safeQuery}%,surname.ilike.%${safeQuery}%`)
-          .limit(8);
-
-        if (error) throw error;
-
-        const mapped: TeamMemberOption[] = (data || []).map((row: any) => {
-          const displayName = `${row.first_name || ""} ${row.surname || ""}`.trim() || "Unnamed dancer";
-          return {
-            id: row.id,
-            displayName,
-            city: null,
-          };
-        });
-
-        setTeamResults(mapped);
-      } catch {
-        setTeamResults([]);
-        setTeamSearchError("Couldn’t load dancer matches. Create/select dancers first, then link them here.");
-      } finally {
-        setIsSearchingTeam(false);
-      }
-    };
-
-    const timer = window.setTimeout(loadTeamMatches, 250);
-    return () => window.clearTimeout(timer);
-  }, [teamSearch]);
-
-  const addTeamMember = (member: TeamMemberOption) => {
-    setTeamSearch("");
-    setTeamResults([]);
-    
-    // Parse current team array
-    let currentTeam: any[] = [];
-    try {
-      if (teamInput.trim()) {
-        const parsed = JSON.parse(teamInput);
-        if (Array.isArray(parsed)) currentTeam = parsed;
-      }
-    } catch {
-      // ignore
-    }
-
-    // Check overlap
-    if (currentTeam.some((t: any) => t.dancer_id === member.id)) {
-      toast({ title: "Already in team" });
-      return;
-    }
-
-    const newEntry = {
-      dancer_id: member.id,
-      name: member.displayName,
-      city: member.city || null,
-      is_leader: false,
-    };
-
-    const existingLeaderId = getCurrentLeaderId();
-    const shouldBecomeLeader = !existingLeaderId && currentTeam.length === 0;
-    if (shouldBecomeLeader) {
-      newEntry.is_leader = true;
-    }
-
-    const nextTeam = [...currentTeam, newEntry];
-    setTeamInput(JSON.stringify(nextTeam, null, 2));
-    if (shouldBecomeLeader) {
-      updateLeaderMeta(member.id, member.displayName);
-    }
-    toast({ title: "Team member added" });
-  };
-
-  const removeTeamMember = (dancerId: string | number) => {
-    let currentTeam: any[] = [];
-    try {
-      if (teamInput.trim()) {
-        const parsed = JSON.parse(teamInput);
-        if (Array.isArray(parsed)) currentTeam = parsed;
-      }
-    } catch {
-      // ignore
-    }
-    const normalizedDancerId = String(dancerId);
-    const removedMember = currentTeam.find((t: any) => String(t.dancer_id) === normalizedDancerId) || null;
-    const nextTeam = currentTeam.filter((t: any) => String(t.dancer_id) !== normalizedDancerId);
-    const currentLeaderId = getCurrentLeaderId();
-
-    if (currentLeaderId && currentLeaderId === normalizedDancerId) {
-      if (nextTeam.length > 0) {
-        const newLeaderId = String(nextTeam[0].dancer_id);
-        const newLeaderName = typeof nextTeam[0].name === "string" ? nextTeam[0].name : null;
-        const normalizedTeam = nextTeam.map((member: any, index: number) => ({
-          ...member,
-          is_leader: index === 0,
-        }));
-        setTeamInput(JSON.stringify(normalizedTeam, null, 2));
-        updateLeaderMeta(newLeaderId, newLeaderName);
-      } else {
-        setTeamInput(JSON.stringify([], null, 2));
-        updateLeaderMeta(null, null);
-      }
-      toast({ title: "Leader reassigned", description: removedMember?.name ? `${removedMember.name} was removed.` : undefined });
-      return;
-    }
-
-    setTeamInput(JSON.stringify(nextTeam, null, 2));
-  };
+  // Phase 5.5: loadEventSuggestions, team-search effect, addTeamMember,
+  // removeTeamMember helpers all retired. Their data flows now go through
+  // admin RPCs (admin_attach_vendor_to_event_v1, admin_set_vendor_team_v1)
+  // and the canonical relations (event_vendor_booths, vendor_team_members).
 
   const embeddedCardClass = embedded
     ? "dashboard-card border-festival-teal/35 bg-background/70 backdrop-blur-sm shadow-md ring-1 ring-festival-teal/15"
     : "";
 
+  // Phase 5.5: events / team accent tones no longer needed (sections retired).
   const sectionAccentTone: Record<VendorDashboardSection, string> = {
     profile: "border-l-2 border-l-cyan-400/70",
     media: "border-l-2 border-l-sky-400/70",
     categories: "border-l-2 border-l-indigo-400/70",
     products: "border-l-2 border-l-emerald-400/70",
     promo: "border-l-2 border-l-amber-400/70",
-    events: "border-l-2 border-l-orange-400/70",
     contact: "border-l-2 border-l-teal-400/70",
     social: "border-l-2 border-l-violet-400/70",
     faq: "border-l-2 border-l-fuchsia-400/70",
-    team: "border-l-2 border-l-cyan-300/70",
     save: "border-l-2 border-l-emerald-300/70",
     advanced: "border-l-2 border-l-red-400/70",
   };
@@ -830,83 +513,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     setCategoryInput("");
   };
 
-  const addUpcomingEvent = () => {
-    const value = upcomingEventsInput.trim();
-    if (!value) return;
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: Array.from(new Set([...prev.upcoming_events, value])),
-    }));
-    setUpcomingEventsInput("");
-  };
-
-  const removeUpcomingEvent = (value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: prev.upcoming_events.filter((item) => item !== value),
-    }));
-  };
-
-  const formatEventDate = (value: string | null) => {
-    if (!value) return "TBA";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "TBA";
-    return parsed.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const filteredEventSuggestions = useMemo(() => {
-    const term = eventSearchInput.trim().toLowerCase();
-    const base = !term
-      ? eventSuggestions
-      : eventSuggestions.filter((event) => event.name.toLowerCase().includes(term));
-
-    return [...base].sort((a, b) => {
-      const aSelected = form.upcoming_events.includes(a.id) ? 1 : 0;
-      const bSelected = form.upcoming_events.includes(b.id) ? 1 : 0;
-      return bSelected - aSelected;
-    });
-  }, [eventSuggestions, eventSearchInput, form.upcoming_events]);
-
-  const selectedEventItems = useMemo(() => {
-    return form.upcoming_events.map((eventId) => {
-      const match = eventSuggestions.find((event) => event.id === eventId);
-      return {
-        id: eventId,
-        name: match?.name || `Event ${eventId}`,
-        date: match?.date || null,
-        city: match?.city || null,
-        location: match?.location || null,
-        imageUrl: match?.imageUrl || null,
-        hasParty: Boolean(match?.hasParty),
-        hasClass: Boolean(match?.hasClass),
-      };
-    });
-  }, [form.upcoming_events, eventSuggestions]);
-
-  const addableEventSuggestions = useMemo(() => {
-    return filteredEventSuggestions.filter((event) => !form.upcoming_events.includes(event.id));
-  }, [filteredEventSuggestions, form.upcoming_events]);
-
-  const togglePendingEvent = (eventId: string) => {
-    setPendingEventIds((prev) =>
-      prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
-    );
-  };
-
-  const addPendingEvents = () => {
-    if (pendingEventIds.length === 0) return;
-    setForm((prev) => ({
-      ...prev,
-      upcoming_events: Array.from(new Set([...prev.upcoming_events, ...pendingEventIds])),
-    }));
-    const count = pendingEventIds.length;
-    setPendingEventIds([]);
-    toast({ title: `${count} event(s) added` });
-  };
+  // Phase 5.5: upcoming_events helpers retired.
 
   const removeCategory = (value: string) => {
     setForm((prev) => ({
@@ -1061,27 +668,9 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     return parsed;
   }, [form.products]);
 
-  const parsedTeamDisplay = useMemo(() => {
-    try {
-      if (!teamInput.trim()) return [];
-      const parsed = JSON.parse(teamInput);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }, [teamInput]);
-
-  const currentLeaderDancerId = useMemo(() => {
-    const meta = form.meta_data;
-    if (meta && typeof meta === "object" && !Array.isArray(meta)) {
-      const value = (meta as Record<string, unknown>).business_leader_dancer_id;
-      return typeof value === "string" ? value : null;
-    }
-    const teamLeader = parsedTeamDisplay.find((member: any) => member?.is_leader);
-    if (!teamLeader) return null;
-    return String(teamLeader.dancer_id);
-  }, [form.meta_data, parsedTeamDisplay]);
-
+  // Phase 5.5: parsedTeamDisplay + currentLeaderDancerId no longer derived
+  // here — admin team RPCs are the canonical source. The "events" and "team"
+  // section progress entries are also gone (those sections were retired).
   const sectionProgress = useMemo<VendorDashboardProgressMap>(() => {
     const hasCity = hasRequiredCity(normalizeRequiredCity(form.city));
     const hasPrimaryImage = Boolean(primaryFile) || Boolean(form.photo_url[0]);
@@ -1097,7 +686,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     const promoComplete = !hasPromoCode || (toNullableNumber(form.promo_discount_value) !== null);
     const hasAnyContact = [form.public_email, form.whatsapp].some((item) => item.trim().length > 0);
     const hasAnySocial = [form.website, form.instagram, form.facebook].some((item) => item.trim().length > 0);
-    const hasTeamMembers = parsedTeamDisplay.length > 0;
 
     return {
       profile: { complete: form.business_name.trim().length > 0 && hasCity },
@@ -1105,11 +693,9 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       categories: { complete: form.product_categories.length > 0 },
       products: { complete: productsComplete },
       promo: { complete: promoComplete },
-      events: { complete: form.upcoming_events.length > 0 },
       contact: { complete: hasAnyContact },
       social: { complete: hasAnySocial },
       faq: { complete: form.faq.trim().length > 0 },
-      team: { complete: hasTeamMembers && Boolean(currentLeaderDancerId) },
       save: {
         complete:
           form.business_name.trim().length > 0 &&
@@ -1120,7 +706,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       advanced: { complete: Boolean(form.id) },
     };
   }, [
-    currentLeaderDancerId,
     form.business_name,
     form.city,
     form.public_email,
@@ -1133,11 +718,9 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
     form.products,
     form.promo_code,
     form.promo_discount_value,
-    form.upcoming_events,
     form.website,
     form.whatsapp,
     hasInvalidProducts,
-    parsedTeamDisplay.length,
     primaryFile,
   ]);
 
@@ -1147,67 +730,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
   const saveVendor = async () => {
     if (!user?.id) return;
-
-    if (eventsOnlyMode) {
-      if (!isEditMode || !form.id) {
-        toast({
-          title: "Create vendor profile first",
-          description: "You need a vendor profile before linking events.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setSavePending(true);
-      setError(null);
-      setNotAuthorized(false);
-
-      try {
-        const mergedEvents = normalizeStringArray([...form.upcoming_events, ...pendingEventIds]);
-        const { error: updateError } = await supabase
-          .from("vendors")
-          .update({
-            upcoming_events: mergedEvents.length > 0 ? mergedEvents : null,
-          })
-          .eq("id", form.id)
-          .eq("user_id", user.id);
-
-        if (updateError) {
-          if (isRlsError(updateError)) {
-            setNotAuthorized(true);
-            return;
-          }
-          throw updateError;
-        }
-
-        setForm((prev) => ({ ...prev, upcoming_events: mergedEvents }));
-        setPendingEventIds([]);
-        const savedAt = new Date().toISOString();
-        applySectionSaveStamp("events", savedAt);
-        if (draftStorageKey) {
-          localStorage.removeItem(draftStorageKey);
-          setLocalDraftSavedAt(null);
-        }
-        toast({ title: "Events updated" });
-        onSaved?.({
-          section: "events",
-          savedAt,
-          progress: sectionProgress,
-        });
-      } catch (saveError: any) {
-        const friendlyMessage = getFriendlyVendorSaveError(saveError, true);
-        setError(friendlyMessage);
-        toast({
-          title: "Save issue",
-          description: friendlyMessage,
-          variant: "destructive",
-        });
-      } finally {
-        setSavePending(false);
-      }
-
-      return;
-    }
 
     setTouched({
       businessName: true,
@@ -1265,21 +787,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       return;
     }
 
-    let parsedTeam: Json | null = null;
-    const teamText = teamInput.trim();
-    if (teamText) {
-      try {
-        parsedTeam = JSON.parse(teamText) as Json;
-      } catch {
-        toast({
-          title: "Invalid team JSON",
-          description: "Team must be valid JSON (example: [{\"name\":\"Ana\",\"role\":\"Sales\"}]).",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
     setSavePending(true);
     setError(null);
     setNotAuthorized(false);
@@ -1294,8 +801,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
       const promoValue = toNullableNumber(form.promo_discount_value);
       const categories = normalizeStringArray(form.product_categories);
-      const upcomingEvents = normalizeStringArray(form.upcoming_events);
 
+      // Phase 5.5: vendors.team and vendors.upcoming_events are dropped.
+      // Team membership flows through admin_set_vendor_team_v1 (Phase 5);
+      // event linking through admin_attach_vendor_to_event_v1 (Phase 3).
       const payload = {
         business_name: businessName,
         city_id: canonicalCity.cityId,
@@ -1312,9 +821,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         instagram: normalizeSocialUrl('instagram', form.instagram) || null,
         facebook: normalizeSocialUrl('facebook', form.facebook) || null,
         faq: form.faq.trim() || null,
-        upcoming_events: upcomingEvents.length > 0 ? upcomingEvents : null,
         meta_data: form.meta_data,
-        team: parsedTeam,
       };
 
       const { data: savedVendorData, error: saveError } = isEditMode && form.id
@@ -1335,7 +842,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
       const savedVendor = savedVendorData as VendorRow;
       setForm(toFormState(savedVendor));
-      setTeamInput(savedVendor?.team ? JSON.stringify(savedVendor.team, null, 2) : "");
       setPrimaryFile(null);
       const savedAt = new Date().toISOString();
       const savedSection = activeDashboardSection ?? "save";
@@ -1356,7 +862,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         setNotAuthorized(true);
         return;
       }
-      const friendlyMessage = getFriendlyVendorSaveError(saveError, false);
+      const friendlyMessage = getFriendlyVendorSaveError(saveError);
       setError(friendlyMessage);
       toast({
         title: "Save issue",
@@ -1390,7 +896,6 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       }
     } else {
       setForm(emptyForm);
-      setTeamInput("");
       setPrimaryFile(null);
       if (draftStorageKey) {
         localStorage.removeItem(draftStorageKey);
@@ -1826,144 +1331,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         </Card>
         )}
 
-        {showSection("events") && (
-        <Card id="dashboard-section-events" className={sectionCardClass("events")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">6) Event visibility <SectionHint text="Link events to help buyers discover your storefront." /></CardTitle>
-            <p className="text-xs text-muted-foreground">Link upcoming events.</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Selected events</p>
-              <div className="space-y-2">
-                {selectedEventItems.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between gap-3 rounded-md border border-festival-teal/25 p-2">
-                    <div className="min-w-0 flex items-center gap-2.5">
-                      <div className="h-12 w-12 rounded-md overflow-hidden border border-border/50 bg-muted/20 shrink-0">
-                        {event.imageUrl ? (
-                          <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-                            <CalendarDays className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{event.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatEventDate(event.date)}{event.location ? ` • ${event.location}` : event.city ? ` • ${event.city}` : ""}</p>
-                        <div className="flex gap-1 mt-1">
-                          {event.hasParty && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Party</Badge>}
-                          {event.hasClass && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Class</Badge>}
-                        </div>
-                      </div>
-                    </div>
-                    <Button type="button" size="sm" variant="outline" className="h-7 text-[11px] focus-visible:ring-2 focus-visible:ring-festival-teal/60 transition-colors" onClick={() => removeUpcomingEvent(event.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-                {selectedEventItems.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No events selected yet.</p>
-                )}
-              </div>
-            </div>
-
-            <Input
-              placeholder="Search events by name"
-              value={eventSearchInput}
-              onChange={(e) => setEventSearchInput(e.target.value)}
-            />
-
-            <div className="space-y-2 rounded-md border border-festival-teal/25 p-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">Calendar events</p>
-                <Button type="button" size="sm" className="h-7 text-[11px] shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary/60 transition-all" disabled={pendingEventIds.length === 0} onClick={addPendingEvents}>
-                  Add selected{pendingEventIds.length ? ` (${pendingEventIds.length})` : ""}
-                </Button>
-              </div>
-
-              {loadingEventSuggestions ? (
-                <p className="text-xs text-muted-foreground">Loading calendar events…</p>
-              ) : addableEventSuggestions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No suggested events found.</p>
-              ) : (
-                addableEventSuggestions.slice(0, 8).map((event) => {
-                  return (
-                    <div key={event.id} className="flex items-center gap-3 rounded-md border border-border/50 p-2">
-                      <label className="flex items-start gap-3 min-w-0 flex-1 cursor-pointer">
-                        <Checkbox checked={pendingEventIds.includes(event.id)} onCheckedChange={() => togglePendingEvent(event.id)} className="mt-0.5" />
-                        <span className="min-w-0 flex items-center gap-2.5">
-                          <span className="h-12 w-12 rounded-md overflow-hidden border border-border/50 bg-muted/20 shrink-0">
-                            {event.imageUrl ? (
-                              <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="h-full w-full flex items-center justify-center text-muted-foreground"><CalendarDays className="h-4 w-4" /></span>
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="text-sm font-medium truncate block">{event.name}</span>
-                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location || event.city || "Location TBA"}</span>
-                            <span className="text-xs text-muted-foreground block">{formatEventDate(event.date)}</span>
-                            <span className="flex gap-1 mt-1">
-                              {event.hasParty && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5"><Flame className="h-3 w-3 mr-0.5" />Party</Badge>}
-                              {event.hasClass && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">Class</Badge>}
-                            </span>
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {expertMode ? (
-              <details className="rounded-md border border-border/50 p-2.5">
-                <summary className="cursor-pointer text-xs text-muted-foreground">Advanced: add by event ID</summary>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Add event id"
-                    value={upcomingEventsInput}
-                    onChange={(e) => setUpcomingEventsInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addUpcomingEvent();
-                      }
-                    }}
-                  />
-                  <Button type="button" className="focus-visible:ring-2 focus-visible:ring-primary/60 transition-colors" onClick={addUpcomingEvent}>Add</Button>
-                </div>
-              </details>
-            ) : (
-              <p className="text-xs text-muted-foreground">Need exact event IDs? Enable Expert mode.</p>
-            )}
-
-            {eventsOnlyMode && (
-              <div className="sticky bottom-0 z-20 border border-festival-teal/35 bg-background/95 backdrop-blur-sm rounded-lg p-2.5 flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 text-[12px] focus-visible:ring-2 focus-visible:ring-festival-teal/60 transition-colors"
-                  disabled={pendingEventIds.length === 0}
-                  onClick={addPendingEvents}
-                >
-                  Add selected{pendingEventIds.length ? ` (${pendingEventIds.length})` : ""}
-                </Button>
-                <Button
-                  type="button"
-                  className="h-8 text-[12px] shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary/60 transition-all"
-                  disabled={savePending || uploadPending || deletePending}
-                  onClick={saveVendor}
-                >
-                  {savePending ? "Saving..." : "Done"}
-                </Button>
-              </div>
-            )}
-
-          </CardContent>
-        </Card>
-        )}
+        {/* Phase 5.5: events section retired — admins link vendors to events
+            via the admin event editor (admin_attach_vendor_to_event_v1). */}
 
         {showSection("contact") && (
         <Card id="dashboard-section-contact" className={sectionCardClass("contact")}>
@@ -2054,131 +1423,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         </Card>
         )}
 
-        {showSection("team") && (
-        <Card id="dashboard-section-team" className={sectionCardClass("team")}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-            <div>
-              <CardTitle>10) Team operations</CardTitle>
-            </div>
-            <Button type="button" variant="outline" size="sm" className="focus-visible:ring-2 focus-visible:ring-festival-teal/60 transition-colors" onClick={() => navigate('/dancers')}>
-              Manage Dancers
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Add team member</Label>
-              <div className="relative">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search dancers by name..."
-                      value={teamSearch}
-                      onChange={(e) => setTeamSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-                
-                {(teamResults.length > 0 || isSearchingTeam || teamSearchError) && (
-                  <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
-                    {isSearchingTeam && (
-                      <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    )}
-                    
-                    {teamSearchError && (
-                      <div className="p-2 text-sm text-destructive">{teamSearchError}</div>
-                    )}
-
-                    {!isSearchingTeam && teamResults.length === 0 && !teamSearchError && (
-                       <div className="p-2 text-sm text-muted-foreground">No matches found.</div>
-                    )}
-
-                    {!isSearchingTeam && teamResults.map((dancer) => (
-                      <button
-                        key={dancer.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground border-b last:border-0 transition-colors"
-                        onClick={() => addTeamMember(dancer)}
-                      >
-                        <div className="font-medium">{dancer.displayName}</div>
-                        {dancer.city && <div className="text-xs text-muted-foreground">{dancer.city}</div>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Current team</Label>
-              <div className="space-y-2">
-                {parsedTeamDisplay.length === 0 && (
-                  <p className="text-sm text-muted-foreground italic">No team members added yet.</p>
-                )}
-                {parsedTeamDisplay.map((member: any, i: number) => (
-                  <div key={member.dancer_id || i} className="flex items-center justify-between border rounded-md p-2 bg-background/50">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                        {(member.name || "?")[0]}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                          {member.name}
-                          {String(member.dancer_id) === String(currentLeaderDancerId || "") && (
-                            <Badge variant="secondary" className="text-[10px]">Leader</Badge>
-                          )}
-                        </div>
-                        {member.city && <div className="text-xs text-muted-foreground">{member.city}</div>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {String(member.dancer_id) !== String(currentLeaderDancerId || "") && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-[11px]"
-                          onClick={() => setTeamLeader(String(member.dancer_id))}
-                        >
-                          Set leader
-                        </Button>
-                      )}
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0"
-                        onClick={() => removeTeamMember(member.dancer_id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {expertMode ? (
-              <details className="pt-2">
-                <summary className="text-xs text-muted-foreground cursor-pointer hover:underline">Advanced: Edit raw JSON</summary>
-                 <Textarea
-                  rows={5}
-                  value={teamInput}
-                  onChange={(e) => setTeamInput(e.target.value)}
-                  placeholder='[{"name":"Ana","role":"Sales"}]'
-                  className="mt-2 text-xs font-mono"
-                />
-              </details>
-            ) : (
-              <p className="text-xs text-muted-foreground">Need manual JSON editing? Enable Expert mode.</p>
-            )}
-          </CardContent>
-        </Card>
-        )}
+        {/* Phase 5.5: team section retired — admins manage vendor team
+            membership via the admin VendorTeamTab (admin_set_vendor_team_v1).
+            The Phase 5 invariant requires every active vendor to have ≥1
+            Leader; the admin tab enforces this with toast + UI guard. */}
 
         {showSection("save") && (
         <Card id="dashboard-section-save" className={sectionCardClass("save")}>

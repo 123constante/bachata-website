@@ -1,0 +1,196 @@
+/* OrganiserHoloCard â€” B4 Â· Holo Trading Card
+   Ported from Claude Design treatment T10_Holo. Holographic foil border,
+   dark inner panel, diagonal shimmer + 3D tilt on hover. Class scope is
+   `.holo-card` so it can't bleed onto sibling components. */
+
+.holo-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 7 / 10;
+  border-radius: 16px;
+  cursor: pointer;
+  padding: 4px;
+  background: linear-gradient(
+    135deg,
+    #ff6ec7 0%,
+    #6ec7ff 25%,
+    #c7ff6e 50%,
+    #ffc76e 75%,
+    #ff6ec7 100%
+  );
+  background-size: 300% 300%;
+  background-position: 0 0;
+  box-shadow:
+    0 20px 60px rgba(255, 110, 199, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  transform: perspective(800px) rotateY(0) rotateX(0);
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1),
+    background-position 0.6s cubic-bezier(0.4, 0.1, 0.3, 1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.holo-card:hover,
+.holo-card:focus-visible {
+  transform: perspective(800px) rotateY(8deg) rotateX(-4deg);
+  background-position: 100% 100%;
+  outline: none;
+}
+
+.holo-card__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: linear-gradient(170deg, #1a0f3a 0%, #0a0418 100%);
+  color: #fff8ec;
+  padding: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.holo-card__inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.18) 45%,
+    transparent 60%
+  );
+  transform: translateX(-30%);
+  transition: transform 0.8s cubic-bezier(0.4, 0.1, 0.3, 1);
+}
+
+.holo-card:hover .holo-card__inner::before,
+.holo-card:focus-visible .holo-card__inner::before {
+  transform: translateX(40%);
+}
+
+.holo-card__banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: #ffc76e;
+  position: relative;
+  z-index: 1;
+}
+
+.holo-card__banner > span:last-child {
+  color: #ff6ec7;
+}
+
+.holo-card__art {
+  margin: 12px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 30% 30%, #ff6ec7 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, #6ec7ff 0%, transparent 55%),
+    linear-gradient(135deg, #2a1a4f, #0a0418);
+  border: 1px solid rgba(255, 199, 110, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.holo-card__avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.holo-card__monogram {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(28px, 14cqw, 48px);
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #fff8ec, #ff6ec7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 20px rgba(255, 110, 199, 0.5);
+}
+
+.holo-card__name {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  color: #fff8ec;
+  text-shadow: 0 0 12px rgba(255, 110, 199, 0.5);
+  text-transform: uppercase;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.holo-card__type {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6ec7ff;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.holo-card__footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: #ff6ec7;
+  position: relative;
+  z-index: 1;
+}
+
+/* Small-screen tweaks: tighten the banner + name so 2-col on a 375px viewport
+   stays readable. The art panel uses flex 1 1 auto so it shrinks naturally. */
+@media (max-width: 480px) {
+  .holo-card__inner { padding: 10px; }
+  .holo-card__banner { font-size: 8px; letter-spacing: 0.16em; }
+  .holo-card__name { font-size: 12px; }
+  .holo-card__type { font-size: 8px; letter-spacing: 0.14em; }
+  .holo-card__footer { font-size: 7.5px; letter-spacing: 0.14em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-card,
+  .holo-card__inner::before {
+    transition: none;
+  }
+  .holo-card:hover,
+  .holo-card:focus-visible {
+    transform: none;
+    background-position: 0 0;
+  }
+  .holo-card:hover .holo-card__inner::before,
+  .holo-card:focus-visible .holo-card__inner::before {
+    transform: translateX(-30%);
+  }
+}

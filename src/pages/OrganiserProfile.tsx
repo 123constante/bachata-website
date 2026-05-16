@@ -158,17 +158,26 @@ const OrganiserProfile = () => {
     queryFn: async () => {
       if (!id) throw new Error('Entity ID is required');
       const { data, error } = await supabase
-        .from('entities')
-        .select(`
-          *,
-          cities:cities!entities_city_id_fkey ( name, slug )
-        `)
+        .from('organiser_profiles')
+        .select('*')
         .eq('id', id)
-        .eq('type', 'organiser')
+        .eq('is_active', true)
         .maybeSingle();
       if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!data) return null;
-      return data;
+
+      // Fetch city details separately if city_id exists
+      let city = null;
+      if (data.city_id) {
+        const { data: cityData } = await supabase
+          .from('cities')
+          .select('name, slug')
+          .eq('id', data.city_id)
+          .maybeSingle();
+        city = cityData;
+      }
+
+      return { ...data, cities: city };
     },
     enabled: !!id,
   });
@@ -200,7 +209,7 @@ const OrganiserProfile = () => {
       const { data: teamRows, error } = await supabase
         .from('organiser_team_members')
         .select('id, role, is_head, is_leader, sort_order, member_profile_id, is_active')
-        .eq('organiser_entity_id', id)
+        .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
       if (error || !teamRows?.length) return [];
@@ -309,10 +318,9 @@ const OrganiserProfile = () => {
     if (!id || !user?.id) return;
     try {
       const { error } = await supabase
-        .from('entities')
+        .from('organiser_profiles')
         .update({ claimed_by: user.id })
         .eq('id', id)
-        .eq('type', 'organiser')
         .is('claimed_by', null);
       if (error) throw error;
       toast({
@@ -381,7 +389,7 @@ const OrganiserProfile = () => {
       const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
 
       const { error } = await supabase
-        .from('entities')
+        .from('organiser_profiles')
         .update({
           name: editForm.name.trim(),
           avatar_url: editForm.avatar_url.trim() || null,

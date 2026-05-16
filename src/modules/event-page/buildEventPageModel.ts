@@ -87,7 +87,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const lineupGroups: EventPageModel['lineup']['groups'] = ([
     { key: 'teachers' as const, label: 'Teachers', items: lineup.teachers.map(p => ({ ...p, href: `/teachers/${p.id}` })) },
     { key: 'djs' as const, label: 'DJs', items: lineup.djs.map(p => ({ ...p, href: `/djs/${p.id}` })) },
-    { key: 'vendors' as const, label: 'Vendors', items: lineup.vendors.map(p => ({ ...p, href: p.href })) },
+    { key: 'vendors' as const, label: 'Vendors', items: lineup.vendors.map(p => ({ ...p, href: `/vendors/${p.id}` })) },
     { key: 'videographers' as const, label: 'Videographers', items: lineup.videographers.map(p => ({ ...p, href: p.href })) },
   ] as EventPageModel['lineup']['groups']).filter((group) => group.items.length > 0);
 

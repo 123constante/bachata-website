@@ -20,25 +20,23 @@ export const setAttendanceRpc = async (eventId: string, status: AttendanceValue)
   if (error) throw error;
 };
 
-const fetchAttendanceStatus = async (eventId: string, userId: string): Promise<AttendanceValue> => {
-  const { data: occurrences } = await supabase
-    .from('calendar_occurrences')
-    .select('id')
-    .eq('event_id', eventId)
-    .order('instance_start', { ascending: true })
-    .limit(10);
+const fetchAttendanceStatus = async (eventId: string, _userId: string): Promise<AttendanceValue> => {
+  // Call get_my_event_attendance_v1 to get all attendance records,
+  // then find the status for the specific event
+  const { data, error } = await supabase.rpc('get_my_event_attendance_v1');
 
-  if (!occurrences?.length) return null;
+  if (error) {
+    console.error('Failed to fetch attendance status:', error);
+    return null;
+  }
 
-  const occurrenceIds = occurrences.map((o) => o.id);
-  const { data: attendanceRow } = await supabase
-    .from('event_attendance')
-    .select('status')
-    .in('occurrence_id', occurrenceIds)
-    .eq('user_id', userId)
-    .maybeSingle();
+  if (!data || !Array.isArray(data)) return null;
 
-  return (attendanceRow?.status as AttendanceStatus) ?? null;
+  const attendance = (data as Array<{ event_id: string; status: string; updated_at: string }>).find(
+    (row) => row.event_id === eventId
+  );
+
+  return (attendance?.status as AttendanceStatus) ?? null;
 };
 
 export const useAttendance = (eventId: string) => {

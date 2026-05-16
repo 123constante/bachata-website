@@ -83,6 +83,7 @@ export const SITE_IA = {
 
   // -------- Flow routes (edit / create) ---------------------------------------
   'profile.edit':              { label: 'Edit',                        parent: 'profile' },
+  'profile.attendance':        { label: 'My attendance',               parent: 'profile' },
   'profile.vendorDashboard':   { label: 'Vendor dashboard',            parent: 'profile' },
   'profile.createEvent':       { label: 'Create event',                parent: 'profile' },
   'profile.createDancer':      { label: 'Create dancer profile',       parent: 'profile' },

@@ -49,10 +49,6 @@ const ALLOWED_BARE_AVATAR_FILES = [
   // Classic-page OrganiserPill — bespoke gold-pill-with-chevron design.
   // emitProfileView wired inline below; visual stays bespoke.
   "src/modules/event-page/sections/EventHeroMetaBlock.tsx",
-  // Timeline instructor pills — 16 px avatars, smaller than PersonChip's
-  // smallest size (24 px). Conversion would force a density regression on
-  // the timeline. emitProfileView wired inline; visual stays bespoke.
-  "src/modules/event-page/sections/EventTimelineSection.tsx",
   // PracticePartners listing — community-driven partner cards with
   // emoji-fallback avatars. Avatar size mismatch + emoji fallback stop a
   // clean PersonChip rollout in this iteration.

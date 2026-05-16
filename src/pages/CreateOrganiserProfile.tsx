@@ -51,10 +51,9 @@ const CreateOrganiserProfile = () => {
     let cancelled = false;
     void (async () => {
       const { data, error } = await (supabase as any)
-        .from('entities')
-        .select('id, city_id, cities(name)')
+        .from('organiser_profiles')
+        .select('id, city_id')
         .eq('claimed_by', user.id)
-        .eq('type', 'organiser')
         .maybeSingle();
 
       if (cancelled || error || !data?.id) return;

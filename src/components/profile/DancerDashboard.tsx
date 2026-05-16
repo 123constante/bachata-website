@@ -300,17 +300,14 @@ export const DancerDashboard = () => {
           photo_url: getPhotoUrl(normalized.photo_url) || '',
         });
 
-        const { data: rawAttendance, error: attendanceError } = await supabase
-          .from('event_attendance')
-          .select('status, calendar_occurrences!inner(event_id)')
-          .eq('user_id', user.id);
+        const { data: rawAttendance, error: attendanceError } = await supabase.rpc('get_my_event_attendance_v1');
 
         if (attendanceError) {
           throw attendanceError;
         }
 
         const participantRows = (rawAttendance || []).map((r: any) => ({
-          event_id: r.calendar_occurrences.event_id as string,
+          event_id: r.event_id as string,
           status: r.status as string,
         }));
         if (!participantRows.length) {

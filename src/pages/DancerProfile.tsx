@@ -9,12 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
-import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import {
   mapDancerPublicProfile,
   type DancerPublicRecord,
 } from "@/modules/profile/dancerPublicProfile";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 type AttendanceRow = {
   event_id: string;
@@ -46,6 +46,7 @@ type AttendanceItem = {
 const DancerProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: dancer, isLoading, error: dancerError } = useQuery({
     queryKey: ["dancer-profile", id],
@@ -67,24 +68,25 @@ const DancerProfile = () => {
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   const dancerUserId = dancer?.created_by ?? null;
+  const isSelfView = Boolean(user?.id && dancerUserId && user.id === dancerUserId);
 
+  // Attendance is private: get_my_event_attendance_v1 only returns the caller's own
+  // rows. Only fetch when the viewer is the profile owner, otherwise we'd render
+  // the viewer's attendance under someone else's profile.
   const { data: attendanceRows = [] } = useQuery({
-    queryKey: ["dancer-public-attendance", dancerUserId],
+    queryKey: ["dancer-public-attendance", dancerUserId, user?.id],
     queryFn: async () => {
-      if (!dancerUserId) return [] as AttendanceRow[];
-      const { data, error } = await supabase
-        .from("event_attendance")
-        .select("status, updated_at, calendar_occurrences!inner(event_id)")
-        .eq("user_id", dancerUserId)
-        .in("status", ["going", "interested"]);
+      const { data, error } = await supabase.rpc("get_my_event_attendance_v1");
       if (error) throw error;
-      return (data || []).map((r: any) => ({
-        event_id: r.calendar_occurrences.event_id as string,
-        status: r.status as "going" | "interested",
-        updated_at: r.updated_at as string | null,
-      }));
+      return (data || [])
+        .filter((r: any) => r.status === "going" || r.status === "interested")
+        .map((r: any) => ({
+          event_id: r.event_id as string,
+          status: r.status as "going" | "interested",
+          updated_at: r.updated_at as string | null,
+        }));
     },
-    enabled: Boolean(dancerUserId),
+    enabled: isSelfView,
     staleTime: 1000 * 20,
   });
 
@@ -308,24 +310,16 @@ const DancerProfile = () => {
           );
         })()}
 
-        {/* Event appearances */}
+        {/* Self-view only: the profile owner's own attendance plans */}
+        {isSelfView && (
         <div className="mt-8">
-          <ProfileEventTimeline
-            personType="dancer"
-            personId={id}
-            title="Event appearances"
-            emptyText="No event appearances recorded yet."
-          />
-        </div>
-
-        <div className="mt-10">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Plans</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="p-5 bg-gradient-to-br from-card via-card to-primary/10 border-primary/20">
-              <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-foreground mb-3">Your plans</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Card className="p-3 bg-gradient-to-br from-card via-card to-primary/10 border-primary/20">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">Events</h3>
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <h3 className="text-base font-semibold text-foreground">Events</h3>
                 </div>
                 <span className="text-xs text-muted-foreground">{upcomingEvents.length} saved</span>
               </div>
@@ -359,11 +353,11 @@ const DancerProfile = () => {
               </div>
             </Card>
 
-            <Card className="p-5 bg-gradient-to-br from-card via-card to-festival-pink/20 border-festival-pink/30">
-              <div className="flex items-center justify-between mb-3">
+            <Card className="p-3 bg-gradient-to-br from-card via-card to-festival-pink/20 border-festival-pink/30">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-festival-pink" />
-                  <h3 className="text-lg font-semibold text-foreground">Festivals</h3>
+                  <Star className="w-4 h-4 text-festival-pink" />
+                  <h3 className="text-base font-semibold text-foreground">Festivals</h3>
                 </div>
                 <span className="text-xs text-muted-foreground">{upcomingFestivals.length} saved</span>
               </div>
@@ -398,6 +392,7 @@ const DancerProfile = () => {
             </Card>
           </div>
         </div>
+        )}
       </div>
     </GlobalLayout>
   );

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database, Json } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
+import { safeExternalHref } from '@/lib/url';
 import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
@@ -9,8 +10,6 @@ import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPage
 // ---------------------------------------------------------------------------
 
 type JsonRecord = Record<string, unknown>;
-
-type SnapshotRpcArgs = Database['public']['Functions']['get_event_page_snapshot_v2']['Args'];
 
 const asObject = (value: unknown): JsonRecord | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -200,7 +199,12 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
         }, []);
       })(),
       actions: {
-        ticketUrl: asString(actions.ticket_url),
+        // Render-time defence: bad ticket_url values (e.g. legacy junk from
+        // before validation was tightened on 2026-05-12) fall through to
+        // null so no broken Tickets button is rendered. DB CHECK +
+        // admin_save_event_v2 wrapper validation prevent new bad values,
+        // but this is the floor for anything that slipped through.
+        ticketUrl: safeExternalHref(actions.ticket_url) ?? null,
         websiteUrl: asString(actions.website_url),
         facebookUrl: asString(actions.facebook_url),
         instagramUrl: asString(actions.instagram_url),
@@ -299,12 +303,16 @@ export const useEventPageQuery = (eventId?: string | null, occurrenceId?: string
     queryFn: async () => {
       if (!eventId) return null;
 
-      const args: SnapshotRpcArgs = { p_event_id: eventId };
-      if (occurrenceId) {
-        args.p_occurrence_id = occurrenceId;
-      }
-
-      const { data, error } = await supabase.rpc('get_event_page_snapshot_v2', args);
+      // Phase 5.6 cutover: route through event_view_p5(snapshot_compat). Compat
+      // is byte-equal to the legacy get_event_page_snapshot_v2 by delegation
+      // (admin migration 20260601030000).
+      const { data, error } = await supabase.rpc('event_view_p5' as never, {
+        p_target: {
+          series_id: eventId,
+          ...(occurrenceId ? { occurrence_id: occurrenceId } : {}),
+        },
+        p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+      } as never);
       if (error) {
         // Wrap raw PostgrestError so Sentry receives a real Error, not an object.
         throw new Error(error.message ?? JSON.stringify(error));

@@ -1,11 +1,87 @@
+# CLAUDE.md — Website (Bachata Calendar public site)
+
+**Public-facing Bachata Calendar** — React + TypeScript + Vite + Supabase +
+Vercel. Mobile-first. ~90% of users are on mobile. This repo owns zero
+migrations; all schema authority lives in `bachata-admin-11april`.
+
+---
+
+## Repository structure
+
+```
+src/
+  App.tsx              Root router (lazy imports with chunk-reload retry)
+  pages/               Route-level page components (40+ pages)
+  modules/
+    event-page/        Event detail page — model, hooks, sections, bento tiles
+    profile/           Profile module
+    vendor/            Vendor portal
+  components/          Shared UI components
+    calendar/          EventCalendar, CalendarGrid, DayDetailModal (EXEMPT from density)
+    layout/            GlobalLayout, GlobalHeader, BottomNav, PageBreadcrumb
+    ui/                shadcn/ui primitives
+    organiser/         Organiser-specific components
+    venue/             Venue-specific components
+  lib/
+    breadcrumbs/       buildBreadcrumbs(), siteIa.ts, JSON-LD
+    featureFlags.ts    VITE_ENABLE_* flags → ComingSoonGate
+    supabase.ts        Supabase client
+    analytics.ts       Event view tracking, search telemetry
+    sentry.ts          Sentry error capture
+    programDayRollover.ts  Day-rollover logic (must mirror admin lib)
+  hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
+  contexts/            CityContext
+scripts/               CI contract check scripts (18 checks in db-contract-check.yml)
+tests/                 Vitest unit tests + Playwright e2e specs
+bin/                   Integrity and session-lock tools
+.github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
+```
+
+---
+
+## Architecture
+
+### Routing
+
+All pages are lazy-loaded via `lazyWithRetry()` (defined in App.tsx), which
+wraps `React.lazy()` with a single-reload recovery for stale chunk 404s after
+Vercel deploys. Only `Index` is eager.
+
+Routes gated by feature flags render `<ComingSoonGate>` + `<ListingRequestForm>`
+when the flag is false (see `lib/featureFlags.ts`).
+
+### Event page module
+
+`src/modules/event-page/` is the full event detail surface:
+- `buildEventPageModel.ts` — pure model builder from DB payload
+- `useEventPageQuery.ts` — React Query hook; calls `event_view_p5` with
+  `shape:'snapshot_compat'` (delegates to legacy program RPCs, byte-equal
+  to `get_event_page_snapshot_v2`)
+- `EventPageScreen.tsx` — top-level render
+- `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
+- `sections/` — page sections
+
+### QueryClient
+
+Defined in App.tsx. Global defaults: `staleTime: 60_000`, `retry: 1`,
+`refetchOnWindowFocus: false`. All query and mutation errors route to Sentry
+via `QueryCache` / `MutationCache` `onError`.
+
+### Chunk splitting (Vite)
+
+Manual chunks in `vite.config.ts`:
+`vendor-react`, `vendor-query`, `vendor-motion`, `vendor-supabase`, `vendor-ui`.
+Do not break these without reason — they are tuned for cache hit rates.
+
+---
+
 ## Design density (mandatory — do not deviate without explicit request)
 
-This project prefers COMPACT, information-dense layouts. Default mobile-first
-spacing is too generous for our taste. Apply these rules to every UI change:
+This project prefers COMPACT, information-dense layouts.
 
-- Mobile (≥375px): default to 2-column grids for card lists (venues, events,
-  teachers, DJs, dancers, organisers). Never 1-column unless the card
-  legitimately needs full width (hero, single featured item, detail page).
+- Mobile (>=375px): default to **2-column grids** for card lists (venues,
+  events, teachers, DJs, dancers, organisers). Never 1-column unless the
+  card legitimately needs full width.
 - Tablet: 3 columns. Desktop: 4+ columns.
 - Card padding: p-3 (not p-4/p-6). Gap between cards: gap-3 (not gap-4/gap-6).
 - Card images: 16:9 or 4:3 aspect, not 1:1 squares taking half the screen.
@@ -15,10 +91,12 @@ spacing is too generous for our taste. Apply these rules to every UI change:
 - Vertical rhythm: prefer space-y-3 over space-y-6.
 - Icons: w-4 h-4 inline, w-5 h-5 for prominent. Not w-8+ unless decorative.
 
-When in doubt, make it MORE compact, not less. If a design feels too dense,
-Ricky will ask to loosen it — assume compact until told otherwise.
+When in doubt, make it MORE compact. If a design feels too dense, Ricky will
+ask to loosen it — assume compact until told otherwise.
 
 Do NOT produce "Apple-style" generous-whitespace mobile layouts.
+
+---
 
 ## Density exclusions — DO NOT modify these files for density changes
 
@@ -32,14 +110,14 @@ EXEMPT from the density rules above. Do NOT apply density changes to:
 - src/components/calendar/calendarUtils.ts
 - src/hooks/useCalendarEvents.tsx
 
-Note: src/components/ui/dialog.tsx is a shared shadcn primitive used by other
-dialogs on the site. Do not alter it as part of density work on the calendar
-modal. It may be adjusted for OTHER dialogs if and only if the change does
-not affect DayDetailModal's appearance.
+Note: src/components/ui/dialog.tsx is a shared shadcn primitive. Do not
+alter it as part of calendar density work. It may be adjusted for OTHER
+dialogs if and only if the change does not affect DayDetailModal.
 
 If a task involves any of these excluded files, ask Ricky before changing
 anything in them.
 
+---
 
 ## Breadcrumbs (mandatory)
 
@@ -52,16 +130,13 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 // Listing
 <GlobalLayout breadcrumbs={buildBreadcrumbs('parties')}>
 
-// Nested listing
-<GlobalLayout breadcrumbs={buildBreadcrumbs('djs')}>
-
-// Detail page (entity name supplied, isLoading flag handles loading state)
+// Detail page
 <GlobalLayout breadcrumbs={buildBreadcrumbs('dancer.detail', {
   entityName: dancer?.first_name,
   isLoading,
 })}>
 
-// Event page (parent dispatches by event type)
+// Event page
 <GlobalLayout breadcrumbs={buildBreadcrumbs('event.detail', {
   entityName: pageModel.identity.title,
   eventType: pageModel.identity.eventType,
@@ -70,199 +145,206 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 ```
 
 Adding a new page:
-1. Add a one-line entry to `src/lib/breadcrumbs/siteIa.ts` (label, path, parent, entity flag).
+1. Add a one-line entry to `src/lib/breadcrumbs/siteIa.ts`.
 2. Use `buildBreadcrumbs('newRouteId', ctx)` on the page.
-3. The unit + tree-validity tests in `src/lib/breadcrumbs/__tests__/` will already cover it.
+3. Breadcrumb unit tests in `src/lib/breadcrumbs/__tests__/` auto-cover it.
 
-The dev-only runtime warning in `GlobalLayout` flags pages that render the
-sub-header but pass no breadcrumbs — production never crashes.
+Pages with no breadcrumb (Index, Auth, AuthCallback, Onboarding) must pass
+`showSubheader={false}`.
 
-The visible breadcrumb is paired with a hidden `<script type="application/ld+json">`
-emitting Schema.org `BreadcrumbList` for SEO. No extra work — `PageBreadcrumb`
-emits it automatically from the `items` it receives.
-
-Pages that legitimately have no breadcrumb (Index, Auth, AuthCallback, Onboarding)
-must pass `showSubheader={false}`.
-
+---
 
 ## Calendar occurrence venue/city contract (mandatory)
 
 `calendar_occurrences.venue_id`, `city_id`, and `city_slug` are NULL by default.
-They may be set ONLY when `is_override = true` on the same row, indicating the
-occurrence has been deliberately moved away from the parent event's defaults.
+They may be set ONLY when `is_override = true`.
 
-Read paths must use `COALESCE(co.venue_id, e.venue_id)` to fall back to the
-parent event when the override is unset. The shipped public RPCs already do
-this (`get_event_page_snapshot_v2`, `get_public_venues_list_v2/v3`,
-`get_public_event_detail`, `get_public_festival_detail`, `calendar_events_dto`).
-Any new public read path that touches venue MUST use the same pattern.
+Read paths must use `COALESCE(co.venue_id, e.venue_id)`. All shipped public
+RPCs already do this. Any new public read path touching venue MUST use the same
+pattern.
 
-Self-check + CI:
-- Health-check RPC `check_occurrence_venue_contract_v1()` returns aggregate
-  health JSON (anon-callable, no row data).
-- Workflow `.github/workflows/db-contract-check.yml` runs the check on every
-  push, PR, and daily 06:00 UTC. Fails the build on any contract violation.
-- Local check: `node scripts/check-venue-contract.mjs`.
+Health check: `check_occurrence_venue_contract_v1()` (anon-callable).
+CI: `db-contract-check.yml` check #1. Local: `node scripts/check-venue-contract.mjs`.
 
-Contract migration: admin repo `20260428120000_occurrence_venue_drift_fix_v1.sql`.
-Helper-function alignment: admin repo
-`20260428160000_occurrence_venue_helpers_align_with_contract_v1.sql`.
-
+---
 
 ## Migration authority (mandatory)
 
-This repo does **NOT** own `supabase/migrations/*.sql`. Migration authority
-lives in the admin repo `bachata-admin-11april/supabase/migrations/`,
-applied via `supabase db push` from there (CLI-only, per admin's CLAUDE.md).
+This repo does **NOT** own `supabase/migrations/*.sql`. That folder must not
+exist. Migration authority lives in `bachata-admin-11april/supabase/migrations/`,
+applied via `supabase db push` from there (CLI-only).
 
-Forbidden in this repo:
-- Adding `*.sql` files under `supabase/migrations/` (folder should not exist).
-- Hand-applying DDL via Supabase SQL editor without committing the migration
-  to admin's repo first.
+**Forbidden in this repo:**
+- Adding `*.sql` files under `supabase/migrations/`
+- Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
-What this repo owns instead:
-- Contract-check scripts (`scripts/check-*.mjs`,
-  `.github/workflows/db-contract-check.yml`) — these validate the live DB
-  matches our expectations. New contracts go here.
-- The `supabase/config.toml` `project_id` pin (so other tooling knows which
-  project to point at).
+**What this repo owns:**
+- Contract-check scripts (`scripts/check-*.mjs`) — 18 checks in db-contract-check.yml
+- `supabase/config.toml` project_id pin
 
-If you find yourself wanting to write DDL in this repo: stop, switch to the
-admin working tree, author the migration there, push, then return here.
+CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
+it will fail the workflow.
 
-History: rule introduced May 2026 after collapsing 139 Website-origin
-migrations into admin (97 ported, 42 dispositioned). Admin commit b0c8c4f5;
-rollback tags `pre-migration-collapse-website` / `pre-migration-collapse-admin`.
-
+---
 
 ## File-write safety (mandatory for agents)
 
-This repo lives on a Windows mount accessed from the Cowork Linux sandbox via
-a stack of `Cowork bash → FUSE bindfs → virtio-fs → Windows NTFS`. The middle
-layers exhibit two distinct corruption modes for writes >~2 KB:
+This repo lives on a Windows mount via Cowork → FUSE → virtio-fs → NTFS.
+Three corruption modes for writes >~2 KB: null-byte injection, silent
+truncation, mount eventual-consistency (fresh read sees stale content).
 
-1. **Null-byte injection** — file contains stray `\x00` bytes after write.
-2. **Silent truncation** — file ends mid-content with no nulls.
-3. **Mount eventual-consistency** — the writing process sees the new content
-   correctly via warm kernel cache, but a *separate* follow-up process sees a
-   stale prior version (sometimes with the same byte size as the new write).
-   Confirmed 2026-04-26 PM: `safe-write` v1 reported success, the next bash
-   call saw a truncated file matching a prior version's byte size.
-
-The integrity stack v3 defends against all three, plus guards itself against
-corruption.
-
-### Writing files >2 KB — `safe-write.py` is the ONLY supported path
-
-A Claude Code `PreToolUse` hook (`.claude/hooks/pre-write-block.sh`) refuses
-raw `Edit`/`Write` calls on `.ts/.tsx/.jsx/.js/.cjs/.mjs/.json/.sql/.yml/.yaml/.sh/.py`
-files when the existing target or the new content exceeds 2 KB. It prints
-the exact `safe-write.py` invocation to use.
+**A `PreToolUse` hook refuses raw `Edit`/`Write` calls on source files when
+the target or content exceeds 2 KB.** It prints the exact `safe-write.py`
+invocation to use:
 
 ```bash
 WRITER=$(mktemp /tmp/edit-XXXXXX.tsx)
 cat > "$WRITER" << 'EOF'
-…full intended file contents (not a diff)…
+...full file contents...
 EOF
 cat "$WRITER" | python3 scripts/safe-write.py src/components/foo/Bar.tsx
 ```
 
-`safe-write.py` v2 (2026-04-26 PM):
+`safe-write.py` v2 stages to `/tmp`, verifies sha256 via subprocess after
+`sync`, retries on mismatch, restores backup on failure.
 
-1. Stages the new content in `/tmp` (Linux-native, immune to the mount bug).
-2. Computes the expected sha256 of the staged file.
-3. Copies to the target, then runs `sync` to flush the mount.
-4. Re-reads the target's sha256 in a **subprocess** (`sha256sum` binary) so
-   the read bypasses our own kernel cache and surfaces the mount's actual
-   settled state.
-5. If the round-trip sha256 mismatches: retries verify with backoff
-   (0.3s → 1s → 3s). If still mismatched, re-copies and starts the verify
-   loop over (up to 2 full re-copy cycles).
-6. If the round-trip still fails after that: restores the backup and exits 5.
-7. Runs the language-appropriate parse check; rolls back to the backup on
-   parse failure (exit 4).
+**Other guardrails:**
+- `PostToolUse` hook — parse-checks files >2 KB after any Edit/Write
+- `.githooks/pre-commit` — integrity check on staged files
+- `npm run check:integrity` — full tree scan (`bin/check-integrity.sh`)
+- `npm run repair:corrupt` — auto-restore corrupted files from HEAD
+- `bin/session-lock.sh acquire/release` — advisory lock for multi-file refactors
 
-Exit codes:
+CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
-- `0` success — content on disk matches expected sha256 from a fresh subprocess
-- `1` null bytes detected
-- `2` truncation suspected (--expect-min-lines violated)
-- `3` I/O or argument error
-- `4` parse-check failed (file restored from backup)
-- `5` sha256 round-trip failed after all retries (file restored from backup)
+---
 
-CRLF is auto-applied to source extensions (the repo is `.gitattributes`
-CRLF-locked). Override with `--lf` if needed.
+## CI workflows
 
-The `PostToolUse` hook (`.claude/hooks/post-write-check.sh`) runs the parse
-check after any `Edit`/`Write` to a file >2 KB, catching anything that slips
-through (e.g. via the bypass).
+| Workflow | Trigger | Checks |
+|----------|---------|--------|
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 18 DB contracts (venue, coords, program, security, FK, etc.) |
+| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
+| `e2e-smoke.yml` | push/PR | Playwright smoke suite |
+| `e2e-nightly.yml` | daily | Full Playwright suite |
+| `workflow-lint.yml` | push/PR | Workflow file validation |
 
-### Bypassing the PreToolUse hook
+**Key DB contract checks** (all in `scripts/check-*.mjs`, enforced by CI):
+- Venue / venue coords contract (#1, #16)
+- Per-occurrence RPC suite (#2)
+- Event-program duration contract (#3)
+- Session-people display_name override (#4)
+- Guest-entries contract (#5)
+- Program editor schema (#6)
+- Program save idempotency (#7)
+- Day-rollover consistency (#8)
+- Canvas consistency (#10)
+- Security-hardening policy (#11)
+- FK-index contract (#12)
+- event_attendees FK target (#13)
+- epp.display_name drift (#14)
+- epp.avatar_url drift (#15)
+- Teacher/DJ assignment integrity (#17)
+- Migration authority arc-closeout (#18)
 
-Repair flows that need to write directly without going through `safe-write`
-(e.g. `bin/repair-corrupt.sh` doing `git checkout HEAD --`) can set:
+---
 
-```bash
-SAFEWRITE_HOOK_BYPASS=1 …
-```
+## Testing
 
-Use sparingly — every bypass is a risk surface for the corruption modes
-above.
-
-### Coordinating with concurrent sessions
-
-The 2026-04-26 morning incident's actual root cause was two Claude sessions
-editing the same files concurrently. Before any multi-file refactor:
-
-```bash
-bin/session-lock.sh acquire     # warns if another session is active
-bin/session-lock.sh release     # when done
-```
-
-The lock is advisory (does not block writes), but makes concurrent activity
-visible.
-
-### Verifying the whole tree
+### Unit / contract tests (Vitest)
 
 ```bash
-npm run check:integrity         # full sweep
-npm run repair:corrupt          # auto-restore corrupted files
+npm run test:unit                   # all unit tests
+npx vitest run tests/               # same
 ```
 
-`npm run check:integrity` calls `bin/check-integrity.sh`, which copies the
-guard to `/tmp` and verifies its sha256 against `.integrity-guard.sha256`
-before running. This means a corrupted guard cannot pass clean.
+Contract tests: `tests/eventViewCompat.contract.test.ts`,
+`tests/publicEventPageLineup.contract.test.ts`,
+`tests/occurrenceProgram.contract.test.ts`.
 
-### Repairing corruption
+### E2E (Playwright)
 
 ```bash
-bin/repair-corrupt.sh
+npm run test:e2e         # curated smoke specs
+npm run test:e2e:all     # full suite
 ```
 
-For each corrupt file:
-- If working tree matches HEAD → auto-restore via `git checkout HEAD --`.
-- If working tree has edits → DO NOT touch; print exact `safe-write.py`
-  command for manual repair (because the corruption may have eaten real
-  in-progress work).
+Dev server must be running at port 8080 for Playwright. Vite dev: `npm run dev`.
 
-### Modifying the guard itself
-
-If you intentionally edit `scripts/integrity-guard.py`:
+### Lint
 
 ```bash
-bash bin/integrity-pin.sh        # locks new sha256 into .integrity-guard.sha256
-git add scripts/integrity-guard.py .integrity-guard.sha256
+npm run lint
 ```
 
-Without re-pinning, every subsequent `check:integrity` will fail with
-"GUARD SHA MISMATCH".
+Chains: `check:integrity` → `check:legacy-tables` →
+`check:legacy-program-rpcs` → `lint:architecture` → `eslint`.
 
-### Other guardrails
+If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
+reference to a table or RPC that has been retired from the DB. Fix the call
+site, not the check.
 
-- `.githooks/pre-commit` runs the integrity check on staged files.
-  Install via `bash bin/install-hooks.sh` (auto-run by `npm install`).
-- `.github/workflows/integrity.yml` (or `architecture-guard.yml`) runs the
-  full sweep on every push and PR.
-- `.gitattributes` enforces CRLF for source files (Windows-native repo).
-- `npm run lint` chains `check:integrity` → architecture lint → eslint.
+---
+
+## Feature flags
+
+Feature flags in `src/lib/featureFlags.ts` gate public-facing listing pages
+behind `<ComingSoonGate>`. Set to `true` in `.env.development` for local work.
+Vercel production env overrides `.env.production`.
+
+| Flag | Controls |
+|------|----------|
+| `VITE_ENABLE_TEACHERS_DIRECTORY` | `/teachers` listing |
+| `VITE_ENABLE_TEACHER_DETAIL` | `/teachers/:id` detail |
+| `VITE_ENABLE_ORGANISERS_DIRECTORY` | `/organisers` listing |
+| `VITE_ENABLE_ORGANISER_DETAIL` | `/organisers/:id` detail |
+| `VITE_ENABLE_VENUE_DETAIL` | `/venues/:id` detail |
+
+---
+
+## Key patterns
+
+### HTML entities over raw Unicode
+
+Cowork→FUSE→Windows pipeline corrupts em-dash, ellipsis, smart quotes via
+cp1252 round-trip → visible mojibake on prod. Use `&mdash;`, `&hellip;`,
+`&rsquo;` in JSX. Never paste Unicode punctuation directly into source files.
+
+### Profile view telemetry
+
+Use `emitProfileView(profileId, type)` from `lib/profileViewEmit.ts` on
+any surface that renders a clickable profile. This is the mandate, not
+`PersonChip` (which is one packaging of the same call for schedule densities).
+
+### Event view tracking
+
+`lib/analytics.ts` → `record_event_view_v1` RPC. Session-deduped per UTC day.
+Bot-UA filtered, admin sessions skipped.
+
+### Day-rollover logic
+
+`src/lib/programDayRollover.ts` — sessions starting 00:00–08:00 of the day
+after event start belong to the prior day. This logic must mirror
+`admin/lib/programDayRollover.ts` exactly. A CI check (#8) validates the
+fixture parity between repos.
+
+---
+
+## Recent changes
+
+- **2026-05-16 (latest)** — Vendor team public display fixes (avatar, roles,
+  broken link). About page stacked reveal layout (Approach D).
+- **2026-05-14** — Raffle UI: Unicode mojibake fixed, tile layout fixes.
+  Bento section titles moved outside cards.
+- **2026-05-13** — Venue detail page redesign (Pulse venue). 6 bug fixes
+  (breadcrumb z-order, heart/share, YouTube thumbnails, mojibake, recurring
+  events). Vendor detail redesign.
+- **2026-05-13** — db-contract-check.yml: migration-authority arc-closeout
+  check added (check #18). `Website/supabase/migrations/` decommissioned.
+- **2026-05-13** — epp.avatar_url drift contract check added (#15).
+- **2026-05-13** — `event_view_p5` snapshot_compat shape: 3 callers of
+  `get_event_page_snapshot_v2` migrated. Contract test extended (9/9 pass).
+- **2026-05-07** — Phase C: occurrence-aware public schedule. `ScheduleBlock`
+  uses `get_occurrence_program_v1` when `occurrenceId` in URL.
+- **2026-04-30** — Source-integrity guardrail kit v3 (safe-write.py v2,
+  PreToolUse hook, sha256 subprocess verify, session-lock advisory lock).

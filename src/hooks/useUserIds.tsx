@@ -67,10 +67,9 @@ export const useUserIds = () => {
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
           supabase
-            .from('entities')
-            .select('id, city_id, cities(name)')
+            .from('organiser_profiles')
+            .select('id')
             .eq('claimed_by', user.id)
-            .eq('type', 'organiser')
             .maybeSingle(),
 
           teacherRolePromise,

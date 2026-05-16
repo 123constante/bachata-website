@@ -63,34 +63,30 @@ async function resolveProfileIdForms(
 
 /**
  * Session-level: unique event IDs where this person has a program slot.
- * Reads event_program_people (single authority) directly. Matches on BOTH
- * profile-table PK and person_entity_id forms of profile_id.
+ * Now calls get_profile_event_timeline_v2 RPC instead of direct table read.
+ * Returns event_id, role, event_name, event_start_time from the RPC.
  */
 async function fetchProgramEventIds(
   profileId: string,
   profileType: 'teacher' | 'dj',
-): Promise<string[]> {
-  const idForms = await resolveProfileIdForms(profileId, profileType);
-  const { data, error } = await supabase
-    .from('event_program_people' as never)
-    .select('event_id')
-    .in('profile_id', idForms)
-    .eq('profile_type', profileType);
+): Promise<Array<{ event_id: string; role: string; event_name: string; event_start_time: string | null }>> {
+  const { data, error } = await supabase.rpc('get_profile_event_timeline_v2', {
+    p_person_type: profileType,
+    p_person_id: profileId,
+    p_limit: 1000,
+    p_offset: 0,
+  });
   if (error) throw new Error(error.message ?? JSON.stringify(error));
-  const ids = ((data ?? []) as unknown as { event_id: string | null }[])
-    .map((r) => r.event_id)
-    .filter((id): id is string => Boolean(id));
-  return [...new Set(ids)];
+  return (data ?? []) as Array<{ event_id: string; role: string; event_name: string; event_start_time: string | null }>;
 }
 
 type LinkRow = { event_id: string; role: string; is_primary?: boolean };
 
 /**
- * Lineup rows for any profile type, sourced from event_program_people (the
- * canonical post-EPL authority). EPP has one row per program item the
- * profile is on, so the same (event_id, profile_id) pair can appear multiple
- * times within one event — collapse to one row per event_id, preferring the
- * first non-empty role string for the connection label.
+ * Lineup rows for any profile type. For teacher/dj, sources the program-level
+ * data from get_profile_event_timeline_v2 RPC. For other types (vendor,
+ * videographer, dancer, organiser), continues to read event_program_people
+ * directly since those types are not yet reflected in the RPC.
  *
  * profile_id column meanings per profile_type:
  *   teacher      → dancer_profiles.id (or person_entity_id form)
@@ -104,6 +100,35 @@ async function fetchLinkRows(
   profileId: string,
   profileType: PersonType,
 ): Promise<LinkRow[]> {
+  // For teacher/dj, use the RPC (which also covers program-level slots)
+  if (profileType === 'teacher' || profileType === 'dj') {
+    try {
+      const { data, error } = await supabase.rpc('get_profile_event_timeline_v2', {
+        p_person_type: profileType,
+        p_person_id: profileId,
+        p_limit: 1000,
+        p_offset: 0,
+      });
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
+
+      const rowsByEventId = new Map<string, LinkRow>();
+      for (const item of (data ?? []) as { event_id: string | null; role: string }[]) {
+        const eventId = item?.event_id;
+        if (!eventId) continue;
+        const role = item?.role ?? '';
+        const existing = rowsByEventId.get(eventId);
+        if (!existing || (!existing.role && role)) {
+          rowsByEventId.set(eventId, { event_id: eventId, role });
+        }
+      }
+      return [...rowsByEventId.values()];
+    } catch (err) {
+      // If RPC fails, fall through to direct table read as fallback
+      console.warn('get_profile_event_timeline_v2 failed, falling back to direct read:', err);
+    }
+  }
+
+  // For all other types, or as fallback: direct event_program_people read
   const { data, error } = await supabase
     .from('event_program_people')
     .select('event_id, profile_id, profile_type, role')
@@ -182,19 +207,66 @@ export function useProfileProgramAppearances(
     queryFn: async (): Promise<ProfileAppearanceItem[]> => {
       if (!personType || !profileId) return [];
 
+      // For teacher/dj, try to use the new RPC directly (it returns complete timeline)
+      if (personType === 'teacher' || personType === 'dj') {
+        try {
+          const { data: rpcResults, error } = await supabase.rpc('get_profile_event_timeline_v2', {
+            p_person_type: personType,
+            p_person_id: profileId,
+            p_limit: limit,
+            p_offset: 0,
+          });
+
+          if (error) throw error;
+
+          if (rpcResults && Array.isArray(rpcResults)) {
+            const programLabel = personType === 'teacher' ? 'instructor' : 'dj_set';
+            const items: ProfileAppearanceItem[] = rpcResults
+              .map((item: any) => ({
+                event_id: item.event_id,
+                event_name: item.event_name,
+                event_location: null, // RPC doesn't return location; would need expansion
+                event_start_time: item.event_start_time,
+                connection_label: programLabel,
+                is_primary: false,
+                source: 'program' as const,
+              }));
+
+            // Sort by date (most recent first for teachers/DJs showing what they teach)
+            items.sort((a, b) => {
+              const aMs = a.event_start_time
+                ? new Date(a.event_start_time).getTime()
+                : Number.NEGATIVE_INFINITY;
+              const bMs = b.event_start_time
+                ? new Date(b.event_start_time).getTime()
+                : Number.NEGATIVE_INFINITY;
+              return bMs - aMs; // descending (most recent first)
+            });
+
+            return items.slice(0, limit);
+          }
+        } catch (err) {
+          // If RPC fails, fall through to legacy path below
+          console.warn('get_profile_event_timeline_v2 failed for', personType, profileId, err);
+        }
+      }
+
+      // Fallback for non-teacher/dj types or if RPC fails:
       // ── 1. Program-table event IDs (session-level, teacher + dj only) ─────
-      let programEventIds: string[] = [];
+      let programEventIds: Array<{ event_id: string; role: string; event_name: string; event_start_time: string | null }> = [];
       let programLabel = '';
 
       if (personType === 'teacher') {
-        programEventIds = await fetchProgramEventIds(profileId, 'teacher');
+        const results = await fetchProgramEventIds(profileId, 'teacher');
+        programEventIds = results;
         programLabel = 'instructor';
       } else if (personType === 'dj') {
-        programEventIds = await fetchProgramEventIds(profileId, 'dj');
+        const results = await fetchProgramEventIds(profileId, 'dj');
+        programEventIds = results;
         programLabel = 'dj_set';
       }
 
-      const programSet = new Set(programEventIds);
+      const programSet = new Set(programEventIds.map((r) => r.event_id));
 
       // ── 2. Event-level link rows ──────────────────────────────────────────
       const linkRows = await fetchLinkRows(profileId, personType);
@@ -206,7 +278,7 @@ export function useProfileProgramAppearances(
         .filter((id) => !programSet.has(id));
 
       // ── 3. Combined ID list → published+active gate ───────────────────────
-      const allIds = [...new Set([...programEventIds, ...linkOnlyIds])];
+      const allIds = [...new Set([...programEventIds.map((r) => r.event_id), ...linkOnlyIds])];
       const events = await keepPublishedAndActive(allIds);
 
       // ── 4. Build result ───────────────────────────────────────────────────
@@ -226,28 +298,19 @@ export function useProfileProgramAppearances(
         };
       });
 
-      // ── 5. Filter to upcoming + sort soonest-first ────────────────────────
-      // Past events are excluded from public profile timelines — clamp at
-      // today's 00:00 so events that started earlier today still surface.
-      // Undated entries are preserved (rare, but legitimate).
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayMs = todayStart.getTime();
-      const upcoming = items.filter((item) => {
-        if (!item.event_start_time) return true;
-        return new Date(item.event_start_time).getTime() >= todayMs;
-      });
-      upcoming.sort((a, b) => {
+      // ── 5. Sort by date (most recent first for teachers/DJs showing what they teach) ────────────────────────
+      // All events included regardless of date — show the complete timeline.
+      items.sort((a, b) => {
         const aMs = a.event_start_time
           ? new Date(a.event_start_time).getTime()
-          : Number.POSITIVE_INFINITY;
+          : Number.NEGATIVE_INFINITY;
         const bMs = b.event_start_time
           ? new Date(b.event_start_time).getTime()
-          : Number.POSITIVE_INFINITY;
-        return aMs - bMs;
+          : Number.NEGATIVE_INFINITY;
+        return bMs - aMs; // descending (most recent first)
       });
 
-      return upcoming.slice(0, limit);
+      return items.slice(0, limit);
     },
   });
 }

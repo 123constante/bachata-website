@@ -76,12 +76,19 @@ const FestivalDetailInner = () => {
   // BentoPage uses so organiser data + slot picks come from a single
   // canonical source. Lightweight enough to live alongside the existing
   // festival-event query.
+  //
+  // Phase 5.6 cutover: routes through event_view_p5(snapshot_compat). Compat
+  // is byte-equal to the legacy get_event_page_snapshot_v2 by delegation
+  // (admin migration 20260601030000).
   const { data: snapshotPayload } = useQuery({
     queryKey: ['festival-snapshot', festivalId],
     queryFn: async () => {
       const { data, error: rpcError } = await supabase.rpc(
-        'get_event_page_snapshot_v2' as any,
-        { p_event_id: festivalId },
+        'event_view_p5' as never,
+        {
+          p_target: { series_id: festivalId },
+          p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+        } as never,
       );
       if (rpcError) throw rpcError;
       return data as Record<string, any> | null;

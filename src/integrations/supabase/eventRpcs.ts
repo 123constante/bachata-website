@@ -286,14 +286,21 @@ export async function getCalendarEvents(
 /**
  * RPC 2: Fetch event detail page snapshot
  * Works for both standard events and festivals. Can optionally specify an occurrence.
+ *
+ * Phase 5.6 cutover: routes through event_view_p5 in snapshot_compat mode.
+ * Compat is byte-equal to the legacy get_event_page_snapshot_v2 by delegation
+ * (admin migration 20260601030000); swap to a P5-native body any time before §5.10.
  */
 export async function getEventPageSnapshot(
   params: GetEventPageSnapshotParams,
 ): Promise<EventPageSnapshot | null> {
-  const { data, error } = await supabase.rpc('get_event_page_snapshot_v2', {
-    p_event_id: params.p_event_id,
-    p_occurrence_id: params.p_occurrence_id,
-  });
+  const { data, error } = await supabase.rpc('event_view_p5' as never, {
+    p_target: {
+      series_id: params.p_event_id,
+      ...(params.p_occurrence_id ? { occurrence_id: params.p_occurrence_id } : {}),
+    },
+    p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+  } as never);
 
   if (error) {
     console.error('getEventPageSnapshot RPC error:', error);

@@ -2,14 +2,15 @@
  * Contract test: public event page lineup
  *
  * Asserts that the canonical lineup pipeline (event_program_people →
- * get_event_page_snapshot_v2 / get_public_festival_detail) returns
+ * event_view_p5(snapshot_compat) / get_public_festival_detail) returns
  * populated data for events admins have configured.
  *
  * Replaces a prior version that asserted lineup came from the legacy
  * dual-authority lineup table (frozen 2026-04-15, dropped 2026-04-30) — its
  * assertion was inverted (passing for the wrong reason). This version pins
  * the contract to the canonical EPP source and fails loudly if the wiring
- * breaks.
+ * breaks. Phase 5.6 cutover (2026-05-13) routes through event_view_p5 in
+ * snapshot_compat mode; the underlying RPC is byte-equal by delegation.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -52,9 +53,10 @@ describe('public event page lineup contract', () => {
       .find(c => c.health === 'ok');
     expect(okEvent, 'expected at least one event with health=ok').toBeTruthy();
 
-    const { data, error } = await anon.rpc('get_event_page_snapshot_v2', {
-      p_event_id: okEvent!.event_id,
-    });
+    const { data, error } = await anon.rpc('event_view_p5' as never, {
+      p_target: { series_id: okEvent!.event_id },
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+    } as never);
     expect(error).toBeNull();
     expect(data).toBeTruthy();
 
@@ -98,9 +100,10 @@ describe('public event page lineup contract', () => {
       .find(c => c.health === 'ok');
     if (!okEvent) return; // tested in the previous case
 
-    const { data } = await anon.rpc('get_event_page_snapshot_v2', {
-      p_event_id: okEvent.event_id,
-    });
+    const { data } = await anon.rpc('event_view_p5' as never, {
+      p_target: { series_id: okEvent.event_id },
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+    } as never);
     const occurrences = (data as any).occurrences as Array<{ lineup: any }>;
     expect(occurrences.length).toBeGreaterThan(0);
     for (const occ of occurrences) {

@@ -28,7 +28,7 @@ type EntitySearchRow = {
 };
 
 const CLAIM_TABLE_MAP: Record<ClaimableEntityType, string> = {
-  organiser: 'entities',
+  organiser: 'organiser_profiles',
 };
 
 const resolveProfileName = (row: any): string => {
@@ -118,9 +118,10 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
       const query = (supabase as any)
         .from(CLAIM_TABLE_MAP[claimType])
         .select("*")
+        .is('claimed_by', null)
         .limit(100);
 
-      const { data, error } = await query.eq('type', 'organiser').is('claimed_by', null);
+      const { data, error } = await query;
 
       if (error) {
         setClaimError(error.message || "Failed to search profiles.");
@@ -154,10 +155,9 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
     setClaimError(null);
 
     const { error } = await supabase
-      .from('entities')
+      .from('organiser_profiles')
       .update({ claimed_by: user.id })
       .eq('id', entityId)
-      .eq('type', 'organiser')
       .is('claimed_by', null);
 
     if (error) {

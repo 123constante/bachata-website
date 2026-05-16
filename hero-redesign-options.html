@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homepage Hero Redesign — Bachata Calendar</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0f;
+    --bg-card: #14141d;
+    --bg-elev: #1a1a26;
+    --border: #2a2a3a;
+    --text: #f5f5f7;
+    --text-muted: #8a8a99;
+    --text-dim: #5a5a6a;
+    --orange: #f97316;
+    --orange-bright: #fb923c;
+    --orange-dark: #ea580c;
+    --blue: #3b82f6;
+  }
+  body {
+    background: linear-gradient(180deg, #050508 0%, #0e0e16 100%);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    padding: 28px 16px 60px;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1.page-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  h1.page-title span { color: var(--orange); }
+  p.page-desc {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  p.page-tip {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+
+  /* ---- Comparison "before" panel ---- */
+  .before-after {
+    max-width: 1320px;
+    margin: 0 auto 32px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .before-after-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .before-after-bad {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .before-after-bad strong { color: #ef4444; }
+  .before-after-good {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .before-after-good strong { color: #22c55e; }
+
+  /* ---- Grid ---- */
+  .grid {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1320px;
+    margin: 0 auto;
+  }
+  .approach {
+    width: 400px;
+    flex-shrink: 0;
+  }
+  .approach-header {
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .approach-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--orange);
+    background: rgba(249,115,22,0.1);
+    border: 1px solid rgba(249,115,22,0.3);
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .approach-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .approach-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    padding: 0 20px;
+  }
+
+  /* ---- Phone frame ---- */
+  .phone {
+    background: var(--bg);
+    border-radius: 22px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .viewport-label {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- Global site header ---- */
+  .global-header {
+    background: var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 11px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .logo .logo-icon { color: var(--orange); margin-right: 4px; }
+  .header-nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .nav-pill {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-elev);
+    padding: 4px 8px;
+    border-radius: 999px;
+  }
+  .nav-pill.city { color: var(--orange); }
+  .nav-burger {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .nav-burger span {
+    height: 1.5px;
+    background: var(--text-muted);
+    border-radius: 1px;
+  }
+
+  /* ---- Fold indicator ---- */
+  .fold-line {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(34,197,94,0.4), transparent);
+    margin-top: -1px;
+  }
+  .fold-label {
+    position: absolute;
+    right: 10px;
+    top: -7px;
+    font-size: 8px;
+    background: var(--bg);
+    color: rgba(34,197,94,0.8);
+    padding: 1px 6px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  /* ---- Shared calendar placeholder ---- */
+  .calendar-wrap {
+    padding: 14px 16px 18px;
+    background: var(--bg);
+  }
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .cal-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .cal-tabs {
+    display: flex;
+    gap: 3px;
+    background: var(--bg-elev);
+    padding: 2px;
+    border-radius: 999px;
+  }
+  .cal-tab {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .cal-tab.active {
+    background: var(--orange);
+    color: #fff;
+  }
+  .cal-days {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .cal-day {
+    flex: 1;
+    text-align: center;
+    padding: 6px 2px;
+    border-radius: 8px;
+    background: var(--bg-elev);
+  }
+  .cal-day.today {
+    background: var(--orange);
+  }
+  .cal-day .day-name {
+    font-size: 8px;
+    color: var(--text-muted);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cal-day.today .day-name { color: rgba(255,255,255,0.85); }
+  .cal-day .day-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    display: block;
+  }
+  .cal-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cal-event {
+    background: var(--bg-elev);
+    border-radius: 10px;
+    padding: 9px 11px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border-left: 3px solid var(--orange);
+  }
+  .cal-event-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .cal-event-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .cal-event-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-event-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .cal-event-time {
+    font-size: 10px;
+    color: var(--orange);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* =========================================================
+     APPROACH A — SIGNAL + BANNER
+     ========================================================= */
+  .a-hero {
+    padding: 12px 16px 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .a-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 85% 0%, rgba(249,115,22,0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 0% 100%, rgba(168,85,247,0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .a-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+  }
+  .a-emoji {
+    font-size: 28px;
+    flex-shrink: 0;
+    display: inline-block;
+    transform-origin: center bottom;
+    animation: a-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes a-pulse {
+    0%, 100% { transform: scale(1) rotate(-4deg); }
+    50% { transform: scale(1.12) rotate(4deg); }
+  }
+  .a-title {
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--text);
+    letter-spacing: -0.025em;
+  }
+  .a-title span {
+    color: var(--orange);
+  }
+  .a-subtitle {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Orange banner CTA */
+  .a-cta {
+    margin: 12px 0 4px;
+    position: relative;
+    z-index: 1;
+  }
+  .a-cta-link {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+    border-radius: 14px;
+    padding: 11px 16px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(249,115,22,0.25);
+  }
+  .a-cta-link::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: a-shine 3s ease-in-out infinite;
+  }
+  @keyframes a-shine {
+    0% { left: -100%; }
+    50% { left: 100%; }
+    100% { left: 100%; }
+  }
+  .a-cta-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(249,115,22,0.4);
+  }
+  .a-cta-link:active {
+    transform: translateY(0) scale(0.99);
+  }
+  .a-cta-content {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .a-cta-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .a-live-dot {
+    width: 5px;
+    height: 5px;
+    background: #fff;
+    border-radius: 50%;
+    animation: a-blink 1.4s ease-in-out infinite;
+  }
+  @keyframes a-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .a-cta-counts {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .a-cta-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .a-cta-count .num { font-size: 17px; }
+  .a-cta-sep {
+    color: rgba(255,255,255,0.45);
+    font-size: 14px;
+  }
+  .a-cta-arrow {
+    font-size: 22px;
+    color: #fff;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    margin-left: 8px;
+    position: relative;
+    z-index: 1;
+    font-weight: 300;
+  }
+  .a-cta-link:hover .a-cta-arrow {
+    transform: translateX(4px);
+  }
+
+  /* =========================================================
+     APPROACH B — BENTO CTA
+     ========================================================= */
+  .b-hero {
+    padding: 14px 16px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .b-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .b-emoji {
+    font-size: 30px;
+    display: inline-block;
+    animation: b-sway 2.6s ease-in-out infinite;
+    margin-bottom: 4px;
+    position: relative;
+    z-index: 1;
+  }
+  @keyframes b-sway {
+    0%, 100% { transform: rotate(-6deg) scale(1); }
+    50% { transform: rotate(6deg) scale(1.08); }
+  }
+  .b-title {
+    font-size: 21px;
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: -0.025em;
+    margin-bottom: 2px;
+    position: relative;
+    z-index: 1;
+    line-height: 1.1;
+  }
+  .b-title span { color: var(--orange); }
+  .b-sub {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Bento CTA cards */
+  .b-bento {
+    display: flex;
+    gap: 8px;
+    padding: 0 0 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .b-card {
+    flex: 1;
+    background: linear-gradient(135deg, rgba(249,115,22,0.16) 0%, rgba(249,115,22,0.05) 100%);
+    border: 1.5px solid rgba(249,115,22,0.4);
+    border-radius: 13px;
+    padding: 12px 10px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .b-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(249,115,22,0.08) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .b-card:hover {
+    border-color: var(--orange);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(249,115,22,0.25);
+  }
+  .b-card:hover::before { opacity: 1; }
+  .b-card:active {
+    transform: translateY(-1px) scale(0.98);
+  }
+  .b-card-icon {
+    font-size: 18px;
+    margin-bottom: 2px;
+    line-height: 1;
+  }
+  .b-card-count {
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--orange);
+    line-height: 1;
+    margin: 3px 0 4px;
+    letter-spacing: -0.04em;
+    position: relative;
+    z-index: 1;
+  }
+  .b-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+    position: relative;
+    z-index: 1;
+  }
+  .b-card-sub {
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .b-card-arrow {
+    transition: transform 0.2s ease;
+    display: inline-block;
+  }
+  .b-card:hover .b-card-arrow { transform: translateX(3px); }
+
+  .b-see-all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 0 6px;
+    font-size: 11px;
+    color: var(--orange);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .b-see-all:hover { opacity: 0.75; }
+
+  /* =========================================================
+     APPROACH C — LIVE BAR
+     ========================================================= */
+  .c-hero {
+    padding: 14px 16px 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .c-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(249,115,22,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .c-brand {
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .c-emoji-inline {
+    font-size: 22px;
+    display: inline-block;
+    animation: c-dance 1.9s ease-in-out infinite;
+    line-height: 1;
+  }
+  @keyframes c-dance {
+    0%, 100% { transform: rotate(-9deg); }
+    50% { transform: rotate(9deg); }
+  }
+  .c-title-stack {
+    line-height: 1;
+  }
+  .c-eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 3px;
+  }
+  .c-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .c-title span { color: var(--orange); }
+
+  /* Tonight Live Bar */
+  .c-bar {
+    background: var(--bg-card);
+    border: 2px solid var(--orange);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: block;
+    position: relative;
+    margin-bottom: 8px;
+    box-shadow: 0 0 0 0 rgba(249,115,22,0);
+  }
+  .c-bar:hover {
+    border-color: var(--orange-bright);
+    box-shadow: 0 0 0 4px rgba(249,115,22,0.15), 0 8px 24px rgba(249,115,22,0.2);
+    transform: translateY(-1px);
+  }
+  .c-bar:active {
+    transform: scale(0.99);
+  }
+  .c-bar-header {
+    background: var(--orange);
+    padding: 5px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+  .c-live-dot {
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    border-radius: 50%;
+    animation: c-blink 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(255,255,255,0.8);
+  }
+  @keyframes c-blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+  }
+  .c-bar-header-text {
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .c-bar-arrow {
+    margin-left: auto;
+    font-size: 16px;
+    color: #fff;
+    transition: transform 0.2s ease;
+    font-weight: 300;
+  }
+  .c-bar:hover .c-bar-arrow {
+    transform: translateX(4px);
+  }
+  .c-bar-body {
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+  }
+  .c-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .c-stat-emoji {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .c-stat-num {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--orange);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .c-stat-labels {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .c-stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .c-stat-sub {
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+  .c-stat-div {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border);
+  }
+
+  /* ---- Footer note ---- */
+  .footer-note {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-top: 36px;
+    line-height: 1.6;
+  }
+  .footer-note kbd {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Homepage hero <span>redesign</span></h1>
+<p class="page-desc">Three approaches — hover the orange Tonight CTAs to see hover &amp; click states.</p>
+<p class="page-tip">All previews shown at <kbd style="background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 3px; font-size: 11px;">390px</kbd> mobile width · dummy values: <strong style="color:#f97316">4 classes · 2 parties tonight</strong></p>
+
+<div class="before-after">
+  <span class="before-after-label">Reclaim</span>
+  <span class="before-after-bad">Current hero (largeTitle): <strong>~270px above fold</strong> — calendar starts off-screen on mobile</span>
+  <span style="color: var(--text-dim); font-size: 16px;">→</span>
+  <span class="before-after-good">New compact hero + bold CTA: <strong>~170px</strong> — calendar visible above fold</span>
+</div>
+
+<div class="grid">
+
+  <!-- ======================== APPROACH A ======================== -->
+  <div class="approach">
+    <div class="approach-header">
+      <div class="approach-tag">Option A</div>
+      <div class="approach-title">Signal + Banner</div>
+      <div class="approach-desc">Inline brand row (emoji left, title right) · Full-width orange banner with live-pulse label and shimmering shine animation</div>
+    </div>
+    <div class="phone">
+      <div class="global-header">
+        <div class="logo"><span class="logo-icon">●</span>bachata</div>
+        <div class="header-nav">
+          <div class="nav-pill city">📍 London</div>
+          <div class="nav-burger"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <div class="a-hero">
+        <div class="a-brand-row">
+          <div class="a-emoji">💃</div>
+          <div>
+            <div class="a-title">What's on in <span>London</span></div>
+            <div class="a-subtitle">Bachata classes, socials &amp; festivals</div>
+          </div>
+        </div>
+        <div class="a-cta">
+          <a class="a-cta-link" href="#" onclick="return false">
+            <div class="a-cta-content">
+              <div class="a-cta-label"><span class="a-live-dot"></span>Tonight in London</div>
+              <div class="a-cta-counts">
+                <span class="a-cta-count">🎓 <span class="num">4</span> classes</span>
+                <span class="a-cta-sep">·</span>
+                <span class="a-cta-count">🎉 <span class="num">2</span> parties</span>
+              </div>
+            </div>
+            <div class="a-cta-arrow">›</div>
+          </a>
+        </div>
+      </div>
+
+      <div class="fold-line"><span class="fold-label">FOLD ✓</span></div>
+
+      <div class="calendar-wrap">
+        <div class="cal-header">
+          <div class="cal-title">This week</div>
+          <div class="cal-tabs">
+            <div class="cal-tab active">Calendar</div>
+            <div class="cal-tab">List</div>
+          </div>
+        </div>
+        <div class="cal-days">
+          <div class="cal-day today"><span class="day-name">Wed</span><span class="day-num">13</span></div>
+          <div class="cal-day"><span class="day-name">Thu</span><span class="day-num">14</span></div>
+          <div class="cal-day"><span class="day-name">Fri</span><span class="day-num">15</span></div>
+          <div class="cal-day"><span class="day-name">Sat</span><span class="day-num">16</span></div>
+          <div class="cal-day"><span class="day-name">Sun</span><span class="day-num">17</span></div>
+          <div class="cal-day"><span class="day-name">Mon</span><span class="day-num">18</span></div>
+          <div class="cal-day"><span class="day-name">Tue</span><span class="day-num">19</span></div>
+        </div>
+        <div class="cal-events">
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Sensual Bachata · Maria López</div>
+              <div class="cal-event-sub">Hammersmith · Class</div>
+            </div>
+            <div class="cal-event-time">19:30</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎉</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Wednesday Social Night</div>
+              <div class="cal-event-sub">Shoreditch · Party</div>
+            </div>
+            <div class="cal-event-time">20:00</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Bachata Fusion Masterclass</div>
+              <div class="cal-event-sub">Camden · Class</div>
+            </div>
+            <div class="cal-event-time">20:30</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="viewport-label">390 × ~720 · hero ≈ 56px + CTA ≈ 68px</div>
+  </div>
+
+  <!-- ======================== APPROACH B ======================== -->
+  <div class="approach">
+    <div class="approach-header">
+      <div class="approach-tag">Option B</div>
+      <div class="approach-title">Bento CTA</div>
+      <div class="approach-desc">Centred compact brand · Two tappable orange-tinted cards split classes and parties with big numbers</div>
+    </div>
+    <div class="phone">
+      <div class="global-header">
+        <div class="logo"><span class="logo-icon">●</span>bachata</div>
+        <div class="header-nav">
+          <div class="nav-pill city">📍 London</div>
+          <div class="nav-burger"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <div class="b-hero">
+        <div class="b-emoji">💃</div>
+        <div class="b-title">What's on in <span>London</span></div>
+        <div class="b-sub">Bachata classes, socials &amp; festivals</div>
+        <div class="b-bento">
+          <a class="b-card" href="#" onclick="return false">
+            <div class="b-card-icon">🎓</div>
+            <div class="b-card-count">4</div>
+            <div class="b-card-label">Classes tonight</div>
+            <div class="b-card-sub">View all <span class="b-card-arrow">→</span></div>
+          </a>
+          <a class="b-card" href="#" onclick="return false">
+            <div class="b-card-icon">🎉</div>
+            <div class="b-card-count">2</div>
+            <div class="b-card-label">Parties tonight</div>
+            <div class="b-card-sub">View all <span class="b-card-arrow">→</span></div>
+          </a>
+        </div>
+      </div>
+
+      <div class="fold-line"><span class="fold-label">FOLD ✓</span></div>
+
+      <div class="calendar-wrap">
+        <div class="cal-header">
+          <div class="cal-title">This week</div>
+          <div class="cal-tabs">
+            <div class="cal-tab active">Calendar</div>
+            <div class="cal-tab">List</div>
+          </div>
+        </div>
+        <div class="cal-days">
+          <div class="cal-day today"><span class="day-name">Wed</span><span class="day-num">13</span></div>
+          <div class="cal-day"><span class="day-name">Thu</span><span class="day-num">14</span></div>
+          <div class="cal-day"><span class="day-name">Fri</span><span class="day-num">15</span></div>
+          <div class="cal-day"><span class="day-name">Sat</span><span class="day-num">16</span></div>
+          <div class="cal-day"><span class="day-name">Sun</span><span class="day-num">17</span></div>
+          <div class="cal-day"><span class="day-name">Mon</span><span class="day-num">18</span></div>
+          <div class="cal-day"><span class="day-name">Tue</span><span class="day-num">19</span></div>
+        </div>
+        <div class="cal-events">
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Sensual Bachata · Maria López</div>
+              <div class="cal-event-sub">Hammersmith · Class</div>
+            </div>
+            <div class="cal-event-time">19:30</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎉</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Wednesday Social Night</div>
+              <div class="cal-event-sub">Shoreditch · Party</div>
+            </div>
+            <div class="cal-event-time">20:00</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Bachata Fusion Masterclass</div>
+              <div class="cal-event-sub">Camden · Class</div>
+            </div>
+            <div class="cal-event-time">20:30</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="viewport-label">390 × ~720 · hero ≈ 76px + cards ≈ 92px</div>
+  </div>
+
+  <!-- ======================== APPROACH C ======================== -->
+  <div class="approach">
+    <div class="approach-header">
+      <div class="approach-tag">Option C</div>
+      <div class="approach-title">Live Bar</div>
+      <div class="approach-desc">Minimal inline brand · Outlined "live" tonight card with pulsing dot and split-stat body (feels like a real-time dashboard widget)</div>
+    </div>
+    <div class="phone">
+      <div class="global-header">
+        <div class="logo"><span class="logo-icon">●</span>bachata</div>
+        <div class="header-nav">
+          <div class="nav-pill city">📍 London</div>
+          <div class="nav-burger"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <div class="c-hero">
+        <div class="c-brand">
+          <span class="c-emoji-inline">💃</span>
+          <div class="c-title-stack">
+            <div class="c-eyebrow">Bachata London</div>
+            <div class="c-title">What's on in <span>London</span></div>
+          </div>
+        </div>
+
+        <a class="c-bar" href="#" onclick="return false">
+          <div class="c-bar-header">
+            <div class="c-live-dot"></div>
+            <div class="c-bar-header-text">Tonight in London</div>
+            <div class="c-bar-arrow">›</div>
+          </div>
+          <div class="c-bar-body">
+            <div class="c-stat">
+              <div class="c-stat-emoji">🎓</div>
+              <div class="c-stat-num">4</div>
+              <div class="c-stat-labels">
+                <div class="c-stat-label">Classes</div>
+                <div class="c-stat-sub">tap to book</div>
+              </div>
+            </div>
+            <div class="c-stat-div"></div>
+            <div class="c-stat">
+              <div class="c-stat-emoji">🎉</div>
+              <div class="c-stat-num">2</div>
+              <div class="c-stat-labels">
+                <div class="c-stat-label">Parties</div>
+                <div class="c-stat-sub">socials</div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <div class="fold-line"><span class="fold-label">FOLD ✓</span></div>
+
+      <div class="calendar-wrap">
+        <div class="cal-header">
+          <div class="cal-title">This week</div>
+          <div class="cal-tabs">
+            <div class="cal-tab active">Calendar</div>
+            <div class="cal-tab">List</div>
+          </div>
+        </div>
+        <div class="cal-days">
+          <div class="cal-day today"><span class="day-name">Wed</span><span class="day-num">13</span></div>
+          <div class="cal-day"><span class="day-name">Thu</span><span class="day-num">14</span></div>
+          <div class="cal-day"><span class="day-name">Fri</span><span class="day-num">15</span></div>
+          <div class="cal-day"><span class="day-name">Sat</span><span class="day-num">16</span></div>
+          <div class="cal-day"><span class="day-name">Sun</span><span class="day-num">17</span></div>
+          <div class="cal-day"><span class="day-name">Mon</span><span class="day-num">18</span></div>
+          <div class="cal-day"><span class="day-name">Tue</span><span class="day-num">19</span></div>
+        </div>
+        <div class="cal-events">
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Sensual Bachata · Maria López</div>
+              <div class="cal-event-sub">Hammersmith · Class</div>
+            </div>
+            <div class="cal-event-time">19:30</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎉</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Wednesday Social Night</div>
+              <div class="cal-event-sub">Shoreditch · Party</div>
+            </div>
+            <div class="cal-event-time">20:00</div>
+          </div>
+          <div class="cal-event">
+            <div class="cal-event-icon">🎓</div>
+            <div class="cal-event-info">
+              <div class="cal-event-name">Bachata Fusion Masterclass</div>
+              <div class="cal-event-sub">Camden · Class</div>
+            </div>
+            <div class="cal-event-time">20:30</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="viewport-label">390 × ~720 · hero ≈ 60px + bar ≈ 88px</div>
+  </div>
+
+</div>
+
+<p class="footer-note">
+  Counts are live data from <code style="color:var(--text-muted)">useCalendarEvents()</code> · all CTAs link to <code style="color:var(--text-muted)">/{city}/tonight</code><br>
+  Hover the orange CTAs for hover state · click for active state · live dots pulse continuously
+</p>
+
+</body>
+</html>

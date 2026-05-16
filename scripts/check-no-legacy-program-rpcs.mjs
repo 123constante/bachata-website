@@ -3,18 +3,19 @@
  * check-no-legacy-program-rpcs.mjs
  *
  * Phase 5.6 cutover guardrail: fails if any production-code or test file
- * adds a new call to the retired program RPCs. Callers must use
- * event_view_p5 in legacy_compat mode (admin commit 141a6ab,
- * Repo 2 cutover commit 938851c).
+ * adds a new call to the retired event-read RPCs. Callers must use
+ * event_view_p5 with the appropriate compat shape (admin commit 141a6ab
+ * for legacy_compat; admin migration 20260601030000 for snapshot_compat).
  *
  * Retired RPC handles (calls only — comments / docs may still mention
  * them historically):
  *   - get_event_program_v1        → event_view_p5({series_id}, legacy_compat)
  *   - get_occurrence_program_v1   → event_view_p5({occurrence_id}, legacy_compat)
+ *   - get_event_page_snapshot_v2  → event_view_p5({series_id[,occurrence_id]}, snapshot_compat)
  *
  * The pattern matches quoted occurrences (i.e. real RPC calls or generated
  * type entries), so free-text mentions inside // comments / docstrings pass
- * through. Generated supabase types and the two contract tests are
+ * through. Generated supabase types and the contract tests are
  * allow-listed because they must reference the names to do their job.
  *
  * Wired into: package.json `lint` and .github/workflows/architecture-guard.yml.
@@ -49,7 +50,7 @@ const EXCLUDED_PATHS = [
   '.next',
 ];
 
-const FORBIDDEN_RPC_PATTERN = /['"`](get_event_program_v1|get_occurrence_program_v1)['"`]/;
+const FORBIDDEN_RPC_PATTERN = /['"`](get_event_program_v1|get_occurrence_program_v1|get_event_page_snapshot_v2)['"`]/;
 
 const toPosixRelative = (absolutePath) =>
   path.relative(ROOT, absolutePath).split(path.sep).join('/');
@@ -111,9 +112,11 @@ const run = async () => {
   }
 
   if (violations.length > 0) {
-    console.error('\nLegacy-program-RPC guardrail failed: retired RPC call(s) found.');
-    console.error('Retired (Phase 5.6 cutover): get_event_program_v1, get_occurrence_program_v1.');
-    console.error("Use event_view_p5 with p_viewer={ role:'anon', shape:'legacy_compat' } instead.\n");
+    console.error('\nLegacy-event-RPC guardrail failed: retired RPC call(s) found.');
+    console.error('Retired (Phase 5.6 cutover):');
+    console.error('  • get_event_program_v1        → event_view_p5(legacy_compat)');
+    console.error('  • get_occurrence_program_v1   → event_view_p5(legacy_compat)');
+    console.error('  • get_event_page_snapshot_v2  → event_view_p5(snapshot_compat)\n');
     for (const v of violations) {
       console.error(`- ${v.file}:${v.line}  ${v.snippet}`);
     }
@@ -121,7 +124,7 @@ const run = async () => {
     process.exit(1);
   }
 
-  console.log('Legacy-program-RPC guardrail passed (no retired-RPC calls).');
+  console.log('Legacy-event-RPC guardrail passed (no retired-RPC calls).');
 };
 
 run().catch((error) => {

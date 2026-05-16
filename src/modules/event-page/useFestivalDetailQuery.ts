@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { safeExternalHref } from '@/lib/url';
 import type {
   FestivalArtist,
   FestivalCompetition,
@@ -237,7 +238,10 @@ const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
       website: asString(links.website),
       facebookUrl: asString(links.facebook_url),
       instagramUrl: asString(links.instagram_url),
-      ticketUrl: asString(links.ticket_url),
+      // Defence-in-depth: bad ticket_url values fall through to null so no
+      // broken Tickets button is rendered. See useEventPageQuery.ts for the
+      // matching guard on the standard-event path.
+      ticketUrl: safeExternalHref(links.ticket_url) ?? null,
       whatsappLink: asString(links.whatsapp_link),
       volunteerUrl: asString(links.volunteer_url),
       codeOfConductUrl: asString(links.code_of_conduct_url),

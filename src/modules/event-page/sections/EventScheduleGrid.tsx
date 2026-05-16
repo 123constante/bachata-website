@@ -129,6 +129,7 @@ const hrefFor = (profileType: string | null, profileId: string | null): string |
   if (profileType === 'teacher') return `/teachers/${profileId}`;
   if (profileType === 'dj') return `/djs/${profileId}`;
   if (profileType === 'dancer') return `/dancers/${profileId}`;
+  if (profileType === 'vendor') return `/vendors/${profileId}`;
   return null;
 };
 
@@ -137,6 +138,7 @@ const roleLabel = (profileType: string | null): string => {
   if (profileType === 'dj') return 'DJ';
   if (profileType === 'dancer') return 'Dancer';
   if (profileType === 'videographer') return 'Videographer';
+  if (profileType === 'vendor') return 'Vendor';
   return '';
 };
 

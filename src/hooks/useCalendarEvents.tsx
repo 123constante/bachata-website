@@ -47,7 +47,7 @@ export const useCalendarEvents = ({ rangeStart, rangeEnd, citySlug }: UseCalenda
       });
 
       if (error) {
-        console.error("Calendar RPC Error:", error);
+        console.error("Calendar RPC Error:", error?.message ?? String(error));
         throw error;
       }
 
