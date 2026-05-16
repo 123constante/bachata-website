@@ -187,6 +187,32 @@ it will fail the workflow.
 
 ---
 
+## Migration authority (mandatory)
+
+This repo does **NOT** own `supabase/migrations/*.sql`. Migration authority
+lives in the admin repo `bachata-admin-11april/supabase/migrations/`,
+applied via `supabase db push` from there (CLI-only, per admin's CLAUDE.md).
+
+Forbidden in this repo:
+- Adding `*.sql` files under `supabase/migrations/` (folder should not exist).
+- Hand-applying DDL via Supabase SQL editor without committing the migration
+  to admin's repo first.
+
+What this repo owns instead:
+- Contract-check scripts (`scripts/check-*.mjs`,
+  `.github/workflows/db-contract-check.yml`) — these validate the live DB
+  matches our expectations. New contracts go here.
+- The `supabase/config.toml` `project_id` pin (so other tooling knows which
+  project to point at).
+
+If you find yourself wanting to write DDL in this repo: stop, switch to the
+admin working tree, author the migration there, push, then return here.
+
+History: rule introduced May 2026 after collapsing 139 Website-origin
+migrations into admin (97 ported, 42 dispositioned). Admin commit b0c8c4f5;
+rollback tags `pre-migration-collapse-website` / `pre-migration-collapse-admin`.
+
+
 ## File-write safety (mandatory for agents)
 
 This repo lives on a Windows mount via Cowork → FUSE → virtio-fs → NTFS.
