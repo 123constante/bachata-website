@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 // Three tile modes drive both visual and interaction behaviour after the
@@ -35,7 +35,7 @@ type BentoTileProps = {
 };
 
 const SHELL_BASE =
-  'relative flex h-full w-full flex-col overflow-hidden rounded-[22px] text-left';
+  'relative flex flex-1 w-full flex-col overflow-hidden rounded-[22px] text-left';
 
 // Strong-button visual: brass-at-18% border + two-layer shadow. Shared
 // by tappable and multi-target; omitted for container.
@@ -55,15 +55,14 @@ const TAPPABLE_INTERACTION_CLASS =
   'after:content-[""] active:after:opacity-100 ' +
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40';
 
-// Compact density — Phase 8g sizing. Title strip drops to 10 px with a
-// 2 px bottom trail, content pulls in to px-2.5 / pb-2.5.
+// Title strip now rendered above the card, outside the shell. No internal
+// padding needed on the title itself.
 const TITLE_STRIP_CLASS =
-  'px-2.5 pb-[2px] pt-2 text-[10px] font-bold uppercase tracking-[0.04em]';
-// Default content wrapper has no top padding because the title strip
-// provides it. When the title strip is omitted (empty title), we add
-// pt-2.5 so content keeps a comfortable distance from the tile edge.
-const CONTENT_WRAPPER_CLASS = 'flex min-h-0 flex-1 flex-col px-2.5 pb-2.5';
-const CONTENT_WRAPPER_NO_TITLE_CLASS = `${CONTENT_WRAPPER_CLASS} pt-2.5`;
+  'text-[10px] font-bold uppercase tracking-[0.04em]';
+
+// Content wrapper always gets pt-2.5 since the title strip is no longer
+// positioned inside the shell to provide top spacing.
+const CONTENT_WRAPPER_CLASS = 'flex min-h-0 flex-1 flex-col px-2.5 pb-2.5 pt-2.5';
 
 export const BentoTile = ({
   title,
@@ -100,35 +99,33 @@ export const BentoTile = ({
   const hasTitle = Boolean(title);
 
   const inner = (
-    <>
+    <div className={CONTENT_WRAPPER_CLASS}>
+      {children}
+    </div>
+  );
+
+  const shell = isTappable && href ? (
+    <Link to={href} className={shellClass} style={shellStyle}>
+      {inner}
+    </Link>
+  ) : isTappable ? (
+    <button type="button" onClick={onClick} className={shellClass} style={shellStyle}>
+      {inner}
+    </button>
+  ) : (
+    <div className={shellClass} style={shellStyle}>
+      {inner}
+    </div>
+  );
+
+  return (
+    <div className="flex h-full w-full flex-col gap-1">
       {hasTitle && (
         <div className={TITLE_STRIP_CLASS} style={titleStyle}>
           {title}
         </div>
       )}
-      <div className={hasTitle ? CONTENT_WRAPPER_CLASS : CONTENT_WRAPPER_NO_TITLE_CLASS}>
-        {children}
-      </div>
-    </>
-  );
-
-  if (isTappable && href) {
-    return (
-      <Link to={href} className={shellClass} style={shellStyle}>
-        {inner}
-      </Link>
-    );
-  }
-  if (isTappable) {
-    return (
-      <button type="button" onClick={onClick} className={shellClass} style={shellStyle}>
-        {inner}
-      </button>
-    );
-  }
-  return (
-    <div className={shellClass} style={shellStyle}>
-      {inner}
+      {shell}
     </div>
   );
 };
