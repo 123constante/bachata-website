@@ -262,8 +262,8 @@ const VendorDetail = () => {
         largeTitle: true,
       }}
     >
-      <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div className="max-w-6xl mx-auto px-4 pb-24 space-y-4">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {categoryItems.slice(0, 5).map((category) => (
@@ -335,7 +335,7 @@ const VendorDetail = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-4">
             <h2 className="text-base font-semibold flex items-center gap-2">
               <CalendarDays className="h-5 w-5" />
@@ -381,7 +381,7 @@ const VendorDetail = () => {
                     ? member.role
                     : null;
                   const memberContent = (
-                    <Card className="bg-white/[0.04] border-white/10 h-full">
+                    <Card className="bg-white/[0.04] border-white/10 h-full hover:border-white/20 hover:bg-white/[0.06] transition-colors">
                       <CardContent className="p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           {member.avatarUrl ? (
@@ -495,7 +495,7 @@ const VendorDetail = () => {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map((product, index) => (
-                  <Card key={`${product.name}-${index}`} className="bg-white/[0.04] border-white/10 h-full">
+                  <Card key={`${product.name}-${index}`} className="bg-white/[0.04] border-white/10 h-full hover:border-white/20 hover:bg-white/[0.06] transition-colors">
                     <CardContent className="pt-4 space-y-3 h-full flex flex-col">
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-2 mb-2">
