@@ -800,7 +800,7 @@ const SingleRoomScheduleRow = ({
   return (
     <div
       className="grid items-start gap-[10px] px-1 py-1"
-      style={{ gridTemplateColumns: '64px 1fr' }}
+      style={{ gridTemplateColumns: '64px 1fr', ...(session.cancelled ? { opacity: 0.5 } : {}) }}
     >
       {/* Time column */}
       <div className="text-center" style={{ paddingTop: '2px' }}>
@@ -855,6 +855,25 @@ const SingleRoomScheduleRow = ({
             title="Added for this date only — won't appear on other dates"
           >
             ★ Special tonight
+          </div>
+        )}
+        {session.cancelled && (
+          <div
+            data-testid={`schedule-cancelled-chip-${session.id}`}
+            className="inline-flex items-center px-1.5 py-0.5 rounded-full mb-[4px]"
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'hsl(var(--bento-fg-muted))',
+              background: 'hsl(var(--bento-fg-muted) / 0.10)',
+              border: '1px solid hsl(var(--bento-fg-muted) / 0.30)',
+              textDecoration: 'line-through',
+            }}
+            title="This session has been cancelled for this date"
+          >
+            Cancelled
           </div>
         )}
         {fullHeadline && (
