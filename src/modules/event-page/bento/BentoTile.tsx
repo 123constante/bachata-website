@@ -57,8 +57,7 @@ const TAPPABLE_INTERACTION_CLASS =
 
 // Title strip now rendered above the card, outside the shell. No internal
 // padding needed on the title itself.
-const TITLE_STRIP_CLASS =
-  'text-[10px] font-bold uppercase tracking-[0.04em]';
+const TITLE_STRIP_CLASS = 'text-center text-base font-bold uppercase tracking-[0.04em] mb-2';
 
 // Content wrapper always gets pt-2.5 since the title strip is no longer
 // positioned inside the shell to provide top spacing.
@@ -129,3 +128,4 @@ export const BentoTile = ({
     </div>
   );
 };
+
