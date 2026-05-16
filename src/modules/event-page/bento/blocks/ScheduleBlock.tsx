@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
@@ -13,7 +13,7 @@ import {
 } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
 
-// ─── Level → headline text map ───────────────────────────────────────────────
+// â”€â”€â”€ Level â†’ headline text map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const LEVEL_LABEL_SHORT: Record<SessionLevel, string> = {
   beginner:     'Beg',
   improver:     'Imp',
@@ -30,12 +30,12 @@ const LEVEL_LABEL_FULL: Record<SessionLevel, string> = {
 };
 const LEVEL_ORDER: SessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
 
-// ─── Session classification helpers ──────────────────────────────────────────
+// â”€â”€â”€ Session classification helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const isClassyType = (type: string): boolean =>
   type === 'class' || type === 'masterclass';
 
-// Default-name detection — used to suppress redundant "Class", "Class 1",
+// Default-name detection â€” used to suppress redundant "Class", "Class 1",
 // "Classes 1", "Masterclass 2" titles inside rank cards. The rank IS the
 // scaffold; the title only earns space when it adds new info.
 const isDefaultClassTitle = (title: string): boolean =>
@@ -49,13 +49,13 @@ const isDefaultPartyTitle = (title: string): boolean =>
   /^(party|parties|social|socials)(\s+\d+)?$/i.test(title.trim());
 
 // Rank-card headline text. This is the at-a-glance differentiator for a
-// dancer scanning a parallel group of classes — "where do I go?".
-//   • masterclass       → "Master"
-//   • open_level        → "Open Level" (5th value, mutually exclusive with named 4)
-//   • 4 levels          → "All"
-//   • 1 level           → full word "Beginner" / "Improver" / "Intermediate" / "Advanced"
-//   • 2–3 levels        → joined "/" abbreviations e.g. "Beg/Adv"
-//   • no levels (class) → "Class" (muted; signals an absence of level info)
+// dancer scanning a parallel group of classes â€” "where do I go?".
+//   â€¢ masterclass       â†’ "Master"
+//   â€¢ open_level        â†’ "Open Level" (5th value, mutually exclusive with named 4)
+//   â€¢ 4 levels          â†’ "All"
+//   â€¢ 1 level           â†’ full word "Beginner" / "Improver" / "Intermediate" / "Advanced"
+//   â€¢ 2â€“3 levels        â†’ joined "/" abbreviations e.g. "Beg/Adv"
+//   â€¢ no levels (class) â†’ "Class" (muted; signals an absence of level info)
 const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => {
   if (session.type === 'masterclass') return { text: 'Master', muted: false };
   if (session.levels.length === 0) return { text: 'Class', muted: true };
@@ -65,7 +65,7 @@ const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => 
   const sorted = [...session.levels].sort(
     (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
   );
-  // Single level → full word ("Beginner"). Multi-level keeps abbreviations
+  // Single level â†’ full word ("Beginner"). Multi-level keeps abbreviations
   // joined with "/" since two full words rarely fit a parallel-class card.
   if (sorted.length === 1) return { text: LEVEL_LABEL_FULL[sorted[0]], muted: false };
   return { text: sorted.map((l) => LEVEL_LABEL_SHORT[l]).join('/'), muted: false };
@@ -73,7 +73,7 @@ const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => 
 
 type ScheduleBlockProps = {
   eventId: string | null;
-  /** Phase C — when the visitor is viewing a specific occurrence date,
+  /** Phase C â€” when the visitor is viewing a specific occurrence date,
    *  the schedule shows that occurrence's merged program (cancelled
    *  sessions hidden, time/title overrides applied, hidden people
    *  removed) via get_occurrence_program_v1. Null/undefined = series
@@ -81,7 +81,7 @@ type ScheduleBlockProps = {
   occurrenceId?: string | null;
 };
 
-// ─── Format helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Format helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const fmtMins12 = (mins: number): string => {
   const h24 = Math.floor(mins / 60) % 24;
@@ -112,7 +112,7 @@ const fmtDayPill = (day: string): string => {
   }
 };
 
-// ─── Role label ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Role label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const roleLabelFor = (session: ScheduleSession): string | null => {
   if (session.people.length === 0) return null;
@@ -122,37 +122,37 @@ const roleLabelFor = (session: ScheduleSession): string | null => {
   return 'TEACHING';
 };
 
-// ─── Person link (only clickable item inside a session) ──────────────────────
+// â”€â”€â”€ Person link (only clickable item inside a session) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Time section header ─────────────────────────────────────────────────────
+// â”€â”€â”€ Time section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Renders a horizontal time anchor above the session(s) at that time:
 //
-//   9:00 PM  · 1 HR · pick your level
+//   9:00 PM  Â· 1 HR Â· pick your level
 //
 // "pick your level" suffix only appears when the time slot holds 2+ classy
 // sessions (a parallel class group). For a solo class or party, just time + dur.
 
-// F.2.e — TimeSection (formerly defined here) was unused after the per-row
+// F.2.e â€” TimeSection (formerly defined here) was unused after the per-row
 // time-on-the-right refactor. Kept its name in the row-component comments
 // below as a historical reference; the component itself is deleted.
 
 // Tooltip helper: spell out the rank for screen-reader / hover context, since
 // abbreviations like "Beg/Adv" are ambiguous in isolation.
 //
-// F.2.e — moved above its first call site (RankCard's title prop, ~line 220)
+// F.2.e â€” moved above its first call site (RankCard's title prop, ~line 220)
 // so the binding initialises before reads. The previous location below
 // RankCard relied on JSX render-time evaluation rather than module-load
 // hoisting; visually a no-op, semantically tighter.
 const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
-  if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
+  if (session.type === 'masterclass') return 'Masterclass â€” premium session with a master instructor';
   if (session.levels.length === 0) return 'Level not specified';
-  if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
-  if (session.levels.length === 4) return 'Open Level — suitable for all dancers';
+  if (session.levels.includes('open_level')) return 'Open Level â€” suitable for all dancers';
+  if (session.levels.length === 4) return 'Open Level â€” suitable for all dancers';
   return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
 };
 
-// ─── Section header — "centered with rules" pattern (D style) ────────────────
+// â”€â”€â”€ Section header â€” "centered with rules" pattern (D style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Sits above a run of consecutive same-kind slots. Replaces the per-row
 // CLASS / PARTY pill so the type label appears once per section instead of
@@ -180,14 +180,14 @@ const SectionHeader = ({ label }: { label: string }) => (
   </div>
 );
 
-// ─── Rank card — used for every class / masterclass session ──────────────────
+// â”€â”€â”€ Rank card â€” used for every class / masterclass session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Layout: serif rank headline (Imp / Adv / Master / All / Class) at the top,
 // optional non-default title below, optional room subtitle, optional teacher
 // avatars at the bottom. All centred. The card itself sits as a small
-// "compartment" — bento-surface (deeper than tile body) + brass hairline.
+// "compartment" â€” bento-surface (deeper than tile body) + brass hairline.
 //
-// Sized for use inside a 1–3 column grid below a TimeSection. Minimum width
+// Sized for use inside a 1â€“3 column grid below a TimeSection. Minimum width
 // works at ~95px (mobile, 3-up); grows happily to full tile width for solo
 // classes (1-up).
 //
@@ -208,14 +208,14 @@ const RankCard = ({
   isMultiRoom: boolean;
   /** Per-room accent color. Drives left-edge stripe + tints rank chip. */
   roomAccent?: string;
-  /** Forwarded to PeopleStack → PersonChip → emitProfileView for click
+  /** Forwarded to PeopleStack â†’ PersonChip â†’ emitProfileView for click
    *  attribution. */
   eventId: string | null;
 }) => {
   const rank = rankFor(session);
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
   const titleText = showTitle ? session.title : null;
-  // F.2.e — `useRoomAsHeading` (always false post-Phase-C) and
+  // F.2.e â€” `useRoomAsHeading` (always false post-Phase-C) and
   // `useTitleAsHeading` (computed but never read) deleted. Multi-room cards
   // are identified by the column header above; the rank/title decision is
   // made directly inline below with rank.muted + titleText checks.
@@ -262,7 +262,7 @@ const RankCard = ({
         </div>
       )}
 
-      {/* Arc 6 / Premium D (2026-05-30) — "Special tonight" chip on added-only
+      {/* Arc 6 / Premium D (2026-05-30) â€” "Special tonight" chip on added-only
            sessions. The flag arrives via get_occurrence_program_v1.added_only
            (Bundle 1, 2026-05-30). Quiet on series sessions (most cards). */}
       {session.addedOnly && (
@@ -278,13 +278,13 @@ const RankCard = ({
             background: 'hsl(var(--bento-accent) / 0.12)',
             border: '1px solid hsl(var(--bento-accent) / 0.4)',
           }}
-          title="Added for this date only — won't appear on other dates"
+          title="Added for this date only â€” won't appear on other dates"
         >
-          ★ Special tonight
+          â˜… Special tonight
         </div>
       )}
 
-      {/* Arc 13 / Premium D — "Cancelled" chip + card dimming when a session
+      {/* Arc 13 / Premium D â€” "Cancelled" chip + card dimming when a session
            has been individually cancelled for this occurrence and the event's
            show_cancelled_publicly flag is on. The flag arrives via
            get_occurrence_program_v1.cancelled (Arc 13, 2026-05-11). */}
@@ -308,7 +308,7 @@ const RankCard = ({
         </div>
       )}
 
-      {/* Teacher names — primary content. Larger, serif, prominent. */}
+      {/* Teacher names â€” primary content. Larger, serif, prominent. */}
       {titleText && (
         <div
           className="mt-[4px] leading-[1.2]"
@@ -325,7 +325,7 @@ const RankCard = ({
 
       {(() => {
         // Per-level teacher rows when the session has 2+ declared levels and
-        // at least one person carries a per-person level binding (Phase C —
+        // at least one person carries a per-person level binding (Phase C â€”
         // e.g. May Day's Cuban Room 9pm: Beginner=Carlton, Improver=Damarys).
         // Otherwise fall back to a flat avatar wrap. Both branches now go
         // through PeopleStack so the layout is centrally maintained.
@@ -345,17 +345,17 @@ const RankCard = ({
   );
 };
 
-// ─── Party DJ row — horizontal: avatar | name + role tag ────────────────────
+// â”€â”€â”€ Party DJ row â€” horizontal: avatar | name + role tag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Used inside PartyCard. Each performer renders as an avatar on the left
 // with their name and role label (DJ / DANCER / PERFORMER) stacked on the
 // right. Profile-card feel; works for solo DJs and stacks nicely for nights
 // with multiple performers.
 
-// ─── Party card — used for party-type sessions ───────────────────────────────
+// â”€â”€â”€ Party card â€” used for party-type sessions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Parties don't have ranks, so they get their own treatment: title in serif
-// (when distinctive — generic "Party" / "Social" suppressed), then the
+// (when distinctive â€” generic "Party" / "Social" suppressed), then the
 // performer list (rendered by PeopleStack vertical-feature variant).
 
 const PartyCard = ({
@@ -368,15 +368,15 @@ const PartyCard = ({
   isMultiRoom: boolean;
   /** Per-room accent color. Drives left-edge stripe + tints note tag. */
   roomAccent?: string;
-  /** Forwarded to PeopleStack → PersonChip → emitProfileView. */
+  /** Forwarded to PeopleStack â†’ PersonChip â†’ emitProfileView. */
   eventId: string | null;
 }) => {
   const isPerformance = session.type === 'performance' || session.type === 'show';
-  // End time is in the TimeSection's "10:00 PM – 5:00 AM" header above, so
+  // End time is in the TimeSection's "10:00 PM â€“ 5:00 AM" header above, so
   // the card itself doesn't repeat it. Room is identified by the column
   // header strip at the top of the schedule (when multi-room), so we never
   // use it as the card heading. When the title is a generic default
-  // ("Party", "Social"), the card heading is suppressed — the PARTY section
+  // ("Party", "Social"), the card heading is suppressed â€” the PARTY section
   // header above already labels the section. Per-DJ rows below carry their
   // own role tag, so no shared roleLabel here.
   const trimmedTitle = (session.title ?? '').trim();
@@ -395,15 +395,15 @@ const PartyCard = ({
             border: `1px solid ${roomAccent ?? 'hsl(var(--bento-accent))'}66`,
           }}
         >
-          ✦ Show
+          âœ¦ Show
         </div>
       )}
       {headingText && (() => {
-        // Split title on " · " so a trailing note (e.g. "Dance shows 11:30pm")
+        // Split title on " Â· " so a trailing note (e.g. "Dance shows 11:30pm")
         // renders below the main DJ names instead of bloating the heading.
-        const parts = headingText.split(' · ');
+        const parts = headingText.split(' Â· ');
         const main = parts[0];
-        const note = parts.slice(1).join(' · ');
+        const note = parts.slice(1).join(' Â· ');
         return (
           <>
             <div
@@ -445,7 +445,7 @@ const PartyCard = ({
   );
 };
 
-// ─── Day tabs ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Day tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DayTabs = ({
   days,
@@ -489,7 +489,7 @@ const DayTabs = ({
   </div>
 );
 
-// ─── Normalization (sort + overnight fold) ───────────────────────────────────
+// â”€â”€â”€ Normalization (sort + overnight fold) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const normalize = (sessions: ScheduleSession[]): ScheduleSession[] => {
   if (!sessions.length) return [];
@@ -502,11 +502,11 @@ const normalize = (sessions: ScheduleSession[]): ScheduleSession[] => {
     });
 };
 
-// ─── Time-slot grouping ──────────────────────────────────────────────────────
+// â”€â”€â”€ Time-slot grouping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Group consecutive sessions sharing a start_time into a single "slot". The
 // slot is "parallel-classy" only when it has 2+ sessions AND every session in
-// it is class/masterclass — that's when we render side-by-side rank cards
+// it is class/masterclass â€” that's when we render side-by-side rank cards
 // under a "pick your level" header. Mixed-type or solo slots stack vertically.
 
 type Slot = {
@@ -544,17 +544,17 @@ const groupIntoSlots = (sessions: ScheduleSession[]): Slot[] => {
   return slots;
 };
 
-// ─── Section grouping ────────────────────────────────────────────────────────
+// â”€â”€â”€ Section grouping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// Phase 2B step 2e — sections come from the database (event_program_sections,
+// Phase 2B step 2e â€” sections come from the database (event_program_sections,
 // surfaced via get_event_program_sections_v1) when available, with the
 // label_override the user typed in the editor. Falls back to the old
 // type-inference grouping for legacy events that haven't been migrated to
 // the program-tree tables (those events have no rows in
 // event_program_sections, so the sections list is empty).
 //
-// Empty sections — sections the user added structurally before populating
-// items — are surfaced too so the renderer can show a header + empty state.
+// Empty sections â€” sections the user added structurally before populating
+// items â€” are surfaced too so the renderer can show a header + empty state.
 // (Brief: "Don't hide it.")
 
 type Section = {
@@ -566,7 +566,7 @@ type Section = {
    *  derived 'class' | 'party' for legacy fallback. Used for aria-label and
    *  to decide whether a card row is partyish (range time format). */
   kind: string;
-  /** Display label — `label_override` verbatim when the user provided one,
+  /** Display label â€” `label_override` verbatim when the user provided one,
    *  otherwise derived from kind. CSS uppercases the rendered text either
    *  way; verbatim means we use the user's WORDS not their casing. */
   label: string;
@@ -590,7 +590,7 @@ const KIND_LABEL: Record<string, string> = {
 
 const labelFromKind = (kind: string, slots: Slot[]): string => {
   if (kind === 'classes') {
-    // Singularise only when there's exactly one slot with one session — the
+    // Singularise only when there's exactly one slot with one session â€” the
     // existing "CLASS" vs "CLASSES" rhythm. Empty sections default to plural.
     const isSingular =
       slots.length === 1 && (slots[0]?.sessions.length ?? 0) === 1;
@@ -626,9 +626,9 @@ const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
   });
 };
 
-// Phase 2B step 2e — primary path: walk the server-provided section list and
+// Phase 2B step 2e â€” primary path: walk the server-provided section list and
 // bucket slots by their session's `sectionId`. Slots whose sessions have a
-// `sectionId` not present in `programSections` (shouldn't normally happen —
+// `sectionId` not present in `programSections` (shouldn't normally happen â€”
 // would mean items.section_id points at a section the section RPC didn't
 // return) are appended via the legacy grouping as a defensive fallback so
 // they're never dropped on the floor.
@@ -638,12 +638,12 @@ const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
 //     section is preserved with empty `slots` so the renderer can show
 //     "No sessions scheduled yet." This honours the original Phase 2B step 2e
 //     contract: "sections the user added structurally before populating items
-//     are surfaced too — Don't hide it."
+//     are surfaced too â€” Don't hide it."
 //   - All-cancelled-for-this-occurrence (`itemCount > 0 && slots.length === 0`
 //     after bucketing): section is **dropped** from the result. The series
 //     has items, but get_occurrence_program_v1 filtered them all out as
 //     cancelled-for-this-date overrides. Showing a "No sessions scheduled yet"
-//     header in this case is misleading — the schedule is honest about what's
+//     header in this case is misleading â€” the schedule is honest about what's
 //     actually on. (Whole-occurrence cancellation is a separate path: the
 //     RPC returns [] when lifecycle_status='cancelled', so this branch never
 //     fires for that case.)
@@ -681,7 +681,7 @@ export const groupIntoSectionsFromServer = (
   }
 
   // Re-derive labels for db-backed sections now that slot counts are settled
-  // (singular/plural for 'classes' kind only — custom labels stay verbatim).
+  // (singular/plural for 'classes' kind only â€” custom labels stay verbatim).
   for (const s of result) {
     const ps = programSections.find((p) => p.id === s.id);
     if (ps && ps.labelOverride === null) {
@@ -698,12 +698,12 @@ export const groupIntoSectionsFromServer = (
   // header comment for the rationale. Structural-empty sections
   // (itemCount === 0) survive this filter and render their empty-state copy.
   // Legacy/orphan synthetic sections have no programSections entry; we keep
-  // them as-is (they always carry slots — groupIntoSectionsLegacy doesn't
+  // them as-is (they always carry slots â€” groupIntoSectionsLegacy doesn't
   // emit empty buckets).
   const filtered = result.filter((s) => {
     if (s.slots.length > 0) return true;
     const ps = programSections.find((p) => p.id === s.id);
-    if (!ps) return true; // orphan/legacy synthetic — keep
+    if (!ps) return true; // orphan/legacy synthetic â€” keep
     return ps.itemCount === 0; // keep only structurally-empty sections
   });
 
@@ -722,7 +722,7 @@ export const groupIntoSectionsFromServer = (
   return filtered;
 };
 
-// ─── Room column headers (multi-room only) ──────────────────────────────────
+// â”€â”€â”€ Room column headers (multi-room only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // One sticky-ish row at the top of the schedule that names each room column,
 // so individual cards don't have to repeat the room name. Uses the same
@@ -758,11 +758,11 @@ const RoomColumnHeaders = ({ rooms }: { rooms: string[] }) => {
   );
 };
 
-// ─── Single-room horizontal list row ───────────────────────────────────────
+// â”€â”€â”€ Single-room horizontal list row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Used when an event has 0 or 1 rooms. Each session renders as a horizontal
 // row: time + duration on the left, avatar in the middle, pill + names on the
-// right. No TimeSection band above — each row carries its own time.
+// right. No TimeSection band above â€” each row carries its own time.
 
 const SingleRoomScheduleRow = ({
   session,
@@ -778,7 +778,7 @@ const SingleRoomScheduleRow = ({
   const endStr = fmtMins12(session.endMins);
   const duration = fmtDuration(session.startMins, session.endMins);
 
-  // Title display — drop default placeholder titles ("Class 1", "Party"...).
+  // Title display â€” drop default placeholder titles ("Class 1", "Party"...).
   const trimmed = (session.title ?? '').trim();
   const showTitle = !isPartyish
     ? !isDefaultClassTitle(session.title) && trimmed.length > 0
@@ -789,13 +789,13 @@ const SingleRoomScheduleRow = ({
   const rank = !isPartyish ? rankFor(session) : null;
   const rankInline = rank && !rank.muted ? rank.text : null;
 
-  // Headline for the pill row — title + optional rank (e.g. "Bachata · Imp",
+  // Headline for the pill row â€” title + optional rank (e.g. "Bachata Â· Imp",
   // "Footwork/Styling", "Social"). The leading CLASS / DJ / SHOW pill was
   // dropped: the surrounding section already carries a vertical CLASSES /
   // PARTY label (book-spine), so repeating the type on every card duplicates
-  // the grouping affordance. Empty when no title and no rank — that case
+  // the grouping affordance. Empty when no title and no rank â€” that case
   // skips rendering the headline div below so the row collapses cleanly.
-  const fullHeadline = [titleText, rankInline].filter(Boolean).join(' · ');
+  const fullHeadline = [titleText, rankInline].filter(Boolean).join(' Â· ');
 
   return (
     <div
@@ -825,18 +825,18 @@ const SingleRoomScheduleRow = ({
             marginTop: '3px',
           }}
         >
-          {isPartyish ? `– ${endStr}` : duration}
+          {isPartyish ? `â€“ ${endStr}` : duration}
         </div>
       </div>
 
-      {/* Content column — pill + people chips. The dedicated avatar column was
+      {/* Content column â€” pill + people chips. The dedicated avatar column was
            dropped in Phase 1.5 of the renderer unification: per-person profile
            discovery requires individual click targets, not overlapping circles.
            Each PersonChip is its own Link with a 44 px hit area, wrapping when
            the row runs out of width and collapsing to "+N teachers" past the
            threshold. See plan_person_discoverability.md (Bachata Calendar PM). */}
       <div className="min-w-0">
-        {/* Arc 6 / Premium D (2026-05-30) — Special tonight chip on
+        {/* Arc 6 / Premium D (2026-05-30) â€” Special tonight chip on
              added-only sessions. Sits above the headline so it reads
              "this is a one-off" before the title. */}
         {session.addedOnly && (
@@ -852,9 +852,9 @@ const SingleRoomScheduleRow = ({
               background: 'hsl(var(--bento-accent) / 0.12)',
               border: '1px solid hsl(var(--bento-accent) / 0.4)',
             }}
-            title="Added for this date only — won't appear on other dates"
+            title="Added for this date only â€” won't appear on other dates"
           >
-            ★ Special tonight
+            â˜… Special tonight
           </div>
         )}
         {session.cancelled && (
@@ -907,10 +907,10 @@ const SingleRoomScheduleRow = ({
   );
 };
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => {
-  // Phase C — occurrence mode. When occurrenceId is set, pull the merged
+  // Phase C â€” occurrence mode. When occurrenceId is set, pull the merged
   // program from get_occurrence_program_v1 and disable the series query
   // (passing null hits the hook's enabled guard). Same shape comes back, so
   // the rest of this component is mode-agnostic.
@@ -919,7 +919,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
   const { data: rawSessions = [], isLoading } =
     occurrenceId ? occurrenceQuery : eventQuery;
 
-  // Phase 2B step 2e — section list (incl. empty sections) drives the
+  // Phase 2B step 2e â€” section list (incl. empty sections) drives the
   // section-header rendering: label_override (verbatim) when set, else kind.
   // Empty sections render a header + muted "No sessions scheduled yet."
   // Sections RPC remains series-level; sectionsForDay below filters to the
@@ -928,7 +928,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
 
   const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
 
-  // Multi-room mode = ≥ 2 distinct non-null rooms anywhere in the event's
+  // Multi-room mode = â‰¥ 2 distinct non-null rooms anywhere in the event's
   // sessions. When false, room names are hidden across the schedule.
   const isMultiRoom = useMemo(() => {
     const distinct = new Set<string>();
@@ -938,11 +938,11 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
     return distinct.size >= 2;
   }, [sessions]);
 
-  // Phase C — ordered list of rooms used as 2D-grid columns when isMultiRoom.
+  // Phase C â€” ordered list of rooms used as 2D-grid columns when isMultiRoom.
   // Order = first appearance in the (already-sort_order-respecting) sessions
   // array. This matches the venue's intended room order rather than the
-  // accident of alphabetical (e.g. flyer-order Salsa → Bachata → Cuban
-  // instead of alphabetical Bachata → Cuban → Salsa).
+  // accident of alphabetical (e.g. flyer-order Salsa â†’ Bachata â†’ Cuban
+  // instead of alphabetical Bachata â†’ Cuban â†’ Salsa).
   const orderedRooms = useMemo(() => {
     if (!isMultiRoom) return [] as string[];
     const seen = new Set<string>();
@@ -956,10 +956,10 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
     return order;
   }, [isMultiRoom, sessions]);
 
-  // Phase C polish — schedule-card background shading. Each room column sits
+  // Phase C polish â€” schedule-card background shading. Each room column sits
   // on a different shade (alternating dark/light/dark for 3 rooms; alternating
   // pattern continues for any N >= 2). The bg lives on the schedule's wrapper,
-  // not on per-column overlays — so the shading is part of the card itself
+  // not on per-column overlays â€” so the shading is part of the card itself
   // rather than separate coloured columns. Hidden below sm: cards stack
   // vertically and the stripes would be confusing.
   const scheduleStripeBg = useMemo(() => {
@@ -970,8 +970,8 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
       const start = ((i / n) * 100).toFixed(4);
       const end = (((i + 1) / n) * 100).toFixed(4);
       const color = i % 2 === 0
-        ? 'transparent'              // even-index (leftmost / outer) — no tint
-        : 'rgba(255,255,255,0.08)';  // odd-index (right / inner) — lighter side
+        ? 'transparent'              // even-index (leftmost / outer) â€” no tint
+        : 'rgba(255,255,255,0.08)';  // odd-index (right / inner) â€” lighter side
       stops.push(`${color} ${start}% ${end}%`);
     }
     return `linear-gradient(to right, ${stops.join(', ')})`;
@@ -993,15 +993,15 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
 
-  // Phase 2B step 2e — when the server returned a non-empty section list,
+  // Phase 2B step 2e â€” when the server returned a non-empty section list,
   // bucket slots by their session's sectionId so empty sections (item_count=0)
   // surface as headers with empty-state copy. When the server returned [],
-  // the event is legacy (pre-program-tree) — fall back to type inference.
+  // the event is legacy (pre-program-tree) â€” fall back to type inference.
   const sections = useMemo(() => {
     // Filter sections to only those whose day matches the active day; for
     // single-day events all sections pass through.
     //
-    // Phase C — in occurrence mode the program contains a single day's
+    // Phase C â€” in occurrence mode the program contains a single day's
     // sessions, but useProgramSections returns the WHOLE series. Without
     // the extra clause below, multi-day series viewed via ?occurrenceId
     // would render empty section headers for the unrelated days.
@@ -1020,13 +1020,13 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
   }, [slots, programSections, isMultiDay, currentDay, occurrenceId, uniqueDays]);
 
   return (
-    <BentoTile title="" color={BLOCK_COLORS.schedule} mode="container">
+    <BentoTile title={BLOCK_TITLES.schedule} color={BLOCK_COLORS.schedule} mode="container">
       {isMultiDay && currentDay && (
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
 
       <div style={{ position: 'relative' }}>
-        {/* Unified stripe overlay — sits behind the room column headers AND
+        {/* Unified stripe overlay â€” sits behind the room column headers AND
              all sections, so the L/D shading runs continuously top-to-bottom
              as one rectangle per room. left=32px (24px label + 8px gap)
              aligns the stripe boundaries with the card-column grid. */}
@@ -1046,7 +1046,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
           />
         )}
 
-        {/* Room column headers — aligned to the section grid below
+        {/* Room column headers â€” aligned to the section grid below
              (24px spacer for the vertical CLASSES/PARTY label + 1fr containing
              the room labels). */}
         <div
@@ -1069,7 +1069,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
             {isLoading
-              ? 'Loading…'
+              ? 'Loadingâ€¦'
               : sessions.length === 0
               ? 'Schedule coming soon'
               : 'No sessions on this day'}
@@ -1080,7 +1080,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
             <div
               key={`section-${section.id}`}
               style={{
-                // Direction D — no section bg tints. Hairline rule divides classes
+                // Direction D â€” no section bg tints. Hairline rule divides classes
                 // from party. Horizontal padding dropped so cards line up with the
                 // unified stripe overlay (at left=32px = 24px label + 8px gap).
                 padding: '8px 0',
@@ -1098,7 +1098,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
                 zIndex: 1,
               }}
             >
-              {/* Vertical section label — book-spine style: rotated 180deg
+              {/* Vertical section label â€” book-spine style: rotated 180deg
                    so it reads bottom-to-top with letters right-side up.
                    Phase 2B step 2e: text comes from section.label, which is
                    label_override verbatim when set, else derived from kind. */}
@@ -1136,9 +1136,9 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
               ) : section.slots.map((slot) => {
                 const format: 'duration' | 'range' = slot.hasParty ? 'range' : 'duration';
 
-                // Phase C — multi-room 2D grid. When the event has ≥ 2 rooms,
+                // Phase C â€” multi-room 2D grid. When the event has â‰¥ 2 rooms,
                 // each slot renders as fixed columns (one per room), with empty
-                // cells shown as a muted "—". Column order is stable across
+                // cells shown as a muted "â€”". Column order is stable across
                 // slots (alphabetical), so the user reads top-to-bottom in
                 // each room. Mobile collapses to single-column stacking via
                 // Tailwind's responsive grid (sm:grid-cols-N).
@@ -1175,7 +1175,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
                             marginTop: '3px',
                           }}
                         >
-                          {isPartyish ? `– ${endStr}` : durStr}
+                          {isPartyish ? `â€“ ${endStr}` : durStr}
                         </div>
                       </div>
                       {orderedRooms.map((room) => {
@@ -1190,7 +1190,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
                               }}
                               aria-label={`No session in ${room} at this time`}
                             >
-                              —
+                              â€”
                             </div>
                           );
                         }
@@ -1224,9 +1224,9 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
                   );
                 }
 
-                // Single-room (or zero-room) layout — horizontal list rows.
+                // Single-room (or zero-room) layout â€” horizontal list rows.
                 // Time column on the left, avatar in the middle, pill+name on
-                // the right. No TimeSection band — each row carries its own time.
+                // the right. No TimeSection band â€” each row carries its own time.
                 return (
                   <div
                     key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}
@@ -1247,3 +1247,4 @@ export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => 
     </BentoTile>
   );
 };
+

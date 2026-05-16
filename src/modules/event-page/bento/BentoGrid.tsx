@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 // All bento block ids. `cover` is now a grid block (2-col top-left) rather
-// than a full-width hero. `city` is mutually exclusive with `promo` — one of
+// than a full-width hero. `city` is mutually exclusive with `promo` â€” one of
 // them always occupies the top-right 1-col slot next to Date.
 export type BentoBlockId =
   | 'cover'
@@ -19,13 +19,13 @@ export type BentoBlockId =
 // rest of the code (renderBlock callbacks, hidden sets) has a stable name.
 export type GridBlockId = BentoBlockId;
 
-// Phase 8g palette migration (Vibe F: Velvet & Brass) — every tile shares
+// Phase 8g palette migration (Vibe F: Velvet & Brass) â€” every tile shares
 // the raised forest-green surface; the page behind the tiles uses the
 // deeper --bento-surface so tiles visually "sit on" the page. Brass
 // accents (border, title strip, raffle glyph) + aged-cream body text
 // complete the two-hue palette.
 export const BENTO_SURFACE = 'hsl(var(--bento-surface-raised))';
-// Text tokens — imported by blocks that need inline style colours
+// Text tokens â€” imported by blocks that need inline style colours
 // (Tailwind arbitrary values work too but inline style keeps the hex-free
 // promise visible at call sites).
 export const BENTO_FG = 'hsl(var(--bento-fg))';
@@ -38,7 +38,7 @@ export const BENTO_ACCENT = 'hsl(var(--bento-accent))';
 export const PINK_FALLBACK_SURFACE = '#E13A8A';
 
 // BLOCK_COLORS is retained for backward compatibility with consumers that
-// still read `BLOCK_COLORS[id]` — every entry now points to BENTO_SURFACE so
+// still read `BLOCK_COLORS[id]` â€” every entry now points to BENTO_SURFACE so
 // those consumers get the unified surface without requiring call-site
 // churn. New code should import BENTO_SURFACE directly.
 export const BLOCK_COLORS: Record<BentoBlockId, string> = {
@@ -54,7 +54,7 @@ export const BLOCK_COLORS: Record<BentoBlockId, string> = {
   guest: BENTO_SURFACE,
 };
 
-// Empty strings for date/city/venue suppress the brass label strip — those
+// Empty strings for date/city/venue suppress the brass label strip â€” those
 // tiles are self-explanatory and the labels added clutter (Ricky 2026-04-28).
 export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   cover: 'Cover',
@@ -62,7 +62,7 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   promo: 'Promo',
   city: '',
   venue: '',
-  'organiser-card': '',
+  'organiser-card': 'Organiser',
   schedule: 'Schedule',
   description: 'About',
   raffle: 'Raffle',
@@ -71,12 +71,12 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
 
 // Content-driven block spec. Replaces the old coordinate-based INITIAL_LAYOUT.
 //
-// - `preferredW` is the desired column span (1–4).
+// - `preferredW` is the desired column span (1â€“4).
 // - `minW` is the minimum span the block will accept (reserved for future
 //   responsive behaviour; today always equals preferredW).
 // - `minH` is the minimum row span in cells. Rows auto-grow past this when
 //   content demands it (gridAutoRows uses minmax(cell, auto)). Blocks without
-//   minH get a single content-sized row — used by the dynamic-height
+//   minH get a single content-sized row â€” used by the dynamic-height
 //   schedule/description per Phase 8a.
 export type BlockSpec = {
   id: BentoBlockId;
@@ -86,27 +86,27 @@ export type BlockSpec = {
 };
 
 // Declared in the order the user sees them top-to-bottom. The packer honours
-// this order strictly — it will not reorder to fill gaps. Keeping order stable
+// this order strictly â€” it will not reorder to fill gaps. Keeping order stable
 // matches the Phase 8 "Block order stays as currently rendered" decision.
 export const LAYOUT: BlockSpec[] = [
-  // Cover is the tall portrait anchor on the left (2 cols × 3 rows).
-  // minH is mandatory — without it the cover image has no intrinsic height
+  // Cover is the tall portrait anchor on the left (2 cols Ã— 3 rows).
+  // minH is mandatory â€” without it the cover image has no intrinsic height
   // (object-cover on h-full w-full resolves to 0).
   { id: 'cover', minW: 2, preferredW: 2, minH: 3 },
-  // Date + City/Promo are the small top-right tiles, 1 col × 1 row each.
+  // Date + City/Promo are the small top-right tiles, 1 col Ã— 1 row each.
   { id: 'date', minW: 1, preferredW: 1, minH: 1 },
   { id: 'promo', minW: 1, preferredW: 1, minH: 1 },
   { id: 'city', minW: 1, preferredW: 1, minH: 1 },
-  // Venue is the 2×2 tile in the right column that sits beneath Date +
+  // Venue is the 2Ã—2 tile in the right column that sits beneath Date +
   // City/Promo, beside the lower two-thirds of Cover. The packer places it
-  // at (x=2, y=1) because rows 1–2 cols 2–3 are the first free 2×2 slot.
+  // at (x=2, y=1) because rows 1â€“2 cols 2â€“3 are the first free 2Ã—2 slot.
   { id: 'venue', minW: 2, preferredW: 2, minH: 2 },
   // Organiser card sits immediately above the schedule (Phase 2, 2026-04-28).
-  // Full-width, content-sized — height grows with the number of organisers.
+  // Full-width, content-sized â€” height grows with the number of organisers.
   { id: 'organiser-card', minW: 4, preferredW: 4 },
   { id: 'schedule', minW: 4, preferredW: 4 },
   { id: 'description', minW: 4, preferredW: 4 },
-  // Raffle is a static "coming soon" placeholder — no data, no minH, so it
+  // Raffle is a static "coming soon" placeholder â€” no data, no minH, so it
   // sizes to content (chest icon + two text lines). Always visible, including
   // on past events (BentoPage never adds it to hiddenBlocks).
   { id: 'raffle', minW: 4, preferredW: 4 },
@@ -114,7 +114,7 @@ export const LAYOUT: BlockSpec[] = [
 ];
 
 const GRID_COLS = 4;
-// Phase 8g compact density — tiles sit closer together than the original
+// Phase 8g compact density â€” tiles sit closer together than the original
 // 8 px to match the denser strong-button treatment.
 const GAP_PX = 6;
 
@@ -129,7 +129,7 @@ type PackedBlock = {
 
 // Top-to-bottom, left-to-right greedy packer. Walks the layout in declared
 // order, filters hidden blocks out, and places each remaining block at the
-// first (x,y) where its (preferredW × minH) footprint fits in the 4-col grid.
+// first (x,y) where its (preferredW Ã— minH) footprint fits in the 4-col grid.
 // Blocks without minH are treated as 1 row tall for packing purposes but
 // flagged `dynamic: true` so the renderer can omit an explicit row span and
 // let CSS size them from content.
@@ -181,7 +181,7 @@ export function packLayout(
           break;
         }
       }
-      // Safety bound — shouldn't trigger with a 4-col grid and ≤10 blocks,
+      // Safety bound â€” shouldn't trigger with a 4-col grid and â‰¤10 blocks,
       // but guards against a runaway loop if a future block spec is malformed.
       if (y > 200) break;
     }
@@ -204,7 +204,7 @@ export const BentoGrid = ({
   const ref = useRef<HTMLDivElement>(null);
   // Cell size drives the per-row minimum height. Columns are 1fr, and rows
   // are `minmax(cell, auto)` so content taller than a cell is allowed to
-  // expand the row — which is what lets schedule/description be dynamic.
+  // expand the row â€” which is what lets schedule/description be dynamic.
   const [cell, setCell] = useState(90);
 
   useEffect(() => {
@@ -234,7 +234,7 @@ export const BentoGrid = ({
         // Rows auto-size purely from content. Per-block minimums are applied
         // via inline minHeight on each grid item so dynamic blocks (schedule,
         // description) can shrink below the notional "cell" height when their
-        // content is short — no teal dead space.
+        // content is short â€” no teal dead space.
         gridAutoRows: 'auto',
         gap: GAP_PX,
       }}
@@ -242,7 +242,7 @@ export const BentoGrid = ({
       {packed.map((blk) => {
         // Fixed blocks enforce a minimum height sized to their declared
         // footprint (h cells tall, including inter-row gaps). Dynamic blocks
-        // get no minimum — the grid row collapses to their content.
+        // get no minimum â€” the grid row collapses to their content.
         const minHeight = blk.dynamic
           ? undefined
           : blk.h * cell + (blk.h - 1) * GAP_PX;
@@ -269,3 +269,4 @@ export const BentoGrid = ({
     </div>
   );
 };
+
