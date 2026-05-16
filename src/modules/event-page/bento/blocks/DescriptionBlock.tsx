@@ -25,7 +25,6 @@ function splitBody(text: string): [string, string] {
 
 export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   const [expanded, setExpanded] = useState(false);
-  // Full height of the detail paragraph, measured via ResizeObserver.
   const [detailHeight, setDetailHeight] = useState<number | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +43,6 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   const trimmed = body.trim();
   const surface = BLOCK_COLORS.description;
 
-  // Short body: render naturally, no expander.
   if (trimmed.length <= TRUNCATE_AT) {
     return (
       <BentoTile title={BLOCK_TITLES.description} color={surface}>
@@ -62,13 +60,11 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
     );
   }
 
-  // Long body: stacked reveal — summary always visible, detail collapses below a divider.
   const [summary, detail] = splitBody(trimmed);
   const maxHeight = expanded ? (detailHeight ?? COLLAPSED_DETAIL_PX) : COLLAPSED_DETAIL_PX;
 
   return (
     <BentoTile title={BLOCK_TITLES.description} color={surface} mode="container">
-      {/* Summary — always visible */}
       <p
         className="whitespace-pre-wrap text-[13px] leading-[1.5]"
         style={{
@@ -82,20 +78,8 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
 
       {detail && (
         <>
-          {/* Brass divider — fades out when expanded */}
           <div
-            className="my-3"
-            style={{
-              height: '1px',
-              background: 'rgba(179,138,78,0.2)',
-              opacity: expanded ? 0 : 1,
-              transition: 'opacity 300ms ease',
-            }}
-          />
-
-          {/* Expandable continuation + fade gradient */}
-          <div
-            className="relative overflow-hidden"
+            className="relative mt-3 overflow-hidden"
             style={{ maxHeight, transition: 'max-height 400ms ease' }}
           >
             <div ref={detailRef}>
@@ -121,14 +105,13 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
             )}
           </div>
 
-          {/* Full-width toggle button anchored to card bottom */}
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             className="-mx-2.5 -mb-2.5 mt-3 w-[calc(100%+1.25rem)] py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-white/5 active:bg-white/10"
             style={{
-              color: 'hsl(var(--bento-accent))',
-              borderTop: '1px solid rgba(179,138,78,0.15)',
+              color: 'hsl(var(--bento-fg-muted))',
+              borderTop: '1px solid rgba(255,255,255,0.07)',
             }}
             aria-expanded={expanded}
           >
