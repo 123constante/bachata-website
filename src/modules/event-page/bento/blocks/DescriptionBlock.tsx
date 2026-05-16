@@ -110,7 +110,7 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
             onClick={() => setExpanded((v) => !v)}
             className="-mx-2.5 -mb-2.5 mt-3 w-[calc(100%+1.25rem)] py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-white/5 active:bg-white/10"
             style={{
-              color: 'hsl(var(--bento-fg-muted))',
+              color: 'hsl(var(--bento-fg))',
               borderTop: '1px solid rgba(255,255,255,0.07)',
             }}
             aria-expanded={expanded}
@@ -122,3 +122,4 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
     </BentoTile>
   );
 };
+
