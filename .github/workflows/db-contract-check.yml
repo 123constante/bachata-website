@@ -246,13 +246,18 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-teacher-dj-assignment-integrity.mjs
 
+      # ADR-007 checks run even if earlier (pre-existing) gates failed —
+      # they monitor an independent invariant and we need their signal
+      # regardless of upstream noise.
       - name: Run per-date program canonical consistency contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-per-date-program-canonical.mjs
 
       - name: Run occurrence instance_time canonical contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
