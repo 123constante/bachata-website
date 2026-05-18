@@ -8,9 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { useUserLocation } from '@/hooks/useUserLocation';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
-import LocationBanner from '@/pages/tonight/LocationBanner';
+import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 
@@ -78,8 +78,7 @@ const Tonight = () => {
     coords,
     request,
     clear,
-    setManualCoords,
-  } = useUserLocation();
+  } = useGeolocation();
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -223,12 +222,11 @@ const Tonight = () => {
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-6">
 
           <div className="max-w-md mx-auto mb-6">
-            <LocationBanner
+            <NearMeCta
               status={locStatus}
               reason={locReason}
               onRequest={request}
               onClear={clear}
-              onManualCoords={setManualCoords}
             />
           </div>
 
