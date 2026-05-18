@@ -250,7 +250,17 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           />
         ) : null;
       case 'schedule':
-        return <ScheduleBlock eventId={eventId} occurrenceId={occurrenceId} />;
+        // ADR-007 Phase 4 (2026-05-18) — when no ?occurrenceId is in the URL,
+        // fall back to the snapshot's resolved occurrenceId (server-picked next
+        // upcoming). This makes per-date programs visible by default; without
+        // it, /event/<id> showed series-level program even when the user had
+        // edited a specific date.
+        return (
+          <ScheduleBlock
+            eventId={eventId}
+            occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
+          />
+        );
       case 'promo':
         return <PromoBlock codes={pageModel.promoCodes.items} />;
       case 'city':

@@ -204,7 +204,8 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
         .filter((x): x is ScheduleSession => x !== null);
     },
     enabled: Boolean(occurrenceId),
-    staleTime: 1000 * 60 * 5,
+    // ADR-007 Phase 4 — was 5 min; reduced so admin edits propagate fast.
+    staleTime: 1000 * 30,
   });
   return data ?? null;
 }
@@ -322,7 +323,8 @@ export function useProgramItems(eventId: string | null | undefined) {
       return parseProgramItems(data);
     },
     enabled: Boolean(eventId),
-    staleTime: 1000 * 60 * 5,
+    // ADR-007 Phase 4 — was 5 min; reduced so admin edits propagate fast.
+    staleTime: 1000 * 30,
   });
 }
 
@@ -344,7 +346,8 @@ export function useOccurrenceProgram(occurrenceId: string | null | undefined) {
       return parseProgramItems(data);
     },
     enabled: Boolean(occurrenceId),
-    staleTime: 1000 * 60 * 5,
+    // ADR-007 Phase 4 — was 5 min; reduced so admin edits propagate fast.
+    staleTime: 1000 * 30,
   });
 }
 
@@ -393,7 +396,8 @@ export function useProgramSections(eventId: string | null | undefined) {
       }));
     },
     enabled: Boolean(eventId),
-    staleTime: 1000 * 60 * 5,
+    // ADR-007 Phase 4 — was 5 min; reduced so admin edits propagate fast.
+    staleTime: 1000 * 30,
   });
 }
 
