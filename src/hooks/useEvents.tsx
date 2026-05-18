@@ -24,9 +24,13 @@ export const useUpcomingEvents = () => {
 
       if (error) throw error;
       
-      // Map RPC result to the expected format for ComingUpSection
+      // Map RPC result to the expected format for ComingUpSection.
+      // occurrenceId surfaces for ADR-007 Phase 4.2c — cards link to the
+      // specific date so the public event page shows that date's program,
+      // not a fallback / next-upcoming heuristic.
       const events = (data as unknown as any[]).map((event) => ({
         id: event.event_id,
+        occurrenceId: event.occurrence_id ?? null,
         name: event.name,
         date: event.instance_date, // This ensures we show the correct instance date
         venue_name: event.location || 'TBA',
@@ -66,6 +70,7 @@ export const useEvents = () => {
 
       return (data as unknown as any[]).map((event) => ({
         id: event.event_id,
+        occurrenceId: event.occurrence_id ?? null, // ADR-007 Phase 4.2c
         name: event.name,
         date: event.instance_date,
         location: event.location,

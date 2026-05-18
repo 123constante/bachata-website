@@ -126,6 +126,9 @@ const Tonight = () => {
 
         return {
           id: String(event.event_id),
+          // ADR-007 Phase 4.2c — deep-link cards to the specific date so
+          // the public page shows that date's per-occurrence program.
+          occurrenceId: (event.occurrence_id as string | null) ?? null,
           name: event.name as string,
           location: (event.location as string) || 'Location TBD',
           occurrenceStartsAt: (event.occurrence_starts_at as string | null) ?? null,
@@ -279,11 +282,11 @@ const Tonight = () => {
                     role="link"
                     tabIndex={0}
                     aria-label={`Open ${event.name}`}
-                    onClick={() => navigate(`/event/${event.id}`)}
+                    onClick={() => navigate(event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        navigate(`/event/${event.id}`);
+                        navigate(event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`);
                       }
                     }}
                     className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col cursor-pointer"
