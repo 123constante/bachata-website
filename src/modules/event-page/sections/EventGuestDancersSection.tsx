@@ -4,7 +4,7 @@ import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 
 type EventGuestDancersSectionProps = {
   guestDancers: EventPageModel['guestDancers'];
-  /** F.1.a Phase 4 rollout â€” forwarded to emitProfileView for click attribution. */
+  /** F.1.a Phase 4 rollout — forwarded to emitProfileView for click attribution. */
   eventId: string | null;
 };
 

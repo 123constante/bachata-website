@@ -1,11 +1,11 @@
-// Bundle F.2.a â€” schedule renderer design tokens.
+// Bundle F.2.a — schedule renderer design tokens.
 //
 // Phase 1 (PeopleStack primitive) and Phase 2 (this file) of the schedule
 // renderer unification plan. Both ScheduleBlock and FestivalProgramSection
 // consume these tokens so that any future density tweak is a one-file
 // change, not a sweep across two ~400-line renderers.
 //
-// Pure constants â€” no runtime cost, no side effects. Safe to import from
+// Pure constants — no runtime cost, no side effects. Safe to import from
 // any layer.
 
 export const SCHEDULE_TOKENS = {
@@ -29,7 +29,7 @@ export const SCHEDULE_TOKENS = {
   timeCol: {
     width: 64,
   },
-  /** Typography sizes (px). `time` is the row's startâ€“end label; `duration`
+  /** Typography sizes (px). `time` is the row's start–end label; `duration`
    *  is the small-caps duration tag; `pill` is the level chip; `name` is
    *  the session title. */
   text: {

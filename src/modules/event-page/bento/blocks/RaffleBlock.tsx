@@ -34,7 +34,7 @@ function formatCloseClock(cutoffAt: string): string {
     const ampm = dt.getHours() < 12 ? 'AM' : 'PM';
     return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
   } catch {
-    return 'â€“';
+    return '–';
   }
 }
 
@@ -67,7 +67,7 @@ const TimeLeft: React.FC<TimeLeftProps> = ({ cutoffAt }) => {
   const min = totalMin % 60;
   const sec = totalSec % 60;
 
-  // > 24h: hide â€“ clock time alone is enough.
+  // > 24h: hide – clock time alone is enough.
   if (hr >= 24) return null;
 
   let label: string;
@@ -470,7 +470,7 @@ export const RaffleBlock = () => {
               className="text-[14px] font-bold mt-0.5"
               style={{ color: 'hsl(var(--bento-fg))' }}
             >
-              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : 'â€“'}
+              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : '–'}
             </div>
             {!closed && config?.cutoff_at && <TimeLeft cutoffAt={config.cutoff_at} />}
           </div>
@@ -499,7 +499,7 @@ export const RaffleBlock = () => {
             className="text-center text-[11px] mt-2"
             style={{ color: 'hsl(var(--bento-fg-muted))' }}
           >
-            {closed ? 'Entries closed â€“ winner drawn soon' : "You're entered â€“ we'll call the winner"}
+            {closed ? 'Entries closed – winner drawn soon' : "You're entered – we'll call the winner"}
           </div>
         )}
 
@@ -528,7 +528,7 @@ export const RaffleBlock = () => {
             >
               <Sparkles className="w-3.5 h-3.5" aria-hidden />
               Enter raffle
-              <span aria-hidden className="ml-0.5">â†‘</span>
+              <span aria-hidden className="ml-0.5">↑</span>
             </motion.button>
           </div>
         )}

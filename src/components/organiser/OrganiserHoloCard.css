@@ -1,4 +1,4 @@
-/* OrganiserHoloCard â€” B4 Â· Holo Trading Card
+/* OrganiserHoloCard — B4 · Holo Trading Card
    Ported from Claude Design treatment T10_Holo. Holographic foil border,
    dark inner panel, diagonal shimmer + 3D tilt on hover. Class scope is
    `.holo-card` so it can't bleed onto sibling components. */

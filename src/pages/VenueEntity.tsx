@@ -482,7 +482,7 @@ function StatusBadge({ label, isOpen }: { label: string; isOpen: boolean }) {
 }
 
 // ============================================================
-// Hero â€” cycling cover + parallax + spotlight
+// Hero — cycling cover + parallax + spotlight
 // ============================================================
 function Hero({
   images,
@@ -973,7 +973,7 @@ function NearestStation({
 }
 
 // ============================================================
-// Event card â€” horizontal (desktop grid) and row (mobile list)
+// Event card — horizontal (desktop grid) and row (mobile list)
 // ============================================================
 function EventCardTile({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring?: boolean }) {
   const start = new Date(ev.instance_start);
@@ -1406,7 +1406,7 @@ const VenueEntity = () => {
     return null;
   })();
 
-  // Facilities â€” list of { key, icon, label }
+  // Facilities — list of { key, icon, label }
   const facilities: { key: string; icon: ReactNode; label: string }[] = [];
   if (facilitiesRaw) {
     for (const key of facilitiesRaw) {
@@ -1671,7 +1671,7 @@ const VenueEntity = () => {
 
         <AmbientBg />
 
-        {/* ============ MOBILE LAYOUT (â‰¤ md) ============ */}
+        {/* ============ MOBILE LAYOUT (≤ md) ============ */}
         <div className="md:hidden">
           {/* Hero */}
           <div className="relative">
@@ -2089,7 +2089,7 @@ const VenueEntity = () => {
           )}
         </div>
 
-        {/* ============ DESKTOP LAYOUT (â‰¥ md) ============ */}
+        {/* ============ DESKTOP LAYOUT (≥ md) ============ */}
         <div className="hidden md:block">
           {/* Hero */}
           <div className="px-8 pt-5">

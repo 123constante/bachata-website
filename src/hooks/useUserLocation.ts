@@ -107,7 +107,7 @@ export function useUserLocation(): UseUserLocationResult {
           setReason(null);
         }
       } catch {
-        /* swallow â€” leave state idle */
+        /* swallow — leave state idle */
       }
     })();
     return () => {

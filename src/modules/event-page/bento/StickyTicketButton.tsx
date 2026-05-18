@@ -4,10 +4,10 @@ import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 
 type StickyTicketButtonProps = {
   ticketUrl: string | null;
-  /** eventId passes through to record_event_link_click_v1 â€” no-op when null. */
+  /** eventId passes through to record_event_link_click_v1 — no-op when null. */
   eventId: string | null;
   /**
-   * When true the date is cancelled â€” hide the ticket CTA so dancers can't
+   * When true the date is cancelled — hide the ticket CTA so dancers can't
    * accidentally buy a ticket for an off date. The DateBlock already shows
    * a CANCELLED badge so a second cancelled-state UI here would be noise.
    */
@@ -15,7 +15,7 @@ type StickyTicketButtonProps = {
 };
 
 /**
- * Sticky "Get Tickets" CTA â€” Variant A (translucent bar + brass pill).
+ * Sticky "Get Tickets" CTA — Variant A (translucent bar + brass pill).
  *
  * Full-width blurred dark bar sitting flush above the 58 px BottomNav, with
  * a centred brass pill inside. Backdrop blur lets bento content show through

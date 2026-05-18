@@ -39,3 +39,18 @@ jobs:
 
       - name: Run runtime architecture guard
         run: npm run lint:architecture
+
+      # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
+      # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
+      # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was
+      # swept clean on 2026-05-18; .editorconfig (charset = utf-8) tells
+      # modern editors to never re-encode, so any new hit is a regression.
+      - name: Mojibake guard
+        run: |
+          if git grep -nE 'â€|â˜…|â†|Â·|Ã—|â‰|â”€|â„™' \
+              -- ':!.playwright-mcp/' ':!.claude/' \
+                 ':!.github/workflows/architecture-guard.yml' \
+                 ':!devWebsitesrcmodulesevent-pagebentoBentoTile.tsx'; then
+            echo '::error::cp1252→UTF-8 mojibake detected. Re-save the affected files as UTF-8 (charset declared in .editorconfig).'
+            exit 1
+          fi

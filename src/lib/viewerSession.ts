@@ -9,7 +9,7 @@
 //
 // All callers (errorReporter, profileViewEmit, searchTelemetry,
 // useRecordEventView, OrganiserCardBlock) go through `getViewerSession`
-// â€” keep that the canonical export. `getViewerSessionId` is an alias
+// — keep that the canonical export. `getViewerSessionId` is an alias
 // for new call sites that prefer the explicit name.
 
 const COOKIE_NAME = 'viewer_session_id';
@@ -104,7 +104,7 @@ export function getViewerSessionId(): string {
   return fresh;
 }
 
-// Back-compat alias â€” existing callers import `getViewerSession`. Keep this
+// Back-compat alias — existing callers import `getViewerSession`. Keep this
 // export; do not rename without sweeping all call sites.
 export function getViewerSession(): string {
   return getViewerSessionId();

@@ -1,4 +1,4 @@
-// Bundle E.2 â€” public-event-page external-link click tracking.
+// Bundle E.2 — public-event-page external-link click tracking.
 //
 // Calls record_event_link_click_v1 on the admin Supabase project. Uses
 // `navigator.sendBeacon` when available so the request survives the
@@ -70,7 +70,7 @@ function sendViaBeacon(url: string, body: string): boolean {
 }
 
 function sendViaFetchKeepalive(url: string, body: string, apiKey: string): void {
-  // keepalive lets the request survive page navigation â€” Chrome / Edge /
+  // keepalive lets the request survive page navigation — Chrome / Edge /
   // Firefox all support it for POSTs up to 64 KB, well above our payload.
   void fetch(url, {
     method: 'POST',
@@ -85,7 +85,7 @@ function sendViaFetchKeepalive(url: string, body: string, apiKey: string): void 
     mode: 'cors',
     credentials: 'omit',
   }).catch(() => {
-    /* swallow â€” never block navigation */
+    /* swallow — never block navigation */
   });
 }
 
@@ -103,8 +103,8 @@ export function recordEventLinkClick(args: RecordEventLinkClickArgs): void {
   const body = JSON.stringify(params);
 
   // sendBeacon strips custom headers, so Supabase's apikey/Authorization
-  // can't be attached. We try it anyway â€” some deployments accept the
-  // anon role on RPC POSTs without the apikey header â€” and fall through
+  // can't be attached. We try it anyway — some deployments accept the
+  // anon role on RPC POSTs without the apikey header — and fall through
   // to fetch+keepalive whenever beacon refuses or returns false.
   if (sendViaBeacon(`${url}?apikey=${encodeURIComponent(SUPABASE_KEY)}`, body)) return;
   sendViaFetchKeepalive(url, body, SUPABASE_KEY);

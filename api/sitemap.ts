@@ -7,13 +7,13 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
 
 // Phase 5 of listing-requests + smart-dashboard plan: skip gated routes from
 // the sitemap so search engines don't index placeholder pages. Vercel exposes
-// VITE_-prefixed env vars to API functions too â€” same source of truth as the
+// VITE_-prefixed env vars to API functions too — same source of truth as the
 // client-side flags object in src/lib/featureFlags.ts.
 const flags = {
   teachersDirectory:   process.env.VITE_ENABLE_TEACHERS_DIRECTORY === 'true',
   organisersDirectory: process.env.VITE_ENABLE_ORGANISERS_DIRECTORY === 'true',
   // Detail flags aren't checked here because no detail routes appear in
-  // STATIC_PAGES â€” they'd only matter if we listed individual entity pages.
+  // STATIC_PAGES — they'd only matter if we listed individual entity pages.
 } as const;
 
 const STATIC_PAGES: Array<{ path: string; changefreq: string; priority?: string; flag?: keyof typeof flags }> = [
@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
   lines.push('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
 
-  // Static pages â€” filter out routes whose flag is false (Phase 5).
+  // Static pages — filter out routes whose flag is false (Phase 5).
   for (const page of STATIC_PAGES) {
     if (page.flag && !flags[page.flag]) continue;
     lines.push('  <url>');

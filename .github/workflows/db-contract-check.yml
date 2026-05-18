@@ -5,36 +5,36 @@ name: DB Contract Check
 #     (migration 20260428120000_occurrence_venue_drift_fix_v1).
 #  2. The per-occurrence editing RPCs and their constraints
 #     (migration 20260429182000_test_per_occurrence_v1).
-#  3. The event-program duration contract â€” events.start_time/end_time
+#  3. The event-program duration contract — events.start_time/end_time
 #     must align (within 240 min) with meta_data.program span for standard
 #     events (admin migration 20260429320000_event_program_duration_contract_v1).
-#  4. The session-people display_name_override contract â€” Phase A.5 of the
+#  4. The session-people display_name_override contract — Phase A.5 of the
 #     unified profile model plan (admin migrations 20260430180000 /
 #     20260430180100 / 20260430180200). No override may equal the canonical
 #     render (would indicate snapshot-pattern regression).
-#  5. The guest-entries contract â€” raffle + guest_list status/qr_token
+#  5. The guest-entries contract — raffle + guest_list status/qr_token
 #     invariants, 90-day retention purge running, no stale erasure tokens
 #     (admin migrations 20260502120000 through 20260502160000).
-#  6. The Program editor Phase 0 schema contract â€” Day/Section/Section-Room
+#  6. The Program editor Phase 0 schema contract — Day/Section/Section-Room
 #     tables populated and event_program_items.day_id / section_id NOT NULL
 #     (admin migrations 20260504050000 / 20260504050001).
-#  7. The Phase 1 v2 program-save idempotency contract â€” admin_save_program_v2
+#  7. The Phase 1 v2 program-save idempotency contract — admin_save_program_v2
 #     never produces duplicate-success rows for the same (event_id, token)
 #     and surfaces failed_saves_last_24h above baseline (admin migration
 #     20260505010000_admin_save_program_v2_v1).
-#  8. The day-rollover consistency contract â€” sessions starting between
+#  8. The day-rollover consistency contract — sessions starting between
 #     00:00 and 08:00 of the day after the event start belong to the prior
 #     day. Mirror logic in admin (lib/programDayRollover.ts) and Website
 #     (src/lib/programDayRollover.ts) MUST match the canonical fixtures.
 #     (Phase 1F brief Â§6.2.5; admin lib/programDayRollover.ts.)
-#  9. The admin_list_occurrences_for_event_v1 null-venue tolerance contract â€”
+#  9. The admin_list_occurrences_for_event_v1 null-venue tolerance contract —
 #     draft events with no venue set must not cause a 55000 error in the admin
 #     list-occurrences RPC (admin migration 20260510020000).
-# 10. The replace_event_program canvas consistency contract â€” every event's
+# 10. The replace_event_program canvas consistency contract — every event's
 #     meta_data.program session count must match its event_program_items count.
 #     Drift baseline is 0 after Phase F backfill (2026-05-07)
 #     (admin migrations 20260510030000 / 20260510040000 / 20260510050000).
-# 11. The Phase 2/3 security-hardening policy contract â€” the nine policies
+# 11. The Phase 2/3 security-hardening policy contract — the nine policies
 #     applied by admin migration 20260511010000 (Admin read on
 #     event_program_items / organiser_team_members; Public read on
 #     calendar_occurrences; Service role all on those three; Insert for
@@ -42,28 +42,28 @@ name: DB Contract Check
 #     songs) must all remain present. Catches raw-SQL drift outside the
 #     migration channel. Health-check RPC: check_security_phase2_3_policies_v1
 #     (admin migration 20260511030000).
-# 12. The Phase 1 FK-index contract â€” the five FK indexes added by admin
+# 12. The Phase 1 FK-index contract — the five FK indexes added by admin
 #     migration 20260512000000 (cities.country_code, djs.user_id,
 #     event_attendees.dancer_id, event_raffle_draws.prior_draw_id,
 #     guest_dancer_profiles.city_id) must remain present. Health-check RPC:
 #     check_fk_indexes_v1 (admin migration 20260512030000).
-# 13. The event_attendees FK-target contract â€” the dancer_id FK must
+# 13. The event_attendees FK-target contract — the dancer_id FK must
 #     reference public.dancer_profiles, never the archived
 #     dancers_archive_april2026 table. Health-check RPC:
 #     check_event_attendees_fk_target_v1 (admin migrations 20260512020000 /
 #     20260512030000).
-# 14. The epp.display_name drift contract â€” no public routine body may
+# 14. The epp.display_name drift contract — no public routine body may
 #     reference event_program_people.display_name (column dropped Phase A.5,
 #     replaced by display_name_override + canonical resolution from
 #     dancer_profiles). Health-check RPC: check_epp_display_name_drift_v1
 #     (admin migration 20260505160000).
-# 15. The epp.avatar_url drift contract â€” no public routine body may
+# 15. The epp.avatar_url drift contract — no public routine body may
 #     reference event_program_people.avatar_url (column dropped Phase A.5,
 #     resolved from canonical profile instead). Sibling of #14; added after
 #     four live RPCs were found referencing the dropped column on
 #     2026-05-09. Health-check RPC: check_epp_avatar_url_drift_v1
 #     (admin migration 20260527040000).
-# 16. The venue coords contract â€” venues with raw location data (postcode /
+# 16. The venue coords contract — venues with raw location data (postcode /
 #     google_maps_link / google_maps_url) must have lat/lng populated, so
 #     the public calendar's "near me" distance sort can place them. BEFORE
 #     INSERT/UPDATE trigger pulls @lat,lng from URLs in-DB; an edge fn
@@ -71,7 +71,7 @@ name: DB Contract Check
 #     for the cases the trigger can't. CHECK constraint is the floor.
 #     Health-check RPC: check_venue_coords_contract_v1 (admin migrations
 #     20260601040000 / 20260601040100 / 20260601040200).
-# 17. The teacher / DJ event-program assignment integrity contract â€” every
+# 17. The teacher / DJ event-program assignment integrity contract — every
 #     person flagged as an active teacher or active DJ in person_roles
 #     must appear at least once in event_program_people in the matching
 #     capacity (profile_type or role). Drift means a canonical-role person
@@ -116,11 +116,11 @@ jobs:
         # Pure filesystem -- no Supabase secrets needed.
         run: node scripts/check-migration-stamps.mjs
 
-      # â”€â”€ Precheck: validate Supabase secret SHAPE before any downstream
+      # ── Precheck: validate Supabase secret SHAPE before any downstream
       #    contract step crashes inside @supabase/supabase-js with a cryptic
       #    "Invalid supabaseUrl" stack trace. From inception (2026-04-28)
       #    through 2026-05-13, the workflow failed 77 consecutive runs on
-      #    "Run venue contract check" because VITE_SUPABASE_URL was malformed â€”
+      #    "Run venue contract check" because VITE_SUPABASE_URL was malformed —
       #    every downstream contract was silently un-watched the entire time.
       #    This precheck makes the failure mode visible and actionable.
       - name: Precheck Supabase secrets
@@ -190,7 +190,7 @@ jobs:
         run: node scripts/check-program-save-idempotency-contract.mjs
 
       - name: Run day-rollover consistency contract check (Phase 1F)
-        # No Supabase secrets needed â€” the gate is pure-JS fixture verification
+        # No Supabase secrets needed — the gate is pure-JS fixture verification
         # against src/lib/programDayRollover.ts. Cross-repo gap noted in script
         # header: admin lib is manually mirrored here. See script for TODO.
         run: node scripts/check-day-rollover-consistency-v1.mjs

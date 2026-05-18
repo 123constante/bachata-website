@@ -344,7 +344,7 @@ const Tonight = () => {
                           rows.push(
                             <div key="class" className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
                               <span className="font-bold">Class</span>
-                              <span className="font-mono opacity-90">{event.classStart} â€“ {event.classEnd}</span>
+                              <span className="font-mono opacity-90">{event.classStart} – {event.classEnd}</span>
                             </div>
                           );
                         }
@@ -352,14 +352,14 @@ const Tonight = () => {
                           rows.push(
                             <div key="party" className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
                               <span className="font-bold">Party</span>
-                              <span className="font-mono opacity-90">{event.partyStart} â€“ {event.partyEnd}</span>
+                              <span className="font-mono opacity-90">{event.partyStart} – {event.partyEnd}</span>
                             </div>
                           );
                         }
                         if (rows.length > 0) return rows;
 
                         if (!startLabel) return null;
-                        const timeRange = endLabel ? `${startLabel} â€“ ${endLabel}` : startLabel;
+                        const timeRange = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
                         if (CLASS_TYPES.has(event.type)) {
                           return (
                             <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">

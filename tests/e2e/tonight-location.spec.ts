@@ -1,5 +1,5 @@
 /**
- * Tonight page â€” "near me" location feature, mobile e2e proof.
+ * Tonight page — "near me" location feature, mobile e2e proof.
  *
  * Method: intercept the get_calendar_events RPC with a deterministic
  * set of London events with venue lat/lng, then exercise the three
@@ -114,7 +114,7 @@ const installRpcMock = async (
       });
     },
   );
-  // CityContext validates the slug â€” let it succeed.
+  // CityContext validates the slug — let it succeed.
   await context.route(
     `${SUPABASE_URL}/rest/v1/rpc/is_valid_city_slug`,
     async (route) => {
