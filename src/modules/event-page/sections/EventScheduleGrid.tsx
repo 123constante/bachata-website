@@ -640,7 +640,7 @@ export const EventScheduleGrid = ({
     if (fallbackSchedule?.length) return normalizeSessions(fromFestivalSchedule(fallbackSchedule));
     if (schedule.keyTimes) return normalizeSessions(fromKeyTimes(schedule.keyTimes));
     return [];
-  }, [programItems, fallbackSchedule, schedule.keyTimes]);
+  }, [overrideProgram, programItems, fallbackSchedule, schedule.keyTimes]);
 
   const hasAny = sessions.length > 0;
   if (!hasAny && !isLoading) return null;
