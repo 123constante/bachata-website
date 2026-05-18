@@ -84,6 +84,21 @@ name: DB Contract Check
 #     not exist. Folder was deleted May 2026; its re-appearance indicates a
 #     migration authority violation (admin commit b0c8c4f5 is canonical).
 #     No Supabase credentials required -- pure filesystem guard.
+# 19. The per-date program canonical-vs-JSON-shadow contract (ADR-007).
+#     calendar_occurrences.override_payload.program[] is a trigger-maintained
+#     mirror of the canonical join (event_program_items +
+#     calendar_occurrence_session_overrides + calendar_occurrence_added_sessions).
+#     Any drift means a write bypassed the canonical layer or the trigger
+#     silently failed. Health-check RPC:
+#     check_per_date_program_canonical_consistency_v1 (admin migrations
+#     20260623020000 / 20260623030000 / 20260623060000).
+# 20. The occurrence instance_start/end vs canonical program contract
+#     (ADR-007 Phase 5). instance_start/end is a UTC mirror of the canonical
+#     program shifted into the occurrence's local date via series timezone.
+#     Drift means wrong sort order on the public calendar and bad ICS
+#     exports. Health-check RPC:
+#     check_occurrence_instance_time_canonical_v1 (admin migrations
+#     20260623070000 / 20260623080000 / 20260623090000).
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -230,3 +245,15 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-teacher-dj-assignment-integrity.mjs
+
+      - name: Run per-date program canonical consistency contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-per-date-program-canonical.mjs
+
+      - name: Run occurrence instance_time canonical contract check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-occurrence-instance-time-canonical.mjs
