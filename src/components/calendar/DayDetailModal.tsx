@@ -113,7 +113,7 @@ export const DayDetailModal = ({
         else setPopupFilter(syncedFilter);
       }}
     >
-      <DialogContent className="max-w-md w-full h-[85vh] sm:h-[600px] p-0 gap-0 overflow-hidden bg-zinc-900 border-white/10 sm:rounded-3xl rounded-t-[32px] flex flex-col shadow-2xl [&>button]:hidden">
+      <DialogContent className="max-w-md w-full h-[85vh] sm:h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden bg-zinc-900 border-white/10 sm:rounded-3xl rounded-t-[32px] flex flex-col shadow-2xl [&>button]:hidden">
         <div className="shrink-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {/* Grab handle */}
           <div className="flex justify-center pt-3 pb-1">
