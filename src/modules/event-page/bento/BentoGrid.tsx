@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 // All bento block ids. `cover` is now a grid block (2-col top-left) rather
 // than a full-width hero. `city` is mutually exclusive with `promo` — one of
@@ -11,6 +11,7 @@ export type BentoBlockId =
   | 'venue'
   | 'organiser-card'
   | 'schedule'
+  | 'dates'
   | 'description'
   | 'raffle'
   | 'guest';
@@ -49,6 +50,7 @@ export const BLOCK_COLORS: Record<BentoBlockId, string> = {
   venue: BENTO_SURFACE,
   'organiser-card': BENTO_SURFACE,
   schedule: BENTO_SURFACE,
+  dates: BENTO_SURFACE,
   description: BENTO_SURFACE,
   raffle: BENTO_SURFACE,
   guest: BENTO_SURFACE,
@@ -64,6 +66,7 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   venue: '',
   'organiser-card': 'Organiser',
   schedule: 'Schedule',
+  dates: 'Dates',
   description: 'About',
   raffle: 'Raffle',
   guest: 'Guest list',
@@ -105,6 +108,7 @@ export const LAYOUT: BlockSpec[] = [
   // Full-width, content-sized — height grows with the number of organisers.
   { id: 'organiser-card', minW: 4, preferredW: 4 },
   { id: 'schedule', minW: 4, preferredW: 4 },
+  { id: 'dates', minW: 4, preferredW: 4 },
   { id: 'description', minW: 4, preferredW: 4 },
   // Raffle is a static "coming soon" placeholder — no data, no minH, so it
   // sizes to content (chest icon + two text lines). Always visible, including
