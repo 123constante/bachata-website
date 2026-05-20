@@ -102,6 +102,9 @@ export interface PeopleStackProps {
    *  can attribute discovery to a specific event. Pass when the stack
    *  renders inside a schedule surface; leave null on listings / search. */
   eventId?: string | null;
+  /** When true, renders the role label (e.g. "DJ", "Teacher") on each chip.
+   *  Only honoured by chip-row. Used for party rows in single-room schedule. */
+  showRole?: boolean;
 }
 
 // ─── Internal leaf components ────────────────────────────────────────────────
@@ -201,12 +204,14 @@ const ChipRow = ({
   onOverflowClick,
   context,
   eventId,
+  showRole = false,
 }: {
   people: Person[];
   threshold: number;
   onOverflowClick?: () => void;
   context?: string;
   eventId?: string | null;
+  showRole?: boolean;
 }) => {
   if (people.length === 0) return null;
   if (people.length > threshold) {
@@ -220,7 +225,7 @@ const ChipRow = ({
   return (
     <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
       {people.map((p) => (
-        <PersonChip key={p.id} person={p} size="sm" context={context} eventId={eventId} />
+        <PersonChip key={p.id} person={p} size={showRole ? 'md' : 'sm'} showRole={showRole} layout={showRole ? 'stacked' : undefined} context={context} eventId={eventId} />
       ))}
     </div>
   );
@@ -694,6 +699,7 @@ export const PeopleStack = ({
   onOverflowClick,
   context,
   eventId,
+  showRole = false,
 }: PeopleStackProps) => {
   switch (variant) {
     case 'chip-row':
@@ -704,6 +710,7 @@ export const PeopleStack = ({
           onOverflowClick={onOverflowClick}
           context={context}
           eventId={eventId}
+          showRole={showRole}
         />
       );
     case 'inline-row':

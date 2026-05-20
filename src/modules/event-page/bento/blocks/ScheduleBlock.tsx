@@ -897,7 +897,8 @@ const SingleRoomScheduleRow = ({
             <PeopleStack
               people={session.people}
               variant="chip-row"
-              context="schedule:single-room"
+              showRole={isPartyish}
+              context={isPartyish ? 'schedule:single-room-party' : 'schedule:single-room'}
               eventId={eventId}
             />
           </div>
