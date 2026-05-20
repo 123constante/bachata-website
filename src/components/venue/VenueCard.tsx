@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import type { PublicVenueListItem } from '@/services/venuePublicService';
+import './VenueCard.css';
 
 type AmenityPill = { key: string; emoji: string; label: string };
 
@@ -27,10 +28,10 @@ const buildAmenities = (venue: PublicVenueListItem): AmenityPill[] => {
 
 /**
  * Format an ISO timestamp as a dancer-friendly relative label.
- *   today    → "Tonight 7:30pm"
- *   tomorrow → "Tomorrow 9pm"
- *   within 6 days → "Wednesday 7:30pm"
- *   further  → "26 Apr 7:30pm"
+ *   today    → "Tonight"
+ *   tomorrow → "Tomorrow"
+ *   within 6 days → "Wednesday"
+ *   further  → "26 Apr"
  *
  * Note: we DON'T include the event name here. The venue card answers
  * "when can I come dance here?" — the event name is the events page's job.
@@ -50,25 +51,14 @@ const formatNextEvent = (iso: string | null): { text: string; isSoon: boolean } 
     (startOfDay(dt).getTime() - startOfDay(now).getTime()) / 86_400_000
   );
 
-  // Manual 12-hour format so we never end up with stray '19' from a
-  // locale that uses 24-hour and a stripped ':00'. Examples:
-  //   19:00 → '7pm'   19:30 → '7:30pm'   0:00 → '12am'   12:00 → '12pm'
-  const hour24 = dt.getHours();
-  const minute = dt.getMinutes();
-  const ampm = hour24 >= 12 ? 'pm' : 'am';
-  const hour12 = hour24 % 12 || 12;
-  const time = minute === 0
-    ? `${hour12}${ampm}`
-    : `${hour12}:${String(minute).padStart(2, '0')}${ampm}`;
-
-  if (dayDiff <= 0) return { text: `Tonight ${time}`, isSoon: true };
-  if (dayDiff === 1) return { text: `Tomorrow ${time}`, isSoon: true };
+  if (dayDiff <= 0) return { text: 'Tonight', isSoon: true };
+  if (dayDiff === 1) return { text: 'Tomorrow', isSoon: true };
   if (dayDiff < 7) {
     const wd = dt.toLocaleDateString('en-GB', { weekday: 'long' });
-    return { text: `${wd} ${time}`, isSoon: false };
+    return { text: wd, isSoon: false };
   }
   const date = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  return { text: `${date} ${time}`, isSoon: false };
+  return { text: date, isSoon: false };
 };
 
 // Warm cream palette (option B) — colours tuned to read cleanly on a
@@ -83,12 +73,51 @@ const PILL_BG = '#ebe3d0';        // amenity pill background — same family as 
 const PILL_TEXT = '#5a4a30';      // amenity pill text — dark warm
 const BORDER = '#e0d6bc';         // card border — same family, slightly darker than surface
 
-export const VenueCard = ({ venue }: { venue: PublicVenueListItem }) => {
+const getThisWeekendDays = (nextEventIso: string | null): { fri: boolean; sat: boolean; sun: boolean } => {
+  if (!nextEventIso) return { fri: false, sat: false, sun: false };
+
+  const eventDate = new Date(nextEventIso);
+  if (isNaN(eventDate.getTime())) return { fri: false, sat: false, sun: false };
+
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+
+  // Calculate this coming weekend's Friday-Sunday range
+  let daysUntilFriday: number;
+  if (dayOfWeek <= 5) {
+    daysUntilFriday = 5 - dayOfWeek;
+  } else {
+    daysUntilFriday = 5 + (7 - dayOfWeek);
+  }
+
+  const friday = new Date(now);
+  friday.setDate(friday.getDate() + daysUntilFriday);
+  friday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(friday);
+  sunday.setDate(sunday.getDate() + 2);
+  sunday.setHours(23, 59, 59, 999);
+
+  // Check if event falls within Fri-Sun range
+  const inRange = eventDate >= friday && eventDate <= sunday;
+  if (!inRange) return { fri: false, sat: false, sun: false };
+
+  // Determine which specific day
+  const eventDayOfWeek = eventDate.getDay();
+  return {
+    fri: eventDayOfWeek === 5,
+    sat: eventDayOfWeek === 6,
+    sun: eventDayOfWeek === 0,
+  };
+};
+
+export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFilterActive = false }: { venue: PublicVenueListItem; isWeekendFilterActive?: boolean; isWoodFloorFilterActive?: boolean }) => {
   const amenities = buildAmenities(venue);
   const nextEvent = formatNextEvent(venue.next_event_iso);
   const stationName = venue.nearest_station
     ? venue.nearest_station.replace(/\s+station$/i, '') + ' Station'
     : null;
+  const weekendDays = getThisWeekendDays(venue.next_event_iso);
 
   return (
     <Link to={`/venue-entity/${venue.id}`} className="block group h-full">
@@ -112,9 +141,45 @@ export const VenueCard = ({ venue }: { venue: PublicVenueListItem }) => {
               <Building2 className="w-8 h-8 text-primary/40" />
             </div>
           )}
-          {nextEvent?.isSoon && (
+          {!isWeekendFilterActive && !isWoodFloorFilterActive && nextEvent?.isSoon && (
+            <div className="absolute top-2 left-2 bg-primary text-primary-foreground rounded-md shadow-md overflow-hidden animate-in fade-in slide-in-from-top-1 duration-500 w-24">
+              <div className="text-[11px] font-semibold px-2 py-1.5">{nextEvent.text}</div>
+              {venue.day_pattern.length > 0 && (() => {
+                const now = new Date();
+                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const todayName = dayNames[now.getDay()];
+                const otherDays = venue.day_pattern.filter(day => day !== todayName);
+                return otherDays.length > 0 && (
+                  <div className="text-[8px] font-medium px-2 py-1 bg-primary/80 opacity-95 border-t border-primary-foreground/20 break-words">
+                    {otherDays.join(' · ')}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          {!isWeekendFilterActive && !isWoodFloorFilterActive && !nextEvent?.isSoon && venue.day_pattern.length > 0 && (
             <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-md">
-              {nextEvent.text}
+              {venue.day_pattern.join(' · ')}
+            </div>
+          )}
+          {(isWeekendFilterActive || isWoodFloorFilterActive) && (
+            <div className="filter-badge-container">
+              {isWoodFloorFilterActive && venue.floor_type === 'wood' && (
+                <div className="filter-badge wood-floor-badge">🪵</div>
+              )}
+              {isWeekendFilterActive && (weekendDays.fri || weekendDays.sat || weekendDays.sun) && (
+                <div className="weekend-badge-container">
+                  {weekendDays.fri && (
+                    <div className="weekend-badge">Fri</div>
+                  )}
+                  {weekendDays.sat && (
+                    <div className="weekend-badge">Sat</div>
+                  )}
+                  {weekendDays.sun && (
+                    <div className="weekend-badge">Sun</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -128,16 +193,6 @@ export const VenueCard = ({ venue }: { venue: PublicVenueListItem }) => {
             {venue.name}
           </h3>
 
-          {/* Tier 2 — When (recurring pattern; specific next-event time
-              shown only as the 'Tonight 7pm' pill on the image) */}
-          {venue.day_pattern.length > 0 && (
-            <div style={{ color: TEXT_BODY }} className="mt-2.5 text-xs leading-snug">
-              <span aria-hidden="true" className="mr-1.5">📅</span>
-              <span className="font-medium">
-                {venue.day_pattern.join(' · ')}
-              </span>
-            </div>
-          )}
 
           {/* Tier 2 — Where */}
           {stationName && (
@@ -163,6 +218,13 @@ export const VenueCard = ({ venue }: { venue: PublicVenueListItem }) => {
                   {label}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Tier 4 — Address */}
+          {venue.address && (
+            <div style={{ color: TEXT_BODY }} className="mt-2 text-xs underline">
+              {venue.address}
             </div>
           )}
         </div>
