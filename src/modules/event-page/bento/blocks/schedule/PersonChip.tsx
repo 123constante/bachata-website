@@ -180,14 +180,6 @@ export const PersonChip = ({
   const stacked = effectiveLayout === 'stacked';
   const inner = stacked ? (
     <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
-      {showRole && role && (
-        <div
-          className="mb-[3px] text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
-          style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1 }}
-        >
-          {role.toUpperCase()}
-        </div>
-      )}
       <AvatarCircle person={person} size={size} dimmed={isDimmed} />
       {t.showName && (
         <div
@@ -199,7 +191,7 @@ export const PersonChip = ({
             fontSize: t.nameFontPx,
             color: 'hsl(var(--bento-fg))',
             opacity: isDimmed ? 0.7 : 1,
-            marginTop: size === 'xl' ? 3 : 4,
+            marginTop: 5,
             maxWidth: t.avatarPx + 16,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -208,6 +200,14 @@ export const PersonChip = ({
           title={person.name}
         >
           {person.name}
+        </div>
+      )}
+      {showRole && role && (
+        <div
+          className="text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
+          style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1, marginTop: 3 }}
+        >
+          {role.toUpperCase()}
         </div>
       )}
     </div>

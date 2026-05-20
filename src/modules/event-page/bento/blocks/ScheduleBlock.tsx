@@ -797,22 +797,42 @@ const SingleRoomScheduleRow = ({
   // skips rendering the headline div below so the row collapses cleanly.
   const fullHeadline = [titleText, rankInline].filter(Boolean).join(' · ');
 
+  // Mega Serif Time — split "7:30 PM" into hour:min and ampm parts for the
+  // editorial display where the digits are large Fraunces serif and the
+  // meridiem is a small caps tail.
+  const [startCore, startAmpm] = startStr.split(' ');
   return (
     <div
-      className="grid items-start gap-[10px] px-1 py-1"
-      style={{ gridTemplateColumns: '64px 1fr', ...(session.cancelled ? { opacity: 0.5 } : {}) }}
+      className="grid items-center gap-[14px] px-1 py-1"
+      style={{ gridTemplateColumns: '110px 1fr', ...(session.cancelled ? { opacity: 0.5 } : {}) }}
     >
-      {/* Time column */}
+      {/* Time column — mega serif */}
       <div className="text-center" style={{ paddingTop: '2px' }}>
         <div
           style={{
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'hsl(var(--bento-accent))',
-            lineHeight: 1.1,
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontSize: '26px',
+            fontWeight: 600,
+            color: 'hsl(var(--bento-fg))',
+            lineHeight: 1,
+            letterSpacing: '-0.01em',
           }}
         >
-          {startStr}
+          {startCore}
+          {startAmpm && (
+            <span
+              style={{
+                fontFamily: 'var(--font-mono, ui-monospace)',
+                fontSize: '10px',
+                fontWeight: 500,
+                color: 'hsl(var(--bento-fg-muted))',
+                marginLeft: '3px',
+                letterSpacing: '0.1em',
+              }}
+            >
+              {startAmpm}
+            </span>
+          )}
         </div>
         <div
           className="font-mono"
@@ -820,9 +840,9 @@ const SingleRoomScheduleRow = ({
             fontSize: '9px',
             fontWeight: 600,
             textTransform: 'uppercase',
-            letterSpacing: '0.10em',
+            letterSpacing: '0.12em',
             color: 'hsl(var(--bento-fg-muted))',
-            marginTop: '3px',
+            marginTop: '6px',
           }}
         >
           {isPartyish ? `– ${endStr}` : duration}
@@ -897,7 +917,7 @@ const SingleRoomScheduleRow = ({
             <PeopleStack
               people={session.people}
               variant="chip-row"
-              showRole={isPartyish}
+              showRole={true}
               context={isPartyish ? 'schedule:single-room-party' : 'schedule:single-room'}
               eventId={eventId}
             />
