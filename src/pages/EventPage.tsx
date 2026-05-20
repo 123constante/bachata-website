@@ -31,7 +31,7 @@ const EventPageInner = () => {
   // isFestival resolution lives inside useEventPage (festival detail RPC +
   // dayed-schedule / passes check). Calling it at this level means both
   // branches share the same query cache.
-  const { isFestival } = useEventPage(validId, requestedOccurrenceId);
+  const { isFestival, snapshot } = useEventPage(validId, requestedOccurrenceId);
 
   if (!validId) {
     return (
@@ -45,7 +45,7 @@ const EventPageInner = () => {
   if (isFestival) {
     return (
       <Suspense fallback={<FestivalFallback />}>
-        <FestivalDetail />
+        <FestivalDetail snapshot={snapshot} />
       </Suspense>
     );
   }

@@ -90,6 +90,7 @@ const Teachers = () => {
         city: row.city ? { name: row.city } : null,
       })) as Teacher[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Filter state

@@ -131,10 +131,11 @@ const MobileWidgets = ({ activeFilter = 'all' }: MobileWidgetsProps) => {
                     transition={{ delay: i * 0.05 }}
                   >
                     <div className="flex flex-col items-center text-center">
-                      <img 
-                        src={teacher.image} 
+                      <img
+                        src={teacher.image}
                         alt={teacher.name}
                         className="w-8 h-8 rounded-full object-cover ring-2 ring-festival-pink/30 mb-1"
+                        loading="lazy"
                       />
                       <h4 className="font-semibold text-[10px] truncate w-full">{teacher.name}</h4>
                       <p className="text-[8px] text-muted-foreground">{teacher.specialty}</p>
@@ -180,10 +181,11 @@ const MobileWidgets = ({ activeFilter = 'all' }: MobileWidgetsProps) => {
                     transition={{ delay: i * 0.05 }}
                   >
                     <div className="flex flex-col items-center text-center">
-                      <img 
-                        src={dj.image} 
+                      <img
+                        src={dj.image}
                         alt={dj.name}
                         className="w-8 h-8 rounded-full object-cover ring-2 ring-festival-purple/30 mb-1"
+                        loading="lazy"
                       />
                       <h4 className="font-semibold text-[10px] truncate w-full">{dj.name}</h4>
                       <p className="text-[8px] text-muted-foreground">{dj.style}</p>
@@ -224,10 +226,11 @@ const MobileWidgets = ({ activeFilter = 'all' }: MobileWidgetsProps) => {
                     transition={{ delay: i * 0.05 }}
                   >
                     <div className="flex flex-col items-center text-center">
-                      <img 
-                        src={dancer.image} 
+                      <img
+                        src={dancer.image}
                         alt={dancer.name}
                         className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/30 mb-1"
+                        loading="lazy"
                       />
                       <h4 className="font-semibold text-[10px] truncate w-full">{dancer.name}</h4>
                       <p className="text-[8px] text-muted-foreground">{dancer.level}</p>

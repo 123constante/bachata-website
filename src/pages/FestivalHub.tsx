@@ -175,25 +175,28 @@ const FestivalHubInner = () => {
     queryFn: async () => {
       if (!festivalIds.length) return [] as AttendeePreview[];
 
-      // Fetch attendance for each festival in parallel
-      const results = await Promise.all(
-        festivalIds.map(async (eventId) => {
-          const { data } = await supabase.rpc('get_festival_attendance', { p_event_id: eventId });
-          const payload = (data as any) || {};
-          const rows: Array<{ user_id: string; avatar_url?: string | null; username?: string | null }> = [
-            ...(payload.going ?? []),
-            ...(payload.interested ?? []),
-          ];
-          return rows.slice(0, 5).map((row) => ({
-            event_id: eventId,
-            user_id: row.user_id,
-            avatar_url: row.avatar_url ?? null,
-            username: row.username ?? null,
-          } as AttendeePreview));
-        })
+      // Batch fetch attendance for all festivals in single RPC call
+      const { data: batchData, error } = await (supabase.rpc as any)(
+        'get_festival_attendance_batch',
+        { p_event_ids: festivalIds } as any,
       );
 
-      return results.flat();
+      if (error || !batchData) return [];
+
+      const batch = batchData as Record<string, { going: any[]; interested: any[] }>;
+      return festivalIds.flatMap((eventId) => {
+        const payload = batch[eventId] ?? { going: [], interested: [] };
+        const rows: Array<{ user_id: string; avatar_url?: string | null; username?: string | null }> = [
+          ...(payload.going ?? []),
+          ...(payload.interested ?? []),
+        ];
+        return rows.slice(0, 5).map((row) => ({
+          event_id: eventId,
+          user_id: row.user_id,
+          avatar_url: row.avatar_url ?? null,
+          username: row.username ?? null,
+        } as AttendeePreview));
+      });
     },
     enabled: festivalIds.length > 0,
     staleTime: 1000 * 30,

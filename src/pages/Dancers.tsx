@@ -333,7 +333,7 @@ const Dancers = () => {
                         transition={{ type: 'spring', stiffness: 300 }}
                       >
                         {dancer.avatar_url ? (
-                          <img src={dancer.avatar_url} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" />
+                          <img src={dancer.avatar_url} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" loading="lazy" />
                         ) : (
                           getAvatarEmoji(dancer.first_name)
                         )}

@@ -10,5 +10,6 @@ export function useAllProfiles() {
       if (error) throw error;
       return data as UnifiedProfile[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 }

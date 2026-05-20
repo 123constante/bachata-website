@@ -180,6 +180,7 @@ const OrganiserProfile = () => {
       return { ...data, cities: city };
     },
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: allEvents = [] } = useQuery({

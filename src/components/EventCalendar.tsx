@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
-import type { Category, ViewType, VenueCoordMap } from '@/components/calendar/calendarUtils';
+import type { Category, ViewType } from '@/components/calendar/calendarUtils';
 import { MONTHS, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { CalendarListView } from '@/components/calendar/CalendarListView';
@@ -90,51 +90,25 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
 
-  // Unique raw event IDs — used for both the venue-coord fetch and attendance counts.
-  const rawEventIds = useMemo(
-    () => Array.from(new Set((rawEvents ?? []).map((e) => e.event_id))),
+  // Unique raw event IDs — transform into calendar display format
+  const baseEvents = useMemo(
+    () => (rawEvents ? transformCalendarEvents(rawEvents) : []),
     [rawEvents],
   );
 
-  // Venue coordinates per event_id. The calendar RPC doesn't return lat/lng,
-  // so fetch events→venues separately and build a Map the transform consumes.
-  // Only runs when "Near me" is active — otherwise the coords are unused.
-  const { data: venueCoords } = useQuery<VenueCoordMap>({
-    queryKey: ['calendar-venue-coords', rawEventIds],
-    queryFn: async () => {
-      const map: VenueCoordMap = new Map();
-      if (!rawEventIds.length) return map;
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, venues(lat, lng)')
-        .in('id', rawEventIds);
-      if (error || !data) return map;
-      for (const row of data as Array<{ id: string; venues: { lat: number | null; lng: number | null } | null }>) {
-        if (row.venues) {
-          map.set(row.id, { lat: row.venues.lat ?? null, lng: row.venues.lng ?? null });
-        }
-      }
-      return map;
-    },
-    enabled: rawEventIds.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const baseEvents = useMemo(
-    () => (rawEvents ? transformCalendarEvents(rawEvents, venueCoords) : []),
-    [rawEvents, venueCoords],
-  );
-
-  // Unique event IDs to batch-fetch attendance counts
-  const eventIds = useMemo(() => Array.from(new Set(baseEvents.map((e) => e.id))), [baseEvents]);
-
+  // Fetch attendance counts in parallel with calendar query (no dependency on eventIds).
+  // Uses date range instead of explicit event IDs so both queries fire simultaneously.
   const { data: attendanceCounts } = useQuery({
-    queryKey: ['calendar-attendance-counts', eventIds],
+    queryKey: ['calendar-attendance-counts', queryStart.toISOString(), queryEnd.toISOString(), citySlug ?? ''],
     queryFn: async () => {
-      if (!eventIds.length) return {} as Record<string, number>;
-      const { data, error } = await (supabase.rpc as any)('get_event_attendance_counts', {
-        p_event_ids: eventIds,
-      });
+      const { data, error } = await (supabase.rpc as any)(
+        'get_event_attendance_counts_by_range',
+        {
+          p_from: queryStart.toISOString().split('T')[0],
+          p_to: queryEnd.toISOString().split('T')[0],
+          p_city_slug: citySlug ?? null,
+        },
+      );
       if (error || !data) return {} as Record<string, number>;
       const map: Record<string, number> = {};
       (data as Array<{ event_id: string; going_count: number }>).forEach((row) => {
@@ -142,7 +116,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
       });
       return map;
     },
-    enabled: eventIds.length > 0,
+    enabled: true,
     staleTime: 1000 * 60 * 2,
   });
 

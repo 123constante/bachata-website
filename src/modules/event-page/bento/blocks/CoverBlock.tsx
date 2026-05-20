@@ -149,6 +149,7 @@ export const CoverBlock = ({
                   className="h-full w-full"
                   style={{ objectFit: 'contain' }}
                   loading={i === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={i === 0 ? 'high' : 'auto'}
                   decoding="async"
                   onError={() => handleImageError(i)}
                 />

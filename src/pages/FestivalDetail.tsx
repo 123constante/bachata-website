@@ -39,7 +39,11 @@ type FestivalAttendee = {
   status: AttendanceStatus;
 };
 
-const FestivalDetailInner = () => {
+type FestivalDetailInnerProps = {
+  snapshot?: EventPageSnapshot | null;
+};
+
+const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProps) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -77,6 +81,10 @@ const FestivalDetailInner = () => {
   // canonical source. Lightweight enough to live alongside the existing
   // festival-event query.
   //
+  // If snapshot is passed from parent (EventPage), skip the query (FestivalDetail
+  // was rendered as a festival from the event list, parent already fetched it).
+  // Otherwise, fall back to the query as a defensive measure.
+  //
   // Phase 5.6 cutover: routes through event_view_p5(snapshot_compat). Compat
   // is byte-equal to the legacy get_event_page_snapshot_v2 by delegation
   // (admin migration 20260601030000).
@@ -93,26 +101,17 @@ const FestivalDetailInner = () => {
       if (rpcError) throw rpcError;
       return data as Record<string, any> | null;
     },
-    enabled: Boolean(festivalId),
+    enabled: Boolean(festivalId) && !propSnapshot,
   });
 
-  const organiserCardOrganisers: EventPagePerson[] = (() => {
-    const raw = (snapshotPayload?.organisers ?? []) as any[];
-    return raw.map((o) => ({
-      id: String(o.id),
-      displayName: typeof o.display_name === 'string' ? o.display_name : null,
-      avatarUrl: typeof o.avatar_url === 'string' ? o.avatar_url : null,
-      href: o.id ? `/organisers/${o.id}` : null,
-      website: typeof o.website === 'string' ? o.website : null,
-      instagram: typeof o.instagram === 'string' ? o.instagram : null,
-      facebook: typeof o.facebook === 'string' ? o.facebook : null,
-      contactPhone: typeof o.contact_phone === 'string' ? o.contact_phone : null,
-    }));
-  })();
+  // Use snapshot from prop if provided; otherwise fall back to the query result.
+  const effectiveSnapshot = propSnapshot ?? snapshotPayload;
+
+  const organiserCardOrganisers: EventPagePerson[] = effectiveSnapshot?.organisers ?? [];
 
   const organiserCardConfig: EventPageSnapshot['organiserCard'] = {
-    slot1: typeof snapshotPayload?.organiser_card?.slot_1 === 'string' ? snapshotPayload!.organiser_card.slot_1 : null,
-    slot2: typeof snapshotPayload?.organiser_card?.slot_2 === 'string' ? snapshotPayload!.organiser_card.slot_2 : null,
+    slot1: effectiveSnapshot?.organiserCard?.slot1 ?? null,
+    slot2: effectiveSnapshot?.organiserCard?.slot2 ?? null,
   };
 
   const { currentStatus, setStatus, isLoading: isUpdating, error } = useAttendance(festivalId);
@@ -594,9 +593,9 @@ const FestivalDetailInner = () => {
   );
 };
 
-const FestivalDetail = () => (
+const FestivalDetail = ({ snapshot }: FestivalDetailInnerProps) => (
   <PageErrorBoundary>
-    <FestivalDetailInner />
+    <FestivalDetailInner snapshot={snapshot} />
   </PageErrorBoundary>
 );
 
