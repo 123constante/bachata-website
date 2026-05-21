@@ -704,7 +704,7 @@ export const groupIntoSectionsFromServer = (
     if (s.slots.length > 0) return true;
     const ps = programSections.find((p) => p.id === s.id);
     if (!ps) return true; // orphan/legacy synthetic — keep
-    return ps.itemCount === 0; // keep only structurally-empty sections
+    return false; // drop empty sections on the public schedule
   });
 
   // Sort sections by the earliest slot's startMins so the public schedule
