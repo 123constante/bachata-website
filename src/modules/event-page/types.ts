@@ -305,6 +305,8 @@ export type FestivalScheduleItem = {
   levels: FestivalSessionLevel[];
   instructors: FestivalArtist[];
   djs: FestivalArtist[];
+  /** Dance style for this session (e.g. "Bachata Influence", "Brazilian Zouk"). */
+  style: string | null;
 };
 
 export type FestivalCompetition = {
@@ -401,7 +403,16 @@ export type FestivalDetail = {
 
   location: {
     city: { id: string; name: string; slug: string } | null;
-    primaryVenue: { id: string; name: string; address: string | null; imageUrl: string | null } | null;
+    primaryVenue: {
+      id: string;
+      name: string;
+      address: string | null;
+      imageUrl: string | null;
+      capacity: number | null;
+      floorType: string | null;
+      facilities: string[];
+      nearestStation: { station: string; walkingMinutes: number | null; lines: string[] } | null;
+    } | null;
   };
 
   organiser: FestivalArtist | null;
