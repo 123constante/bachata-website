@@ -92,6 +92,7 @@ const parseSchedule = (raw: unknown): FestivalScheduleItem[] =>
       // RPC returns `instructors` (hydrated teacher_profiles), map to our shape
       instructors: parseArtists(obj.instructors),
       djs: parseArtists(obj.djs),
+      style: asString(obj.style),
     });
     return acc;
   }, []);
@@ -252,7 +253,31 @@ const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
         ? { id: asString(cityRaw.id)!, name: asString(cityRaw.name) ?? '', slug: asString(cityRaw.slug) ?? '' }
         : null,
       primaryVenue: venueRaw && asString(venueRaw.id)
-        ? { id: asString(venueRaw.id)!, name: asString(venueRaw.name) ?? '', address: asString(venueRaw.address), imageUrl: asString(venueRaw.image_url) }
+        ? (() => {
+            // Nearest station: pick the one with smallest walking distance
+            const transport = asObject(venueRaw.transport_json);
+            const stations = asArray(transport?.nearest_stations);
+            const sorted = stations
+              .map((s) => asObject(s))
+              .filter((s): s is JsonRecord => s !== null)
+              .map((s) => ({
+                station: asString(s.station) ?? '',
+                walkingMinutes: asNumber(s.walking_distance_minutes),
+                lines: asStringList(s.line_names),
+              }))
+              .filter((s) => s.station)
+              .sort((a, b) => (a.walkingMinutes ?? 999) - (b.walkingMinutes ?? 999));
+            return {
+              id: asString(venueRaw.id)!,
+              name: asString(venueRaw.name) ?? '',
+              address: asString(venueRaw.address),
+              imageUrl: asString(venueRaw.image_url),
+              capacity: asNumber(venueRaw.capacity),
+              floorType: asString(venueRaw.floor_type),
+              facilities: asStringList(venueRaw.facilities_new),
+              nearestStation: sorted.length > 0 ? sorted[0] : null,
+            };
+          })()
         : null,
     },
 
