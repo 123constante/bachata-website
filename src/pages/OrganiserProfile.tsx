@@ -3,15 +3,11 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import {
-  ArrowLeft, Instagram, Globe, Pencil, Loader2, Mail, Phone, Facebook,
-  Users, Crown, Clock, MapPin, History,
-} from 'lucide-react';
+import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { ScrollReveal } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
@@ -39,50 +35,68 @@ type EventRow = {
   city: string | null;
 };
 
-const POSTER_GRADIENTS = [
+// Trading-card gradients for the Coming Soon grid. Cycle by event index.
+// Same palette as the upcoming mini-cards from the picked mockup: orange/rose,
+// purple/blue, emerald/cyan, pink/amber. Locked to 4 for a deliberate rhythm.
+const TRADING_GRADIENTS = [
   'bg-gradient-to-br from-orange-500 to-rose-700',
   'bg-gradient-to-br from-purple-600 to-blue-700',
   'bg-gradient-to-br from-emerald-600 to-cyan-600',
   'bg-gradient-to-br from-pink-600 to-amber-500',
-  'bg-gradient-to-br from-blue-700 to-red-600',
-  'bg-gradient-to-br from-indigo-600 to-orange-500',
 ];
 
-const hashStr = (s: string): number => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+// 3-letter initials for 3-plus-word names; first 4 chars for 1-2 word names.
+// Punctuation stripped, whitespace collapsed.
+const makeAbbrev = (name: string | null | undefined): string => {
+  if (!name) return '?';
+  const words = name.replace(/[^\w\s]/g, '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length >= 3) {
+    return words.slice(0, 4).map((w) => w[0]).join('').toUpperCase();
+  }
+  return words.join('').toUpperCase().slice(0, 4);
 };
 
-const formatDatePill = (raw: string | null): string => {
+const formatTradingDate = (raw: string | null): string => {
   if (!raw) return 'TBA';
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return 'TBA';
-  return d
-    .toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-    .toUpperCase();
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+  return `${day} ${month}`;
 };
 
-const formatPastDate = (raw: string | null): string => {
+const formatCreditDate = (raw: string | null): string => {
   if (!raw) return '';
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 };
 
-const formatTimeShort = (raw: string | null): string | null => {
-  if (!raw) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const suffix = h < 12 ? 'am' : 'pm';
-  const hr12 = h % 12 || 12;
-  if (m === 0) return `${hr12}${suffix}`;
-  return `${hr12}:${String(m).padStart(2, '0')}${suffix}`;
+// First non-"The" word from the venue, capped at 6 chars. Keeps the
+// trading-card meta block readable inside roughly 77px of card width.
+const venueShort = (event: EventRow): string => {
+  const raw = event.location?.trim() || event.city?.trim() || '';
+  if (!raw) return '';
+  const words = raw.split(/\s+/).filter((w) => w.toLowerCase() !== 'the');
+  return (words[0] || raw).slice(0, 6);
 };
 
-// ── Connect-tile handle extraction ────────────────────────────────────────
+const toRoman = (num: number): string => {
+  const pairs: Array<[number, string]> = [
+    [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let n = num;
+  let out = '';
+  for (const [val, sym] of pairs) {
+    while (n >= val) { out += sym; n -= val; }
+  }
+  return out;
+};
+
+// Connect-tile handle extraction (preserved from previous impl)
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
   'home.php', 'events',
@@ -131,6 +145,60 @@ const extractDomain = (raw: string | null): string => {
   }
 };
 
+// Em-dashed section header rendered as: [dash] Starring [dash]
+const SectionHeader = ({ children }: { children: React.ReactNode }) => (
+  <h2 className="flex justify-center items-center font-extralight text-[11px] tracking-[0.5em] text-neutral-400 uppercase pt-6 pb-3.5">
+    <span className="text-neutral-700 mx-3.5">&mdash;</span>
+    {children}
+    <span className="text-neutral-700 mx-3.5">&mdash;</span>
+  </h2>
+);
+
+// Two-column credits row: role (right, muted), name (left, white).
+// Tappable when an href is provided.
+const CreditRow = ({
+  role,
+  name,
+  href,
+  external = false,
+}: {
+  role: string;
+  name: React.ReactNode;
+  href?: string;
+  external?: boolean;
+}) => {
+  const inner = (
+    <>
+      <div className="text-right text-neutral-400 text-[9.5px] tracking-[0.28em] uppercase font-normal">
+        {role}
+      </div>
+      <div className="text-center text-neutral-700 text-[11px]">&middot;</div>
+      <div className="text-left text-white text-[13px] tracking-[0.06em] font-light truncate">
+        {name}
+      </div>
+    </>
+  );
+  const cls = cn(
+    'grid grid-cols-[1fr_14px_1fr] gap-2.5 items-baseline py-2 border-b border-dashed border-white/[0.08] transition-colors',
+    href && 'cursor-pointer hover:bg-orange-500/[0.04]',
+  );
+  if (href) {
+    if (external) {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+          {inner}
+        </a>
+      );
+    }
+    return (
+      <Link to={href} className={cls}>
+        {inner}
+      </Link>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
+};
+
 const OrganiserProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -166,7 +234,6 @@ const OrganiserProfile = () => {
       if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!data) return null;
 
-      // Fetch city details separately if city_id exists
       let city = null;
       if (data.city_id) {
         const { data: cityData } = await supabase
@@ -311,10 +378,11 @@ const OrganiserProfile = () => {
     return earliest === null ? null : new Date(earliest).getFullYear();
   }, [allEvents]);
 
+  const currentYearRoman = useMemo(() => toRoman(new Date().getFullYear()), []);
+
   const totalEventsCount = allEvents.length;
   const showSinceYear = sinceYear !== null && sinceYear < new Date().getFullYear();
 
-  // ── Claim ──
   const handleClaim = async () => {
     if (!id || !user?.id) return;
     try {
@@ -339,7 +407,6 @@ const OrganiserProfile = () => {
     }
   };
 
-  // ── Edit ──
   const openEditModal = () => {
     if (!entity) return;
     const socials = entity.socials as { instagram?: string; website?: string; facebook?: string } | null;
@@ -426,50 +493,65 @@ const OrganiserProfile = () => {
     isLoading,
   });
 
+  // Loading state
   if (isLoading) {
     return (
       <GlobalLayout
         breadcrumbs={organiserBreadcrumbs}
         backHref="/organisers"
-        hero={{
-          emoji: '🎪',
-          titleWhite: '',
-          titleOrange: 'Organiser',
-          largeTitle: true,
-        }}
+        showGradientBg={false}
+        showProgressBar={false}
       >
-        <div className="max-w-5xl mx-auto px-4 pb-24 space-y-4">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
+        <article className="bg-black text-neutral-100 min-h-screen pb-12">
+          <div className="px-4 pt-20 pb-5 border-b border-white/[0.08] text-center">
+            <Skeleton className="h-3 w-44 mx-auto mb-4 bg-white/5" />
+            <Skeleton className="h-7 w-60 mx-auto mb-3 bg-white/5" />
+            <Skeleton className="h-3 w-32 mx-auto bg-white/5" />
+          </div>
+          <SectionHeader>Loading credits</SectionHeader>
+          <div className="px-4 pb-4 flex flex-col items-center gap-3">
+            <Skeleton className="h-[84px] w-[84px] rounded-full bg-white/5" />
+            <Skeleton className="h-4 w-40 bg-white/5" />
+            <Skeleton className="h-3 w-28 bg-white/5" />
+          </div>
+        </article>
       </GlobalLayout>
     );
   }
 
+  // Not-found state
   if (error || !entity) {
     return (
       <GlobalLayout
         breadcrumbs={organiserBreadcrumbs}
         backHref="/organisers"
-        hero={{
-          emoji: '🎪',
-          titleWhite: 'Organiser',
-          titleOrange: 'not found',
-          largeTitle: true,
-        }}
+        showGradientBg={false}
+        showProgressBar={false}
       >
-        <div className="max-w-4xl mx-auto px-4 pb-24 text-center">
-          <p className="text-muted-foreground mb-6">The organiser profile you're looking for doesn't exist.</p>
-          <Button onClick={() => navigate('/organisers')} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Organisers
-          </Button>
-        </div>
+        <article className="bg-black text-neutral-100 min-h-screen pb-12">
+          <div className="px-4 pt-16 pb-5 text-center">
+            <div className="font-light text-[10px] tracking-[0.5em] text-neutral-500 uppercase mb-4 flex items-center justify-center">
+              <span className="text-neutral-700 mx-3">&mdash;</span>
+              the end
+              <span className="text-neutral-700 mx-3">&mdash;</span>
+            </div>
+            <h1 className="font-extralight text-2xl tracking-[0.22em] text-white uppercase mb-4 leading-tight">
+              Production not found
+            </h1>
+            <p className="text-neutral-400 text-sm mb-8 max-w-xs mx-auto">
+              The organiser profile you're looking for doesn't exist.
+            </p>
+            <Button onClick={() => navigate('/organisers')} variant="outline" className="font-light text-[9.5px] tracking-[0.32em] uppercase">
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back to Organisers
+            </Button>
+          </div>
+        </article>
       </GlobalLayout>
     );
   }
 
-  // Parse socials — direct entity columns first, then JSON fallback
+  // Data preparation
   const socials = entity.socials as { instagram?: string; website?: string; facebook?: string } | null;
   const instagramRaw = (entity as any).instagram || socials?.instagram || null;
   const websiteRaw = (entity as any).website || socials?.website || null;
@@ -512,546 +594,358 @@ const OrganiserProfile = () => {
   const emailLabel = contactEmail ? String(contactEmail) : 'Email';
   const phoneLabel = contactPhone ? String(contactPhone).trim() : 'Call';
 
-  type ConnectItem = { key: string; href: string; icon: typeof Instagram; label: string; ariaLabel: string };
+  type ConnectItem = { key: string; href: string; role: string; name: string; external: boolean };
   const connectItems: ConnectItem[] = [];
-  if (instagramUrl) connectItems.push({ key: 'ig', href: instagramUrl, icon: Instagram, label: igLabel, ariaLabel: `Instagram ${igLabel}` });
-  if (facebookUrl) connectItems.push({ key: 'fb', href: facebookUrl, icon: Facebook, label: fbLabel, ariaLabel: `Facebook ${fbLabel}` });
-  if (websiteUrl) connectItems.push({ key: 'web', href: websiteUrl, icon: Globe, label: webLabel, ariaLabel: `Website ${webLabel}` });
-  if (emailHref) connectItems.push({ key: 'mail', href: emailHref, icon: Mail, label: emailLabel, ariaLabel: `Email ${emailLabel}` });
-  if (phoneHref) connectItems.push({ key: 'phone', href: phoneHref, icon: Phone, label: phoneLabel, ariaLabel: `Call ${phoneLabel}` });
+  if (instagramUrl) connectItems.push({ key: 'ig', href: instagramUrl, role: 'Instagram', name: igLabel, external: true });
+  if (facebookUrl) connectItems.push({ key: 'fb', href: facebookUrl, role: 'Facebook', name: fbLabel, external: true });
+  if (websiteUrl) connectItems.push({ key: 'web', href: websiteUrl, role: 'Website', name: webLabel, external: true });
+  if (emailHref) connectItems.push({ key: 'mail', href: emailHref, role: 'Email', name: emailLabel, external: false });
+  if (phoneHref) connectItems.push({ key: 'phone', href: phoneHref, role: 'Phone', name: phoneLabel, external: false });
 
   const isUnclaimed = !entity.claimed_by;
   const isClaimedByUser = entity.claimed_by === user?.id;
-  const canClaim = user && isUnclaimed;
+  const canClaim = !!user && isUnclaimed;
 
   const cityName = entity.cities?.name ?? (entity as any).city ?? null;
-  const cityHref = cityName ? '/cities' : null;
 
-  const initials = (entity.name?.trim().charAt(0) || '?').toUpperCase();
-  const heroAvatar = (
-    <div className="relative inline-flex items-center justify-center">
-      {entity.avatar_url ? (
-        <img
-          src={entity.avatar_url}
-          alt={entity.name ?? 'Organiser logo'}
-          loading="eager"
-          className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-2xl object-cover border-2 border-primary shadow-[0_8px_32px_rgba(249,115,22,0.25)] bg-slate-900"
-        />
-      ) : (
-        <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-2xl bg-slate-900 border-2 border-primary flex items-center justify-center text-5xl sm:text-6xl md:text-7xl font-black text-primary shadow-[0_8px_32px_rgba(249,115,22,0.25)]">
-          {initials}
-        </div>
-      )}
-    </div>
-  );
+  // Stats triplet: render only the cells that have data. Falls back gracefully
+  // to 2-up or 1-up when team / upcoming are empty.
+  const statsCells: Array<{ value: number; label: string }> = [];
+  if (totalEventsCount > 0) statsCells.push({ value: totalEventsCount, label: 'Events' });
+  if (teamMembers.length > 0) statsCells.push({ value: teamMembers.length, label: 'Crew' });
+  if (upcomingEvents.length > 0) statsCells.push({ value: upcomingEvents.length, label: 'Upcoming' });
 
-  // Hero subtitle is now empty by design — the city has moved into the
-  // identity tile so the page-level "Location" signal lives in one
-  // canonical place. Passing '' keeps the spacing slot collapsed in
-  // PageHero.
-  const heroSubtitle = '';
-
-  // Tile shells share structure (border, padding, flex, animation) but each
-  // gets a different orange-palette gradient over the slate-900 base so the
-  // bento reads as varied / dynamic rather than a uniform grid. Inner
-  // sub-cells keep bg-slate-900 so they remain readable nested cards inside
-  // the tinted tile. Page gradient is still blocked by the bento wrapper.
-  const TILE_SHADES = {
-    identity: 'bg-gradient-to-br from-primary/40 via-primary/20 to-slate-900',
-    connect: 'bg-gradient-to-br from-orange-600/30 via-amber-800/15 to-slate-900',
-    upcoming: 'bg-gradient-to-tl from-amber-500/30 via-primary/15 to-slate-900',
-    about: 'bg-gradient-to-tr from-primary/25 via-festival-pink/15 to-slate-900',
-    team: 'bg-gradient-to-bl from-orange-400/30 via-primary/20 to-slate-900',
-    past: 'bg-gradient-to-br from-primary/20 via-orange-900/15 to-slate-900',
-    plain: 'bg-slate-900',
-  } as const;
-  const tileShell = (variant: keyof typeof TILE_SHADES) =>
-    cn(
-      'rounded-xl border border-border p-3 sm:p-4 flex flex-col gap-2',
-      'animate-in fade-in slide-in-from-bottom-1 duration-300',
-      TILE_SHADES[variant],
-    );
-
-  // Anchor the "Events run" cell to the events tile via in-page scroll.
-  // The id is attached to whichever event tile is the first to render
-  // (Upcoming when present, otherwise Past), so the click is always
-  // meaningful when there's at least one event.
-  const eventsAnchorId = 'organiser-events';
-  const handleEventsCount = (e: React.MouseEvent) => {
-    if (totalEventsCount === 0) return;
-    const target = document.getElementById(eventsAnchorId);
-    if (target) {
-      e.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+  // Perforated filmstrip edges: repeating-linear-gradient computed once so the
+  // two strip edges (top and bottom) reuse the same value.
+  const strip = 'repeating-linear-gradient(90deg, transparent 0, transparent 18px, white 18px, white 20px, transparent 20px, transparent 30px)';
 
   return (
     <GlobalLayout
       breadcrumbs={organiserBreadcrumbs}
       backHref="/organisers"
-      hero={{
-        emoji: heroAvatar,
-        titleWhite: entity.name ?? '',
-        titleOrange: 'Organiser',
-        subtitle: heroSubtitle,
-        largeTitle: true,
-      }}
+      showGradientBg={false}
+      showProgressBar={false}
     >
-      {/* Type pill — sits between hero and bento, links to a filtered
-          /organisers list. Hidden when no organisation_category is set. */}
-      {organisationCategory && (
-        <div className="max-w-5xl mx-auto px-4 -mt-2 sm:-mt-4 mb-4 sm:mb-6 flex justify-center">
-          <Link
-            to={`/organisers?category=${encodeURIComponent(organisationCategory)}`}
-            className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 border border-primary px-3 py-1.5 text-[11px] sm:text-xs font-bold text-primary uppercase tracking-[0.14em] hover:bg-primary hover:text-black transition-colors"
-            aria-label={`See all ${organisationCategory} organisers`}
+      <article className="bg-black text-neutral-100 min-h-screen pb-12">
+
+        {/* Opening title card */}
+        <header className="px-4 pt-20 pb-5 border-b border-white/[0.08] text-center">
+          <div className="font-light text-[10px] tracking-[0.5em] text-neutral-500 uppercase mb-4 flex items-center justify-center">
+            <span className="text-neutral-700 mx-3">&mdash;</span>
+            a {entity.name} production
+            <span className="text-neutral-700 mx-3">&mdash;</span>
+          </div>
+          <h1 className="font-extralight text-2xl sm:text-3xl tracking-[0.22em] text-white uppercase leading-[1.15]">
+            {entity.name}
+          </h1>
+          {(cityName || showSinceYear) && (
+            <div className="font-light text-[9.5px] tracking-[0.32em] text-neutral-400 mt-3.5 uppercase">
+              {cityName && <span>{cityName}</span>}
+              {cityName && showSinceYear && <span className="text-neutral-700 mx-1.5">&middot;</span>}
+              {showSinceYear && <span>est. {sinceYear}</span>}
+            </div>
+          )}
+          {(organisationCategory || cityName) && (
+            <div className="flex justify-center gap-2 mt-3.5 flex-wrap">
+              {organisationCategory && (
+                <Link
+                  to={`/organisers?category=${encodeURIComponent(organisationCategory)}`}
+                  className="inline-flex items-center gap-1.5 font-light text-[9px] tracking-[0.28em] text-orange-400 uppercase px-2.5 py-1.5 border border-orange-500/40 rounded-full hover:border-orange-500 transition-colors"
+                  aria-label={`See all ${organisationCategory} organisers`}
+                >
+                  <span className="w-[3px] h-[3px] rounded-full bg-current opacity-70" />
+                  {organisationCategory}
+                </Link>
+              )}
+              {cityName && (
+                <Link
+                  to="/cities"
+                  className="inline-flex items-center gap-1.5 font-light text-[9px] tracking-[0.28em] text-white uppercase px-2.5 py-1.5 border border-white/[0.16] rounded-full hover:border-orange-500 hover:text-orange-400 transition-colors"
+                  aria-label={`See ${cityName}`}
+                >
+                  <span className="w-[3px] h-[3px] rounded-full bg-current opacity-70" />
+                  {cityName}
+                </Link>
+              )}
+            </div>
+          )}
+          {canClaim && (
+            <button
+              onClick={handleClaim}
+              className="inline-block mt-5 font-normal text-[9.5px] tracking-[0.32em] text-orange-400 uppercase border-y border-orange-500/30 px-3.5 py-1.5 hover:text-orange-300 hover:border-orange-500/50 transition-colors"
+            >
+              &laquo; claim this profile
+            </button>
+          )}
+        </header>
+
+        {/* Stats triplet */}
+        {statsCells.length > 0 && (
+          <div
+            className="grid border-b border-white/[0.08] py-5 px-4"
+            style={{ gridTemplateColumns: `repeat(${statsCells.length}, minmax(0, 1fr))` }}
           >
-            {organisationCategory}
-          </Link>
-        </div>
-      )}
+            {statsCells.map((c, i) => (
+              <div key={c.label} className="relative text-center">
+                {i > 0 && (
+                  <span className="absolute left-0 top-[14%] bottom-[14%] w-px bg-white/[0.16]" />
+                )}
+                <div className="font-extralight text-[28px] text-white leading-none tracking-[0.04em]">
+                  {c.value}
+                </div>
+                <div className="font-light text-[8.5px] tracking-[0.34em] text-neutral-400 uppercase mt-1.5">
+                  {c.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      <div className="max-w-5xl mx-auto px-4 pb-24">
-
-        {/* ── BENTO ── 2-col mobile · 4-col desktop ──
-            Wrapped in an opaque bg-slate-900 container so the gaps between
-            tiles (gap-2) and the inner padding never expose the page-level
-            gradient + floating decorations. Adjacent tiles still read as
-            distinct cards via their existing border-border hairlines. */}
-        <ScrollReveal animation="fadeUp">
-          <div className="bg-slate-900 rounded-2xl border border-border p-2 sm:p-3">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-
-            {/* ── Identity tile ──
-                Headline metrics first (Events / Team), then the city pill,
-                then the team leader, then the "since" line. The organiser
-                type lives BELOW the hero now (not in this tile). The
-                organiser name is in the hero, not here. */}
-            <section className={cn(tileShell('identity'), 'col-span-1 lg:col-span-2 relative')}>
+        {/* Directed by (head organiser) */}
+        {leader && (
+          <>
+            <SectionHeader>Directed by</SectionHeader>
+            <div className="px-4 pb-4 flex flex-col items-center gap-3 relative">
               {isClaimedByUser && (
                 <button
                   type="button"
                   onClick={openEditModal}
                   aria-label="Edit profile"
-                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-slate-900 hover:bg-primary border border-border hover:border-primary text-muted-foreground hover:text-black flex items-center justify-center transition-colors"
+                  className="absolute -top-2 right-4 w-[26px] h-[26px] rounded-full border border-white/[0.16] bg-black text-neutral-400 hover:border-orange-500 hover:text-orange-400 transition-colors flex items-center justify-center"
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="w-3 h-3" />
                 </button>
               )}
-
-              {/* Primary metrics — Events / Team. The Events cell is a
-                  link that scrolls to the on-page events tile. */}
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                <a
-                  href={`#${eventsAnchorId}`}
-                  onClick={handleEventsCount}
-                  className={cn(
-                    'rounded-lg bg-slate-900 border border-border px-2 py-2 sm:py-3 flex flex-col items-start justify-center min-h-[64px] sm:min-h-[80px] transition-colors',
-                    totalEventsCount > 0 && 'hover:border-primary cursor-pointer',
-                    totalEventsCount === 0 && 'cursor-default',
-                  )}
-                  aria-label={`Events run: ${totalEventsCount}`}
+              <Avatar
+                className="w-[84px] h-[84px] border border-white/[0.16]"
+                style={{ filter: 'grayscale(0.35) contrast(1.05)' }}
+              >
+                <AvatarImage src={leader.avatarUrl || undefined} alt={leader.name} />
+                <AvatarFallback className="bg-gradient-to-br from-neutral-700 to-neutral-900 text-white font-extralight text-3xl tracking-[0.04em]">
+                  {leader.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {leader.dancerId ? (
+                <Link
+                  to={`/dancers/${leader.dancerId}`}
+                  className="font-light text-base tracking-[0.32em] text-white uppercase hover:text-orange-400 transition-colors text-center"
                 >
-                  <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground leading-none">
-                    Events run
-                  </p>
-                  <p className={cn(
-                    'text-2xl sm:text-3xl font-black leading-none mt-1.5',
-                    totalEventsCount > 0 ? 'text-foreground' : 'text-muted-foreground',
-                  )}>
-                    {totalEventsCount}
-                  </p>
-                </a>
-                <div className="rounded-lg bg-slate-900 border border-border px-2 py-2 sm:py-3 flex flex-col items-start justify-center min-h-[64px] sm:min-h-[80px]">
-                  <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground leading-none">
-                    Team
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground leading-none mt-1.5">
-                    {teamMembers.length}
-                  </p>
+                  {leader.name}
+                </Link>
+              ) : (
+                <div className="font-light text-base tracking-[0.32em] text-white uppercase text-center">
+                  {leader.name}
                 </div>
+              )}
+              <div className="font-normal text-[9px] tracking-[0.4em] text-orange-400 uppercase text-center">
+                {leader.role || (leader.isHead ? 'Head organiser' : 'Lead')}
               </div>
+            </div>
+          </>
+        )}
 
-              {/* City + Since-year paired row — both children are styled
-                  identically and stretch to fill their grid cell so the
-                  identity tile has a consistent vertical rhythm. When only
-                  one of the two exists, it falls back to a single full-
-                  width row. */}
-              {(cityName || showSinceYear) && (
-                <div className={cn(
-                  'grid gap-1.5 sm:gap-2',
-                  cityName && showSinceYear ? 'grid-cols-2' : 'grid-cols-1',
-                )}>
-                  {cityName && (
-                    cityHref ? (
-                      <Link
-                        to={cityHref}
-                        className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 border border-border hover:border-primary hover:text-primary text-foreground px-2 min-h-[36px] text-[11px] sm:text-xs font-semibold transition-colors"
-                        aria-label={`See ${cityName}`}
-                      >
-                        <MapPin className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate min-w-0">{cityName}</span>
-                      </Link>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 border border-border text-foreground px-2 min-h-[36px] text-[11px] sm:text-xs font-semibold">
-                        <MapPin className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate min-w-0">{cityName}</span>
-                      </div>
-                    )
-                  )}
-                  {showSinceYear && (
-                    <div className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 border border-border text-foreground px-2 min-h-[36px] text-[11px] sm:text-xs font-semibold">
-                      <span className="text-muted-foreground font-medium">Since</span>
-                      <span className="text-primary font-bold">{sinceYear}</span>
-                    </div>
-                  )}
-                </div>
-              )}
+        {/* Starring (crew) */}
+        {teamWithoutLeader.length > 0 && (
+          <>
+            <SectionHeader>Starring</SectionHeader>
+            <div className="px-4 pb-2">
+              {teamWithoutLeader.map((member) => (
+                <CreditRow
+                  key={member.id}
+                  role={member.role || 'Team'}
+                  name={member.name}
+                  href={member.dancerId ? `/dancers/${member.dancerId}` : undefined}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
-              {/* Team leader row — sits in the identity tile so the
-                  organisation has a face. Hidden if no leader is
-                  resolvable. */}
-              {leader && (
-                (() => {
-                  const inner = (
-                    <>
-                      <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border border-primary shrink-0">
-                        <AvatarImage src={leader.avatarUrl || undefined} alt={leader.name} />
-                        <AvatarFallback className="text-[10px] sm:text-xs bg-slate-900 text-primary font-bold border border-primary">
-                          {leader.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground leading-none">
-                          {leader.isHead ? 'Head organiser' : 'Led by'}
-                        </p>
-                        <p className="text-[12px] sm:text-sm font-semibold text-foreground truncate leading-tight mt-1">
-                          {leader.name}
-                        </p>
-                        {leader.role && (
-                          <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate leading-tight">
-                            {leader.role}
-                          </p>
-                        )}
-                      </div>
-                      {leader.isHead && (
-                        <Crown className="w-3.5 h-3.5 text-primary shrink-0" />
+        {/* Based on a true story (bio) */}
+        {entity.bio && (
+          <>
+            <SectionHeader>Based on a true story</SectionHeader>
+            <div className="px-6 pb-3 text-center">
+              <p
+                className="italic text-[13px] leading-relaxed text-neutral-100 max-w-[300px] mx-auto whitespace-pre-wrap"
+                style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', letterSpacing: '0.01em' }}
+              >
+                {entity.bio}
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Coming soon (upcoming trading cards) */}
+        {upcomingEvents.length > 0 && (
+          <>
+            <SectionHeader>Coming soon</SectionHeader>
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-4 gap-2">
+                {upcomingEvents.slice(0, 8).map((event, i) => {
+                  const grad = TRADING_GRADIENTS[i % TRADING_GRADIENTS.length];
+                  const abbrev = makeAbbrev(event.name);
+                  const dateLabel = formatTradingDate(event.start_time ?? event.date);
+                  const venue = venueShort(event);
+                  return (
+                    <Link
+                      key={event.id}
+                      to={`/event/${event.id}`}
+                      className={cn(
+                        'relative overflow-hidden rounded-md p-1.5 flex flex-col justify-between text-center text-white transition-transform hover:-translate-y-0.5',
+                        grad,
                       )}
-                    </>
-                  );
-                  const cls = cn(
-                    'flex items-center gap-2.5 rounded-lg bg-slate-900 border border-border px-2.5 py-2 transition-colors',
-                    leader.dancerId && 'hover:border-primary cursor-pointer',
-                  );
-                  return leader.dancerId ? (
-                    <Link to={`/dancers/${leader.dancerId}`} className={cls}>
-                      {inner}
+                      style={{ aspectRatio: '0.7' }}
+                      aria-label={event.name}
+                    >
+                      <span className="absolute top-0 left-0 right-0 h-[30%] bg-gradient-to-b from-white/[0.18] to-transparent pointer-events-none" />
+                      <span className="relative font-light text-[15px] tracking-[0.1em] text-white leading-none">
+                        {abbrev}
+                      </span>
+                      <span className="relative font-normal text-[8.5px] leading-tight">
+                        <span className="block font-semibold tracking-[0.12em]">{dateLabel}</span>
+                        {venue}
+                      </span>
                     </Link>
-                  ) : (
-                    <div className={cls}>{inner}</div>
                   );
-                })()
+                })}
+              </div>
+              {upcomingEvents.length > 8 && (
+                <p className="text-center font-light text-[10px] tracking-[0.32em] text-neutral-400 uppercase mt-3.5">
+                  + {upcomingEvents.length - 8} more &mdash;
+                </p>
               )}
+            </div>
+          </>
+        )}
 
-              {canClaim && (
-                <Button variant="outline" size="sm" onClick={handleClaim} className="text-[11px] sm:text-xs mt-1">
-                  Claim this organiser profile
-                </Button>
+        {/* For enquiries (connect) */}
+        {connectItems.length > 0 && (
+          <>
+            <SectionHeader>For enquiries</SectionHeader>
+            <div className="px-4 pb-3">
+              {connectItems.map((item) => (
+                <CreditRow
+                  key={item.key}
+                  role={item.role}
+                  name={item.name}
+                  href={item.href}
+                  external={item.external}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Previously (past events) */}
+        {pastEvents.length > 0 && (
+          <>
+            <SectionHeader>Previously</SectionHeader>
+            <div className="px-4 pb-2">
+              {pastEvents.slice(0, 12).map((event) => {
+                const dt = formatCreditDate(event.start_time ?? event.date);
+                const venue = event.location?.trim() || event.city?.trim() || '';
+                return (
+                  <Link
+                    key={event.id}
+                    to={`/event/${event.id}`}
+                    className="grid grid-cols-[60px_1fr] gap-3 items-baseline py-1.5 border-b border-dashed border-white/[0.08] font-light text-[11.5px] text-left hover:bg-orange-500/[0.04] transition-colors"
+                  >
+                    <div className="font-normal text-[9px] tracking-[0.18em] text-neutral-400 uppercase text-right">
+                      {dt}
+                    </div>
+                    <div className="text-white tracking-[0.02em] truncate">
+                      {event.name}
+                      {venue && (
+                        <span className="block text-neutral-400 text-[9px] tracking-[0.22em] uppercase mt-0.5 font-normal truncate">
+                          {venue}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+              {pastEvents.length > 12 && (
+                <p className="text-center font-light text-[10px] tracking-[0.32em] text-neutral-400 uppercase pt-3.5 pb-1.5">
+                  + {pastEvents.length - 12} more in the archive &mdash;
+                </p>
               )}
-            </section>
+            </div>
+          </>
+        )}
 
-            {/* ── Connect tile ── 2-col grid of inline rows (icon + handle
-                horizontal). The inline layout maximises text width vs the
-                old vertical stack; min-w-0 on the span is what lets
-                truncate work inside flex. The title attribute on the <a>
-                shows the full handle on hover for any that still ellipse. */}
-            {connectItems.length > 0 ? (
-              <section className={cn(tileShell('connect'), 'col-span-1 lg:col-span-2')}>
-                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Connect
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 mt-0.5">
-                  {connectItems.map((item) => {
-                    const Icon = item.icon;
-                    const isExternal = item.href.startsWith('http');
-                    return (
-                      <a
-                        key={item.key}
-                        href={item.href}
-                        target={isExternal ? '_blank' : undefined}
-                        rel={isExternal ? 'noopener noreferrer' : undefined}
-                        className="group flex flex-row items-center gap-2 rounded-lg bg-slate-900 border border-border hover:border-primary px-2.5 min-h-[36px] min-w-0 transition-colors"
-                        aria-label={item.ariaLabel}
-                        title={item.label}
-                      >
-                        <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                        <span className="text-[11px] sm:text-[11px] font-medium text-foreground group-hover:text-primary truncate min-w-0">
-                          {item.label}
-                        </span>
-                      </a>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : (
-              <section className={cn(tileShell('connect'), 'col-span-1 lg:col-span-2')}>
-                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Connect
-                </p>
-                <p className="text-[10px] text-muted-foreground text-center py-3">
-                  No links yet
-                </p>
-              </section>
-            )}
-
-            {/* ── Upcoming events tile ── full-width, 2/3/4 col grid ── */}
-            {upcomingEvents.length > 0 && (
-              <section
-                id={eventsAnchorId}
-                className={cn(tileShell('upcoming'), 'col-span-2 lg:col-span-4 scroll-mt-24')}
+        {/* Stills (gallery filmstrip) */}
+        {galleryUrls.length > 0 && (
+          <>
+            <SectionHeader>Stills</SectionHeader>
+            <div className="relative border-y border-white/[0.08] bg-black py-3.5">
+              <span
+                className="absolute top-0 left-0 right-0 h-2 opacity-[0.15] pointer-events-none"
+                style={{ background: strip }}
+              />
+              <div
+                className="flex gap-1.5 px-3.5 overflow-x-auto"
+                style={{ scrollbarWidth: 'none' }}
               >
-                <div className="flex items-center gap-2">
-                  <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-foreground">
-                    Upcoming
-                  </h2>
-                  <span className="bg-primary text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {upcomingEvents.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mt-1">
-                  {upcomingEvents.slice(0, 8).map((event) => {
-                    const rawDate = event.start_time ?? event.date;
-                    const dateLabel = formatDatePill(rawDate);
-                    const timeLabel = formatTimeShort(event.start_time);
-                    const locationLabel = event.location?.trim() || event.city?.trim() || null;
-                    const metaParts = [timeLabel, locationLabel].filter(Boolean) as string[];
-                    const gradient = POSTER_GRADIENTS[hashStr(event.id) % POSTER_GRADIENTS.length];
-                    return (
-                      <Link
-                        key={event.id}
-                        to={`/event/${event.id}`}
-                        className="group flex flex-col rounded-lg overflow-hidden bg-slate-900 border border-border hover:border-primary hover:-translate-y-0.5 transition-all"
-                      >
-                        <div className={cn('relative aspect-[16/10] overflow-hidden', gradient)}>
-                          {event.poster_url && (
-                            <img
-                              src={event.poster_url}
-                              alt=""
-                              loading="lazy"
-                              className="absolute inset-0 w-full h-full object-cover"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                            />
-                          )}
-                          <span className="absolute top-1.5 left-1.5 z-10 bg-slate-900 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-border">
-                            {dateLabel}
-                          </span>
-                        </div>
-                        <div className="p-2 sm:p-3 flex flex-col gap-1 bg-slate-900">
-                          <p className="text-[11px] sm:text-sm font-semibold text-foreground leading-tight line-clamp-2 min-h-[2.5em] sm:min-h-[3em] group-hover:text-primary transition-colors">
-                            {event.name}
-                          </p>
-                          {metaParts.length > 0 && (
-                            <p className="flex items-center gap-1 text-[9.5px] sm:text-[11px] text-muted-foreground truncate">
-                              <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
-                              <span className="truncate">{metaParts.join(' · ')}</span>
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-                {upcomingEvents.length > 8 && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                    +{upcomingEvents.length - 8} more upcoming
-                  </p>
-                )}
-              </section>
-            )}
+                {galleryUrls.slice(0, 12).map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 transition-[filter] duration-200 hover:[filter:none]"
+                    style={{ width: 84, height: 60, filter: 'grayscale(0.85) contrast(1.05)' }}
+                  >
+                    <img
+                      src={url}
+                      alt={`${entity.name} still ${i + 1}`}
+                      className="w-full h-full object-cover rounded-sm"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+              <span
+                className="absolute bottom-0 left-0 right-0 h-2 opacity-[0.15] pointer-events-none"
+                style={{ background: strip }}
+              />
+            </div>
+          </>
+        )}
 
-            {/* ── About tile ── */}
-            {entity.bio && (
-              <section className={cn(tileShell('about'), 'col-span-2 lg:col-span-2')}>
-                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  About
-                </p>
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {entity.bio}
-                </p>
-              </section>
-            )}
-
-            {/* ── Team tile ── shows everyone EXCEPT the leader. */}
-            {teamWithoutLeader.length > 0 && (
-              <section className={cn(tileShell('team'), 'col-span-2 lg:col-span-4')}>
-                <div className="flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5 text-primary" />
-                  <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-foreground">
-                    Team
-                  </h2>
-                  <span className="bg-primary text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {teamWithoutLeader.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 mt-1">
-                  {teamWithoutLeader.map((member) => {
-                    const tileClass = cn(
-                      'flex flex-col items-center text-center gap-1 p-2 sm:p-3 rounded-lg border bg-slate-900 transition-all',
-                      member.isHead ? 'border-primary' : 'border-border',
-                      member.dancerId && 'hover:border-primary hover:-translate-y-0.5 cursor-pointer',
-                    );
-                    const inner = (
-                      <>
-                        <Avatar className={cn(
-                          'w-9 h-9 sm:w-12 sm:h-12 border',
-                          member.isHead ? 'border-primary' : 'border-border',
-                        )}>
-                          <AvatarImage src={member.avatarUrl || undefined} alt={member.name} />
-                          <AvatarFallback className={cn(
-                            'text-[10px] sm:text-sm font-bold bg-slate-900',
-                            member.isHead ? 'text-primary border border-primary' : 'text-foreground border border-border',
-                          )}>
-                            {member.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex items-center gap-1 min-w-0 w-full justify-center">
-                          <p className="text-[10px] sm:text-xs font-semibold text-foreground truncate">
-                            {member.name}
-                          </p>
-                          {member.isHead && (
-                            <Crown className="w-3 h-3 text-primary shrink-0" />
-                          )}
-                        </div>
-                        {member.role && (
-                          <p className={cn(
-                            'text-[9px] sm:text-[10px] truncate w-full',
-                            member.isHead ? 'text-primary font-medium' : 'text-muted-foreground',
-                          )}>
-                            {member.role}
-                          </p>
-                        )}
-                      </>
-                    );
-                    if (member.dancerId) {
-                      return (
-                        <Link key={member.id} to={`/dancers/${member.dancerId}`} className={tileClass}>
-                          {inner}
-                        </Link>
-                      );
-                    }
-                    return (
-                      <div key={member.id} className={tileClass}>
-                        {inner}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* ── Gallery tile ── */}
-            {galleryUrls.length > 0 && (
-              <section className={cn(tileShell('plain'), 'col-span-2 lg:col-span-4')}>
-                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Gallery
-                </p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 mt-1">
-                  {galleryUrls.slice(0, 12).map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                      <img
-                        src={url}
-                        alt={`${entity.name} photo ${i + 1}`}
-                        className="w-full aspect-[4/3] object-cover rounded-md hover:scale-[1.02] transition-transform bg-slate-900 border border-border"
-                        loading="lazy"
-                      />
-                    </a>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* ── Past events tile (history) ── */}
-            {pastEvents.length > 0 && (
-              <section
-                id={upcomingEvents.length === 0 ? eventsAnchorId : undefined}
-                className={cn(tileShell('past'), 'col-span-2 lg:col-span-4 scroll-mt-24')}
+        {/* Empty state (no events at all) */}
+        {upcomingEvents.length === 0 && pastEvents.length === 0 && (
+          <>
+            <SectionHeader>Coming soon</SectionHeader>
+            <div className="px-6 pb-2 text-center">
+              <p
+                className="italic text-[12.5px] text-neutral-400 leading-relaxed max-w-[280px] mx-auto"
+                style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
               >
-                <div className="flex items-center gap-2">
-                  <History className="w-3.5 h-3.5 text-muted-foreground" />
-                  <h2 className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-foreground">
-                    Past events
-                  </h2>
-                  <span className="bg-slate-900 border border-border text-muted-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {pastEvents.length}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1.5 mt-1">
-                  {pastEvents.slice(0, 12).map((event) => {
-                    const rawDate = event.start_time ?? event.date;
-                    const dateText = formatPastDate(rawDate);
-                    const locationLabel = event.location?.trim() || event.city?.trim() || null;
-                    const metaParts = [dateText, locationLabel].filter(Boolean) as string[];
-                    return (
-                      <Link
-                        key={event.id}
-                        to={`/event/${event.id}`}
-                        className="group flex items-center gap-2 sm:gap-3 rounded-lg border border-border bg-slate-900 hover:border-primary transition-colors px-2.5 sm:px-3 py-2"
-                      >
-                        {event.poster_url ? (
-                          <img
-                            src={event.poster_url}
-                            alt=""
-                            loading="lazy"
-                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-md object-cover shrink-0 bg-slate-900"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className={cn('w-10 h-10 sm:w-12 sm:h-12 rounded-md shrink-0', POSTER_GRADIENTS[hashStr(event.id) % POSTER_GRADIENTS.length])} />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[12px] sm:text-sm font-semibold text-foreground leading-tight truncate group-hover:text-primary transition-colors">
-                            {event.name}
-                          </p>
-                          {metaParts.length > 0 && (
-                            <p className="flex items-center gap-1 text-[10px] sm:text-[11px] text-muted-foreground truncate mt-0.5">
-                              <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
-                              <span className="truncate">{metaParts.join(' · ')}</span>
-                            </p>
-                          )}
-                        </div>
-                        <span className="bg-slate-900 border border-border text-muted-foreground text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0">
-                          Past
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-                {pastEvents.length > 12 && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                    +{pastEvents.length - 12} more past events
-                  </p>
-                )}
-              </section>
-            )}
+                Awaiting first production. Check back &mdash; or follow for the announcement.
+              </p>
+            </div>
+          </>
+        )}
 
-            {/* ── Empty state when an organiser has zero events at all ── */}
-            {upcomingEvents.length === 0 && pastEvents.length === 0 && (
-              <section className={cn(tileShell('plain'), 'col-span-2 lg:col-span-4 items-center text-center py-6 sm:py-8')}>
-                <Clock className="w-6 h-6 text-muted-foreground" />
-                <p className="text-sm font-medium text-muted-foreground">No events listed yet</p>
-                <p className="text-[11px] sm:text-xs text-muted-foreground max-w-sm">
-                  When {entity.name} adds events to the calendar they'll appear here.
-                </p>
-              </section>
-            )}
-
+        {/* Fin / sign-off */}
+        <div className="px-4 pt-6 pb-4 text-center">
+          <div className="font-extralight text-[13px] tracking-[0.6em] text-white uppercase flex items-center justify-center">
+            <span className="inline-block w-5 h-px bg-neutral-700 mx-3" />
+            Fin
+            <span className="inline-block w-5 h-px bg-neutral-700 mx-3" />
           </div>
+          <div className="font-light text-[9.5px] tracking-[0.32em] text-neutral-400 uppercase mt-3.5">
+            a <em className="not-italic text-orange-400">{entity.name}</em> production
           </div>
-        </ScrollReveal>
-      </div>
+          <div className="font-extralight text-[14px] tracking-[0.4em] text-neutral-700 mt-2">
+            {currentYearRoman}
+          </div>
+        </div>
 
-      {/* ── Edit dialog ── */}
+      </article>
+
+      {/* Edit dialog (unchanged from previous impl) */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>

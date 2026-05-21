@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Building2, MapPin, Users, Music, Layers, Lightbulb } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,51 +80,125 @@ const CHIPS: ChipDef[] = [
   { key: 'wood', label: 'Wood floor', emoji: '🪵' },
 ];
 
-const FilterSidebar = ({
+// Dark warm bar surface, sits cleanly over the black page.
+const BAR_STYLE = { backgroundColor: 'rgba(8,6,4,0.92)', borderColor: '#241c14' } as const;
+
+// Inner bar content — the 3 filter chips plus the result count and Clear.
+// Shared by the in-flow copy and the portalled pinned copy below.
+const FilterBarInner = ({
   active,
   onToggle,
+  onClear,
+  count,
 }: {
   active: Set<FilterKey>;
   onToggle: (k: FilterKey) => void;
+  onClear: () => void;
+  count: number;
 }) => (
-  <aside
-    style={{ borderColor: '#3a2e1c', backgroundColor: '#1a1410' }}
-    className="sticky top-0 w-52 border-r py-6 px-4 flex flex-col gap-3 h-screen"
-  >
-    <div style={{ color: '#a89875' }} className="text-xs font-semibold uppercase tracking-wide mb-3">
-      Filters
+  <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2.5">
+    <div className="flex gap-2 overflow-x-auto flex-1 min-w-0">
+      {CHIPS.map(({ key, label, emoji }) => {
+        const isOn = active.has(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onToggle(key)}
+            style={isOn ? undefined : { backgroundColor: '#1a1410', borderColor: '#3a2e1c', color: '#a89875' }}
+            className={`shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              isOn
+                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                : 'hover:!border-primary/60 hover:!text-stone-100'
+            }`}
+          >
+            <span aria-hidden="true">{emoji}</span>
+            <span>{label}</span>
+          </button>
+        );
+      })}
     </div>
-    {CHIPS.map(({ key, label, emoji }) => {
-      const isOn = active.has(key);
-      return (
+    <div className="flex items-center gap-3 shrink-0">
+      <span className="text-xs" style={{ color: '#8a7a5c' }}>
+        <span className="font-bold text-stone-300">{count}</span> {count === 1 ? 'venue' : 'venues'}
+      </span>
+      {active.size > 0 && (
         <button
-          key={key}
           type="button"
-          onClick={() => onToggle(key)}
-          style={isOn ? undefined : { backgroundColor: '#1a1410', borderColor: '#3a2e1c', color: '#a89875' }}
-          className={`w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors text-left ${
-            isOn
-              ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-              : 'hover:!border-primary/60 hover:!text-stone-100'
-          }`}
+          onClick={onClear}
+          style={{ color: '#d97706' }}
+          className="text-xs hover:underline"
         >
-          <span aria-hidden="true">{emoji}</span>
-          <span className="flex-1">{label}</span>
+          Clear
         </button>
-      );
-    })}
-    {active.size > 0 && (
-      <button
-        type="button"
-        onClick={() => CHIPS.forEach((c) => active.has(c.key) && onToggle(c.key))}
-        style={{ color: '#d97706' }}
-        className="text-xs hover:underline mt-2 pt-2 border-t border-slate-800"
-      >
-        Clear filters
-      </button>
-    )}
-  </aside>
+      )}
+    </div>
+  </div>
 );
+
+// Sticky horizontal filter bar (replaces the old left sidebar). The app's
+// page wrapper sets overflow-x:hidden (=> overflow-y:auto) and filter:blur(0),
+// which between them break position:sticky AND position:fixed for in-page
+// content. So we render the bar in normal flow and, once it scrolls under the
+// 60px global header, mount a portalled fixed copy on document.body (outside
+// those wrappers) so it actually pins to the viewport. A callback ref wires the
+// IntersectionObserver the moment the sentinel mounts (i.e. after data loads),
+// not at first render when the bar is still null. Hidden while loading or when
+// there are no venues at all.
+const FilterBar = ({
+  active,
+  onToggle,
+  onClear,
+  count,
+  total,
+  isLoading,
+}: {
+  active: Set<FilterKey>;
+  onToggle: (k: FilterKey) => void;
+  onClear: () => void;
+  count: number;
+  total: number;
+  isLoading: boolean;
+}) => {
+  const [pinned, setPinned] = useState(false);
+  const ioRef = useRef<IntersectionObserver | null>(null);
+
+  const setSentinel = useCallback((node: HTMLDivElement | null) => {
+    if (ioRef.current) {
+      ioRef.current.disconnect();
+      ioRef.current = null;
+    }
+    if (node) {
+      const io = new IntersectionObserver(
+        ([entry]) => setPinned(!entry.isIntersecting),
+        { rootMargin: '-61px 0px 0px 0px', threshold: 0 },
+      );
+      io.observe(node);
+      ioRef.current = io;
+    }
+  }, []);
+
+  if (isLoading || total === 0) return null;
+
+  return (
+    <>
+      <div ref={setSentinel} aria-hidden className="h-px -mb-px" />
+      <div style={BAR_STYLE} className="border-b backdrop-blur-md">
+        <FilterBarInner active={active} onToggle={onToggle} onClear={onClear} count={count} />
+      </div>
+      {pinned &&
+        createPortal(
+          <div
+            style={BAR_STYLE}
+            className="fixed top-[60px] left-0 right-0 z-30 border-b backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <FilterBarInner active={active} onToggle={onToggle} onClear={onClear} count={count} />
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+};
 
 const Venues = () => {
   const { data: venues = [], isLoading } = useQuery({
@@ -158,61 +233,66 @@ const Venues = () => {
         floatingIcons: [Building2, MapPin, Users, Music, Layers, Lightbulb],
       }}
     >
-      <div className="flex">
-        <FilterSidebar active={activeFilters} onToggle={toggleFilter} />
+      <FilterBar
+        active={activeFilters}
+        onToggle={toggleFilter}
+        onClear={() => setActiveFilters(new Set())}
+        count={filteredVenues.length}
+        total={venues.length}
+        isLoading={isLoading}
+      />
 
-        <main className="flex-1">
-          {isLoading ? (
-            <div className="max-w-6xl mx-auto px-4 pt-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} style={{ backgroundColor: '#f7f3ea', borderColor: '#e0d6bc' }} className="rounded-2xl border overflow-hidden">
-                    <Skeleton className="aspect-[4/3] w-full" />
-                    <div className="p-3 space-y-1.5">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                      <Skeleton className="h-3 w-2/3" />
-                    </div>
+      <main>
+        {isLoading ? (
+          <div className="max-w-6xl mx-auto px-4 pt-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} style={{ backgroundColor: '#f4e9d2', borderColor: '#c9a86a' }} className="rounded-2xl border overflow-hidden">
+                  <Skeleton className="aspect-[4/3] w-full" />
+                  <div className="p-3 space-y-1.5">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-2/3" />
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          ) : venues.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-              <p className="text-xs text-muted-foreground">No venues yet.</p>
-            </div>
-          ) : filteredVenues.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-              <p className="text-xs text-muted-foreground">
-                No venues match your filters.
-              </p>
-              <button
-                type="button"
-                onClick={() => setActiveFilters(new Set())}
-                className="text-xs text-primary hover:underline mt-2"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : (
-            <div className="max-w-6xl mx-auto px-4 pt-6">
-              <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {filteredVenues.map((venue) => (
-                  <StaggerItem key={venue.id}>
-                    <VenueCard
-                      venue={venue}
-                      isWeekendFilterActive={activeFilters.has('weekend')}
-                      isWoodFloorFilterActive={activeFilters.has('wood')}
-                    />
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </div>
-          )}
-        </main>
-      </div>
+          </div>
+        ) : venues.length === 0 ? (
+          <div className="text-center py-12">
+            <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">No venues yet.</p>
+          </div>
+        ) : filteredVenues.length === 0 ? (
+          <div className="text-center py-12">
+            <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">
+              No venues match your filters.
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveFilters(new Set())}
+              className="text-xs text-primary hover:underline mt-2"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="max-w-6xl mx-auto px-4 pt-6">
+            <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {filteredVenues.map((venue) => (
+                <StaggerItem key={venue.id}>
+                  <VenueCard
+                    venue={venue}
+                    isWeekendFilterActive={activeFilters.has('weekend')}
+                    isWoodFloorFilterActive={activeFilters.has('wood')}
+                  />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </div>
+        )}
+      </main>
     </GlobalLayout>
   );
 };

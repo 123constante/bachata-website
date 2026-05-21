@@ -61,17 +61,17 @@ const formatNextEvent = (iso: string | null): { text: string; isSoon: boolean } 
   return { text: date, isSoon: false };
 };
 
-// Warm cream palette (option B) — colours tuned to read cleanly on a
+// Warm parchment palette — colours tuned to read cleanly on a
 // dark page background while keeping enough internal contrast for
 // readability across all the text rows.
-const CARD_BG = '#f7f3ea';        // warm cream surface
+const CARD_BG = '#f4e9d2';        // warm parchment surface
 const CARD_IMAGE_BG = '#1a1a2e';  // dark behind images (photo fills it; muted placeholder when none)
-const TEXT_PRIMARY = '#2a1f10';   // venue name — warm near-black
-const TEXT_BODY = '#3a2e1c';      // body lines — slightly softer
-const TEXT_MUTED = '#8a7a5c';     // walk-time, secondary annotations
-const PILL_BG = '#ebe3d0';        // amenity pill background — same family as card, one stop deeper
-const PILL_TEXT = '#5a4a30';      // amenity pill text — dark warm
-const BORDER = '#e0d6bc';         // card border — same family, slightly darker than surface
+const TEXT_PRIMARY = '#2a1b0e';   // venue name — warm near-black
+const TEXT_BODY = '#3a2a16';      // body lines — slightly softer
+const TEXT_MUTED = '#8a724c';     // walk-time, secondary annotations
+const PILL_BG = '#ece0c2';        // amenity pill background — same family as card, one stop deeper
+const PILL_TEXT = '#5a4628';      // amenity pill text — dark warm
+const BORDER = '#c9a86a';         // card border — brass edge, tuned to the warm theme
 
 const getThisWeekendDays = (nextEventIso: string | null): { fri: boolean; sat: boolean; sun: boolean } => {
   if (!nextEventIso) return { fri: false, sat: false, sun: false };
