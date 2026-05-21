@@ -1,11 +1,7 @@
 import {
-  useEffect,
-  useRef,
   useState,
-  type CSSProperties,
   type ComponentType,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -16,10 +12,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronLeft,
-  Clock,
-  Train,
   Share2,
-  Play,
   Phone,
   Mail,
   Globe,
@@ -41,6 +34,7 @@ import {
   Footprints,
   Wine,
   MapPin,
+  Train,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -50,7 +44,6 @@ import { fetchPublicVenue } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { computeVenueOpenStatus } from '@/lib/venueOpenStatus';
 import { resolveTubeLine } from '@/lib/tubeLineColour';
-import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
 
 // ============================================================
 // Types
@@ -80,30 +73,6 @@ type TransportJson = {
 type ParkingJson = {
   parking_available?: boolean | null;
   nearby_parking_notes?: string | null;
-};
-
-// ============================================================
-// Pulse theme tokens
-// ============================================================
-const PULSE_VARS: CSSProperties = {
-  ['--bg' as string]: '#0a0c0d',
-  ['--bg-2' as string]: '#11151a',
-  ['--surface' as string]: 'rgba(255,255,255,0.03)',
-  ['--surface-2' as string]: 'rgba(255,255,255,0.05)',
-  ['--border' as string]: 'rgba(255,255,255,0.08)',
-  ['--border-hi' as string]: 'rgba(16,185,129,0.45)',
-  ['--text' as string]: '#ECEFEC',
-  ['--text-2' as string]: '#9FA8A2',
-  ['--text-3' as string]: '#5F6864',
-  ['--accent' as string]: '#10b981',
-  ['--accent-2' as string]: '#34d399',
-  ['--accent-soft' as string]: 'rgba(16,185,129,0.16)',
-  ['--glow' as string]:
-    'radial-gradient(50% 40% at 50% 5%, rgba(16,185,129,0.20), transparent 70%)',
-  ['--spot' as string]: 'rgba(140,255,200,0.16)',
-  ['--radius' as string]: '10px',
-  ['--card-bg' as string]:
-    'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012))',
 };
 
 // ============================================================
@@ -161,8 +130,11 @@ const DAY_ABBR: Record<string, string> = {
 };
 const JS_DAY_TO_ORDER = [6, 0, 1, 2, 3, 4, 5];
 
+const humaniseKey = (k: string) =>
+  k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
 // ============================================================
-// Facility icon map (lucide, thin stroke)
+// Facility icon + label maps
 // ============================================================
 const facIcon = (
   Icon: ComponentType<{ className?: string; strokeWidth?: number }>,
@@ -188,209 +160,190 @@ const FACILITY_ICONS: Record<string, ReactNode> = {
 
 const FACILITY_LABELS: Record<string, string> = {
   mirrors: 'Mirrors',
-  sound_system: 'Sound system',
-  changing_area: 'Changing area',
+  sound_system: 'Sound',
+  changing_area: 'Changing',
   wifi: 'Wi-Fi',
-  wheelchair_access: 'Step-free entry',
-  air_conditioning: 'Air conditioning',
-  drinking_water: 'Drinking water',
+  wheelchair_access: 'Step-free',
+  air_conditioning: 'Air con',
+  drinking_water: 'Water',
   bottle_refill: 'Bottle refill',
   lockers: 'Lockers',
   kitchen: 'Kitchen',
   snacks_available: 'Snacks',
-  free_parking: 'Free parking',
-  late_train_friendly: 'Late train friendly',
+  free_parking: 'Parking',
+  late_train_friendly: 'Late train',
   stage: 'Stage',
-  outdoor_space: 'Outdoor space',
+  outdoor_space: 'Outdoor',
 };
 
-const humaniseKey = (k: string) =>
-  k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+// ============================================================
+// Latin Warm theme - mirrors --venue-* tokens from src/index.css
+// ============================================================
+const SERIF = "Georgia,'Times New Roman','Hoefler Text',serif";
+const MONO = "'JetBrains Mono',ui-monospace,'SF Mono',monospace";
 
 // ============================================================
-// Cursor spotlight hook
+// Brass divider
 // ============================================================
-function useCursor(ref: RefObject<HTMLDivElement>, key: string) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onMove = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = (e.clientY - r.top) / r.height;
-      el.style.setProperty('--mx', x.toFixed(3));
-      el.style.setProperty('--my', y.toFixed(3));
-      el.style.setProperty('--mxp', (x * 100).toFixed(1) + '%');
-      el.style.setProperty('--myp', (y * 100).toFixed(1) + '%');
-    };
-    const onLeave = () => {
-      el.style.setProperty('--mx', '0.5');
-      el.style.setProperty('--my', '0.2');
-      el.style.setProperty('--mxp', '50%');
-      el.style.setProperty('--myp', '20%');
-    };
-    onLeave();
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerleave', onLeave);
-    return () => {
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerleave', onLeave);
-    };
-  }, [ref, key]);
-}
-
-// ============================================================
-// Striped placeholder for missing images
-// ============================================================
-function Placeholder({
-  label,
-  className = '',
-  aspect,
-  children,
-}: {
-  label?: string;
-  className?: string;
-  aspect?: string;
-  children?: ReactNode;
-}) {
-  const style: CSSProperties = {
-    backgroundImage:
-      'repeating-linear-gradient(135deg, #10151a 0 16px, #161e22 16px 32px, #1d272c 32px 48px)',
-    aspectRatio: aspect,
-  };
+function BrassDivider() {
   return (
-    <div className={`relative overflow-hidden ${className}`} style={style}>
-      <div
-        className="absolute inset-0"
+    <div className="flex items-center justify-center my-5">
+      <span
+        className="flex-1 h-px max-w-[160px]"
         style={{
           background:
-            'linear-gradient(180deg, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.55) 100%)',
+            'linear-gradient(90deg,transparent,hsla(var(--venue-brass)/.5),transparent)',
         }}
       />
-      {label && (
-        <div
-          className="absolute left-2 bottom-2 text-[10px] uppercase tracking-[0.18em]"
-          style={{
-            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            color: 'rgba(255,255,255,0.55)',
-          }}
-        >
-          {label}
-        </div>
-      )}
-      {children}
     </div>
   );
 }
 
 // ============================================================
-// Card (shimmer top edge)
+// Section label "// Foo"
 // ============================================================
-function Card({
-  className = '',
-  style: extraStyle = {},
-  children,
-  highlight = true,
+function SectionLabel({
+  label,
+  action,
 }: {
-  className?: string;
-  style?: CSSProperties;
-  children: ReactNode;
-  highlight?: boolean;
+  label: string;
+  action?: ReactNode;
 }) {
   return (
-    <div
-      className={`relative ${className}`}
-      style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        boxShadow:
-          '0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 30px rgba(0,0,0,0.35)',
-        ...extraStyle,
-      }}
-    >
-      {highlight && (
-        <span
-          aria-hidden
-          className="absolute inset-x-3 top-0 h-px pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)',
-          }}
-        />
-      )}
-      {children}
+    <div className="flex items-baseline justify-between mb-3">
+      <span
+        style={{
+          fontFamily: MONO,
+          fontSize: '10px',
+          letterSpacing: '.26em',
+          textTransform: 'uppercase',
+          color: 'hsl(var(--venue-brass))',
+        }}
+      >
+        // {label}
+      </span>
+      {action}
     </div>
   );
 }
 
-function PrimaryButton({
-  children,
-  className = '',
-  onClick,
-  type = 'button',
-}: {
-  children: ReactNode;
-  className?: string;
-  onClick?: () => void;
-  type?: 'button' | 'submit';
-}) {
+// ============================================================
+// Italic Georgia headline
+// ============================================================
+function SectionHeadline({ children }: { children: ReactNode }) {
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      className={`relative inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-transform active:scale-[0.98] ${className}`}
+    <h2
+      className="mb-3"
       style={{
-        background: 'var(--accent)',
-        color: '#0a0a0a',
-        boxShadow:
-          '0 0 0 1px rgba(255,255,255,0.10), 0 8px 24px var(--accent-soft), 0 0 28px var(--accent-soft)',
+        fontFamily: SERIF,
+        fontStyle: 'italic',
+        fontWeight: 400,
+        fontSize: '20px',
+        letterSpacing: '-.01em',
+        color: 'hsl(var(--venue-cream))',
       }}
     >
       {children}
-    </button>
+    </h2>
   );
 }
 
-function GhostButton({
+// ============================================================
+// Stat tile
+// ============================================================
+function StatTile({
+  value,
+  sub,
+  label,
+}: {
+  value: ReactNode;
+  sub?: string;
+  label: string;
+}) {
+  return (
+    <div className="text-center relative">
+      <div
+        style={{
+          fontFamily: SERIF,
+          fontStyle: 'italic',
+          fontSize: '28px',
+          fontWeight: 400,
+          color: 'hsl(var(--venue-ember))',
+          letterSpacing: '-.02em',
+          lineHeight: 1,
+        }}
+      >
+        {value}
+        {sub && (
+          <span
+            style={{
+              fontStyle: 'normal',
+              fontSize: '13px',
+              color: 'hsl(var(--venue-cream-mut))',
+              marginLeft: '2px',
+            }}
+          >
+            {sub}
+          </span>
+        )}
+      </div>
+      <div
+        className="mt-1.5"
+        style={{
+          fontFamily: MONO,
+          fontSize: '9px',
+          letterSpacing: '.22em',
+          textTransform: 'uppercase',
+          color: 'hsl(var(--venue-brass))',
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Status badge (Open / Closed pill)
+// ============================================================
+function StatusBadge({ label, isOpen }: { label: string; isOpen: boolean }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+      style={{
+        background: 'hsla(var(--venue-bg)/.65)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid hsla(var(--venue-brass)/.32)',
+        color: 'hsl(var(--venue-cream))',
+        fontFamily: 'system-ui, -apple-system, Inter, sans-serif',
+      }}
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{
+          background: isOpen
+            ? 'hsl(var(--venue-open))'
+            : 'hsl(var(--venue-brass))',
+          boxShadow: isOpen ? '0 0 8px hsl(var(--venue-open))' : 'none',
+        }}
+      />
+      <span style={{ fontWeight: 500 }}>{label}</span>
+    </span>
+  );
+}
+
+// ============================================================
+// Icon button (hero chrome)
+// ============================================================
+function IconBtn({
   children,
-  className = '',
+  label,
   onClick,
-  as,
-  href,
-  target,
-  rel,
 }: {
   children: ReactNode;
-  className?: string;
+  label: string;
   onClick?: () => void;
-  as?: 'a';
-  href?: string;
-  target?: string;
-  rel?: string;
 }) {
-  const styles: CSSProperties = {
-    background: 'var(--surface)',
-    border: '1px solid var(--border-hi)',
-    color: 'var(--text)',
-    textDecoration: 'none',
-  };
-  const cls = `inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm transition-colors ${className}`;
-  if (as === 'a') {
-    return (
-      <a href={href} target={target} rel={rel} className={cls} style={styles}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} className={cls} style={styles}>
-      {children}
-    </button>
-  );
-}
-
-function IconBtn({ children, label, onClick }: { children: ReactNode; label: string; onClick?: () => void }) {
   return (
     <button
       aria-label={label}
@@ -398,10 +351,10 @@ function IconBtn({ children, label, onClick }: { children: ReactNode; label: str
       onClick={onClick}
       className="inline-flex items-center justify-center rounded-full transition-colors select-none active:scale-[0.97] w-9 h-9"
       style={{
-        background: 'rgba(0,0,0,0.55)',
+        background: 'hsla(var(--venue-bg)/.55)',
         backdropFilter: 'blur(10px)',
-        border: '1px solid var(--border-hi)',
-        color: 'var(--text)',
+        border: '1px solid hsla(var(--venue-brass)/.3)',
+        color: 'hsl(var(--venue-cream))',
       }}
     >
       {children}
@@ -410,201 +363,152 @@ function IconBtn({ children, label, onClick }: { children: ReactNode; label: str
 }
 
 // ============================================================
-// Section header
+// TfL Roundel station card (Approach A)
 // ============================================================
-function SectionHeader({
-  children,
-  action,
-  onAction,
+function StationRoundel({
+  stationName,
+  lineNames,
+  walkMin,
+  isStepFree,
 }: {
-  children: ReactNode;
-  action?: string;
-  onAction?: () => void;
+  stationName: string;
+  lineNames: string[];
+  walkMin: number | null;
+  isStepFree: boolean;
 }) {
-  return (
-    <div className="flex items-baseline justify-center mb-3 relative">
-      <div className="relative inline-flex items-center gap-2">
-        <span
-          className="text-[10px] uppercase tracking-[0.22em] relative"
-          style={{
-            color: 'var(--text-3)',
-            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          }}
-        >
-          —
-        </span>
-        <h2
-          className="text-[18px] font-semibold tracking-tight relative"
-          style={{ color: 'var(--accent)' }}
-        >
-          {children}
-        </h2>
-      </div>
-      {action && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="text-xs inline-flex items-center gap-1 transition-colors"
-          style={{ color: 'var(--accent)' }}
-        >
-          {action}
-          <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// Status badge
-// ============================================================
-function StatusBadge({ label, isOpen }: { label: string; isOpen: boolean }) {
+  const lines = lineNames.map((n) => ({ raw: n, tfl: resolveTubeLine(n) }));
   return (
     <div
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+      className="relative overflow-hidden p-4 text-center"
       style={{
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid var(--border-hi)',
-        color: 'var(--text)',
+        background: 'hsl(var(--venue-surface))',
+        border: '1px solid hsl(var(--venue-line))',
+        borderRadius: '14px',
       }}
     >
       <span
-        className="w-1.5 h-1.5 rounded-full"
+        aria-hidden
+        className="absolute top-0 left-[14%] right-[14%] h-px"
         style={{
-          background: isOpen ? '#34d399' : 'var(--accent)',
-          boxShadow: '0 0 8px var(--accent)',
+          background:
+            'linear-gradient(90deg,transparent,hsla(var(--venue-brass)/.5),transparent)',
         }}
       />
-      <span style={{ fontWeight: 500 }}>{label}</span>
-    </div>
-  );
-}
 
-// ============================================================
-// Hero — cycling cover + parallax + spotlight
-// ============================================================
-function Hero({
-  images,
-  height,
-  rounded,
-  venueName,
-}: {
-  images: string[];
-  height: string;
-  rounded: boolean;
-  venueName: string;
-}) {
-  const [i, setI] = useState(0);
-  const hasImages = images.length > 0;
-  const count = hasImages ? images.length : 1;
-  useEffect(() => {
-    if (count <= 1) return;
-    const t = window.setInterval(() => setI((v) => (v + 1) % count), 4500);
-    return () => window.clearInterval(t);
-  }, [count]);
-
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{ height, borderRadius: rounded ? 'var(--radius)' : 0 }}
-    >
-      {/* Parallax wrapper */}
-      <div
-        className="absolute"
-        style={{
-          inset: '-6%',
-          transform:
-            'translate3d(calc((var(--mx, .5) - .5) * -20px), calc((var(--my, .2) - .2) * -16px), 0) scale(1.06)',
-          transition: 'transform 240ms cubic-bezier(.2,.7,.2,1)',
-        }}
-      >
-        {hasImages ? (
-          images.map((src, idx) => (
-            <div
-              key={src + idx}
-              className="absolute inset-0 transition-opacity duration-1000"
-              style={{ opacity: idx === i ? 1 : 0 }}
-            >
-              <img
-                src={src}
-                alt={idx === 0 ? venueName : ''}
-                className="w-full h-full object-cover"
-                loading={idx === 0 ? 'eager' : 'lazy'}
-              />
-            </div>
-          ))
-        ) : (
-          <Placeholder className="w-full h-full" label={venueName} />
-        )}
+      {/* Roundel */}
+      <div className="relative w-[132px] h-[132px] mx-auto mb-2 flex items-center justify-center">
+        <span
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: '15px solid #DC241F',
+            background: 'hsl(var(--venue-bg))',
+            boxShadow:
+              '0 0 0 1px hsla(var(--venue-brass)/.3), 0 8px 24px rgba(220,36,31,.18)',
+          }}
+        />
+        <span
+          className="absolute left-[6px] right-[6px] top-1/2 -translate-y-1/2 flex items-center justify-center"
+          style={{
+            height: '28px',
+            background: '#DC241F',
+            color: '#fff',
+            fontFamily: "'Helvetica Neue', Inter, system-ui, sans-serif",
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '.04em',
+          }}
+        >
+          UNDERGROUND
+        </span>
       </div>
 
-      {/* Themed hero glow */}
       <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'var(--glow)', mixBlendMode: 'screen' }}
-      />
-
-      {/* Cursor spotlight inside hero */}
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
         style={{
-          background:
-            'radial-gradient(360px circle at var(--mxp, 50%) var(--myp, 30%), var(--spot), transparent 60%)',
-          mixBlendMode: 'screen',
+          fontFamily: SERIF,
+          fontStyle: 'italic',
+          fontSize: '24px',
+          fontWeight: 400,
+          letterSpacing: '-.015em',
+          color: 'hsl(var(--venue-cream))',
+          marginTop: '8px',
         }}
-      />
+      >
+        {stationName}
+      </div>
 
-      {/* Bottom vignette */}
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(180deg, transparent 55%, var(--bg) 100%)',
-        }}
-      />
-
-      {/* Counter chip */}
-      {count > 1 && (
-        <>
-          <div
-            className="absolute bottom-3 right-3 z-10 text-[10px] px-2 py-1 rounded uppercase tracking-[0.18em]"
-            style={{
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-              background: 'rgba(0,0,0,0.55)',
-              color: 'rgba(255,255,255,0.8)',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {String(i + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
-          </div>
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-1.5">
-            {Array.from({ length: count }).map((_, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => setI(idx)}
-                aria-label={`Show image ${idx + 1}`}
-                className="h-1 rounded-full transition-all"
+      {/* Line chips */}
+      {lines.length > 0 && (
+        <div
+          className="flex flex-col gap-1.5 my-3 py-3"
+          style={{
+            borderTop: '1px solid hsl(var(--venue-line))',
+            borderBottom: '1px solid hsl(var(--venue-line))',
+          }}
+        >
+          {lines.map((l) => (
+            <div
+              key={l.raw}
+              className="flex items-center gap-2.5 px-1"
+            >
+              <span
+                className="block h-2 rounded-full shrink-0"
                 style={{
-                  width: idx === i ? 24 : 6,
-                  background:
-                    idx === i ? 'var(--text)' : 'rgba(255,255,255,0.4)',
+                  width: '50px',
+                  background: l.tfl.bg,
+                  boxShadow: 'inset 0 -1px 0 rgba(0,0,0,.25)',
                 }}
               />
-            ))}
-          </div>
-        </>
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'hsl(var(--venue-cream))',
+                  flex: 1,
+                  textAlign: 'left',
+                }}
+              >
+                {l.tfl.name || l.raw}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* Walk pill + step-free */}
+      <div className="flex gap-1.5 flex-wrap justify-center">
+        {walkMin != null && (
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{
+              background: 'hsla(var(--venue-ember)/.08)',
+              border: '1px solid hsla(var(--venue-ember)/.35)',
+              color: 'hsl(var(--venue-ember))',
+            }}
+          >
+            <Footprints className="w-3 h-3" strokeWidth={1.6} />
+            {walkMin} min walk
+          </span>
+        )}
+        {isStepFree && (
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{
+              background: 'hsla(var(--venue-open)/.1)',
+              border: '1px solid hsla(var(--venue-open)/.4)',
+              color: 'hsl(var(--venue-open))',
+            }}
+          >
+            <Accessibility className="w-3 h-3" strokeWidth={1.6} />
+            Step-free
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
 // ============================================================
-// Hours list
+// Hours table
 // ============================================================
 function HoursList({
   rows,
@@ -612,137 +516,113 @@ function HoursList({
   rows: { day: string; display: string; isToday: boolean }[];
 }) {
   return (
-    <ul className="text-sm">
+    <div
+      className="p-3 px-4"
+      style={{
+        background: 'hsl(var(--venue-surface))',
+        border: '1px solid hsl(var(--venue-line))',
+        borderRadius: '12px',
+      }}
+    >
       {rows.map((row, i) => {
-        const muted = row.display.toLowerCase() === 'closed';
+        const closed = row.display.toLowerCase() === 'closed';
         return (
-          <li
+          <div
             key={row.day}
             className="flex items-center justify-between py-1.5"
             style={{
-              color: row.isToday
-                ? 'var(--text)'
-                : muted
-                ? 'var(--text-3)'
-                : 'var(--text-2)',
-              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              borderBottom:
+                i < rows.length - 1
+                  ? '1px solid hsl(var(--venue-line))'
+                  : 'none',
             }}
           >
-            <span className="flex items-center gap-2">
+            <span
+              style={{
+                fontSize: '12.5px',
+                color: row.isToday
+                  ? 'hsl(var(--venue-cream))'
+                  : closed
+                  ? 'hsla(var(--venue-cream-mut)/.5)'
+                  : 'hsl(var(--venue-cream-mut))',
+                fontWeight: row.isToday ? 500 : 400,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
               {row.day}
               {row.isToday && (
                 <span
-                  className="text-[10px] uppercase tracking-[0.18em]"
                   style={{
-                    color: 'var(--accent)',
-                    fontFamily:
-                      "'JetBrains Mono', ui-monospace, monospace",
+                    fontFamily: MONO,
+                    fontSize: '8.5px',
+                    letterSpacing: '.18em',
+                    textTransform: 'uppercase',
+                    color: 'hsl(var(--venue-ember))',
+                    fontWeight: 400,
                   }}
                 >
-                  Today
+                  today
                 </span>
               )}
             </span>
-            <span style={{ fontWeight: row.isToday ? 500 : 400 }}>
+            <span
+              style={{
+                fontSize: '12px',
+                fontVariantNumeric: 'tabular-nums',
+                color: row.isToday
+                  ? 'hsl(var(--venue-cream))'
+                  : closed
+                  ? 'hsla(var(--venue-cream-mut)/.5)'
+                  : 'hsl(var(--venue-cream-mut))',
+                fontWeight: row.isToday ? 500 : 400,
+              }}
+            >
               {row.display}
             </span>
-          </li>
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
 // ============================================================
-// Video tile
-// ============================================================
-function VideoTile({
-  url,
-  className = '',
-}: {
-  url: string;
-  className?: string;
-}) {
-  const label = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-  const parsed = parseVenueVideoUrl(url);
-  const thumbUrl = parsed?.kind === 'youtube'
-    ? `https://img.youtube.com/vi/${parsed.videoId}/hqdefault.jpg`
-    : null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`group relative overflow-hidden block ${className}`}
-      style={{ borderRadius: 'var(--radius)' }}
-    >
-      {thumbUrl ? (
-        <div style={{ aspectRatio: '16/10' }}>
-          <img src={thumbUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-        </div>
-      ) : (
-        <Placeholder aspect="16/10" />
-      )}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.08))',
-        }}
-      />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center transition-transform group-hover:scale-110"
-          style={{
-            background: 'var(--accent)',
-            color: '#000',
-            boxShadow: '0 8px 28px var(--accent-soft)',
-          }}
-        >
-          <Play className="w-4 h-4" strokeWidth={1.6} fill="currentColor" />
-        </div>
-      </div>
-      <div className="absolute left-2.5 bottom-2 right-2.5 flex items-end justify-between gap-2">
-        <span
-          className="text-sm font-medium drop-shadow truncate"
-          style={{ color: 'var(--text)' }}
-        >
-          {label}
-        </span>
-      </div>
-    </a>
-  );
-}
-
-// ============================================================
-// FAQ
+// FAQ accordion
 // ============================================================
 function FAQList({ items }: { items: FaqItem[] }) {
   const [open, setOpen] = useState(0);
   return (
     <div>
       {items.map((f, i) => (
-        <div key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+        <div
+          key={i}
+          style={{ borderBottom: '1px solid hsl(var(--venue-line))' }}
+        >
           <button
             type="button"
             onClick={() => setOpen(open === i ? -1 : i)}
-            className="w-full flex items-start justify-between gap-3 py-3 text-left transition-colors"
+            className="w-full flex items-start justify-between gap-3 py-3 text-left"
           >
             <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text)' }}
+              style={{
+                fontSize: '13.5px',
+                color: 'hsl(var(--venue-cream))',
+                lineHeight: 1.35,
+                fontWeight: 500,
+              }}
             >
               {f.q}
             </span>
-            <span
-              className="mt-0.5 shrink-0 transition-transform"
+            <ChevronDown
+              className="mt-0.5 shrink-0 transition-transform w-4 h-4"
+              strokeWidth={1.6}
               style={{
-                color: open === i ? 'var(--accent)' : 'var(--text-2)',
+                color: 'hsl(var(--venue-ember))',
                 transform: open === i ? 'rotate(180deg)' : 'none',
               }}
-            >
-              <ChevronDown className="w-4 h-4" strokeWidth={1.4} />
-            </span>
+            />
           </button>
           <div
             className="grid transition-all duration-300 ease-out"
@@ -750,8 +630,12 @@ function FAQList({ items }: { items: FaqItem[] }) {
           >
             <div className="overflow-hidden">
               <p
-                className="text-sm pb-3 pr-6 leading-relaxed"
-                style={{ color: 'var(--text-2)' }}
+                className="pb-3 pr-2"
+                style={{
+                  fontSize: '12.5px',
+                  lineHeight: 1.55,
+                  color: 'hsl(var(--venue-cream-mut))',
+                }}
               >
                 {f.a}
               </p>
@@ -764,344 +648,28 @@ function FAQList({ items }: { items: FaqItem[] }) {
 }
 
 // ============================================================
-// Nearest station (TfL-style legend)
+// Event tile (3-col grid)
 // ============================================================
-function NearestStation({
-  stationName,
-  lineNames,
-  walkMin,
-  notes,
+function EventTile({
+  ev,
+  isRecurring,
 }: {
-  stationName: string;
-  lineNames: string[];
-  walkMin: number | null;
-  notes: string | null;
+  ev: VenueOccurrenceRow;
+  isRecurring?: boolean;
 }) {
-  const [active, setActive] = useState<string | null>(null);
-  const lines = lineNames.map((n) => ({ raw: n, tfl: resolveTubeLine(n) }));
-  const activeLine = active ? lines.find((l) => l.raw === active) : null;
-
-  return (
-    <Card>
-      <div className="p-4">
-        <div
-          className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-medium mb-4"
-          style={{
-            color: 'var(--text-3)',
-            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          }}
-        >
-          <span style={{ color: 'var(--accent)' }}>
-            <Train className="w-4 h-4" strokeWidth={1.4} />
-          </span>
-          <span>Nearest station</span>
-        </div>
-
-        {/* Route ribbon */}
-        {walkMin != null && (
-          <div className="flex items-start gap-2 mb-4 px-1">
-            <div className="flex flex-col items-center shrink-0 w-10">
-              <span
-                className="w-3 h-3 rounded-full mt-1"
-                style={{
-                  background: 'var(--accent)',
-                  boxShadow: '0 0 0 4px var(--accent-soft)',
-                }}
-              />
-              <span
-                className="text-[9px] mt-1.5 uppercase tracking-[0.18em]"
-                style={{
-                  color: 'var(--text-3)',
-                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                }}
-              >
-                Venue
-              </span>
-            </div>
-            <div className="flex-1 flex items-center mt-[6px] min-w-0">
-              <div
-                className="flex-1 h-0"
-                style={{ borderTop: '1px dashed var(--border-hi)' }}
-              />
-              <span
-                className="text-[10px] uppercase tracking-[0.18em] px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"
-                style={{
-                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                  color: 'var(--accent)',
-                  background: 'var(--accent-soft)',
-                  border: '1px solid var(--border-hi)',
-                }}
-              >
-                <Footprints className="w-3.5 h-3.5" strokeWidth={1.4} />
-                {walkMin} min
-              </span>
-              <div
-                className="flex-1 h-0"
-                style={{ borderTop: '1px dashed var(--border-hi)' }}
-              />
-            </div>
-            <div className="flex flex-col items-center shrink-0 w-10">
-              <span
-                className="w-3 h-3 rounded-full mt-1"
-                style={{
-                  background: 'var(--text)',
-                  boxShadow: '0 0 0 4px rgba(255,255,255,0.10)',
-                }}
-              />
-              <span
-                className="text-[9px] mt-1.5 uppercase tracking-[0.18em]"
-                style={{
-                  color: 'var(--text-3)',
-                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                }}
-              >
-                Station
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Station plate */}
-        <div
-          className="relative overflow-hidden p-4"
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.25))',
-            border: '1px solid var(--border)',
-            borderRadius: 'calc(var(--radius) - 2px)',
-          }}
-        >
-          <div
-            className="absolute inset-0 opacity-50 pointer-events-none"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)',
-              backgroundSize: '5px 5px',
-            }}
-          />
-
-          <div className="relative">
-            {lines.length > 0 && (
-              <div className="flex flex-col gap-1 mb-4">
-                {lines.map((l) => {
-                  const isActive = active === l.raw;
-                  return (
-                    <button
-                      key={l.raw}
-                      type="button"
-                      onClick={() => setActive(isActive ? null : l.raw)}
-                      className="group w-full text-left flex items-center gap-3 px-2 py-2 rounded-md transition-colors"
-                      style={{
-                        background: isActive
-                          ? 'rgba(255,255,255,0.08)'
-                          : 'transparent',
-                      }}
-                    >
-                      <span
-                        className="block h-2.5 rounded-full shrink-0 transition-all duration-200"
-                        style={{
-                          width: isActive ? 80 : 64,
-                          background: l.tfl.bg,
-                          boxShadow: isActive
-                            ? `0 0 14px ${l.tfl.bg}66, inset 0 -1px 0 rgba(0,0,0,0.25)`
-                            : 'inset 0 -1px 0 rgba(0,0,0,0.25)',
-                        }}
-                      />
-                      <span
-                        className="flex-1 text-base font-semibold tracking-tight"
-                        style={{ color: 'var(--text)' }}
-                      >
-                        {l.tfl.name || l.raw}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <h3
-              className="text-2xl font-bold leading-tight tracking-tight"
-              style={{ color: 'var(--text)' }}
-            >
-              {stationName}
-            </h3>
-            <p
-              className="text-[11px] mt-1.5 uppercase tracking-[0.18em] min-h-[14px]"
-              style={{
-                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                color: 'var(--text-2)',
-              }}
-            >
-              {activeLine ? (
-                <span className="inline-flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className="inline-block w-3 h-1.5 rounded-full"
-                      style={{ background: activeLine.tfl.bg }}
-                    />
-                    <span style={{ color: 'var(--accent)' }}>
-                      {activeLine.tfl.name || activeLine.raw}
-                    </span>
-                  </span>
-                </span>
-              ) : (
-                <span>
-                  {lines.length} {lines.length === 1 ? 'line' : 'lines'}
-                  {walkMin != null && (
-                    <span style={{ color: 'var(--text-3)' }}>
-                      {' '}
-                      · {walkMin} min walk
-                    </span>
-                  )}
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        {notes && (
-          <p
-            className="text-xs leading-relaxed mt-3"
-            style={{ color: 'var(--text-2)' }}
-          >
-            {notes}
-          </p>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-// ============================================================
-// Event card — horizontal (desktop grid) and row (mobile list)
-// ============================================================
-function EventCardTile({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring?: boolean }) {
-  const start = new Date(ev.instance_start);
-  const dayLabel = format(start, 'EEE');
-  const dateLabel = format(start, 'd MMM');
-  const timeLabel = format(start, 'HH:mm');
-  return (
-    <Link
-      to={`/event/${ev.event_id}?occurrenceId=${ev.occurrence_id}`}
-      className="group relative overflow-hidden cursor-pointer transition-all block"
-      style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        textDecoration: 'none',
-      }}
-    >
-      <div className="relative">
-        {ev.poster_url ? (
-          <div style={{ aspectRatio: '16/9' }}>
-            <img
-              src={ev.poster_url}
-              alt={ev.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        ) : (
-          <Placeholder aspect="16/9" />
-        )}
-        <div
-          className="absolute inset-x-0 bottom-0 h-1/2"
-          style={{
-            background:
-              'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
-          }}
-        />
-        <div
-          className="absolute left-3 top-3 flex flex-col items-center justify-center w-10 h-12 rounded-md text-center"
-          style={{
-            background: 'rgba(0,0,0,0.78)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid var(--border-hi)',
-          }}
-        >
-          <span
-            className="text-[9px] uppercase tracking-[0.18em] font-semibold"
-            style={{
-              color: 'var(--accent)',
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            }}
-          >
-            {dayLabel}
-          </span>
-          <span
-            className="text-sm font-semibold leading-none mt-0.5"
-            style={{ color: 'var(--text)' }}
-          >
-            {format(start, 'd')}
-          </span>
-        </div>
-      </div>
-      <div className="p-3">
-        <div
-          className="text-xs mb-1"
-          style={{
-            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            color: 'var(--text-3)',
-          }}
-        >
-          {dateLabel} · {timeLabel}
-        </div>
-        <h3
-          className="text-sm font-medium leading-snug line-clamp-2 mb-1"
-          style={{ color: 'var(--text)' }}
-        >
-          {ev.name}
-        </h3>
-        <div className="flex items-center justify-between mt-2">
-          <span
-            className="text-xs"
-            style={{ color: 'var(--text-2)' }}
-          >
-            {countdown(ev.instance_start)}
-          </span>
-          <span
-            className="text-xs inline-flex items-center gap-1"
-            style={{ color: 'var(--accent)' }}
-          >
-            Tickets <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
-          </span>
-        </div>
-        {isRecurring && (
-          <span
-            className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded mt-1 inline-block"
-            style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--accent-2)', border: '1px solid rgba(16,185,129,0.28)' }}
-          >
-            Recurring
-          </span>
-        )}
-      </div>
-      <span
-        aria-hidden
-        className="absolute inset-x-3 top-0 h-px pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)',
-        }}
-      />
-    </Link>
-  );
-}
-
-function EventCardRow({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring?: boolean }) {
   const start = new Date(ev.instance_start);
   return (
     <Link
       to={`/event/${ev.event_id}?occurrenceId=${ev.occurrence_id}`}
-      className="group flex gap-3 py-3 cursor-pointer"
+      className="group block overflow-hidden"
       style={{
-        borderBottom: '1px solid var(--border)',
+        background: 'hsl(var(--venue-surface))',
+        border: '1px solid hsl(var(--venue-line))',
+        borderRadius: '10px',
         textDecoration: 'none',
       }}
     >
-      <div
-        className="relative w-16 h-16 overflow-hidden shrink-0"
-        style={{ borderRadius: 'var(--radius)' }}
-      >
+      <div className="relative" style={{ aspectRatio: '3 / 4' }}>
         {ev.poster_url ? (
           <img
             src={ev.poster_url}
@@ -1110,108 +678,113 @@ function EventCardRow({ ev, isRecurring }: { ev: VenueOccurrenceRow; isRecurring
             loading="lazy"
           />
         ) : (
-          <Placeholder className="w-full h-full" />
+          <div
+            className="w-full h-full"
+            style={{
+              background:
+                'linear-gradient(135deg,#5c2f18,hsl(var(--venue-bg)))',
+            }}
+          />
         )}
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.55)' }}
+        <span
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(180deg,transparent 45%,rgba(0,0,0,.75) 100%)',
+          }}
+        />
+        <span
+          className="absolute top-1.5 left-1.5 z-10 px-1.5 py-1 rounded text-center"
+          style={{
+            background: 'hsla(var(--venue-bg)/.78)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid hsl(var(--venue-brass))',
+            minWidth: '28px',
+          }}
         >
           <span
-            className="text-[9px] uppercase tracking-[0.18em] font-semibold"
             style={{
-              color: 'var(--accent)',
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              display: 'block',
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              fontSize: '13px',
+              color: 'hsl(var(--venue-ember))',
+              fontWeight: 400,
+              lineHeight: 1,
+            }}
+          >
+            {format(start, 'd')}
+          </span>
+          <span
+            style={{
+              display: 'block',
+              fontFamily: MONO,
+              fontSize: '7px',
+              letterSpacing: '.16em',
+              textTransform: 'uppercase',
+              color: 'hsl(var(--venue-cream-mut))',
+              marginTop: '1px',
             }}
           >
             {format(start, 'EEE')}
           </span>
-          <span
-            className="text-base font-semibold leading-none"
-            style={{ color: 'var(--text)' }}
-          >
-            {format(start, 'd')}
-          </span>
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-0.5">
-          <span
-            className="text-[11px]"
-            style={{
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-              color: 'var(--text-3)',
-            }}
-          >
-            {format(start, 'HH:mm')}
-          </span>
-          <span
-            className="text-[10px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded font-medium"
-            style={{
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-              background: 'rgba(52,211,153,0.10)',
-              color: '#6ee7b7',
-              border: '1px solid rgba(52,211,153,0.32)',
-            }}
-          >
-            {countdown(ev.instance_start)}
-          </span>
-        </div>
-        <h3
-          className="text-sm font-medium leading-snug line-clamp-2"
-          style={{ color: 'var(--text)' }}
-        >
-          {ev.name}
-        </h3>
+        </span>
         {isRecurring && (
           <span
-            className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded mt-1 inline-block"
-            style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--accent-2)', border: '1px solid rgba(16,185,129,0.28)' }}
+            className="absolute top-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded text-[8px]"
+            style={{
+              fontFamily: MONO,
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+              background: 'hsla(var(--venue-open)/.15)',
+              border: '1px solid hsla(var(--venue-open)/.4)',
+              color: 'hsl(var(--venue-open))',
+              fontWeight: 600,
+            }}
           >
-            Recurring
+            Weekly
           </span>
         )}
       </div>
+      <div className="p-2">
+        <div
+          className="line-clamp-2"
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            color: 'hsl(var(--venue-cream))',
+            lineHeight: 1.2,
+          }}
+        >
+          {ev.name}
+        </div>
+        <div
+          className="mt-1"
+          style={{
+            fontFamily: MONO,
+            fontSize: '8.5px',
+            letterSpacing: '.12em',
+            textTransform: 'uppercase',
+            color: 'hsl(var(--venue-cream-mut))',
+          }}
+        >
+          {format(start, 'HH:mm')}
+        </div>
+        <div
+          style={{
+            fontFamily: MONO,
+            fontSize: '8.5px',
+            letterSpacing: '.12em',
+            textTransform: 'uppercase',
+            color: 'hsl(var(--venue-ember))',
+            marginTop: '2px',
+          }}
+        >
+          {countdown(ev.instance_start)}
+        </div>
+      </div>
     </Link>
-  );
-}
-
-// ============================================================
-// Facility row
-// ============================================================
-function FacilityRow({
-  icon,
-  label,
-}: {
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <div
-      className="flex items-center gap-2.5 py-2 text-sm"
-      style={{ color: 'var(--text)' }}
-    >
-      <span style={{ color: 'var(--accent)' }} className="shrink-0">
-        {icon}
-      </span>
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-// ============================================================
-// Ambient cursor spotlight (whole-page faint)
-// ============================================================
-function AmbientBg() {
-  return (
-    <div
-      aria-hidden
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        background:
-          'radial-gradient(600px circle at var(--mxp, 50%) var(--myp, 20%), var(--spot), transparent 60%)',
-        mixBlendMode: 'screen',
-      }}
-    />
   );
 }
 
@@ -1222,11 +795,16 @@ const VenueEntity = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const rootRef = useRef<HTMLDivElement>(null);
 
   const fromEventId = parseFromEventParam(location.search);
   const rawOcc = new URLSearchParams(location.search).get('occ') ?? null;
-  const fromOccurrenceId = rawOcc && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawOcc) ? rawOcc : null;
+  const fromOccurrenceId =
+    rawOcc &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      rawOcc,
+    )
+      ? rawOcc
+      : null;
 
   const { data: venue, isLoading } = useQuery({
     queryKey: ['public-venue', id],
@@ -1238,7 +816,9 @@ const VenueEntity = () => {
     queryKey: ['venue-upcoming-events', id, fromEventId, fromOccurrenceId],
     queryFn: async () => {
       const now = new Date().toISOString();
-      const sixtyDaysLater = new Date(Date.now() + 60 * 86400000).toISOString();
+      const sixtyDaysLater = new Date(
+        Date.now() + 60 * 86400000,
+      ).toISOString();
       const { data } = await supabase.rpc('calendar_events_dto' as never, {
         p_from: now,
         p_to: sixtyDaysLater,
@@ -1261,43 +841,42 @@ const VenueEntity = () => {
     isLoading,
   });
   const backHref = fromEventId ? '/event/' + fromEventId : '/venues';
-  // Re-bind cursor listeners when the render branch swaps (loading -> venue -> notfound).
-  const cursorKey = isLoading ? 'loading' : venue ? 'venue' : 'notfound';
-  useCursor(rootRef, cursorKey);
 
   // ----------------------------------------------------------
   // Loading
   // ----------------------------------------------------------
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref={backHref}
+        showSubheader={false}
+        showGradientBg={false}
+      >
         <div
-          ref={rootRef}
           className="relative antialiased min-h-screen"
           style={{
-            ...PULSE_VARS,
-            background: 'var(--bg)',
-            color: 'var(--text)',
-            fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+            background: 'hsl(var(--venue-bg))',
+            color: 'hsl(var(--venue-cream))',
+            fontFamily: 'system-ui, -apple-system, Inter, sans-serif',
           }}
         >
-          <AmbientBg />
           <div className="px-4 pt-4">
             <Skeleton
-              className="w-full rounded-md"
+              className="w-full rounded-xl"
               style={{
-                height: 260,
-                background: 'rgba(255,255,255,0.04)',
+                height: 280,
+                background: 'hsl(var(--venue-surface))',
               }}
             />
             <div className="mt-4 space-y-2">
               <Skeleton
                 className="h-4 w-1/3"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                style={{ background: 'hsl(var(--venue-surface))' }}
               />
               <Skeleton
-                className="h-7 w-2/3"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                className="h-8 w-2/3"
+                style={{ background: 'hsl(var(--venue-surface))' }}
               />
             </div>
           </div>
@@ -1311,21 +890,29 @@ const VenueEntity = () => {
   // ----------------------------------------------------------
   if (!venue) {
     return (
-      <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
+      <GlobalLayout
+        breadcrumbs={venueBreadcrumbs}
+        backHref={backHref}
+        showSubheader={false}
+        showGradientBg={false}
+      >
         <div
           className="relative antialiased min-h-screen flex flex-col items-center justify-center p-6"
           style={{
-            ...PULSE_VARS,
-            background: 'var(--bg)',
-            color: 'var(--text)',
-            fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+            background: 'hsl(var(--venue-bg))',
+            color: 'hsl(var(--venue-cream))',
+            fontFamily: 'system-ui, -apple-system, Inter, sans-serif',
           }}
         >
           <p
             className="text-sm mb-4"
-            style={{ color: 'var(--text-2)' }}
+            style={{
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              color: 'hsl(var(--venue-cream-mut))',
+            }}
           >
-            This venue doesn't exist or has been removed.
+            This venue doesn&rsquo;t exist or has been removed.
           </p>
           <Button
             onClick={() => navigate(backHref)}
@@ -1369,18 +956,23 @@ const VenueEntity = () => {
     venue.google_maps_link ||
     venue.google_maps_url ||
     (addressLine
-      ? 'https://www.google.com/maps/search/?api=1&query=' +
+      ? 'https://www.google.com/maps/dir/?api=1&destination=' +
         encodeURIComponent(
           [venue.name, addressLine, venue.city_name].filter(Boolean).join(', '),
         )
       : null);
+  const citymapperUrl = addressLine
+    ? 'https://citymapper.com/directions?endaddress=' +
+      encodeURIComponent(addressLine) +
+      '&endname=' +
+      encodeURIComponent(venue.name)
+    : null;
 
-  // Cover images: dedupe image_url[] + gallery_urls, cap at 6
   const heroImagesRaw = [
     ...(Array.isArray(venue.image_url) ? venue.image_url : []),
     ...(parseStrArray(venue.gallery_urls) ?? []),
   ].filter((u): u is string => typeof u === 'string' && u.length > 0);
-  const heroImages = Array.from(new Set(heroImagesRaw)).slice(0, 6);
+  const heroImages = Array.from(new Set(heroImagesRaw)).slice(0, 8);
 
   const openStatus = computeVenueOpenStatus(
     openingHours as Parameters<typeof computeVenueOpenStatus>[0],
@@ -1391,23 +983,23 @@ const VenueEntity = () => {
     openStatus.status === 'open' || openStatus.status === 'closing-soon';
   const statusText = (() => {
     if (openStatus.status === 'open' || openStatus.status === 'closing-soon')
-      return 'Open · until ' + openStatus.closesAt;
+      return 'Open \u00B7 until ' + openStatus.closesAt;
     if (openStatus.status === 'opens-soon')
-      return 'Closed · opens ' + openStatus.opensAt;
+      return 'Closed \u00B7 opens ' + openStatus.opensAt;
     if (openStatus.status === 'closed') {
       if (
         openStatus.opensAt &&
         openStatus.opensDayLabel &&
         openStatus.opensDayLabel !== 'today'
       )
-        return 'Closed · opens ' + openStatus.opensDayLabel;
-      if (openStatus.opensAt) return 'Closed · opens ' + openStatus.opensAt;
+        return 'Closed \u00B7 opens ' + openStatus.opensDayLabel;
+      if (openStatus.opensAt) return 'Closed \u00B7 opens ' + openStatus.opensAt;
       return 'Closed';
     }
     return null;
   })();
 
-  // Facilities — list of { key, icon, label }
+  // Facilities
   const facilities: { key: string; icon: ReactNode; label: string }[] = [];
   if (facilitiesRaw) {
     for (const key of facilitiesRaw) {
@@ -1435,13 +1027,6 @@ const VenueEntity = () => {
       label: 'ID required',
     });
   }
-  if (venue.capacity != null) {
-    facilities.push({
-      key: 'capacity',
-      icon: facIcon(Accessibility),
-      label: `Capacity ${venue.capacity}`,
-    });
-  }
   if (venue.floor_type) {
     facilities.push({
       key: 'floor_' + venue.floor_type,
@@ -1454,8 +1039,10 @@ const VenueEntity = () => {
 
   const station = transportJson?.nearest_stations?.[0] ?? null;
   const hasStation = !!station?.station;
+  const facilityKeys = facilitiesRaw ?? [];
+  const isStepFree = facilityKeys.includes('wheelchair_access');
 
-  // Hours rows in fixed Mon-first order. Today is highlighted, order never changes.
+  // Hours rows
   const todayDayKey = DAY_ORDER[JS_DAY_TO_ORDER[new Date().getDay()]];
   const hoursRows: { day: string; display: string; isToday: boolean }[] = [];
   if (openingHours) {
@@ -1475,7 +1062,7 @@ const VenueEntity = () => {
       } else if (typeof raw === 'object') {
         const h = raw as { open?: string; close?: string; isOpen?: boolean };
         if (h.isOpen === false) display = 'Closed';
-        else if (h.open && h.close) display = h.open + '–' + h.close;
+        else if (h.open && h.close) display = h.open + '-' + h.close;
       }
       if (display)
         hoursRows.push({
@@ -1506,8 +1093,8 @@ const VenueEntity = () => {
   }
   const hasParking =
     parkingBullets.length > 0 ||
-    parkingJson?.parking_available !== null &&
-      parkingJson?.parking_available !== undefined;
+    (parkingJson?.parking_available !== null &&
+      parkingJson?.parking_available !== undefined);
 
   const faqItems = Array.isArray(venue.faq_json)
     ? (venue.faq_json as unknown[]).filter(
@@ -1516,31 +1103,21 @@ const VenueEntity = () => {
       )
     : [];
 
-  const videoUrls = parseStrArray(venue.video_urls) ?? [];
-
   const rulesArr = Array.isArray(venue.rules)
     ? (venue.rules as string[]).filter(Boolean)
     : [];
 
-  // Essentials (bachata-specific: water/food/late-night)
+  // Essentials
   type Essential = { key: string; label: string; text: string };
   const essentials: Essential[] = [];
   if (venue.water_situation)
-    essentials.push({
-      key: 'water',
-      label: 'Water',
-      text: venue.water_situation,
-    });
+    essentials.push({ key: 'water', label: 'Water', text: venue.water_situation });
   if (venue.food_situation)
-    essentials.push({
-      key: 'food',
-      label: 'Food',
-      text: venue.food_situation,
-    });
+    essentials.push({ key: 'food', label: 'Food', text: venue.food_situation });
   if (venue.late_night_notes)
     essentials.push({
       key: 'late',
-      label: 'Late night',
+      label: 'Late',
       text: venue.late_night_notes,
     });
 
@@ -1556,7 +1133,7 @@ const VenueEntity = () => {
       key: 'phone',
       href: 'tel:' + venue.phone.replace(/\s+/g, ''),
       label: venue.phone,
-      icon: <Phone className="w-3.5 h-3.5" strokeWidth={1.4} />,
+      icon: <Phone className="w-4 h-4" strokeWidth={1.4} />,
     });
   }
   if (venue.email) {
@@ -1564,7 +1141,7 @@ const VenueEntity = () => {
       key: 'email',
       href: 'mailto:' + venue.email,
       label: venue.email,
-      icon: <Mail className="w-3.5 h-3.5" strokeWidth={1.4} />,
+      icon: <Mail className="w-4 h-4" strokeWidth={1.4} />,
     });
   }
   if (venue.website) {
@@ -1573,7 +1150,7 @@ const VenueEntity = () => {
       key: 'website',
       href: venue.website,
       label: display,
-      icon: <Globe className="w-3.5 h-3.5" strokeWidth={1.4} />,
+      icon: <Globe className="w-4 h-4" strokeWidth={1.4} />,
     });
   }
   if (venue.instagram) {
@@ -1586,7 +1163,7 @@ const VenueEntity = () => {
       key: 'instagram',
       href: 'https://instagram.com/' + handle,
       label: '@' + handle,
-      icon: <Instagram className="w-3.5 h-3.5" strokeWidth={1.4} />,
+      icon: <Instagram className="w-4 h-4" strokeWidth={1.4} />,
     });
   }
   if (venue.facebook) {
@@ -1599,30 +1176,69 @@ const VenueEntity = () => {
         ? venue.facebook
         : 'https://facebook.com/' + venue.facebook,
       label: display || 'Facebook',
-      icon: <Facebook className="w-3.5 h-3.5" strokeWidth={1.4} />,
+      icon: <Facebook className="w-4 h-4" strokeWidth={1.4} />,
     });
   }
 
   const eventList = Array.isArray(events) ? events : [];
-  const nextEvent = eventList[0] ?? null;
-  const mobileEvents = eventList.slice(0, 4);
+  const heroEvents = eventList.slice(0, 6);
+  const eventsPerMonth =
+    eventList.length > 0 ? Math.max(1, Math.round(eventList.length / 2)) : null;
 
   const eventIdCounts = new Map<string, number>();
-  eventList.forEach(ev => eventIdCounts.set(ev.event_id, (eventIdCounts.get(ev.event_id) ?? 0) + 1));
-  const recurringEventIds = new Set([...eventIdCounts.entries()].filter(([, c]) => c > 1).map(([id]) => id));
+  eventList.forEach((ev) =>
+    eventIdCounts.set(ev.event_id, (eventIdCounts.get(ev.event_id) ?? 0) + 1),
+  );
+  const recurringEventIds = new Set(
+    [...eventIdCounts.entries()].filter(([, c]) => c > 1).map(([id]) => id),
+  );
+
+  // Stat tiles - Years running gated on founded_year being available in DB
+  // (currently not on PublicVenue type; pending admin migration). Shows
+  // Capacity + Events/month for now; lights up to 3 once founded_year lands.
+  const yearsRunning = (() => {
+    const yr = (venue as unknown as { founded_year?: number | null })
+      .founded_year;
+    if (!yr || yr < 1900) return null;
+    return new Date().getFullYear() - yr;
+  })();
+  const showCapacity = venue.capacity != null && venue.capacity > 0;
+  const statTiles = [
+    yearsRunning != null && (
+      <StatTile
+        key="years"
+        value={yearsRunning}
+        label="Years running"
+      />
+    ),
+    showCapacity && (
+      <StatTile
+        key="cap"
+        value={venue.capacity}
+        label="Capacity"
+      />
+    ),
+    eventsPerMonth != null && (
+      <StatTile
+        key="evt"
+        value={eventsPerMonth}
+        label="Events / month"
+      />
+    ),
+  ].filter(Boolean) as ReactNode[];
 
   const heroEyebrow = (() => {
     const postcodeDistrict = venue.postcode
       ? venue.postcode.split(' ')[0]
       : null;
     const parts = [postcodeDistrict, venue.city_name].filter(Boolean);
-    return parts.join(' · ').toUpperCase();
+    return parts.join(' \u00B7 ').toUpperCase();
   })();
 
   const tagline = (() => {
     if (facilities.length === 0) return null;
-    const top = facilities.slice(0, 3).map((f) => f.label);
-    return top.join(' · ');
+    const top = facilities.slice(0, 3).map((f) => f.label.toLowerCase());
+    return top.join(' \u00B7 ');
   })();
 
   const handleShare = () => {
@@ -1636,15 +1252,18 @@ const VenueEntity = () => {
   };
 
   return (
-    <GlobalLayout breadcrumbs={venueBreadcrumbs} backHref={backHref} showSubheader={false}>
+    <GlobalLayout
+      breadcrumbs={venueBreadcrumbs}
+      backHref={backHref}
+      showSubheader={false}
+      showGradientBg={false}
+    >
       <div
-        ref={rootRef}
-        className="relative antialiased overflow-hidden"
+        className="relative antialiased"
         style={{
-          ...PULSE_VARS,
-          background: 'var(--bg)',
-          color: 'var(--text)',
-          fontFamily: "'Geist', 'Inter', system-ui, sans-serif",
+          background: 'hsl(var(--venue-bg))',
+          color: 'hsl(var(--venue-cream))',
+          fontFamily: 'system-ui, -apple-system, Inter, sans-serif',
           minHeight: '100vh',
         }}
       >
@@ -1661,7 +1280,8 @@ const VenueEntity = () => {
                 city_name: venue.city_name,
                 country: venue.country,
                 telephone: venue.phone,
-                url: typeof window !== 'undefined' ? window.location.href : '',
+                url:
+                  typeof window !== 'undefined' ? window.location.href : '',
                 opening_hours: openingHours as Parameters<
                   typeof buildVenueJsonLd
                 >[0]['opening_hours'],
@@ -1670,63 +1290,136 @@ const VenueEntity = () => {
           }}
         />
 
-        <AmbientBg />
-
-        {/* ============ MOBILE LAYOUT (≤ md) ============ */}
-        <div className="md:hidden">
-          {/* Hero */}
-          <div className="relative">
-            <Hero
-              images={heroImages}
-              height="260px"
-              rounded={false}
-              venueName={venue.name}
-            />
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
-              <IconBtn label="Back">
-                <Link
-                  to={backHref}
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ color: 'var(--text)' }}
-                >
-                  <ChevronLeft className="w-4 h-4" strokeWidth={1.4} />
-                </Link>
-              </IconBtn>
-              <div className="flex gap-1.5">
-                <IconBtn label="Share" onClick={handleShare}>
-                  <Share2 className="w-4 h-4" strokeWidth={1.4} />
-                </IconBtn>
+        <div className="mx-auto" style={{ maxWidth: '520px' }}>
+          {/* ============ HERO ============ */}
+          <div
+            className="relative overflow-hidden"
+            style={{
+              height: '300px',
+              background:
+                'radial-gradient(120% 80% at 50% -10%, hsl(var(--venue-spice)) 0%, hsl(var(--venue-surface-hi)) 50%, hsl(var(--venue-bg)) 100%)',
+            }}
+          >
+            {/* Photo backdrop (single image, low opacity behind ornament) */}
+            {heroImages.length > 0 && (
+              <div
+                className="absolute inset-0"
+                style={{ opacity: 0.35, mixBlendMode: 'overlay' }}
+              >
+                <img
+                  src={heroImages[0]}
+                  alt={venue.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            </div>
+            )}
+
+            {/* Ember glow */}
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(60% 50% at 50% 0%, hsla(var(--venue-ember)/.32), transparent 70%)',
+                mixBlendMode: 'screen',
+              }}
+            />
+
+            {/* Pilcrow ornament */}
+            <span
+              aria-hidden
+              className="absolute left-1/2 top-1/2"
+              style={{
+                transform: 'translate(-50%,-58%)',
+                fontFamily: SERIF,
+                fontStyle: 'italic',
+                fontSize: '200px',
+                color: 'hsla(var(--venue-cream)/.045)',
+                lineHeight: 1,
+                fontWeight: 400,
+                letterSpacing: '-.04em',
+              }}
+            >
+              &para;
+            </span>
+
+            {/* Status pill + Share */}
             {statusText && (
-              <div className="absolute bottom-12 left-3 z-20">
+              <div className="absolute top-4 left-4 z-10">
                 <StatusBadge label={statusText} isOpen={isVenueOpen} />
               </div>
             )}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              {fromEventId && (
+                <IconBtn label="Back">
+                  <Link
+                    to={backHref}
+                    className="w-full h-full flex items-center justify-center"
+                    style={{ color: 'hsl(var(--venue-cream))' }}
+                  >
+                    <ChevronLeft className="w-4 h-4" strokeWidth={1.4} />
+                  </Link>
+                </IconBtn>
+              )}
+              <IconBtn label="Share" onClick={handleShare}>
+                <Share2 className="w-4 h-4" strokeWidth={1.4} />
+              </IconBtn>
+            </div>
+
+            {/* Bottom vignette into venue-bg */}
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(180deg, transparent 50%, hsl(var(--venue-bg)) 100%)',
+              }}
+            />
           </div>
 
-          {/* Title block */}
-          <div className="px-4 pt-4 relative">
+          {/* ============ TITLE BLOCK ============ */}
+          <div className="px-5 pt-5 pb-4 text-center relative -mt-12 z-10">
             {heroEyebrow && (
               <div
-                className="text-[10px] uppercase tracking-[0.28em] mb-2"
                 style={{
-                  color: 'var(--text-3)',
-                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                  fontFamily: MONO,
+                  fontSize: '10px',
+                  letterSpacing: '.28em',
+                  textTransform: 'uppercase',
+                  color: 'hsl(var(--venue-brass))',
+                  marginBottom: '12px',
                 }}
               >
                 {heroEyebrow}
               </div>
             )}
             <h1
-              className="text-[26px] font-semibold tracking-tight leading-tight"
-              style={{ color: 'var(--text)' }}
+              style={{
+                fontFamily: SERIF,
+                fontSize: '38px',
+                fontStyle: 'italic',
+                fontWeight: 400,
+                lineHeight: 1,
+                letterSpacing: '-.015em',
+                color: 'hsl(var(--venue-cream))',
+                marginBottom: '8px',
+              }}
             >
               {venue.name}
             </h1>
             {tagline && (
-              <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
-                {tagline}
+              <p
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: '14px',
+                  fontStyle: 'italic',
+                  color: 'hsl(var(--venue-cream-mut))',
+                  lineHeight: 1.45,
+                  margin: '0 auto 14px',
+                  maxWidth: '300px',
+                }}
+              >
+                &mdash; {tagline} &mdash;
               </p>
             )}
             {addressLine && (
@@ -1734,782 +1427,514 @@ const VenueEntity = () => {
                 href={mapsUrl ?? '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 mt-3 text-sm"
-                style={{ color: 'var(--accent)' }}
+                className="inline-flex items-center gap-1.5 text-xs"
+                style={{
+                  color: 'hsl(var(--venue-ember))',
+                  textDecoration: 'underline',
+                  textDecorationColor: 'hsla(var(--venue-ember)/.35)',
+                  textUnderlineOffset: '3px',
+                }}
               >
                 <MapPin className="w-3.5 h-3.5" strokeWidth={1.4} />
-                <span
-                  className="truncate"
-                  style={{
-                    textDecoration: 'underline',
-                    textUnderlineOffset: 4,
-                    textDecorationColor: 'var(--accent-soft)',
-                  }}
-                >
-                  {addressLine}
-                </span>
+                {addressLine}
               </a>
             )}
-            <div className="flex gap-2 mt-4">
-              {mapsUrl ? (
-                <GhostButton
-                  as="a"
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="!rounded-full !py-2 !px-4 !text-sm flex-1 font-medium"
-                >
-                  <span style={{ color: 'var(--text)' }}>
-                    Get directions
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
-                </GhostButton>
-              ) : null}
-            </div>
           </div>
 
-          {/* About */}
-          {venue.description && (
-            <section className="px-4 pt-6">
-              <SectionHeader>About</SectionHeader>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--text-2)' }}
+          {/* ============ CTA ============ */}
+          {mapsUrl && (
+            <div className="px-5 mt-2 mb-3">
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-transform active:scale-[0.98]"
+                style={{
+                  background:
+                    'linear-gradient(180deg, hsl(var(--venue-ember)), hsl(var(--venue-spice)))',
+                  color: '#160E08',
+                  padding: '11px 16px',
+                  fontSize: '12.5px',
+                  letterSpacing: '-.01em',
+                  boxShadow:
+                    '0 6px 18px hsla(var(--venue-ember)/.25), inset 0 1px 0 rgba(255,255,255,.18)',
+                  textDecoration: 'none',
+                }}
               >
-                {venue.description}
-              </p>
-            </section>
+                Get directions
+                <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.6} />
+              </a>
+            </div>
           )}
 
-          {/* What's here */}
-          {hasFacilities && (
-            <section className="px-4 pt-6">
-              <SectionHeader>What's here</SectionHeader>
-              <Card className="px-3 py-1">
-                <div className="grid grid-cols-2 gap-x-3">
-                  {facilities.map((f) => (
-                    <FacilityRow key={f.key} icon={f.icon} label={f.label} />
-                  ))}
-                </div>
-              </Card>
-            </section>
-          )}
-
-          {/* Practical info */}
-          {(hasStation || hasHours || hasParking) && (
-            <section className="px-4 pt-6">
-              <SectionHeader>Practical info</SectionHeader>
-              <div className="space-y-3">
-                {hasStation && station && (
-                  <NearestStation
-                    stationName={station.station ?? ''}
-                    lineNames={station.line_names ?? []}
-                    walkMin={station.walking_distance_minutes ?? null}
-                    notes={transportJson?.notes ?? null}
-                  />
-                )}
-                {hasHours && (
-                  <Card className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div
-                        className="flex items-center gap-1.5 text-xs"
+          {/* ============ STATS ============ */}
+          {statTiles.length > 0 && (
+            <>
+              <BrassDivider />
+              <div
+                className="px-5 grid"
+                style={{
+                  gridTemplateColumns: `repeat(${statTiles.length}, 1fr)`,
+                  gap: '14px',
+                }}
+              >
+                {statTiles.map((tile, i) => (
+                  <div key={i} className="relative">
+                    {i > 0 && (
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-[14%] bottom-[14%]"
                         style={{
-                          color: 'var(--text-3)',
-                          fontFamily:
-                            "'JetBrains Mono', ui-monospace, monospace",
+                          width: '1px',
+                          background:
+                            'linear-gradient(180deg, transparent, hsla(var(--venue-brass)/.5) 30%, hsla(var(--venue-brass)/.5) 70%, transparent)',
+                          marginLeft: '-7px',
                         }}
-                      >
-                        <span style={{ color: 'var(--accent)' }}>
-                          <Clock
-                            className="w-3.5 h-3.5"
-                            strokeWidth={1.4}
-                          />
-                        </span>
-                        HOURS
-                      </div>
-                      {venue.last_entry_time && (
-                        <span
-                          className="text-[10px] uppercase tracking-[0.18em] font-medium"
-                          style={{
-                            color: 'var(--accent)',
-                            fontFamily:
-                              "'JetBrains Mono', ui-monospace, monospace",
-                          }}
-                        >
-                          Last entry{' '}
-                          {venue.last_entry_time.match(/^(\d{2}:\d{2})/)?.[1] ??
-                            venue.last_entry_time}
-                        </span>
-                      )}
-                    </div>
-                    <HoursList rows={hoursRows} />
-                  </Card>
-                )}
-                {hasParking && (
-                  <Card className="p-4">
-                    <div
-                      className="flex items-center gap-1.5 text-xs mb-2"
-                      style={{
-                        color: 'var(--text-3)',
-                        fontFamily:
-                          "'JetBrains Mono', ui-monospace, monospace",
-                      }}
-                    >
-                      <span style={{ color: 'var(--accent)' }}>
-                        <SquareParking
-                          className="w-3.5 h-3.5"
-                          strokeWidth={1.4}
-                        />
-                      </span>
-                      PARKING
-                    </div>
-                    {parkingBullets.length > 0 ? (
-                      <ul className="space-y-1.5">
-                        {parkingBullets.map((b, i) => (
-                          <li
-                            key={i}
-                            className="text-sm leading-relaxed flex gap-2"
-                            style={{ color: 'var(--text-2)' }}
-                          >
-                            <span
-                              style={{ color: 'var(--accent)' }}
-                              className="shrink-0"
-                            >
-                              •
-                            </span>
-                            <span>{b}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p
-                        className="text-sm leading-relaxed"
-                        style={{ color: 'var(--text-2)' }}
-                      >
-                        {parkingJson?.parking_available
-                          ? 'Parking available nearby.'
-                          : 'No parking nearby.'}
-                      </p>
+                      />
                     )}
-                  </Card>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* Dancer essentials */}
-          {essentials.length > 0 && (
-            <section className="px-4 pt-6">
-              <SectionHeader>Dancer essentials</SectionHeader>
-              <Card className="p-4 space-y-3">
-                {essentials.map((e) => (
-                  <div key={e.key}>
-                    <div
-                      className="text-[10px] uppercase tracking-[0.18em] font-medium mb-1"
-                      style={{
-                        color: 'var(--accent)',
-                        fontFamily:
-                          "'JetBrains Mono', ui-monospace, monospace",
-                      }}
-                    >
-                      {e.label}
-                    </div>
-                    <p
-                      className="text-sm leading-relaxed"
-                      style={{ color: 'var(--text-2)' }}
-                    >
-                      {e.text}
-                    </p>
+                    {tile}
                   </div>
                 ))}
-              </Card>
-            </section>
-          )}
-
-          {/* House rules */}
-          {rulesArr.length > 0 && (
-            <section className="px-4 pt-6">
-              <SectionHeader>House rules</SectionHeader>
-              <Card className="p-4">
-                <ul className="space-y-1.5">
-                  {rulesArr.map((rule, i) => (
-                    <li
-                      key={i}
-                      className="text-sm leading-relaxed flex gap-2"
-                      style={{ color: 'var(--text-2)' }}
-                    >
-                      <span
-                        style={{ color: 'var(--accent)' }}
-                        className="shrink-0"
-                      >
-                        •
-                      </span>
-                      <span>{rule}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </section>
-          )}
-
-          {/* Videos */}
-          {videoUrls.length > 0 && (
-            <section className="px-4 pt-6">
-              <SectionHeader>Videos</SectionHeader>
-              <div
-                className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                {videoUrls.map((url) => (
-                  <VideoTile key={url} url={url} className="w-56 shrink-0" />
-                ))}
               </div>
-            </section>
+            </>
           )}
 
-          {/* FAQ */}
-          {faqItems.length > 0 && (
-            <section className="px-4 pt-6">
-              <SectionHeader>FAQ</SectionHeader>
-              <Card className="px-3">
-                <FAQList items={faqItems} />
-              </Card>
-            </section>
+          {/* ============ GETTING HERE ============ */}
+          {hasStation && station && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Getting here" />
+                <SectionHeadline>
+                  {station.walking_distance_minutes != null
+                    ? `By tube, ${station.walking_distance_minutes} min walk.`
+                    : 'By tube.'}
+                </SectionHeadline>
+                <StationRoundel
+                  stationName={station.station ?? ''}
+                  lineNames={station.line_names ?? []}
+                  walkMin={station.walking_distance_minutes ?? null}
+                  isStepFree={isStepFree}
+                />
+                {(citymapperUrl || mapsUrl) && (
+                  <div className="flex gap-2 mt-3">
+                    {citymapperUrl && (
+                      <a
+                        href={citymapperUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full"
+                        style={{
+                          background: 'transparent',
+                          border:
+                            '1px solid hsla(var(--venue-brass)/.45)',
+                          color: 'hsl(var(--venue-cream))',
+                          padding: '9px 10px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <Train
+                          className="w-3.5 h-3.5"
+                          strokeWidth={1.6}
+                        />
+                        Citymapper
+                      </a>
+                    )}
+                    {mapsUrl && (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full"
+                        style={{
+                          background: 'transparent',
+                          border:
+                            '1px solid hsla(var(--venue-brass)/.45)',
+                          color: 'hsl(var(--venue-cream))',
+                          padding: '9px 10px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <MapPin
+                          className="w-3.5 h-3.5"
+                          strokeWidth={1.6}
+                          style={{ color: 'hsl(var(--venue-ember))' }}
+                        />
+                        Open in maps
+                      </a>
+                    )}
+                  </div>
+                )}
+              </section>
+            </>
           )}
 
-          {/* Contact */}
+          {/* ============ ESSENTIALS ============ */}
+          {essentials.length > 0 && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Essentials" />
+                <div className="grid grid-cols-3 gap-2">
+                  {essentials.map((e) => (
+                    <div
+                      key={e.key}
+                      className="p-3 px-2.5"
+                      style={{
+                        background: 'hsl(var(--venue-surface))',
+                        border: '1px solid hsl(var(--venue-line))',
+                        borderRadius: '10px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: MONO,
+                          fontSize: '8.5px',
+                          letterSpacing: '.2em',
+                          textTransform: 'uppercase',
+                          color: 'hsl(var(--venue-brass))',
+                          marginBottom: '5px',
+                        }}
+                      >
+                        {e.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'hsl(var(--venue-cream-mut))',
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {e.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ============ GET IN TOUCH ============ */}
           {contactLinks.length > 0 && (
-            <section className="px-4 pt-6">
-              <SectionHeader>Contact</SectionHeader>
-              <Card className="p-4">
-                <ul className="space-y-2">
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Get in touch" />
+                <div className="grid grid-cols-3 gap-2">
                   {contactLinks.map((c) => (
-                    <li
+                    <a
                       key={c.key}
-                      className="flex items-center gap-2.5 text-sm"
+                      href={c.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2.5 px-1.5 text-center block"
+                      style={{
+                        background: 'hsl(var(--venue-surface))',
+                        border: '1px solid hsl(var(--venue-line))',
+                        borderRadius: '10px',
+                        color: 'hsl(var(--venue-cream))',
+                        textDecoration: 'none',
+                      }}
                     >
                       <span
-                        style={{ color: 'var(--accent)' }}
-                        className="shrink-0"
+                        className="inline-flex items-center justify-center w-6 h-6 mb-1"
+                        style={{ color: 'hsl(var(--venue-brass))' }}
                       >
                         {c.icon}
                       </span>
-                      <a
-                        href={c.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <div
                         style={{
-                          color: 'var(--text-2)',
+                          fontSize: '10.5px',
+                          color: 'hsl(var(--venue-cream-mut))',
+                          lineHeight: 1.25,
                           wordBreak: 'break-all',
                         }}
                       >
                         {c.label}
-                      </a>
-                    </li>
+                      </div>
+                    </a>
                   ))}
-                </ul>
-              </Card>
-            </section>
+                </div>
+              </section>
+            </>
           )}
 
-          {/* Upcoming events */}
-          <section className="px-4 pt-6 pb-6">
-            <SectionHeader
-              action={eventList.length > 4 ? 'See all' : undefined}
-              onAction={
-                eventList.length > 4
-                  ? () => navigate('/calendar')
-                  : undefined
-              }
-            >
-              Upcoming events
-            </SectionHeader>
-            {mobileEvents.length === 0 ? (
-              <Card className="p-4">
-                <p
-                  className="text-sm text-center"
-                  style={{ color: 'var(--text-3)' }}
-                >
-                  No upcoming events yet.
-                </p>
-              </Card>
-            ) : (
-              <Card className="px-3">
-                {mobileEvents.map((ev) => (
-                  <EventCardRow key={ev.occurrence_id} ev={ev} isRecurring={recurringEventIds.has(ev.event_id)} />
-                ))}
-              </Card>
-            )}
-          </section>
+          {/* ============ WHAT'S HERE ============ */}
+          {hasFacilities && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="What's here" />
+                <div className="grid grid-cols-3 gap-2">
+                  {facilities.map((f) => (
+                    <div
+                      key={f.key}
+                      className="text-center p-2.5"
+                      style={{
+                        background: 'hsl(var(--venue-surface))',
+                        border: '1px solid hsl(var(--venue-line))',
+                        borderRadius: '10px',
+                      }}
+                    >
+                      <span
+                        className="inline-flex items-center justify-center w-6 h-6 mb-1"
+                        style={{ color: 'hsl(var(--venue-brass))' }}
+                      >
+                        {f.icon}
+                      </span>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: 'hsl(var(--venue-cream-mut))',
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {f.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
 
-          {/* Sticky CTA */}
-          {nextEvent && (
-            <div
-              className="sticky bottom-0 p-3 flex items-center gap-2 relative z-30"
+          {/* ============ HOURS ============ */}
+          {hasHours && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Hours" />
+                <HoursList rows={hoursRows} />
+              </section>
+            </>
+          )}
+
+          {/* ============ UPCOMING ============ */}
+          {heroEvents.length > 0 && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel
+                  label="Upcoming"
+                  action={
+                    heroEvents.length > 3 ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/calendar')}
+                        className="inline-flex items-center gap-1 text-xs"
+                        style={{
+                          color: 'hsl(var(--venue-ember))',
+                          fontWeight: 500,
+                        }}
+                      >
+                        See all
+                        <ArrowRight className="w-3 h-3" strokeWidth={1.6} />
+                      </button>
+                    ) : undefined
+                  }
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  {heroEvents.slice(0, 6).map((ev) => (
+                    <EventTile
+                      key={ev.occurrence_id}
+                      ev={ev}
+                      isRecurring={recurringEventIds.has(ev.event_id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ============ PARKING ============ */}
+          {hasParking && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Parking" />
+                <div
+                  className="p-3.5 px-4"
+                  style={{
+                    background: 'hsl(var(--venue-surface))',
+                    border: '1px solid hsl(var(--venue-line))',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {parkingBullets.length > 0 ? (
+                    parkingBullets.map((b, i) => (
+                      <p
+                        key={i}
+                        className="pl-2.5"
+                        style={{
+                          fontSize: '12.5px',
+                          lineHeight: 1.55,
+                          color: 'hsl(var(--venue-cream-mut))',
+                          borderLeft:
+                            '1px solid hsl(var(--venue-brass))',
+                          marginBottom:
+                            i < parkingBullets.length - 1 ? '6px' : 0,
+                        }}
+                      >
+                        {b}
+                      </p>
+                    ))
+                  ) : (
+                    <p
+                      style={{
+                        fontSize: '12.5px',
+                        color: 'hsl(var(--venue-cream-mut))',
+                      }}
+                    >
+                      {parkingJson?.parking_available
+                        ? 'Parking available nearby.'
+                        : 'No parking nearby.'}
+                    </p>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ============ HOUSE RULES ============ */}
+          {rulesArr.length > 0 && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="House rules" />
+                <div
+                  className="p-3.5 px-4"
+                  style={{
+                    background: 'hsl(var(--venue-surface))',
+                    border: '1px solid hsl(var(--venue-line))',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {rulesArr.map((rule, i) => (
+                    <div
+                      key={i}
+                      className="flex gap-2.5 items-start py-1.5"
+                      style={{
+                        fontSize: '12.5px',
+                        color: 'hsl(var(--venue-cream-mut))',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <span
+                        className="shrink-0 inline-block w-1 h-1 rounded-full mt-2"
+                        style={{ background: 'hsl(var(--venue-brass))' }}
+                      />
+                      <span>{rule}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ============ FAQ ============ */}
+          {faqItems.length > 0 && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Common questions" />
+                <FAQList items={faqItems} />
+              </section>
+            </>
+          )}
+
+          {/* ============ THE ROOM (about) ============ */}
+          {venue.description && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="The room" />
+                <SectionHeadline>A studio in the arches.</SectionHeadline>
+                <p
+                  style={{
+                    fontSize: '13.5px',
+                    lineHeight: 1.6,
+                    color: 'hsl(var(--venue-cream-mut))',
+                  }}
+                >
+                  {venue.description}
+                </p>
+              </section>
+            </>
+          )}
+
+          {/* ============ INSIDE (gallery) ============ */}
+          {heroImages.length > 0 && (
+            <>
+              <BrassDivider />
+              <section className="px-5">
+                <SectionLabel label="Inside" />
+                <div className="grid grid-cols-3 gap-1.5">
+                  {heroImages.slice(0, 6).map((src, idx) => (
+                    <div
+                      key={src + idx}
+                      className="relative overflow-hidden"
+                      style={{
+                        aspectRatio: '1 / 1',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      {idx === 5 && heroImages.length > 6 && (
+                        <span
+                          className="absolute inset-0 flex items-center justify-center"
+                          style={{
+                            background: 'hsla(var(--venue-bg)/.5)',
+                            backdropFilter: 'blur(2px)',
+                            fontFamily: SERIF,
+                            fontStyle: 'italic',
+                            fontSize: '17px',
+                            color: 'hsl(var(--venue-cream))',
+                          }}
+                        >
+                          + {heroImages.length - 6}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ============ FOOT ============ */}
+          <div className="text-center pt-6 pb-8 px-5">
+            <span
               style={{
-                background:
-                  'linear-gradient(180deg, transparent, var(--bg) 30%)',
-                borderTop: '1px solid var(--border)',
+                fontFamily: SERIF,
+                fontStyle: 'italic',
+                fontSize: '20px',
+                color: 'hsl(var(--venue-brass))',
+                opacity: 0.6,
+                lineHeight: 1,
               }}
             >
-              <div
-                className="absolute inset-0 -z-10"
-                style={{
-                  background: 'var(--bg)',
-                  opacity: 0.85,
-                  backdropFilter: 'blur(14px)',
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <div
-                  className="text-[10px] uppercase tracking-[0.22em]"
-                  style={{
-                    color: 'var(--text-3)',
-                    fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                  }}
-                >
-                  Next event · {countdown(nextEvent.instance_start)}
-                </div>
-                <div
-                  className="text-sm font-medium truncate"
-                  style={{ color: 'var(--text)' }}
-                >
-                  {nextEvent.name}
-                </div>
-              </div>
-              <PrimaryButton
-                onClick={() =>
-                  navigate(
-                    `/event/${nextEvent.event_id}?occurrenceId=${nextEvent.occurrence_id}`,
-                  )
-                }
-              >
-                Get tickets
-              </PrimaryButton>
-            </div>
-          )}
-        </div>
-
-        {/* ============ DESKTOP LAYOUT (≥ md) ============ */}
-        <div className="hidden md:block">
-          {/* Hero */}
-          <div className="px-8 pt-5">
-            <div className="relative">
-              <Hero
-                images={heroImages}
-                height="440px"
-                rounded
-                venueName={venue.name}
-              />
-              <div className="absolute top-3 left-3 z-20">
-                <IconBtn label="Back">
-                  <Link
-                    to={backHref}
-                    className="w-full h-full flex items-center justify-center"
-                    style={{ color: 'var(--text)' }}
-                  >
-                    <ChevronLeft className="w-4 h-4" strokeWidth={1.4} />
-                  </Link>
-                </IconBtn>
-              </div>
-            </div>
-          </div>
-
-          {/* Title strip */}
-          <div
-            className="px-8 pt-6 pb-5 flex items-end justify-between gap-6 relative"
-            style={{ borderBottom: '1px solid var(--border)' }}
-          >
-            <div>
-              {statusText && (
-                <div className="flex items-center gap-3 mb-2">
-                  <StatusBadge label={statusText} isOpen={isVenueOpen} />
-                </div>
-              )}
-              {heroEyebrow && (
-                <div
-                  className="text-[10px] uppercase tracking-[0.28em] mb-1"
-                  style={{
-                    color: 'var(--text-3)',
-                    fontFamily:
-                      "'JetBrains Mono', ui-monospace, monospace",
-                  }}
-                >
-                  {heroEyebrow}
-                </div>
-              )}
-              <h1
-                className="text-[32px] font-semibold tracking-tight leading-tight"
-                style={{ color: 'var(--text)' }}
-              >
-                {venue.name}
-              </h1>
-              {tagline && (
-                <p
-                  className="text-sm mt-1"
-                  style={{ color: 'var(--text-2)' }}
-                >
-                  {tagline}
-                </p>
-              )}
-              {addressLine && (
-                <a
-                  href={mapsUrl ?? '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 mt-2 text-sm"
-                  style={{ color: 'var(--accent)' }}
-                >
-                  <MapPin className="w-3.5 h-3.5" strokeWidth={1.4} />
-                  <span
-                    style={{
-                      textDecoration: 'underline',
-                      textUnderlineOffset: 4,
-                      textDecorationColor: 'var(--accent-soft)',
-                    }}
-                  >
-                    {addressLine}
-                  </span>
-                  {venue.city_name && (
-                    <span style={{ color: 'var(--text-3)' }}>
-                      · View on map
-                    </span>
-                  )}
-                </a>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <GhostButton onClick={handleShare}>
-                <Share2 className="w-4 h-4" strokeWidth={1.4} /> Share
-              </GhostButton>
-              {mapsUrl && (
-                <PrimaryButton
-                  onClick={() => {
-                    window.open(mapsUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
-                  Get directions
-                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
-                </PrimaryButton>
-              )}
-            </div>
-          </div>
-
-          {/* Mosaic grid */}
-          <div className="px-8 py-6 grid grid-cols-12 gap-5 relative">
-            <div className="col-span-7 space-y-6">
-              {venue.description && (
-                <section>
-                  <SectionHeader>About</SectionHeader>
-                  <p
-                    className="text-sm leading-relaxed max-w-prose"
-                    style={{ color: 'var(--text-2)' }}
-                  >
-                    {venue.description}
-                  </p>
-                </section>
-              )}
-
-              {hasFacilities && (
-                <section>
-                  <SectionHeader>What's here</SectionHeader>
-                  <Card className="px-4 py-2">
-                    <div className="grid grid-cols-2 gap-x-6">
-                      {facilities.map((f) => (
-                        <FacilityRow
-                          key={f.key}
-                          icon={f.icon}
-                          label={f.label}
-                        />
-                      ))}
-                    </div>
-                  </Card>
-                </section>
-              )}
-
-              {(hasStation || hasHours || hasParking) && (
-                <section>
-                  <SectionHeader>Practical info</SectionHeader>
-                  {hasStation && station && (
-                    <NearestStation
-                      stationName={station.station ?? ''}
-                      lineNames={station.line_names ?? []}
-                      walkMin={station.walking_distance_minutes ?? null}
-                      notes={transportJson?.notes ?? null}
-                    />
-                  )}
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    {hasHours && (
-                      <Card className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div
-                            className="flex items-center gap-1.5 text-xs"
-                            style={{
-                              color: 'var(--text-3)',
-                              fontFamily:
-                                "'JetBrains Mono', ui-monospace, monospace",
-                            }}
-                          >
-                            <span style={{ color: 'var(--accent)' }}>
-                              <Clock
-                                className="w-3.5 h-3.5"
-                                strokeWidth={1.4}
-                              />
-                            </span>
-                            HOURS
-                          </div>
-                          {venue.last_entry_time && (
-                            <span
-                              className="text-[10px] uppercase tracking-[0.18em] font-medium"
-                              style={{
-                                color: 'var(--accent)',
-                                fontFamily:
-                                  "'JetBrains Mono', ui-monospace, monospace",
-                              }}
-                            >
-                              Last entry{' '}
-                              {venue.last_entry_time.match(
-                                /^(\d{2}:\d{2})/,
-                              )?.[1] ?? venue.last_entry_time}
-                            </span>
-                          )}
-                        </div>
-                        <HoursList rows={hoursRows} />
-                      </Card>
-                    )}
-                    {hasParking && (
-                      <Card className="p-4">
-                        <div
-                          className="flex items-center gap-1.5 text-xs mb-2"
-                          style={{
-                            color: 'var(--text-3)',
-                            fontFamily:
-                              "'JetBrains Mono', ui-monospace, monospace",
-                          }}
-                        >
-                          <span style={{ color: 'var(--accent)' }}>
-                            <SquareParking
-                              className="w-3.5 h-3.5"
-                              strokeWidth={1.4}
-                            />
-                          </span>
-                          PARKING
-                        </div>
-                        {parkingBullets.length > 0 ? (
-                          <ul className="space-y-1.5">
-                            {parkingBullets.map((b, i) => (
-                              <li
-                                key={i}
-                                className="text-sm leading-relaxed flex gap-2"
-                                style={{ color: 'var(--text-2)' }}
-                              >
-                                <span
-                                  style={{ color: 'var(--accent)' }}
-                                  className="shrink-0"
-                                >
-                                  •
-                                </span>
-                                <span>{b}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p
-                            className="text-sm leading-relaxed"
-                            style={{ color: 'var(--text-2)' }}
-                          >
-                            {parkingJson?.parking_available
-                              ? 'Parking available nearby.'
-                              : 'No parking nearby.'}
-                          </p>
-                        )}
-                      </Card>
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {essentials.length > 0 && (
-                <section>
-                  <SectionHeader>Dancer essentials</SectionHeader>
-                  <Card className="p-4 grid grid-cols-3 gap-4">
-                    {essentials.map((e) => (
-                      <div key={e.key}>
-                        <div
-                          className="text-[10px] uppercase tracking-[0.18em] font-medium mb-1"
-                          style={{
-                            color: 'var(--accent)',
-                            fontFamily:
-                              "'JetBrains Mono', ui-monospace, monospace",
-                          }}
-                        >
-                          {e.label}
-                        </div>
-                        <p
-                          className="text-sm leading-relaxed"
-                          style={{ color: 'var(--text-2)' }}
-                        >
-                          {e.text}
-                        </p>
-                      </div>
-                    ))}
-                  </Card>
-                </section>
-              )}
-
-              {rulesArr.length > 0 && (
-                <section>
-                  <SectionHeader>House rules</SectionHeader>
-                  <Card className="p-4">
-                    <ul className="space-y-1.5">
-                      {rulesArr.map((rule, i) => (
-                        <li
-                          key={i}
-                          className="text-sm leading-relaxed flex gap-2"
-                          style={{ color: 'var(--text-2)' }}
-                        >
-                          <span
-                            style={{ color: 'var(--accent)' }}
-                            className="shrink-0"
-                          >
-                            •
-                          </span>
-                          <span>{rule}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </section>
-              )}
-            </div>
-
-            <div className="col-span-5 space-y-6">
-              {videoUrls.length > 0 && (
-                <section>
-                  <SectionHeader>Videos</SectionHeader>
-                  <div className="grid grid-cols-2 gap-2">
-                    {videoUrls.map((url, idx) => (
-                      <VideoTile
-                        key={url}
-                        url={url}
-                        className={idx === 0 ? 'col-span-2' : ''}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {faqItems.length > 0 && (
-                <section>
-                  <SectionHeader>FAQ</SectionHeader>
-                  <Card className="px-4">
-                    <FAQList items={faqItems} />
-                  </Card>
-                </section>
-              )}
-
-              {contactLinks.length > 0 && (
-                <section>
-                  <SectionHeader>Contact</SectionHeader>
-                  <Card className="p-4">
-                    <ul className="space-y-2">
-                      {contactLinks.map((c) => (
-                        <li
-                          key={c.key}
-                          className="flex items-center gap-2.5 text-sm"
-                        >
-                          <span
-                            style={{ color: 'var(--accent)' }}
-                            className="shrink-0"
-                          >
-                            {c.icon}
-                          </span>
-                          <a
-                            href={c.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: 'var(--text-2)',
-                              wordBreak: 'break-all',
-                            }}
-                          >
-                            {c.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </section>
-              )}
-            </div>
-
-            {/* Full-width upcoming events */}
-            <section className="col-span-12 mt-3">
-              <div className="flex items-end justify-between mb-3">
-                <div>
-                  <h2
-                    className="text-base font-medium tracking-tight"
-                    style={{ color: 'var(--text)' }}
-                  >
-                    Upcoming events
-                  </h2>
-                  <p
-                    className="text-xs mt-0.5"
-                    style={{ color: 'var(--text-3)' }}
-                  >
-                    {eventList.length === 0
-                      ? 'Nothing scheduled in the next 60 days'
-                      : eventList.length === 1
-                      ? '1 event in the next 60 days'
-                      : `${eventList.length} events in the next 60 days`}
-                  </p>
-                </div>
-                {eventList.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/calendar')}
-                    className="text-xs inline-flex items-center gap-1"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    View calendar
-                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.4} />
-                  </button>
-                )}
-              </div>
-              {eventList.length === 0 ? (
-                <Card className="p-6">
-                  <p
-                    className="text-sm text-center"
-                    style={{ color: 'var(--text-3)' }}
-                  >
-                    No upcoming events yet — check back soon.
-                  </p>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {eventList.map((ev) => (
-                    <EventCardTile key={ev.occurrence_id} ev={ev} isRecurring={recurringEventIds.has(ev.event_id)} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div
-            className="px-8 py-5 text-xs flex items-center justify-between relative"
-            style={{
-              borderTop: '1px solid var(--border)',
-              color: 'var(--text-3)',
-            }}
-          >
-            <span>Venue details maintained by the venue and organisers.</span>
-            <div className="flex gap-4">
-              <Link to="/contact" style={{ color: 'var(--text-3)' }}>
-                Report listing
-              </Link>
-              <Link to="/contact" style={{ color: 'var(--text-3)' }}>
-                Claim this venue
-              </Link>
+              &para;
+            </span>
+            <div
+              className="mt-2"
+              style={{
+                fontFamily: MONO,
+                fontSize: '9px',
+                letterSpacing: '.32em',
+                textTransform: 'uppercase',
+                color: 'hsla(var(--venue-cream-mut)/.5)',
+              }}
+            >
+              End of listing
             </div>
           </div>
         </div>
