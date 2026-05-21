@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 
+import { createPortal } from "react-dom";
+
 import { PageErrorBoundary } from "@/components/ErrorBoundary";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -514,7 +516,19 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival footer{padding:32px 24px;background:#000;text-align:center;border-top:1px solid rgba(251,146,60,0.2)}
 
-.cinematic-festival footer .x{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:6px;color:rgba(255,255,255,0.4);text-transform:uppercase}
+.cinematic-festival footer .x{font-family:'Bebas Neue',sans-serif;color:rgba(255,255,255,0.4);text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:4px}
+
+.cinematic-festival footer .x-org{font-size:11px;letter-spacing:5px;color:rgba(251,146,60,0.7)}
+
+.cinematic-festival footer .x-name{font-size:13px;letter-spacing:3px;color:rgba(255,255,255,0.55)}
+
+@media (max-width:480px){
+
+  .cinematic-festival footer .x-org{letter-spacing:4px}
+
+  .cinematic-festival footer .x-name{letter-spacing:2px;font-size:12px}
+
+}
 
 
 
@@ -686,6 +700,264 @@ const CINEMATIC_CSS = `
 
 }
 
+
+
+/* === P5 hero-inline countdown ============================ */
+
+.cinematic-festival .hero-countdown{display:inline-flex;justify-content:center;gap:5px;margin-top:18px;align-items:flex-end;position:relative;z-index:5;flex-wrap:nowrap;max-width:100%}
+
+.cinematic-festival .hero-countdown .cd-cell{text-align:center;min-width:38px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+
+.cinematic-festival .hero-countdown .cd-num{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:#fb923c;text-shadow:0 0 24px rgba(251,146,60,0.5);letter-spacing:-0.02em}
+
+.cinematic-festival .hero-countdown .cd-lbl{font-size:8px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+.cinematic-festival .hero-countdown .cd-sep{color:rgba(251,146,60,0.35);font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;align-self:flex-start;margin-top:3px;flex-shrink:0}
+
+@media (max-width:380px){
+
+  .cinematic-festival .hero-countdown .cd-cell-sec,.cinematic-festival .hero-countdown .cd-sep-sec{display:none}
+
+  .cinematic-festival .hero-countdown .cd-num{font-size:26px}
+
+  .cinematic-festival .hero-countdown .cd-sep{font-size:22px}
+
+}
+
+
+
+/* === P6 hero subtitle (style + level) ==================== */
+
+.cinematic-festival .hero-subtitle{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.65);margin-top:14px;position:relative;z-index:1;text-align:center;line-height:1.6;padding:0 16px;max-width:680px}
+
+.cinematic-festival .hero-subtitle b{color:#fb923c;font-weight:500}
+
+@media (max-width:480px){
+
+  .cinematic-festival .hero-subtitle{font-size:10px;letter-spacing:0.18em;padding:0 12px}
+
+}
+
+
+
+/* === P7 calendar icon button ============================== */
+
+.cinematic-festival .cal-icon-btn{width:46px;height:46px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:rgba(255,255,255,0.85);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all .2s;padding:0;list-style:none;flex:0 0 46px}
+
+.cinematic-festival .cal-icon-btn::-webkit-details-marker{display:none}
+
+.cinematic-festival .cal-icon-btn::marker{content:''}
+
+.cinematic-festival .cal-icon-btn:hover{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.05)}
+
+.cinematic-festival .cal-wrap[open] .cal-icon-btn{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.05)}
+
+@media (max-width:760px){
+
+  .cinematic-festival .hero-cta .cal-wrap{flex:0 0 46px;width:46px}
+
+  .cinematic-festival .hero-cta .cal-icon-btn{width:46px;min-width:46px}
+
+}
+
+
+
+/* === P3 schedule density toggle + counts ================= */
+
+.cinematic-festival .day-tab-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;margin-left:6px;font-weight:400}
+
+.cinematic-festival .day-tab.active .day-tab-count{color:rgba(0,0,0,0.5)}
+
+.cinematic-festival .all-days-toggle{display:flex;justify-content:center;margin:-6px 0 12px}
+
+.cinematic-festival .all-days-toggle button{background:transparent;border:1px solid rgba(251,146,60,0.3);color:rgba(255,255,255,0.7);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+
+.cinematic-festival .all-days-toggle button:hover{border-color:#fb923c;color:#fb923c}
+
+.cinematic-festival .all-days-toggle button.active{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.06)}
+
+@media (min-width:901px){.cinematic-festival .all-days-toggle{display:none}}
+
+.cinematic-festival .day-mobile-tabs[hidden]{display:none}
+
+@media (max-width:480px){
+
+  .cinematic-festival .hero-countdown{gap:3px}
+
+  .cinematic-festival .hero-countdown .cd-cell{min-width:34px}
+
+  .cinematic-festival .hero-countdown .cd-num{font-size:22px}
+
+  .cinematic-festival .hero-countdown .cd-sep{font-size:17px}
+
+  .cinematic-festival .hero-countdown .cd-lbl{font-size:7px;letter-spacing:0.2em}
+
+}
+
+@media (max-width:900px){
+
+  .cinematic-festival .tl-body[data-day="all"] .tl-row > .slot{display:block}
+
+  .cinematic-festival .tl-body[data-day="all"] .tl-row{display:grid}
+
+}
+
+
+
+/* === P4 teaching chips on polaroid ======================= */
+
+.cinematic-festival .frame-teaching{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.06em;color:rgba(255,255,255,0.55);margin-top:6px;line-height:1.5}
+
+.cinematic-festival .frame-teaching .tch-chip{display:inline-block;color:rgba(251,146,60,0.9);margin:0 4px}
+
+.cinematic-festival .frame-teaching .tch-more{color:rgba(255,255,255,0.4);margin-left:4px}
+
+
+
+/* === P2 "What's included" bullets ======================== */
+
+.cinematic-festival .about-includes{margin:0 auto 18px;text-align:left;max-width:640px;display:grid;grid-template-columns:1fr;gap:8px 18px;padding:16px 18px;background:rgba(251,146,60,0.04);border:1px solid rgba(251,146,60,0.2)}
+
+.cinematic-festival .about-includes-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:#fb923c;grid-column:1/-1;margin-bottom:2px}
+
+.cinematic-festival .about-includes-row{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.55;color:rgba(255,255,255,0.88)}
+
+.cinematic-festival .about-includes-row .check{color:#fb923c;flex-shrink:0;font-size:14px;line-height:1.45;font-weight:700}
+
+@media (min-width:560px){
+
+  .cinematic-festival .about-includes{grid-template-columns:1fr 1fr}
+
+}
+
+
+
+/* === P10 FAQ ============================================= */
+
+.cinematic-festival .faq{padding:40px 24px;background:#000;border-top:1px solid rgba(251,146,60,0.15);border-bottom:1px solid rgba(251,146,60,0.15)}
+
+.cinematic-festival .faq-wrap{max-width:720px;margin:0 auto}
+
+.cinematic-festival .faq-label{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:6px;color:#fb923c;margin-bottom:12px;text-transform:uppercase;text-align:center}
+
+.cinematic-festival .faq h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4vw,42px);line-height:1;letter-spacing:-0.01em;font-weight:400;color:#fff;margin:0 0 22px;text-align:center}
+
+.cinematic-festival .faq details{border:1px solid rgba(251,146,60,0.2);background:#0a0a0a;margin-bottom:10px;transition:border-color .2s}
+
+.cinematic-festival .faq details[open]{border-color:rgba(251,146,60,0.5)}
+
+.cinematic-festival .faq details summary{padding:14px 18px;cursor:pointer;font-family:'Inter',sans-serif;font-size:14px;color:#fff;font-weight:500;display:flex;justify-content:space-between;align-items:center;gap:12px;list-style:none}
+
+.cinematic-festival .faq details summary::-webkit-details-marker{display:none}
+
+.cinematic-festival .faq details summary::marker{content:''}
+
+.cinematic-festival .faq details summary::after{content:'+';color:#fb923c;font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;transition:transform .2s}
+
+.cinematic-festival .faq details[open] summary::after{content:'\\2212'}
+
+.cinematic-festival .faq details .faq-ans{padding:0 18px 16px;font-size:13px;line-height:1.65;color:rgba(255,255,255,0.72);white-space:pre-line}
+
+
+
+/* === Floating Add-to-Calendar FAB (Charcoal Stealth, P06 position) === */
+
+.cal-fab{display:none;position:fixed;right:14px;top:calc(72px + env(safe-area-inset-top));width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#1f2937,#0a0a0a);color:#fb923c;border:1px solid rgba(251,146,60,0.55);align-items:center;justify-content:center;font-size:19px;cursor:pointer;z-index:50;box-shadow:0 8px 22px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05);animation:cal-fab-breath 2.2s ease infinite;font-family:'Inter',sans-serif;padding:0}
+
+.cal-fab::after{content:'+';position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#fb923c;color:#000;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;border:2px solid #050505;font-family:'Bebas Neue',sans-serif;line-height:1}
+
+@keyframes cal-fab-breath{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+.cal-fab:hover,.cal-fab:active{border-color:#fb923c;background:linear-gradient(135deg,#374151,#1f2937)}
+
+@media (max-width:760px){.cal-fab{display:inline-flex}}
+
+@media (max-width:760px){.cinematic-festival .cal-mobile-trigger{display:none}}
+
+
+
+/* Cal sheet portal: unscoped rules so a body-rendered portal still gets styled */
+
+.cal-sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:cal-sheet-fade-in .15s ease;font-family:'Inter',sans-serif}
+
+@keyframes cal-sheet-fade-in{from{opacity:0}to{opacity:1}}
+
+.cal-sheet{background:#0a0a0a;border-top:1px solid #fb923c;border-radius:16px 16px 0 0;padding:14px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:520px;box-shadow:0 -16px 48px rgba(0,0,0,0.6);animation:cal-sheet-slide-up .25s cubic-bezier(0.16,1,0.3,1)}
+
+@keyframes cal-sheet-slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+.cal-sheet-handle{width:40px;height:4px;background:rgba(255,255,255,0.25);border-radius:2px;margin:0 auto 12px}
+
+.cal-sheet-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;color:#fb923c;text-align:center;margin-bottom:2px;text-transform:uppercase}
+
+.cal-sheet-sub{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.18em;color:rgba(255,255,255,0.55);text-align:center;text-transform:uppercase;margin-bottom:18px}
+
+.cal-sheet-opts{display:flex;flex-direction:column;gap:8px}
+
+.cal-sheet-opt{display:flex;align-items:center;gap:14px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#fff;font-family:'Inter',sans-serif;font-size:14px;cursor:pointer;text-decoration:none;text-align:left;font-weight:500;transition:all .15s;width:100%}
+
+.cal-sheet-opt:hover,.cal-sheet-opt:active{background:rgba(251,146,60,0.08);border-color:rgba(251,146,60,0.4)}
+
+.cal-sheet-opt .cal-sheet-ico{width:32px;height:32px;background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.4);color:#fb923c;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;flex-shrink:0}
+
+.cal-sheet-opt .cal-sheet-label{flex:1}
+
+.cal-sheet-opt .cal-sheet-arr{color:rgba(255,255,255,0.4);font-size:14px}
+
+.cal-sheet-cancel{margin-top:14px;width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer}
+
+.cal-sheet-cancel:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+
+
+
+/* === Calendar bottom sheet (mobile) + desktop dropdown ============ */
+
+.cinematic-festival .cal-mobile-trigger{display:none}
+
+@media (max-width:760px){
+
+  .cinematic-festival .cal-wrap-desktop{display:none}
+
+  .cinematic-festival .cal-mobile-trigger{display:inline-flex}
+
+}
+
+.cinematic-festival .cal-sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;animation:fade-in .15s ease}
+
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+
+.cinematic-festival .cal-sheet{background:#0a0a0a;border-top:1px solid #fb923c;border-radius:16px 16px 0 0;padding:14px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:520px;box-shadow:0 -16px 48px rgba(0,0,0,0.6);animation:slide-up .25s cubic-bezier(0.16,1,0.3,1)}
+
+@keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+.cinematic-festival .cal-sheet-handle{width:40px;height:4px;background:rgba(255,255,255,0.25);border-radius:2px;margin:0 auto 12px}
+
+.cinematic-festival .cal-sheet-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;color:#fb923c;text-align:center;margin-bottom:2px;text-transform:uppercase}
+
+.cinematic-festival .cal-sheet-sub{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.18em;color:rgba(255,255,255,0.55);text-align:center;text-transform:uppercase;margin-bottom:18px}
+
+.cinematic-festival .cal-sheet-opts{display:flex;flex-direction:column;gap:8px}
+
+.cinematic-festival .cal-sheet-opt{display:flex;align-items:center;gap:14px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#fff;font-family:'Inter',sans-serif;font-size:14px;cursor:pointer;text-decoration:none;text-align:left;font-weight:500;transition:all .15s}
+
+.cinematic-festival .cal-sheet-opt:hover,.cinematic-festival .cal-sheet-opt:active{background:rgba(251,146,60,0.08);border-color:rgba(251,146,60,0.4)}
+
+.cinematic-festival .cal-sheet-opt .cal-sheet-ico{width:32px;height:32px;background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.4);color:#fb923c;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;flex-shrink:0}
+
+.cinematic-festival .cal-sheet-opt .cal-sheet-label{flex:1}
+
+.cinematic-festival .cal-sheet-opt .cal-sheet-arr{color:rgba(255,255,255,0.4);font-size:14px}
+
+.cinematic-festival .cal-sheet-cancel{margin-top:14px;width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer}
+
+.cinematic-festival .cal-sheet-cancel:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+
+
+
+/* === P11 venue extra photo strip ========================= */
+
+.cinematic-festival .v-photo-extra{height:72px;background-size:cover;background-position:center;border-top:1px solid rgba(251,146,60,0.2);background-color:#1a1a1a;filter:saturate(0.9)}
+
 `;
 
 
@@ -695,6 +967,119 @@ const CINEMATIC_CSS = `
 // Helpers
 
 // ---------------------------------------------------------------------------
+
+
+
+// Generate an RFC 5545 .ics file for a single all-spanning event,
+// then trigger a download via blob URL.
+
+const downloadIcsFile = (params: {
+
+  uid: string;
+
+  title: string;
+
+  description: string;
+
+  location: string;
+
+  startIso: string;
+
+  endIso: string;
+
+  url: string;
+
+}) => {
+
+  const fmtUtc = (iso: string) => {
+
+    const d = new Date(iso);
+
+    if (isNaN(d.getTime())) return "";
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    return (
+
+      d.getUTCFullYear().toString() +
+
+      pad(d.getUTCMonth() + 1) +
+
+      pad(d.getUTCDate()) + "T" +
+
+      pad(d.getUTCHours()) +
+
+      pad(d.getUTCMinutes()) +
+
+      pad(d.getUTCSeconds()) + "Z"
+
+    );
+
+  };
+
+  const escape = (s: string) =>
+
+    s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+
+  const lines = [
+
+    "BEGIN:VCALENDAR",
+
+    "VERSION:2.0",
+
+    "PRODID:-//Bachata Calendar//Festival//EN",
+
+    "CALSCALE:GREGORIAN",
+
+    "METHOD:PUBLISH",
+
+    "BEGIN:VEVENT",
+
+    `UID:${escape(params.uid)}@bachatacalendar.co.uk`,
+
+    `DTSTAMP:${fmtUtc(new Date().toISOString())}`,
+
+    `DTSTART:${fmtUtc(params.startIso)}`,
+
+    `DTEND:${fmtUtc(params.endIso)}`,
+
+    `SUMMARY:${escape(params.title)}`,
+
+    `DESCRIPTION:${escape(params.description)}`,
+
+    `LOCATION:${escape(params.location)}`,
+
+    `URL:${escape(params.url)}`,
+
+    "END:VEVENT",
+
+    "END:VCALENDAR",
+
+    "",
+
+  ];
+
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+
+  const url = URL.createObjectURL(blob);
+
+  const slug = params.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+  const a = document.createElement("a");
+
+  a.href = url;
+
+  a.download = `${slug || "event"}.ics`;
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  document.body.removeChild(a);
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+};
 
 
 
@@ -748,6 +1133,52 @@ const extractHour = (iso: string | null): number | null => {
 
 
 
+// P2: parse "What's included:" bullets from a description blob.
+
+const parseIncludedItems = (desc: string | null | undefined): string[] => {
+
+  if (!desc) return [];
+
+  const lines = desc.split(/\r?\n/);
+
+  const startIdx = lines.findIndex((l) => /what's\s+included/i.test(l));
+
+  if (startIdx < 0) return [];
+
+  const out: string[] = [];
+
+  for (let i = startIdx + 1; i < lines.length; i++) {
+
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) {
+
+      if (out.length > 0) break;
+
+      continue;
+
+    }
+
+    const m = trimmed.match(/^[-*\u2022]\s*(.+)$/);
+
+    if (!m) {
+
+      if (out.length > 0) break;
+
+      continue;
+
+    }
+
+    out.push(m[1].trim());
+
+  }
+
+  return out;
+
+};
+
+
+
 const splitTitleIntoLines = (name: string): string[] => {
 
   // Strip dash-delimited suffix (e.g., "London Sensual Days - June 2026 Edition")
@@ -786,6 +1217,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
+  const [showAllDays, setShowAllDays] = useState(false);
+
+  const [isCalSheetOpen, setIsCalSheetOpen] = useState(false);
+
   const [descExpanded, setDescExpanded] = useState(false);
 
 
@@ -808,7 +1243,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         .from("events")
 
-        .select("id, name, city, date, start_time, poster_url, description, ticket_url")
+        .select("id, name, city, date, start_time, poster_url, description, ticket_url, faq")
 
         .eq("id", festivalId)
 
@@ -857,6 +1292,42 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   const effectiveSnapshot = propSnapshot ?? snapshotPayload;
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
+
+
+
+  // Venue gallery (P11): second photo if the venue has more imagery
+
+  const venueIdForGallery = festivalDetail?.location.primaryVenue?.id ?? null;
+
+  const { data: venueGallery } = useQuery({
+
+    queryKey: ["festival-venue-gallery", venueIdForGallery],
+
+    enabled: Boolean(venueIdForGallery),
+
+    queryFn: async () => {
+
+      if (!venueIdForGallery) return null;
+
+      const { data, error } = await supabase
+
+        .from("venues")
+
+        .select("gallery_urls")
+
+        .eq("id", venueIdForGallery)
+
+        .maybeSingle();
+
+      if (error) return null;
+
+      return (data?.gallery_urls as string[] | null) ?? null;
+
+    },
+
+    staleTime: 5 * 60 * 1000,
+
+  });
 
 
 
@@ -1156,6 +1627,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
+  // P2: structured "What's included" bullets parsed from description
+
+  const includedItems = useMemo(() => parseIncludedItems(fullDescription), [fullDescription]);
+
+
+
   // Derive each teacher's primary style by tallying sessions they teach
 
   // (most-frequent session.style wins). Falls back to the festival's first
@@ -1197,6 +1674,92 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     });
 
     return result;
+
+  }, [festivalDetail]);
+
+
+
+  // Hero subtitle -- dance style(s) + audience level summary (P6)
+
+  const heroSubtitle = useMemo(() => {
+
+    const stylesRaw = festivalDetail?.identity.musicStyles ?? [];
+
+    const styleText = stylesRaw.length > 0
+
+      ? stylesRaw.map((s) => s.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())).join(" \u00d7 ")
+
+      : null;
+
+    const schedule = festivalDetail?.schedule ?? [];
+
+    const levelSet = new Set<string>();
+
+    schedule.forEach((s) => (s.levels ?? []).forEach((l) => levelSet.add(l)));
+
+    let levelText: string | null = null;
+
+    if (levelSet.size > 0) {
+
+      const hasOpen = levelSet.has("open_level");
+
+      const hasIntPlus = levelSet.has("intermediate") || levelSet.has("advanced");
+
+      const hasBeg = levelSet.has("beginner") || levelSet.has("improver");
+
+      if (hasOpen && hasIntPlus) levelText = "Open level + intermediate+ bootcamps";
+
+      else if (hasOpen && hasBeg) levelText = "Beginner to open level";
+
+      else if (hasOpen) levelText = "Open level";
+
+      else if (hasIntPlus && hasBeg) levelText = "All levels";
+
+      else if (hasIntPlus) levelText = "Intermediate+";
+
+      else if (hasBeg) levelText = "Beginner / improver";
+
+    }
+
+    if (!styleText && !levelText) return null;
+
+    return { styleText, levelText };
+
+  }, [festivalDetail]);
+
+
+
+  // Teaching schedule per headliner (P4)
+
+  const teachingByTeacherId = useMemo(() => {
+
+    const schedule = festivalDetail?.schedule ?? [];
+
+    const map: Record<string, Array<{ day: string; startTime: string }>> = {};
+
+    schedule.forEach((s) => {
+
+      if (s.type === "party") return;
+
+      s.instructors.forEach((i) => {
+
+        if (!i.id) return;
+
+        if (!map[i.id]) map[i.id] = [];
+
+        map[i.id].push({ day: s.day, startTime: s.startTime });
+
+      });
+
+    });
+
+    Object.keys(map).forEach((k) => {
+
+      map[k].sort((a, b) => (a.day + a.startTime).localeCompare(b.day + b.startTime));
+
+    });
+
+    return map;
 
   }, [festivalDetail]);
 
@@ -1338,6 +1901,24 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
+        {/* Hero subtitle: style + level (P6) */}
+
+        {heroSubtitle && (
+
+          <div className="hero-subtitle">
+
+            {heroSubtitle.styleText && <b>{heroSubtitle.styleText}</b>}
+
+            {heroSubtitle.styleText && heroSubtitle.levelText && <span> &middot; </span>}
+
+            {heroSubtitle.levelText && <span>{heroSubtitle.levelText}</span>}
+
+          </div>
+
+        )}
+
+
+
         {/* Date tiles */}
 
         {dateTiles.length > 0 && (
@@ -1400,13 +1981,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           )}
 
-          {calUrls && (
+          {calUrls && (<>
 
-            <details className="cal-wrap">
+            {/* Desktop: existing details dropdown */}
 
-              <summary className="btn btn-ghost cal-summary">
+            <details className="cal-wrap cal-wrap-desktop">
 
-                Add to Calendar <span className="chev">&#9660;</span>
+              <summary className="cal-icon-btn" aria-label="Add to calendar" title="Add to calendar">
+
+                <span aria-hidden="true">&#128197;</span>
 
               </summary>
 
@@ -1436,27 +2019,25 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
             </details>
 
-          )}
+          </>)}
 
         </div>
 
-      </section>
-
-
-
-      {/* COUNTDOWN */}
-
-      <section className="countdown">
-
-        <div className="cd-cell"><div className="cd-num">{countdown.days}</div><div className="cd-lbl">Days</div></div>
-
-        <div className="cd-cell"><div className="cd-num">{countdown.hours}</div><div className="cd-lbl">Hours</div></div>
-
-        <div className="cd-cell"><div className="cd-num">{countdown.mins}</div><div className="cd-lbl">Minutes</div></div>
-
-        <div className="cd-cell"><div className="cd-num">{countdown.secs}</div><div className="cd-lbl">Seconds</div></div>
+        {/* Inline hero countdown (P5) */}
+        {(countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
+          <div className="hero-countdown">
+            <div className="cd-cell"><div className="cd-num">{countdown.days}</div><div className="cd-lbl">Days</div></div>
+            <div className="cd-sep">:</div>
+            <div className="cd-cell"><div className="cd-num">{countdown.hours}</div><div className="cd-lbl">Hrs</div></div>
+            <div className="cd-sep">:</div>
+            <div className="cd-cell"><div className="cd-num">{countdown.mins}</div><div className="cd-lbl">Min</div></div>
+            <div className="cd-sep cd-sep-sec">:</div>
+            <div className="cd-cell cd-cell-sec"><div className="cd-num">{countdown.secs}</div><div className="cd-lbl">Sec</div></div>
+          </div>
+        )}
 
       </section>
+
 
 
 
@@ -1468,7 +2049,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           <div className="label">Featuring</div>
 
-          <div className="sub">Reel 01 &middot; {teachers.length} {teachers.length === 1 ? "Frame" : "Frames"}</div>
+          <div className="sub">{teachers.length} {teachers.length === 1 ? "Headliner" : "Headliners"}</div>
 
 
 
@@ -1509,6 +2090,40 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
                       <div className="frame-name">{teacher.displayName ?? "Artist"}</div>
 
                       <div className="frame-style">{styleLabel}</div>
+
+                      {(() => {
+
+                        const sessions = (teacher.id && teachingByTeacherId[teacher.id]) || [];
+
+                        if (sessions.length === 0) return null;
+
+                        const shown = sessions.slice(0, 3);
+
+                        const extra = sessions.length - shown.length;
+
+                        return (
+
+                          <div className="frame-teaching">
+
+                            {shown.map((sess, si) => {
+
+                              const d = new Date(sess.day);
+
+                              const wd = d.toLocaleDateString("en-GB", { weekday: "short" });
+
+                              const t = extractTimeHHMM(sess.startTime);
+
+                              return <span key={si} className="tch-chip">{wd} {t}</span>;
+
+                            })}
+
+                            {extra > 0 && <span className="tch-more">+{extra}</span>}
+
+                          </div>
+
+                        );
+
+                      })()}
 
                       <div className="frame-tag">Headliner</div>
 
@@ -1572,15 +2187,37 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-            {/* Mobile day-tabs */}
+            {/* Mobile day-tabs (P3: with session counts + all-days toggle) */}
 
-            <div className="day-mobile-tabs">
+            <div className="all-days-toggle">
+
+              <button
+
+                type="button"
+
+                className={showAllDays ? "active" : ""}
+
+                onClick={() => setShowAllDays((v) => !v)}
+
+                aria-pressed={showAllDays}
+
+              >
+
+                {showAllDays ? "Single day" : `View all ${days.length} days`}
+
+              </button>
+
+            </div>
+
+            <div className="day-mobile-tabs" hidden={showAllDays} aria-hidden={showAllDays}>
 
               {days.map((day, i) => {
 
                 const d = new Date(day);
 
                 const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+
+                const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
 
                 return (
 
@@ -1594,7 +2231,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                   >
 
-                    {label}
+                    {label}<span className="day-tab-count">&middot; {count}</span>
 
                   </button>
 
@@ -1606,7 +2243,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-            {/* Table-grid: Time Ã— Days */}
+            {/* Table-grid: Time Ãƒâ€” Days */}
 
             <div className="tl-grid-wrap">
 
@@ -1642,7 +2279,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-              <div className="tl-body" data-day={String(activeDayIdx)}>
+              <div className="tl-body" data-day={showAllDays ? "all" : String(activeDayIdx)}>
 
                 {hours.map((hour) => (
 
@@ -1761,6 +2398,20 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
                       <div className="v-img no-photo" />
 
                     )}
+
+                    {(() => {
+
+                      const extras = (venueGallery ?? []).filter((u) => u && u !== venue.imageUrl);
+
+                      if (extras.length === 0) return null;
+
+                      return (
+
+                        <div className="v-photo-extra" style={{ backgroundImage: `url(${extras[0]})` }} aria-hidden="true" />
+
+                      );
+
+                    })()}
 
                     <div className="v-tag">&#9733; FESTIVAL HOST</div>
 
@@ -1908,6 +2559,80 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
+      {/* FAQ -- renders only when events.faq is populated (P10) */}
+
+      {(() => {
+
+        const raw = (festival as { faq?: string | null } | null)?.faq?.trim() ?? "";
+
+        if (!raw) return null;
+
+        let items: Array<{ q: string; a: string }> = [];
+
+        try {
+
+          const parsed = JSON.parse(raw);
+
+          if (Array.isArray(parsed)) {
+
+            items = parsed
+
+              .map((it: unknown) => {
+
+                const obj = it && typeof it === "object" ? (it as Record<string, unknown>) : {};
+
+                const q = typeof obj.q === "string" ? obj.q : typeof obj.question === "string" ? obj.question : "";
+
+                const a = typeof obj.a === "string" ? obj.a : typeof obj.answer === "string" ? obj.answer : "";
+
+                return { q: q.trim(), a: a.trim() };
+
+              })
+
+              .filter((it) => it.q && it.a);
+
+          }
+
+        } catch {
+
+          items = [{ q: "About this festival", a: raw }];
+
+        }
+
+        if (items.length === 0) return null;
+
+        return (
+
+          <section className="faq">
+
+            <div className="faq-wrap">
+
+              <div className="faq-label">&mdash; Frequently asked &mdash;</div>
+
+              <h2>Good to know.</h2>
+
+              {items.map((it, i) => (
+
+                <details key={i}>
+
+                  <summary>{it.q}</summary>
+
+                  <div className="faq-ans">{it.a}</div>
+
+                </details>
+
+              ))}
+
+            </div>
+
+          </section>
+
+        );
+
+      })()}
+
+
+
       {/* ABOUT -- collapsible description */}
 
       {fullDescription && (
@@ -1917,6 +2642,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
           <div className="about-wrap">
 
             <div className="about-label">&mdash; About the festival &mdash;</div>
+
+            {includedItems.length > 0 && (
+
+              <div className="about-includes">
+
+                <div className="about-includes-title">What&rsquo;s included</div>
+
+                {includedItems.map((it, i) => (
+
+                  <div key={i} className="about-includes-row">
+
+                    <span className="check" aria-hidden="true">&#10003;</span>
+
+                    <span>{it}</span>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
 
             <div className="about-text">{descExpanded ? fullDescription : descPreview}</div>
 
@@ -1946,23 +2693,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
           <div className="ticket-grid">
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
               <div className="n">Full Pass</div>
-              <div className="p">102</div>
-              <div className="d">All 3 days &middot; 19&ndash;21 Jun</div>
+              <div className="p">85</div>
+              <div className="d">Pre-sale &middot; Fri&ndash;Sun 19&ndash;21 Jun</div>
             </a>
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Party Pass</div>
-              <div className="p">62</div>
-              <div className="d">Thu 18 &ndash; Mon 22</div>
+              <div className="n">Zouk Only Pass</div>
+              <div className="p">90</div>
+              <div className="d">Zouk workshops &amp; parties</div>
             </a>
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
               <div className="n">Gatica Bootcamp</div>
               <div className="p">50</div>
-              <div className="d">Bootcamp only</div>
+              <div className="d">Sat 16:00 &middot; 2hr + video</div>
             </a>
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
               <div className="n">Melvin Bootcamp</div>
-              <div className="p">46</div>
-              <div className="d">Bootcamp only</div>
+              <div className="p">45</div>
+              <div className="d">Sat 18:30 &middot; 2hr + video</div>
             </a>
           </div>
           <div className="end-cta">
@@ -1977,9 +2724,180 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       <footer>
 
-        <div className="x">&mdash; {organiser?.displayName ?? "Festival"} &middot; {festival.name} &mdash;</div>
+        <div className="x">
+          <div className="x-line x-org">&mdash; {organiser?.displayName ?? "Festival"} &mdash;</div>
+          <div className="x-line x-name">{festival.name.replace(/ - /g, " — ")}</div>
+        </div>
 
       </footer>
+
+
+
+      {/* Floating Add-to-Calendar FAB (mobile, bottom-right above sticky CTA) (P06 position) */}
+
+      {calUrls && createPortal(
+
+        <button
+
+          type="button"
+
+          className="cal-fab"
+
+          aria-label="Save event to calendar"
+
+          aria-haspopup="dialog"
+
+          onClick={() => setIsCalSheetOpen(true)}
+
+        >
+
+          <span aria-hidden="true">&#128197;</span>
+
+        </button>,
+
+        document.body
+
+      )}
+
+
+
+      {/* Mobile bottom sheet: add event to calendar (portal so position:fixed escapes the framer-motion ancestor) */}
+
+      {calUrls && isCalSheetOpen && createPortal(
+
+        <div
+
+          className="cal-sheet-backdrop cinematic-festival"
+
+          role="dialog"
+
+          aria-modal="true"
+
+          aria-labelledby="cal-sheet-title"
+
+          onClick={() => setIsCalSheetOpen(false)}
+
+        >
+
+          <div className="cal-sheet" onClick={(e) => e.stopPropagation()}>
+
+            <div className="cal-sheet-handle" aria-hidden="true" />
+
+            <div id="cal-sheet-title" className="cal-sheet-title">Save event</div>
+
+            <div className="cal-sheet-sub">{festival?.name}</div>
+
+            <div className="cal-sheet-opts">
+
+              <button
+
+                type="button"
+
+                className="cal-sheet-opt"
+
+                onClick={() => {
+
+                  if (!startDateRaw) return;
+
+                  downloadIcsFile({
+
+                    uid: festival?.id ?? festivalId,
+
+                    title: festival?.name ?? "Festival",
+
+                    description: fullDescription ?? "",
+
+                    location: venue ? `${venue.name}${venue.address ? ", " + venue.address : ""}` : "",
+
+                    startIso: startDateRaw,
+
+                    endIso: endDateRaw ?? startDateRaw,
+
+                    url: window.location.href,
+
+                  });
+
+                  setIsCalSheetOpen(false);
+
+                }}
+
+              >
+
+                <span className="cal-sheet-ico">A</span>
+
+                <span className="cal-sheet-label">Apple Calendar (.ics)</span>
+
+                <span className="cal-sheet-arr">&#8594;</span>
+
+              </button>
+
+              <a
+
+                href={calUrls.google}
+
+                target="_blank"
+
+                rel="noopener noreferrer"
+
+                className="cal-sheet-opt"
+
+                onClick={() => setIsCalSheetOpen(false)}
+
+              >
+
+                <span className="cal-sheet-ico">G</span>
+
+                <span className="cal-sheet-label">Google Calendar</span>
+
+                <span className="cal-sheet-arr">&#8599;</span>
+
+              </a>
+
+              <a
+
+                href={calUrls.outlook}
+
+                target="_blank"
+
+                rel="noopener noreferrer"
+
+                className="cal-sheet-opt"
+
+                onClick={() => setIsCalSheetOpen(false)}
+
+              >
+
+                <span className="cal-sheet-ico">O</span>
+
+                <span className="cal-sheet-label">Outlook</span>
+
+                <span className="cal-sheet-arr">&#8599;</span>
+
+              </a>
+
+            </div>
+
+            <button
+
+              type="button"
+
+              className="cal-sheet-cancel"
+
+              onClick={() => setIsCalSheetOpen(false)}
+
+            >
+
+              Cancel
+
+            </button>
+
+          </div>
+
+        </div>,
+
+        document.body
+
+      )}
 
 
 
