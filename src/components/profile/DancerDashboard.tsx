@@ -638,9 +638,9 @@ export const DancerDashboard = () => {
       try {
         let query = supabase
           .from('events')
-          .select('id, name, date, city, type, city_slug, is_published')
+          .select('id, name, date, city, type, city_slug')
           .ilike('name', `%${term}%`)
-          .eq('is_published', true)
+          .eq('lifecycle_status', 'published')
           .order('date', { ascending: true })
           .limit(8);
 
@@ -679,9 +679,9 @@ export const DancerDashboard = () => {
       try {
         let query = supabase
           .from('events')
-          .select('id, name, date, city, type, city_slug, is_published')
+          .select('id, name, date, city, type, city_slug')
           .ilike('name', `%${term}%`)
-          .eq('is_published', true)
+          .eq('lifecycle_status', 'published')
           .eq('type', 'festival')
           .order('date', { ascending: true })
           .limit(8);

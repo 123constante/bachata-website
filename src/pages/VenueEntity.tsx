@@ -1225,7 +1225,8 @@ const VenueEntity = () => {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const fromEventId = parseFromEventParam(location.search);
-  const fromOccurrenceId = new URLSearchParams(location.search).get('occ') ?? null;
+  const rawOcc = new URLSearchParams(location.search).get('occ') ?? null;
+  const fromOccurrenceId = rawOcc && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawOcc) ? rawOcc : null;
 
   const { data: venue, isLoading } = useQuery({
     queryKey: ['public-venue', id],

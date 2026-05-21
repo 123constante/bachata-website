@@ -60,7 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .from('events')
     .select('id, type, updated_at')
     .eq('lifecycle_status', 'published')
-    .eq('is_published', true)
     .order('updated_at', { ascending: false })
     .limit(50000);
 

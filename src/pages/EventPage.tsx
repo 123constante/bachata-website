@@ -22,7 +22,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const EventPageInner = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const requestedOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
+  const rawOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
+  const requestedOccurrenceId = rawOccurrenceId && UUID_RE.test(rawOccurrenceId) ? rawOccurrenceId : null;
 
   // Guard: non-UUID IDs (e.g. /event/fdfdg) would cause Postgres to throw
   // "invalid input syntax for type uuid". Disable all queries and show not-found.
