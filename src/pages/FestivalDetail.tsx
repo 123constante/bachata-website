@@ -1939,83 +1939,38 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
       {/* TICKETS */}
-
       {ticketUrl && (
-
         <section className="tickets">
-
           <div className="lab">Now Booking</div>
-
           <h2>Reserve Your Pass.</h2>
-
-          {festivalDetail && festivalDetail.passes.length > 0 ? (
-
-            <>
-
-              <div className="ticket-grid">
-
-                {festivalDetail.passes.map((pass) => (
-
-                  <a
-
-                    key={pass.id}
-
-                    href={ticketUrl}
-
-                    target="_blank"
-
-                    rel="noopener noreferrer"
-
-                    className="tix"
-
-                    style={{ textDecoration: 'none', color: 'inherit' }}
-
-                  >
-
-                    <div className="n">{pass.name}</div>
-
-                    <div className="p">
-
-                      {pass.price % 1 === 0 ? pass.price : pass.price.toFixed(2)}
-
-                    </div>
-
-                    {pass.description && <div className="d">{pass.description}</div>}
-
-                  </a>
-
-                ))}
-
-              </div>
-
-              <div className="end-cta">
-
-                <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-
-                  Get Tickets
-
-                </a>
-
-              </div>
-
-            </>
-
-          ) : (
-
-            <div className="end-cta">
-
-              <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-
-                Get Tickets
-
-              </a>
-
-            </div>
-
-          )}
-
+          <div className="ticket-grid">
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
+              <div className="n">Full Pass</div>
+              <div className="p">102</div>
+              <div className="d">All 3 days &middot; 19&ndash;21 Jun</div>
+            </a>
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
+              <div className="n">Party Pass</div>
+              <div className="p">62</div>
+              <div className="d">Thu 18 &ndash; Mon 22</div>
+            </a>
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
+              <div className="n">Gatica Bootcamp</div>
+              <div className="p">50</div>
+              <div className="d">Bootcamp only</div>
+            </a>
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
+              <div className="n">Melvin Bootcamp</div>
+              <div className="p">46</div>
+              <div className="d">Bootcamp only</div>
+            </a>
+          </div>
+          <div className="end-cta">
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+              Get Tickets
+            </a>
+          </div>
         </section>
-
       )}
 
 
