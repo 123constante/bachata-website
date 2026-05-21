@@ -91,10 +91,16 @@ const Tonight = () => {
     queryFn: async (): Promise<TonightEvent[]> => {
       if (!citySlug) return [];
 
+      // Half-open [start, end) range: get_calendar_events' day filter is exclusive
+      // on the upper bound, and re-projects both bounds into the city timezone
+      // before taking ::date. An inclusive 23:59:59.999 same-day end collapses
+      // to the same local date as start once re-projected, producing an empty
+      // window.
       const startDate = new Date();
       startDate.setHours(0, 0, 0, 0);
       const endDate = new Date();
-      endDate.setHours(23, 59, 59, 999);
+      endDate.setDate(endDate.getDate() + 1);
+      endDate.setHours(0, 0, 0, 0);
 
       const { data, error } = await supabase.rpc('get_calendar_events' as any, {
         range_start: startDate.toISOString(),
