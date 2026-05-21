@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
  * The hook (src/hooks/useGeolocation.ts) is tightly coupled to React state
  * and the Geolocation API, neither of which run cleanly in vitest's node
  * env without jsdom/happy-dom. These tests cover the pure helpers and the
- * mapping contract â€” the integration paths are covered by browser smoke
+ * mapping contract — the integration paths are covered by browser smoke
  * and the manual iPhone test plan.
  */
 
