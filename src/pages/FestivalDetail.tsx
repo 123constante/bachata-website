@@ -873,7 +873,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
             {venue && (
               <div className="vo-col">
                 <div className="section-h"><div className="lab">— THE VENUE —</div></div>
-                <a href={`/venues/${venue.id}`} className="v-card">
+                <a href={`/venue-entity/${venue.id}`} className="v-card">
                   <div className="v-photo">
                     {venue.imageUrl ? (
                       <div className="v-img" style={{ backgroundImage: `url(${venue.imageUrl})` }} />
