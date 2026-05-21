@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type CSSProperties } from "react";
 
 import { createPortal } from "react-dom";
 
@@ -95,6 +95,8 @@ const CINEMATIC_CSS = `
 .cinematic-festival .poster-polaroid .pp-caption{font-family:'Caveat',cursive;font-size:18px;color:#3a2818;text-align:center;margin-top:8px;line-height:1}
 
 @media (max-width:760px){
+
+  .cinematic-festival .hero{min-height:auto;justify-content:flex-start;padding-top:12px}
 
   .cinematic-festival .poster-polaroid{position:relative;top:auto;right:auto;width:140px;padding:6px 6px 22px;transform:rotate(-3deg);margin:0 auto 12px;align-self:center}
 
@@ -654,6 +656,8 @@ const CINEMATIC_CSS = `
 
   .cinematic-festival .ticket-grid{grid-template-columns:1fr 1fr;gap:1px}
 
+  .cinematic-festival .ticket-grid > .tix:last-child:nth-child(odd){grid-column:1 / -1}
+
   .cinematic-festival .tix{padding:16px 10px}
 
   .cinematic-festival .tix .p{font-size:36px;margin:6px 0 2px}
@@ -716,7 +720,6 @@ const CINEMATIC_CSS = `
 
 @media (max-width:380px){
 
-  .cinematic-festival .hero-countdown .cd-cell-sec,.cinematic-festival .hero-countdown .cd-sep-sec{display:none}
 
   .cinematic-festival .hero-countdown .cd-num{font-size:26px}
 
@@ -734,7 +737,7 @@ const CINEMATIC_CSS = `
 
 @media (max-width:480px){
 
-  .cinematic-festival .hero-subtitle{font-size:10px;letter-spacing:0.18em;padding:0 12px}
+  .cinematic-festival .hero-subtitle{font-size:9px;letter-spacing:0.1em;padding:0 8px}
 
 }
 
@@ -796,9 +799,38 @@ const CINEMATIC_CSS = `
 
 @media (max-width:900px){
 
-  .cinematic-festival .tl-body[data-day="all"] .tl-row > .slot{display:block}
+  /* Swipe Grid mode: when showing all days on mobile, horizontal scroll with wide columns. */
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]){overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(251,146,60,0.4) transparent}
 
-  .cinematic-festival .tl-body[data-day="all"] .tl-row{display:grid}
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"])::-webkit-scrollbar{height:4px}
+
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"])::-webkit-scrollbar-thumb{background:rgba(251,146,60,0.4)}
+
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-header{display:grid !important;grid-template-columns:60px repeat(var(--days, 3), minmax(170px, 1fr)) !important;min-width:fit-content;position:sticky;top:0;z-index:4;background:#0a0a0a}
+
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-time-h{position:sticky;left:0;z-index:2;background:#0a0a0a;padding:12px 8px;font-size:10px}
+
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-day{padding:10px 12px;font-size:10px;scroll-snap-align:start}
+
+  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-day .date{font-size:18px;margin-top:2px}
+
+  .cinematic-festival .tl-body[data-day="all"]{min-width:fit-content}
+
+  .cinematic-festival .tl-body[data-day="all"] .tl-row{display:grid !important;grid-template-columns:60px repeat(var(--days, 3), minmax(170px, 1fr)) !important;min-width:fit-content}
+
+  .cinematic-festival .tl-body[data-day="all"] .tl-row > .slot{display:flex !important;scroll-snap-align:start}
+
+  .cinematic-festival .tl-body[data-day="all"] .tl-time{position:sticky;left:0;z-index:2;background:#0a0a0a}
+
+}
+
+.cinematic-festival .tl-swipe-hint{display:none}
+
+@media (max-width:900px){
+
+  .cinematic-festival .tl-swipe-hint{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 16px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(251,146,60,0.55)}
+
+  .cinematic-festival .tl-swipe-hint span:first-child,.cinematic-festival .tl-swipe-hint span:last-child{font-size:14px}
 
 }
 
@@ -1217,7 +1249,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
-  const [showAllDays, setShowAllDays] = useState(false);
+  const [showAllDays, setShowAllDays] = useState(true);
 
   const [isCalSheetOpen, setIsCalSheetOpen] = useState(false);
 
@@ -1707,7 +1739,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       const hasBeg = levelSet.has("beginner") || levelSet.has("improver");
 
-      if (hasOpen && hasIntPlus) levelText = "Open level + intermediate+ bootcamps";
+      if (hasOpen && hasIntPlus) levelText = "Open level + intermediate+ Masterclasses";
 
       else if (hasOpen && hasBeg) levelText = "Beginner to open level";
 
@@ -1907,9 +1939,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           <div className="hero-subtitle">
 
-            {heroSubtitle.styleText && <b>{heroSubtitle.styleText}</b>}
-
-            {heroSubtitle.styleText && heroSubtitle.levelText && <span> &middot; </span>}
+            {heroSubtitle.styleText && <><b>{heroSubtitle.styleText}</b><br /></>}
 
             {heroSubtitle.levelText && <span>{heroSubtitle.levelText}</span>}
 
@@ -2091,39 +2121,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                       <div className="frame-style">{styleLabel}</div>
 
-                      {(() => {
 
-                        const sessions = (teacher.id && teachingByTeacherId[teacher.id]) || [];
-
-                        if (sessions.length === 0) return null;
-
-                        const shown = sessions.slice(0, 3);
-
-                        const extra = sessions.length - shown.length;
-
-                        return (
-
-                          <div className="frame-teaching">
-
-                            {shown.map((sess, si) => {
-
-                              const d = new Date(sess.day);
-
-                              const wd = d.toLocaleDateString("en-GB", { weekday: "short" });
-
-                              const t = extractTimeHHMM(sess.startTime);
-
-                              return <span key={si} className="tch-chip">{wd} {t}</span>;
-
-                            })}
-
-                            {extra > 0 && <span className="tch-more">+{extra}</span>}
-
-                          </div>
-
-                        );
-
-                      })()}
 
                       <div className="frame-tag">Headliner</div>
 
@@ -2181,7 +2179,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
               <h2>The Schedule.</h2>
 
-              <div className="sub">{days.length} {days.length === 1 ? "Day" : "Days"} &middot; {festivalDetail?.schedule.length ?? 0} Sessions</div>
+              <div className="sub">{days.length} {days.length === 1 ? "Day" : "Days"}</div>
 
             </div>
 
@@ -2243,9 +2241,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
+            {showAllDays && days.length > 1 && (
+              <div className="tl-swipe-hint" aria-hidden="true">
+                <span>&laquo;</span><span>swipe to change day</span><span>&raquo;</span>
+              </div>
+            )}
+
             {/* Table-grid: Time Ãƒâ€” Days */}
 
-            <div className="tl-grid-wrap">
+            <div className="tl-grid-wrap" style={{ "--days": days.length } as CSSProperties}>
 
               <div className="tl-header" style={{ gridTemplateColumns: `90px repeat(${days.length}, 1fr)` }}>
 
@@ -2704,12 +2708,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
               <div className="n">Gatica Bootcamp</div>
               <div className="p">50</div>
-              <div className="d">Sat 16:00 &middot; 2hr + video</div>
+              <div className="d">2hr + video</div>
             </a>
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
               <div className="n">Melvin Bootcamp</div>
               <div className="p">45</div>
-              <div className="d">Sat 18:30 &middot; 2hr + video</div>
+              <div className="d">2hr + video</div>
+            </a>
+            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
+              <div className="n">Both Bootcamps</div>
+              <div className="p">80</div>
+              <div className="d">Gatica + Melvin &middot; save &pound;15</div>
             </a>
           </div>
           <div className="end-cta">
