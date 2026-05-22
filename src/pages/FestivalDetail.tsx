@@ -1266,7 +1266,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
-  const [showAllDays, setShowAllDays] = useState(true);
+  // Default to single-day on mobile (one full-width day via tabs); the all-days
+  // grid is wide and only works well on desktop. Users can still toggle on mobile.
+  const [showAllDays, setShowAllDays] = useState(
+    () => (typeof window !== "undefined" ? window.innerWidth > 900 : true),
+  );
 
   const [isCalSheetOpen, setIsCalSheetOpen] = useState(false);
 
