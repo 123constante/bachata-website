@@ -2317,7 +2317,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
               </div>
             )}
 
-            {/* Table-grid: Time Ãƒâ€” Days */}
+            {/* Table-grid: Time x Days */}
 
             <div className="tl-grid-wrap" style={{ "--days": days.length } as CSSProperties}>
 
