@@ -52,8 +52,7 @@ export const OrganiserHoloCard = ({
     >
       <div className="holo-card__inner">
         <div className="holo-card__banner">
-          <span>&#9670; {categoryLabel}</span>
-          <span>&#9670;</span>
+          <span>&#9670; {categoryLabel} &#9670;</span>
         </div>
 
         <div className="holo-card__art">

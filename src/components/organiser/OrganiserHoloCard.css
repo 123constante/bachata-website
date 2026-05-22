@@ -73,7 +73,7 @@
 
 .holo-card__banner {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   font-family: 'Orbitron', sans-serif;
   font-weight: 900;
@@ -84,9 +84,6 @@
   z-index: 1;
 }
 
-.holo-card__banner > span:last-child {
-  color: #ff6ec7;
-}
 
 .holo-card__art {
   margin: 12px 0;
