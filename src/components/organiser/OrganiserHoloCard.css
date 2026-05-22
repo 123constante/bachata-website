@@ -45,7 +45,7 @@
   border-radius: 12px;
   background: linear-gradient(170deg, #1a0f3a 0%, #0a0418 100%);
   color: #fff8ec;
-  padding: 14px;
+  padding: 11px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -124,15 +124,16 @@
 .holo-card__name {
   font-family: 'Orbitron', sans-serif;
   font-weight: 700;
-  font-size: 15px;
-  line-height: 1.15;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
   color: #fff8ec;
   text-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
   text-transform: uppercase;
   text-align: center;
+  flex-shrink: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   position: relative;
@@ -141,12 +142,13 @@
 
 .holo-card__type {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: 9px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #ffc76e;
   margin-top: 4px;
   text-align: center;
+  flex-shrink: 0;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -156,7 +158,8 @@
 }
 
 .holo-card__footer {
-  margin-top: 10px;
+  margin-top: 6px;
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
   font-family: 'Orbitron', sans-serif;
@@ -171,11 +174,11 @@
 /* Small-screen tweaks: tighten the banner + name so 2-col on a 375px viewport
    stays readable. The art panel uses flex 1 1 auto so it shrinks naturally. */
 @media (max-width: 480px) {
-  .holo-card__inner { padding: 10px; }
-  .holo-card__banner { font-size: 8px; letter-spacing: 0.16em; }
-  .holo-card__name { font-size: 12px; }
-  .holo-card__type { font-size: 8px; letter-spacing: 0.14em; }
-  .holo-card__footer { font-size: 7.5px; letter-spacing: 0.14em; }
+  .holo-card__inner { padding: 8px; }
+  .holo-card__banner { font-size: 7px; letter-spacing: 0.08em; }
+  .holo-card__name { font-size: 9.5px; }
+  .holo-card__type { font-size: 7.5px; letter-spacing: 0.08em; }
+  .holo-card__footer { font-size: 7px; letter-spacing: 0.1em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
