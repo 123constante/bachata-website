@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -229,7 +229,7 @@ const OrganiserProfile = () => {
         .from('organiser_profiles')
         .select('*')
         .eq('id', id)
-        .eq('is_active', true)
+        .not('is_active', 'is', false)
         .maybeSingle();
       if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!data) return null;
@@ -382,6 +382,27 @@ const OrganiserProfile = () => {
 
   const totalEventsCount = allEvents.length;
   const showSinceYear = sinceYear !== null && sinceYear < new Date().getFullYear();
+
+  useEffect(() => {
+    if (!entity?.name) return;
+    const cityName = entity.cities?.name ?? null;
+    const where = cityName ? ` in ${cityName}` : '';
+    const title = `${entity.name}${where} | Bachata Calendar`;
+    const description =
+      totalEventsCount > 0
+        ? `${entity.name}${where}. Browse ${totalEventsCount} bachata event${totalEventsCount === 1 ? '' : 's'} they organise on Bachata Calendar.`
+        : `${entity.name}, a bachata organiser${where} on Bachata Calendar.`;
+    document.title = title;
+    const setMeta = (selector: string, content: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute('content', content);
+    };
+    setMeta('meta[name="description"]', description);
+    setMeta('meta[property="og:title"]', title);
+    setMeta('meta[property="og:description"]', description);
+    setMeta('meta[name="twitter:title"]', title);
+    setMeta('meta[name="twitter:description"]', description);
+  }, [entity, totalEventsCount]);
 
   const handleClaim = async () => {
     if (!id || !user?.id) return;
@@ -781,7 +802,7 @@ const OrganiserProfile = () => {
           <>
             <SectionHeader>Coming soon</SectionHeader>
             <div className="px-4 pb-4">
-              <div className="grid grid-cols-4 gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 {upcomingEvents.slice(0, 8).map((event, i) => {
                   const grad = TRADING_GRADIENTS[i % TRADING_GRADIENTS.length];
                   const abbrev = makeAbbrev(event.name);
@@ -792,7 +813,7 @@ const OrganiserProfile = () => {
                       key={event.id}
                       to={`/event/${event.id}`}
                       className={cn(
-                        'relative overflow-hidden rounded-md p-1.5 flex flex-col justify-between text-center text-white transition-transform hover:-translate-y-0.5',
+                        'relative overflow-hidden rounded-md p-1.5 w-[84px] shrink-0 flex flex-col justify-between text-center text-white transition-transform hover:-translate-y-0.5',
                         grad,
                       )}
                       style={{ aspectRatio: '0.7' }}

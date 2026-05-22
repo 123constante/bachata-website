@@ -33,7 +33,7 @@ const Organisers = () => {
       const { data, error } = await supabase
         .from('organiser_profiles')
         .select('id, name, avatar_url, bio, organisation_category, city_id')
-        .eq('is_active', true)
+        .not('is_active', 'is', false)
         .order('name');
       if (error) throw error;
 
