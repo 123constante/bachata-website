@@ -84,13 +84,26 @@ const CINEMATIC_CSS = `
 
 /* Floating polaroid -- cover image */
 
-.cinematic-festival .poster-polaroid{position:absolute;top:48px;right:48px;width:170px;background:#fef9ed;padding:8px 8px 32px;box-shadow:0 24px 48px rgba(0,0,0,0.7),0 8px 16px rgba(0,0,0,0.4);transform:rotate(6deg);z-index:3;border:1px solid #d4b896;transition:transform .3s ease;text-decoration:none;color:inherit;display:block}
+.cinematic-festival .poster-polaroid{position:absolute;top:48px;right:48px;width:170px;background:#fef9ed;padding:8px 8px 32px;box-shadow:0 24px 48px rgba(0,0,0,0.7),0 8px 16px rgba(0,0,0,0.4);transform:rotate(6deg);z-index:3;border:1px solid #d4b896;transition:transform .3s ease;text-decoration:none;color:inherit;display:block;cursor:pointer;font:inherit}
+.lf-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.93);display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif}
+.lf-lb-img{max-width:92vw;max-height:80vh;object-fit:contain;border-radius:4px;box-shadow:0 24px 64px rgba(0,0,0,0.6)}
+.lf-lb-close{position:absolute;top:16px;right:20px;width:44px;height:44px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.45);color:#fff;font-size:26px;line-height:1;cursor:pointer;border-radius:50%}
+.lf-lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.45);color:#fff;font-size:30px;line-height:1;cursor:pointer;border-radius:50%}
+.lf-lb-prev{left:20px}
+.lf-lb-next{right:20px}
+.lf-lb-close:hover,.lf-lb-nav:hover{background:rgba(251,146,60,0.9);border-color:#fb923c}
+.lf-lb-thumbs{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:8px;background:rgba(0,0,0,0.45);border-radius:8px;max-width:92vw;overflow-x:auto}
+.lf-lb-thumb{width:54px;height:54px;border:2px solid transparent;background:none;padding:0;cursor:pointer;border-radius:4px;overflow:hidden;flex:0 0 auto}
+.lf-lb-thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0.5;transition:opacity .2s}
+.lf-lb-thumb.active{border-color:#fb923c}
+.lf-lb-thumb.active img,.lf-lb-thumb:hover img{opacity:1}
+@media (max-width:760px){.lf-lb-nav{width:40px;height:40px;font-size:24px}.lf-lb-thumb{width:44px;height:44px}}
 
 .cinematic-festival .poster-polaroid:hover{transform:rotate(2deg) translateY(-4px);box-shadow:0 32px 64px rgba(251,146,60,0.3),0 8px 16px rgba(0,0,0,0.5)}
 
 .cinematic-festival .poster-polaroid::before{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:54px;height:14px;background:rgba(251,146,60,0.45);border:1px solid rgba(251,146,60,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 
-.cinematic-festival .poster-polaroid img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;filter:saturate(0.9) sepia(0.1)}
+.cinematic-festival .poster-polaroid img{width:100%;height:auto;display:block;filter:saturate(0.9) sepia(0.1)}
 
 .cinematic-festival .poster-polaroid .pp-caption{font-family:'Caveat',cursive;font-size:18px;color:#3a2818;text-align:center;margin-top:8px;line-height:1}
 
@@ -1255,6 +1268,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const [descExpanded, setDescExpanded] = useState(false);
 
+  // Poster/flyer gallery lightbox: index of the image being viewed, or null when closed.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
 
 
   const festivalId = id || "";
@@ -1649,6 +1665,31 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const posterUrl = festivalDetail?.identity.posterUrl ?? festival?.poster_url ?? null;
 
+  // Flyer gallery for the lightbox: poster first, then the day/gallery images, deduped.
+  const galleryImages = Array.from(
+    new Set(
+      [posterUrl, ...(festivalDetail?.identity.galleryUrls ?? [])].filter(
+        (u): u is string => Boolean(u),
+      ),
+    ),
+  );
+
+  // Keyboard controls for the flyer lightbox (Esc closes, arrows navigate).
+  useEffect(() => {
+    if (lightboxIndex === null || galleryImages.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      else if (e.key === "ArrowRight")
+        setLightboxIndex((i) => (i === null ? i : (i + 1) % galleryImages.length));
+      else if (e.key === "ArrowLeft")
+        setLightboxIndex((i) =>
+          i === null ? i : (i + galleryImages.length - 1) % galleryImages.length,
+        );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, galleryImages.length]);
+
 
 
   // Description preview -- first paragraph or first ~220 chars, whichever shorter
@@ -1909,13 +1950,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         {posterUrl && (
 
-          <a href={posterUrl} target="_blank" rel="noopener noreferrer" className="poster-polaroid" aria-label="View full festival poster">
+          <button type="button" onClick={() => setLightboxIndex(0)} className="poster-polaroid" aria-label="View festival flyers">
 
             <img src={posterUrl} alt={`${festival.name} poster`} />
 
-            <div className="pp-caption">the poster.</div>
+            <div className="pp-caption">{galleryImages.length > 1 ? "the flyers." : "the poster."}</div>
 
-          </a>
+          </button>
 
         )}
 
@@ -2747,6 +2788,54 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
         </div>
 
       </footer>
+
+
+
+      {/* Flyer gallery lightbox (poster + day flyers) */}
+
+      {lightboxIndex !== null && galleryImages.length > 0 && createPortal(
+
+        <div className="lf-lightbox" role="dialog" aria-modal="true" aria-label="Festival flyers" onClick={() => setLightboxIndex(null)}>
+
+          <button type="button" className="lf-lb-close" aria-label="Close" onClick={() => setLightboxIndex(null)}>&times;</button>
+
+          {galleryImages.length > 1 && (
+
+            <button type="button" className="lf-lb-nav lf-lb-prev" aria-label="Previous flyer" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i === null ? i : (i + galleryImages.length - 1) % galleryImages.length)); }}>&#8249;</button>
+
+          )}
+
+          <img className="lf-lb-img" src={galleryImages[lightboxIndex]} alt={`${festival.name} flyer ${lightboxIndex + 1} of ${galleryImages.length}`} onClick={(e) => e.stopPropagation()} />
+
+          {galleryImages.length > 1 && (
+
+            <button type="button" className="lf-lb-nav lf-lb-next" aria-label="Next flyer" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i === null ? i : (i + 1) % galleryImages.length)); }}>&#8250;</button>
+
+          )}
+
+          {galleryImages.length > 1 && (
+
+            <div className="lf-lb-thumbs" onClick={(e) => e.stopPropagation()}>
+
+              {galleryImages.map((src, i) => (
+
+                <button type="button" key={src} className={`lf-lb-thumb${i === lightboxIndex ? " active" : ""}`} aria-label={`View flyer ${i + 1}`} onClick={() => setLightboxIndex(i)}>
+
+                  <img src={src} alt="" />
+
+                </button>
+
+              ))}
+
+            </div>
+
+          )}
+
+        </div>,
+
+        document.body,
+
+      )}
 
 
 
