@@ -1633,6 +1633,18 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 
+  // Paid passes, ordered by the day they cover then by price. Free (£0) passes
+  // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
+  const passes = (festivalDetail?.passes ?? [])
+    .map((p) => ({ pass: p, amount: p.earlyBirdPrice ?? p.price }))
+    .filter(({ amount }) => amount > 0)
+    .sort(
+      (a, b) =>
+        (a.pass.coversDays[0] ?? "").localeCompare(b.pass.coversDays[0] ?? "") ||
+        a.amount - b.amount,
+    )
+    .map(({ pass }) => pass);
+
   const musicStyles = festivalDetail?.identity.musicStyles ?? [];
 
   const posterUrl = festivalDetail?.identity.posterUrl ?? festival?.poster_url ?? null;
@@ -2690,42 +2702,38 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
       {/* TICKETS */}
-      {ticketUrl && (
+      {(ticketUrl || passes.length > 0) && (
         <section className="tickets">
           <div className="lab">Now Booking</div>
           <h2>Reserve Your Pass.</h2>
-          <div className="ticket-grid">
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Full Pass</div>
-              <div className="p">85</div>
-              <div className="d">Pre-sale &middot; Fri&ndash;Sun 19&ndash;21 Jun</div>
-            </a>
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Zouk Only Pass</div>
-              <div className="p">90</div>
-              <div className="d">Zouk workshops &amp; parties</div>
-            </a>
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Gatica Bootcamp</div>
-              <div className="p">50</div>
-              <div className="d">2hr + video</div>
-            </a>
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Melvin Bootcamp</div>
-              <div className="p">45</div>
-              <div className="d">2hr + video</div>
-            </a>
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="tix">
-              <div className="n">Both Bootcamps</div>
-              <div className="p">80</div>
-              <div className="d">Gatica + Melvin &middot; save &pound;15</div>
-            </a>
-          </div>
-          <div className="end-cta">
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-              Get Tickets
-            </a>
-          </div>
+          {passes.length > 0 && (
+            <div className="ticket-grid">
+              {passes.map((pass) => {
+                const amount = pass.earlyBirdPrice ?? pass.price;
+                const sub = pass.description ?? pass.tier;
+                return (
+                  <a
+                    key={pass.id}
+                    href={ticketUrl ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tix"
+                  >
+                    <div className="n">{pass.name}</div>
+                    <div className="p">{amount}</div>
+                    {sub && <div className="d">{sub}</div>}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+          {ticketUrl && (
+            <div className="end-cta">
+              <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                Get Tickets
+              </a>
+            </div>
+          )}
         </section>
       )}
 
