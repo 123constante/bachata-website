@@ -112,7 +112,7 @@ export const BottomNav = () => {
         >
           <motion.span
             className="mb-0.5 cursor-pointer relative flex items-center justify-center"
-            animate={prefersReducedMotion ? undefined : { scale: [1, 1.1, 1] }}
+            animate={prefersReducedMotion ? undefined : { y: [0, -8, 0] }}
             transition={prefersReducedMotion ? undefined : { repeat: Infinity, duration: 2.0, ease: 'easeInOut' }}
             whileHover={{ scale: 1.3 }}
           >
@@ -124,7 +124,7 @@ export const BottomNav = () => {
               </span>
             )}
           </motion.span>
-          <span className="text-[#25D366] font-bold group-hover:text-[#1da851]">Community</span>
+          <span className="text-white font-bold group-hover:text-white">Community</span>
         </a>
       </div>
     </nav>
