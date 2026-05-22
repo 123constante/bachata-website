@@ -3,27 +3,27 @@ import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
 
-// ─── PersonChip — atomic per-person render primitive ─────────────────────────
+// --- PersonChip - atomic per-person render primitive ---
 //
 // Phase 1.5 of the schedule renderer unification (decision locked 2026-04-30):
-// every place on the platform that names a person — schedule rows, class cards,
-// party headliners, search results, festival lineups, listing pages — funnels
+// every place on the platform that names a person - schedule rows, class cards,
+// party headliners, search results, festival lineups, listing pages - funnels
 // through this one component. That guarantees:
 //
-//   • Every avatar+name is a real <Link> with a 44 px hit area (WCAG 2.5.5).
-//   • Focus ring + active state are consistent everywhere.
-//   • The "no profile yet" state is rendered uniformly (dim/hide/placeholder).
-//   • Click instrumentation lands once and works across every surface (Phase 3).
+//   * Every avatar+name is a real <Link> with a 44 px hit area (WCAG 2.5.5).
+//   * Focus ring + active state are consistent everywhere.
+//   * The "no profile yet" state is rendered uniformly (dim/hide/placeholder).
+//   * Click instrumentation lands once and works across every surface (Phase 3).
 //
 // PersonChip is intentionally low-level. It does NOT decide layout (overlap vs
 // row vs grid). PeopleStack picks the layout and renders zero or more chips
 // inside it. See plan_person_discoverability.md.
 
-// ─── Sizes ───────────────────────────────────────────────────────────────────
+// --- Sizes ---
 //
 // Picked at the callsite. The avatar visual size shrinks down to 24 px for
 // dense surfaces; the outer hit area NEVER drops below 44 px (transparent
-// padding does the work — invisible but tappable).
+// padding does the work - invisible but tappable).
 
 export type PersonChipSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -50,27 +50,53 @@ const SIZE_TABLE: Record<
 // stay compact without sacrificing tap reliability on mobile.
 const HIT_AREA_MIN_PX = 44;
 
-// ─── Unlinked behaviour ──────────────────────────────────────────────────────
+// --- First-name shortening for stacked chips ---
+//
+// Stacked chips (avatar above name) are narrow, so we show the first name only.
+// Two guards stop that from mangling non-personal names: a title prefix ("Dj
+// Mr M") and a group/act keyword ("StreetBeat Salsa Team") both keep their full
+// text. The full name is always preserved on hover (title) and aria-label.
+
+const NAME_TITLE_PREFIXES = new Set([
+  'dj', 'mc', 'dr', 'sr', 'sra', 'srta', 'mr', 'mrs', 'ms', 'prof',
+]);
+const NAME_GROUP_KEYWORDS = [
+  'team', 'crew', 'company', 'academy', 'project', 'collective', 'studio', 'school',
+];
+
+const toChipDisplayName = (full: string): string => {
+  const name = (full || '').trim();
+  if (!name) return name;
+  const parts = name.split(/\s+/);
+  if (parts.length === 1) return name;
+  const firstLower = parts[0].toLowerCase().replace(/\.+$/, '');
+  if (NAME_TITLE_PREFIXES.has(firstLower)) return name;
+  const lower = name.toLowerCase();
+  if (NAME_GROUP_KEYWORDS.some((k) => lower.includes(k))) return name;
+  return parts[0];
+};
+
+// --- Unlinked behaviour ---
 //
 // When a session names a person who doesn't yet have a profile in our DB
 // (Person.href is null), the chip needs a defined fallback:
 //
-//   • 'dim'         — show the chip greyed out, name visible, tooltip explains
+//   * 'dim'         - show the chip greyed out, name visible, tooltip explains
 //                     why it's not a link. (Default, decision 2 locked
 //                     2026-04-30.)
-//   • 'hide'        — render nothing. Cheaper UX but loses the discovery hint.
-//   • 'placeholder' — show the chip at full opacity, but rendered as a non-link
+//   * 'hide'        - render nothing. Cheaper UX but loses the discovery hint.
+//   * 'placeholder' - show the chip at full opacity, but rendered as a non-link
 //                     `<div>`. Useful when the person is a known placeholder
 //                     name that shouldn't visually de-emphasise.
 
 export type UnlinkedMode = 'dim' | 'hide' | 'placeholder';
 
-// ─── Props ───────────────────────────────────────────────────────────────────
+// --- Props ---
 
 export interface PersonChipProps {
   person: Person;
   size?: PersonChipSize;
-  /** Optional override — Person.role is the default. Passing here lets the
+  /** Optional override - Person.role is the default. Passing here lets the
    *  callsite force a contextual label (e.g. show "DJ" on a party row even
    *  if Person.role is empty). */
   roleOverride?: string;
@@ -78,8 +104,8 @@ export interface PersonChipProps {
    *  Used by party headliner cards. */
   showRole?: boolean;
   /** Override the chip's internal layout.
-   *   • 'row'     — avatar + name horizontal (default). Used by chip-row.
-   *   • 'stacked' — avatar above name, vertical. Used by class cards and
+   *   * 'row'     - avatar + name horizontal (default). Used by chip-row.
+   *   * 'stacked' - avatar above name, vertical. Used by class cards and
    *                 party headliners. With showRole, the role tag stacks
    *                 above the avatar.
    *  When omitted, defaults to 'row' for sm/md and 'stacked' for lg/xl
@@ -93,19 +119,19 @@ export interface PersonChipProps {
   unlinked?: UnlinkedMode;
   /** When this chip is rendered inside a specific event surface (schedule
    *  row, related-events strip), pass the event id so click telemetry can
-   *  attribute the discovery to that event. Optional — listings / search
+   *  attribute the discovery to that event. Optional - listings / search
    *  callsites leave it null. */
   eventId?: string | null;
 }
 
-// ─── Implementation ──────────────────────────────────────────────────────────
+// --- Implementation ---
 
 const initialFor = (name: string): string => (name || '?').charAt(0).toUpperCase();
 
-/** The visible avatar circle. All sizes use the same anatomy — only the
+/** The visible avatar circle. All sizes use the same anatomy - only the
  *  pixel knobs differ. The outer wrapper handles hit-area, not this.
  *
- *  Avatar load failure → fall back to initials (mirrors OrganiserAvatar in
+ *  Avatar load failure -> fall back to initials (mirrors OrganiserAvatar in
  *  OrganiserCardBlock.tsx). Without this, broken/expired storage URLs render
  *  the browser's missing-image glyph. */
 const AvatarCircle = ({
@@ -169,9 +195,9 @@ export const PersonChip = ({
   const isDimmed = !isLinked && unlinked === 'dim';
   const tooltip = isLinked
     ? person.name
-    : `${person.name} — profile not yet on Bachata Calendar`;
+    : `${person.name} - profile not yet on Bachata Calendar`;
 
-  // Default layout picker — 'stacked' when the callsite asked for a role tag
+  // Default layout picker - 'stacked' when the callsite asked for a role tag
   // (party headliner) or when the size is 'xl' (class-card cell), 'row'
   // otherwise (chip-row, default discovery shape).
   const effectiveLayout: 'row' | 'stacked' =
@@ -183,7 +209,7 @@ export const PersonChip = ({
       <AvatarCircle person={person} size={size} dimmed={isDimmed} />
       {t.showName && (
         <div
-          className="text-center leading-[1.1]"
+          className="text-center leading-[1.2]"
           style={{
             // 'xl' (class-card) uses sans + 9 px to match the legacy WrapCell;
             // 'lg' (party headliner) uses serif + 13 px to match FeatureCell.
@@ -192,14 +218,17 @@ export const PersonChip = ({
             color: 'hsl(var(--bento-fg))',
             opacity: isDimmed ? 0.7 : 1,
             marginTop: 5,
-            maxWidth: t.avatarPx + 16,
+            // First names fit on one line; the 2-line clamp only engages for
+            // the kept-full group/title fallbacks so they don't truncate ugly.
+            maxWidth: t.avatarPx + 24,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          } as React.CSSProperties}
           title={person.name}
         >
-          {person.name}
+          {toChipDisplayName(person.name)}
         </div>
       )}
       {showRole && role && (
@@ -235,7 +264,7 @@ export const PersonChip = ({
     </div>
   );
 
-  // Common visual wrapper — radius, padding (for hit-area), focus ring.
+  // Common visual wrapper - radius, padding (for hit-area), focus ring.
   const visualStyle: React.CSSProperties = {
     paddingInline: 4,
     paddingBlock: 2,
@@ -280,7 +309,7 @@ export const PersonChip = ({
     );
   }
 
-  // Unlinked → render as non-interactive span. Cursor stays default. Tooltip
+  // Unlinked -> render as non-interactive span. Cursor stays default. Tooltip
   // explains. Dimming (when chosen) signals "this person exists but isn't a
   // profile we host yet" without hiding them outright.
   return (
