@@ -28,7 +28,6 @@ import {
   SquareParking,
   Mic,
   Trees,
-  Volume2,
   Shirt,
   Accessibility,
   Footprints,
@@ -142,7 +141,6 @@ const facIcon = (
 
 const FACILITY_ICONS: Record<string, ReactNode> = {
   mirrors: facIcon(Sparkles),
-  sound_system: facIcon(Volume2),
   changing_area: facIcon(Shirt),
   wifi: facIcon(Wifi),
   wheelchair_access: facIcon(Accessibility),
@@ -160,7 +158,6 @@ const FACILITY_ICONS: Record<string, ReactNode> = {
 
 const FACILITY_LABELS: Record<string, string> = {
   mirrors: 'Mirrors',
-  sound_system: 'Sound',
   changing_area: 'Changing',
   wifi: 'Wi-Fi',
   wheelchair_access: 'Step-free',
