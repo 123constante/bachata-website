@@ -33,7 +33,7 @@ export const OrganiserHoloCard = ({
   const [imgFailed, setImgFailed] = useState(false);
   const showImage = !!avatarUrl && !imgFailed;
   const serial = index.toString().padStart(3, '0');
-  const typeLine = [organisationCategory, cityName].filter(Boolean).join(' \u00B7 ');
+  const typeLine = cityName ?? '';
   const categoryLabel = (organisationCategory ?? '').toUpperCase() || 'ORGANISER';
   const eventLabel = `${eventCount} ${eventCount === 1 ? 'EVENT' : 'EVENTS'}`;
 
@@ -52,7 +52,7 @@ export const OrganiserHoloCard = ({
     >
       <div className="holo-card__inner">
         <div className="holo-card__banner">
-          <span>&#9670; {categoryLabel} &middot; {serial}</span>
+          <span>&#9670; {categoryLabel}</span>
           <span>&#9670;</span>
         </div>
 
