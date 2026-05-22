@@ -9,31 +9,23 @@ const BASE_NAV_LINKS: Array<{
   emoji: string;
   fixedPath?: string;
 }> = [
-  { segment: 'parties', label: 'Parties', emoji: '🎉' },
-  { segment: 'classes', label: 'Classes', emoji: '🎓' },
-  { segment: 'venues', label: 'Venues', emoji: '🏛️' },
+  { segment: 'tonight',    label: 'Tonight',    emoji: '🌙' },
+  { segment: 'organisers', label: 'Organisers', emoji: '🎪', fixedPath: '/organisers' },
+  { segment: 'venues',     label: 'Venues',     emoji: '🏛️' },
 ];
 
 const emojiAnimations = {
-  '🎉': {
-    animate: { y: [0, -8, 0], scale: [1, 1.1, 1] },
-    transition: { repeat: Infinity, duration: 1.5, ease: 'easeInOut' as const },
+  '🌙': {
+    animate: { y: [0, -8, 0] },
+    transition: { repeat: Infinity, duration: 1.4, ease: 'easeInOut' as const },
   },
-  '🎓': {
-    animate: { y: [0, -6, 0] },
-    transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' as const },
+  '🎪': {
+    animate: { y: [0, -8, 0] },
+    transition: { repeat: Infinity, duration: 1.6, ease: 'easeInOut' as const },
   },
   '🏛️': {
-    animate: { scale: [1, 1.08, 1] },
-    transition: { repeat: Infinity, duration: 2.5, ease: 'easeInOut' as const },
-  },
-  '💫': {
-    animate: { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] },
-    transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' as const },
-  },
-  '✂️': {
-    animate: { x: [-2, 2, -2] },
-    transition: { repeat: Infinity, duration: 0.4, ease: 'easeInOut' as const },
+    animate: { y: [0, -8, 0] },
+    transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' as const },
   },
 };
 
