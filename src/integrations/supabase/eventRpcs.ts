@@ -348,3 +348,56 @@ export async function getEventDetailWithFestival(
 
   return { snapshot, festival };
 }
+
+// ============================================================================
+// RPC 4: get_latest_events_v1 (newest uploads -- homepage "Just added" wheel)
+// ============================================================================
+
+export interface LatestEventRow {
+  event_id: string;
+  name: string;
+  created_at: string; // ISO timestamp, no tz (treat as UTC) -- for "added X ago"
+  cover_image_url: string | null;
+  photo_url: string[];
+  location: string;
+  occurrence_id: string | null;
+  instance_date: string | null; // 'YYYY-MM-DD' in city tz (next / most-recent occurrence)
+  city_slug: string | null;
+  city_timezone: string | null;
+  type: 'standard' | 'festival' | string;
+  has_class: boolean;
+  has_party: boolean;
+}
+
+export interface GetLatestEventsParams {
+  p_city_slug?: string | null; // omit / null for all cities
+  p_limit?: number; // default 6 server-side
+}
+
+/**
+ * RPC 4: Most recently *uploaded* events (events.created_at DESC), one row per
+ * event. Powers the homepage "Just added" carousel.
+ *
+ * Cast through `as never` because the generated types file does not yet include
+ * this RPC (same pattern as event_view_p5 above); LatestEventRow is the source
+ * of truth until types are regenerated.
+ */
+export async function getLatestEvents(
+  params: GetLatestEventsParams = {},
+): Promise<LatestEventRow[]> {
+  const { data, error } = await supabase.rpc('get_latest_events_v1' as never, {
+    p_city_slug: params.p_city_slug ?? null,
+    p_limit: params.p_limit ?? 6,
+  } as never);
+
+  if (error) {
+    // Deploy gap: the RPC may not exist yet (PGRST202). Treat "function not
+    // found" as an empty feed so the homepage hides the section gracefully
+    // rather than erroring to Sentry on every load until the migration lands.
+    if ((error as { code?: string }).code === 'PGRST202') return [];
+    console.error('getLatestEvents RPC error:', error);
+    throw error;
+  }
+
+  return (data as unknown as LatestEventRow[]) ?? [];
+}

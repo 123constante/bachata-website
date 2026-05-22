@@ -4,9 +4,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
-import { buildCityPath } from '@/lib/cityPath';
-import { TonightMarqueeCta } from '@/components/TonightMarqueeCta';
-import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
+import { LatestEventsWheel } from '@/components/LatestEventsWheel';
 
 // Lazy load the heavy calendar component
 const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
@@ -18,7 +16,7 @@ const Index = () => {
     ? citySlug.split('-')[0].replace(/^\w/, (c) => c.toUpperCase())
     : 'Your City';
 
-  // Fetch this week's events for stats
+  // Fetch this week's events purely for the SEO meta event count.
   const weekStart = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -37,32 +35,14 @@ const Index = () => {
     enabled: Boolean(citySlug),
   });
 
-  const stats = useMemo(() => {
-    if (!weekEvents?.length) {
-      return { thisWeek: 0, classesTonight: 0, partiesTonight: 0, hasEventsTonight: false };
-    }
-    // RPC-level has_class/has_party are unreliable — use the same program/key_times
-    // derivation that the calendar uses.
-    const items = transformCalendarEvents(weekEvents);
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const tonightItems = items.filter((e) => e.instanceDateIso === todayStr);
-    const classesTonight = tonightItems.filter((e) => e.hasClass).length;
-    const partiesTonight = tonightItems.filter((e) => e.hasParty).length;
-    return {
-      thisWeek: weekEvents.length,
-      classesTonight,
-      partiesTonight,
-      hasEventsTonight: classesTonight > 0 || partiesTonight > 0,
-    };
-  }, [weekEvents]);
+  const thisWeek = weekEvents?.length ?? 0;
 
   // Update document meta tags for city SEO
   useEffect(() => {
     if (!cityDisplayName || cityDisplayName === 'Your City') return;
 
     const title = `Bachata Classes & Events in ${cityDisplayName} | Bachata Calendar`;
-    const description = `Find bachata classes, socials and festivals in ${cityDisplayName}. Browse this week's ${stats.thisWeek} events — updated daily.`;
+    const description = `Find bachata classes, socials and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events - updated daily.`;
 
     document.title = title;
 
@@ -76,7 +56,7 @@ const Index = () => {
     setMeta('meta[property="og:description"]', description);
     setMeta('meta[name="twitter:title"]', title);
     setMeta('meta[name="twitter:description"]', description);
-  }, [cityDisplayName, stats.thisWeek]);
+  }, [cityDisplayName, thisWeek]);
 
   return (
     <PageErrorBoundary>
@@ -92,12 +72,10 @@ const Index = () => {
           </div>
         </div>
 
-        {/* CINEMA MARQUEE TONIGHT CTA */}
-        {stats.hasEventsTonight && (
-          <div className="container mx-auto px-4 py-3">
-            <TonightMarqueeCta to={buildCityPath(citySlug, 'tonight')} />
-          </div>
-        )}
+        {/* JUST ADDED - newest uploads (3D carousel wheel) */}
+        <ErrorBoundary>
+          <LatestEventsWheel />
+        </ErrorBoundary>
 
         {/* EVENT CALENDAR */}
         <section className="min-h-[500px] sm:min-h-[650px]">
@@ -105,7 +83,7 @@ const Index = () => {
             <Suspense fallback={
               <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">
                 <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-                <p>Loading calendar…</p>
+                <p>Loading calendar&hellip;</p>
               </div>
             }>
               <ErrorBoundary>
