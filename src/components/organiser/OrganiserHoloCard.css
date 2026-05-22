@@ -13,16 +13,16 @@
   padding: 4px;
   background: linear-gradient(
     135deg,
-    #ff6ec7 0%,
-    #6ec7ff 25%,
-    #c7ff6e 50%,
-    #ffc76e 75%,
-    #ff6ec7 100%
+    #8b6914 0%,
+    #ffd700 25%,
+    #ffec8b 50%,
+    #ffd700 75%,
+    #8b6914 100%
   );
   background-size: 300% 300%;
   background-position: 0 0;
   box-shadow:
-    0 20px 60px rgba(255, 110, 199, 0.4),
+    0 20px 60px rgba(255, 215, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   transform: perspective(800px) rotateY(0) rotateX(0);
   transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1),
@@ -93,10 +93,10 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 30% 30%, #ff6ec7 0%, transparent 50%),
-    radial-gradient(circle at 70% 70%, #6ec7ff 0%, transparent 55%),
+    radial-gradient(circle at 30% 30%, #ffd700 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, #8b6914 0%, transparent 55%),
     linear-gradient(135deg, #2a1a4f, #0a0418);
-  border: 1px solid rgba(255, 199, 110, 0.4);
+  border: 1px solid rgba(255, 215, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,7 +114,7 @@
   font-weight: 900;
   font-size: clamp(28px, 14cqw, 48px);
   letter-spacing: 0.06em;
-  background: linear-gradient(135deg, #fff8ec, #ff6ec7);
+  background: linear-gradient(135deg, #fff8ec, #ffd700);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -128,7 +128,7 @@
   line-height: 1.15;
   letter-spacing: 0.04em;
   color: #fff8ec;
-  text-shadow: 0 0 12px rgba(255, 110, 199, 0.5);
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
   text-transform: uppercase;
   text-align: center;
   display: -webkit-box;
@@ -144,7 +144,7 @@
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #6ec7ff;
+  color: #ffc76e;
   margin-top: 4px;
   text-align: center;
   display: -webkit-box;
@@ -163,7 +163,7 @@
   font-weight: 700;
   font-size: 9px;
   letter-spacing: 0.18em;
-  color: #ff6ec7;
+  color: #ffd700;
   position: relative;
   z-index: 1;
 }
