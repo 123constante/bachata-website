@@ -585,19 +585,23 @@ const CINEMATIC_CSS = `
 
   .cinematic-festival .filmstrip{margin:0 -16px}
 
-  .cinematic-festival .frames{padding:20px 12px;gap:0;flex-wrap:wrap;overflow-x:visible;justify-content:center;row-gap:12px}
+  .cinematic-festival .frames{padding:20px 10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;overflow-x:visible}
 
-  .cinematic-festival .frames > *{flex:0 0 calc(50% - 12px);max-width:none}
+  .cinematic-festival .frames > *{min-width:0;max-width:none}
 
-  .cinematic-festival .frame{margin:0 4px}
+  .cinematic-festival .frame{margin:0}
 
-  .cinematic-festival .frame-img{height:170px}
+  .cinematic-festival .frame-img{height:118px}
 
-  .cinematic-festival .frame-name{font-size:18px}
+  .cinematic-festival .frame-img.no-photo .initial{font-size:46px}
 
-  .cinematic-festival .frame-style{font-size:8px;letter-spacing:0.15em}
+  .cinematic-festival .frame-name{font-size:13px}
 
-  .cinematic-festival .frame-info{padding:10px 8px}
+  .cinematic-festival .frame-style{font-size:7px;letter-spacing:0.1em}
+
+  .cinematic-festival .frame-info{padding:8px 3px}
+
+  .cinematic-festival .frame-num,.cinematic-festival .frame-corner{font-size:7px;padding:1px 3px}
 
   .cinematic-festival .frame::after{display:none}
 
@@ -1291,7 +1295,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         .from("events")
 
-        .select("id, name, city, date, start_time, poster_url, description, ticket_url, faq")
+        .select("id, name, city, date, start_time, poster_url, description, ticket_url, faq, meta_data")
 
         .eq("id", festivalId)
 
@@ -1645,7 +1649,16 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const organiser = festivalDetail?.organiser ?? null;
 
-  const teachers = festivalDetail?.lineup.teachers ?? [];
+  // Headliners filmstrip: if the event lists meta_data.headliner_ids, show only those
+  // (in that order); otherwise fall back to the full teacher lineup. The schedule grid
+  // still credits every teacher per session regardless.
+  const allTeachers = festivalDetail?.lineup.teachers ?? [];
+  const headlinerIds = ((festival?.meta_data as { headliner_ids?: unknown } | null)?.headliner_ids);
+  const teachers = Array.isArray(headlinerIds) && headlinerIds.length > 0
+    ? headlinerIds
+        .map((hid) => allTeachers.find((t) => t.id === hid))
+        .filter((t): t is (typeof allTeachers)[number] => Boolean(t))
+    : allTeachers;
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 
