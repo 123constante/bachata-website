@@ -105,7 +105,7 @@ const Organisers = () => {
       }}
     >
       <section className="px-4 mb-16">
-        {/* Active category filter chip â€” visible whenever ?category=... is
+        {/* Active category filter chip -- visible whenever ?category=... is
             present, with a one-click clear. */}
         {categoryFilter && (
           <div className="flex items-center justify-center mb-4 sm:mb-6">
@@ -122,9 +122,9 @@ const Organisers = () => {
         )}
 
         {/* Uniform portrait grid of B4 Holo Trading Cards.
-            2 col mobile Â· 3 col tablet Â· 4 col desktop. */}
+            2 col mobile . 3 col tablet . 4 col desktop. */}
         {isLoading ? (
-          <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 px-2">
+          <div className="max-w-7xl mx-auto grid grid-cols-4 gap-2 px-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
@@ -150,7 +150,7 @@ const Organisers = () => {
             </p>
           </div>
         ) : (
-          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 px-2">
+          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-4 gap-2 px-2">
             {filteredOrganisers.map((organiser, index) => (
               <StaggerItem key={organiser.id}>
                 <OrganiserHoloCard
