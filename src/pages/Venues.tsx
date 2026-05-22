@@ -8,6 +8,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { VenueCard } from '@/components/venue/VenueCard';
+import { parseUtcIso, londonDateKey, getComingWeekendKeys } from '@/lib/londonDate';
 
 const UNKNOWN_CITY = 'Other';
 const PINNED_CITY = 'London';
@@ -15,51 +16,21 @@ const PINNED_CITY = 'London';
 type VenueGroup = { city: string; venues: PublicVenueListItem[] };
 type FilterKey = 'tonight' | 'weekend' | 'wood';
 
-const WEEKEND_DAYS = new Set(['Fri', 'Sat', 'Sun']);
-
-const isToday = (iso: string | null): boolean => {
-  if (!iso) return false;
-  const dt = new Date(iso);
-  if (isNaN(dt.getTime())) return false;
-  const now = new Date();
-  return dt.getFullYear() === now.getFullYear()
-    && dt.getMonth() === now.getMonth()
-    && dt.getDate() === now.getDate();
-};
-
-const getThisWeekendRange = (): { start: Date; end: Date } => {
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-
-  // Calculate days until Friday
-  let daysUntilFriday: number;
-  if (dayOfWeek <= 5) {
-    // Mon-Fri: this coming weekend is Fri-Sun
-    daysUntilFriday = 5 - dayOfWeek;
-  } else {
-    // Sat-Sun: next weekend is next Fri-Sun
-    daysUntilFriday = 5 + (7 - dayOfWeek);
-  }
-
-  const friday = new Date(now);
-  friday.setDate(friday.getDate() + daysUntilFriday);
-  friday.setHours(0, 0, 0, 0);
-
-  const sunday = new Date(friday);
-  sunday.setDate(sunday.getDate() + 2); // Friday + 2 = Sunday
-  sunday.setHours(23, 59, 59, 999);
-
-  return { start: friday, end: sunday };
-};
-
-const matchesFilters = (v: PublicVenueListItem, active: Set<FilterKey>): boolean => {
-  if (active.has('tonight') && !isToday(v.next_event_iso)) return false;
-  if (active.has('weekend')) {
-    const range = getThisWeekendRange();
-    const eventDate = v.next_event_iso ? new Date(v.next_event_iso) : null;
-    if (!eventDate || isNaN(eventDate.getTime()) || eventDate < range.start || eventDate > range.end) {
-      return false;
-    }
+// "Tonight" and "Weekend" are evaluated on London's calendar (matching the rest
+// of the app), not the browser's timezone. next_event_iso arrives from the RPC
+// as a timezone-less UTC string; parseUtcIso + londonDateKey normalise that so
+// the filter is correct regardless of where the visitor's browser is set.
+const matchesFilters = (
+  v: PublicVenueListItem,
+  active: Set<FilterKey>,
+  todayKey: string,
+  weekendKeys: Set<string>,
+): boolean => {
+  if (active.has('tonight') || active.has('weekend')) {
+    const dt = parseUtcIso(v.next_event_iso);
+    const key = dt ? londonDateKey(dt) : null;
+    if (active.has('tonight') && key !== todayKey) return false;
+    if (active.has('weekend') && (key === null || !weekendKeys.has(key))) return false;
   }
   if (active.has('wood') && v.floor_type !== 'wood') return false;
   return true;
@@ -76,15 +47,16 @@ const sortVenues = (venues: PublicVenueListItem[]): PublicVenueListItem[] => {
 type ChipDef = { key: FilterKey; label: string; emoji: string };
 const CHIPS: ChipDef[] = [
   { key: 'tonight', label: 'Tonight', emoji: '🌙' },
-  { key: 'weekend', label: 'This weekend', emoji: '🎉' },
-  { key: 'wood', label: 'Wood floor', emoji: '🪵' },
+  { key: 'weekend', label: 'Weekend', emoji: '🎉' },
+  { key: 'wood', label: 'Wood', emoji: '🪵' },
 ];
 
 // Dark warm bar surface, sits cleanly over the black page.
 const BAR_STYLE = { backgroundColor: 'rgba(8,6,4,0.92)', borderColor: '#241c14' } as const;
 
-// Inner bar content — the 3 filter chips plus the result count and Clear.
-// Shared by the in-flow copy and the portalled pinned copy below.
+// Inner bar content — 3 filter chips + result count + Clear, on a single line
+// (no horizontal scroll; the count word collapses to just the number on the
+// narrowest phones). Shared by the in-flow copy and the portalled pinned copy.
 const FilterBarInner = ({
   active,
   onToggle,
@@ -96,8 +68,8 @@ const FilterBarInner = ({
   onClear: () => void;
   count: number;
 }) => (
-  <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2.5">
-    <div className="flex gap-2 overflow-x-auto flex-1 min-w-0">
+  <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       {CHIPS.map(({ key, label, emoji }) => {
         const isOn = active.has(key);
         return (
@@ -106,7 +78,7 @@ const FilterBarInner = ({
             type="button"
             onClick={() => onToggle(key)}
             style={isOn ? undefined : { backgroundColor: '#1a1410', borderColor: '#3a2e1c', color: '#a89875' }}
-            className={`shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
               isOn
                 ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
                 : 'hover:!border-primary/60 hover:!text-stone-100'
@@ -118,9 +90,10 @@ const FilterBarInner = ({
         );
       })}
     </div>
-    <div className="flex items-center gap-3 shrink-0">
+    <div className="flex items-center gap-2 shrink-0 ml-auto">
       <span className="text-xs" style={{ color: '#8a7a5c' }}>
-        <span className="font-bold text-stone-300">{count}</span> {count === 1 ? 'venue' : 'venues'}
+        <span className="font-bold text-stone-300">{count}</span>
+        <span className="hidden sm:inline"> {count === 1 ? 'venue' : 'venues'}</span>
       </span>
       {active.size > 0 && (
         <button
@@ -218,10 +191,12 @@ const Venues = () => {
     });
   };
 
-  const filteredVenues = useMemo(
-    () => sortVenues(venues.filter((v) => matchesFilters(v, activeFilters))),
-    [venues, activeFilters]
-  );
+  const filteredVenues = useMemo(() => {
+    const todayKey = londonDateKey(new Date());
+    const wk = getComingWeekendKeys();
+    const weekendKeys = new Set([wk.fri, wk.sat, wk.sun]);
+    return sortVenues(venues.filter((v) => matchesFilters(v, activeFilters, todayKey, weekendKeys)));
+  }, [venues, activeFilters]);
 
   return (
     <GlobalLayout

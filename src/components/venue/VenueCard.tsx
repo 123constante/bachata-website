@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import type { PublicVenueListItem } from '@/services/venuePublicService';
 import './VenueCard.css';
+import { parseUtcIso, londonDateKey, londonDaysFromToday, getComingWeekendKeys } from '@/lib/londonDate';
 
 type AmenityPill = { key: string; emoji: string; label: string };
 
@@ -12,7 +13,7 @@ const buildAmenities = (venue: PublicVenueListItem): AmenityPill[] => {
   // Floor type is now its own column on the venues table — no longer a
   // facilities_new[] entry. Surface it as the first amenity pill when set.
   if (venue.floor_type === 'wood') {
-    out.push({ key: 'wood_floor', emoji: '🪵', label: 'Wood floor' });
+    out.push({ key: 'wood_floor', emoji: '🪵', label: 'Wooden floor' });
   }
   if (facilities.includes('air_conditioning')) {
     out.push({ key: 'air_conditioning', emoji: '❄️', label: 'AC' });
@@ -37,27 +38,20 @@ const buildAmenities = (venue: PublicVenueListItem): AmenityPill[] => {
  * "when can I come dance here?" — the event name is the events page's job.
  */
 const formatNextEvent = (iso: string | null): { text: string; isSoon: boolean } | null => {
-  if (!iso) return null;
-  const dt = new Date(iso);
-  if (isNaN(dt.getTime())) return null;
-  const now = new Date();
+  const dt = parseUtcIso(iso);
+  if (!dt) return null;
 
-  const startOfDay = (d: Date) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  };
-  const dayDiff = Math.round(
-    (startOfDay(dt).getTime() - startOfDay(now).getTime()) / 86_400_000
-  );
+  // Day distance is measured on London calendar days (not the browser's), so
+  // the pill agrees with the Tonight / weekend filters on the directory.
+  const dayDiff = londonDaysFromToday(dt);
 
   if (dayDiff <= 0) return { text: 'Tonight', isSoon: true };
   if (dayDiff === 1) return { text: 'Tomorrow', isSoon: true };
   if (dayDiff < 7) {
-    const wd = dt.toLocaleDateString('en-GB', { weekday: 'long' });
+    const wd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long' }).format(dt);
     return { text: wd, isSoon: false };
   }
-  const date = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' }).format(dt);
   return { text: date, isSoon: false };
 };
 
@@ -74,40 +68,16 @@ const PILL_TEXT = '#5a4628';      // amenity pill text — dark warm
 const BORDER = '#c9a86a';         // card border — brass edge, tuned to the warm theme
 
 const getThisWeekendDays = (nextEventIso: string | null): { fri: boolean; sat: boolean; sun: boolean } => {
-  if (!nextEventIso) return { fri: false, sat: false, sun: false };
+  const dt = parseUtcIso(nextEventIso);
+  if (!dt) return { fri: false, sat: false, sun: false };
 
-  const eventDate = new Date(nextEventIso);
-  if (isNaN(eventDate.getTime())) return { fri: false, sat: false, sun: false };
-
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-
-  // Calculate this coming weekend's Friday-Sunday range
-  let daysUntilFriday: number;
-  if (dayOfWeek <= 5) {
-    daysUntilFriday = 5 - dayOfWeek;
-  } else {
-    daysUntilFriday = 5 + (7 - dayOfWeek);
-  }
-
-  const friday = new Date(now);
-  friday.setDate(friday.getDate() + daysUntilFriday);
-  friday.setHours(0, 0, 0, 0);
-
-  const sunday = new Date(friday);
-  sunday.setDate(sunday.getDate() + 2);
-  sunday.setHours(23, 59, 59, 999);
-
-  // Check if event falls within Fri-Sun range
-  const inRange = eventDate >= friday && eventDate <= sunday;
-  if (!inRange) return { fri: false, sat: false, sun: false };
-
-  // Determine which specific day
-  const eventDayOfWeek = eventDate.getDay();
+  // Match the event's London calendar date against the coming Fri/Sat/Sun.
+  const evKey = londonDateKey(dt);
+  const wk = getComingWeekendKeys();
   return {
-    fri: eventDayOfWeek === 5,
-    sat: eventDayOfWeek === 6,
-    sun: eventDayOfWeek === 0,
+    fri: evKey === wk.fri,
+    sat: evKey === wk.sat,
+    sun: evKey === wk.sun,
   };
 };
 
@@ -170,13 +140,13 @@ export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFil
               {isWeekendFilterActive && (weekendDays.fri || weekendDays.sat || weekendDays.sun) && (
                 <div className="weekend-badge-container">
                   {weekendDays.fri && (
-                    <div className="weekend-badge">Fri</div>
+                    <div className="weekend-badge">Friday</div>
                   )}
                   {weekendDays.sat && (
-                    <div className="weekend-badge">Sat</div>
+                    <div className="weekend-badge">Saturday</div>
                   )}
                   {weekendDays.sun && (
-                    <div className="weekend-badge">Sun</div>
+                    <div className="weekend-badge">Sunday</div>
                   )}
                 </div>
               )}
