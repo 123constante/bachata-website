@@ -124,7 +124,7 @@ const Organisers = () => {
         {/* Uniform portrait grid of B4 Holo Trading Cards.
             2 col mobile . 3 col tablet . 4 col desktop. */}
         {isLoading ? (
-          <div className="max-w-7xl mx-auto grid grid-cols-4 gap-2 px-2">
+          <div className="max-w-7xl mx-auto grid grid-cols-3 gap-2 px-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
@@ -150,7 +150,7 @@ const Organisers = () => {
             </p>
           </div>
         ) : (
-          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-4 gap-2 px-2">
+          <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-3 gap-2 px-2">
             {filteredOrganisers.map((organiser, index) => (
               <StaggerItem key={organiser.id}>
                 <OrganiserHoloCard
