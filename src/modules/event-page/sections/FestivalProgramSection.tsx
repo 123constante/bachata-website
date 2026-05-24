@@ -27,7 +27,8 @@ const TYPE_LABEL: Record<string, string> = {
   class:       'Class',
   show:        'Show',
   competition: 'Competition',
-  social:      'Social',
+  // Legacy `social` kind renders as "Party" — the word "social" is never shown.
+  social:      'Party',
 };
 
 // Default-title detection — suppresses redundant "Workshop", "Class 1",
@@ -44,7 +45,7 @@ const rankFor = (item: FestivalScheduleItem): { text: string; muted: boolean } =
   if (item.type === 'masterclass') return { text: 'Master', muted: false };
   if (item.type === 'show')        return { text: 'Show',   muted: false };
   if (item.type === 'competition') return { text: 'Comp',   muted: false };
-  if (item.type === 'social')      return { text: 'Social', muted: false };
+  if (item.type === 'social')      return { text: 'Party', muted: false };
 
   // Class / workshop / bootcamp → level is the headline when set.
   // Open Level wins over everything else if present (UI keeps it exclusive).

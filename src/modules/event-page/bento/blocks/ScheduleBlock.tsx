@@ -581,7 +581,8 @@ const KIND_LABEL: Record<string, string> = {
   classes: 'Classes',
   masterclass: 'Masterclass',
   party: 'Party',
-  social: 'Social',
+  // Legacy `social` kind renders as "Party" — the word "social" is never shown.
+  social: 'Party',
   showcase: 'Showcase',
   competition: 'Competition',
   concert: 'Concert',

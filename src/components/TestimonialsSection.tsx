@@ -5,7 +5,7 @@ const testimonials = [
   {
     name: 'Sofia M.',
     role: '’ƒ Social Dancer',
-    quote: "Found my dance family through this calendar! I went from dancing alone at home to hitting 3 socials a week.",
+    quote: "Found my dance family through this calendar! I went from dancing alone at home to hitting 3 parties a week.",
     image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face',
     rating: 5,
   },

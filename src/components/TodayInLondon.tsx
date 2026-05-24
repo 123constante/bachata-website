@@ -111,7 +111,7 @@ export const TodayInLondon = () => {
               </h3>
               
               <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                Classes, socials, and parties happening right now across London
+                Classes and parties happening right now across London
               </p>
 
               {/* Live indicator pills */}

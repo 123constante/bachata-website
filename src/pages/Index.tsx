@@ -42,7 +42,7 @@ const Index = () => {
     if (!cityDisplayName || cityDisplayName === 'Your City') return;
 
     const title = `Bachata Classes & Events in ${cityDisplayName} | Bachata Calendar`;
-    const description = `Find bachata classes, socials and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events - updated daily.`;
+    const description = `Find bachata classes, parties and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events - updated daily.`;
 
     document.title = title;
 

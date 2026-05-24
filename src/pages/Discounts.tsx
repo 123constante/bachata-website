@@ -35,7 +35,7 @@ const testimonials = [
 const faqs = [
   { question: "How do I use my VIP discount?", answer: "Simply say your name at the door or when booking online. Your membership is linked to your profile, so no codes or forms needed." },
   { question: "Can I cancel anytime?", answer: "Yes! There's no commitment. You can cancel your membership at any time from your profile settings." },
-  { question: "Which events are included?", answer: "All partner events in London are included. This covers most major bachata socials, parties, and workshops in the city." },
+  { question: "Which events are included?", answer: "All partner events in London are included. This covers most major bachata parties and workshops in the city." },
   { question: "How much will I actually save?", answer: "Most members save £50-200+ per month depending on how often they go out. If you attend 2+ events per month, you'll definitely save money." },
   { question: "What is guest list entry?", answer: "You get guaranteed entry at every partner event - just say your name at the door. No need to fill in guest list forms or worry about capacity." },
 ];
