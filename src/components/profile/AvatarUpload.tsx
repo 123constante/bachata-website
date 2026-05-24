@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { uploadToR2 } from '@/lib/uploadToR2';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -38,19 +38,9 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
       const fileName = `${userId}-${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+      const publicUrl = await uploadToR2(file, 'avatars', filePath);
 
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      onChange(data.publicUrl);
+      onChange(publicUrl);
       
       toast({
         title: "Photo uploaded!",

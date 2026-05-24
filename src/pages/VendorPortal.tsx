@@ -3,6 +3,7 @@ import { CalendarDays, Flame, Loader2, MapPin, Plus, Search, Trash2, Upload, X, 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToR2 } from "@/lib/uploadToR2";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/sentry";
@@ -311,18 +312,16 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       const extension = file.name.split(".").pop() || "jpg";
       const path = `vendors/${user.id}/${Date.now()}-${index}.${extension}`;
 
-      const { error: uploadError } = await supabase.storage.from("images").upload(path, file, {
-        upsert: false,
-      });
-
-      if (uploadError) {
+      let publicUrl: string;
+      try {
+        publicUrl = await uploadToR2(file, "images", path);
+      } catch (uploadError) {
         setUploadPending(false);
         setUploadProgress(0);
         throw new Error(formatUploadErrorMessage(uploadError));
       }
 
-      const { data } = supabase.storage.from("images").getPublicUrl(path);
-      uploaded.push(data.publicUrl);
+      uploaded.push(publicUrl);
       setUploadProgress(Math.round(((index + 1) / files.length) * 100));
     }
 

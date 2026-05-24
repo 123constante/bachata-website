@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadToR2 } from '@/lib/uploadToR2';
 import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/useAuth';
 import { useForm } from 'react-hook-form';
@@ -119,9 +120,7 @@ const CreateEvent = () => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${fileExt}`;
       const filePath = `covers/${fileName}`;
-      const { error: uploadError } = await supabase.storage.from('events').upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('events').getPublicUrl(filePath);
+      const publicUrl = await uploadToR2(file, 'events', filePath);
       setCoverImageUrl(publicUrl);
       toast({ title: 'Image uploaded' });
     } catch (error) {
