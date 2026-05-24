@@ -15,14 +15,35 @@ const parseUtc = (s: string): Date =>
   new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(' ', 'T') + 'Z');
 
 const addedAgo = (iso: string): string => {
-  const mins = Math.floor((Date.now() - parseUtc(iso).getTime()) / 60000);
-  if (mins < 60) return 'Just added';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + 'h ago';
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return days + ' days ago';
-  return 'Recently';
+  const then = parseUtc(iso);
+  const totalMins = Math.floor((Date.now() - then.getTime()) / 60000);
+  if (totalMins < 1) return 'Added just now';
+
+  const plural = (n: number, unit: string) => n + ' ' + unit + (n === 1 ? '' : 's');
+
+  // under 1 hour: minutes only
+  if (totalMins < 60) return 'Added ' + plural(totalMins, 'min') + ' ago';
+
+  const totalHours = Math.floor(totalMins / 60);
+  // under 1 day: hours + minutes (drop minutes when zero)
+  if (totalHours < 24) {
+    const mins = totalMins % 60;
+    return 'Added ' + plural(totalHours, 'hour') + (mins ? ' ' + plural(mins, 'min') : '') + ' ago';
+  }
+
+  const totalDays = Math.floor(totalHours / 24);
+  // under 1 week: days + hours (drop hours when zero)
+  if (totalDays < 7) {
+    const hours = totalHours % 24;
+    return 'Added ' + plural(totalDays, 'day') + (hours ? ' ' + plural(hours, 'hour') : '') + ' ago';
+  }
+
+  // older: absolute date (include year only when not the current year)
+  const opts: Intl.DateTimeFormatOptions =
+    then.getFullYear() === new Date().getFullYear()
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' };
+  return 'Added on ' + then.toLocaleDateString(undefined, opts);
 };
 
 const GRADIENTS = [
@@ -41,21 +62,24 @@ const glyphFor = (c: LatestEventCard): string => {
   return '\u{1F483}'; // dancer
 };
 
-const CLAMP2: React.CSSProperties = {
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  overflow: 'hidden',
+// Type chip (emoji + short label) derived from the same fields as glyphFor.
+const typeBadge = (c: LatestEventCard): { emoji: string; label: string } => {
+  if (c.type === 'festival') return { emoji: '\u{1F525}', label: 'Festival' }; // fire
+  if (c.hasClass && c.hasParty) return { emoji: '\u{1F483}', label: 'Class & Party' }; // dancer
+  if (c.hasClass) return { emoji: '\u{1F393}', label: 'Class' }; // graduation cap
+  if (c.hasParty) return { emoji: '\u{1F389}', label: 'Party' }; // party popper
+  return { emoji: '\u{1F483}', label: 'Event' }; // dancer
 };
 
 // ---------------------------------------------------------------------------
 // Card face (shared by the 3D wheel and the reduced-motion strip)
 //
-// Trimmed to poster + title + "added X ago" (vertically centred). Venue, date
-// and the category chip are intentionally not shown here.
+// Poster + single-line title + gold type chip + "added X ago" (vertically
+// centred). Long names truncate with an ellipsis; full name is on the event page.
 // ---------------------------------------------------------------------------
 
 const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string }) => {
+  const tb = typeBadge(card);
   return (
     <>
       <div className="relative h-[112px] w-full shrink-0 overflow-hidden">
@@ -81,11 +105,12 @@ const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string 
         </span>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </div>
-      <div className="flex flex-1 flex-col justify-center p-2.5">
-        <h3 className="text-sm font-semibold leading-tight" style={CLAMP2}>
-          {card.name}
-        </h3>
-        <p className="mt-1 text-[0.62rem] text-muted-foreground">{addedAgo(card.createdAt)}</p>
+      <div className="flex flex-1 flex-col justify-center gap-1 p-2.5">
+        <h3 className="truncate text-[13px] font-extrabold leading-tight">{card.name}</h3>
+        <p className="text-[0.62rem] text-muted-foreground">{addedAgo(card.createdAt)}</p>
+        <span className="inline-flex w-fit items-center gap-0.5 rounded-full border border-primary/40 bg-primary/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wide text-accent">
+          {tb.emoji} {tb.label}
+        </span>
       </div>
     </>
   );
@@ -199,6 +224,9 @@ export const LatestEventsWheel = () => {
   return (
     <ScrollReveal animation="fadeUp" duration={0.7} delay={0.1}>
       <section className="mb-2 mt-6">
+        <p className="relative z-10 mb-8 text-center text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          Recently added
+        </p>
         <div
           ref={stageRef}
           className="relative mx-auto h-[238px] cursor-grab touch-pan-y select-none active:cursor-grabbing"
@@ -223,14 +251,6 @@ export const LatestEventsWheel = () => {
           }}
         >
           <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          >
-            <span className="w-[118%] text-center text-[2.5rem] font-extrabold uppercase leading-[0.92] tracking-[0.06em] text-white/[0.13]">
-              Events just added
-            </span>
-          </div>
-          <div
             className="absolute left-1/2 top-[18px] h-[200px] w-[150px]"
             style={{ marginLeft: -75, transformStyle: 'preserve-3d' }}
           >
@@ -248,7 +268,7 @@ export const LatestEventsWheel = () => {
           </div>
         </div>
         <p className="mt-2 text-center text-[0.7rem] text-muted-foreground">
-          Auto-spins &middot; drag to explore
+          Swipe to browse &middot; tap to open
         </p>
       </section>
     </ScrollReveal>
