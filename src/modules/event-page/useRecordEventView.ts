@@ -19,7 +19,7 @@ export function useRecordEventView(
       void supabase
         .rpc('record_event_view_v1' as any, {
           p_event_id: eventId,
-          p_session_id: sessionId,
+          p_viewer_session_id: sessionId,
           p_source: source,
           p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           ...(occurrenceId ? { p_occurrence_id: occurrenceId } : {}),

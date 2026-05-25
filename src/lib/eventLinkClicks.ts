@@ -1,18 +1,20 @@
 // Bundle E.2 — public-event-page external-link click tracking.
 //
-// Calls record_event_link_click_v1 on the admin Supabase project. Uses
-// `navigator.sendBeacon` when available so the request survives the
-// browser tearing down the page on same-tab navigation, and falls back
-// to a `fetch(..., { keepalive: true })` POST to the same REST endpoint
-// when sendBeacon refuses or fails (some Supabase deploys reject
-// beacons because the apikey/Authorization headers aren't carried).
+// Records record_event_link_click_v1 via a fetch(..., { keepalive: true })
+// POST so the request survives the browser tearing down the page on same-tab
+// navigation (the click usually navigates away). It carries the same apikey +
+// Authorization headers the supabase-js client uses (proven to work) and lets
+// PostgREST map the JSON body keys to the function's named parameters.
 //
-// Bot-UA filtering and per-session rate limiting both live in the RPC.
-// The client only needs to:
-//   - skip when there's no event id,
-//   - pass the viewer_session_id so the RPC can apply its 30-clicks-per-
-//     hour cap,
-//   - never block navigation (fire-and-forget, all errors swallowed).
+// History: the original implementation tried navigator.sendBeacon first and
+// fell back to fetch with `Prefer: params=single-object`. Both failed silently
+// — the beacon couldn't authenticate, and that Prefer header is only valid for
+// single-json-argument RPCs, so it broke this multi-arg call. Result: zero
+// clicks ever recorded. This version uses one reliable path.
+//
+// Bot-UA filtering and per-session rate limiting live in the RPC. The client
+// only needs to: skip when there's no event id, pass the viewer_session_id,
+// and never block navigation (fire-and-forget, all errors swallowed).
 
 import { getViewerSessionId } from '@/lib/viewerSession';
 
@@ -57,38 +59,6 @@ function buildParams(args: RecordEventLinkClickArgs, sessionId: string, userAgen
   };
 }
 
-function sendViaBeacon(url: string, body: string): boolean {
-  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
-    return false;
-  }
-  try {
-    const blob = new Blob([body], { type: 'application/json' });
-    return navigator.sendBeacon(url, blob);
-  } catch {
-    return false;
-  }
-}
-
-function sendViaFetchKeepalive(url: string, body: string, apiKey: string): void {
-  // keepalive lets the request survive page navigation — Chrome / Edge /
-  // Firefox all support it for POSTs up to 64 KB, well above our payload.
-  void fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      Prefer: 'params=single-object',
-    },
-    body,
-    keepalive: true,
-    mode: 'cors',
-    credentials: 'omit',
-  }).catch(() => {
-    /* swallow — never block navigation */
-  });
-}
-
 export function recordEventLinkClick(args: RecordEventLinkClickArgs): void {
   if (!args.eventId) return;
   if (typeof window === 'undefined') return;
@@ -100,12 +70,22 @@ export function recordEventLinkClick(args: RecordEventLinkClickArgs): void {
   if (!params) return;
 
   const url = SUPABASE_URL.replace(/\/$/, '') + RPC_PATH;
-  const body = JSON.stringify(params);
 
-  // sendBeacon strips custom headers, so Supabase's apikey/Authorization
-  // can't be attached. We try it anyway — some deployments accept the
-  // anon role on RPC POSTs without the apikey header — and fall through
-  // to fetch+keepalive whenever beacon refuses or returns false.
-  if (sendViaBeacon(`${url}?apikey=${encodeURIComponent(SUPABASE_KEY)}`, body)) return;
-  sendViaFetchKeepalive(url, body, SUPABASE_KEY);
+  // keepalive lets the POST outlive same-tab navigation (Chrome/Edge/Firefox
+  // support it for bodies up to 64 KB, far above this payload). No Prefer
+  // header → PostgREST maps the JSON keys to the RPC's named parameters.
+  void fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+    },
+    body: JSON.stringify(params),
+    keepalive: true,
+    mode: 'cors',
+    credentials: 'omit',
+  }).catch(() => {
+    /* swallow — never block navigation */
+  });
 }
