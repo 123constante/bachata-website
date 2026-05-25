@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, getDayDotFlags } from '@/components/calendar/calendarUtils';
@@ -31,6 +31,9 @@ export const CalendarGrid = ({
 
   const displayCells = cells;
 
+  const prefersReducedMotion = useReducedMotion();
+  const monthLabel = new Date(currentYear, currentMonth, 1).toLocaleString('en-GB', { month: 'long' });
+
   return (
     <>
       {/* Day headers */}
@@ -45,7 +48,7 @@ export const CalendarGrid = ({
       {/* Day cells */}
       <div className="grid grid-cols-7 auto-rows-fr gap-1">
         {displayCells.map((day, index) => {
-          if (day === null) return <div key={`empty-${index}`} className="aspect-square rounded-xl" />;
+          if (day === null) return <div key={`empty-${index}`} aria-hidden="true" className="aspect-square rounded-xl" />;
 
           const isPast = isCurrentMonth && day < today.getDate();
           if (isPast) {
@@ -68,8 +71,10 @@ export const CalendarGrid = ({
             <motion.button
               key={day}
               onClick={() => hasEvents && onDayClick(day)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              aria-label={`${day} ${monthLabel} ${currentYear}${hasEvents ? ', view events' : ', no events'}`}
+              aria-current={isToday ? 'date' : undefined}
+              whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
               className={cn(
                 'aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all',
                 isToday

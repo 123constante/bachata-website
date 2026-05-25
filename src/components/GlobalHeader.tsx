@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
+import { Search } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
+import { useSearchOverlay } from '@/contexts/SearchOverlayContext';
 
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
+  const { open } = useSearchOverlay();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,10 +37,18 @@ export const GlobalHeader = () => {
         Skip to content
       </a>
 
-      <nav className="flex items-center justify-center h-[58px] px-4">
+      <nav className="flex items-center justify-between h-[58px] px-4">
         <Link to={homePath} className="flex items-center shrink-0" aria-label="Bachata Calendar home">
-          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-6 w-auto" />
+          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" />
         </Link>
+        <button
+          type="button"
+          onClick={open}
+          aria-label="Search"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-primary/10 hover:text-primary"
+        >
+          <Search className="h-5 w-5" />
+        </button>
       </nav>
 
       {/* Decorative orange line */}

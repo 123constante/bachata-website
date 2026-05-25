@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,7 +72,7 @@ const typeBadge = (c: LatestEventCard): { emoji: string; label: string } => {
 };
 
 // ---------------------------------------------------------------------------
-// Card face (shared by the 3D wheel and the reduced-motion strip)
+// Card face (shared by the Recently Added strip)
 //
 // Poster + single-line title + gold type chip + "added X ago" (vertically
 // centred). Long names truncate with an ellipsis; full name is on the event page.
@@ -87,6 +87,8 @@ const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string 
           <img
             src={card.coverImage}
             alt={card.name}
+            width={150}
+            height={112}
             loading="lazy"
             decoding="async"
             draggable={false}
@@ -123,77 +125,79 @@ const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string 
 export const LatestEventsWheel = () => {
   const navigate = useNavigate();
   const { data: cards, isLoading } = useLatestEvents();
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
-  const [reducedMotion, setReducedMotion] = useState(false);
+  // Gentle auto-scroll (ping-pong) that yields to the user: pauses on
+  // touch / hover / wheel and resumes ~2.5s later. Off for reduced-motion;
+  // paused while offscreen. Drives scrollLeft directly so a manual swipe
+  // takes over instantly.
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
+    const el = scrollerRef.current;
+    if (!el || typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const stageRef = useRef<HTMLDivElement>(null);
-  const cardEls = useRef<Array<HTMLButtonElement | null>>([]);
-  const rafRef = useRef<number>();
-  const baseRef = useRef(0);
-  const draggingRef = useRef(false);
-  const movedRef = useRef(false);
-  const lastXRef = useRef(0);
-  const visibleRef = useRef(true);
+    let raf = 0;
+    let dir = 1;
+    let paused = false;
+    let visible = true;
+    let resumeId = 0;
+    const SPEED = 0.35;
 
-  const count = cards?.length ?? 0;
-
-  useEffect(() => {
-    if (reducedMotion || count === 0) return;
-    const step = 360 / count;
-    const R = 230;
-    const render = () => {
-      for (let i = 0; i < count; i++) {
-        const el = cardEls.current[i];
-        if (!el) continue;
-        const ang = baseRef.current + i * step;
-        const facing = Math.cos((ang * Math.PI) / 180);
-        el.style.transform = 'rotateY(' + ang + 'deg) translateZ(' + R + 'px)';
-        el.style.opacity = String(facing > 0 ? 0.35 + 0.65 * facing : 0.12);
-        el.style.zIndex = String(Math.round(facing * 100));
-      }
-    };
-    render();
     const tick = () => {
-      if (!draggingRef.current && visibleRef.current) baseRef.current -= 0.07;
-      render();
-      rafRef.current = requestAnimationFrame(tick);
+      const max = el.scrollWidth - el.clientWidth;
+      if (!paused && visible && max > 4) {
+        let next = el.scrollLeft + SPEED * dir;
+        if (next >= max) { next = max; dir = -1; }
+        else if (next <= 0) { next = 0; dir = 1; }
+        el.scrollLeft = next;
+      }
+      raf = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
+
+    const pause = () => { paused = true; window.clearTimeout(resumeId); };
+    const resumeSoon = () => {
+      window.clearTimeout(resumeId);
+      resumeId = window.setTimeout(() => { paused = false; }, 2500);
+    };
+    const bump = () => { pause(); resumeSoon(); };
+
+    el.addEventListener('pointerdown', pause);
+    el.addEventListener('pointerup', resumeSoon);
+    el.addEventListener('pointercancel', resumeSoon);
+    el.addEventListener('touchstart', pause, { passive: true });
+    el.addEventListener('touchend', resumeSoon, { passive: true });
+    el.addEventListener('mouseenter', pause);
+    el.addEventListener('mouseleave', resumeSoon);
+    el.addEventListener('wheel', bump, { passive: true });
 
     let io: IntersectionObserver | undefined;
-    if (stageRef.current && 'IntersectionObserver' in window) {
-      io = new IntersectionObserver(
-        (entries) => {
-          visibleRef.current = entries[0]?.isIntersecting ?? true;
-        },
-        { threshold: 0.05 },
-      );
-      io.observe(stageRef.current);
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver((es) => { visible = es[0]?.isIntersecting ?? true; }, { threshold: 0.05 });
+      io.observe(el);
     }
+
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(raf);
+      window.clearTimeout(resumeId);
+      el.removeEventListener('pointerdown', pause);
+      el.removeEventListener('pointerup', resumeSoon);
+      el.removeEventListener('pointercancel', resumeSoon);
+      el.removeEventListener('touchstart', pause);
+      el.removeEventListener('touchend', resumeSoon);
+      el.removeEventListener('mouseenter', pause);
+      el.removeEventListener('mouseleave', resumeSoon);
+      el.removeEventListener('wheel', bump);
       io?.disconnect();
     };
-  }, [reducedMotion, count]);
-
-  const pick = (card: LatestEventCard) => {
-    if (movedRef.current) return; // was a drag, not a tap
-    navigate(card.occurrenceId ? '/event/' + card.id + '?occurrenceId=' + card.occurrenceId : '/event/' + card.id);
-  };
+  }, [cards]);
 
   if (isLoading) {
     return (
-      <section className="mb-2 mt-6 px-4">
-        <div className="flex justify-center gap-3">
+      <section className="mb-2 mt-6">
+        <div className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[200px] w-[150px] rounded-2xl" />
+            <Skeleton key={i} className="h-[200px] w-[150px] shrink-0 rounded-2xl" />
           ))}
         </div>
       </section>
@@ -202,11 +206,13 @@ export const LatestEventsWheel = () => {
 
   if (!cards || cards.length === 0) return null;
 
-  // Reduced motion: static, horizontally scrollable strip (no spin / no rAF).
-  if (reducedMotion) {
-    return (
+  return (
+    <ScrollReveal animation="fadeUp" duration={0.7} delay={0.1}>
       <section className="mb-2 mt-6">
-        <div className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide">
+        <p className="mb-3 text-center text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          Recently added
+        </p>
+        <div ref={scrollerRef} className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide">
           {cards.map((card, i) => (
             <button
               key={card.id}
@@ -217,57 +223,7 @@ export const LatestEventsWheel = () => {
             </button>
           ))}
         </div>
-      </section>
-    );
-  }
-
-  return (
-    <ScrollReveal animation="fadeUp" duration={0.7} delay={0.1}>
-      <section className="mb-2 mt-6">
-        <p className="relative z-10 mb-8 text-center text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
-          Recently added
-        </p>
-        <div
-          ref={stageRef}
-          className="relative mx-auto h-[238px] cursor-grab touch-pan-y select-none active:cursor-grabbing"
-          style={{ perspective: '760px', maxWidth: 360 }}
-          onPointerDown={(e) => {
-            draggingRef.current = true;
-            movedRef.current = false;
-            lastXRef.current = e.clientX;
-          }}
-          onPointerMove={(e) => {
-            if (!draggingRef.current) return;
-            const dx = e.clientX - lastXRef.current;
-            if (Math.abs(dx) > 3) movedRef.current = true;
-            baseRef.current += dx * 0.5;
-            lastXRef.current = e.clientX;
-          }}
-          onPointerUp={() => {
-            draggingRef.current = false;
-          }}
-          onPointerLeave={() => {
-            draggingRef.current = false;
-          }}
-        >
-          <div
-            className="absolute left-1/2 top-[18px] h-[200px] w-[150px]"
-            style={{ marginLeft: -75, transformStyle: 'preserve-3d' }}
-          >
-            {cards.map((card, i) => (
-              <button
-                key={card.id}
-                ref={(el) => (cardEls.current[i] = el)}
-                onClick={() => pick(card)}
-                className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-lg"
-                style={{ backfaceVisibility: 'hidden' }}
-              >
-                <CardFace card={card} gradient={GRADIENTS[i % GRADIENTS.length]} />
-              </button>
-            ))}
-          </div>
-        </div>
-        <p className="mt-2 text-center text-[0.7rem] text-muted-foreground">
+        <p className="mt-2 px-4 text-center text-[0.7rem] text-muted-foreground">
           Swipe to browse &middot; tap to open
         </p>
       </section>

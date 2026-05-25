@@ -5,6 +5,7 @@ import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { LatestEventsWheel } from '@/components/LatestEventsWheel';
+import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 
 // Lazy load the heavy calendar component
 const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
@@ -12,11 +13,18 @@ const EventCalendar = lazy(() => import('@/components/EventCalendar').then(modul
 const Index = () => {
   const { citySlug } = useCity();
 
-  const cityDisplayName = citySlug
-    ? citySlug.split('-')[0].replace(/^\w/, (c) => c.toUpperCase())
-    : 'Your City';
+  // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
+  // 'london-gb'); drop a trailing 2-letter country code and title-case every
+  // remaining word so multi-word cities render correctly ('new-york-us' ->
+  // 'New York', not 'New').
+  const cityDisplayName = useMemo(() => {
+    if (!citySlug) return 'Your City';
+    const parts = citySlug.split('-');
+    if (parts.length > 1 && parts[parts.length - 1].length === 2) parts.pop();
+    return parts.map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
+  }, [citySlug]);
 
-  // Fetch this week's events purely for the SEO meta event count.
+  // Fetch this week's events for the SEO meta event count + JSON-LD list.
   const weekStart = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -37,12 +45,21 @@ const Index = () => {
 
   const thisWeek = weekEvents?.length ?? 0;
 
+  // Schema.org ItemList of this week's events, emitted as inline JSON-LD so
+  // search engines can surface event rich results from the home page.
+  const eventsJsonLd = useMemo(() => {
+    if (!weekEvents || weekEvents.length === 0) return null;
+    const origin =
+      typeof window !== 'undefined' && window.location ? window.location.origin : '';
+    return renderEventListJsonLd({ events: weekEvents, origin });
+  }, [weekEvents]);
+
   // Update document meta tags for city SEO
   useEffect(() => {
     if (!cityDisplayName || cityDisplayName === 'Your City') return;
 
     const title = `Bachata Classes & Events in ${cityDisplayName} | Bachata Calendar`;
-    const description = `Find bachata classes, parties and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events - updated daily.`;
+    const description = `Find bachata classes, parties and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events \u2014 updated daily.`;
 
     document.title = title;
 
@@ -61,14 +78,34 @@ const Index = () => {
   return (
     <PageErrorBoundary>
       <GlobalLayout showSubheader={false}>
+        {eventsJsonLd && (
+          <script
+            type="application/ld+json"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: eventsJsonLd }}
+          />
+        )}
         {/* COMPACT BRAND STRIP */}
-        <div className="relative px-4 pt-12 pb-6 overflow-hidden">
+        <div className="relative px-4 pt-8 pb-6 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
           <div className="relative z-10 flex flex-col items-center justify-center text-center">
-            <h1 className="text-5xl font-black tracking-tight leading-tight mb-2">
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.02] mb-2">
               What's on in{' '}
               <span className="text-primary">{cityDisplayName}</span>
             </h1>
+            <p className="text-sm text-muted-foreground">
+              Every class, party &amp; festival in one place
+            </p>
+            {thisWeek > 0 && (
+              <span className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-primary/30 bg-card px-4 py-2 shadow-lg shadow-black/30">
+                <span className="animate-gradient-shift bg-gradient-to-r from-primary via-festival-pink to-primary bg-[length:200%_auto] bg-clip-text text-3xl font-black leading-none text-transparent">
+                  {thisWeek}
+                </span>
+                <span className="text-left text-[11px] font-bold uppercase tracking-wide leading-tight text-muted-foreground">
+                  {thisWeek === 1 ? 'event' : 'events'}<br />this week
+                </span>
+              </span>
+            )}
           </div>
         </div>
 
