@@ -1,9 +1,9 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
+import { Pencil, Loader2, ChevronLeft, Instagram, Facebook, Globe, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -35,68 +35,86 @@ type EventRow = {
   city: string | null;
 };
 
-// Trading-card gradients for the Coming Soon grid. Cycle by event index.
-// Same palette as the upcoming mini-cards from the picked mockup: orange/rose,
-// purple/blue, emerald/cyan, pink/amber. Locked to 4 for a deliberate rhythm.
-const TRADING_GRADIENTS = [
-  'bg-gradient-to-br from-orange-500 to-rose-700',
-  'bg-gradient-to-br from-purple-600 to-blue-700',
-  'bg-gradient-to-br from-emerald-600 to-cyan-600',
-  'bg-gradient-to-br from-pink-600 to-amber-500',
+type TeamMember = {
+  id: string;
+  memberId: string;
+  dancerId: string | null;
+  name: string;
+  avatarUrl: string | null;
+  role: string | null;
+  isHead: boolean | null;
+  isLeader: boolean | null;
+};
+
+// --- Spark FC palette + type (from the Claude Design "08 SPARK FC" direction) -
+const SP = {
+  gold: '#f5c518',
+  orange: '#ff5a1f',
+  paper: '#fbf8f1',
+  black: '#0b0b0d',
+};
+const FONT = {
+  display: '"Archivo Black", "Arial Black", sans-serif',
+  sans: '"DM Sans", system-ui, sans-serif',
+  mono: '"IBM Plex Mono", monospace',
+};
+const DISP: CSSProperties = { fontFamily: FONT.display };
+const MONO: CSSProperties = { fontFamily: FONT.mono };
+
+// Gradient fallbacks for posters/avatars with no image. Cycle by index.
+const SP_GRADS = [
+  'linear-gradient(135deg,#ff5a1f,#c4380e)',
+  'linear-gradient(135deg,#f5c518,#c98a00)',
+  'linear-gradient(135deg,#0b0b0d,#3a3a40)',
+  'linear-gradient(135deg,#ff5a1f,#f5c518)',
 ];
 
-// 3-letter initials for 3-plus-word names; first 4 chars for 1-2 word names.
-// Punctuation stripped, whitespace collapsed.
-const makeAbbrev = (name: string | null | undefined): string => {
+const initials = (name: string | null | undefined): string => {
   if (!name) return '?';
-  const words = name.replace(/[^\w\s]/g, '').trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  if (words.length >= 3) {
-    return words.slice(0, 4).map((w) => w[0]).join('').toUpperCase();
-  }
-  return words.join('').toUpperCase().slice(0, 4);
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-const formatTradingDate = (raw: string | null): string => {
-  if (!raw) return 'TBA';
+const dateParts = (raw: string | null): { day: string; mon: string } => {
+  if (!raw) return { day: '--', mon: 'TBA' };
   const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return 'TBA';
-  const day = d.getDate();
-  const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
-  return `${day} ${month}`;
+  if (Number.isNaN(d.getTime())) return { day: '--', mon: 'TBA' };
+  return {
+    day: String(d.getDate()).padStart(2, '0'),
+    mon: d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase(),
+  };
 };
 
-const formatCreditDate = (raw: string | null): string => {
+const weekdayShort = (raw: string | null): string => {
   if (!raw) return '';
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
 };
 
-// First non-"The" word from the venue, capped at 6 chars. Keeps the
-// trading-card meta block readable inside roughly 77px of card width.
-const venueShort = (event: EventRow): string => {
-  const raw = event.location?.trim() || event.city?.trim() || '';
+// Time only when start_time carries a real clock value (timestamp with a
+// non-midnight time). Time-only / date-only values return null.
+const eventTime = (raw: string | null): string | null => {
+  if (!raw || !raw.includes('T')) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getHours() === 0 && d.getMinutes() === 0) return null;
+  return d
+    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })
+    .replace(/\s/g, '')
+    .toLowerCase();
+};
+
+const formatPastDate = (raw: string | null): string => {
   if (!raw) return '';
-  const words = raw.split(/\s+/).filter((w) => w.toLowerCase() !== 'the');
-  return (words[0] || raw).slice(0, 6);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase();
 };
 
-const toRoman = (num: number): string => {
-  const pairs: Array<[number, string]> = [
-    [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
-    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
-    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
-  ];
-  let n = num;
-  let out = '';
-  for (const [val, sym] of pairs) {
-    while (n >= val) { out += sym; n -= val; }
-  }
-  return out;
-};
-
-// Connect-tile handle extraction (preserved from previous impl)
+// --- social label helpers --------------------------------------------------
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
   'home.php', 'events',
@@ -145,58 +163,123 @@ const extractDomain = (raw: string | null): string => {
   }
 };
 
-// Em-dashed section header rendered as: [dash] Starring [dash]
-const SectionHeader = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="flex justify-center items-center font-extralight text-[11px] tracking-[0.5em] text-neutral-400 uppercase pt-6 pb-3.5">
-    <span className="text-neutral-700 mx-3.5">&mdash;</span>
-    {children}
-    <span className="text-neutral-700 mx-3.5">&mdash;</span>
-  </h2>
+// --- sparky decoration -----------------------------------------------------
+const Star = ({ color, size = 24, style }: { color: string; size?: number; style?: CSSProperties }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={style}>
+    <path d="M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z" fill={color} />
+  </svg>
 );
 
-// Two-column credits row: role (right, muted), name (left, white).
-// Tappable when an href is provided.
-const CreditRow = ({
-  role,
-  name,
-  href,
-  external = false,
-}: {
-  role: string;
-  name: React.ReactNode;
-  href?: string;
-  external?: boolean;
-}) => {
+const hashStr = (s: string): number => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+};
+
+// Deterministic scattered star field behind the hero.
+const StarField = ({ seed, count, colors }: { seed: string; count: number; colors: string[] }) => {
+  let h = hashStr(seed) || 1;
+  const rnd = () => { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 8) / 16777216; };
+  const items = Array.from({ length: count }, (_, i) => {
+    const size = 12 + rnd() * 26;
+    const left = rnd() * 92;
+    const top = rnd() * 88;
+    const rot = rnd() * 360;
+    const op = 0.4 + rnd() * 0.4;
+    return (
+      <Star key={i} color={colors[i % colors.length]} size={size}
+        style={{ position: 'absolute', left: `${left}%`, top: `${top}%`, transform: `rotate(${rot}deg)`, opacity: op }} />
+    );
+  });
+  return <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">{items}</div>;
+};
+
+// --- presentational pieces -------------------------------------------------
+const TeamCard = ({ member, index }: { member: TeamMember; index: number }) => {
   const inner = (
     <>
-      <div className="text-right text-neutral-400 text-[9.5px] tracking-[0.28em] uppercase font-normal">
-        {role}
+      <div className="relative w-full aspect-square">
+        <div
+          className="absolute -top-2 -right-2 z-[2] flex items-center justify-center rounded-full w-9 h-9 md:w-12 md:h-12 border-[3px]"
+          style={{ ...DISP, background: SP.black, color: SP.gold, borderColor: SP.gold }}
+        >
+          <span className="text-sm md:text-lg leading-none">{String(index + 1).padStart(2, '0')}</span>
+        </div>
+        <Avatar className="w-full h-full rounded-full border-4" style={{ borderColor: SP.black, background: SP.gold }}>
+          <AvatarImage src={member.avatarUrl || undefined} alt={member.name} className="object-cover" />
+          <AvatarFallback className="text-white text-xl" style={{ ...DISP, background: SP_GRADS[index % SP_GRADS.length] }}>
+            {initials(member.name)}
+          </AvatarFallback>
+        </Avatar>
       </div>
-      <div className="text-center text-neutral-700 text-[11px]">&middot;</div>
-      <div className="text-left text-white text-[13px] tracking-[0.06em] font-light truncate">
-        {name}
+      <div className="mt-3 uppercase leading-tight text-sm md:text-base" style={{ ...DISP, color: SP.black }}>{member.name}</div>
+      <div className="mt-1 text-[10px] uppercase tracking-[0.12em]" style={{ ...MONO, color: SP.orange }}>
+        {member.role || 'Team'}
       </div>
     </>
   );
-  const cls = cn(
-    'grid grid-cols-[1fr_14px_1fr] gap-2.5 items-baseline py-2 border-b border-dashed border-white/[0.08] transition-colors',
-    href && 'cursor-pointer hover:bg-orange-500/[0.04]',
+  const cls = 'block text-center';
+  return member.dancerId ? (
+    <Link to={`/dancers/${member.dancerId}`} className={cls}>{inner}</Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
-  if (href) {
-    if (external) {
-      return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
-          {inner}
-        </a>
-      );
-    }
-    return (
-      <Link to={href} className={cls}>
-        {inner}
-      </Link>
-    );
-  }
-  return <div className={cls}>{inner}</div>;
+};
+
+const EventRow = ({ event, index }: { event: EventRow; index: number }) => {
+  const whenDate = event.date ?? event.start_time;
+  const { day, mon } = dateParts(whenDate);
+  const wd = weekdayShort(whenDate);
+  const time = eventTime(event.start_time);
+  const venue = event.location?.trim() || event.city?.trim() || '';
+  const grad = SP_GRADS[index % SP_GRADS.length];
+  const rowBg = index % 2 === 1 ? SP.orange : 'transparent';
+  return (
+    <Link to={`/event/${event.id}`} className="block">
+      {/* Mobile card */}
+      <div className="md:hidden flex items-center gap-3 p-3.5 border-t-2" style={{ borderColor: SP.black, background: rowBg, color: SP.black }}>
+        <div className="flex-none w-11 text-center">
+          <div className="text-2xl leading-none" style={{ ...DISP, color: SP.orange }}>{day}</div>
+          <div className="text-[10px] tracking-[0.1em]" style={MONO}>{mon}</div>
+        </div>
+        <div className="flex-none w-12 h-12 rounded-md overflow-hidden" style={{ background: grad }}>
+          {event.poster_url && <img src={event.poster_url} alt="" className="w-full h-full object-cover" loading="lazy" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-base uppercase leading-tight truncate" style={DISP}>{event.name}</div>
+          <div className="text-[10px] opacity-70 truncate" style={MONO}>{venue}{venue && time ? ` \u00b7 ${time}` : ''}</div>
+        </div>
+      </div>
+      {/* Desktop row */}
+      <div
+        className="hidden md:grid grid-cols-[56px_150px_1fr_200px_70px] gap-3 items-center px-5 py-5 border-t"
+        style={{ borderColor: 'rgba(11,11,13,0.18)', background: rowBg, color: SP.black }}
+      >
+        <div className="text-3xl" style={{ ...DISP, color: SP.black }}>{String(index + 1).padStart(2, '0')}</div>
+        <div>
+          <div className="text-[10px] tracking-[0.2em]" style={{ ...MONO, color: SP.orange }}>{wd}</div>
+          <div className="text-2xl leading-none" style={DISP}>{day} {mon}</div>
+        </div>
+        <div className="text-2xl uppercase leading-tight" style={DISP}>{event.name}</div>
+        <div className="text-xs" style={MONO}>{venue}</div>
+        <div className="text-base" style={DISP}>{time || '\u2014'}</div>
+      </div>
+    </Link>
+  );
+};
+
+const PastRow = ({ event }: { event: EventRow }) => {
+  const dt = formatPastDate(event.date ?? event.start_time);
+  const venue = event.location?.trim() || event.city?.trim() || '';
+  return (
+    <Link to={`/event/${event.id}`} className="block py-3 border-t" style={{ borderColor: 'rgba(11,11,13,0.3)', color: SP.black }}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-base md:text-xl uppercase leading-tight truncate" style={DISP}>{event.name}</span>
+        <span className="text-[11px] flex-none opacity-70" style={MONO}>{dt}</span>
+      </div>
+      {venue && <div className="text-[11px] opacity-60 mt-0.5" style={MONO}>{venue}</div>}
+    </Link>
+  );
 };
 
 const OrganiserProfile = () => {
@@ -208,6 +291,7 @@ const OrganiserProfile = () => {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAllPast, setShowAllPast] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     avatar_url: '',
@@ -272,7 +356,7 @@ const OrganiserProfile = () => {
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['organiser-team', id],
-    queryFn: async () => {
+    queryFn: async (): Promise<TeamMember[]> => {
       if (!id) return [];
       const { data: teamRows, error } = await supabase
         .from('organiser_team_members')
@@ -324,8 +408,8 @@ const OrganiserProfile = () => {
     );
   }, [teamMembers]);
 
-  const teamWithoutLeader = useMemo(
-    () => (leader ? teamMembers.filter((m) => m.id !== leader.id) : teamMembers),
+  const orderedTeam = useMemo(
+    () => (leader ? [leader, ...teamMembers.filter((m) => m.id !== leader.id)] : teamMembers),
     [teamMembers, leader],
   );
 
@@ -377,8 +461,6 @@ const OrganiserProfile = () => {
     }
     return earliest === null ? null : new Date(earliest).getFullYear();
   }, [allEvents]);
-
-  const currentYearRoman = useMemo(() => toRoman(new Date().getFullYear()), []);
 
   const totalEventsCount = allEvents.length;
   const showSinceYear = sinceYear !== null && sinceYear < new Date().getFullYear();
@@ -517,23 +599,16 @@ const OrganiserProfile = () => {
   // Loading state
   if (isLoading) {
     return (
-      <GlobalLayout
-        breadcrumbs={organiserBreadcrumbs}
-        backHref="/organisers"
-        showGradientBg={false}
-        showProgressBar={false}
-      >
-        <article className="bg-black text-neutral-100 min-h-screen pb-12">
-          <div className="px-4 pt-20 pb-5 border-b border-white/[0.08] text-center">
-            <Skeleton className="h-3 w-44 mx-auto mb-4 bg-white/5" />
-            <Skeleton className="h-7 w-60 mx-auto mb-3 bg-white/5" />
-            <Skeleton className="h-3 w-32 mx-auto bg-white/5" />
-          </div>
-          <SectionHeader>Loading credits</SectionHeader>
-          <div className="px-4 pb-4 flex flex-col items-center gap-3">
-            <Skeleton className="h-[84px] w-[84px] rounded-full bg-white/5" />
-            <Skeleton className="h-4 w-40 bg-white/5" />
-            <Skeleton className="h-3 w-28 bg-white/5" />
+      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
+        <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.orange }}>
+          <div className="px-4 md:px-12 pt-20 pb-10">
+            <Skeleton className="h-3 w-52 bg-black/15" />
+            <Skeleton className="h-24 w-3/4 mt-6 bg-black/15" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] mt-6 border-2 border-black/20 bg-black/20">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-20" style={{ background: SP.orange }} />
+              ))}
+            </div>
           </div>
         </article>
       </GlobalLayout>
@@ -543,36 +618,25 @@ const OrganiserProfile = () => {
   // Not-found state
   if (error || !entity) {
     return (
-      <GlobalLayout
-        breadcrumbs={organiserBreadcrumbs}
-        backHref="/organisers"
-        showGradientBg={false}
-        showProgressBar={false}
-      >
-        <article className="bg-black text-neutral-100 min-h-screen pb-12">
-          <div className="px-4 pt-16 pb-5 text-center">
-            <div className="font-light text-[10px] tracking-[0.5em] text-neutral-500 uppercase mb-4 flex items-center justify-center">
-              <span className="text-neutral-700 mx-3">&mdash;</span>
-              the end
-              <span className="text-neutral-700 mx-3">&mdash;</span>
-            </div>
-            <h1 className="font-extralight text-2xl tracking-[0.22em] text-white uppercase mb-4 leading-tight">
-              Production not found
-            </h1>
-            <p className="text-neutral-400 text-sm mb-8 max-w-xs mx-auto">
-              The organiser profile you're looking for doesn't exist.
-            </p>
-            <Button onClick={() => navigate('/organisers')} variant="outline" className="font-light text-[9.5px] tracking-[0.32em] uppercase">
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Back to Organisers
-            </Button>
+      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
+        <article className="min-h-screen flex items-center justify-center px-6" style={{ fontFamily: FONT.sans, background: SP.orange, color: SP.black }}>
+          <div className="text-center">
+            <h1 className="text-4xl uppercase" style={DISP}>Organiser not found</h1>
+            <p className="mt-3 text-sm max-w-xs mx-auto">The organiser profile you&rsquo;re looking for doesn&rsquo;t exist.</p>
+            <button
+              onClick={() => navigate('/organisers')}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2 text-[11px] tracking-[0.2em] uppercase"
+              style={{ ...MONO, background: SP.black, color: SP.gold }}
+            >
+              <ChevronLeft className="w-4 h-4" /> Back to organisers
+            </button>
           </div>
         </article>
       </GlobalLayout>
     );
   }
 
-  // Data preparation
+  // --- data preparation ----------------------------------------------------
   const socials = entity.socials as { instagram?: string; website?: string; facebook?: string } | null;
   const instagramRaw = (entity as any).instagram || socials?.instagram || null;
   const websiteRaw = (entity as any).website || socials?.website || null;
@@ -609,364 +673,260 @@ const OrganiserProfile = () => {
   const phoneHref = contactPhone ? `tel:${String(contactPhone).replace(/\s+/g, '')}` : null;
   const emailHref = contactEmail ? `mailto:${contactEmail}` : null;
 
-  const igLabel = extractIgHandle(instagramRaw);
-  const fbLabel = extractFbHandle(facebookRaw);
-  const webLabel = extractDomain(websiteRaw);
-  const emailLabel = contactEmail ? String(contactEmail) : 'Email';
-  const phoneLabel = contactPhone ? String(contactPhone).trim() : 'Call';
-
-  type ConnectItem = { key: string; href: string; role: string; name: string; external: boolean };
+  type ConnectItem = { key: string; href: string; label: string; value: string; external: boolean; Icon: typeof Instagram };
   const connectItems: ConnectItem[] = [];
-  if (instagramUrl) connectItems.push({ key: 'ig', href: instagramUrl, role: 'Instagram', name: igLabel, external: true });
-  if (facebookUrl) connectItems.push({ key: 'fb', href: facebookUrl, role: 'Facebook', name: fbLabel, external: true });
-  if (websiteUrl) connectItems.push({ key: 'web', href: websiteUrl, role: 'Website', name: webLabel, external: true });
-  if (emailHref) connectItems.push({ key: 'mail', href: emailHref, role: 'Email', name: emailLabel, external: false });
-  if (phoneHref) connectItems.push({ key: 'phone', href: phoneHref, role: 'Phone', name: phoneLabel, external: false });
+  if (instagramUrl) connectItems.push({ key: 'ig', href: instagramUrl, label: 'Instagram', value: extractIgHandle(instagramRaw), external: true, Icon: Instagram });
+  if (facebookUrl) connectItems.push({ key: 'fb', href: facebookUrl, label: 'Facebook', value: extractFbHandle(facebookRaw), external: true, Icon: Facebook });
+  if (websiteUrl) connectItems.push({ key: 'web', href: websiteUrl, label: 'Website', value: extractDomain(websiteRaw), external: true, Icon: Globe });
+  if (emailHref) connectItems.push({ key: 'mail', href: emailHref, label: 'Email', value: String(contactEmail), external: false, Icon: Mail });
+  if (phoneHref) connectItems.push({ key: 'phone', href: phoneHref, label: 'Phone', value: String(contactPhone).trim(), external: false, Icon: Phone });
 
   const isUnclaimed = !entity.claimed_by;
   const isClaimedByUser = entity.claimed_by === user?.id;
   const canClaim = !!user && isUnclaimed;
 
   const cityName = entity.cities?.name ?? (entity as any).city ?? null;
+  const yearsActive = showSinceYear && sinceYear ? new Date().getFullYear() - sinceYear : null;
 
-  // Stats triplet: render only the cells that have data. Falls back gracefully
-  // to 2-up or 1-up when team / upcoming are empty.
-  const statsCells: Array<{ value: number; label: string }> = [];
-  if (totalEventsCount > 0) statsCells.push({ value: totalEventsCount, label: 'Events' });
-  if (teamMembers.length > 0) statsCells.push({ value: teamMembers.length, label: 'Crew' });
-  if (upcomingEvents.length > 0) statsCells.push({ value: upcomingEvents.length, label: 'Upcoming' });
+  // Real stats only (no invented player/league figures).
+  const stats: { value: string; label: string }[] = [];
+  if (totalEventsCount > 0) stats.push({ value: String(totalEventsCount), label: totalEventsCount === 1 ? 'EVENT' : 'EVENTS' });
+  if (teamMembers.length > 0) stats.push({ value: String(teamMembers.length), label: 'TEAM' });
+  if (upcomingEvents.length > 0) stats.push({ value: String(upcomingEvents.length), label: 'UPCOMING' });
+  if (yearsActive && yearsActive > 0) stats.push({ value: String(yearsActive), label: yearsActive === 1 ? 'YEAR' : 'YEARS' });
 
-  // Perforated filmstrip edges: repeating-linear-gradient computed once so the
-  // two strip edges (top and bottom) reuse the same value.
-  const strip = 'repeating-linear-gradient(90deg, transparent 0, transparent 18px, white 18px, white 20px, transparent 20px, transparent 30px)';
+  const metaPill = [organisationCategory, cityName, showSinceYear ? `EST ${sinceYear}` : null]
+    .filter(Boolean)
+    .join('  \u00b7  ');
+
+  const nextEvent = upcomingEvents[0];
+  const marqueeItems = [
+    `${entity.name}${cityName ? ` \u2014 ${cityName}` : ''}`,
+    totalEventsCount > 0 ? `${totalEventsCount} ${totalEventsCount === 1 ? 'EVENT' : 'EVENTS'} \u00b7 ${teamMembers.length} TEAM` : null,
+    nextEvent ? `NEXT: ${dateParts(nextEvent.date ?? nextEvent.start_time).day} ${dateParts(nextEvent.date ?? nextEvent.start_time).mon} \u2014 ${nextEvent.name}` : null,
+    organisationCategory,
+  ].filter(Boolean) as string[];
 
   return (
-    <GlobalLayout
-      breadcrumbs={organiserBreadcrumbs}
-      backHref="/organisers"
-      showGradientBg={false}
-      showProgressBar={false}
-    >
-      <article className="bg-black text-neutral-100 min-h-screen pb-12">
+    <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
+      <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.black, color: SP.black }}>
 
-        {/* Opening title card */}
-        <header className="px-4 pt-20 pb-5 border-b border-white/[0.08] text-center">
-          <div className="font-light text-[10px] tracking-[0.5em] text-neutral-500 uppercase mb-4 flex items-center justify-center">
-            <span className="text-neutral-700 mx-3">&mdash;</span>
-            a {entity.name} production
-            <span className="text-neutral-700 mx-3">&mdash;</span>
+        {/* HERO */}
+        <header className="relative overflow-hidden px-4 md:px-12 pt-20 pb-8 md:pb-12" style={{ background: SP.orange, color: SP.black }}>
+          <StarField seed={`hero-${id}`} count={10} colors={[SP.gold, SP.black]} />
+          <div
+            className="absolute inset-0 opacity-[0.10] pointer-events-none"
+            style={{ background: `repeating-linear-gradient(90deg, transparent 0, transparent 72px, ${SP.black} 72px, ${SP.black} 73px)` }}
+          />
+
+          {/* meta + owner actions */}
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em]" style={MONO}>BACHATA CALENDAR / ORGANISER</div>
+            <div className="flex items-center gap-2 flex-none">
+              {isClaimedByUser && (
+                <button
+                  onClick={openEditModal}
+                  aria-label="Edit profile"
+                  className="inline-flex items-center justify-center w-8 h-8"
+                  style={{ background: SP.black, color: SP.gold }}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {canClaim && (
+                <button
+                  onClick={handleClaim}
+                  className="px-2.5 py-1.5 text-[10px] tracking-[0.18em] uppercase"
+                  style={{ ...MONO, background: SP.black, color: SP.gold }}
+                >
+                  Claim
+                </button>
+              )}
+            </div>
           </div>
-          <h1 className="font-extralight text-2xl sm:text-3xl tracking-[0.22em] text-white uppercase leading-[1.15]">
-            {entity.name}
-          </h1>
-          {(cityName || showSinceYear) && (
-            <div className="font-light text-[9.5px] tracking-[0.32em] text-neutral-400 mt-3.5 uppercase">
-              {cityName && <span>{cityName}</span>}
-              {cityName && showSinceYear && <span className="text-neutral-700 mx-1.5">&middot;</span>}
-              {showSinceYear && <span>est. {sinceYear}</span>}
+
+          {metaPill && (
+            <div className="relative mt-2.5">
+              <span className="inline-block px-2 py-1 text-[10px] md:text-[11px] uppercase tracking-[0.14em]" style={{ ...MONO, background: SP.black, color: SP.gold }}>
+                {metaPill}
+              </span>
             </div>
           )}
-          {(organisationCategory || cityName) && (
-            <div className="flex justify-center gap-2 mt-3.5 flex-wrap">
-              {organisationCategory && (
-                <Link
-                  to={`/organisers?category=${encodeURIComponent(organisationCategory)}`}
-                  className="inline-flex items-center gap-1.5 font-light text-[9px] tracking-[0.28em] text-orange-400 uppercase px-2.5 py-1.5 border border-orange-500/40 rounded-full hover:border-orange-500 transition-colors"
-                  aria-label={`See all ${organisationCategory} organisers`}
-                >
-                  <span className="w-[3px] h-[3px] rounded-full bg-current opacity-70" />
-                  {organisationCategory}
-                </Link>
-              )}
-              {cityName && (
-                <Link
-                  to="/cities"
-                  className="inline-flex items-center gap-1.5 font-light text-[9px] tracking-[0.28em] text-white uppercase px-2.5 py-1.5 border border-white/[0.16] rounded-full hover:border-orange-500 hover:text-orange-400 transition-colors"
-                  aria-label={`See ${cityName}`}
-                >
-                  <span className="w-[3px] h-[3px] rounded-full bg-current opacity-70" />
-                  {cityName}
-                </Link>
-              )}
+
+          {/* crest + name */}
+          <div className="relative mt-5 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
+            <div className="flex-none self-start mx-auto md:mx-0" style={{ width: 132, height: 158 }}>
+              <div
+                className="w-full h-full flex flex-col items-center justify-center px-3"
+                style={{ background: SP.black, color: SP.gold, clipPath: 'polygon(50% 0,100% 20%,100% 80%,50% 100%,0 80%,0 20%)' }}
+              >
+                {entity.avatar_url ? (
+                  <img src={entity.avatar_url} alt={entity.name} className="w-16 h-16 object-contain" />
+                ) : (
+                  <div className="text-3xl" style={DISP}>{initials(entity.name)}</div>
+                )}
+                {showSinceYear && <div className="mt-3 text-[8px] tracking-[0.25em]" style={MONO}>EST {sinceYear}</div>}
+              </div>
             </div>
-          )}
-          {canClaim && (
-            <button
-              onClick={handleClaim}
-              className="inline-block mt-5 font-normal text-[9.5px] tracking-[0.32em] text-orange-400 uppercase border-y border-orange-500/30 px-3.5 py-1.5 hover:text-orange-300 hover:border-orange-500/50 transition-colors"
+            <h1
+              className="uppercase text-center md:text-left break-words"
+              style={{ ...DISP, fontSize: 'clamp(40px, 12vw, 132px)', lineHeight: 0.86, letterSpacing: '-0.03em', color: SP.black }}
             >
-              &laquo; claim this profile
-            </button>
+              {entity.name}
+            </h1>
+          </div>
+
+          {entity.bio && (
+            <p className="relative mt-5 max-w-2xl font-medium text-base md:text-lg leading-snug" style={{ color: SP.black }}>
+              {entity.bio}
+            </p>
+          )}
+
+          {stats.length > 0 && (
+            <div
+              className="relative mt-6 flex flex-wrap gap-[2px] border-2"
+              style={{ background: SP.black, borderColor: SP.black }}
+            >
+              {stats.map((s, i) => (
+                <div key={s.label} className="p-3 md:p-4 flex-1 basis-[calc(50%-2px)] md:basis-0" style={{ background: i % 2 === 0 ? SP.orange : SP.gold }}>
+                  <div className="text-4xl md:text-5xl leading-none tracking-tight" style={DISP}>{s.value}</div>
+                  <div className="text-[10px] tracking-[0.2em] mt-1" style={MONO}>{s.label}</div>
+                </div>
+              ))}
+            </div>
           )}
         </header>
 
-        {/* Stats triplet */}
-        {statsCells.length > 0 && (
-          <div
-            className="grid border-b border-white/[0.08] py-5 px-4"
-            style={{ gridTemplateColumns: `repeat(${statsCells.length}, minmax(0, 1fr))` }}
-          >
-            {statsCells.map((c, i) => (
-              <div key={c.label} className="relative text-center">
-                {i > 0 && (
-                  <span className="absolute left-0 top-[14%] bottom-[14%] w-px bg-white/[0.16]" />
-                )}
-                <div className="font-extralight text-[28px] text-white leading-none tracking-[0.04em]">
-                  {c.value}
-                </div>
-                <div className="font-light text-[8.5px] tracking-[0.34em] text-neutral-400 uppercase mt-1.5">
-                  {c.label}
-                </div>
-              </div>
-            ))}
+        {/* GOLD MARQUEE */}
+        {marqueeItems.length > 0 && (
+          <div className="overflow-hidden border-y" style={{ background: SP.gold, color: SP.black, borderColor: SP.black }}>
+            <div className="inline-flex whitespace-nowrap py-3 animate-ticker-scroll" style={MONO}>
+              {[0, 1].map((rep) =>
+                marqueeItems.map((it, j) => (
+                  <span key={`${rep}-${j}`} className="inline-flex items-center gap-4 mr-10 text-[11px] font-bold uppercase tracking-[0.12em]">
+                    {it}
+                    <span style={{ color: SP.orange }}>&#9733;</span>
+                  </span>
+                )),
+              )}
+            </div>
           </div>
         )}
 
-        {/* Directed by (head organiser) */}
-        {leader && (
-          <>
-            <SectionHeader>Directed by</SectionHeader>
-            <div className="px-4 pb-4 flex flex-col items-center gap-3 relative">
-              {isClaimedByUser && (
-                <button
-                  type="button"
-                  onClick={openEditModal}
-                  aria-label="Edit profile"
-                  className="absolute -top-2 right-4 w-[26px] h-[26px] rounded-full border border-white/[0.16] bg-black text-neutral-400 hover:border-orange-500 hover:text-orange-400 transition-colors flex items-center justify-center"
-                >
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-              <Avatar
-                className="w-[84px] h-[84px] border border-white/[0.16]"
-                style={{ filter: 'grayscale(0.35) contrast(1.05)' }}
-              >
-                <AvatarImage src={leader.avatarUrl || undefined} alt={leader.name} />
-                <AvatarFallback className="bg-gradient-to-br from-neutral-700 to-neutral-900 text-white font-extralight text-3xl tracking-[0.04em]">
-                  {leader.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              {leader.dancerId ? (
-                <Link
-                  to={`/dancers/${leader.dancerId}`}
-                  className="font-light text-base tracking-[0.32em] text-white uppercase hover:text-orange-400 transition-colors text-center"
-                >
-                  {leader.name}
-                </Link>
-              ) : (
-                <div className="font-light text-base tracking-[0.32em] text-white uppercase text-center">
-                  {leader.name}
-                </div>
-              )}
-              <div className="font-normal text-[9px] tracking-[0.4em] text-orange-400 uppercase text-center">
-                {leader.role || (leader.isHead ? 'Head organiser' : 'Lead')}
-              </div>
+        {/* TEAM */}
+        {orderedTeam.length > 0 && (
+          <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.paper, color: SP.black }}>
+            <div className="flex items-baseline justify-between mb-6">
+              <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={DISP}>TEAM</h2>
+              <span className="text-[11px] tracking-[0.2em] uppercase" style={MONO}>
+                {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
+              </span>
             </div>
-          </>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-7">
+              {orderedTeam.map((m, i) => <TeamCard key={m.id} member={m} index={i} />)}
+            </div>
+          </section>
         )}
 
-        {/* Starring (crew) */}
-        {teamWithoutLeader.length > 0 && (
-          <>
-            <SectionHeader>Starring</SectionHeader>
-            <div className="px-4 pb-2">
-              {teamWithoutLeader.map((member) => (
-                <CreditRow
-                  key={member.id}
-                  role={member.role || 'Team'}
-                  name={member.name}
-                  href={member.dancerId ? `/dancers/${member.dancerId}` : undefined}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Based on a true story (bio) */}
-        {entity.bio && (
-          <>
-            <SectionHeader>Based on a true story</SectionHeader>
-            <div className="px-6 pb-3 text-center">
-              <p
-                className="italic text-[13px] leading-relaxed text-neutral-100 max-w-[300px] mx-auto whitespace-pre-wrap"
-                style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', letterSpacing: '0.01em' }}
-              >
-                {entity.bio}
-              </p>
-            </div>
-          </>
-        )}
-
-        {/* Coming soon (upcoming trading cards) */}
-        {upcomingEvents.length > 0 && (
-          <>
-            <SectionHeader>Coming soon</SectionHeader>
-            <div className="px-4 pb-4">
-              <div className="flex flex-wrap justify-center gap-2">
-                {upcomingEvents.slice(0, 8).map((event, i) => {
-                  const grad = TRADING_GRADIENTS[i % TRADING_GRADIENTS.length];
-                  const abbrev = makeAbbrev(event.name);
-                  const dateLabel = formatTradingDate(event.start_time ?? event.date);
-                  const venue = venueShort(event);
-                  return (
-                    <Link
-                      key={event.id}
-                      to={`/event/${event.id}`}
-                      className={cn(
-                        'relative overflow-hidden rounded-md p-1.5 w-[84px] shrink-0 flex flex-col justify-between text-center text-white transition-transform hover:-translate-y-0.5',
-                        grad,
-                      )}
-                      style={{ aspectRatio: '0.7' }}
-                      aria-label={event.name}
-                    >
-                      <span className="absolute top-0 left-0 right-0 h-[30%] bg-gradient-to-b from-white/[0.18] to-transparent pointer-events-none" />
-                      <span className="relative font-light text-[15px] tracking-[0.1em] text-white leading-none">
-                        {abbrev}
-                      </span>
-                      <span className="relative font-normal text-[8.5px] leading-tight">
-                        <span className="block font-semibold tracking-[0.12em]">{dateLabel}</span>
-                        {venue}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-              {upcomingEvents.length > 8 && (
-                <p className="text-center font-light text-[10px] tracking-[0.32em] text-neutral-400 uppercase mt-3.5">
-                  + {upcomingEvents.length - 8} more &mdash;
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* For enquiries (connect) */}
+        {/* GET IN TOUCH */}
         {connectItems.length > 0 && (
-          <>
-            <SectionHeader>For enquiries</SectionHeader>
-            <div className="px-4 pb-3">
+          <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.black, color: SP.gold }}>
+            <h2 className="text-3xl md:text-5xl uppercase tracking-tight mb-5" style={{ ...DISP, color: SP.gold }}>
+              GET IN <span style={{ color: SP.orange }}>TOUCH</span>
+            </h2>
+            <div className="flex flex-wrap gap-[2px] border-2" style={{ background: SP.gold, borderColor: SP.gold }}>
               {connectItems.map((item) => (
-                <CreditRow
+                <a
                   key={item.key}
-                  role={item.role}
-                  name={item.name}
                   href={item.href}
-                  external={item.external}
-                />
+                  target={item.external ? '_blank' : undefined}
+                  rel={item.external ? 'noopener noreferrer' : undefined}
+                  className="flex-1 basis-[calc(50%-2px)] md:basis-0 p-4 transition-colors hover:bg-[#1a1a1f]"
+                  style={{ background: SP.black }}
+                >
+                  <div className="flex items-center gap-1.5 text-[10px] tracking-[0.25em] uppercase" style={{ ...MONO, color: SP.orange }}>
+                    <item.Icon className="w-3.5 h-3.5" />{item.label}
+                  </div>
+                  <div className="mt-2 text-base break-words" style={{ ...DISP, color: SP.gold }}>{item.value}</div>
+                </a>
               ))}
             </div>
-          </>
+          </section>
         )}
 
-        {/* Previously (past events) */}
-        {pastEvents.length > 0 && (
-          <>
-            <SectionHeader>Previously</SectionHeader>
-            <div className="px-4 pb-2">
-              {pastEvents.slice(0, 12).map((event) => {
-                const dt = formatCreditDate(event.start_time ?? event.date);
-                const venue = event.location?.trim() || event.city?.trim() || '';
-                return (
-                  <Link
-                    key={event.id}
-                    to={`/event/${event.id}`}
-                    className="grid grid-cols-[60px_1fr] gap-3 items-baseline py-1.5 border-b border-dashed border-white/[0.08] font-light text-[11.5px] text-left hover:bg-orange-500/[0.04] transition-colors"
-                  >
-                    <div className="font-normal text-[9px] tracking-[0.18em] text-neutral-400 uppercase text-right">
-                      {dt}
-                    </div>
-                    <div className="text-white tracking-[0.02em] truncate">
-                      {event.name}
-                      {venue && (
-                        <span className="block text-neutral-400 text-[9px] tracking-[0.22em] uppercase mt-0.5 font-normal truncate">
-                          {venue}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-              {pastEvents.length > 12 && (
-                <p className="text-center font-light text-[10px] tracking-[0.32em] text-neutral-400 uppercase pt-3.5 pb-1.5">
-                  + {pastEvents.length - 12} more in the archive &mdash;
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Stills (gallery filmstrip) */}
-        {galleryUrls.length > 0 && (
-          <>
-            <SectionHeader>Stills</SectionHeader>
-            <div className="relative border-y border-white/[0.08] bg-black py-3.5">
-              <span
-                className="absolute top-0 left-0 right-0 h-2 opacity-[0.15] pointer-events-none"
-                style={{ background: strip }}
-              />
-              <div
-                className="flex gap-1.5 px-3.5 overflow-x-auto"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                {galleryUrls.slice(0, 12).map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 transition-[filter] duration-200 hover:[filter:none]"
-                    style={{ width: 84, height: 60, filter: 'grayscale(0.85) contrast(1.05)' }}
-                  >
-                    <img
-                      src={url}
-                      alt={`${entity.name} still ${i + 1}`}
-                      className="w-full h-full object-cover rounded-sm"
-                      loading="lazy"
-                    />
-                  </a>
-                ))}
+        {/* WHAT'S ON */}
+        <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.paper, color: SP.black }}>
+          <div className="flex items-baseline justify-between mb-5">
+            <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={DISP}>
+              WHAT&rsquo;S <span style={{ color: SP.orange }}>ON</span>
+            </h2>
+            {upcomingEvents.length > 0 && (
+              <span className="text-[11px] tracking-[0.2em] uppercase" style={MONO}>
+                {upcomingEvents.length} {upcomingEvents.length === 1 ? 'event' : 'events'}
+              </span>
+            )}
+          </div>
+          {upcomingEvents.length > 0 ? (
+            <div className="border-2" style={{ borderColor: SP.black }}>
+              <div className="hidden md:grid grid-cols-[56px_150px_1fr_200px_70px] gap-3 px-5 py-2.5 text-[10px] tracking-[0.2em] uppercase" style={{ ...MONO, background: SP.black, color: SP.gold }}>
+                <span>#</span><span>DATE</span><span>EVENT</span><span>VENUE</span><span>TIME</span>
               </div>
-              <span
-                className="absolute bottom-0 left-0 right-0 h-2 opacity-[0.15] pointer-events-none"
-                style={{ background: strip }}
-              />
+              {upcomingEvents.map((e, i) => <EventRow key={e.id} event={e} index={i} />)}
             </div>
-          </>
-        )}
+          ) : (
+            <p className="text-sm" style={MONO}>No upcoming events right now &mdash; check back soon.</p>
+          )}
+        </section>
 
-        {/* Empty state (no events at all) */}
-        {upcomingEvents.length === 0 && pastEvents.length === 0 && (
-          <>
-            <SectionHeader>Coming soon</SectionHeader>
-            <div className="px-6 pb-2 text-center">
-              <p
-                className="italic text-[12.5px] text-neutral-400 leading-relaxed max-w-[280px] mx-auto"
-                style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+        {/* PAST */}
+        {pastEvents.length > 0 && (
+          <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.gold, color: SP.black }}>
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={{ ...DISP, color: SP.black }}>PAST</h2>
+              <span className="text-[11px] tracking-[0.2em] uppercase" style={MONO}>
+                {Math.min(showAllPast ? pastEvents.length : 6, pastEvents.length)} of {pastEvents.length}
+              </span>
+            </div>
+            <div>
+              {(showAllPast ? pastEvents : pastEvents.slice(0, 6)).map((e) => <PastRow key={e.id} event={e} />)}
+            </div>
+            {pastEvents.length > 6 && (
+              <button
+                onClick={() => setShowAllPast((v) => !v)}
+                className="mt-4 inline-flex items-center px-3 py-1.5 text-[11px] tracking-[0.18em] uppercase"
+                style={{ ...MONO, background: SP.black, color: SP.gold }}
               >
-                Awaiting first production. Check back &mdash; or follow for the announcement.
-              </p>
-            </div>
-          </>
+                {showAllPast ? 'Show less' : `Show all ${pastEvents.length}`}
+              </button>
+            )}
+          </section>
         )}
 
-        {/* Fin / sign-off */}
-        <div className="px-4 pt-6 pb-4 text-center">
-          <div className="font-extralight text-[13px] tracking-[0.6em] text-white uppercase flex items-center justify-center">
-            <span className="inline-block w-5 h-px bg-neutral-700 mx-3" />
-            Fin
-            <span className="inline-block w-5 h-px bg-neutral-700 mx-3" />
-          </div>
-          <div className="font-light text-[9.5px] tracking-[0.32em] text-neutral-400 uppercase mt-3.5">
-            a <em className="not-italic text-orange-400">{entity.name}</em> production
-          </div>
-          <div className="font-extralight text-[14px] tracking-[0.4em] text-neutral-700 mt-2">
-            {currentYearRoman}
-          </div>
-        </div>
+        {/* GALLERY */}
+        {galleryUrls.length > 0 && (
+          <section className="px-4 md:px-12 py-10 md:py-16" style={{ background: SP.paper, color: SP.black }}>
+            <h2 className="text-4xl md:text-6xl uppercase tracking-tight mb-5" style={DISP}>
+              GAL<span style={{ color: SP.orange }}>LERY</span>
+            </h2>
+            <div className="grid grid-cols-3 md:grid-cols-6 auto-rows-[100px] md:auto-rows-[140px] gap-1.5">
+              {galleryUrls.slice(0, 12).map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn('overflow-hidden block', i === 0 && 'col-span-2 row-span-2')}
+                >
+                  <img src={url} alt={`${entity.name} photo ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
       </article>
 
-      {/* Edit dialog (unchanged from previous impl) */}
+      {/* Edit dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
