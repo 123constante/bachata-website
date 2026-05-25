@@ -12,6 +12,8 @@ import { GlobalHeader } from "@/components/GlobalHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CityProvider } from "@/contexts/CityContext";
+import { SearchOverlayProvider } from "@/contexts/SearchOverlayContext";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -64,6 +66,7 @@ const App = () => {
           <BrowserRouter>
             <ScrollToTop />
             <CityProvider>
+              <SearchOverlayProvider>
               <GlobalBackground />
               <GlobalHeader />
               {/* Spacer that matches the sticky header height so NO page has content blocked behind it */}
@@ -78,6 +81,8 @@ const App = () => {
               {/* Spacer reserving space for the fixed BottomNav (incl. iOS safe-area inset) */}
               <div className="h-[calc(64px+env(safe-area-inset-bottom))] shrink-0" aria-hidden="true" />
               <BottomNav />
+              <SearchOverlay />
+              </SearchOverlayProvider>
             </CityProvider>
           </BrowserRouter>
         </TooltipProvider>

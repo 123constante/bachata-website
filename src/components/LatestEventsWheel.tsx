@@ -87,6 +87,8 @@ const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string 
           <img
             src={card.coverImage}
             alt={card.name}
+            width={150}
+            height={112}
             loading="lazy"
             decoding="async"
             draggable={false}

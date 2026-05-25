@@ -176,11 +176,14 @@ export const DayDetailModal = ({
           )}
 
           {/* Category tabs */}
-          <div className="flex items-center justify-around w-full border-b border-white/10">
+          <div role="tablist" aria-label="Filter events by type" className="flex items-center justify-around w-full border-b border-white/10">
             {(['all', 'parties', 'classes'] as Category[]).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setPopupFilter(cat)}
+                role="tab"
+                aria-selected={popupFilter === cat}
+                aria-label={`${cat === 'all' ? 'All' : cat === 'parties' ? 'Parties' : 'Classes'}, ${allDayEvents.filter((e) => matchesCategory(e, cat)).length} events`}
                 className={cn(
                   'flex-1 py-4 text-sm font-bold uppercase tracking-wider relative transition-colors',
                   popupFilter === cat
@@ -266,7 +269,7 @@ export const DayDetailModal = ({
                               : 'bg-primary/10 text-primary/40',
                         )}
                       >
-                        <span className="text-4xl">{event.hasParty ? '🎉' : event.hasClass ? '🎓' : '🎪'}</span>
+                        <span aria-hidden="true" className="text-4xl">{event.hasParty ? '🎉' : event.hasClass ? '🎓' : '🎪'}</span>
                       </div>
                     )}
                   </div>
@@ -276,7 +279,7 @@ export const DayDetailModal = ({
                       {event.title}
                     </h4>
                     <div className="flex items-center justify-end gap-1.5 font-bold text-[12px] truncate mt-1 w-full">
-                      <span className="text-[12px]">📍</span>
+                      <span aria-hidden="true" className="text-[12px]">📍</span>
                       <span className="truncate tracking-wide">{event.venueName}</span>
                     </div>
                     {(event.goingCount ?? 0) > 0 && (
