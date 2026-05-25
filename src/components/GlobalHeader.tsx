@@ -37,15 +37,15 @@ export const GlobalHeader = () => {
         Skip to content
       </a>
 
-      <nav className="relative flex items-center justify-center h-[58px] px-4">
+      <nav className="flex items-center justify-between h-[58px] px-4">
         <Link to={homePath} className="flex items-center shrink-0" aria-label="Bachata Calendar home">
-          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-6 w-auto" />
+          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" />
         </Link>
         <button
           type="button"
           onClick={open}
           aria-label="Search"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-primary/10 hover:text-primary"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-primary/10 hover:text-primary"
         >
           <Search className="h-5 w-5" />
         </button>

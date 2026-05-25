@@ -89,23 +89,21 @@ const Index = () => {
         <div className="relative px-4 pt-8 pb-6 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
           <div className="relative z-10 flex flex-col items-center justify-center text-center">
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-accent">
-              {cityDisplayName} &middot; Bachata
-            </p>
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.02] mb-2">
               What's on in{' '}
               <span className="text-primary">{cityDisplayName}</span>
             </h1>
-            <p className="max-w-[280px] text-sm text-muted-foreground">
-              Every class, party &amp; festival in one place &mdash; updated daily.
+            <p className="text-sm text-muted-foreground">
+              Every class, party &amp; festival in one place
             </p>
             {thisWeek > 0 && (
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/15 px-3 py-1 text-xs font-bold text-accent">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-primary/30 bg-card px-4 py-2 shadow-lg shadow-black/30">
+                <span className="animate-gradient-shift bg-gradient-to-r from-primary via-festival-pink to-primary bg-[length:200%_auto] bg-clip-text text-3xl font-black leading-none text-transparent">
+                  {thisWeek}
                 </span>
-                {thisWeek} {thisWeek === 1 ? 'event' : 'events'} this week
+                <span className="text-left text-[11px] font-bold uppercase tracking-wide leading-tight text-muted-foreground">
+                  {thisWeek === 1 ? 'event' : 'events'}<br />this week
+                </span>
               </span>
             )}
           </div>
