@@ -99,6 +99,13 @@ name: DB Contract Check
 #     exports. Health-check RPC:
 #     check_occurrence_instance_time_canonical_v1 (admin migrations
 #     20260623070000 / 20260623080000 / 20260623090000).
+# 21. The analytics tracking RPC param-contract — record_event_view_v1 and
+#     record_event_link_click_v1 must accept the EXACT parameter names the
+#     frontend sends (src/modules/event-page/useRecordEventView.ts,
+#     src/lib/eventLinkClicks.ts). A DB-side param rename silently 404s every
+#     tracking call — this happened May 2026 (p_session_id -> p_viewer_session_id)
+#     and froze event-view capture for 16 days. Calls use a bot UA so the RPC
+#     bot-filter returns before any row is written.
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -283,3 +290,10 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-latest-events.mjs
+
+      - name: Run tracking RPC param-contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-tracking-rpc-contract.mjs
