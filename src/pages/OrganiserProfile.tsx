@@ -35,6 +35,11 @@ type EventRow = {
   city: string | null;
 };
 
+// EventRow enriched with the date/time the row should render and sort by:
+// the next future occurrence (from calendar_occurrences) when one exists,
+// otherwise the base event date. Null = no known date (TBA).
+type OrgEvent = EventRow & { displayStart: string | null };
+
 type TeamMember = {
   id: string;
   memberId: string;
@@ -50,7 +55,7 @@ type TeamMember = {
 const SP = {
   gold: '#f5c518',
   orange: '#ff5a1f',
-  paper: '#fbf8f1',
+  paper: '#f1e9d8',
   black: '#0b0b0d',
 };
 const FONT = {
@@ -226,11 +231,11 @@ const TeamCard = ({ member, index }: { member: TeamMember; index: number }) => {
   );
 };
 
-const EventRow = ({ event, index }: { event: EventRow; index: number }) => {
-  const whenDate = event.date ?? event.start_time;
+const EventRow = ({ event, index }: { event: OrgEvent; index: number }) => {
+  const whenDate = event.displayStart;
   const { day, mon } = dateParts(whenDate);
   const wd = weekdayShort(whenDate);
-  const time = eventTime(event.start_time);
+  const time = eventTime(whenDate);
   const venue = event.location?.trim() || event.city?.trim() || '';
   const grad = SP_GRADS[index % SP_GRADS.length];
   const rowBg = index % 2 === 1 ? SP.orange : 'transparent';
@@ -268,8 +273,8 @@ const EventRow = ({ event, index }: { event: EventRow; index: number }) => {
   );
 };
 
-const PastRow = ({ event }: { event: EventRow }) => {
-  const dt = formatPastDate(event.date ?? event.start_time);
+const PastRow = ({ event }: { event: OrgEvent }) => {
+  const dt = formatPastDate(event.displayStart);
   const venue = event.location?.trim() || event.city?.trim() || '';
   return (
     <Link to={`/event/${event.id}`} className="block py-3 border-t" style={{ borderColor: 'rgba(11,11,13,0.3)', color: SP.black }}>
@@ -303,6 +308,7 @@ const OrganiserProfile = () => {
     contact_email: '',
     contact_phone: '',
     organisation_category: '',
+    founded_year: '',
   });
 
   const { data: entity, isLoading, error } = useQuery({
@@ -352,6 +358,31 @@ const OrganiserProfile = () => {
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Resolve each linked event's next future occurrence. calendar_occurrences
+  // is anon-readable for active events; we filter to this organiser's event IDs
+  // and keep the earliest instance_start >= now per event.
+  const eventIds = useMemo(() => allEvents.map((e) => e.id), [allEvents]);
+
+  const { data: nextByEvent = {} } = useQuery({
+    queryKey: ['organiser-next-occ', id, eventIds],
+    enabled: eventIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from('calendar_occurrences')
+        .select('event_id, instance_start')
+        .in('event_id', eventIds)
+        .gte('instance_start', new Date().toISOString())
+        .order('instance_start', { ascending: true });
+      if (error) return {};
+      const map: Record<string, string> = {};
+      for (const r of (data ?? []) as { event_id: string; instance_start: string }[]) {
+        if (!map[r.event_id]) map[r.event_id] = r.instance_start; // asc -> first is earliest
+      }
+      return map;
+    },
   });
 
   const { data: teamMembers = [] } = useQuery({
@@ -420,35 +451,29 @@ const OrganiserProfile = () => {
   }, []);
 
   const { upcomingEvents, pastEvents } = useMemo(() => {
-    const upcoming: EventRow[] = [];
-    const past: EventRow[] = [];
+    const upcoming: OrgEvent[] = [];
+    const past: OrgEvent[] = [];
     for (const e of allEvents) {
-      const raw = e.start_time ?? e.date;
-      if (!raw) {
-        upcoming.push(e);
-        continue;
-      }
-      const ts = new Date(raw).getTime();
-      if (Number.isNaN(ts)) {
-        upcoming.push(e);
-      } else if (ts >= todayMs) {
-        upcoming.push(e);
+      const occNext = nextByEvent[e.id] ?? null;
+      const baseRaw = e.start_time ?? e.date;
+      const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
+      // Next future start: a future occurrence wins; else the base date if it
+      // is itself in the future (covers events with no occurrence rows).
+      const nextStart =
+        occNext ?? (baseRaw && !Number.isNaN(baseMs) && baseMs >= todayMs ? baseRaw : null);
+      if (nextStart) {
+        upcoming.push({ ...e, displayStart: nextStart });
+      } else if (!baseRaw) {
+        // No date at all - surface as upcoming/TBA (preserves prior behaviour).
+        upcoming.push({ ...e, displayStart: null });
       } else {
-        past.push(e);
+        past.push({ ...e, displayStart: baseRaw });
       }
     }
-    upcoming.sort((a, b) => {
-      const aT = a.start_time ?? a.date ?? '';
-      const bT = b.start_time ?? b.date ?? '';
-      return aT.localeCompare(bT);
-    });
-    past.sort((a, b) => {
-      const aT = a.start_time ?? a.date ?? '';
-      const bT = b.start_time ?? b.date ?? '';
-      return bT.localeCompare(aT);
-    });
+    upcoming.sort((a, b) => (a.displayStart ?? '').localeCompare(b.displayStart ?? ''));
+    past.sort((a, b) => (b.displayStart ?? '').localeCompare(a.displayStart ?? ''));
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [allEvents, todayMs]);
+  }, [allEvents, nextByEvent, todayMs]);
 
   const sinceYear = useMemo(() => {
     let earliest: number | null = null;
@@ -524,6 +549,7 @@ const OrganiserProfile = () => {
       contact_email: (entity as any).contact_email || '',
       contact_phone: (entity as any).contact_phone || '',
       organisation_category: (entity as any).organisation_category || '',
+      founded_year: (entity as any).founded_year ? String((entity as any).founded_year) : '',
     });
     setIsEditOpen(true);
   };
@@ -571,6 +597,7 @@ const OrganiserProfile = () => {
           contact_email: editForm.contact_email.trim() || null,
           contact_phone: editForm.contact_phone.trim() || null,
           organisation_category: editForm.organisation_category.trim() || null,
+          founded_year: editForm.founded_year.trim() && Number.isFinite(Number(editForm.founded_year.trim())) ? Number(editForm.founded_year.trim()) : null,
           socials: nextSocials,
         })
         .eq('id', id)
@@ -599,14 +626,14 @@ const OrganiserProfile = () => {
   // Loading state
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
-        <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.orange }}>
+      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+        <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.paper }}>
           <div className="px-4 md:px-12 pt-20 pb-10">
             <Skeleton className="h-3 w-52 bg-black/15" />
             <Skeleton className="h-24 w-3/4 mt-6 bg-black/15" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] mt-6 border-2 border-black/20 bg-black/20">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-20" style={{ background: SP.orange }} />
+                <div key={i} className="h-20" style={{ background: 'rgba(11,11,13,0.08)' }} />
               ))}
             </div>
           </div>
@@ -618,8 +645,8 @@ const OrganiserProfile = () => {
   // Not-found state
   if (error || !entity) {
     return (
-      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
-        <article className="min-h-screen flex items-center justify-center px-6" style={{ fontFamily: FONT.sans, background: SP.orange, color: SP.black }}>
+      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+        <article className="min-h-screen flex items-center justify-center px-6" style={{ fontFamily: FONT.sans, background: SP.paper, color: SP.black }}>
           <div className="text-center">
             <h1 className="text-4xl uppercase" style={DISP}>Organiser not found</h1>
             <p className="mt-3 text-sm max-w-xs mx-auto">The organiser profile you&rsquo;re looking for doesn&rsquo;t exist.</p>
@@ -686,34 +713,48 @@ const OrganiserProfile = () => {
   const canClaim = !!user && isUnclaimed;
 
   const cityName = entity.cities?.name ?? (entity as any).city ?? null;
-  const yearsActive = showSinceYear && sinceYear ? new Date().getFullYear() - sinceYear : null;
+  // Prefer an explicit founded year; fall back to the earliest event year, but
+  // only when it predates this year (so a brand-new org doesn't read "EST 2026").
+  const foundedYear = ((entity as any).founded_year as number | null | undefined) ?? null;
+  const estYear = foundedYear ?? (showSinceYear ? sinceYear : null);
+  const yearsActive = estYear !== null ? new Date().getFullYear() - estYear : null;
 
-  // Real stats only (no invented player/league figures).
+  // Event-centric stats only: what a visitor actually cares about. Team has its
+  // own section below, and total events == upcoming + past, so both are omitted.
   const stats: { value: string; label: string }[] = [];
-  if (totalEventsCount > 0) stats.push({ value: String(totalEventsCount), label: totalEventsCount === 1 ? 'EVENT' : 'EVENTS' });
-  if (teamMembers.length > 0) stats.push({ value: String(teamMembers.length), label: 'TEAM' });
-  if (upcomingEvents.length > 0) stats.push({ value: String(upcomingEvents.length), label: 'UPCOMING' });
-  if (yearsActive && yearsActive > 0) stats.push({ value: String(yearsActive), label: yearsActive === 1 ? 'YEAR' : 'YEARS' });
+  if (upcomingEvents.length > 0) stats.push({ value: String(upcomingEvents.length), label: upcomingEvents.length === 1 ? 'UPCOMING EVENT' : 'UPCOMING EVENTS' });
+  const nextEventStart = upcomingEvents[0]?.displayStart ?? null;
+  if (nextEventStart) {
+    const ed = new Date(nextEventStart);
+    if (!Number.isNaN(ed.getTime())) {
+      ed.setHours(0, 0, 0, 0);
+      const days = Math.round((ed.getTime() - todayMs) / 86400000);
+      stats.push(
+        days <= 0
+          ? { value: 'TODAY', label: 'NEXT EVENT' }
+          : { value: String(days), label: days === 1 ? 'DAY TO NEXT' : 'DAYS TO NEXT' },
+      );
+    }
+  }
+  if (pastEvents.length > 0) stats.push({ value: String(pastEvents.length), label: pastEvents.length === 1 ? 'PAST EVENT' : 'PAST EVENTS' });
+  if (yearsActive && yearsActive > 0) stats.push({ value: String(yearsActive), label: yearsActive === 1 ? 'YEAR ACTIVE' : 'YEARS ACTIVE' });
 
-  const metaPill = [organisationCategory, cityName, showSinceYear ? `EST ${sinceYear}` : null]
+  const metaPill = [organisationCategory, cityName, estYear !== null ? `EST ${estYear}` : null]
     .filter(Boolean)
     .join('  \u00b7  ');
 
   const nextEvent = upcomingEvents[0];
   const marqueeItems = [
-    `${entity.name}${cityName ? ` \u2014 ${cityName}` : ''}`,
-    totalEventsCount > 0 ? `${totalEventsCount} ${totalEventsCount === 1 ? 'EVENT' : 'EVENTS'} \u00b7 ${teamMembers.length} TEAM` : null,
-    nextEvent ? `NEXT: ${dateParts(nextEvent.date ?? nextEvent.start_time).day} ${dateParts(nextEvent.date ?? nextEvent.start_time).mon} \u2014 ${nextEvent.name}` : null,
-    organisationCategory,
+    nextEvent ? `NEXT: ${dateParts(nextEvent.displayStart).day} ${dateParts(nextEvent.displayStart).mon} \u2014 ${nextEvent.name}` : null,
   ].filter(Boolean) as string[];
 
   return (
-    <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" showGradientBg={false} showProgressBar={false}>
+    <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
       <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.black, color: SP.black }}>
 
         {/* HERO */}
-        <header className="relative overflow-hidden px-4 md:px-12 pt-20 pb-8 md:pb-12" style={{ background: SP.orange, color: SP.black }}>
-          <StarField seed={`hero-${id}`} count={10} colors={[SP.gold, SP.black]} />
+        <header className="relative overflow-hidden px-4 md:px-12 pt-20 pb-8 md:pb-12" style={{ background: SP.paper, color: SP.black }}>
+          <StarField seed={`hero-${id}`} count={10} colors={[SP.orange, SP.gold]} />
           <div
             className="absolute inset-0 opacity-[0.10] pointer-events-none"
             style={{ background: `repeating-linear-gradient(90deg, transparent 0, transparent 72px, ${SP.black} 72px, ${SP.black} 73px)` }}
@@ -721,7 +762,7 @@ const OrganiserProfile = () => {
 
           {/* meta + owner actions */}
           <div className="relative flex items-start justify-between gap-3">
-            <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em]" style={MONO}>BACHATA CALENDAR / ORGANISER</div>
+            <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em]" style={MONO}>BACHATA CALENDAR <span style={{ color: SP.orange }}>/</span> ORGANISER</div>
             <div className="flex items-center gap-2 flex-none">
               {isClaimedByUser && (
                 <button
@@ -765,7 +806,7 @@ const OrganiserProfile = () => {
                 ) : (
                   <div className="text-3xl" style={DISP}>{initials(entity.name)}</div>
                 )}
-                {showSinceYear && <div className="mt-3 text-[8px] tracking-[0.25em]" style={MONO}>EST {sinceYear}</div>}
+                {estYear !== null && <div className="mt-3 text-[8px] tracking-[0.25em]" style={MONO}>EST {estYear}</div>}
               </div>
             </div>
             <h1
@@ -788,7 +829,7 @@ const OrganiserProfile = () => {
               style={{ background: SP.black, borderColor: SP.black }}
             >
               {stats.map((s, i) => (
-                <div key={s.label} className="p-3 md:p-4 flex-1 basis-[calc(50%-2px)] md:basis-0" style={{ background: i % 2 === 0 ? SP.orange : SP.gold }}>
+                <div key={s.label} className="p-3 md:p-4 flex-1 basis-[calc(50%-2px)] md:basis-0" style={{ background: i === 0 ? SP.orange : SP.paper }}>
                   <div className="text-4xl md:text-5xl leading-none tracking-tight" style={DISP}>{s.value}</div>
                   <div className="text-[10px] tracking-[0.2em] mt-1" style={MONO}>{s.label}</div>
                 </div>
@@ -817,7 +858,7 @@ const OrganiserProfile = () => {
         {orderedTeam.length > 0 && (
           <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.paper, color: SP.black }}>
             <div className="flex items-baseline justify-between mb-6">
-              <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={DISP}>TEAM</h2>
+              <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={{ ...DISP, color: SP.black }}>TEAM</h2>
               <span className="text-[11px] tracking-[0.2em] uppercase" style={MONO}>
                 {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
               </span>
@@ -857,7 +898,7 @@ const OrganiserProfile = () => {
         {/* WHAT'S ON */}
         <section className="px-4 md:px-12 py-10 md:py-14" style={{ background: SP.paper, color: SP.black }}>
           <div className="flex items-baseline justify-between mb-5">
-            <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={DISP}>
+            <h2 className="text-4xl md:text-6xl uppercase tracking-tight" style={{ ...DISP, color: SP.black }}>
               WHAT&rsquo;S <span style={{ color: SP.orange }}>ON</span>
             </h2>
             {upcomingEvents.length > 0 && (
@@ -905,7 +946,7 @@ const OrganiserProfile = () => {
         {/* GALLERY */}
         {galleryUrls.length > 0 && (
           <section className="px-4 md:px-12 py-10 md:py-16" style={{ background: SP.paper, color: SP.black }}>
-            <h2 className="text-4xl md:text-6xl uppercase tracking-tight mb-5" style={DISP}>
+            <h2 className="text-4xl md:text-6xl uppercase tracking-tight mb-5" style={{ ...DISP, color: SP.black }}>
               GAL<span style={{ color: SP.orange }}>LERY</span>
             </h2>
             <div className="grid grid-cols-3 md:grid-cols-6 auto-rows-[100px] md:auto-rows-[140px] gap-1.5">
@@ -949,6 +990,17 @@ const OrganiserProfile = () => {
                 value={editForm.organisation_category}
                 onChange={(e) => setEditForm({ ...editForm, organisation_category: e.target.value })}
                 placeholder="Event Brand, Dance School, Community Group..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="founded_year">Founded year</Label>
+              <Input
+                id="founded_year"
+                type="number"
+                inputMode="numeric"
+                value={editForm.founded_year}
+                onChange={(e) => setEditForm({ ...editForm, founded_year: e.target.value })}
+                placeholder="e.g. 2015"
               />
             </div>
             <div className="space-y-2">

@@ -33,7 +33,7 @@ export interface GlobalLayoutProps {
   // theming and don't want a breadcrumb trail.
   showSubheader?: boolean;
   showProgressBar?: boolean;
-  showGradientBg?: boolean;
+  showGradientBg?: boolean; subheaderTone?: 'default' | 'onDark';
   // Palette for the full-page gradient wash + progress-bar/floating-icon
   // companions (gated by showGradientBg). 'default' renders the orange /
   // festival-purple / festival-pink wash that 36+ public pages depend on;
@@ -72,7 +72,7 @@ const GlobalLayout = ({
   stickySubheader,
   showSubheader = true,
   showProgressBar = true,
-  showGradientBg = true,
+  showGradientBg = true, subheaderTone = 'default',
   gradientPalette = 'default',
   floatingCount = 20,
   heroAfter,
@@ -111,7 +111,7 @@ const GlobalLayout = ({
   // natural height under the header.
   const subHeaderClasses = hero
     ? 'absolute top-0 left-0 right-0 z-10 px-4 pt-3 md:pt-20 flex items-center justify-between pointer-events-none'
-    : 'sticky top-[60px] z-10 min-h-9 px-4 bg-background/80 backdrop-blur-sm flex items-center justify-between';
+    : `sticky top-[60px] z-10 min-h-9 px-4 ${subheaderTone === 'onDark' ? 'bg-background' : 'bg-background/80 backdrop-blur-sm'} flex items-center justify-between`;
 
   const subHeader = (
     <div className={subHeaderClasses}>
@@ -120,12 +120,12 @@ const GlobalLayout = ({
           <Link
             to={backHref}
             aria-label="Back"
-            className="flex items-center justify-center w-7 h-7 -ml-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+            className={`flex items-center justify-center w-7 h-7 -ml-1 rounded-md ${subheaderTone === 'onDark' ? 'text-[#f5c518] hover:text-white hover:bg-white/10' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'} transition-colors shrink-0`}
           >
             <ChevronLeft className="w-4 h-4" />
           </Link>
         )}
-        <PageBreadcrumb items={breadcrumbs} />
+        <PageBreadcrumb items={breadcrumbs} tone={subheaderTone} />
       </div>
       {headerActions && (
         <div className="flex items-center gap-2 shrink-0 pointer-events-auto">{headerActions}</div>
@@ -134,7 +134,7 @@ const GlobalLayout = ({
   );
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden relative">
+    <div className="min-h-screen text-foreground overflow-x-clip relative">
       {showProgressBar && (
         <motion.div
           className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"

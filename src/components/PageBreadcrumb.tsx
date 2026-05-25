@@ -17,11 +17,11 @@ export interface BreadcrumbItemType {
 }
 
 interface PageBreadcrumbProps {
-  items: BreadcrumbItemType[];
+  items: BreadcrumbItemType[]; tone?: 'default' | 'onDark';
 }
 
-const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
-  const location = useLocation();
+const PageBreadcrumb = ({ items, tone = 'default' }: PageBreadcrumbProps) => {
+  const location = useLocation(); const onDark = tone === 'onDark'; const linkCls = onDark ? 'text-[#f5c518] hover:text-white transition-colors' : 'text-muted-foreground hover:text-primary transition-colors'; const sepCls = onDark ? 'text-[#ff5a1f]' : 'text-primary/50'; const curCls = onDark ? 'text-[#fbf8f1]' : 'text-foreground';
 
   // Schema.org BreadcrumbList — search engines render breadcrumb-style
   // result links from this. Origin is read at render time so SSR / static
@@ -64,7 +64,7 @@ const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
               <BreadcrumbLink asChild>
                 <Link
                   to="/"
-                  className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+                  className={`flex items-center gap-1 ${linkCls}`}
                 >
                   <Home className="w-3.5 h-3.5" />
                   <span>Home</span>
@@ -86,19 +86,19 @@ const PageBreadcrumb = ({ items }: PageBreadcrumbProps) => {
                 className="contents"
               >
                 <BreadcrumbSeparator>
-                  <ChevronRight className="w-3.5 h-3.5 text-primary/50" />
+                  <ChevronRight className={`w-3.5 h-3.5 ${sepCls}`} />
                 </BreadcrumbSeparator>
 
                 <BreadcrumbItem>
                   {isLast || !item.path ? (
-                    <BreadcrumbPage className="text-foreground font-medium truncate max-w-[150px] md:max-w-none">
+                    <BreadcrumbPage className={`${curCls} font-medium truncate max-w-[150px] md:max-w-none`}>
                       {item.label}
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
                       <Link
                         to={item.path}
-                        className="text-muted-foreground hover:text-primary transition-colors truncate max-w-[100px] md:max-w-none"
+                        className={`${linkCls} truncate max-w-[100px] md:max-w-none`}
                       >
                         {item.label}
                       </Link>
