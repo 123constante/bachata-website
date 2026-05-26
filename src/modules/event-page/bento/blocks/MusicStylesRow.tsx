@@ -1,24 +1,31 @@
+import { Link } from 'react-router-dom';
+import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
+
 type MusicStylesRowProps = {
   musicStyles: string[];
 };
 
 export const MusicStylesRow = ({ musicStyles }: MusicStylesRowProps) => {
+  const { citySlug } = useCity();
   if (!musicStyles || musicStyles.length === 0) return null;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {musicStyles.map((style) => {
-        // Slugify for display only. Rendered as #hashtag pills.
+        // Slugify for visible display only ("#salsa", "#cuban-style").
+        // The link target uses the original display string so search ILIKE
+        // matches "Cuban Style" rather than "cuban-style".
         const slug = style.trim().toLowerCase().replace(/\s+/g, '-');
+        const to = `${buildCityPath(citySlug, 'search')}?q=${encodeURIComponent(style)}`;
         return (
-          // TODO: link to site-wide search page once built (~3 days from 22 Apr 2026)
-          <a
+          <Link
             key={slug}
-            href="#"
+            to={to}
             className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-[6px] text-[12px] font-medium text-white/80 transition hover:bg-white/[0.08]"
           >
             #{slug}
-          </a>
+          </Link>
         );
       })}
     </div>

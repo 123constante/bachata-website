@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { useSearchOverlay } from '@/contexts/SearchOverlayContext';
+import { useCity } from '@/contexts/CityContext';
+import { buildCityPath } from '@/lib/cityPath';
 import type { SearchResult, SearchKind } from '@/lib/searchRpc';
 
-const KIND_LABEL: Record<SearchKind, string> = { event: 'Events', venue: 'Venues', organiser: 'Organisers' };
-const KIND_ORDER: SearchKind[] = ['event', 'venue', 'organiser'];
+const KIND_LABEL: Record<SearchKind, string> = {
+  event: 'Events', venue: 'Venues', organiser: 'Organisers',
+  teacher: 'Teachers', dj: 'DJs', dancer: 'Dancers',
+};
+const KIND_ORDER: SearchKind[] = ['event', 'organiser', 'venue', 'teacher', 'dj', 'dancer'];
 
 const TYPE_PILL: Record<string, { label: string; cls: string }> = {
   festival:    { label: 'Festival',      cls: 'bg-primary/20 text-accent' },
@@ -29,7 +34,7 @@ const fmtDate = (iso: string | null) => {
 
 const ResultRow = ({ r, onNavigate }: { r: SearchResult; onNavigate: () => void }) => {
   const meta = r.kind === 'event' && r.startTime
-    ? fmtDate(r.startTime) + (r.subtitle ? ' \u00b7 ' + r.subtitle : '')
+    ? fmtDate(r.startTime) + (r.subtitle ? ' \u00B7 ' + r.subtitle : '')
     : r.subtitle;
   return (
     <Link
@@ -58,9 +63,10 @@ const ResultRow = ({ r, onNavigate }: { r: SearchResult; onNavigate: () => void 
 
 export const SearchOverlay = () => {
   const { isOpen, close } = useSearchOverlay();
+  const { citySlug } = useCity();
   const [q, setQ] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const { results, isLoading, term, hasQuery } = usePublicSearch(q);
+  const { results, isLoading, term, hasQuery } = usePublicSearch(q, citySlug);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,10 +84,14 @@ export const SearchOverlay = () => {
   }, [isOpen, close]);
 
   const grouped = useMemo(() => {
-    const m: Record<SearchKind, SearchResult[]> = { event: [], venue: [], organiser: [] };
+    const m: Record<SearchKind, SearchResult[]> = {
+      event: [], venue: [], organiser: [], teacher: [], dj: [], dancer: [],
+    };
     for (const r of results) m[r.kind].push(r);
     return m;
   }, [results]);
+
+  const seeAllHref = `${buildCityPath(citySlug, 'search')}?q=${encodeURIComponent(term)}`;
 
   if (!isOpen) return null;
 
@@ -131,6 +141,19 @@ export const SearchOverlay = () => {
               </section>
             ) : null)}
           </div>
+
+          {hasQuery && !isLoading ? (
+            <Link
+              to={seeAllHref}
+              onClick={close}
+              className="mt-4 flex items-center justify-between rounded-xl border border-primary/25 bg-primary/[0.06] px-3 py-2.5 text-sm font-bold text-primary transition-colors hover:border-primary/50 hover:bg-primary/[0.12]"
+            >
+              <span className="truncate">
+                See all results for &ldquo;{term}&rdquo;
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>,
