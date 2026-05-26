@@ -49,6 +49,9 @@ interface OgMeta {
     venueAddress: string | null;
     cityName: string | null;
     organiser: string | null;
+    organiserUrl: string | null;
+    performers: string[];
+    offers: Array<{ url: string | null; name: string | null; price: string | null }>;
   };
 }
 
@@ -160,6 +163,30 @@ async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
     : rawDescription;
   const description = truncate(composedDesc || title, 160);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teachers: any[] = Array.isArray(occ?.lineup?.teachers) ? occ.lineup.teachers : [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const djs: any[] = Array.isArray(occ?.lineup?.djs) ? occ.lineup.djs : [];
+  const performers: string[] = [
+    ...teachers.map((p) => (typeof p?.display_name === 'string' ? p.display_name : '')),
+    ...djs.map((p) => (typeof p?.display_name === 'string' ? p.display_name : '')),
+  ].filter((s) => s && s.trim());
+
+  const metaPub = (event && typeof event.meta_data_public === 'object' && event.meta_data_public) || {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ticketRows: any[] = Array.isArray(metaPub.tickets) ? metaPub.tickets : [];
+  const ticketUrl = event?.actions?.ticket_url ?? null;
+  const offers: Array<{ url: string | null; name: string | null; price: string | null }> =
+    ticketRows.length > 0
+      ? ticketRows.map((t) => ({
+          url: ticketUrl,
+          name: typeof t?.name === 'string' ? t.name : null,
+          price: t?.price != null ? String(t.price) : null,
+        }))
+      : ticketUrl
+        ? [{ url: ticketUrl, name: null, price: null }]
+        : [{ url, name: null, price: null }];
+
   return {
     title,
     description,
@@ -173,6 +200,9 @@ async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
       venueAddress: venue?.address_line ?? null,
       cityName: city?.name ?? null,
       organiser: snapshot.organisers?.[0]?.display_name ?? null,
+      organiserUrl: snapshot.organisers?.[0]?.website ?? null,
+      performers,
+      offers,
     },
   };
 }
@@ -211,6 +241,27 @@ async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null
     : rawDescription;
   const description = truncate(composedDesc || title, 160);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teachers: any[] = Array.isArray(festival?.lineup?.teachers) ? festival.lineup.teachers : [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const djs: any[] = Array.isArray(festival?.lineup?.djs) ? festival.lineup.djs : [];
+  const performers: string[] = [
+    ...teachers.map((p) => (typeof p?.displayName === 'string' ? p.displayName : '')),
+    ...djs.map((p) => (typeof p?.displayName === 'string' ? p.displayName : '')),
+  ].filter((s) => s && s.trim());
+
+  const ticketUrl = festival?.links?.ticketUrl ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const passes: any[] = Array.isArray(festival?.passes) ? festival.passes : [];
+  const offers: Array<{ url: string | null; name: string | null; price: string | null }> =
+    passes.length > 0
+      ? passes.map((p) => ({
+          url: ticketUrl,
+          name: typeof p?.name === 'string' ? p.name : null,
+          price: p?.price != null ? String(p.price) : null,
+        }))
+      : [{ url: ticketUrl ?? url, name: null, price: null }];
+
   return {
     title,
     description,
@@ -223,7 +274,10 @@ async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null
       venueName: venue?.name ?? null,
       venueAddress: venue?.address ?? null,
       cityName: city?.name ?? null,
-      organiser: null,
+      organiser: festival?.organiser?.displayName ?? null,
+      organiserUrl: festival?.organiser?.href ?? null,
+      performers,
+      offers,
     },
   };
 }
@@ -429,20 +483,49 @@ function buildMetaHtml(meta: OgMeta): string {
     if (eventExtras.endDate) ld.endDate = eventExtras.endDate;
     if (image) ld.image = image;
     if (description) ld.description = truncate(description, 500);
-    if (eventExtras.venueName) {
-      ld.location = {
-        '@type': 'Place',
-        name: eventExtras.venueName,
-        address: {
-          '@type': 'PostalAddress',
-          ...(eventExtras.venueAddress ? { streetAddress: eventExtras.venueAddress } : {}),
-          ...(eventExtras.cityName ? { addressLocality: eventExtras.cityName } : {}),
-          addressCountry: 'GB',
-        },
-      };
+    // Always emit a Place + PostalAddress so the address field isn't missing,
+    // even when we don't have a venue. Falls back to country-only.
+    ld.location = {
+      '@type': 'Place',
+      name: eventExtras.venueName ?? eventExtras.cityName ?? 'United Kingdom',
+      address: {
+        '@type': 'PostalAddress',
+        ...(eventExtras.venueAddress ? { streetAddress: eventExtras.venueAddress } : {}),
+        ...(eventExtras.cityName ? { addressLocality: eventExtras.cityName } : {}),
+        addressCountry: 'GB',
+      },
+    };
+    // Always emit organizer with url so the recommended fields aren't missing.
+    ld.organizer = {
+      '@type': 'Organization',
+      name: eventExtras.organiser ?? 'Bachata Calendar',
+      url: eventExtras.organiserUrl ?? SITE_URL,
+    };
+    // Always emit performer; fall back to generic PerformingGroup when no
+    // lineup is on the snapshot.
+    if (eventExtras.performers.length > 0) {
+      ld.performer = eventExtras.performers.map((name) => ({ '@type': 'Person', name }));
+    } else {
+      ld.performer = { '@type': 'PerformingGroup', name: 'Bachata Artists' };
     }
-    if (eventExtras.organiser) {
-      ld.organizer = { '@type': 'Organization', name: eventExtras.organiser };
+    // Always emit at least one Offer pointing at the event URL.
+    if (eventExtras.offers.length > 0) {
+      ld.offers = eventExtras.offers.map((o) => {
+        const offer: Record<string, unknown> = {
+          '@type': 'Offer',
+          url: o.url ?? url,
+          availability: 'https://schema.org/InStock',
+        };
+        if (o.name) offer.name = o.name;
+        if (o.price != null) offer.price = o.price;
+        return offer;
+      });
+    } else {
+      ld.offers = {
+        '@type': 'Offer',
+        url,
+        availability: 'https://schema.org/InStock',
+      };
     }
     jsonLdTag = `<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
   }
@@ -526,7 +609,26 @@ export default async function middleware(request: Request): Promise<Response> {
       return next();
   }
 
-  if (!meta) return next();
+  if (!meta) {
+    // Soft-404 fix: when an event or festival ID doesn't resolve to a real
+    // record, return HTTP 404 to the bot so Google drops the page from the
+    // index. Other entity kinds keep the fall-through behaviour because the
+    // SPA can still render something useful for them.
+    if (kind === 'event' || kind === 'festival') {
+      return new Response(
+        `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Event not found</title><meta name="robots" content="noindex"></head><body><p>Event not found.</p></body></html>`,
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=0, s-maxage=300',
+            'X-Robots-Tag': 'noindex',
+          },
+        },
+      );
+    }
+    return next();
+  }
 
   return new Response(buildMetaHtml(meta), {
     headers: {

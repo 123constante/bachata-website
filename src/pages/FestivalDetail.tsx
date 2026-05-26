@@ -26,6 +26,8 @@ import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQu
 
 import type { EventPageSnapshot } from "@/modules/event-page/types";
 
+import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
+
 
 
 type FestivalEvent = {
@@ -1959,6 +1961,54 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       <PageBreadcrumb items={buildBreadcrumbs("festival.detail", { entityName: festival.name })} />
 
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            buildEventJsonLd({
+              name: festivalDetail?.identity.name ?? festival.name,
+              url:
+                typeof window !== "undefined"
+                  ? window.location.href
+                  : `https://bachatacalendar.co.uk/event/${festival.id}`,
+              startDate: startDateRaw ?? "",
+              endDate: endDateRaw,
+              description:
+                festivalDetail?.identity.description ?? festival.description ?? null,
+              image: posterUrl ? [posterUrl] : null,
+              venue: venue
+                ? {
+                    name: venue.name,
+                    address: venue.address,
+                    city: festivalDetail?.location.city?.name ?? festival.city,
+                  }
+                : { city: festivalDetail?.location.city?.name ?? festival.city },
+              organiser: organiser
+                ? {
+                    name: organiser.displayName ?? "Bachata Calendar",
+                    url: organiser.href,
+                  }
+                : null,
+              performers: [
+                ...allTeachers.map((p) => ({
+                  name: p.displayName ?? "",
+                  type: "Person" as const,
+                })),
+                ...(festivalDetail?.lineup.djs ?? []).map((p) => ({
+                  name: p.displayName ?? "",
+                  type: "Person" as const,
+                })),
+              ],
+              offers: passes.map((p) => ({
+                url: ticketUrl,
+                name: p.name,
+                price: p.price,
+                currency: p.currency,
+              })),
+            }),
+          ),
+        }}
+      />
 
 
       {/* HERO */}

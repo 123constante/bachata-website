@@ -18,27 +18,66 @@ export interface BuildEventListJsonLdInput {
   limit?: number;
 }
 
+// City slugs are stored as `<city>-<country>` (e.g. `london-gb`). Strip the
+// 2-letter country suffix before turning the rest into a Title Case display
+// name so Schema.org's addressLocality reads like "London" not "London gb".
+const slugToLocality = (slug: string): string => {
+  if (!slug) return slug;
+  const withoutCountry = slug.replace(/-[a-z]{2}$/i, '');
+  return withoutCountry
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
 export const buildEventListJsonLd = ({
   events,
   origin,
   limit = 25,
 }: BuildEventListJsonLdInput): Record<string, unknown> => {
   const itemListElement = events.slice(0, limit).map((e, i) => {
+    const eventUrl = `${origin}/event/${e.event_id}`;
+    const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
+    const description: string =
+      (e.meta_data as Record<string, unknown>)?.description as string ||
+      `${e.name} — Bachata event in ${locality}`;
+
     const event: Record<string, unknown> = {
       '@type': 'Event',
       name: e.name,
       startDate: e.start_time,
-      url: `${origin}/event/${e.event_id}`,
+      url: eventUrl,
       eventStatus: 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      description,
+      organizer: {
+        '@type': 'Organization',
+        name: 'Bachata Calendar',
+        url: origin,
+      },
+      performer: { '@type': 'PerformingGroup', name: 'Bachata Artists' },
+      offers: {
+        '@type': 'Offer',
+        url: eventUrl,
+        availability: 'https://schema.org/InStock',
+      },
     };
+
     if (e.end_time) event.endDate = e.end_time;
     if (Array.isArray(e.photo_url) && e.photo_url.length > 0) {
       event.image = [e.photo_url[0]];
     }
-    if (e.location) {
-      event.location = { '@type': 'Place', name: e.location };
-    }
+    event.location = {
+      '@type': 'Place',
+      name: e.location || locality,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: locality,
+        addressCountry: 'GB',
+      },
+    };
+
     return {
       '@type': 'ListItem',
       position: i + 1,
