@@ -1,5 +1,5 @@
 /**
- * Site information architecture — single source of truth for breadcrumbs.
+ * Site information architecture â€” single source of truth for breadcrumbs.
  *
  * Adding a new page means adding ONE entry to SITE_IA below. The
  * buildBreadcrumbs() function walks the parent chain at runtime; no other
@@ -8,12 +8,12 @@
  * Conventions
  * -----------
  * - Listings + nested listings have `path` (clickable) and optionally `parent`.
- * - Entity-bearing detail routes set `entity: true` — the final crumb's label
+ * - Entity-bearing detail routes set `entity: true` â€” the final crumb's label
  *   is supplied at the call site via ctx.entityName.
  * - Flow routes (edit / create) have `parent` but no `path` (current page).
  * - `__event_parent__` is a sentinel parent for `event.detail` that the
- *   builder dispatches dynamically based on event type (party → parties,
- *   class/workshop → classes, festival/congress → festivals).
+ *   builder dispatches dynamically based on event type (party â†’ parties,
+ *   class/workshop â†’ classes, festival/congress â†’ festivals).
  */
 
 interface IaNode {
@@ -50,13 +50,14 @@ export const SITE_IA = {
   discounts:        { label: 'Discounts',         path: '/discounts' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
   profile:          { label: 'Profile',           path: '/profile' },
+  search:           { label: 'Search',            path: '/search' },
 
   // -------- Nested listings ---------------------------------------------------
   djs:        { label: 'DJs',        path: '/djs',        parent: 'parties' },
   organisers: { label: 'Organisers', path: '/organisers', parent: 'parties' },
   teachers:   { label: 'Teachers',   path: '/teachers',   parent: 'classes' },
   festivals:  { label: 'Festivals',  path: '/festivals',  parent: 'experience' },
-  // /tonight is a parties-themed quick filter — sits under Parties.
+  // /tonight is a parties-themed quick filter â€” sits under Parties.
   tonight:    { label: 'Tonight',    path: '/tonight',    parent: 'parties' },
 
   // -------- Entity-bearing detail routes --------------------------------------
@@ -80,6 +81,9 @@ export const SITE_IA = {
   // '__event_parent__' tells the builder to dispatch via resolveEventParent().
   'event.detail':     { label: 'Event',     parent: '__event_parent__', entity: true,
                         detailPath: (id: string) => `/event/${id}` },
+  // Search results â€” entityName is the quoted query string.
+  'search.results':   { label: 'Results',   parent: 'search', entity: true,
+                        detailPath: (q: string) => `/search?q=${encodeURIComponent(q)}` },
 
   // -------- Flow routes (edit / create) ---------------------------------------
   'profile.edit':              { label: 'Edit',                        parent: 'profile' },
