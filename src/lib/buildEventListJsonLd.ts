@@ -18,8 +18,18 @@ export interface BuildEventListJsonLdInput {
   limit?: number;
 }
 
-const capitalise = (s: string) =>
-  s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ') : s;
+// City slugs are stored as `<city>-<country>` (e.g. `london-gb`). Strip the
+// 2-letter country suffix before turning the rest into a Title Case display
+// name so Schema.org's addressLocality reads like "London" not "London gb".
+const slugToLocality = (slug: string): string => {
+  if (!slug) return slug;
+  const withoutCountry = slug.replace(/-[a-z]{2}$/i, '');
+  return withoutCountry
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
 
 export const buildEventListJsonLd = ({
   events,
@@ -28,7 +38,7 @@ export const buildEventListJsonLd = ({
 }: BuildEventListJsonLdInput): Record<string, unknown> => {
   const itemListElement = events.slice(0, limit).map((e, i) => {
     const eventUrl = `${origin}/event/${e.event_id}`;
-    const locality = e.city_slug ? capitalise(e.city_slug) : 'London';
+    const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
     const description: string =
       (e.meta_data as Record<string, unknown>)?.description as string ||
       `${e.name} — Bachata event in ${locality}`;
