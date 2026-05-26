@@ -18,27 +18,56 @@ export interface BuildEventListJsonLdInput {
   limit?: number;
 }
 
+const capitalise = (s: string) =>
+  s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ') : s;
+
 export const buildEventListJsonLd = ({
   events,
   origin,
   limit = 25,
 }: BuildEventListJsonLdInput): Record<string, unknown> => {
   const itemListElement = events.slice(0, limit).map((e, i) => {
+    const eventUrl = `${origin}/event/${e.event_id}`;
+    const locality = e.city_slug ? capitalise(e.city_slug) : 'London';
+    const description: string =
+      (e.meta_data as Record<string, unknown>)?.description as string ||
+      `${e.name} — Bachata event in ${locality}`;
+
     const event: Record<string, unknown> = {
       '@type': 'Event',
       name: e.name,
       startDate: e.start_time,
-      url: `${origin}/event/${e.event_id}`,
+      url: eventUrl,
       eventStatus: 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      description,
+      organizer: {
+        '@type': 'Organization',
+        name: 'Bachata Calendar',
+        url: origin,
+      },
+      performer: { '@type': 'PerformingGroup', name: 'Bachata Artists' },
+      offers: {
+        '@type': 'Offer',
+        url: eventUrl,
+        availability: 'https://schema.org/InStock',
+      },
     };
+
     if (e.end_time) event.endDate = e.end_time;
     if (Array.isArray(e.photo_url) && e.photo_url.length > 0) {
       event.image = [e.photo_url[0]];
     }
-    if (e.location) {
-      event.location = { '@type': 'Place', name: e.location };
-    }
+    event.location = {
+      '@type': 'Place',
+      name: e.location || locality,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: locality,
+        addressCountry: 'GB',
+      },
+    };
+
     return {
       '@type': 'ListItem',
       position: i + 1,
