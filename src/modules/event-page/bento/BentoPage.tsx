@@ -33,6 +33,7 @@ import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
+import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
 
 type BentoPageProps = {
   eventId: string | null;
@@ -363,6 +364,57 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
         eventId={eventId}
         cancelled={!!occurrence?.isCancelled}
       />
+
+      {state === 'ready' && snapshot && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              buildEventJsonLd({
+                name: pageModel.identity.title,
+                url:
+                  typeof window !== 'undefined'
+                    ? window.location.href
+                    : `https://bachatacalendar.co.uk/event/${eventId}`,
+                startDate: occurrence?.startsAt ?? snapshot.event.date ?? '',
+                endDate: occurrence?.endsAt ?? null,
+                description: pageModel.description.body,
+                image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
+                isCancelled: occurrence?.isCancelled ?? false,
+                venue: snapshot.locationDefault?.venue
+                  ? {
+                      name: snapshot.locationDefault.venue.name,
+                      address: snapshot.locationDefault.venue.address,
+                      postcode: snapshot.locationDefault.venue.postcode,
+                      city: snapshot.locationDefault.city?.name,
+                    }
+                  : { city: snapshot.locationDefault?.city?.name ?? null },
+                organiser: snapshot.organisers[0]
+                  ? {
+                      name: snapshot.organisers[0].displayName ?? 'Bachata Calendar',
+                      url: snapshot.organisers[0].website,
+                    }
+                  : null,
+                performers: [
+                  ...(occurrence?.lineup?.teachers ?? []).map((p) => ({
+                    name: p.displayName ?? '',
+                    type: 'Person' as const,
+                  })),
+                  ...(occurrence?.lineup?.djs ?? []).map((p) => ({
+                    name: p.displayName ?? '',
+                    type: 'Person' as const,
+                  })),
+                ],
+                offers: (snapshot.event.tickets ?? []).map((t) => ({
+                  url: pageModel.actions.ticketUrl,
+                  name: t.name,
+                  price: t.price,
+                })),
+              }),
+            ),
+          }}
+        />
+      )}
     </GlobalLayout>
   );
 };
