@@ -6,13 +6,16 @@
  *   2. It returns a jsonb object with the six expected section arrays.
  *   3. Each section value is an array (possibly empty).
  *   4. Empty query returns total_count = 0 with all-empty sections.
+ *   5. Default p_include_past=false returns only upcoming events.
+ *   6. p_include_past=true broadens to include past events.
  *
  * Local:  node scripts/check-search-public-v3.mjs   (reads .env)
  * CI:     same script, env vars supplied as repo secrets:
  *           VITE_SUPABASE_URL
  *           VITE_SUPABASE_PUBLISHABLE_KEY
  *
- * See admin migration 20260720000000_search_public_v3 and
+ * See admin migrations 20260720000000_search_public_v3 and
+ * 20260726000000_search_public_v3_upcoming, and
  * .github/workflows/db-contract-check.yml.
  */
 import fs from 'node:fs';
@@ -118,9 +121,39 @@ const londonResult = await callRpc(
 );
 assertShape(londonResult, 'salsa+london');
 
+// Test 5: default (p_include_past=false) returns only upcoming events.
+const upcomingOnly = await callRpc(
+  { p_query: 'bachata', p_city_slug: null, p_section_limit: 12 },
+  'search_public_v3("bachata",upcoming)',
+);
+assertShape(upcomingOnly, 'upcoming-only');
+const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+for (const ev of upcomingOnly.events) {
+  if (!ev.start_time) {
+    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has null start_time - should have been filtered out`);
+  }
+  const t = Date.parse(ev.start_time);
+  if (Number.isNaN(t) || t < sixHoursAgo) {
+    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has past start_time ${ev.start_time} but include_past was not requested`);
+  }
+}
+
+// Test 6: p_include_past=true should return >= the upcoming-only count
+// (broader filter cannot return fewer rows for the same query).
+const includePast = await callRpc(
+  { p_query: 'bachata', p_city_slug: null, p_section_limit: 12, p_include_past: true },
+  'search_public_v3("bachata",include_past)',
+);
+assertShape(includePast, 'include-past');
+if (includePast.events.length < upcomingOnly.events.length) {
+  throw new Error(`include_past returned fewer events (${includePast.events.length}) than upcoming-only (${upcomingOnly.events.length})`);
+}
+
 console.log(JSON.stringify({
   salsa_total: popularResult.total_count,
   empty_total: emptyResult.total_count,
   bogus_total: bogusResult.total_count,
   salsa_london_total: londonResult.total_count,
+  upcoming_only_events: upcomingOnly.events.length,
+  include_past_events: includePast.events.length,
 }, null, 2));

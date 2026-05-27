@@ -29,7 +29,7 @@ export interface SearchResultPerson {
 export interface SearchResultVenue {
   id: string;
   name: string | null;
-  photo_url: string | null;
+  photo_url: string[] | null;
   address: string | null;
 }
 
@@ -44,10 +44,15 @@ export interface SearchResultsPayload {
   total_count: number;
 }
 
-export function useSearchResults(query: string, citySlug: string | null) {
+export function useSearchResults(
+  query: string,
+  citySlug: string | null,
+  opts: { includePast?: boolean } = {},
+) {
   const term = query.trim();
+  const includePast = opts.includePast ?? false;
   return useQuery<SearchResultsPayload>({
-    queryKey: ['search-results', term, citySlug],
+    queryKey: ['search-results', term, citySlug, includePast],
     enabled: term.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
@@ -60,6 +65,7 @@ export function useSearchResults(query: string, citySlug: string | null) {
           p_query: term,
           p_city_slug: citySlug,
           p_section_limit: 12,
+          p_include_past: includePast,
         },
       );
       if (error) throw new Error(error.message);

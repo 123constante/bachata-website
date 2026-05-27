@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { searchPublicV3 } from '@/lib/searchRpc';
 import { recordSearchQuery } from '@/lib/searchTelemetry';
 
-// Debounced federated search hook for the search overlay. Fires v3 RPC once
+// Debounced federated search hook for the Cmd+K overlay. Fires v3 RPC once
 // the (trimmed) query reaches 2 chars, debounced ~220ms, 3 results per section.
+// Overlay is upcoming-only - no toggle. The full /search page exposes an
+// "All time" toggle for users who want the back-catalogue.
 export function usePublicSearch(rawQuery: string, citySlug?: string | null) {
   const [debounced, setDebounced] = useState('');
 
@@ -16,9 +18,9 @@ export function usePublicSearch(rawQuery: string, citySlug?: string | null) {
   const enabled = debounced.length >= 2;
 
   const query = useQuery({
-    queryKey: ['public-search', debounced, citySlug ?? null],
+    queryKey: ['public-search', debounced, citySlug ?? null, false],
     queryFn: async () => {
-      const results = await searchPublicV3(debounced, citySlug, 3);
+      const results = await searchPublicV3(debounced, citySlug, 3, false);
       recordSearchQuery({ query: debounced, resultsCount: results.length, source: 'header' });
       return results;
     },

@@ -115,8 +115,10 @@ name: DB Contract Check
 #     the /search?q=... page (driven by hashtag chips on event detail pages).
 #     Verifies the RPC exists, returns the six expected section arrays
 #     (events / organisers / teachers / djs / dancers / venues), handles empty
-#     and bogus queries, and respects city scope (admin migration
-#     20260720000000_search_public_v3).
+#     and bogus queries, respects city scope, and enforces the upcoming-only
+#     default (p_include_past=false) and all-time flag (p_include_past=true).
+#     Admin migrations: 20260720000000_search_public_v3 and
+#     20260726000000_search_public_v3_upcoming.
 #
 
 # Catches operator error from outside the app (e.g. raw SQL admin work)

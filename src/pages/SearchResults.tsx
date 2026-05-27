@@ -72,11 +72,50 @@ const SectionGrid = ({ children }: { children: React.ReactNode }) => (
   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">{children}</div>
 );
 
+type TimeMode = 'upcoming' | 'all';
+
+const TimeToggle = ({
+  mode,
+  onChange,
+}: {
+  mode: TimeMode;
+  onChange: (next: TimeMode) => void;
+}) => {
+  const base = 'text-sm px-3 py-1.5 rounded-full border transition-colors';
+  const on = 'bg-primary text-primary-foreground border-primary';
+  const off = 'bg-transparent text-foreground border-primary/20 hover:border-primary/40';
+  return (
+    <div role="tablist" aria-label="Time filter" className="flex items-center gap-2 mt-3">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === 'upcoming'}
+        onClick={() => onChange('upcoming')}
+        className={`${base} ${mode === 'upcoming' ? on : off}`}
+      >
+        Upcoming
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === 'all'}
+        onClick={() => onChange('all')}
+        className={`${base} ${mode === 'all' ? on : off}`}
+      >
+        All time
+      </button>
+    </div>
+  );
+};
+
 const SearchResults = () => {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const query = (params.get('q') ?? '').trim();
+  const timeParam = params.get('time');
+  const mode: TimeMode = timeParam === 'all' ? 'all' : 'upcoming';
+  const includePast = mode === 'all';
   const { citySlug } = useCity();
-  const { data, isLoading, error } = useSearchResults(query, citySlug);
+  const { data, isLoading, error } = useSearchResults(query, citySlug, { includePast });
 
   const breadcrumbs = useMemo(
     () =>
@@ -87,6 +126,14 @@ const SearchResults = () => {
     [query, isLoading],
   );
 
+  const handleTimeChange = (next: TimeMode) => {
+    const url = new URLSearchParams(params);
+    if (next === 'all') url.set('time', 'all');
+    else url.delete('time');
+    setParams(url, { replace: false });
+  };
+
+  const modeLabel = mode === 'upcoming' ? 'Upcoming' : 'All time';
   const summaryParts: string[] = [];
   if (data) {
     if (data.events.length) summaryParts.push(`${data.events.length} events`);
@@ -110,9 +157,10 @@ const SearchResults = () => {
               'Search'
             )}
           </h1>
+          {query && <TimeToggle mode={mode} onChange={handleTimeChange} />}
           {data && data.total_count > 0 && summaryParts.length > 0 && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {summaryParts.join(' \u00B7 ')}
+            <p className="text-sm text-muted-foreground mt-2">
+              {modeLabel} {'\u00B7'} {summaryParts.join(' \u00B7 ')}
             </p>
           )}
         </header>
@@ -149,7 +197,21 @@ const SearchResults = () => {
         {query && data && data.total_count === 0 && (
           <div className="rounded-xl border border-primary/15 bg-card/40 p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              No results for &ldquo;{query}&rdquo;. Try a different word.
+              {mode === 'upcoming' ? (
+                <>
+                  No upcoming results for &ldquo;{query}&rdquo;. Try{' '}
+                  <button
+                    type="button"
+                    className="underline text-primary hover:text-primary/80"
+                    onClick={() => handleTimeChange('all')}
+                  >
+                    All time
+                  </button>
+                  .
+                </>
+              ) : (
+                <>No results for &ldquo;{query}&rdquo;. Try a different word.</>
+              )}
             </p>
           </div>
         )}

@@ -78,7 +78,7 @@ interface V3OrganiserRow {
 interface V3VenueRow {
   id: string;
   name: string;
-  photo_url: string | null;
+  photo_url: string[] | null;
   address: string | null;
 }
 
@@ -110,6 +110,7 @@ export async function searchPublicV3(
   query: string,
   citySlug?: string | null,
   sectionLimit = 12,
+  includePast = false,
 ): Promise<SearchResult[]> {
   const term = query.trim();
   if (!term) return [];
@@ -117,6 +118,7 @@ export async function searchPublicV3(
     p_query: term,
     p_city_slug: citySlug ?? null,
     p_section_limit: sectionLimit,
+    p_include_past: includePast,
   });
   if (error) throw error;
   const payload = data as V3Payload;
