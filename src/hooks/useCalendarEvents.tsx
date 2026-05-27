@@ -40,11 +40,11 @@ export const useCalendarEvents = ({ rangeStart, rangeEnd, citySlug }: UseCalenda
         return [] as CalendarEvent[];
       }
 
-      const { data, error } = await supabase.rpc('get_calendar_events', {
+      const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
         range_start: rangeStart.toISOString(),
         range_end: rangeEnd.toISOString(),
         city_slug_param: citySlug,
-      });
+      } as never);
 
       if (error) {
         console.error("Calendar RPC Error:", error?.message ?? String(error));

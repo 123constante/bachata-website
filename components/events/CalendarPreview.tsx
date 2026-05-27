@@ -112,7 +112,7 @@ export const CalendarPreview: React.FC = () => {
     setError(null);
 
     const { data, error: rpcError } = await supabase.rpc(
-      "get_calendar_events",
+      "get_calendar_events_v2",
       {
         range_start: range.start.toISOString(),
         range_end: range.end.toISOString(),

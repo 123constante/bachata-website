@@ -16,14 +16,14 @@ export const useUpcomingEvents = () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30); // Look ahead 30 days
 
-      const { data, error } = await supabase.rpc('get_calendar_events', {
+      const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
         range_start: startDate.toISOString(),
         range_end: endDate.toISOString(),
         city_slug_param: citySlug,
-      });
+      } as never);
 
       if (error) throw error;
-      
+
       // Map RPC result to the expected format for ComingUpSection.
       // occurrenceId surfaces for ADR-007 Phase 4.2c — cards link to the
       // specific date so the public event page shows that date's program,
@@ -60,11 +60,11 @@ export const useEvents = () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 60);
 
-      const { data, error } = await supabase.rpc('get_calendar_events', {
+      const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
         range_start: startDate.toISOString(),
         range_end: endDate.toISOString(),
         city_slug_param: citySlug,
-      });
+      } as never);
 
       if (error) throw error;
 

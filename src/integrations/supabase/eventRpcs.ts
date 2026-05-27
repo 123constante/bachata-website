@@ -265,15 +265,19 @@ export interface GetPublicFestivalDetailParams {
 /**
  * RPC 1: Fetch calendar events for a date range
  * Returns one row per occurrence. For festivals, returns ONE ROW PER DAY.
+ *
+ * Phase 1E #2 cutover (2026-05-27): routes through get_calendar_events_v2,
+ * which reads exclusively from event_series_p5 + event_occurrence_p5 + typed
+ * overrides. Return shape is byte-identical to the legacy v1.
  */
 export async function getCalendarEvents(
   params: GetCalendarEventsParams,
 ): Promise<CalendarEventRow[]> {
-  const { data, error } = await supabase.rpc('get_calendar_events', {
+  const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
     range_start: params.range_start,
     range_end: params.range_end,
     city_slug_param: params.city_slug_param,
-  });
+  } as never);
 
   if (error) {
     console.error('getCalendarEvents RPC error:', error);
@@ -385,7 +389,7 @@ export interface GetLatestEventsParams {
 export async function getLatestEvents(
   params: GetLatestEventsParams = {},
 ): Promise<LatestEventRow[]> {
-  const { data, error } = await supabase.rpc('get_latest_events_v1' as never, {
+  const { data, error } = await supabase.rpc('get_latest_events_v2' as never, {
     p_city_slug: params.p_city_slug ?? null,
     p_limit: params.p_limit ?? 6,
   } as never);

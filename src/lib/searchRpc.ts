@@ -114,7 +114,10 @@ export async function searchPublicV3(
 ): Promise<SearchResult[]> {
   const term = query.trim();
   if (!term) return [];
-  const { data, error } = await supabase.rpc('search_public_v3' as never, {
+  // Phase 1E #2 cutover (2026-05-27): search_public_v4 reads from
+  // event_series_p5 + event_occurrence_p5 (vs v3 which read legacy events).
+  // Identical JSONB envelope shape; other 5 sections unchanged.
+  const { data, error } = await supabase.rpc('search_public_v4' as never, {
     p_query: term,
     p_city_slug: citySlug ?? null,
     p_section_limit: sectionLimit,

@@ -56,11 +56,12 @@ export function useSearchResults(
     enabled: term.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
+      // Phase 1E #2 cutover (2026-05-27): search_public_v4 reads P5 for events.
       const { data, error } = await (supabase.rpc as never as (
         fn: string,
         args: Record<string, unknown>,
       ) => Promise<{ data: SearchResultsPayload; error: { message: string } | null }>)(
-        'search_public_v3',
+        'search_public_v4',
         {
           p_query: term,
           p_city_slug: citySlug,

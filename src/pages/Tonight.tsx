@@ -102,7 +102,7 @@ const Tonight = () => {
       endDate.setDate(endDate.getDate() + 1);
       endDate.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase.rpc('get_calendar_events' as any, {
+      const { data, error } = await supabase.rpc('get_calendar_events_v2' as any, {
         range_start: startDate.toISOString(),
         range_end: endDate.toISOString(),
         city_slug_param: citySlug,

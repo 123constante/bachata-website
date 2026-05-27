@@ -250,7 +250,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data, error } = await supabase.rpc('get_public_events_list_v1', params);
+  // Phase 1E #2 cutover (2026-05-27): get_public_events_list_v2 reads P5.
+  const { data, error } = await supabase.rpc('get_public_events_list_v2', params);
 
   if (error) {
     console.error('[embed/calendar] rpc_error', { message: error.message, params });
