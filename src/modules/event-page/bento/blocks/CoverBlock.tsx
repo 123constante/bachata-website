@@ -122,39 +122,51 @@ export const CoverBlock = ({
                 : 'Open cover image full-screen'
             }
             onClick={handleCoverTap}
-            // Cover uses the deeper --bento-surface (matches the page bg)
-            // with the strong-button tile treatment around it: brass
-            // hairline border, two-layer shadow (inset top highlight +
-            // drop shadow), scale-to-98% press. Combined with the existing
-            // inset vignette so image edges don't meet a flat line.
-            className="relative block h-full w-full cursor-pointer overflow-hidden rounded-[22px] bg-[hsl(var(--bento-surface))] border border-[color:var(--bento-hairline)] transition-transform duration-150 ease-out active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 after:pointer-events-none after:absolute after:inset-0 after:rounded-[22px] after:bg-black/10 after:opacity-0 after:transition-opacity after:duration-150 after:content-[''] active:after:opacity-100"
+            // Cover uses --bento-surface-raised so the letterbox space
+            // around contain-fit images matches the colour of every other
+            // tile in the grid (date / city / venue / etc.). Strong-button
+            // tile treatment around it: brass hairline border, two-layer
+            // shadow (inset top highlight + drop shadow), scale-to-98%
+            // press. Combined with the existing inset vignette so image
+            // edges don't meet a flat line.
+            className="relative block h-full w-full cursor-pointer overflow-hidden rounded-[22px] bg-[hsl(var(--bento-surface-raised))] border border-[color:var(--bento-hairline)] transition-transform duration-150 ease-out active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 after:pointer-events-none after:absolute after:inset-0 after:rounded-[22px] after:bg-black/10 after:opacity-0 after:transition-opacity after:duration-150 after:content-[''] active:after:opacity-100"
             style={{
               boxShadow:
                 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 32px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.45)',
             }}
           >
-            {images.map((url, i) => (
-              <div
-                key={url}
-                className="absolute inset-0"
-                style={{
-                  opacity: i === currentIndex ? 1 : 0,
-                  transition: `opacity ${CROSSFADE_MS}ms ease`,
-                }}
-                aria-hidden={i !== currentIndex}
-              >
-                <img
-                  src={url}
-                  alt={i === 0 ? title : ''}
-                  className="h-full w-full"
-                  style={{ objectFit: 'contain' }}
-                  loading={i === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={i === 0 ? 'high' : 'auto'}
-                  decoding="async"
-                  onError={() => handleImageError(i)}
-                />
-              </div>
-            ))}
+            {images.map((url, i) => {
+              const isSingle = images.length === 1;
+              return (
+                <div
+                  key={url}
+                  className="absolute inset-0"
+                  style={{
+                    opacity: i === currentIndex ? 1 : 0,
+                    transition: `opacity ${CROSSFADE_MS}ms ease`,
+                  }}
+                  aria-hidden={i !== currentIndex}
+                >
+                  <img
+                    src={url}
+                    alt={i === 0 ? title : ''}
+                    className="h-full w-full"
+                    style={{
+                      objectFit: 'contain',
+                      transformOrigin: 'center',
+                      animation:
+                        isSingle && !prefersReducedMotion
+                          ? 'cover-single-zoom 3s ease-in-out infinite alternate'
+                          : undefined,
+                    }}
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={i === 0 ? 'high' : 'auto'}
+                    decoding="async"
+                    onError={() => handleImageError(i)}
+                  />
+                </div>
+              );
+            })}
           </button>
         ) : (
           <PinkFallback title={title} fill />
@@ -234,21 +246,18 @@ export const CoverBlock = ({
             neither the Gallery button (only renders for >=2 images) nor
             the Stories-style progress segments — leaving the cover
             looking like a static photo with no tap affordance. Render a
-            small bottom caption strip so first-time visitors know the
-            cover can be tapped to open full-screen. pointer-events-none
-            so the tap still goes through to the underlying button. */}
+            compact pill in the bottom-left corner that mirrors the
+            Share/Gallery pill style at the top, so the affordance is
+            visible without a heavy scrim strip across the image.
+            pointer-events-none so the tap still goes through to the
+            underlying button. */}
         {images.length === 1 && (
           <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 px-3 py-2 text-[10px] font-medium text-white"
-            style={{
-              background:
-                'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))',
-              letterSpacing: '0.02em',
-            }}
+            className="pointer-events-none absolute bottom-2 left-2 z-20 flex h-7 items-center gap-1 rounded-full bg-black/55 px-2 text-white backdrop-blur-sm"
             aria-hidden="true"
           >
-            <Maximize2 className="h-[11px] w-[11px]" />
-            <span>Tap to expand</span>
+            <Maximize2 className="h-3 w-3" />
+            <span className="text-[10px] font-semibold">Tap to expand</span>
           </div>
         )}
       </div>

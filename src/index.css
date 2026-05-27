@@ -35,6 +35,16 @@
   to   { transform: scaleX(1); }
 }
 
+/* Single-image cover: slow zoom to give the static poster ambient motion
+   so it doesn't feel as empty as the carousel branch. With object-fit:
+   contain on the underlying <img>, the image starts fully visible (scale
+   1.0). At peak (scale 1.12) the image is 12% larger, so ~6% clips at
+   each edge — most flyers carry that much safe margin. */
+@keyframes cover-single-zoom {
+  0%   { transform: scale(1.00); }
+  100% { transform: scale(1.12); }
+}
+
 /* Guest list — base pill class, sweep animation, and entry/halo/
    collision keyframes. All kept here (not in GuestListSection's scoped
    <style>) so both GuestListSection (inside the modal) and
