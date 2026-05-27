@@ -62,7 +62,7 @@ const ERROR_COPY: Record<
 
 // Loading shimmer placeholder sized to fill a tile's content region.
 const TileShimmer = () => (
-  <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/10" />
+  <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/20" />
 );
 
 export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
@@ -200,13 +200,12 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
       if (id === 'cover') {
         return (
           <div
-            className="h-full w-full animate-pulse rounded-[22px]"
-            style={{ background: BLOCK_COLORS.cover }}
+            className="h-full w-full animate-pulse rounded-[22px] bg-white/20"
           />
         );
       }
       return (
-        <BentoTile title={BLOCK_TITLES[id]} color={BLOCK_COLORS[id]}>
+        <BentoTile title="" color={BLOCK_COLORS[id]}>
           <TileShimmer />
         </BentoTile>
       );

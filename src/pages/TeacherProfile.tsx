@@ -187,12 +187,6 @@ const TeacherProfile = () => {
       <GlobalLayout
         breadcrumbs={teacherBreadcrumbs}
         backHref="/teachers"
-        hero={{
-          emoji: '🎓',
-          titleWhite: '',
-          titleOrange: 'Teacher',
-          largeTitle: true,
-        }}
       >
         <div className="max-w-5xl mx-auto px-4 pb-24 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

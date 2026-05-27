@@ -860,21 +860,12 @@ const VenueEntity = () => {
         >
           <div className="px-4 pt-4">
             <Skeleton
-              className="w-full rounded-xl"
-              style={{
-                height: 280,
-                background: 'hsl(var(--venue-surface))',
-              }}
+              className="w-full rounded-xl bg-white/15"
+              style={{ height: 280 }}
             />
             <div className="mt-4 space-y-2">
-              <Skeleton
-                className="h-4 w-1/3"
-                style={{ background: 'hsl(var(--venue-surface))' }}
-              />
-              <Skeleton
-                className="h-8 w-2/3"
-                style={{ background: 'hsl(var(--venue-surface))' }}
-              />
+              <Skeleton className="h-4 w-1/3 bg-white/15" />
+              <Skeleton className="h-8 w-2/3 bg-white/15" />
             </div>
           </div>
         </div>

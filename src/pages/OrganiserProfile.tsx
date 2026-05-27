@@ -629,8 +629,8 @@ const OrganiserProfile = () => {
       <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
         <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.paper }}>
           <div className="px-4 md:px-12 pt-20 pb-10">
-            <Skeleton className="h-3 w-52 bg-black/15" />
-            <Skeleton className="h-24 w-3/4 mt-6 bg-black/15" />
+            <Skeleton className="h-3 w-52 bg-black/25" />
+            <Skeleton className="h-24 w-3/4 mt-6 bg-black/25" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] mt-6 border-2 border-black/20 bg-black/20">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-20" style={{ background: 'rgba(11,11,13,0.08)' }} />

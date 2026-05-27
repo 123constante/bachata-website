@@ -208,12 +208,6 @@ const DancerProfile = () => {
       <GlobalLayout
         breadcrumbs={dancerBreadcrumbs}
         backHref="/dancers"
-        hero={{
-          emoji: '',
-          titleWhite: '',
-          titleOrange: 'Dancer',
-          largeTitle: true,
-        }}
       >
         <div className="container max-w-4xl mx-auto px-4 pb-24">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]">
