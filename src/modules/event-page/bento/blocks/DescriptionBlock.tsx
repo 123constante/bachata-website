@@ -1,6 +1,7 @@
-﻿import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
+import { DescriptionModal } from '@/modules/event-page/bento/modals/DescriptionModal';
 
 type DescriptionBlockProps = {
   body: string | null;
@@ -24,19 +25,7 @@ function splitBody(text: string): [string, string] {
 }
 
 export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
-  const [expanded, setExpanded] = useState(false);
-  const [detailHeight, setDetailHeight] = useState<number | null>(null);
-  const detailRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const node = detailRef.current;
-    if (!node) return;
-    const update = () => setDetailHeight(node.scrollHeight);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, [body]);
+  const [open, setOpen] = useState(false);
 
   if (!body || !body.trim()) return null;
 
@@ -61,7 +50,6 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   }
 
   const [summary, detail] = splitBody(trimmed);
-  const maxHeight = expanded ? (detailHeight ?? COLLAPSED_DETAIL_PX) : COLLAPSED_DETAIL_PX;
 
   return (
     <BentoTile title={BLOCK_TITLES.description} color={surface} mode="container">
@@ -80,48 +68,45 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
         <>
           <div
             className="relative mt-3 overflow-hidden"
-            style={{ maxHeight, transition: 'max-height 400ms ease' }}
+            style={{ maxHeight: COLLAPSED_DETAIL_PX }}
           >
-            <div ref={detailRef}>
-              <p
-                className="whitespace-pre-wrap text-[13px] leading-[1.5]"
-                style={{
-                  fontFamily: '"Fraunces", Georgia, serif',
-                  fontWeight: 500,
-                  color: 'hsl(var(--bento-fg))',
-                }}
-              >
-                {detail}
-              </p>
-            </div>
-            {!expanded && (
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0"
-                style={{
-                  height: FADE_PX,
-                  background: `linear-gradient(to bottom, transparent, ${surface})`,
-                }}
-              />
-            )}
+            <p
+              className="whitespace-pre-wrap text-[13px] leading-[1.5]"
+              style={{
+                fontFamily: '"Fraunces", Georgia, serif',
+                fontWeight: 500,
+                color: 'hsl(var(--bento-fg))',
+              }}
+            >
+              {detail}
+            </p>
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0"
+              style={{
+                height: FADE_PX,
+                background: `linear-gradient(to bottom, transparent, ${surface})`,
+              }}
+            />
           </div>
 
           <button
             type="button"
-            onClick={() => setExpanded((v) => !v)}
+            onClick={() => setOpen(true)}
             className="-mx-2.5 -mb-2.5 mt-3 w-[calc(100%+1.25rem)] py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-white/5 active:bg-white/10"
             style={{
               color: 'hsl(var(--bento-fg))',
               borderTop: '1px solid rgba(255,255,255,0.07)',
               background: 'rgba(255,255,255,0.06)',
             }}
-            aria-expanded={expanded}
+            aria-haspopup="dialog"
+            aria-expanded={open}
           >
-            {expanded ? '▲ Less' : '▼ More'}
+            &#9660; More
           </button>
+
+          <DescriptionModal open={open} onOpenChange={setOpen} body={trimmed} />
         </>
       )}
     </BentoTile>
   );
 };
-
-
