@@ -83,7 +83,7 @@ const popularResult = await callRpc(
 );
 assertShape(popularResult, 'salsa');
 if (popularResult.total_count === 0) {
-  throw new Error('salsa query returned total_count=0 â€” DB has lost all salsa-tagged content?');
+  throw new Error('salsa query returned total_count=0 - DB has lost all salsa-tagged content?');
 }
 
 // Test 2: empty query returns all-empty sections.
