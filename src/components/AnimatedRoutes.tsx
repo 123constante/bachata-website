@@ -11,7 +11,7 @@ import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
 // Wraps lazy() so a chunk-load failure (typically: stale cached HTML referencing
-// a chunk URL that 404s after a Vercel deploy â†’ "Failed to fetch dynamically
+// a chunk URL that 404s after a Vercel deploy -> "Failed to fetch dynamically
 // imported module" / MIME error) triggers ONE reload to pick up the fresh HTML.
 // sessionStorage flag prevents reload loops if the chunk genuinely can't load.
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted';
