@@ -105,6 +105,17 @@ const Organisers = () => {
     return Array.from(cats).sort();
   }, [organisers]);
 
+  // When every organiser is in the same city, the per-card city
+  // labels are noise -- fold the city into the header copy instead.
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    organisers.forEach((o) => {
+      if (o.cities?.name) cities.add(o.cities.name);
+    });
+    return Array.from(cities);
+  }, [organisers]);
+  const singleCity = uniqueCities.length === 1 ? uniqueCities[0] : null;
+
   const categoryCount = useMemo(() => {
     const counts: Record<string, number> = {};
     organisers.forEach((o) => {
@@ -171,7 +182,8 @@ const Organisers = () => {
           Who runs <span className="text-primary">bachata</span> near you
         </h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-          {organisers.length} organiser{organisers.length !== 1 ? 's' : ''} across {new Set(organisers.map((o) => o.cities?.name || '')).size} UK cities
+          {organisers.length} organiser{organisers.length !== 1 ? 's' : ''}
+          {singleCity ? ` in ${singleCity}` : ` across ${uniqueCities.length} UK cities`}
         </p>
         <div className="relative mx-auto mt-6 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -207,7 +219,7 @@ const Organisers = () => {
                   name={org.name}
                   avatarUrl={org.avatar_url}
                   organisationCategory={org.organisation_category}
-                  cityName={org.cities?.name ?? null}
+                  cityName={singleCity ? null : (org.cities?.name ?? null)}
                   eventCount={eventCounts?.[org.id] ?? 0}
                   index={idx + 1}
                   isTonight
@@ -283,7 +295,7 @@ const Organisers = () => {
                 name={organiser.name}
                 avatarUrl={organiser.avatar_url}
                 organisationCategory={organiser.organisation_category}
-                cityName={organiser.cities?.name ?? null}
+                cityName={singleCity ? null : (organiser.cities?.name ?? null)}
                 eventCount={eventCounts?.[organiser.id] ?? 0}
                 nextEventDate={nextEventDates[organiser.id] ?? null}
                 isLive={liveOrganisers.some((o) => o.id === organiser.id)}

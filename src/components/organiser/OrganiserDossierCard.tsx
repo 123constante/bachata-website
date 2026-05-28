@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { emitProfileView } from '@/lib/profileViewEmit';
@@ -72,7 +72,7 @@ export const OrganiserDossierCard = ({
         'border-white/5 bg-white/[0.02] hover:border-primary/30 hover:bg-primary/5',
         isLive && 'border-green-500/30 bg-green-500/5'
       )}
-      aria-label={`${name} â€” organiser profile`}
+      aria-label={`${name} Ã¢â‚¬â€ organiser profile`}
     >
       {/* Avatar circle */}
       <div className="flex-shrink-0">
@@ -117,7 +117,9 @@ export const OrganiserDossierCard = ({
             <div className="font-semibold text-foreground">{eventCount}</div>
             <div className="text-muted-foreground">{eventCount === 1 ? 'event' : 'events'}</div>
           </div>
-          <div className="col-span-2 truncate text-muted-foreground">{cityName || 'Unknown'}</div>
+          {cityName && (
+            <div className="col-span-2 truncate text-muted-foreground">{cityName}</div>
+          )}
         </div>
       </div>
 
