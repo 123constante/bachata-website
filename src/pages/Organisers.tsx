@@ -63,11 +63,14 @@ const Organisers = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: eventCounts } = useQuery({
-    queryKey: ['organiser-event-counts', citySlug],
+  // Directory shows all organisers regardless of city context, so the
+  // count should be unfiltered (city-filtered count returns 0 when the
+  // useCity() slug doesn't match cities.slug -- e.g. "london" vs "london-gb").
+  const { data: eventCounts = {} } = useQuery({
+    queryKey: ['organiser-event-counts-all'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_organiser_event_counts' as any, {
-        p_city_slug: citySlug,
+        p_city_slug: null,
       });
       if (error) return {} as Record<string, number>;
       const counts: Record<string, number> = {};
@@ -76,7 +79,6 @@ const Organisers = () => {
       });
       return counts;
     },
-    enabled: !!citySlug,
     staleTime: 5 * 60 * 1000,
   });
 
