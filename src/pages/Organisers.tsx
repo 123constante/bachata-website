@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCity } from '@/contexts/CityContext';
 import OrganiserDossierCard from '@/components/organiser/OrganiserDossierCard';
 import OrganiserHoloCard from '@/components/organiser/OrganiserHoloCard';
-import GetListedHoloCta from '@/components/organiser/GetListedHoloCta';
 
 type OrgRow = {
   id: string;
@@ -301,7 +300,6 @@ const Organisers = () => {
         )}
       </section>
 
-      <GetListedHoloCta />
     </GlobalLayout>
   );
 };
