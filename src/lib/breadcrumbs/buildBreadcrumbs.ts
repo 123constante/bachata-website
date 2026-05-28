@@ -6,7 +6,6 @@ import {
   type EntityRouteId,
   type EventRouteId,
 } from './siteIa';
-import { flags } from '../featureFlags';
 
 export type { BreadcrumbItemType, RouteId, EntityRouteId, EventRouteId };
 
@@ -87,13 +86,9 @@ export function buildBreadcrumbs(
   const chain: RouteId[] = [];
   const visited = new Set<RouteId>();
   let cursor: RouteId | undefined = routeId;
-  const skipBreadcrumbs = !flags.showFestivalBreadcrumbs && routeId === 'festival.detail';
   while (cursor && !visited.has(cursor)) {
     visited.add(cursor);
-    // Skip 'experience' and 'festivals' breadcrumbs for festival.detail when flag is false
-    if (!(skipBreadcrumbs && (cursor === 'experience' || cursor === 'festivals'))) {
-      chain.unshift(cursor);
-    }
+    chain.unshift(cursor);
     const node = SITE_IA[cursor];
     const parent = node.parent;
     if (!parent) break;

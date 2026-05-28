@@ -705,7 +705,8 @@ export const groupIntoSectionsFromServer = (
     if (s.slots.length > 0) return true;
     const ps = programSections.find((p) => p.id === s.id);
     if (!ps) return true; // orphan/legacy synthetic — keep
-    return false; // drop empty sections on the public schedule
+    if (ps.itemCount === 0) return true; // structurally empty — keep for empty-state copy
+    return false; // series has items but all cancelled for this occurrence — drop
   });
 
   // Sort sections by the earliest slot's startMins so the public schedule

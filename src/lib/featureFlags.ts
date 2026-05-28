@@ -14,7 +14,6 @@ export const flags = {
   organisersDirectory: import.meta.env.VITE_ENABLE_ORGANISERS_DIRECTORY === 'true',
   organiserDetail:     import.meta.env.VITE_ENABLE_ORGANISER_DETAIL === 'true',
   venueDetail:         import.meta.env.VITE_ENABLE_VENUE_DETAIL === 'true',
-  showFestivalBreadcrumbs: import.meta.env.VITE_ENABLE_FESTIVAL_BREADCRUMBS === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
