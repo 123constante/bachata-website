@@ -13,6 +13,7 @@ import OrganiserHoloCard from '@/components/organiser/OrganiserHoloCard';
 
 type OrgRow = {
   id: string;
+  slug: string | null;
   name: string;
   avatar_url: string | null;
   bio: string | null;
@@ -34,7 +35,7 @@ const Organisers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('organiser_profiles')
-        .select('id, name, avatar_url, bio, organisation_category, city_id')
+        .select('id, slug, name, avatar_url, bio, organisation_category, city_id')
         .not('is_active', 'is', false)
         .order('name');
       if (error) throw error;
@@ -230,6 +231,7 @@ const Organisers = () => {
               <div key={org.id} className="flex-shrink-0" style={{ width: '110px' }}>
                 <OrganiserHoloCard
                   id={org.id}
+                  slug={org.slug}
                   name={org.name}
                   avatarUrl={org.avatar_url}
                   organisationCategory={org.organisation_category}
@@ -306,6 +308,7 @@ const Organisers = () => {
               <OrganiserDossierCard
                 key={organiser.id}
                 id={organiser.id}
+                slug={organiser.slug}
                 name={organiser.name}
                 avatarUrl={organiser.avatar_url}
                 organisationCategory={organiser.organisation_category}

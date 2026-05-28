@@ -1,10 +1,11 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { emitProfileView } from '@/lib/profileViewEmit';
 
 type Props = {
   id: string;
+  slug?: string | null;
   name: string;
   avatarUrl: string | null;
   organisationCategory: string | null;
@@ -43,6 +44,7 @@ const formatNextEventDate = (date: string | null): string => {
 
 export const OrganiserDossierCard = ({
   id,
+  slug,
   name,
   avatarUrl,
   organisationCategory,
@@ -59,7 +61,7 @@ export const OrganiserDossierCard = ({
 
   return (
     <Link
-      to={`/organisers/${id}`}
+      to={`/organisers/${slug ?? id}`}
       onClick={() =>
         emitProfileView({
           personId: id,

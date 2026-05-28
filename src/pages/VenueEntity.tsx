@@ -791,7 +791,7 @@ function EventTile({
 // ============================================================
 const VenueEntity = () => {
   const { id: routeParam } = useParams<{ id: string }>();
-  const resolved = useEntitySlugOrId(routeParam, 'venues', { idColumn: 'entity_id' });
+  const resolved = useEntitySlugOrId(routeParam, 'venues');
   const id = resolved.id ?? undefined;
   useCanonicalReplaceState({
     arrivedViaUuid: resolved.arrivedViaUuid,

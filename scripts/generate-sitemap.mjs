@@ -130,13 +130,12 @@ async function fetchEvents() {
 async function fetchVenues() {
   const { data, error } = await supabase
     .from('venues')
-    .select('entity_id, slug, created_at')
+    .select('id, slug, created_at')
     .in("publish_state", ["published","dancer_ready"])
-    .not('entity_id', 'is', null)
     .limit(500);
   if (error) { console.warn('  venues fetch error:', error.message); return []; }
   return (data || []).map(v => ({
-    loc: `${BASE_URL}/venue-entity/${v.slug || v.entity_id}`,
+    loc: `${BASE_URL}/venue-entity/${v.slug || v.id}`,
     lastmod: toDate(v.created_at),
     changefreq: 'weekly',
     priority: '0.7',

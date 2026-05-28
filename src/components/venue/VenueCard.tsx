@@ -90,7 +90,7 @@ export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFil
   const weekendDays = getThisWeekendDays(venue.next_event_iso);
 
   return (
-    <Link to={`/venue-entity/${venue.id}`} className="block group h-full">
+    <Link to={`/venue-entity/${venue.slug ?? venue.id}`} className="block group h-full">
       <motion.div
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.98 }}

@@ -1,10 +1,11 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import './OrganiserHoloCard.css';
 
 type Props = {
   id: string;
+  slug?: string | null;
   name: string;
   avatarUrl: string | null;
   organisationCategory: string | null;
@@ -26,6 +27,7 @@ const getMonogram = (name: string): string =>
 
 export const OrganiserHoloCard = ({
   id,
+  slug,
   name,
   avatarUrl,
   organisationCategory,
@@ -43,7 +45,7 @@ export const OrganiserHoloCard = ({
 
   return (
     <Link
-      to={`/organisers/${id}`}
+      to={`/organisers/${slug ?? id}`}
       onClick={() =>
         emitProfileView({
           personId: id,

@@ -15,6 +15,7 @@ const formatDate = (iso: string | null): string => {
 };
 
 type MoreEvent = {
+  slug?: string | null;
   id: string;
   occurrenceId: string | null;
   title: string;
@@ -47,15 +48,16 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
     queryFn: async (): Promise<MoreEvent[]> => {
       const { data: links } = await supabase
         .from('event_entities')
-        .select('events(id, name, poster_url, is_active)')
+        .select('events(id, slug, name, poster_url, is_active)')
         .eq('entity_id', organiserId!)
         .eq('role', 'organiser');
 
-      type Link = { events: { id: string; name: string; poster_url: string | null; is_active: boolean | null } | null };
+      type Link = { events: { id: string; slug: string | null; name: string; poster_url: string | null; is_active: boolean | null } | null };
       const events = ((links ?? []) as unknown as Link[])
         .map((r) => r.events)
         .filter((e): e is NonNullable<Link['events']> => Boolean(e))
         .filter((e) => e.is_active !== false && e.id !== currentEventId);
+      const slugById = new Map(events.map((e) => [e.id, e.slug]));
 
       if (events.length === 0) return [];
 
@@ -76,6 +78,7 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
         .filter((e) => nextByEvent[e.id])
         .map((e) => ({
           id: e.id,
+          slug: slugById.get(e.id) ?? null,
           occurrenceId: nextByEvent[e.id].id,
           title: e.name,
           dateLabel: formatDate(nextByEvent[e.id].start),
@@ -157,8 +160,10 @@ const useThisWeekEvents = (citySlug: string | null, currentEventId: string | nul
     },
   });
 
-const eventHref = (e: MoreEvent) =>
-  e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`;
+const eventHref = (e: MoreEvent) => {
+  const key = e.slug ?? e.id;
+  return e.occurrenceId ? `/event/${key}?occurrenceId=${e.occurrenceId}` : `/event/${key}`;
+};
 
 const EventCard = ({ ev }: { ev: MoreEvent }) => (
   <Link

@@ -56,6 +56,7 @@ export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | n
 
 export interface PublicVenueListItem {
   id: string;
+  slug: string | null;
   name: string;
   cover_image: string | null;
   city_name: string | null;
