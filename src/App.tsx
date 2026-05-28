@@ -10,6 +10,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { GlobalFooter } from "@/components/layout/GlobalFooter";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CityProvider } from "@/contexts/CityContext";
 import { SearchOverlayProvider } from "@/contexts/SearchOverlayContext";
@@ -78,6 +79,7 @@ const App = () => {
                   </Suspense>
                 </ErrorBoundary>
               </main>
+              <GlobalFooter />
               {/* Spacer reserving space for the fixed BottomNav (incl. iOS safe-area inset) */}
               <div className="h-[calc(64px+env(safe-area-inset-bottom))] shrink-0" aria-hidden="true" />
               <BottomNav />

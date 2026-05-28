@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import { Search } from 'lucide-react';
+import { ChevronLeft, Search } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 import { useSearchOverlay } from '@/contexts/SearchOverlayContext';
+
+const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
 
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
   const { open } = useSearchOverlay();
+  const { pathname } = useLocation();
+  const isEventDetail = EVENT_DETAIL_RE.test(pathname);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,9 +42,20 @@ export const GlobalHeader = () => {
       </a>
 
       <nav className="flex items-center justify-between h-[58px] px-4">
-        <Link to={homePath} className="flex items-center shrink-0" aria-label="Bachata Calendar home">
-          <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" />
-        </Link>
+        {isEventDetail ? (
+          <Link
+            to="/"
+            className="flex items-center gap-1 text-foreground no-underline -ml-1 pl-1 pr-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
+            aria-label="Back to all events"
+          >
+            <ChevronLeft className="h-5 w-5 text-primary" strokeWidth={2.4} />
+            <span className="text-sm font-semibold">All events</span>
+          </Link>
+        ) : (
+          <Link to={homePath} className="flex items-center shrink-0 no-underline" aria-label="Bachata Calendar home">
+            <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" />
+          </Link>
+        )}
         <button
           type="button"
           onClick={open}

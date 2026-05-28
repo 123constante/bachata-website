@@ -18,6 +18,7 @@ import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
+import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
 import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { PromoBlock } from '@/modules/event-page/bento/blocks/PromoBlock';
@@ -346,6 +347,14 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
+
+        <MoreEventsSection
+          currentEventId={eventId}
+          organiserId={snapshot?.organisers[0]?.id ?? null}
+          organiserName={snapshot?.organisers[0]?.displayName ?? null}
+          citySlug={snapshot?.locationDefault?.city?.slug ?? null}
+          cityName={snapshot?.locationDefault?.city?.name ?? null}
+        />
 
         <AddToCalendarChooser
           open={calendarOpen}
