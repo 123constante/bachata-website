@@ -2,21 +2,22 @@
 /**
  * Static prerender for high-value SEO routes.
  *
- * Why: Vite build emits a SPA whose initial HTML is `<div id="root"></div>`.
- * Google can render JS but it's slower and less reliable; long-tail pages
- * sometimes index a blank page. This script renders a curated set of routes
- * with Playwright at build time and writes the rendered HTML back into
- * `dist/<route>/index.html`. The static HTML carries the title, meta,
- * JSON-LD and body copy. When a real user hits the page, createRoot()
- * replaces the static content with the live SPA - no hydration step.
+ * Renders a curated set of routes with a headless browser at build time and
+ * writes the rendered HTML to `dist/<route>/index.html`. The static HTML
+ * carries the title, meta, JSON-LD and body copy for crawlers; real users
+ * still client-render via createRoot which replaces the static markup.
  *
- * Wired into the build via package.json:
- *   "build": "...generate-sitemap... && vite build && node scripts/prerender.mjs"
+ * Browser detection:
+ *  - On Vercel (process.env.VERCEL) we use @sparticuz/chromium + puppeteer-core
+ *    because Vercel's build sandbox doesn't have the system libs Playwright's
+ *    bundled Chromium needs (libnspr4 etc.).
+ *  - Locally we use Playwright (already a devDep and already installed).
  *
  * Override / disable:
- *   PRERENDER_SKIP=1  - skip prerender (use during fast iteration)
- *   PRERENDER_PORT    - port to serve dist on (default 4173)
- *   PRERENDER_TIMEOUT - per-page navigation timeout in ms (default 30000)
+ *   PRERENDER_SKIP=1   - skip prerender entirely
+ *   PRERENDER_PORT     - port to serve dist on (default 4173)
+ *   PRERENDER_TIMEOUT  - per-page navigation timeout in ms (default 30000)
+ *   PRERENDER_STRICT=1 - exit 1 if any URL fails (default: succeed on partial)
  */
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -30,6 +31,7 @@ const DIST = path.join(ROOT, 'dist');
 const PORT = Number(process.env.PRERENDER_PORT) || 4173;
 const TIMEOUT = Number(process.env.PRERENDER_TIMEOUT) || 30000;
 const BASE = `http://localhost:${PORT}`;
+const ON_VERCEL = Boolean(process.env.VERCEL);
 
 const STATIC_ROUTES = [
   '/',
@@ -69,14 +71,6 @@ if (!existsSync(DIST)) {
   process.exit(1);
 }
 
-let playwright;
-try {
-  playwright = await import('playwright');
-} catch (err) {
-  console.warn('[prerender] playwright not installed - skipping prerender (', err.message, ')');
-  process.exit(0);
-}
-
 function waitForServer(url, timeoutMs = 15000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -92,7 +86,62 @@ function waitForServer(url, timeoutMs = 15000) {
   });
 }
 
+/** Returns { type: 'puppeteer'|'playwright', launch, contextNewPage } or null on failure. */
+async function pickBrowser() {
+  if (ON_VERCEL) {
+    try {
+      const [{ default: chromium }, puppeteer] = await Promise.all([
+        import('@sparticuz/chromium'),
+        import('puppeteer-core'),
+      ]);
+      console.log('[prerender] using puppeteer-core + @sparticuz/chromium');
+      return {
+        type: 'puppeteer',
+        launch: async () =>
+          puppeteer.default.launch({
+            args: chromium.args,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+            defaultViewport: chromium.defaultViewport,
+          }),
+        newPage: (browser) => browser.newPage(),
+      };
+    } catch (err) {
+      console.warn('[prerender] sparticuz/puppeteer-core not available on Vercel:', err.message);
+      return null;
+    }
+  }
+  try {
+    const playwright = await import('playwright');
+    console.log('[prerender] using playwright chromium');
+    let browser;
+    return {
+      type: 'playwright',
+      launch: async () => {
+        browser = await playwright.chromium.launch();
+        return browser;
+      },
+      newPage: async () => {
+        const ctx = await browser.newContext({
+          userAgent:
+            'Mozilla/5.0 (compatible; BachataCalendarPrerender/1.0; +https://bachatacalendar.co.uk)',
+        });
+        return ctx.newPage();
+      },
+    };
+  } catch (err) {
+    console.warn('[prerender] playwright not available locally:', err.message);
+    return null;
+  }
+}
+
 async function main() {
+  const picker = await pickBrowser();
+  if (!picker) {
+    console.warn('[prerender] no browser available - skipping prerender.');
+    process.exit(0);
+  }
+
   console.log(`[prerender] launching vite preview on :${PORT}`);
   const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
     cwd: ROOT,
@@ -111,30 +160,24 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[prerender] launching chromium`);
   let browser;
   try {
-    browser = await playwright.chromium.launch();
+    browser = await picker.launch();
   } catch (err) {
-    console.warn('[prerender] chromium not available - skipping prerender (' + err.message + ')');
-    console.warn('[prerender] hint: run `npx playwright install chromium` to enable prerender.');
+    console.warn('[prerender] chromium failed to launch - skipping (' + err.message + ')');
     server.kill();
     process.exit(0);
   }
-  const ctx = await browser.newContext({
-    userAgent:
-      'Mozilla/5.0 (compatible; BachataCalendarPrerender/1.0; +https://bachatacalendar.co.uk)',
-  });
 
   let ok = 0;
   let failed = 0;
   for (const route of STATIC_ROUTES) {
     const url = BASE + route;
-    const page = await ctx.newPage();
+    const page = await picker.newPage(browser);
     try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: TIMEOUT });
-      // Give React Query a beat to settle any post-mount fetches.
-      await page.waitForTimeout(500);
+      const waitUntil = picker.type === 'puppeteer' ? 'networkidle0' : 'networkidle';
+      await page.goto(url, { waitUntil, timeout: TIMEOUT });
+      await new Promise((r) => setTimeout(r, 500));
       const html = await page.content();
       const outDir = route === '/' ? DIST : path.join(DIST, route.replace(/^\//, ''));
       await mkdir(outDir, { recursive: true });
