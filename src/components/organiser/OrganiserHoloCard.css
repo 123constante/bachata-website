@@ -82,15 +82,12 @@
   color: #ffc76e;
   position: relative;
   z-index: 1;
-  white-space: nowrap;
-  overflow: hidden;
   max-width: 100%;
+  text-align: center;
+  line-height: 1.15;
 }
 
 .holo-card__banner > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   max-width: 100%;
 }
 
