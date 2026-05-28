@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import './OrganiserHoloCard.css';
@@ -11,6 +11,9 @@ type Props = {
   cityName: string | null;
   eventCount: number;
   index: number;
+  // When true, the footer reads "TONIGHT" in green and a pulsing pip appears
+  // top-right. Used by the "Active tonight" scroller on the Organisers page.
+  isTonight?: boolean;
 };
 
 const getMonogram = (name: string): string =>
@@ -29,6 +32,7 @@ export const OrganiserHoloCard = ({
   cityName,
   eventCount,
   index,
+  isTonight,
 }: Props) => {
   const [imgFailed, setImgFailed] = useState(false);
   const showImage = !!avatarUrl && !imgFailed;
@@ -48,8 +52,9 @@ export const OrganiserHoloCard = ({
         })
       }
       className="holo-card"
-      aria-label={`${name} \u2014 organiser profile`}
+      aria-label={`${name} — organiser profile${isTonight ? ' — event tonight' : ''}`}
     >
+      {isTonight && <span className="holo-card__live-pip" aria-hidden="true" />}
       <div className="holo-card__inner">
         <div className="holo-card__banner">
           <span>&#9670; {categoryLabel} &#9670;</span>
@@ -73,8 +78,8 @@ export const OrganiserHoloCard = ({
 
         {typeLine && <div className="holo-card__type">{typeLine}</div>}
 
-        <div className="holo-card__footer">
-          <span>{eventLabel}</span>
+        <div className={`holo-card__footer${isTonight ? ' holo-card__footer--tonight' : ''}`}>
+          <span>{isTonight ? '· TONIGHT ·' : eventLabel}</span>
         </div>
       </div>
     </Link>

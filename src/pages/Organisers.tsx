@@ -210,6 +210,7 @@ const Organisers = () => {
                   cityName={org.cities?.name ?? null}
                   eventCount={eventCounts?.[org.id] ?? 0}
                   index={idx + 1}
+                  isTonight
                 />
               </div>
             ))}

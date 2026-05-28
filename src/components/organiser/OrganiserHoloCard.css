@@ -1,4 +1,4 @@
-/* OrganiserHoloCard - B4 Holo Trading Card
+﻿/* OrganiserHoloCard - B4 Holo Trading Card
    Ported from Claude Design treatment T10_Holo. Holographic foil border,
    dark inner panel, diagonal shimmer + 3D tilt on hover. Class scope is
    `.holo-card` so it can't bleed onto sibling components. */
@@ -195,4 +195,37 @@
   .holo-card:focus-visible .holo-card__inner::before {
     transform: translateX(-30%);
   }
+}
+
+/* Tonight state: green pulsing pip + green footer text. Applied by the
+   "Active tonight" scroller on the Organisers directory. */
+.holo-card__live-pip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 0 10px rgba(34, 197, 94, 0.85);
+  z-index: 3;
+  animation: holo-card-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes holo-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 0 10px rgba(34, 197, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.08), 0 0 14px rgba(34, 197, 94, 1);
+  }
+}
+
+.holo-card__footer--tonight {
+  color: #4ade80;
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-card__live-pip { animation: none; }
 }
