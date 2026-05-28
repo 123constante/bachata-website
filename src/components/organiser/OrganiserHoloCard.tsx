@@ -51,7 +51,7 @@ export const OrganiserHoloCard = ({
           context: 'listing:organisers',
         })
       }
-      className="holo-card"
+      className={`holo-card${isTonight ? ' holo-card--tonight' : ''}`}
       aria-label={`${name} — organiser profile${isTonight ? ' — event tonight' : ''}`}
     >
       {isTonight && <span className="holo-card__live-pip" aria-hidden="true" />}

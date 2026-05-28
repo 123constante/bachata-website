@@ -82,6 +82,16 @@
   color: #ffc76e;
   position: relative;
   z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.holo-card__banner > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 
@@ -229,3 +239,15 @@
 @media (prefers-reduced-motion: reduce) {
   .holo-card__live-pip { animation: none; }
 }
+
+/* Tonight cards live in a 110px horizontal scroller regardless of the
+   viewport width, so they must always use the compact typography.
+   The @media (max-width: 480px) rule above only fires on viewport width
+   and would otherwise be skipped on desktop, causing the banner to wrap
+   and collapse the art panel. */
+.holo-card.holo-card--tonight .holo-card__inner { padding: 8px; }
+.holo-card.holo-card--tonight .holo-card__banner { font-size: 7px; letter-spacing: 0.08em; }
+.holo-card.holo-card--tonight .holo-card__name { font-size: 9.5px; }
+.holo-card.holo-card--tonight .holo-card__type { font-size: 7.5px; letter-spacing: 0.08em; }
+.holo-card.holo-card--tonight .holo-card__footer { font-size: 7.5px; letter-spacing: 0.1em; }
+.holo-card.holo-card--tonight .holo-card__art { min-height: 56px; }
