@@ -91,14 +91,13 @@ const DJProfile = () => {
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
-  useSeo(
-    buildSeoForRoute('dj.detail', {
-      entityName: dj?.display_name ?? dj?.dj_name ?? undefined,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      ogImage: Array.isArray(dj?.photo_url) ? dj.photo_url[0] ?? undefined : dj?.photo_url ?? undefined,
-      isLoading: isLoading,
-    }),
-  );
+  const _djSeo = buildSeoForRoute('dj.detail', {
+    entityName: dj?.display_name ?? dj?.dj_name ?? undefined,
+    entitySlug: resolved.slug ?? id ?? undefined,
+    ogImage: Array.isArray(dj?.photo_url) ? dj.photo_url[0] ?? undefined : dj?.photo_url ?? undefined,
+    isLoading,
+  });
+  useSeo(_djSeo);
 
 
 
@@ -168,7 +167,7 @@ const DJProfile = () => {
     dj.facebook && { label: 'Facebook', handle: 'Facebook', url: normalizeUrl(dj.facebook), icon: Globe, color: 'text-blue-500' },
   ].filter(Boolean) as { label: string; handle: string; url: string; icon: any; color: string }[];
 
-  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' Â· ');
+  const djSubtitle = [cityName, dj.nationality].filter(Boolean).join(' \u00B7 ');
 
   return (
     <GlobalLayout

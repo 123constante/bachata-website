@@ -111,6 +111,7 @@ const TeacherProfile = () => {
     slug: resolved.slug,
     buildPath: (s) => `/teachers/${s}`,
   });
+  const navigate = useNavigate();
   const { data: teacher, isLoading, error } = useQuery({
     queryKey: ['teacher-profile', id],
     queryFn: async () => {
@@ -181,15 +182,13 @@ const TeacherProfile = () => {
     },
     enabled: !!id,
   });
-  const navigate = useNavigate();
-  useSeo(
-    buildSeoForRoute('teacher.detail', {
-      entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      ogImage: teacher?.avatar_url ?? undefined,
-      isLoading: isLoading,
-    }),
-  );
+  const _teacherSeo = buildSeoForRoute('teacher.detail', {
+    entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
+    entitySlug: resolved.slug ?? id ?? undefined,
+    ogImage: teacher?.photo_url ?? undefined,
+    isLoading,
+  });
+  useSeo(_teacherSeo);
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
 

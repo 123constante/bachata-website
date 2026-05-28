@@ -52,6 +52,7 @@ const DancerProfile = () => {
     slug: resolved.slug,
     buildPath: (s) => `/dancers/${s}`,
   });
+  const navigate = useNavigate();
   const { data: dancer, isLoading, error: dancerError } = useQuery({
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
@@ -68,21 +69,19 @@ const DancerProfile = () => {
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
-  const navigate = useNavigate();
-  useSeo(
-    buildSeoForRoute('dancer.detail', {
-      entityName: dancerView?.displayName,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      ogImage: dancer?.avatar_url ?? undefined,
-      isLoading: isLoading,
-    }),
-  );
   const { user } = useAuth();
+  const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
+  const _dancerSeo = buildSeoForRoute('dancer.detail', {
+    entityName: dancerView?.displayName,
+    entitySlug: resolved.slug ?? id ?? undefined,
+    ogImage: dancer?.avatar_url ?? undefined,
+    isLoading,
+  });
+  useSeo(_dancerSeo);
 
 
 
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
-  const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   const dancerUserId = dancer?.created_by ?? null;
   const isSelfView = Boolean(user?.id && dancerUserId && user.id === dancerUserId);
 
