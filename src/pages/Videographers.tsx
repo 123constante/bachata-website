@@ -2,7 +2,6 @@
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,7 +50,7 @@ const Videographers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('videographers')}
+      showSubheader={false}
       hero={{
         emoji: '🎥',
         titleWhite: 'Bachata',

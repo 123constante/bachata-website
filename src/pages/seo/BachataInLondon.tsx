@@ -5,7 +5,6 @@
  */
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 
 const WEEKDAYS = [
@@ -28,7 +27,7 @@ const BachataInLondon = () => {
   });
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('londonBachataGuide')}>
+    <GlobalLayout showSubheader={false}>
       <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
         <header className="space-y-3">
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.05]">

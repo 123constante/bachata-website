@@ -10,9 +10,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
-import PageBreadcrumb from "@/components/PageBreadcrumb";
 
-import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { useSeo, buildSeoForRoute } from "@/lib/seo";
 
 import { useQuery } from "@tanstack/react-query";
@@ -1970,7 +1968,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-      <PageBreadcrumb items={buildBreadcrumbs("festival.detail", { entityName: festival.name })} />
 
       <script
         type="application/ld+json"

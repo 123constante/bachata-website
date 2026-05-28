@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import ListingRequestForm from '@/components/ListingRequestForm';
 import type { ListingSection } from '@/lib/featureFlags';
 
@@ -11,8 +10,6 @@ interface ComingSoonGateProps {
   title: string;
   /** Section value submitted with the listing request &mdash; must match the listing_request_section enum. */
   section: ListingSection;
-  /** Breadcrumb trail for the placeholder branch. The real-page branch passes its own. */
-  breadcrumbs: BreadcrumbItemType[];
   children: ReactNode;
 }
 
@@ -50,7 +47,6 @@ export default function ComingSoonGate({
   enabled,
   title,
   section,
-  breadcrumbs,
   children,
 }: ComingSoonGateProps) {
   useNoindexMeta(!enabled);
@@ -60,7 +56,7 @@ export default function ComingSoonGate({
   }
 
   return (
-    <GlobalLayout breadcrumbs={breadcrumbs}>
+    <GlobalLayout showSubheader={false}>
       <div className="max-w-prose mx-auto px-3 py-8">
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-slate-900 space-y-4">
           <h1 className="text-lg font-semibold text-slate-900">Coming soon &mdash; {title}</h1>

@@ -7,7 +7,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
@@ -116,7 +115,7 @@ const BachataWeekday = () => {
 
   if (!meta) {
     return (
-      <GlobalLayout breadcrumbs={buildBreadcrumbs('londonBachataGuide')}>
+      <GlobalLayout showSubheader={false}>
         <div className="mx-auto max-w-2xl px-4 py-12 text-center space-y-3">
           <h1 className="text-2xl font-bold">Weekday not found</h1>
           <p className="text-muted-foreground">
@@ -133,10 +132,7 @@ const BachataWeekday = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('bachataWeekday', {
-        entityName: meta.label,
-        entityId: meta.slug,
-      })}
+      showSubheader={false}
     >
       <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
         <header className="space-y-2">

@@ -9,7 +9,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -287,7 +286,7 @@ const FestivalHubInner = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('festivals')}
+      showSubheader={false}
       showGradientBg={false}
       hero={{
         emoji: '🎪',

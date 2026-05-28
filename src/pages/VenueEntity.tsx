@@ -38,7 +38,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { fetchPublicVenue } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
@@ -840,11 +839,6 @@ const VenueEntity = () => {
     },
     enabled: !!id && !!venue,
   });
-
-  const venueBreadcrumbs = buildBreadcrumbs('venue.detail', {
-    entityName: venue?.name,
-    isLoading,
-  });
   useSeo(
     buildSeoForRoute('venue.detail', {
       entityName: venue?.name,
@@ -862,9 +856,8 @@ const VenueEntity = () => {
   if (isLoading) {
     return (
       <GlobalLayout
-        breadcrumbs={venueBreadcrumbs}
-        backHref={backHref}
         showSubheader={false}
+        backHref={backHref}
         showGradientBg={false}
       >
         <div
@@ -896,9 +889,8 @@ const VenueEntity = () => {
   if (!venue) {
     return (
       <GlobalLayout
-        breadcrumbs={venueBreadcrumbs}
-        backHref={backHref}
         showSubheader={false}
+        backHref={backHref}
         showGradientBg={false}
       >
         <div
@@ -1258,9 +1250,8 @@ const VenueEntity = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={venueBreadcrumbs}
-      backHref={backHref}
       showSubheader={false}
+      backHref={backHref}
       showGradientBg={false}
     >
       <div

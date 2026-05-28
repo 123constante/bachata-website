@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import {
   Dialog,
@@ -615,15 +614,10 @@ const OrganiserProfile = () => {
     }
   };
 
-  const organiserBreadcrumbs = buildBreadcrumbs('organiser.detail', {
-    entityName: entity?.name,
-    isLoading,
-  });
-
   // Loading state
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+      <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
         <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.paper }}>
           <div className="px-4 md:px-12 pt-20 pb-10">
             <Skeleton className="h-3 w-52 bg-black/25" />
@@ -642,7 +636,7 @@ const OrganiserProfile = () => {
   // Not-found state
   if (error || !entity) {
     return (
-      <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+      <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
         <article className="min-h-screen flex items-center justify-center px-6" style={{ fontFamily: FONT.sans, background: SP.paper, color: SP.black }}>
           <div className="text-center">
             <h1 className="text-4xl uppercase" style={DISP}>Organiser not found</h1>
@@ -746,7 +740,7 @@ const OrganiserProfile = () => {
   ].filter(Boolean) as string[];
 
   return (
-    <GlobalLayout breadcrumbs={organiserBreadcrumbs} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+    <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
       <article className="min-h-screen" style={{ fontFamily: FONT.sans, background: SP.black, color: SP.black }}>
 
         {/* HERO */}

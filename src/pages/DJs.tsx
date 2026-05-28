@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { buildFullName } from '@/lib/name-utils';
 
@@ -46,7 +45,7 @@ const DJs = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('djs')}
+      showSubheader={false}
       hero={{
         emoji: '\u{1F3A7}',
         titleWhite: 'Bachata',

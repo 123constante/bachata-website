@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const PAGE_SIZE = 12;
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
@@ -54,7 +53,7 @@ const Vendors = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('vendors')}
+      showSubheader={false}
       hero={{
         emoji: '🛍️',
         titleWhite: 'Bachata',

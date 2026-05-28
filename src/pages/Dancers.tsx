@@ -4,7 +4,6 @@ import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Came
 import { useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { emitProfileView } from '@/lib/profileViewEmit';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
@@ -233,7 +232,7 @@ const Dancers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('dancers')}
+      showSubheader={false}
       hero={{
         emoji: '💃',
         titleWhite: 'Meet',

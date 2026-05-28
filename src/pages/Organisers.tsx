@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCity } from '@/contexts/CityContext';
@@ -178,7 +177,7 @@ const Organisers = () => {
   };
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('organisers')} showSubheader={true}>
+    <GlobalLayout showSubheader={false} showSubheader={true}>
       <div className="bg-gradient-to-b from-primary/10 to-transparent px-4 py-8 text-center sm:py-10">
         <div className="text-xs font-bold uppercase tracking-widest text-primary">Organisers</div>
         <h1 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">

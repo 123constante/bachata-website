@@ -4,7 +4,6 @@
  */
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 
 interface Faq {
@@ -186,7 +185,7 @@ const Faq = () => {
   });
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('faq')}>
+    <GlobalLayout showSubheader={false}>
       <FaqJsonLd />
       <article className="mx-auto max-w-3xl px-4 py-8 space-y-6">
         <header className="space-y-2">

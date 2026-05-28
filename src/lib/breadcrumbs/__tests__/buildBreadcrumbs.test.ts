@@ -6,23 +6,23 @@ import {
 } from '@/lib/breadcrumbs';
 
 describe('resolveEventParent', () => {
-  it('maps party-like types to parties', () => {
-    expect(resolveEventParent('party')).toBe('parties');
-    expect(resolveEventParent('social')).toBe('parties');
+  it('returns null for party-like types so the chain is just Home > Event', () => {
+    expect(resolveEventParent('party')).toBeNull();
+    expect(resolveEventParent('social')).toBeNull();
   });
-  it('maps class-like types to classes', () => {
-    expect(resolveEventParent('class')).toBe('classes');
-    expect(resolveEventParent('workshop')).toBe('classes');
-    expect(resolveEventParent('social_class')).toBe('classes');
-    expect(resolveEventParent('masterclass')).toBe('classes');
+  it('returns null for class-like types so the chain is just Home > Event', () => {
+    expect(resolveEventParent('class')).toBeNull();
+    expect(resolveEventParent('workshop')).toBeNull();
+    expect(resolveEventParent('social_class')).toBeNull();
+    expect(resolveEventParent('masterclass')).toBeNull();
   });
   it('maps festival-like types to festivals', () => {
     expect(resolveEventParent('festival')).toBe('festivals');
     expect(resolveEventParent('congress')).toBe('festivals');
   });
-  it('falls back to parties for undefined / unknown', () => {
-    expect(resolveEventParent(undefined)).toBe('parties');
-    expect(resolveEventParent('not-a-real-type' as EventType)).toBe('parties');
+  it('returns null for undefined / unknown', () => {
+    expect(resolveEventParent(undefined)).toBeNull();
+    expect(resolveEventParent('not-a-real-type' as EventType)).toBeNull();
   });
 });
 
@@ -135,27 +135,21 @@ describe('buildBreadcrumbs — entity detail routes (loading state)', () => {
 });
 
 describe('buildBreadcrumbs — event.detail (type-aware parent)', () => {
-  it('party event → [Parties (link), name]', () => {
+  it('party event → [name] (parent chain stops at Home)', () => {
     expect(
       buildBreadcrumbs('event.detail', {
         entityName: 'Salsa Night',
         eventType: 'party',
       }),
-    ).toEqual([
-      { label: 'Parties', path: '/parties' },
-      { label: 'Salsa Night' },
-    ]);
+    ).toEqual([{ label: 'Salsa Night' }]);
   });
-  it('class event → [Classes (link), name]', () => {
+  it('class event → [name] (parent chain stops at Home)', () => {
     expect(
       buildBreadcrumbs('event.detail', {
         entityName: 'Footwork Workshop',
         eventType: 'class',
       }),
-    ).toEqual([
-      { label: 'Classes', path: '/classes' },
-      { label: 'Footwork Workshop' },
-    ]);
+    ).toEqual([{ label: 'Footwork Workshop' }]);
   });
   it('festival event → [Experience, Festivals (link), name]', () => {
     expect(
@@ -169,30 +163,27 @@ describe('buildBreadcrumbs — event.detail (type-aware parent)', () => {
       { label: 'BachataFest 2026' },
     ]);
   });
-  it('falls back to parties for unknown event type', () => {
+  it('falls back to bare entity crumb for unknown event type', () => {
     expect(
       buildBreadcrumbs('event.detail', {
         entityName: 'Mystery Event',
         eventType: undefined,
       }),
-    ).toEqual([
-      { label: 'Parties', path: '/parties' },
-      { label: 'Mystery Event' },
-    ]);
+    ).toEqual([{ label: 'Mystery Event' }]);
   });
-  it('loading event → drops entity crumb, parent becomes current page', () => {
+  it('loading event with no parent → falls back to placeholder label', () => {
     expect(
       buildBreadcrumbs('event.detail', {
         entityName: undefined,
         eventType: 'party',
         isLoading: true,
       }),
-    ).toEqual([{ label: 'Parties' }]);
+    ).toEqual([{ label: 'Event' }]);
   });
 });
 
 describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
-  it('produces [Parties (link), event name (link), Edit]', () => {
+  it('party event edit → [event name (link), Edit] (no Parties crumb)', () => {
     expect(
       buildBreadcrumbs('event.edit', {
         entityName: 'Salsa Night',
@@ -200,12 +191,11 @@ describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
         entityId: 'abc-123',
       }),
     ).toEqual([
-      { label: 'Parties', path: '/parties' },
       { label: 'Salsa Night', path: '/event/abc-123' },
       { label: 'Edit' },
     ]);
   });
-  it('class event edit → [Classes (link), name (link), Edit]', () => {
+  it('class event edit → [event name (link), Edit] (no Classes crumb)', () => {
     expect(
       buildBreadcrumbs('event.edit', {
         entityName: 'Body Movement',
@@ -213,7 +203,6 @@ describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
         entityId: 'xyz-789',
       }),
     ).toEqual([
-      { label: 'Classes', path: '/classes' },
       { label: 'Body Movement', path: '/event/xyz-789' },
       { label: 'Edit' },
     ]);
@@ -224,7 +213,7 @@ describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
       eventType: 'party',
       entityId: undefined,
     });
-    expect(result[1]).toEqual({ label: 'Salsa Night' });
+    expect(result[0]).toEqual({ label: 'Salsa Night' });
   });
   it('without entityName, falls back to placeholder for intermediate crumb', () => {
     const result = buildBreadcrumbs('event.edit', {
@@ -233,7 +222,7 @@ describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
       entityId: 'abc',
     });
     // Intermediate uses placeholder label "Event" when entityName missing
-    expect(result[1]).toEqual({ label: 'Event', path: '/event/abc' });
+    expect(result[0]).toEqual({ label: 'Event', path: '/event/abc' });
   });
 });
 

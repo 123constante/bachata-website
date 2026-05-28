@@ -9,6 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Matches the UUID prefix pattern (8-4-4-4-) without the strict 12-char suffix.
+// Used to detect malformed UUIDs that fail UUID_RE but would still cause
+// "invalid input syntax for type uuid" if passed to a UUID column.
+const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
 
 export type EntityTable =
   | 'events'
@@ -37,6 +41,9 @@ export function useEntitySlugOrId(
 ): ResolvedEntity {
   const idColumn = options.idColumn ?? 'id';
   const arrivedViaUuid = Boolean(param && UUID_RE.test(param));
+  // Param looks like a UUID attempt (has UUID prefix) but fails strict check —
+  // not a valid UUID and won't match any slug either; skip the DB round-trip.
+  const isMalformedUuid = !arrivedViaUuid && Boolean(param && UUID_PREFIX_RE.test(param));
 
   const { data, isLoading } = useQuery({
     queryKey: ['entity-resolve', table, idColumn, param],
@@ -56,9 +63,13 @@ export function useEntitySlugOrId(
         slug: (r.slug as string | null) ?? null,
       };
     },
-    enabled: Boolean(param),
+    enabled: Boolean(param) && !isMalformedUuid,
     staleTime: 5 * 60 * 1000,
   });
+
+  if (isMalformedUuid) {
+    return { id: null, slug: null, isLoading: false, notFound: true, arrivedViaUuid: false };
+  }
 
   return {
     id: data?.id ?? (arrivedViaUuid ? (param as string) : null),

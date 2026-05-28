@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Link } from 'react-router-dom';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { VenueCard } from '@/components/venue/VenueCard';
@@ -203,7 +202,7 @@ const Venues = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('venues')}
+      showSubheader={false}
       hero={{
         emoji: '🏛️',
         titleWhite: 'Dance',

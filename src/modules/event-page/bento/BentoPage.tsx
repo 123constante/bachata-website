@@ -69,7 +69,7 @@ const TileShimmer = () => (
   <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/20" />
 );
 
-export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
+export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug }: BentoPageProps) => {
   const { snapshot, pageModel } = useEventPage(eventId, occurrenceId);
 
   // Phase 6D â€” drives whether the bento grid reserves a slot for the raffle
@@ -103,7 +103,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   useSeo(
     buildSeoForRoute('event.detail', {
       entityName: state === 'ready' ? pageModel.identity.title : undefined,
-      entitySlug: eventSlug ?? eventId ?? undefined,
+      entitySlug: resolvedEventSlug ?? eventId ?? undefined,
       ogImage: snapshot?.event.imageUrl ?? undefined,
       isLoading: state !== 'ready',
     }),

@@ -7,7 +7,6 @@ import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/Scroll
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import {
   Accordion,
@@ -84,7 +83,7 @@ const Discounts = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('discounts')}
+      showSubheader={false}
       hero={{
         emoji: '👑',
         titleWhite: 'VIP',

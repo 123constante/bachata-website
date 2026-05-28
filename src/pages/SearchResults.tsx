@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Building2, GraduationCap, Music, User, MapPin } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useCity } from '@/contexts/CityContext';
 import { useSearchResults } from '@/hooks/useSearchResults';
@@ -119,14 +118,6 @@ const SearchResults = () => {
   const { citySlug } = useCity();
   const { data, isLoading, error } = useSearchResults(query, citySlug, { includePast });
 
-  const breadcrumbs = useMemo(
-    () =>
-      buildBreadcrumbs('search.results', {
-        entityName: query ? `"${query}"` : undefined,
-        isLoading: query.length > 0 && isLoading,
-      }),
-    [query, isLoading],
-  );
 
   const handleTimeChange = (next: TimeMode) => {
     const url = new URLSearchParams(params);
@@ -147,7 +138,7 @@ const SearchResults = () => {
   }
 
   return (
-    <GlobalLayout breadcrumbs={breadcrumbs}>
+    <GlobalLayout showSubheader={false}>
       <section className="px-4 py-6 max-w-5xl mx-auto">
         <header className="mb-6">
           <h1 className="text-2xl md:text-3xl font-black text-foreground">

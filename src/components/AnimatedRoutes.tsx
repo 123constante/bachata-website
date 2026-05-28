@@ -6,7 +6,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
-import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
@@ -151,7 +150,6 @@ export const AnimatedRoutes = () => {
                 enabled={flags.teachersDirectory}
                 title="Teachers"
                 section="teachers_directory"
-                breadcrumbs={buildBreadcrumbs('teachers')}
               >
                 <PageTransition><Teachers /></PageTransition>
               </ComingSoonGate>
@@ -161,7 +159,6 @@ export const AnimatedRoutes = () => {
                 enabled={flags.teacherDetail}
                 title="Teacher"
                 section="teacher_detail"
-                breadcrumbs={buildBreadcrumbs('teacher.detail', { entityName: undefined, isLoading: false })}
               >
                 <PageTransition><TeacherProfile /></PageTransition>
               </ComingSoonGate>
@@ -176,7 +173,6 @@ export const AnimatedRoutes = () => {
                 enabled={flags.organisersDirectory}
                 title="Organisers"
                 section="organisers_directory"
-                breadcrumbs={buildBreadcrumbs('organisers')}
               >
                 <PageTransition><Organisers /></PageTransition>
               </ComingSoonGate>
@@ -186,7 +182,6 @@ export const AnimatedRoutes = () => {
                 enabled={flags.organiserDetail}
                 title="Organiser"
                 section="organiser_detail"
-                breadcrumbs={buildBreadcrumbs('organiser.detail', { entityName: undefined, isLoading: false })}
               >
                 <PageTransition><OrganiserProfile /></PageTransition>
               </ComingSoonGate>
@@ -196,7 +191,6 @@ export const AnimatedRoutes = () => {
                 enabled={flags.venueDetail}
                 title="Venue"
                 section="venue_detail"
-                breadcrumbs={buildBreadcrumbs('venue.detail', { entityName: undefined, isLoading: false })}
               >
                 <PageTransition><VenueEntity /></PageTransition>
               </ComingSoonGate>

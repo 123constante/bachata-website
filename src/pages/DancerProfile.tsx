@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
@@ -53,17 +52,6 @@ const DancerProfile = () => {
     slug: resolved.slug,
     buildPath: (s) => `/dancers/${s}`,
   });
-  useSeo(
-    buildSeoForRoute('dancer.detail', {
-      entityName: dancerView?.displayName,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      ogImage: dancer?.avatar_url ?? undefined,
-      isLoading: isLoading,
-    }),
-  );
-  const navigate = useNavigate();
-  const { user } = useAuth();
-
   const { data: dancer, isLoading, error: dancerError } = useQuery({
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
@@ -80,6 +68,18 @@ const DancerProfile = () => {
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
+  useSeo(
+    buildSeoForRoute('dancer.detail', {
+      entityName: dancerView?.displayName,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      ogImage: dancer?.avatar_url ?? undefined,
+      isLoading: isLoading,
+    }),
+  );
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+
 
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
@@ -217,12 +217,10 @@ const DancerProfile = () => {
     navigate(item.type === "festival" ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
-  const dancerBreadcrumbs = buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName, isLoading });
-
   if (isLoading) {
     return (
       <GlobalLayout
-        breadcrumbs={dancerBreadcrumbs}
+        showSubheader={false}
         backHref="/dancers"
       >
         <div className="container max-w-4xl mx-auto px-4 pb-24">
@@ -243,7 +241,7 @@ const DancerProfile = () => {
     if (dancerError) console.error('DancerProfile error:', dancerError);
     return (
       <GlobalLayout
-        breadcrumbs={dancerBreadcrumbs}
+        showSubheader={false}
         backHref="/dancers"
         hero={{
           emoji: '',
@@ -280,7 +278,7 @@ const DancerProfile = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={dancerBreadcrumbs}
+      showSubheader={false}
       backHref="/dancers"
       hero={{
         emoji: '',

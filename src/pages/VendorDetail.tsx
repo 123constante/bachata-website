@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
@@ -204,8 +203,6 @@ const VendorDetail = () => {
       source,
     });
   };
-
-  const vendorBreadcrumbs = buildBreadcrumbs('vendor.detail', { entityName: vendor?.business_name, isLoading: loading });
   useSeo(
     buildSeoForRoute('vendor.detail', {
       entityName: vendor?.business_name,
@@ -219,7 +216,7 @@ const VendorDetail = () => {
   if (loading) {
     return (
       <GlobalLayout
-        breadcrumbs={vendorBreadcrumbs}
+        showSubheader={false}
         backHref="/vendors"
         hero={{
           emoji: '🛍️',
@@ -238,7 +235,7 @@ const VendorDetail = () => {
   if (error || !vendor) {
     return (
       <GlobalLayout
-        breadcrumbs={vendorBreadcrumbs}
+        showSubheader={false}
         backHref="/vendors"
         hero={{
           emoji: '🛍️',
@@ -262,7 +259,7 @@ const VendorDetail = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={vendorBreadcrumbs}
+      showSubheader={false}
       backHref="/vendors"
       hero={{
         emoji: '🛍️',

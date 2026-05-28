@@ -8,7 +8,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
@@ -152,7 +151,7 @@ const Teachers = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('teachers')}
+      showSubheader={false}
       floatingCount={15}
       hero={{
         emoji: '🎓',

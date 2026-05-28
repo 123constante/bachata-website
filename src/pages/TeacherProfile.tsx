@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
@@ -112,18 +111,6 @@ const TeacherProfile = () => {
     slug: resolved.slug,
     buildPath: (s) => `/teachers/${s}`,
   });
-  useSeo(
-    buildSeoForRoute('teacher.detail', {
-      entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      ogImage: teacher?.avatar_url ?? undefined,
-      isLoading: isLoading,
-    }),
-  );
-  const navigate = useNavigate();
-  const { citySlug } = useCity();
-  const classesPath = buildCityPath(citySlug, 'classes');
-
   const { data: teacher, isLoading, error } = useQuery({
     queryKey: ['teacher-profile', id],
     queryFn: async () => {
@@ -194,14 +181,25 @@ const TeacherProfile = () => {
     },
     enabled: !!id,
   });
+  useSeo(
+    buildSeoForRoute('teacher.detail', {
+      entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      ogImage: teacher?.avatar_url ?? undefined,
+      isLoading: isLoading,
+    }),
+  );
+  const navigate = useNavigate();
+  const { citySlug } = useCity();
+  const classesPath = buildCityPath(citySlug, 'classes');
 
-  const teacherBreadcrumbs = buildBreadcrumbs('teacher.detail', { entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined, isLoading });
+
 
   /* ── loading ──── */
   if (isLoading) {
     return (
       <GlobalLayout
-        breadcrumbs={teacherBreadcrumbs}
+        showSubheader={false}
         backHref="/teachers"
       >
         <div className="max-w-5xl mx-auto px-4 pb-24 space-y-6">
@@ -222,7 +220,7 @@ const TeacherProfile = () => {
     console.error('TeacherProfile error:', { error, teacher, id });
     return (
       <GlobalLayout
-        breadcrumbs={teacherBreadcrumbs}
+        showSubheader={false}
         backHref="/teachers"
         hero={{
           emoji: '🎓',
@@ -266,7 +264,7 @@ const TeacherProfile = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={teacherBreadcrumbs}
+      showSubheader={false}
       backHref="/teachers"
       hero={{
         emoji: '🎓',

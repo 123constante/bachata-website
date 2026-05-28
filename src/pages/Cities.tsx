@@ -1,6 +1,5 @@
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 // World map uses inline SVG rather than react-simple-maps + world-atlas.
 // Audit (gzipped):
@@ -99,7 +98,7 @@ const CitiesPage = () => {
   useSeo(buildSeoForRoute('cities'));
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('cities')}
+      showSubheader={false}
       hero={{
         emoji: '🌍',
         titleWhite: '',

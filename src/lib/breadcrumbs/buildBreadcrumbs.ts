@@ -98,7 +98,9 @@ export function buildBreadcrumbs(
     const parent = node.parent;
     if (!parent) break;
     if (parent === EVENT_PARENT_SENTINEL) {
-      cursor = resolveEventParent(eventType);
+      const resolved = resolveEventParent(eventType);
+      if (!resolved) break;
+      cursor = resolved;
     } else if (parent in SITE_IA) {
       cursor = parent as RouteId;
     } else {
@@ -164,23 +166,24 @@ export function buildBreadcrumbs(
 // ---------------------------------------------------------------------------
 
 /**
- * Pick the parent route for /event/:id based on event type. Defaults to
- * 'parties' for unknown / undefined / null event types — that's the safe
- * fallback because parties is the most common content category.
+ * Pick the parent route for /event/:id based on event type. Party and class
+ * events return null so the breadcrumb chain is just Home > [Event Name] —
+ * the intermediate "Parties" / "Classes" crumb adds no navigation value when
+ * most users arrive via search or shared links. Festival/congress still
+ * chain through Experience > Festivals because that hierarchy is meaningful.
  */
-export function resolveEventParent(eventType: EventTypeInput): RouteId {
+export function resolveEventParent(eventType: EventTypeInput): RouteId | null {
   switch (eventType) {
+    case 'festival':
+    case 'congress':
+      return 'festivals';
     case 'class':
     case 'workshop':
     case 'social_class':
     case 'masterclass':
-      return 'classes';
-    case 'festival':
-    case 'congress':
-      return 'festivals';
     case 'party':
     case 'social':
     default:
-      return 'parties';
+      return null;
   }
 }

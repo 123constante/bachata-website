@@ -1,13 +1,12 @@
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Users, Trophy, Sparkles, Music, Star, Zap, Heart, Crown } from "lucide-react";
 
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const Choreography = () => {
   useSeo(buildSeoForRoute('choreography'));
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('choreography')}
+      showSubheader={false}
       hero={{
         emoji: '🎭',
         titleWhite: 'Join the',

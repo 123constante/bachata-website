@@ -12,7 +12,6 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
 import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 
 type TonightEvent = {
@@ -211,7 +210,7 @@ const Tonight = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('tonight')}
+      showSubheader={false}
       showGradientBg={false}
       hero={{
         titleWhite: "What's On",

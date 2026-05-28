@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,7 +153,7 @@ const PracticePartners = () => {
 
   return (
     <GlobalLayout
-      breadcrumbs={buildBreadcrumbs('practicePartners')}
+      showSubheader={false}
       hero={{
         emoji: '💃',
         titleWhite: 'Practice',

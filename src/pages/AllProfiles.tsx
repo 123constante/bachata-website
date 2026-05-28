@@ -4,8 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-const ALL_PROFILES_BREADCRUMBS = buildBreadcrumbs('allProfiles');
 
 const roleColors: Record<string, string> = {
   dancer: 'bg-pink-100 text-pink-800',
@@ -22,7 +20,7 @@ export default function AllProfiles() {
   if (isLoading) {
     return (
       <GlobalLayout
-        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        showSubheader={false}
         hero={{
           emoji: '👥',
           titleWhite: 'All',
@@ -43,7 +41,7 @@ export default function AllProfiles() {
   if (error) {
     return (
       <GlobalLayout
-        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        showSubheader={false}
         hero={{
           emoji: '👥',
           titleWhite: 'All',
@@ -64,7 +62,7 @@ export default function AllProfiles() {
   if (!profiles || profiles.length === 0) {
     return (
       <GlobalLayout
-        breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+        showSubheader={false}
         hero={{
           emoji: '👥',
           titleWhite: 'All',
@@ -91,7 +89,7 @@ export default function AllProfiles() {
 
   return (
     <GlobalLayout
-      breadcrumbs={ALL_PROFILES_BREADCRUMBS}
+      showSubheader={false}
       hero={{
         emoji: '👥',
         titleWhite: 'All',
