@@ -242,9 +242,13 @@
    The @media (max-width: 480px) rule above only fires on viewport width
    and would otherwise be skipped on desktop, causing the banner to wrap
    and collapse the art panel. */
-.holo-card.holo-card--tonight .holo-card__inner { padding: 8px; }
+.holo-card.holo-card--tonight .holo-card__inner { padding: 6px; }
 .holo-card.holo-card--tonight .holo-card__banner { font-size: 7px; letter-spacing: 0.08em; }
-.holo-card.holo-card--tonight .holo-card__name { font-size: 9.5px; }
-.holo-card.holo-card--tonight .holo-card__type { font-size: 7.5px; letter-spacing: 0.08em; }
-.holo-card.holo-card--tonight .holo-card__footer { font-size: 7.5px; letter-spacing: 0.1em; }
-.holo-card.holo-card--tonight .holo-card__art { min-height: 56px; }
+.holo-card.holo-card--tonight .holo-card__name {
+  font-size: 9px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.holo-card.holo-card--tonight .holo-card__type { font-size: 7px; letter-spacing: 0.08em; margin-top: 2px; }
+.holo-card.holo-card--tonight .holo-card__footer { font-size: 7.5px; letter-spacing: 0.1em; margin-top: 3px; }
+.holo-card.holo-card--tonight .holo-card__art { min-height: 44px; margin: 6px 0; }
