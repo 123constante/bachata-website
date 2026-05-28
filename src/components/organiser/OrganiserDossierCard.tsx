@@ -105,13 +105,15 @@ export const OrganiserDossierCard = ({
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="min-w-0">
-            <div className="font-semibold text-foreground">
-              {nextLabel === 'Tonight' ? (
-                <span className="text-green-500">&middot; {nextLabel} &middot;</span>
-              ) : (
-                nextLabel
-              )}
-            </div>
+            {nextEventDate ? (
+              <div className="font-semibold text-foreground">
+                {nextLabel === 'Tonight' ? (
+                  <span className="text-green-500">&middot; {nextLabel} &middot;</span>
+                ) : (
+                  nextLabel
+                )}
+              </div>
+            ) : null}
           </div>
           <div className="min-w-0 text-right">
             <div className="font-semibold text-foreground">{eventCount}</div>
