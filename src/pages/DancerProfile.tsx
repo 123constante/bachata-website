@@ -68,6 +68,7 @@ const DancerProfile = () => {
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
+  const navigate = useNavigate();
   useSeo(
     buildSeoForRoute('dancer.detail', {
       entityName: dancerView?.displayName,
@@ -76,7 +77,6 @@ const DancerProfile = () => {
       isLoading: isLoading,
     }),
   );
-  const navigate = useNavigate();
   const { user } = useAuth();
 
 

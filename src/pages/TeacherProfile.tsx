@@ -181,6 +181,7 @@ const TeacherProfile = () => {
     },
     enabled: !!id,
   });
+  const navigate = useNavigate();
   useSeo(
     buildSeoForRoute('teacher.detail', {
       entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
@@ -189,7 +190,6 @@ const TeacherProfile = () => {
       isLoading: isLoading,
     }),
   );
-  const navigate = useNavigate();
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
 

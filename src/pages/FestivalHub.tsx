@@ -94,7 +94,7 @@ const FestivalHubInner = () => {
         .from('events')
         .select('id, name, city, date, start_time, poster_url')
         .eq('type', 'festival')
-        .eq('is_published', true)
+        .eq('is_active', true)
         .order('start_time', { ascending: true });
 
       if (error) throw error;

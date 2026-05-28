@@ -78,6 +78,7 @@ const DJProfile = () => {
     slug: resolved.slug,
     buildPath: (s) => `/djs/${s}`,
   });
+  const navigate = useNavigate();
   const { data: dj, isLoading, error } = useQuery({
     queryKey: ['dj-profile', id],
     queryFn: async () => {
@@ -98,7 +99,6 @@ const DJProfile = () => {
       isLoading: isLoading,
     }),
   );
-  const navigate = useNavigate();
 
 
 
