@@ -69,7 +69,7 @@ const Lightbox = ({
         src={cacheBust(urls[index])}
         alt={`Gallery image ${index + 1} of ${urls.length}`}
         className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) = loading="lazy"> e.stopPropagation()}
       />
 
       {urls.length > 1 && (

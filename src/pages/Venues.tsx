@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { Link } from 'react-router-dom';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { VenueCard } from '@/components/venue/VenueCard';
 import { parseUtcIso, londonDateKey, getComingWeekendKeys } from '@/lib/londonDate';
@@ -174,6 +176,7 @@ const FilterBar = ({
 };
 
 const Venues = () => {
+  useSeo(buildSeoForRoute('venues'));
   const { data: venues = [], isLoading } = useQuery({
     queryKey: ['venues-directory'],
     queryFn: fetchPublicVenuesList,
@@ -208,6 +211,15 @@ const Venues = () => {
         floatingIcons: [Building2, MapPin, Users, Music, Layers, Lightbulb],
       }}
     >
+      <section className="mx-auto max-w-3xl px-4 pt-3 pb-1">
+        <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
+          Every bachata venue in London - dance floors, addresses, opening nights,
+          and what's running at each. Filter by night to find a venue that opens
+          when you're free, or check{' '}
+          <Link to="/tonight" className="text-primary underline">what's on tonight</Link>.
+        </p>
+      </section>
+
       <FilterBar
         active={activeFilters}
         onToggle={toggleFilter}

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/generate-sitemap.mjs && vite build",
+    "build": "node scripts/generate-sitemap.mjs && vite build && node scripts/prerender.mjs",
     "build:dev": "vite build --mode development",
     "lint": "npm run check:integrity && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && eslint .",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
@@ -19,7 +19,9 @@
     "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
     "check:integrity": "bin/check-integrity.sh",
     "postinstall": "node bin/install-hooks.cjs",
-    "repair:corrupt": "bin/repair-corrupt.sh"
+    "repair:corrupt": "bin/repair-corrupt.sh",
+    "build:no-prerender": "node scripts/generate-sitemap.mjs && vite build",
+    "prerender": "node scripts/prerender.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

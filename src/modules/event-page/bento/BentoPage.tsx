@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
@@ -39,6 +40,8 @@ import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
 type BentoPageProps = {
   eventId: string | null;
   occurrenceId: string | null;
+  /** SEO slug for canonical URLs. When null, falls back to eventId. */
+  eventSlug?: string | null;
 };
 
 // Copy for the three non-ready states, surfaced through the shared pink-cover
@@ -69,7 +72,7 @@ const TileShimmer = () => (
 export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   const { snapshot, pageModel } = useEventPage(eventId, occurrenceId);
 
-  // Phase 6D — drives whether the bento grid reserves a slot for the raffle
+  // Phase 6D â€” drives whether the bento grid reserves a slot for the raffle
   // tile. When the event has no raffle (config.enabled === false), 'raffle' is
   // added to hiddenBlocks below so the packer skips it entirely. RaffleBlock
   // also fetches this internally, but keeping it here is the single source of
@@ -97,6 +100,15 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   // short-circuit above; loading would race since occurrence is null then.
   const past = state === 'ready' ? isPast(occurrence) : false;
 
+  useSeo(
+    buildSeoForRoute('event.detail', {
+      entityName: state === 'ready' ? pageModel.identity.title : undefined,
+      entitySlug: eventSlug ?? eventId ?? undefined,
+      ogImage: snapshot?.event.imageUrl ?? undefined,
+      isLoading: state !== 'ready',
+    }),
+  );
+
   const calendarInput: CalendarEventInput | null = useMemo(() => {
     if (!eventId) return null;
     return {
@@ -116,14 +128,14 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
   // it has nothing meaningful to show. The BentoGrid packer skips these so no
   // empty grid cells are left behind.
   //
-  // During the loading state, nothing is hidden — every tile renders as a
+  // During the loading state, nothing is hidden â€” every tile renders as a
   // shimmer so the skeleton footprint matches the eventual content layout.
   const hiddenBlocks = useMemo<Set<BentoBlockId>>(() => {
     const hidden = new Set<BentoBlockId>();
     if (isLoading) return hidden;
 
     const hasPromo = pageModel.promoCodes.items.length > 0 && !past;
-    // Promo and City are mutually exclusive — they share the top-right 1-col
+    // Promo and City are mutually exclusive â€” they share the top-right 1-col
     // slot next to Date. Whichever one is not showing is marked hidden.
     if (hasPromo) {
       hidden.add('city');
@@ -148,7 +160,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
     // decision: every event should have one, so this is a defensive guard.
     if (!snapshot || snapshot.organisers.length === 0) hidden.add('organiser-card');
 
-    // Phase 6D — raffle tile hides when no raffle configured on this event.
+    // Phase 6D â€” raffle tile hides when no raffle configured on this event.
     // While raffleConfig is still loading we keep the slot in (renders a
     // shimmer); once the answer arrives, an absent or disabled raffle hides
     // the tile so no empty cell or "Prize pool unlocking soon" placeholder
@@ -169,7 +181,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           eventType: state === 'ready' ? pageModel.identity.eventType : undefined,
           isLoading: state !== 'ready',
         })}
-        // No emoji and no title text on error states — the page chrome
+        // No emoji and no title text on error states â€” the page chrome
         // (breadcrumb + gradient) frames the page; the ErrorScreen below
         // owns the messaging. Avoids any generic stand-in like 'Event'.
         hero={{ titleWhite: '', titleOrange: '' }}
@@ -227,7 +239,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
         return (
           <DateBlock
             occurrence={occurrence}
-            // DateBlock still renders the date when past — just not clickable.
+            // DateBlock still renders the date when past â€” just not clickable.
             onClick={past ? undefined : () => setCalendarOpen(true)}
           />
         );
@@ -261,7 +273,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           />
         ) : null;
       case 'schedule':
-        // ADR-007 Phase 4 (2026-05-18) — when no ?occurrenceId is in the URL,
+        // ADR-007 Phase 4 (2026-05-18) â€” when no ?occurrenceId is in the URL,
         // fall back to the snapshot's resolved occurrenceId (server-picked next
         // upcoming). This makes per-date programs visible by default; without
         // it, /event/<id> showed series-level program even when the user had
@@ -305,7 +317,7 @@ export const BentoPage = ({ eventId, occurrenceId }: BentoPageProps) => {
           eventType: state === 'ready' ? pageModel.identity.eventType : undefined,
           isLoading: state !== 'ready',
         })}
-      // No emoji — title-only hero (the first GlobalLayout consumer to do
+      // No emoji â€” title-only hero (the first GlobalLayout consumer to do
       // this). titleOrange is gated on state === 'ready' so the loading
       // window shows an empty hero rather than the 'Event' fallback that
       // buildEventPageModel returns when snapshot is null.

@@ -7,12 +7,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
 import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 
 type TonightEvent = {
   id: string;
@@ -70,6 +71,7 @@ const computeCountdown = (
 };
 
 const Tonight = () => {
+  useSeo(buildSeoForRoute('tonight'));
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const {
@@ -227,6 +229,15 @@ const Tonight = () => {
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-6">
 
+          <p className="max-w-2xl mx-auto mb-6 text-sm leading-relaxed text-gray-300">
+            What's on for bachata dancers in London tonight - socials, classes,
+            warm-ups and after-parties happening in the next few hours.
+            Use Near Me to sort by distance, or browse the full{' '}
+            <Link to="/parties" className="text-primary underline">parties listing</Link>{' '}
+            and{' '}
+            <Link to="/classes" className="text-primary underline">classes</Link>.
+          </p>
+
           <div className="max-w-md mx-auto mb-6">
             <NearMeCta
               status={locStatus}
@@ -299,8 +310,7 @@ const Tonight = () => {
                       <img
                         src={event.image}
                         alt={event.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"/>
                       <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
 
                       {countdown && (

@@ -676,7 +676,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
               <div className="mt-2 flex flex-wrap gap-3 items-center">
                 {form.photo_url[0] && (
                   <div className="relative h-24 w-24 rounded-md overflow-hidden border">
-                    <img src={form.photo_url[0]} alt="Primary" className="h-full w-full object-cover" />
+                    <img src={form.photo_url[0]} alt="Primary" className="h-full w-full object-cover" loading="lazy"/>
                     <button
                       type="button"
                       className="absolute top-1 right-1 rounded-full bg-black/70 text-white px-1"

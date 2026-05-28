@@ -39,6 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { fetchPublicVenue } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { computeVenueOpenStatus } from '@/lib/venueOpenStatus';
@@ -789,7 +790,14 @@ function EventTile({
 // Main page
 // ============================================================
 const VenueEntity = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
+  const resolved = useEntitySlugOrId(routeParam, 'venues', { idColumn: 'entity_id' });
+  const id = resolved.id ?? undefined;
+  useCanonicalReplaceState({
+    arrivedViaUuid: resolved.arrivedViaUuid,
+    slug: resolved.slug,
+    buildPath: (s) => `/venue-entity/${s}`,
+  });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -837,6 +845,15 @@ const VenueEntity = () => {
     entityName: venue?.name,
     isLoading,
   });
+  useSeo(
+    buildSeoForRoute('venue.detail', {
+      entityName: venue?.name,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      cityDisplay: venue?.city_name ?? undefined,
+      ogImage: Array.isArray(venue?.image_url) ? venue?.image_url[0] : (venue?.image_url ?? undefined),
+      isLoading,
+    }),
+  );
   const backHref = fromEventId ? '/event/' + fromEventId : '/venues';
 
   // ----------------------------------------------------------
@@ -1297,6 +1314,8 @@ const VenueEntity = () => {
                 <img
                   src={heroImages[0]}
                   alt={venue.name}
+                  loading="eager"
+                  fetchPriority="high"
                   className="w-full h-full object-cover"
                 />
               </div>

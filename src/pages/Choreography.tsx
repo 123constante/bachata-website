@@ -1,8 +1,10 @@
-﻿import GlobalLayout from "@/components/layout/GlobalLayout";
+import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Users, Trophy, Sparkles, Music, Star, Zap, Heart, Crown } from "lucide-react";
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const Choreography = () => {
+  useSeo(buildSeoForRoute('choreography'));
   return (
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('choreography')}
@@ -23,7 +25,7 @@ const Choreography = () => {
               <Users size={20} />
             </div>
             <h3 className="font-bold text-lg">Community</h3>
-            <p className="text-muted-foreground text-sm">Train with the same group for 3–6 months and build lifelong friendships.</p>
+            <p className="text-muted-foreground text-sm">Train with the same group for 3&ndash;6 months and build lifelong friendships.</p>
           </div>
           <div className="space-y-2 p-6 rounded-2xl bg-purple-500/5 border border-purple-500/10">
             <div className="h-10 w-10 bg-purple-500/20 text-purple-500 rounded-lg flex items-center justify-center mb-4 mx-auto md:mx-0">

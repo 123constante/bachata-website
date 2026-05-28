@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import {
   Accordion,
   AccordionContent,
@@ -41,6 +42,7 @@ const faqs = [
 ];
 
 const Discounts = () => {
+  useSeo(buildSeoForRoute('discounts'));
   const { user } = useAuth();
   const navigate = useNavigate();
   const [currentTestimonialPage, setCurrentTestimonialPage] = useState(0);

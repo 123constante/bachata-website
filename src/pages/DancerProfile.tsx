@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, Star, Image } from "lucide-react";
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
   mapDancerPublicProfile,
@@ -44,7 +45,22 @@ type AttendanceItem = {
 };
 
 const DancerProfile = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
+  const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
+  const id = resolved.id ?? undefined;
+  useCanonicalReplaceState({
+    arrivedViaUuid: resolved.arrivedViaUuid,
+    slug: resolved.slug,
+    buildPath: (s) => `/dancers/${s}`,
+  });
+  useSeo(
+    buildSeoForRoute('dancer.detail', {
+      entityName: dancerView?.displayName,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      ogImage: dancer?.avatar_url ?? undefined,
+      isLoading: isLoading,
+    }),
+  );
   const navigate = useNavigate();
   const { user } = useAuth();
 

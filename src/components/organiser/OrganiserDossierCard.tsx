@@ -82,8 +82,7 @@ export const OrganiserDossierCard = ({
               src={avatarUrl}
               alt=""
               className="h-full w-full rounded-full object-cover"
-              onError={() => setImgFailed(true)}
-            />
+              onError={() => setImgFailed(true)} loading="lazy"/>
           ) : (
             <span className="font-bold">{monogram}</span>
           )}

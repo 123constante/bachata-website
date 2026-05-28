@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Building2, GraduationCap, Music, User, MapPin } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useCity } from '@/contexts/CityContext';
 import { useSearchResults } from '@/hooks/useSearchResults';
 import { Card } from '@/components/ui/card';
@@ -109,6 +110,7 @@ const TimeToggle = ({
 };
 
 const SearchResults = () => {
+  useSeo(buildSeoForRoute('search'));
   const [params, setParams] = useSearchParams();
   const query = (params.get('q') ?? '').trim();
   const timeParam = params.get('time');

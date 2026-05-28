@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ type AttendanceItem = {
 };
 
 const Dancers = () => {
+  useSeo(buildSeoForRoute('dancers'));
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const { toast } = useToast();

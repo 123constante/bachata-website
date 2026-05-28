@@ -4,11 +4,12 @@ import {
   GraduationCap, Star, Heart, Music, Sparkles, Search, X,
   ChevronDown, Check, MapPin, Users, User, Instagram, Globe,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ type Teacher = {
 type FilterType = 'all' | 'name' | 'style' | 'city';
 
 const Teachers = () => {
+  useSeo(buildSeoForRoute('teachers'));
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
@@ -161,6 +163,16 @@ const Teachers = () => {
         floatingIcons: [GraduationCap, Star, Heart, Music, Sparkles],
       }}
     >
+      <section className="mx-auto max-w-3xl px-4 pt-3">
+        <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
+          Bachata teachers in London - find an instructor, browse their classes,
+          learn their style. Use the filters below to narrow by neighbourhood or
+          style. New to bachata? Start with the{' '}
+          <Link to="/classes" className="text-primary underline">classes page</Link>{' '}
+          for beginner-friendly rooms.
+        </p>
+      </section>
+
       {/* Hero Widgets */}
       <div className="relative z-10 px-4 -mt-6 mb-16">
         <ScrollReveal animation="scale" delay={0.6}>

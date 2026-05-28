@@ -1,6 +1,3 @@
-// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
-
 import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -118,7 +115,7 @@ const localPlugin = {
   },
 };
 
-export default tseslint.config({ ignores: ["dist", "**/*.timestamp-*.mjs"] }, {
+export default tseslint.config({ ignores: ["dist", "storybook-static", "**/*.timestamp-*.mjs"] }, {
   extends: [js.configs.recommended, ...tseslint.configs.recommended],
   files: ["**/*.{ts,tsx}"],
   languageOptions: {
@@ -136,4 +133,4 @@ export default tseslint.config({ ignores: ["dist", "**/*.timestamp-*.mjs"] }, {
     "@typescript-eslint/no-unused-vars": "off",
     "local/no-bare-avatar-images": "warn",
   },
-}, storybook.configs["flat/recommended"]);
+});

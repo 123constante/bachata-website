@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +31,7 @@ interface Videographer {
 }
 
 const Videographers = () => {
+  useSeo(buildSeoForRoute('videographers'));
   const [activeCategory, setActiveCategory] = useState('socials');
   const navigate = useNavigate();
 
@@ -119,8 +121,7 @@ const Videographers = () => {
                 <img 
                   src={video.photo_url || 'https://images.unsplash.com/photo-1574701148212-8518049c7b2c?auto=format&fit=crop&q=80&w=800'} 
                   alt={video.business_name || 'Videographer'}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"/>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 
                 <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">

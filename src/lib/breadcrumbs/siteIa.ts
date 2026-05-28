@@ -51,6 +51,10 @@ export const SITE_IA = {
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
   profile:          { label: 'Profile',           path: '/profile' },
   search:           { label: 'Search',            path: '/search' },
+  faq:              { label: 'FAQ',               path: '/faq' },
+  londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
+  bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,
+                      detailPath: (slug: string) => `/bachata-london-${slug}` },
 
   // -------- Nested listings ---------------------------------------------------
   djs:        { label: 'DJs',        path: '/djs',        parent: 'parties' },

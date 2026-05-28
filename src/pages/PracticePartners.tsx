@@ -7,6 +7,7 @@ import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ type Dancer = {
 };
 
 const PracticePartners = () => {
+  useSeo(buildSeoForRoute('practicePartners'));
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -141,8 +143,7 @@ const PracticePartners = () => {
         <img
           src={partner.avatar_url}
           alt={buildFullName(partner.first_name, partner.surname)}
-          className="w-full h-full object-cover rounded-full"
-        />
+          className="w-full h-full object-cover rounded-full" loading="lazy"/>
       );
     }
     // Fallback emoji based on name hash

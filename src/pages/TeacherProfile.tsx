@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
@@ -103,7 +104,22 @@ const itemVariants = {
 /* ── component ───────────────────────────────────────── */
 
 const TeacherProfile = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
+  const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
+  const id = resolved.id ?? undefined;
+  useCanonicalReplaceState({
+    arrivedViaUuid: resolved.arrivedViaUuid,
+    slug: resolved.slug,
+    buildPath: (s) => `/teachers/${s}`,
+  });
+  useSeo(
+    buildSeoForRoute('teacher.detail', {
+      entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      ogImage: teacher?.avatar_url ?? undefined,
+      isLoading: isLoading,
+    }),
+  );
   const navigate = useNavigate();
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');

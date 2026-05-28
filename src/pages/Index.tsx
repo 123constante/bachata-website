@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
@@ -6,13 +6,15 @@ import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { LatestEventsWheel } from '@/components/LatestEventsWheel';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
+import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
+import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 
 // Lazy load the heavy calendar component
 const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
 
 const Index = () => {
   const { citySlug } = useCity();
-
   // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
   // 'london-gb'); drop a trailing 2-letter country code and title-case every
   // remaining word so multi-word cities render correctly ('new-york-us' ->
@@ -54,26 +56,12 @@ const Index = () => {
     return renderEventListJsonLd({ events: weekEvents, origin });
   }, [weekEvents]);
 
-  // Update document meta tags for city SEO
-  useEffect(() => {
-    if (!cityDisplayName || cityDisplayName === 'Your City') return;
-
-    const title = `Bachata Classes & Events in ${cityDisplayName} | Bachata Calendar`;
-    const description = `Find bachata classes, parties and festivals in ${cityDisplayName}. Browse this week's ${thisWeek} events \u2014 updated daily.`;
-
-    document.title = title;
-
-    const setMeta = (selector: string, content: string) => {
-      const el = document.querySelector(selector);
-      if (el) el.setAttribute('content', content);
-    };
-
-    setMeta('meta[name="description"]', description);
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[property="og:description"]', description);
-    setMeta('meta[name="twitter:title"]', title);
-    setMeta('meta[name="twitter:description"]', description);
-  }, [cityDisplayName, thisWeek]);
+  // Per-page meta via the centralised SEO primitive.
+  useSeo(
+    buildSeoForRoute('home', {
+      cityDisplay: cityDisplayName === 'Your City' ? undefined : cityDisplayName,
+    }),
+  );
 
   return (
     <PageErrorBoundary>
@@ -85,6 +73,18 @@ const Index = () => {
             dangerouslySetInnerHTML={{ __html: eventsJsonLd }}
           />
         )}
+        {/* WebSite + Organization schema - emit on the homepage only.
+            Drives sitelinks searchbox and brand knowledge panel in Google. */}
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: renderWebsiteJsonLd() }}
+        />
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
+        />
         {/* COMPACT BRAND STRIP */}
         <div className="relative px-4 pt-8 pb-6 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />

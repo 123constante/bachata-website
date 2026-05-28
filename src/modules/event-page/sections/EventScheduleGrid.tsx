@@ -482,7 +482,7 @@ const AvatarStack = ({ people }: { people: Person[] }) => {
             }}
           >
             {p.avatarUrl ? (
-              <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" />
+              <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
             ) : (
               <span className="text-[11px] font-semibold text-white/80">{initial}</span>
             )}

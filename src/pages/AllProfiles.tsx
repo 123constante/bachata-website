@@ -140,8 +140,7 @@ export default function AllProfiles() {
                       <img
                         src={profile.photo_url}
                         alt={profile.display_name}
-                        className="w-full h-40 object-cover rounded"
-                      />
+                        className="w-full h-40 object-cover rounded" loading="lazy"/>
                     )}
 
                     {/* Location */}

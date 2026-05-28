@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import PageBreadcrumb from "@/components/PageBreadcrumb";
 
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
+import { useSeo, buildSeoForRoute } from "@/lib/seo";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -1351,6 +1352,16 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
+  useSeo(
+    buildSeoForRoute('festival.detail', {
+      entityName: festival?.name,
+      entitySlug: festivalId ?? undefined,
+      cityDisplay: (festival?.city as string | null | undefined) ?? undefined,
+      ogImage: festival?.poster_url ?? undefined,
+      isLoading: isFestivalLoading,
+    }),
+  );
+
 
 
   // Venue gallery (P11): second photo if the venue has more imagery
@@ -2019,7 +2030,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           <button type="button" onClick={() => setLightboxIndex(0)} className="poster-polaroid" aria-label="View festival flyers">
 
-            <img src={posterUrl} alt={`${festival.name} poster`} />
+            <img src={posterUrl} alt={`${festival.name} poster`} loading="lazy"/>
 
             <div className="pp-caption">{galleryImages.length > 1 ? "the flyers." : "the poster."}</div>
 
@@ -2872,7 +2883,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           )}
 
-          <img className="lf-lb-img" src={galleryImages[lightboxIndex]} alt={`${festival.name} flyer ${lightboxIndex + 1} of ${galleryImages.length}`} onClick={(e) => e.stopPropagation()} />
+          <img className="lf-lb-img" src={galleryImages[lightboxIndex]} alt={`${festival.name} flyer ${lightboxIndex + 1} of ${galleryImages.length}`} onClick={(e) => e.stopPropagation()} loading="lazy"/>
 
           {galleryImages.length > 1 && (
 
@@ -2888,7 +2899,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 <button type="button" key={src} className={`lf-lb-thumb${i === lightboxIndex ? " active" : ""}`} aria-label={`View flyer ${i + 1}`} onClick={() => setLightboxIndex(i)}>
 
-                  <img src={src} alt="" />
+                  <img src={src} alt="" loading="lazy"/>
 
                 </button>
 

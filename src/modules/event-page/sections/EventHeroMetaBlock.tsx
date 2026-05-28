@@ -176,7 +176,7 @@ const OrganiserPill = ({
   return (
     <button type="button" onClick={onClick} disabled={!person.href} className={pillClass}>
       {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+        <img src={person.avatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" loading="lazy" />
       ) : (
         <span
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
@@ -217,6 +217,8 @@ export const EventHeroMetaBlock = ({
           <img
             src={hero.imageUrl}
             alt={hero.imageAlt}
+            loading="eager"
+            fetchPriority="high"
             className="h-full w-full object-cover"
           />
         ) : (

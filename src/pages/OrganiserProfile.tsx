@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import {
   Dialog,
   DialogContent,
@@ -288,7 +289,14 @@ const PastRow = ({ event }: { event: OrgEvent }) => {
 };
 
 const OrganiserProfile = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
+  const resolved = useEntitySlugOrId(routeParam, 'organiser_profiles');
+  const id = resolved.id ?? undefined;
+  useCanonicalReplaceState({
+    arrivedViaUuid: resolved.arrivedViaUuid,
+    slug: resolved.slug,
+    buildPath: (s) => `/organisers/${s}`,
+  });
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -490,26 +498,15 @@ const OrganiserProfile = () => {
   const totalEventsCount = allEvents.length;
   const showSinceYear = sinceYear !== null && sinceYear < new Date().getFullYear();
 
-  useEffect(() => {
-    if (!entity?.name) return;
-    const cityName = entity.cities?.name ?? null;
-    const where = cityName ? ` in ${cityName}` : '';
-    const title = `${entity.name}${where} | Bachata Calendar`;
-    const description =
-      totalEventsCount > 0
-        ? `${entity.name}${where}. Browse ${totalEventsCount} bachata event${totalEventsCount === 1 ? '' : 's'} they organise on Bachata Calendar.`
-        : `${entity.name}, a bachata organiser${where} on Bachata Calendar.`;
-    document.title = title;
-    const setMeta = (selector: string, content: string) => {
-      const el = document.querySelector(selector);
-      if (el) el.setAttribute('content', content);
-    };
-    setMeta('meta[name="description"]', description);
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[property="og:description"]', description);
-    setMeta('meta[name="twitter:title"]', title);
-    setMeta('meta[name="twitter:description"]', description);
-  }, [entity, totalEventsCount]);
+  useSeo(
+    buildSeoForRoute('organiser.detail', {
+      entityName: entity?.name,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      cityDisplay: entity?.cities?.name ?? undefined,
+      ogImage: entity?.avatar_url ?? undefined,
+      isLoading,
+    }),
+  );
 
   const handleClaim = async () => {
     if (!id || !user?.id) return;
@@ -802,7 +799,7 @@ const OrganiserProfile = () => {
                 style={{ background: SP.black, color: SP.gold, clipPath: 'polygon(50% 0,100% 20%,100% 80%,50% 100%,0 80%,0 20%)' }}
               >
                 {entity.avatar_url ? (
-                  <img src={entity.avatar_url} alt={entity.name} className="w-16 h-16 object-contain" />
+                  <img src={entity.avatar_url} alt={entity.name} className="w-16 h-16 object-contain" loading="lazy"/>
                 ) : (
                   <div className="text-3xl" style={DISP}>{initials(entity.name)}</div>
                 )}

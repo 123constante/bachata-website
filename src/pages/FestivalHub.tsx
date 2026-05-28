@@ -5,11 +5,12 @@ import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Sta
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +62,7 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
 );
 
 const FestivalHubInner = () => {
+  useSeo(buildSeoForRoute('festivals'));
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -307,6 +309,15 @@ const FestivalHubInner = () => {
       {/* Carnival Gradient Background — preserved as custom page background */}
       <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-orange-500/10 pointer-events-none z-0" />
 
+      <section className="mx-auto max-w-3xl px-4 pt-3 pb-1 relative z-10">
+        <p className="text-sm sm:text-base leading-relaxed text-muted-foreground text-center">
+          Upcoming bachata festivals and congresses - weekend intensives,
+          international line-ups, and travel-worthy events across the UK and Europe.
+          Looking for weekly socials instead? See the{' '}
+          <Link to="/parties" className="text-primary underline">parties listing</Link>.
+        </p>
+      </section>
+
       {/* Stats */}
       <div className="flex items-center justify-center gap-2 -mt-4 mb-8 relative z-10">
         <span className="text-xs text-muted-foreground">
@@ -428,8 +439,7 @@ const FestivalHubInner = () => {
                                   <img
                                     src={attendee.avatar_url}
                                     alt={attendee.username ?? 'Attendee'}
-                                    className="w-full h-full object-cover"
-                                  />
+                                    className="w-full h-full object-cover" loading="lazy"/>
                                 ) : (
                                   <span>{(attendee.username ?? 'Member').slice(0, 1)}</span>
                                 )}

@@ -15,6 +15,7 @@ import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
 type EventLinkItem = {
@@ -205,6 +206,15 @@ const VendorDetail = () => {
   };
 
   const vendorBreadcrumbs = buildBreadcrumbs('vendor.detail', { entityName: vendor?.business_name, isLoading: loading });
+  useSeo(
+    buildSeoForRoute('vendor.detail', {
+      entityName: vendor?.business_name,
+      entitySlug: id ?? undefined,
+      ogImage: vendor?.avatar_url ?? undefined,
+      isLoading: loading,
+    }),
+  );
+
 
   if (loading) {
     return (
@@ -330,8 +340,7 @@ const VendorDetail = () => {
             <img
               src={gallery[0] || FALLBACK_IMAGE}
               alt={vendor.business_name || "Vendor"}
-              className="h-full w-full object-cover"
-            />
+              className="h-full w-full object-cover" loading="lazy"/>
           </div>
         </div>
 
@@ -389,8 +398,7 @@ const VendorDetail = () => {
                               src={member.avatarUrl}
                               alt=""
                               aria-hidden
-                              className="h-5 w-5 rounded-full object-cover flex-shrink-0"
-                            />
+                              className="h-5 w-5 rounded-full object-cover flex-shrink-0" loading="lazy"/>
                           ) : (
                             <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           )}
@@ -507,7 +515,7 @@ const VendorDetail = () => {
 
                         {product.image_url && (
                           <div className="rounded-md overflow-hidden bg-muted h-32 mb-3">
-                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" loading="lazy"/>
                           </div>
                         )}
 

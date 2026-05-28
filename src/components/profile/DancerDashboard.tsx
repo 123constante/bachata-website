@@ -992,7 +992,7 @@ export const DancerDashboard = () => {
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 rounded-full border border-cyan-400/30 bg-slate-900/70 overflow-hidden flex items-center justify-center">
                       {avatarUrl ? (
-                        <img src={avatarUrl} alt={fullName} className="h-full w-full object-cover" />
+                        <img src={avatarUrl} alt={fullName} className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <span className="text-sm font-bold text-cyan-100">{fullName.slice(0, 2).toUpperCase()}</span>
                       )}

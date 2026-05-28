@@ -69,7 +69,7 @@ export const TestimonialsSection = () => {
                 <img
                   src={testimonial.image}
                   alt={testimonial.name}
-                  className="w-8 h-8 rounded-full object-cover border border-primary/30"
+                  className="w-8 h-8 rounded-full object-cover border border-primary/30" loading="lazy"
                 />
                 <div className="min-w-0">
                   <h3 className="font-semibold text-xs truncate">{testimonial.name}</h3>

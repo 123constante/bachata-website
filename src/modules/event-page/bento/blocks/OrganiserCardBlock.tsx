@@ -180,8 +180,7 @@ const OrganiserAvatar = ({ url, name }: { url: string | null; name: string }) =>
       alt={name}
       onError={() => setErrored(true)}
       className="h-[52px] w-[52px] rounded-full object-cover"
-      style={{ border: '2px solid hsl(var(--bento-accent))' }}
-    />
+      style={{ border: '2px solid hsl(var(--bento-accent))' }} loading="lazy"/>
   );
 };
 

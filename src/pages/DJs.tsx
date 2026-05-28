@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { buildFullName } from '@/lib/name-utils';
 
 type DJCard = {
@@ -29,6 +30,7 @@ type DJCard = {
 };
 
 const DJs = () => {
+  useSeo(buildSeoForRoute('djs'));
   const { data: djs = [], isLoading } = useQuery({
     queryKey: ['dj-profiles-directory'],
     queryFn: async () => {

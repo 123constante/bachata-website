@@ -304,6 +304,8 @@ const AuthContent = () => {
           <img
             src={authLogo}
             alt="Bachata Calendar"
+            loading="eager"
+            fetchPriority="high"
             className="w-24 h-24 object-contain drop-shadow-[0_0_30px_rgba(52,211,153,0.4)]"
           />
           <h1

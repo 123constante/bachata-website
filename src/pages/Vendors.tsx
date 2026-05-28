@@ -11,10 +11,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const PAGE_SIZE = 12;
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
 const Vendors = () => {
+  useSeo(buildSeoForRoute('vendors'));
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -207,8 +209,7 @@ const Vendors = () => {
                       <img
                         src={primaryImage}
                         alt={vendorName}
-                        className="h-full w-full object-cover"
-                      />
+                        className="h-full w-full object-cover" loading="lazy"/>
                     </div>
                     <div className="p-4 space-y-3">
                       <h2 className="font-semibold text-lg line-clamp-1">

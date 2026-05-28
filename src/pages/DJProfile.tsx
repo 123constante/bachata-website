@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { buildFullName } from '@/lib/name-utils';
 
@@ -69,7 +70,22 @@ const itemVariants = {
 };
 
 const DJProfile = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
+  const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
+  const id = resolved.id ?? undefined;
+  useCanonicalReplaceState({
+    arrivedViaUuid: resolved.arrivedViaUuid,
+    slug: resolved.slug,
+    buildPath: (s) => `/djs/${s}`,
+  });
+  useSeo(
+    buildSeoForRoute('dj.detail', {
+      entityName: dj?.display_name ?? dj?.dj_name ?? undefined,
+      entitySlug: resolved.slug ?? id ?? undefined,
+      ogImage: dj?.avatar_url ?? undefined,
+      isLoading: isLoading,
+    }),
+  );
   const navigate = useNavigate();
 
   const { data: dj, isLoading, error } = useQuery({

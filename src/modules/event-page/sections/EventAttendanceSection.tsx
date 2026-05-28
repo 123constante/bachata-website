@@ -34,7 +34,7 @@ const AvatarCell = ({
       }}
     >
       {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" />
+        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <span
           className="text-[12px] font-semibold"

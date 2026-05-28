@@ -21,7 +21,7 @@ export const FestivalHotelsSection = ({ hotels }: FestivalHotelsSectionProps) =>
               <img
                 src={hotel.photoUrl}
                 alt={hotel.name ?? undefined}
-                className="h-20 w-20 flex-none rounded-lg object-cover"
+                className="h-20 w-20 flex-none rounded-lg object-cover" loading="lazy"
               />
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-1">

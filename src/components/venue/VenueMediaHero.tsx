@@ -44,7 +44,7 @@ const Lightbox = ({
     )}
     <img src={`${urls[index]}?t=1`} alt={`Photo ${index + 1} of ${urls.length}`}
          className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-         onClick={(e) => e.stopPropagation()} />
+         onClick={(e) = loading="lazy"> e.stopPropagation()} />
     {urls.length > 1 && (
       <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60">
         {index + 1} / {urls.length}

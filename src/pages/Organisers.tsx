@@ -1,10 +1,11 @@
-﻿import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCity } from '@/contexts/CityContext';
 import OrganiserDossierCard from '@/components/organiser/OrganiserDossierCard';
@@ -21,6 +22,7 @@ type OrgRow = {
 };
 
 const Organisers = () => {
+  useSeo(buildSeoForRoute('organisers'));
   const { citySlug } = useCity();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
@@ -196,6 +198,18 @@ const Organisers = () => {
           />
         </div>
       </div>
+
+      <section className="mx-auto max-w-3xl px-4 pt-2 pb-1">
+        <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
+          Promoters, schools and collectives running bachata events in London - see
+          their next dates, the venues they book, and the rooms they're known for.
+          Looking for events instead of organisers? Try the{' '}
+          <Link to="/parties" className="text-primary underline">parties</Link>{' '}
+          or{' '}
+          <Link to="/festivals" className="text-primary underline">festivals</Link>{' '}
+          page.
+        </p>
+      </section>
 
       {liveOrganisers.length > 0 && (
         <div className="border-b border-green-500/30 bg-green-500/5 px-4 py-3">

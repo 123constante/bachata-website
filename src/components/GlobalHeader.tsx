@@ -53,7 +53,7 @@ export const GlobalHeader = () => {
           </Link>
         ) : (
           <Link to={homePath} className="flex items-center shrink-0 no-underline" aria-label="Bachata Calendar home">
-            <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" />
+            <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" loading="eager" fetchPriority="high" />
           </Link>
         )}
         <button

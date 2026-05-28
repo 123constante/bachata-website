@@ -68,6 +68,15 @@ const STATIC_ROUTES = [
   { path: '/cities',             changefreq: 'monthly', priority: '0.6' },
   { path: '/videographers',      changefreq: 'weekly',  priority: '0.5' },
   { path: '/practice-partners',  changefreq: 'weekly',  priority: '0.5' },
+  { path: '/faq',                changefreq: 'monthly', priority: '0.7' },
+  { path: '/london-bachata-guide', changefreq: 'monthly', priority: '0.9' },
+  { path: '/bachata-london-monday',    changefreq: 'weekly', priority: '0.8' },
+  { path: '/bachata-london-tuesday',   changefreq: 'weekly', priority: '0.8' },
+  { path: '/bachata-london-wednesday', changefreq: 'weekly', priority: '0.8' },
+  { path: '/bachata-london-thursday',  changefreq: 'weekly', priority: '0.8' },
+  { path: '/bachata-london-friday',    changefreq: 'weekly', priority: '0.9' },
+  { path: '/bachata-london-saturday',  changefreq: 'weekly', priority: '0.9' },
+  { path: '/bachata-london-sunday',    changefreq: 'weekly', priority: '0.8' },
 ];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -96,64 +105,84 @@ function toDate(ts) {
 
 // ── fetch dynamic URLs ────────────────────────────────────────────────────────
 
-// events: lifecycle_status = 'published', up to 2000 most recently updated
+// events: lifecycle_status = 'published', up to 2000 most recently updated.
+// Emits slug URLs (post-2026-05-28 slug migration). Falls back to id for any
+// row missing slug, but post-migration backfill that should be empty.
 async function fetchEvents() {
   const { data, error } = await supabase
     .from('events')
-    .select('id, updated_at')
+    .select('id, slug, updated_at')
     .eq('lifecycle_status', 'published')
     .order('updated_at', { ascending: false })
     .limit(2000);
   if (error) { console.warn('  events fetch error:', error.message); return []; }
   return (data || []).map(e => ({
-    loc: `${BASE_URL}/event/${e.id}`,
+    loc: `${BASE_URL}/event/${e.slug || e.id}`,
     lastmod: toDate(e.updated_at),
     changefreq: 'daily',
     priority: '0.8',
   }));
 }
 
-// venues: publish_state = 'published'; URL uses entity_id
+// venues: publish_state = 'published'. Emits slug URLs (post-2026-05-28
+// slug migration). The route is /venue-entity/:slugOrId so older entity_id
+// URLs still work; the sitemap prefers the slug for new indexing.
 async function fetchVenues() {
   const { data, error } = await supabase
     .from('venues')
-    .select('entity_id, created_at')
+    .select('entity_id, slug, created_at')
     .in("publish_state", ["published","dancer_ready"])
     .not('entity_id', 'is', null)
     .limit(500);
   if (error) { console.warn('  venues fetch error:', error.message); return []; }
   return (data || []).map(v => ({
-    loc: `${BASE_URL}/venue-entity/${v.entity_id}`,
+    loc: `${BASE_URL}/venue-entity/${v.slug || v.entity_id}`,
     lastmod: toDate(v.created_at),
     changefreq: 'weekly',
     priority: '0.7',
   }));
 }
 
-// dancer_profiles: used for /teachers/:id and /dancers/:id pages
+// dancer_profiles: used for /teachers/:id and /dancers/:id pages.
+// Slug column was already in place pre-2026-05-28; use it for SEO URLs.
 async function fetchDancerProfiles() {
   const { data, error } = await supabase
     .from('dancer_profiles')
-    .select('id, updated_at')
+    .select('id, slug, updated_at')
     .order('updated_at', { ascending: false })
     .limit(500);
   if (error) { console.warn('  dancer_profiles fetch error:', error.message); return []; }
-  // Each profile appears on both /dancers/:id and /teachers/:id
-  // (the front-end routes both to the same profile page)
   return (data || []).flatMap(d => [
     {
-      loc: `${BASE_URL}/dancers/${d.id}`,
+      loc: `${BASE_URL}/dancers/${d.slug || d.id}`,
       lastmod: toDate(d.updated_at),
       changefreq: 'weekly',
       priority: '0.6',
     },
     {
-      loc: `${BASE_URL}/teachers/${d.id}`,
+      loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
       lastmod: toDate(d.updated_at),
       changefreq: 'weekly',
       priority: '0.6',
     },
   ]);
+}
+
+// organiser_profiles: used for /organisers/:id pages.
+// Slug column added 2026-05-28; use it for SEO URLs.
+async function fetchOrganiserProfiles() {
+  const { data, error } = await supabase
+    .from('organiser_profiles')
+    .select('id, slug, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(500);
+  if (error) { console.warn('  organiser_profiles fetch error:', error.message); return []; }
+  return (data || []).map(o => ({
+    loc: `${BASE_URL}/organisers/${o.slug || o.id}`,
+    lastmod: toDate(o.updated_at),
+    changefreq: 'weekly',
+    priority: '0.7',
+  }));
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
@@ -165,13 +194,14 @@ async function main() {
     urlEntry({ loc: `${BASE_URL}${r.path}`, lastmod: today, changefreq: r.changefreq, priority: r.priority })
   );
 
-  const [events, venues, profiles] = await Promise.all([
+  const [events, venues, profiles, organisers] = await Promise.all([
     fetchEvents(),
     fetchVenues(),
     fetchDancerProfiles(),
+    fetchOrganiserProfiles(),
   ]);
 
-  const dynamicEntries = [...events, ...venues, ...profiles].map(urlEntry);
+  const dynamicEntries = [...events, ...venues, ...profiles, ...organisers].map(urlEntry);
   const totalUrls = staticEntries.length + dynamicEntries.length;
 
   const xml = [
@@ -185,7 +215,7 @@ async function main() {
   const outPath = path.join(ROOT, 'public', 'sitemap.xml');
   fs.writeFileSync(outPath, xml, 'utf8');
   console.log(`sitemap.xml written: ${totalUrls} URLs`);
-  console.log(`  Static: ${staticEntries.length}, Events: ${events.length}, Venues: ${venues.length}, Profiles: ${profiles.length / 2} (x2 routes)`);
+  console.log(`  Static: ${staticEntries.length}, Events: ${events.length}, Venues: ${venues.length}, Profiles: ${profiles.length / 2} (x2 routes), Organisers: ${organisers.length}`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

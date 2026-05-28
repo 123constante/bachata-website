@@ -192,7 +192,7 @@ const CreateEvent = () => {
             <CardContent>
               {coverImageUrl ? (
                 <div className='relative'>
-                  <img src={coverImageUrl} alt='Cover' className='w-full h-48 object-cover rounded-lg' />
+                  <img src={coverImageUrl} alt='Cover' className='w-full h-48 object-cover rounded-lg' loading="lazy"/>
                   <Button type='button' variant='secondary' size='sm' className='absolute bottom-3 right-3' onClick={() => setCoverImageUrl('')}>Change</Button>
                 </div>
               ) : (

@@ -12,7 +12,7 @@ export const EventOrganiserSection = ({ organiser }: EventOrganiserSectionProps)
     <>
       <div className="h-16 w-16 overflow-hidden rounded-full bg-white/[0.06]">
         {organiser.person.avatarUrl ? (
-          <img src={organiser.person.avatarUrl} alt={organiser.person.displayName ?? undefined} className="h-full w-full object-cover" />
+          <img src={organiser.person.avatarUrl} alt={organiser.person.displayName ?? undefined} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-white/70">
             {(organiser.person.displayName || '').trim().charAt(0) || '•'}

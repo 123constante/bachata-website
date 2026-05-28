@@ -4,8 +4,9 @@ import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BentoPage } from '@/modules/event-page/bento/BentoPage';
 import { useEventPage } from '@/modules/event-page/useEventPage';
+import { useSeo, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 
-// Festivals hit /event/:id when linked from calendars that don't know the type.
+// Festivals hit /event/:slugOrId when linked from calendars that don't know the type.
 // Render the dedicated FestivalDetail page in that case — lazy so standard
 // events don't pay for the festival bundle.
 const FestivalDetail = lazy(() => import('@/pages/FestivalDetail'));
@@ -20,21 +21,41 @@ const FestivalFallback = () => (
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const EventPageInner = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeParam } = useParams<{ id: string }>();
   const location = useLocation();
   const rawOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
   const requestedOccurrenceId = rawOccurrenceId && UUID_RE.test(rawOccurrenceId) ? rawOccurrenceId : null;
 
-  // Guard: non-UUID IDs (e.g. /event/fdfdg) would cause Postgres to throw
-  // "invalid input syntax for type uuid". Disable all queries and show not-found.
-  const validId = id && UUID_RE.test(id) ? id : null;
+  // Slug-or-id: if URL param is a UUID, use as-is and look up the slug for
+  // canonical. If it's a slug, look up the UUID before issuing entity queries.
+  const { id: validId, slug, isLoading: resolving, notFound, arrivedViaUuid } =
+    useEntitySlugOrId(routeParam, 'events');
+
+  // When loaded via UUID, swap the address bar to the slug URL silently.
+  useCanonicalReplaceState({
+    arrivedViaUuid,
+    slug,
+    buildPath: (s) => `/event/${s}`,
+  });
 
   // isFestival resolution lives inside useEventPage (festival detail RPC +
   // dayed-schedule / passes check). Calling it at this level means both
   // branches share the same query cache.
   const { isFestival, snapshot } = useEventPage(validId, requestedOccurrenceId);
 
-  if (!validId) {
+  // Emit noindex SEO when the URL param can't resolve to a real event (after
+  // the resolve query has settled). Avoids indexing /event/garbage-string.
+  useSeo(
+    notFound
+      ? { title: 'Event not found', description: 'This event link is invalid or has been removed.', noindex: true }
+      : null,
+  );
+
+  if (resolving && !validId) {
+    return <FestivalFallback />;
+  }
+
+  if (notFound || !validId) {
     return (
       <div className="mx-auto max-w-2xl px-4 pt-24 pb-24 text-center">
         <p className="text-lg font-semibold text-foreground mb-2">Event not found</p>
@@ -51,7 +72,7 @@ const EventPageInner = () => {
     );
   }
 
-  return <BentoPage eventId={validId} occurrenceId={requestedOccurrenceId} />;
+  return <BentoPage eventId={validId} occurrenceId={requestedOccurrenceId} eventSlug={slug} />;
 };
 
 const EventPage = () => (
