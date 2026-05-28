@@ -5,7 +5,7 @@
  * for the next 4 weeks, filters to the URL weekday, renders a list.
  */
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
@@ -66,8 +66,11 @@ function isSameWeekday(iso: string | null | undefined, dow: number): boolean {
 }
 
 const BachataWeekday = () => {
-  const params = useParams<{ weekday: string }>();
-  const meta = params.weekday ? WEEKDAYS[params.weekday.toLowerCase()] : undefined;
+  const location = useLocation();
+  // Routes are 7 explicit /bachata-london-{weekday} paths (React Router v6
+  // doesn't allow partial dynamic segments). Derive weekday from the suffix.
+  const weekdayMatch = location.pathname.match(/^\/bachata-london-([a-z]+)\/?$/i);
+  const meta = weekdayMatch ? WEEKDAYS[weekdayMatch[1].toLowerCase()] : undefined;
   const { citySlug } = useCity();
 
   const rangeStart = useMemo(() => {

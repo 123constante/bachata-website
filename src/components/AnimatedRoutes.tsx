@@ -126,7 +126,13 @@ export const AnimatedRoutes = () => {
             <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
             <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
             <Route path="/london-bachata-guide" element={<PageTransition><BachataInLondon /></PageTransition>} />
-            <Route path="/bachata-london-:weekday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-monday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-tuesday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-wednesday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-thursday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-friday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-saturday" element={<PageTransition><BachataWeekday /></PageTransition>} />
+            <Route path="/bachata-london-sunday" element={<PageTransition><BachataWeekday /></PageTransition>} />
             <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
             <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
