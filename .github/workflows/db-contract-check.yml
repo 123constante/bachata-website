@@ -146,13 +146,15 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # --omit=optional skips the puppeteer-core / @sparticuz/chromium
-        # transitive chain (proxy-agent, degenerator, quickjs-wasi peer,
-        # etc.) which is only needed by the Vercel prerender build, not
-        # by these contract scripts. Keeps npm ci strict for everything
-        # else and avoids spurious failures when that optional sub-tree
-        # drifts.
-        run: npm ci --omit=optional
+        # `npm install` (not `npm ci`) because the puppeteer-core +
+        # @sparticuz/chromium transitive chain has a peer dep
+        # (quickjs-wasi under degenerator) that npm 10's strict ci-mode
+        # integrity check trips on. Those packages are build-time-only
+        # (Vercel prerender) and never imported by these contract
+        # scripts, which just need @supabase/supabase-js. Lenient
+        # install matches what Vercel does and stops the per-push
+        # CI-fail-email loop.
+        run: npm install --no-audit --no-fund
 
       - name: Run migration-authority arc-closeout check
         # Pure filesystem -- no Supabase secrets needed.
