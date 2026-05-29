@@ -561,7 +561,7 @@ const VenueEntity = () => {
           fontFamily: 'var(--va-body)',
         }}
       >
-        <div className="va-bento mx-auto w-full max-w-[1280px] px-3 pt-3 md:px-6 md:pt-5">
+        <div className="va-bento mx-auto w-full px-3 pt-3 sm:px-5 md:px-8 md:pt-5 lg:px-12 xl:px-16">
           <section className="va-bento-hero">
             <VenueHeroMosaic
               name={venue.name}
@@ -655,12 +655,11 @@ const VenueEntity = () => {
             .va-bento {
               grid-template-columns: repeat(12, minmax(0, 1fr));
               gap: 20px;
-              align-items: start;
             }
             .va-bento-hero       { grid-column: 1 / span 8; }
-            .va-bento-directions { grid-column: 9 / span 4; grid-row: 1 / span 2; }
+            .va-bento-directions { grid-column: 9 / span 4; }
             .va-bento-gtk        { grid-column: 1 / span 5; }
-            .va-bento-whatson    { grid-column: 6 / span 3; }
+            .va-bento-whatson    { grid-column: 6 / span 7; }
             .va-bento-hours      { grid-column: 1 / span 6; }
             .va-bento-faq        { grid-column: 7 / span 6; }
           }
