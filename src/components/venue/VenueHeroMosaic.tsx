@@ -95,7 +95,7 @@ export default function VenueHeroMosaic({
   const overflow = Math.max(0, photos.length - 3);
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="w-full">
       <h1
         className="mx-4 mb-5 mt-3 text-center text-[32px] font-bold leading-[1.05] tracking-tight md:mb-7 md:mt-4 md:text-5xl"
         style={{

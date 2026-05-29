@@ -561,18 +561,18 @@ const VenueEntity = () => {
           fontFamily: 'var(--va-body)',
         }}
       >
-        <VenueHeroMosaic
-          name={venue.name}
-          photos={photos}
-          onPhoto={(idx) =>
-            setLightboxIndex(Math.min(idx, Math.max(0, photos.length - 1)))
-          }
-        />
+        <div className="va-bento mx-auto w-full max-w-[1280px] px-3 pt-3 md:px-6 md:pt-5">
+          <section className="va-bento-hero">
+            <VenueHeroMosaic
+              name={venue.name}
+              photos={photos}
+              onPhoto={(idx) =>
+                setLightboxIndex(Math.min(idx, Math.max(0, photos.length - 1)))
+              }
+            />
+          </section>
 
-        <div className="mx-auto w-full max-w-3xl px-4">
-          <div className="h-3.5" />
-
-          <section className="mb-7 md:mb-10">
+          <section className="va-bento-directions">
             <VenueSectionTitle>Find the venue</VenueSectionTitle>
             <VenueDirectionsCard
               addressLine={addressDisplay}
@@ -582,18 +582,17 @@ const VenueEntity = () => {
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
             />
+            {venue.phone || venue.website ? (
+              <div className="mt-3">
+                <VenueContactRow
+                  phone={venue.phone}
+                  phoneLabel={phoneLabel}
+                  website={venue.website}
+                  websiteLabel={websiteLabel}
+                />
+              </div>
+            ) : null}
           </section>
-
-          {venue.phone || venue.website ? (
-            <section className="mb-7 md:mb-10">
-              <VenueContactRow
-                phone={venue.phone}
-                phoneLabel={phoneLabel}
-                website={venue.website}
-                websiteLabel={websiteLabel}
-              />
-            </section>
-          ) : null}
 
           {(venue.bar_available != null ||
             venue.cloakroom_available != null ||
@@ -602,7 +601,7 @@ const VenueEntity = () => {
             venue.food_situation ||
             parkingNote ||
             venue.late_night_notes) ? (
-            <section className="mb-7 md:mb-10">
+            <section className="va-bento-gtk">
               <VenueSectionTitle>Good to know</VenueSectionTitle>
               <VenueGoodToKnow
                 barAvailable={venue.bar_available}
@@ -617,7 +616,7 @@ const VenueEntity = () => {
           ) : null}
 
           {events && events.length > 0 ? (
-            <section className="mb-7 md:mb-10">
+            <section className="va-bento-whatson">
               <VenueSectionTitle>What&rsquo;s on here</VenueSectionTitle>
               <VenueWhatsOnList
                 events={events}
@@ -628,19 +627,44 @@ const VenueEntity = () => {
           ) : null}
 
           {hoursRows.length > 0 ? (
-            <section className="mb-7 md:mb-10">
+            <section className="va-bento-hours">
               <VenueSectionTitle>Opening hours</VenueSectionTitle>
               <VenueHoursTable rows={hoursRows} />
             </section>
           ) : null}
 
           {faqItems.length > 0 ? (
-            <section className="mb-7 md:mb-10">
+            <section className="va-bento-faq">
               <VenueSectionTitle>FAQ</VenueSectionTitle>
               <VenueFaqAccordion items={faqItems} />
             </section>
           ) : null}
         </div>
+        <style>{`
+          .va-bento {
+            display: grid;
+            gap: 24px;
+            grid-template-columns: 1fr;
+          }
+          @media (min-width: 640px) {
+            .va-bento {
+              grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            }
+          }
+          @media (min-width: 1280px) {
+            .va-bento {
+              grid-template-columns: repeat(12, minmax(0, 1fr));
+              gap: 20px;
+              align-items: start;
+            }
+            .va-bento-hero       { grid-column: 1 / span 8; }
+            .va-bento-directions { grid-column: 9 / span 4; grid-row: 1 / span 2; }
+            .va-bento-gtk        { grid-column: 1 / span 5; }
+            .va-bento-whatson    { grid-column: 6 / span 3; }
+            .va-bento-hours      { grid-column: 1 / span 6; }
+            .va-bento-faq        { grid-column: 7 / span 6; }
+          }
+        `}</style>
       </div>
 
       <VenueStickyBar
