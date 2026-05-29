@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 //
 // Rendered via createPortal(document.body) so `position: fixed` resolves to
 // the viewport instead of the nearest transformed ancestor. The event page
-// is wrapped in <PageTransition> which is a framer-motion motion.div — even
+// is wrapped in <PageTransition> which is a framer-motion motion.div -- even
 // with `x: 0` at rest, framer-motion emits `transform: translateX(0px)`,
 // and any non-`none` transform creates a containing block for fixed
 // descendants (CSS spec). Without portalling, the lightbox's fixed inset-0
@@ -121,7 +121,8 @@ export const GalleryLightbox = ({
         src={urls[index]}
         alt={`Gallery image ${index + 1} of ${urls.length}`}
         className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-        onClick={(e) = loading="lazy"> e.stopPropagation()}
+        loading="lazy"
+        onClick={(e) => e.stopPropagation()}
       />
 
       {urls.length > 1 && (
