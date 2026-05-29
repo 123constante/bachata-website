@@ -127,6 +127,25 @@ async function supabaseFetch(path: string, init?: RequestInit): Promise<Response
   }
 }
 
+// URL params on slug-enabled routes (events, venues, organiser_profiles,
+// dancer_profiles) can arrive as either a UUID or an SEO slug. Pass UUIDs
+// through unchanged; resolve slugs against the table's `slug` column.
+async function resolveSlugToUuid(
+  table: string,
+  idColumn: string,
+  param: string,
+): Promise<string | null> {
+  if (UUID_RE.test(param)) return param;
+  const query = `slug=eq.${encodeURIComponent(param)}&select=${idColumn}`;
+  const res = await supabaseFetch(`/rest/v1/${table}?${query}`);
+  if (!res || !res.ok) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: any = await res.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  const value = row ? row[idColumn] : null;
+  return typeof value === 'string' ? value : null;
+}
+
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
@@ -575,12 +594,16 @@ export default async function middleware(request: Request): Promise<Response> {
 
   let meta: OgMeta | null = null;
   switch (kind) {
-    case 'event':
-      meta = await fetchEventMeta(id, canonicalUrl);
+    case 'event': {
+      const eventId = await resolveSlugToUuid('events', 'id', id);
+      meta = eventId ? await fetchEventMeta(eventId, canonicalUrl) : null;
       break;
-    case 'festival':
-      meta = await fetchFestivalMeta(id, canonicalUrl);
+    }
+    case 'festival': {
+      const festivalId = await resolveSlugToUuid('events', 'id', id);
+      meta = festivalId ? await fetchFestivalMeta(festivalId, canonicalUrl) : null;
       break;
+    }
     case 'venue-entity':
       if (!UUID_RE.test(id)) return next();
       meta = await fetchVenueMeta(id, canonicalUrl);
