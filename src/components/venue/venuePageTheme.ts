@@ -1,6 +1,6 @@
 // Gold-invert CSS-var theme tokens for the venue detail page.
 // Surfaces (cards, tiles, sheets) render in warm gold with dark ink on a
-// black page background. Top/bottom nav are unaffected â€” this only applies
+// black page background. Top/bottom nav are unaffected -- this only applies
 // inside the page wrapper.
 
 export const venueGoldInvertTheme: Record<string, string> = {

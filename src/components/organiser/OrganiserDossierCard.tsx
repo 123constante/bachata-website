@@ -74,7 +74,7 @@ export const OrganiserDossierCard = ({
         'border-white/5 bg-white/[0.02] hover:border-primary/30 hover:bg-primary/5',
         isLive && 'border-green-500/30 bg-green-500/5'
       )}
-      aria-label={`${name} Ã¢â‚¬â€ organiser profile`}
+      aria-label={`${name} -- organiser profile`}
     >
       {/* Avatar circle */}
       <div className="flex-shrink-0">
