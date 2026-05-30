@@ -52,61 +52,60 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   const [summary, detail] = splitBody(trimmed);
 
   return (
-    <BentoTile title={BLOCK_TITLES.description} color={surface} mode="container">
-      <p
-        className="whitespace-pre-wrap text-[13px] leading-[1.5]"
-        style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontWeight: 500,
-          color: 'hsl(var(--bento-fg))',
-        }}
+    <>
+      <BentoTile
+        title={BLOCK_TITLES.description}
+        color={surface}
+        mode="tappable"
+        onClick={() => setOpen(true)}
       >
-        {summary}
-      </p>
+        <p
+          className="whitespace-pre-wrap text-[13px] leading-[1.5]"
+          style={{
+            fontFamily: '"Fraunces", Georgia, serif',
+            fontWeight: 500,
+            color: 'hsl(var(--bento-fg))',
+          }}
+        >
+          {summary}
+        </p>
 
-      {detail && (
-        <>
-          <div
-            className="relative mt-3 overflow-hidden"
-            style={{ maxHeight: COLLAPSED_DETAIL_PX }}
-          >
-            <p
-              className="whitespace-pre-wrap text-[13px] leading-[1.5]"
-              style={{
-                fontFamily: '"Fraunces", Georgia, serif',
-                fontWeight: 500,
-                color: 'hsl(var(--bento-fg))',
-              }}
-            >
-              {detail}
-            </p>
+        {detail && (
+          <>
             <div
-              className="pointer-events-none absolute inset-x-0 bottom-0"
-              style={{
-                height: FADE_PX,
-                background: `linear-gradient(to bottom, transparent, ${surface})`,
-              }}
-            />
-          </div>
+              className="relative mt-3 overflow-hidden"
+              style={{ maxHeight: COLLAPSED_DETAIL_PX }}
+            >
+              <p
+                className="whitespace-pre-wrap text-[13px] leading-[1.5]"
+                style={{
+                  fontFamily: '"Fraunces", Georgia, serif',
+                  fontWeight: 500,
+                  color: 'hsl(var(--bento-fg))',
+                }}
+              >
+                {detail}
+              </p>
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0"
+                style={{
+                  height: FADE_PX,
+                  background: `linear-gradient(to bottom, transparent, ${surface})`,
+                }}
+              />
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="-mx-2.5 -mb-2.5 mt-3 w-[calc(100%+1.25rem)] py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-white/5 active:bg-white/10"
-            style={{
-              color: 'hsl(var(--bento-fg))',
-              borderTop: '1px solid rgba(255,255,255,0.07)',
-              background: 'rgba(255,255,255,0.06)',
-            }}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-          >
-            &#9660; More
-          </button>
+            <div
+              className="mt-2.5 text-center text-[10.5px]"
+              style={{ color: 'hsl(var(--bento-fg-muted))' }}
+            >
+              Tap to read more
+            </div>
+          </>
+        )}
+      </BentoTile>
 
-          <DescriptionModal open={open} onOpenChange={setOpen} body={trimmed} />
-        </>
-      )}
-    </BentoTile>
+      <DescriptionModal open={open} onOpenChange={setOpen} body={trimmed} />
+    </>
   );
 };
