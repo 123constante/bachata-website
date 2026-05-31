@@ -129,11 +129,14 @@ const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string 
     },
   });
 
-// "More this week in {City}" -- get_calendar_events_v2 over the next 7 days,
-// scoped to the event's city. Excludes the current event.
+// "Don&rsquo;t miss this week in {City}" -- flagship-first ranking.
+// Candidates come from get_calendar_events_v2 (city, 7-day window), then
+// re-ranked by 30-day view counts from event_views (anon-readable).
+// events.attendance_count is dormant (all-zero), so view-count is the
+// only live popularity signal we have. Ties break by instance_date ASC.
 const useThisWeekEvents = (citySlug: string | null, currentEventId: string | null) =>
   useQuery({
-    queryKey: ['more-events:this-week', citySlug, currentEventId],
+    queryKey: ['more-events:this-week-flagship', citySlug, currentEventId],
     enabled: !!citySlug && !!currentEventId,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<MoreEvent[]> => {
@@ -147,9 +150,28 @@ const useThisWeekEvents = (citySlug: string | null, currentEventId: string | nul
       } as never);
       if (error) throw error;
       type Row = { event_id: string; occurrence_id: string | null; name: string; instance_date: string; cover_image_url: string | null; photo_url: string | null };
-      return ((data as unknown as Row[]) ?? [])
-        .filter((e) => e.event_id !== currentEventId)
-        .slice(0, 4)
+      const candidates = ((data as unknown as Row[]) ?? []).filter((e) => e.event_id !== currentEventId);
+      if (candidates.length === 0) return [];
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const eventIds = Array.from(new Set(candidates.map((e) => e.event_id)));
+      const { data: views } = await supabase
+        .from('event_views')
+        .select('event_id')
+        .in('event_id', eventIds)
+        .gte('viewed_at', thirtyDaysAgo);
+      const viewCount: Record<string, number> = {};
+      for (const v of ((views ?? []) as { event_id: string }[])) {
+        viewCount[v.event_id] = (viewCount[v.event_id] ?? 0) + 1;
+      }
+
+      return candidates
+        .sort((a, b) => {
+          const diff = (viewCount[b.event_id] ?? 0) - (viewCount[a.event_id] ?? 0);
+          if (diff !== 0) return diff;
+          return a.instance_date.localeCompare(b.instance_date);
+        })
+        .slice(0, 8)
         .map((e) => ({
           id: e.event_id,
           occurrenceId: e.occurrence_id ?? null,
@@ -175,7 +197,7 @@ const EventCard = ({ ev }: { ev: MoreEvent }) => (
       color: 'hsl(var(--bento-fg))',
     }}
   >
-    <div className="h-20 w-full overflow-hidden bg-gradient-to-br from-primary/30 to-festival-pink/20">
+    <div className="h-24 w-full overflow-hidden bg-gradient-to-br from-primary/30 to-festival-pink/20">
       {ev.imageUrl ? (
         <img src={ev.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : null}
@@ -235,7 +257,7 @@ export const MoreEventsSection = ({
   // the this-week list (small overlap is the usual case for local nights).
   const thisWeekEvents = useMemo(() => {
     const seen = new Set(organiserEvents.map((e) => e.id));
-    return thisWeekRaw.filter((e) => !seen.has(e.id)).slice(0, 2);
+    return thisWeekRaw.filter((e) => !seen.has(e.id)).slice(0, 4);
   }, [organiserEvents, thisWeekRaw]);
 
   const hasOrganiserEvents = organiserEvents.length > 0 && Boolean(organiserName);
@@ -271,8 +293,8 @@ export const MoreEventsSection = ({
 
       {hasThisWeek && (
         <div>
-          <SectionTitle>More this week{cityName ? ` in ${cityName}` : ''}</SectionTitle>
-          <div className="grid grid-cols-2 gap-1.5">
+          <SectionTitle>Don&rsquo;t miss this week{cityName ? ` in ${cityName}` : ''}</SectionTitle>
+          <div className="grid grid-cols-4 gap-1.5">
             {thisWeekEvents.map((ev) => (
               <EventCard key={ev.id} ev={ev} />
             ))}
