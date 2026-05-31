@@ -121,6 +121,17 @@ name: DB Contract Check
 #     20260726000000_search_public_v3_upcoming.
 #
 
+# 24. The cancelled-occurrence passthrough contract - event_view_p5
+#     (snapshot_compat shape) MUST surface cancelled calendar_occurrences
+#     in occurrences[] with is_cancelled=true, and MUST pin
+#     occurrence_effective to the explicitly-requested occurrence_id even
+#     when cancelled. Until admin migration
+#     20260531210000_get_event_page_snapshot_v2_include_cancelled, the RPC
+#     silently filtered cancelled rows, leaving every Website-side
+#     cancellation UI inert (DateBlock pill, DatesBlock badge,
+#     ScheduleBlock chip, StickyTicketButton hide, EventActionBar disable,
+#     EventCancelledBanner).
+#
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
 
@@ -333,3 +344,10 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-search-public-v3.mjs
+
+      - name: Run cancelled-occurrence passthrough contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-cancelled-occurrence-passthrough.mjs
