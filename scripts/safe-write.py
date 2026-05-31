@@ -120,7 +120,18 @@ def sha256_via_subprocess(path: str) -> str | None:
         )
         if r.returncode != 0:
             return None
-        return r.stdout.split()[0] if r.stdout else None
+        if not r.stdout:
+            return None
+        tok = r.stdout.split()[0]
+        # GNU coreutils sha256sum prefixes the hash with a backslash
+        # when the path contains escaped chars (e.g. Windows-style
+        # backslashes). Strip leading backslashes so the comparison
+        # against expected_sha succeeds. Without this, every verify
+        # fails on this repo's Cowork+Windows mount, triggering
+        # spurious backup-restores.
+        while tok.startswith(chr(92)):
+            tok = tok[1:]
+        return tok
     except (FileNotFoundError, subprocess.TimeoutExpired):
         # Fallback: read in-process (less reliable for the bug we're
         # defending against, but better than failing).
