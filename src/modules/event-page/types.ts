@@ -90,6 +90,10 @@ export type EventPageSnapshot = {
     metaDataPublic: Record<string, unknown>;
     tickets: EventPageTicket[];
     promoCodes: EventPagePromoCode[];
+    /** Per-occurrence "featured / promoted" flag. null = inherit series default;
+     *  true / false = override. Populated by the per-occurrence override
+     *  overlay shipped in admin migration 20260531200000. */
+    featured: boolean | null;
     actions: {
       ticketUrl: string | null;
       websiteUrl: string | null;

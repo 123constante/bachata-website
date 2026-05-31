@@ -166,34 +166,45 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       metaDataPublic: asObject(event.meta_data_public) ?? {},
       tickets: (() => {
         const raw = asObject(event.meta_data_public);
-        return asArray(raw?.tickets).reduce<EventPageTicket[]>((acc, item) => {
+        return asArray(raw?.tickets).reduce<EventPageTicket[]>((acc, item, idx) => {
           const t = asObject(item);
-          const id = asString(t?.id);
-          if (!id) return acc;
+          if (!t) return acc;
+          const name = asString(t.name) ?? '';
+          const price = asString(t.price) ?? '';
+          // Per-occurrence override rows (admin migration 20260531140000) don't
+          // emit `id`. Fall back to a deterministic id from name+price+index so
+          // React keys stay stable and the rows still render.
+          const id = asString(t.id) ?? `${name}:${price}:${idx}`;
           acc.push({
             id,
-            name: asString(t?.name) ?? '',
-            price: asString(t?.price) ?? '',
-            quantity: asString(t?.quantity) ?? '',
-            description: asString(t?.description) ?? '',
+            name,
+            price,
+            // Series-meta rows have `quantity`; admin override rows reuse the
+            // free-text `notes` slot for the same purpose.
+            quantity: asString(t.quantity) ?? asString(t.notes) ?? '',
+            description: asString(t.description) ?? asString(t.notes) ?? '',
           });
           return acc;
         }, []);
       })(),
       promoCodes: (() => {
         const raw = asObject(event.meta_data_public);
-        return asArray(raw?.promo_codes).reduce<EventPagePromoCode[]>((acc, item) => {
+        return asArray(raw?.promo_codes).reduce<EventPagePromoCode[]>((acc, item, idx) => {
           const p = asObject(item);
-          const id = asString(p?.id);
-          if (!id) return acc;
-          const discountType = asString(p?.discount_type);
+          if (!p) return acc;
+          const code = asString(p.code) ?? '';
+          // Override rows omit `id`; key off the code (+ index for collisions).
+          const id = asString(p.id) ?? `${code}:${idx}`;
+          const discountType = asString(p.discount_type);
           acc.push({
             id,
-            code: asString(p?.code) ?? '',
+            code,
             discount_type: discountType === 'fixed' ? 'fixed' : 'percent',
-            discount_amount: typeof p?.discount_amount === 'number' ? p.discount_amount : 0,
-            limit: asString(p?.limit) ?? '',
-            valid_until: asString(p?.valid_until) ?? '',
+            discount_amount: typeof p.discount_amount === 'number' ? p.discount_amount : 0,
+            // Override row uses `description` instead of the legacy `limit`
+            // field — accept either.
+            limit: asString(p.limit) ?? asString(p.description) ?? '',
+            valid_until: asString(p.valid_until) ?? '',
           });
           return acc;
         }, []);
@@ -213,6 +224,10 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
         livestreamUrl: asString(metaPub.livestream_url),
         pricing: (actions.pricing as Json | null | undefined) ?? null,
       },
+      // Per-occurrence "featured" override (admin migration 20260531200000).
+      // null = inherit series default. Series-level featured is not yet a
+      // snapshot field; UI consumers can layer that in later.
+      featured: typeof event.featured === 'boolean' ? event.featured : null,
     },
     organisers: parsePeople(payload.organisers, '/organisers/', 'snapshot.organisers'),
     organiserCard: (() => {
