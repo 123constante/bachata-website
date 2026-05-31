@@ -165,46 +165,39 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       })(),
       metaDataPublic: asObject(event.meta_data_public) ?? {},
       tickets: (() => {
+        // Workstream 3 of the long-term cleanup unified pass/promo shapes
+        // across admin + series + Website. Strict parser: rows without `id`
+        // are dropped (only ever indicates malformed data; admin generates
+        // ids on create per OccurrenceEditorPage.tsx).
         const raw = asObject(event.meta_data_public);
-        return asArray(raw?.tickets).reduce<EventPageTicket[]>((acc, item, idx) => {
+        return asArray(raw?.tickets).reduce<EventPageTicket[]>((acc, item) => {
           const t = asObject(item);
-          if (!t) return acc;
-          const name = asString(t.name) ?? '';
-          const price = asString(t.price) ?? '';
-          // Per-occurrence override rows (admin migration 20260531140000) don't
-          // emit `id`. Fall back to a deterministic id from name+price+index so
-          // React keys stay stable and the rows still render.
-          const id = asString(t.id) ?? `${name}:${price}:${idx}`;
+          const id = asString(t?.id);
+          if (!id) return acc;
           acc.push({
             id,
-            name,
-            price,
-            // Series-meta rows have `quantity`; admin override rows reuse the
-            // free-text `notes` slot for the same purpose.
-            quantity: asString(t.quantity) ?? asString(t.notes) ?? '',
-            description: asString(t.description) ?? asString(t.notes) ?? '',
+            name: asString(t?.name) ?? '',
+            price: asString(t?.price) ?? '',
+            quantity: asString(t?.quantity) ?? '',
+            description: asString(t?.description) ?? '',
           });
           return acc;
         }, []);
       })(),
       promoCodes: (() => {
         const raw = asObject(event.meta_data_public);
-        return asArray(raw?.promo_codes).reduce<EventPagePromoCode[]>((acc, item, idx) => {
+        return asArray(raw?.promo_codes).reduce<EventPagePromoCode[]>((acc, item) => {
           const p = asObject(item);
-          if (!p) return acc;
-          const code = asString(p.code) ?? '';
-          // Override rows omit `id`; key off the code (+ index for collisions).
-          const id = asString(p.id) ?? `${code}:${idx}`;
-          const discountType = asString(p.discount_type);
+          const id = asString(p?.id);
+          if (!id) return acc;
+          const discountType = asString(p?.discount_type);
           acc.push({
             id,
-            code,
+            code: asString(p?.code) ?? '',
             discount_type: discountType === 'fixed' ? 'fixed' : 'percent',
-            discount_amount: typeof p.discount_amount === 'number' ? p.discount_amount : 0,
-            // Override row uses `description` instead of the legacy `limit`
-            // field — accept either.
-            limit: asString(p.limit) ?? asString(p.description) ?? '',
-            valid_until: asString(p.valid_until) ?? '',
+            discount_amount: typeof p?.discount_amount === 'number' ? p.discount_amount : 0,
+            limit: asString(p?.limit) ?? '',
+            valid_until: asString(p?.valid_until) ?? '',
           });
           return acc;
         }, []);
