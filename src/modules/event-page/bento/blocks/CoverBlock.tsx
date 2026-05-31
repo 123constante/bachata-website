@@ -14,6 +14,10 @@ type CoverBlockProps = {
   title: string;
   dateLabel: string | null;
   venueName: string | null;
+  // Whole-event cancellation -- when true, image is desaturated and a
+  // horizontal red "CANCELLED" strip overlays the centre of the cover so
+  // the tile reads dead at a glance and screenshots/shares are unambiguous.
+  isCancelled?: boolean;
 };
 
 // Crossfade between slides. Kept shorter than the dwell so transitions read
@@ -59,6 +63,7 @@ export const CoverBlock = ({
   title,
   dateLabel,
   venueName,
+  isCancelled = false,
 }: CoverBlockProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -122,6 +127,7 @@ export const CoverBlock = ({
                 : 'Open cover image full-screen'
             }
             onClick={handleCoverTap}
+            data-cancelled={isCancelled ? 'true' : undefined}
             // Cover uses --bento-surface-raised so the letterbox space
             // around contain-fit images matches the colour of every other
             // tile in the grid (date / city / venue / etc.). Strong-button
@@ -133,6 +139,7 @@ export const CoverBlock = ({
             style={{
               boxShadow:
                 'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 32px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.45)',
+              filter: isCancelled ? 'saturate(0.45) brightness(0.6)' : undefined,
             }}
           >
             {images.map((url, i) => {
@@ -258,6 +265,28 @@ export const CoverBlock = ({
           >
             <Maximize2 className="h-3 w-3" />
             <span className="text-[10px] font-semibold">Tap to expand</span>
+          </div>
+        )}
+        {isCancelled && (
+          <div
+            className="pointer-events-none absolute left-0 right-0 top-1/2 z-30 -translate-y-1/2 px-1"
+            data-testid="cover-cancelled-strip"
+            aria-hidden="true"
+          >
+            <div
+              className="mx-auto flex flex-col items-center justify-center border-y-2 border-white py-1.5 text-center text-white shadow-2xl"
+              style={{
+                background: 'rgba(220, 38, 38, 0.94)',
+                textShadow: '0 2px 6px rgba(0,0,0,0.5)',
+              }}
+            >
+              <div className="text-[18px] font-black uppercase tracking-[0.16em] leading-none">
+                Cancelled
+              </div>
+              <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.06em] opacity-90">
+                This event will not take place
+              </div>
+            </div>
           </div>
         )}
       </div>

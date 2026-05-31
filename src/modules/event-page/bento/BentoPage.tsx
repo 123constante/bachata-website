@@ -30,6 +30,7 @@ import { DatesBlock } from '@/modules/event-page/bento/blocks/DatesBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
 import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
+import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -233,6 +234,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             title={pageModel.identity.title}
             dateLabel={pageModel.schedule.shortDateLabel}
             venueName={pageModel.location.venueName}
+            isCancelled={pageModel.page.isCancelled}
           />
         );
       case 'date':
@@ -338,9 +340,17 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         aria-hidden="true"
       />
 
+      {state === 'ready' && pageModel.page.isCancelled && (
+        <EventCancelledBanner reasonLabel={pageModel.page.cancellationReasonLabel} />
+      )}
+
       <div
         className="mx-auto w-full max-w-[430px] px-2 pb-24 pt-4"
-        style={{ color: 'hsl(var(--bento-fg))' }}
+        style={{
+          color: 'hsl(var(--bento-fg))',
+          filter: pageModel.page.isCancelled ? 'saturate(0.78)' : undefined,
+          opacity: pageModel.page.isCancelled ? 0.92 : undefined,
+        }}
       >
         {past && (
           <div

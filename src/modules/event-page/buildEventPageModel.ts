@@ -51,7 +51,7 @@ const formatShortDateLabel = (value: string | null, timezone: string | null): st
 };
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
-  page: { state: 'loading', canEdit: false, title: '', message: null },
+  page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null },
   identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, level: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
@@ -71,6 +71,18 @@ const EMPTY_PAGE_MODEL: EventPageModel = {
 
 const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): EventPageModel => {
   const occurrence = snapshot.occurrenceEffective;
+  // Whole-event cancellation: the effective occurrence is cancelled AND
+  // there is no other future non-cancelled occurrence in the same series.
+  // Lets the page show a sticky banner + hero overlay for fully-dead
+  // events while leaving per-date cancellation (one Tuesday in a series)
+  // on the existing DateBlock pill treatment.
+  const hasOtherLiveFuture = (snapshot.occurrences ?? []).some(
+    (o) => o.occurrenceId !== occurrence?.occurrenceId && !o.isCancelled && o.isUpcoming,
+  );
+  const isWholeEventCancelled = Boolean(occurrence?.isCancelled && !hasOtherLiveFuture);
+  const wholeEventCancellationReason = isWholeEventCancelled
+    ? occurrence?.cancellationReasonLabel ?? null
+    : null;
   const scheduleRawDate = occurrence?.startsAt ?? occurrence?.localDate ?? snapshot.event.date ?? null;
   const scheduleDate = formatDateLabel(scheduleRawDate);
   const startLabel = formatTimeLabel(occurrence?.startsAt ?? null);
@@ -104,6 +116,8 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       canEdit,
       title: snapshot.event.name ?? 'Event',
       message: null,
+      isCancelled: isWholeEventCancelled,
+      cancellationReasonLabel: wholeEventCancellationReason,
     },
     identity: {
       title: snapshot.event.name ?? 'Event',
@@ -220,20 +234,20 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
 
 export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: BuildEventPageModelArgs): EventPageModel => {
   if (isLoading) {
-    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null } };
+    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null, isCancelled: false, cancellationReasonLabel: null } };
   }
 
   if (hasError && !snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.' },
+      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.', isCancelled: false, cancellationReasonLabel: null },
     };
   }
 
   if (!snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed." },
+      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed.", isCancelled: false, cancellationReasonLabel: null },
     };
   }
 
@@ -246,6 +260,8 @@ export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: 
         canEdit,
         title: 'Event Not Available',
         message: 'This event is not publicly available yet.',
+        isCancelled: readyPageModel.page.isCancelled,
+        cancellationReasonLabel: readyPageModel.page.cancellationReasonLabel,
       },
     };
   }

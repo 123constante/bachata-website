@@ -165,6 +165,12 @@ export type EventPageModel = {
     canEdit: boolean;
     title: string;
     message: string | null;
+    // Whole-event cancellation. True when the loaded occurrence is cancelled
+    // AND no other future non-cancelled occurrence exists in the same series.
+    // Per-date cancellation (one Tuesday in a recurring class) keeps the
+    // existing DateBlock/DatesBlock pill treatment instead.
+    isCancelled: boolean;
+    cancellationReasonLabel: string | null;
   };
   identity: {
     title: string;
