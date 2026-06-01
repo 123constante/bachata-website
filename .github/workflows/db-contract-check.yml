@@ -132,6 +132,17 @@ name: DB Contract Check
 #     ScheduleBlock chip, StickyTicketButton hide, EventActionBar disable,
 #     EventCancelledBanner).
 #
+# 25. The p5 <-> legacy occurrence DATE sync contract. The public event page
+#     (get_event_page_snapshot_v2) reads the occurrence date from legacy
+#     calendar_occurrences.instance_start, while the admin editor + public
+#     calendar read event_occurrence_p5. They are bridged by
+#     event_occurrence_p5.legacy_occurrence_id; this asserts the legacy calendar
+#     DAY equals the p5 occurrence_date. Forward writes are realigned by trigger
+#     trg_p5_writeback_legacy_date; drift here means a legacy-side write bypassed
+#     p5 (El Grande, 2026-06-01: p5 6 Jun vs legacy 28 Oct). TIME-of-day is the
+#     separate contract #20. Health-check RPC: check_p5_legacy_date_sync_v1
+#     (admin migration 20260601170000).
+
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
 
@@ -351,3 +362,10 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-cancelled-occurrence-passthrough.mjs
+
+      - name: Run p5<->legacy occurrence date sync contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-p5-legacy-date-sync.mjs
