@@ -1,7 +1,7 @@
 # CLAUDE.md — Website (Bachata Calendar public site)
 
 **Public-facing Bachata Calendar** — React + TypeScript + Vite + Supabase +
-Vercel. Mobile-first. ~90% of users are on mobile. This repo owns zero
+Vercel. Mobile-first. ~95% of users are on mobile. This repo owns zero
 migrations; all schema authority lives in `bachata-admin-11april`.
 
 ---
@@ -79,7 +79,7 @@ Do not break these without reason — they are tuned for cache hit rates.
 
 This project prefers COMPACT, information-dense layouts.
 
-- Mobile (>=375px): default to **2-column grids** for card lists (venues,
+- Mobile (>=375px): default to **3-column grids** for card lists (venues,
   events, teachers, DJs, dancers, organisers). Never 1-column unless the
   card legitimately needs full width.
 - Tablet: 3 columns. Desktop: 4+ columns.
