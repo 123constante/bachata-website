@@ -79,6 +79,11 @@ type ScheduleBlockProps = {
    *  removed) via get_occurrence_program_v1. Null/undefined = series
    *  mode (default behaviour, calls get_event_program_v1). */
   occurrenceId?: string | null;
+  /** Whether the resolved occurrence is cancelled. When true we do NOT fall
+   *  back to the series program if the per-occurrence program is empty -- an
+   *  empty cancelled-occurrence program is intentional (contract #24) and is
+   *  surfaced via the cancellation banner, not the schedule tile. */
+  occurrenceCancelled?: boolean;
 };
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
@@ -932,15 +937,26 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId, occurrenceId }: ScheduleBlockProps) => {
+export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: ScheduleBlockProps) => {
   // Phase C — occurrence mode. When occurrenceId is set, pull the merged
-  // program from get_occurrence_program_v1 and disable the series query
-  // (passing null hits the hook's enabled guard). Same shape comes back, so
-  // the rest of this component is mode-agnostic.
+  // program from get_occurrence_program_v1. Same shape comes back, so the rest
+  // of this component is mode-agnostic.
   const occurrenceQuery = useOccurrenceProgram(occurrenceId ?? null);
-  const eventQuery = useProgramItems(occurrenceId ? null : eventId);
+  const occHasSessions = (occurrenceQuery.data?.length ?? 0) > 0;
+  const occurrenceResolvedEmpty = occurrenceQuery.isSuccess && !occHasSessions;
+  // Fall back to the series program when the per-occurrence program resolves
+  // empty for a NON-cancelled occurrence: a stale/unknown occurrence id or a
+  // vanilla inherited occurrence should still show the schedule rather than a
+  // misleading "Schedule coming soon". A cancelled occurrence is excluded —
+  // its empty program is intentional (contract #24), shown via the banner.
+  const fallbackToSeries =
+    Boolean(occurrenceId) && occurrenceResolvedEmpty && !occurrenceCancelled;
+  const useSeries = !occurrenceId || fallbackToSeries;
+  // Series query is enabled only when needed (no occurrence, or a fallback is
+  // in play) so an occurrence with its own sessions costs no extra fetch.
+  const eventQuery = useProgramItems(useSeries ? eventId : null);
   const { data: rawSessions = [], isLoading } =
-    occurrenceId ? occurrenceQuery : eventQuery;
+    useSeries ? eventQuery : occurrenceQuery;
 
   // Phase 2B step 2e — section list (incl. empty sections) drives the
   // section-header rendering: label_override (verbatim) when set, else kind.
