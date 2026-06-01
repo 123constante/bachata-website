@@ -319,7 +319,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           />
         );
       case 'raffle':
-        return <RaffleBlock />;
+        return <RaffleBlock eventId={eventId} />;
       default:
         return <BentoTile title={BLOCK_TITLES[id]} color={BLOCK_COLORS[id]} />;
     }

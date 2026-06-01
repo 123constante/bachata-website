@@ -1,5 +1,4 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
@@ -16,7 +15,7 @@ const tryVibrate = (pattern: number | number[]) => {
   } catch { /* no-op */ }
 };
 
-const enteredStorageKey = (eventId: string | undefined) =>
+const enteredStorageKey = (eventId: string | null | undefined) =>
   eventId ? `bcal_raffle_entered_${eventId}` : null;
 
 function formatDrawnAt(iso: string): string {
@@ -257,8 +256,10 @@ const TrophyCircle = () => (
   </div>
 );
 
-export const RaffleBlock = () => {
-  const { id: eventId } = useParams<{ id: string }>();
+// eventId is the RESOLVED event uuid (passed from BentoPage). Reading it from
+// useParams() here used to break: the URL param is a slug after canonicalisation,
+// and the raffle-config RPC expects a uuid.
+export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
   const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
   const { config, loading, error, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [shakeKey, setShakeKey] = useState(0);
