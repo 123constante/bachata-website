@@ -169,6 +169,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // appears in the grid.
     if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
 
+    // Raffle also hides on a cancelled occurrence — a cancelled date must not
+    // advertise a prize draw or show a past winner (raffle audit #1).
+    if (pageModel.schedule.isCancelled) hidden.add('raffle');
+
     // 'dates' slot is shown for multi-occurrence classes (flat list) and
     // courses (Weeks Ladder). Single-occurrence events and other types hide it.
     const isMultiDateType =
