@@ -2,67 +2,17 @@ import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import {
+  formatDateLabel,
+  formatTime,
+  formatDuration,
+  isOccurrenceToday,
+} from '@/modules/event-page/bento/blocks/occurrenceFormat';
 
 type DatesBlockProps = {
   occurrences: EventPageSnapshotOccurrence[];
   currentOccurrenceId: string | null;
 };
-
-function formatDateLabel(occ: EventPageSnapshotOccurrence): string {
-  const src = occ.localDate ?? occ.startsAt;
-  if (!src) return '--';
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(src) ? `${src}T12:00:00` : src;
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) return '--';
-  const tz = occ.timezone ?? undefined;
-  try {
-    const wd = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short' }).format(date);
-    const d  = new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: 'numeric' }).format(date);
-    const mo = new Intl.DateTimeFormat('en-GB', { timeZone: tz, month: 'short' }).format(date);
-    return `${wd} ${d} ${mo}`;
-  } catch {
-    return `${date.toLocaleDateString('en-GB', { weekday: 'short' })} ${date.getDate()} ${date.toLocaleDateString('en-GB', { month: 'short' })}`;
-  }
-}
-
-function formatTime(iso: string | null, tz: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  try {
-    const s = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz ?? undefined,
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
-    return s.replace(':00 ', ' ');
-  } catch {
-    return null;
-  }
-}
-
-function formatDuration(startIso: string | null, endIso: string | null): string | null {
-  if (!startIso || !endIso) return null;
-  const mins = (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000;
-  if (mins <= 0) return null;
-  if (mins < 60) return `${Math.round(mins)} min`;
-  const hrs = mins / 60;
-  return hrs % 1 === 0 ? `${Math.round(hrs)} hr` : `${hrs.toFixed(1)} hr`;
-}
-
-function isOccurrenceToday(occ: EventPageSnapshotOccurrence): boolean {
-  const src = occ.localDate ?? occ.startsAt;
-  if (!src) return false;
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(src) ? `${src}T12:00:00` : src;
-  const d = new Date(normalized);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
 
 export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps) => (
   <BentoTile title={BLOCK_TITLES.dates} color={BLOCK_COLORS.dates} mode="multi-target">
@@ -72,7 +22,7 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
         const isToday   = isOccurrenceToday(occ);
         const isPastDim = occ.isPast && !isActive;
         const dateLabel = formatDateLabel(occ);
-        const time      = formatTime(occ.startsAt, occ.timezone);
+        const time      = formatTime(occ.startsAt);
         const duration  = formatDuration(occ.startsAt, occ.endsAt);
         const isLast    = i === occurrences.length - 1;
 
