@@ -296,6 +296,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <ScheduleBlock
             eventId={eventId}
             occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
+            occurrenceCancelled={!!occurrence?.isCancelled}
           />
         );
       case 'promo':
