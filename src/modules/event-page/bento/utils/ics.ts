@@ -1,9 +1,13 @@
 // Client-side .ics generator + Google Calendar URL builder.
 //
-// Times are converted to UTC and formatted as YYYYMMDDTHHMMSSZ — the most
-// portable form across calendar clients. Event timezone is carried in the
-// description, not the timestamps, because RFC 5545 VTIMEZONE blocks are a
-// rabbit hole we don't need for a single-event invite.
+// Event/occurrence times are stored "local-as-UTC": a naive wall clock tagged
+// with a +00 offset ("...T13:00:00+00:00" means 1 PM LOCAL, not a real 13:00
+// UTC instant -- see occurrenceFormat.ts). To emit a correct invite we convert
+// that wall clock through the event's IANA timezone into a TRUE UTC instant,
+// then format as YYYYMMDDTHHMMSSZ. Passing the stored value straight to
+// Date.toISOString() (the previous behaviour) created invites an hour late in
+// BST. Event timezone is also carried in the description; VTIMEZONE blocks are
+// a rabbit hole we don't need for a single-event invite.
 
 export type CalendarEventInput = {
   eventId: string;
@@ -17,12 +21,41 @@ export type CalendarEventInput = {
   pageUrl: string;
 };
 
-const toCompactUtc = (iso: string | null): string | null => {
+const compact = (d: Date): string =>
+  d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+// Format a genuine UTC instant (e.g. DTSTAMP "now") as compact UTC.
+const instantToCompactUtc = (iso: string | null): string | null => {
   if (!iso) return null;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  // YYYYMMDDTHHMMSSZ
-  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return Number.isNaN(d.getTime()) ? null : compact(d);
+};
+
+// Convert a stored local-as-UTC wall clock into a true UTC instant using the
+// event timezone, then format as compact UTC. Offset-probe technique mirrors
+// admin's lib/datetimeInputHelpers.fromDatetimeLocal.
+const naiveLocalToCompactUtc = (iso: string | null, timezone: string | null): string | null => {
+  if (!iso) return null;
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  const tz = timezone || 'Europe/London';
+  const guess = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s ?? '00'}Z`);
+  if (Number.isNaN(guess.getTime())) return null;
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(guess);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+  const hour = get('hour') === '24' ? '00' : get('hour');
+  const observed = new Date(
+    `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}Z`,
+  );
+  if (Number.isNaN(observed.getTime())) return null;
+  const delta = observed.getTime() - guess.getTime();
+  return compact(new Date(guess.getTime() - delta));
 };
 
 const escapeIcsText = (value: string): string =>
@@ -47,9 +80,9 @@ const buildLocation = (input: CalendarEventInput): string | null => {
 };
 
 export const buildIcs = (input: CalendarEventInput): string => {
-  const dtStart = toCompactUtc(input.startIso);
-  const dtEnd = toCompactUtc(input.endIso ?? input.startIso);
-  const dtStamp = toCompactUtc(new Date().toISOString()) ?? '';
+  const dtStart = naiveLocalToCompactUtc(input.startIso, input.timezone);
+  const dtEnd = naiveLocalToCompactUtc(input.endIso ?? input.startIso, input.timezone);
+  const dtStamp = instantToCompactUtc(new Date().toISOString()) ?? '';
   const uid = `${input.eventId}@bachatacalendar.co.uk`;
   const location = buildLocation(input);
 
@@ -96,8 +129,8 @@ export const downloadIcs = (input: CalendarEventInput, filename = 'event.ics') =
 };
 
 export const buildGoogleCalendarUrl = (input: CalendarEventInput): string => {
-  const dtStart = toCompactUtc(input.startIso);
-  const dtEnd = toCompactUtc(input.endIso ?? input.startIso);
+  const dtStart = naiveLocalToCompactUtc(input.startIso, input.timezone);
+  const dtEnd = naiveLocalToCompactUtc(input.endIso ?? input.startIso, input.timezone);
   const location = buildLocation(input) ?? '';
   const descParts: string[] = [];
   if (input.description) descParts.push(input.description);

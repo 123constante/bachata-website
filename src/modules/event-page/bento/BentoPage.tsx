@@ -27,6 +27,7 @@ import { CityBlock } from '@/modules/event-page/bento/blocks/CityBlock';
 import { GuestListBlock } from '@/modules/event-page/bento/blocks/GuestListBlock';
 import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { DatesBlock } from '@/modules/event-page/bento/blocks/DatesBlock';
+import { WeeksLadderBlock } from '@/modules/event-page/bento/blocks/WeeksLadderBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
 import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
@@ -168,7 +169,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // appears in the grid.
     if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
 
-    if (!snapshot || snapshot.occurrences.length <= 1 || pageModel.identity.eventType !== 'class') hidden.add('dates');
+    // 'dates' slot is shown for multi-occurrence classes (flat list) and
+    // courses (Weeks Ladder). Single-occurrence events and other types hide it.
+    const isMultiDateType =
+      pageModel.identity.eventType === 'class' || pageModel.identity.eventType === 'course';
+    if (!snapshot || snapshot.occurrences.length <= 1 || !isMultiDateType) hidden.add('dates');
 
     return hidden;
   }, [isLoading, past, pageModel, guestList, raffleConfig, snapshot]);
@@ -246,12 +251,19 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           />
         );
       case 'dates':
-        return snapshot ? (
+        if (!snapshot) return null;
+        return pageModel.identity.eventType === 'course' ? (
+          <WeeksLadderBlock
+            occurrences={snapshot.occurrences}
+            currentOccurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
+            level={pageModel.identity.level}
+          />
+        ) : (
           <DatesBlock
             occurrences={snapshot.occurrences}
             currentOccurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
           />
-        ) : null;
+        );
       case 'description':
         return <DescriptionBlock body={pageModel.description.body} />;
       case 'venue':
