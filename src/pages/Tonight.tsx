@@ -13,9 +13,11 @@ import { haversineKm } from '@/lib/geo/haversineKm';
 import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 type TonightEvent = {
   id: string;
+  occurrenceId: string | null;
   name: string;
   location: string;
   occurrenceStartsAt: string | null;
@@ -31,6 +33,15 @@ type TonightEvent = {
   venueLng: number | null;
   primaryOrganiserName: string | null;
   type: string;
+  // Cancellation + time-change signals from get_calendar_events_v2
+  // (admin migration 20260601120000). originalX is non-null only when the
+  // session was time-overridden via event_occurrence_session_override_p5.
+  isCancelled: boolean;
+  cancellationReasonLabel: string | null;
+  originalClassStart: string | null;
+  originalClassEnd: string | null;
+  originalPartyStart: string | null;
+  originalPartyEnd: string | null;
 };
 
 const formatHHmm = (value?: string | null) => {
@@ -152,6 +163,12 @@ const Tonight = () => {
           venueLng: typeof event.venue_lng === 'number' ? event.venue_lng : null,
           primaryOrganiserName: (event.primary_organiser_name as string | null) ?? null,
           type: (event.type as string | null) ?? '',
+          isCancelled: event.is_cancelled === true,
+          cancellationReasonLabel: (event.cancellation_reason_label as string | null) ?? null,
+          originalClassStart: (event.original_class_start as string | null) ?? null,
+          originalClassEnd: (event.original_class_end as string | null) ?? null,
+          originalPartyStart: (event.original_party_start as string | null) ?? null,
+          originalPartyEnd: (event.original_party_end as string | null) ?? null,
         };
       });
     },
@@ -309,10 +326,13 @@ const Tonight = () => {
                       <img
                         src={event.image}
                         alt={event.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"/>
+                        className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${event.isCancelled ? 'brightness-[0.55] saturate-[0.6]' : ''}`}
+                        loading="lazy"/>
                       <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
 
-                      {countdown && (
+                      {/* Countdown is suppressed when cancelled — it's misleading
+                          to say "On now" or "Starts in 2h" for a dead occurrence. */}
+                      {countdown && !event.isCancelled && (
                         <div className="absolute top-4 left-4">
                           {countdown.tone === 'live' ? (
                             <Badge className="bg-red-500/90 hover:bg-red-500 border-none text-white animate-pulse shadow-lg shadow-red-500/20">
@@ -336,10 +356,14 @@ const Tonight = () => {
                           </span>
                         </div>
                       )}
+
+                      {event.isCancelled && (
+                        <CancelledRedStrip reasonLabel={event.cancellationReasonLabel} />
+                      )}
                     </div>
 
                     <CardContent className="p-5 flex-1 flex flex-col">
-                      <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight">
+                      <h3 className={`text-xl font-bold text-white group-hover:text-primary transition-colors mb-1 leading-tight ${event.isCancelled ? 'line-through opacity-80' : ''}`}>
                         {event.name}
                       </h3>
 
@@ -357,18 +381,34 @@ const Tonight = () => {
                         const rows = [];
 
                         if (event.hasClass && event.classStart && event.classEnd) {
+                          const classChanged = !!(event.originalClassStart && event.originalClassEnd);
                           rows.push(
                             <div key="class" className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
                               <span className="font-bold">Class</span>
-                              <span className="font-mono opacity-90">{event.classStart} – {event.classEnd}</span>
+                              {classChanged && (
+                                <span className="font-mono line-through text-gray-500">
+                                  {event.originalClassStart} – {event.originalClassEnd}
+                                </span>
+                              )}
+                              <span className={`font-mono opacity-90 ${event.isCancelled ? 'line-through' : ''}`}>
+                                {event.classStart} – {event.classEnd}
+                              </span>
                             </div>
                           );
                         }
                         if (event.hasParty && event.partyStart && event.partyEnd) {
+                          const partyChanged = !!(event.originalPartyStart && event.originalPartyEnd);
                           rows.push(
                             <div key="party" className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
                               <span className="font-bold">Party</span>
-                              <span className="font-mono opacity-90">{event.partyStart} – {event.partyEnd}</span>
+                              {partyChanged && (
+                                <span className="font-mono line-through text-gray-500">
+                                  {event.originalPartyStart} – {event.originalPartyEnd}
+                                </span>
+                              )}
+                              <span className={`font-mono opacity-90 ${event.isCancelled ? 'line-through' : ''}`}>
+                                {event.partyStart} – {event.partyEnd}
+                              </span>
                             </div>
                           );
                         }
@@ -376,11 +416,12 @@ const Tonight = () => {
 
                         if (!startLabel) return null;
                         const timeRange = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
+                        const strikeIfCancelled = event.isCancelled ? 'line-through' : '';
                         if (CLASS_TYPES.has(event.type)) {
                           return (
                             <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-blue">
                               <span className="font-bold">Class</span>
-                              <span className="font-mono opacity-90">{timeRange}</span>
+                              <span className={`font-mono opacity-90 ${strikeIfCancelled}`}>{timeRange}</span>
                             </div>
                           );
                         }
@@ -388,14 +429,14 @@ const Tonight = () => {
                           return (
                             <div className="mt-2 flex items-center gap-1.5 text-xs text-yellow-400">
                               <span className="font-bold">Performance</span>
-                              <span className="font-mono opacity-90">{timeRange}</span>
+                              <span className={`font-mono opacity-90 ${strikeIfCancelled}`}>{timeRange}</span>
                             </div>
                           );
                         }
                         return (
                           <div className="mt-2 flex items-center gap-1.5 text-xs text-festival-pink">
                             <span className="font-bold">Party</span>
-                            <span className="font-mono opacity-90">{timeRange}</span>
+                            <span className={`font-mono opacity-90 ${strikeIfCancelled}`}>{timeRange}</span>
                           </div>
                         );
                       })()}

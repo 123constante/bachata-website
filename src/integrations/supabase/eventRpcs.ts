@@ -23,6 +23,16 @@ export interface CalendarEventRow {
   party_end: string | null;
   type: 'standard' | 'festival' | string;
   city_slug: string | null;
+  // Added by admin migration 20260601120000_get_calendar_events_v2_cancelled_and_time_changed.
+  // is_cancelled drives the Tonight CANCELLED red strip + dimmed image; original_*
+  // drives the strike-through old/new time row when an occurrence had its session
+  // times overridden (event_occurrence_session_override_p5).
+  is_cancelled?: boolean;
+  cancellation_reason_label?: string | null;
+  original_class_start?: string | null;
+  original_class_end?: string | null;
+  original_party_start?: string | null;
+  original_party_end?: string | null;
 }
 
 export interface GetCalendarEventsParams {
