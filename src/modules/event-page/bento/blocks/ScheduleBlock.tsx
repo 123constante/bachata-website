@@ -639,20 +639,15 @@ const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
 // return) are appended via the legacy grouping as a defensive fallback so
 // they're never dropped on the floor.
 //
-// Empty-section policy (2026-05-09 update):
-//   - Structurally-empty section (`programSection.itemCount === 0`):
-//     section is preserved with empty `slots` so the renderer can show
-//     "No sessions scheduled yet." This honours the original Phase 2B step 2e
-//     contract: "sections the user added structurally before populating items
-//     are surfaced too — Don't hide it."
-//   - All-cancelled-for-this-occurrence (`itemCount > 0 && slots.length === 0`
-//     after bucketing): section is **dropped** from the result. The series
-//     has items, but get_occurrence_program_v1 filtered them all out as
-//     cancelled-for-this-date overrides. Showing a "No sessions scheduled yet"
-//     header in this case is misleading — the schedule is honest about what's
-//     actually on. (Whole-occurrence cancellation is a separate path: the
-//     RPC returns [] when lifecycle_status='cancelled', so this branch never
-//     fires for that case.)
+// Empty-section policy (2026-06-01 update -- supersedes the 2026-05-09 ruling):
+//   The public page drops EVERY section that ends up with no slots, whether it
+//   was structurally empty (itemCount === 0 -- a header the organiser added in
+//   the editor but never populated) or had every session cancelled for this
+//   occurrence. A public visitor should never see a "No sessions scheduled yet."
+//   placeholder; empty scaffolding is an editor-preview concern, not something
+//   to leak onto the live event page. (Whole-occurrence cancellation is a
+//   separate path: get_occurrence_program_v1 returns [] when
+//   lifecycle_status='cancelled', surfaced by the banner upstream.)
 export const groupIntoSectionsFromServer = (
   slots: Slot[],
   programSections: ProgramSection[],
@@ -699,20 +694,12 @@ export const groupIntoSectionsFromServer = (
     result.push(...groupIntoSectionsLegacy(orphaned));
   }
 
-  // Drop sections whose series-level item_count > 0 but whose surviving slot
-  // count is 0 (all sessions cancelled for this date). See the function
-  // header comment for the rationale. Structural-empty sections
-  // (itemCount === 0) survive this filter and render their empty-state copy.
-  // Legacy/orphan synthetic sections have no programSections entry; we keep
-  // them as-is (they always carry slots — groupIntoSectionsLegacy doesn't
-  // emit empty buckets).
-  const filtered = result.filter((s) => {
-    if (s.slots.length > 0) return true;
-    const ps = programSections.find((p) => p.id === s.id);
-    if (!ps) return true; // orphan/legacy synthetic — keep
-    if (ps.itemCount === 0) return true; // structurally empty — keep for empty-state copy
-    return false; // series has items but all cancelled for this occurrence — drop
-  });
+  // Drop every section with no surviving slots (see the function header
+  // comment for the policy). Structurally-empty sections (itemCount === 0) and
+  // all-cancelled-for-this-occurrence sections both fall away here, so the
+  // public page never renders a "No sessions scheduled yet." placeholder.
+  // Legacy/orphan synthetic sections always carry slots, so they survive.
+  const filtered = result.filter((s) => s.slots.length > 0);
 
   // Sort sections by the earliest slot's startMins so the public schedule
   // reads top-to-bottom in chronological order regardless of the admin's

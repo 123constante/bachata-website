@@ -3,10 +3,11 @@
  *
  * Locks in the 2026-05-09 ruling for the public schedule:
  *
- *   1. Structural-empty section (admin created the section header before
- *      adding items — itemCount === 0) → KEEP. Renderer surfaces the header
- *      with "No sessions scheduled yet." (Phase 2B step 2e contract:
- *      "Don't hide it.")
+ *   1. Structurally-empty section (admin created the section header but
+ *      never added items -- itemCount === 0) => DROP. The public page must
+ *      never surface a "No sessions scheduled yet." placeholder; empty
+ *      scaffolding is an editor-preview concern. (2026-06-01 ruling,
+ *      supersedes the 2026-05-09 "Don't hide it" contract.)
  *
  *   2. All-cancelled-for-this-occurrence (series itemCount > 0 but every
  *      session was filtered out by get_occurrence_program_v1's cancellation
@@ -72,9 +73,10 @@ describe('groupIntoSectionsFromServer — empty-section policy', () => {
     expect(sections.map((s) => s.id)).toEqual(['party-id']);
   });
 
-  it('keeps a structurally-empty section (admin added header but no items yet)', () => {
-    // CLASSES section in the series has 0 items — admin created the header
-    // and hasn't filled it. Renderer should surface it with empty-state copy.
+  it('drops a structurally-empty section (header added in editor, no items)', () => {
+    // CLASSES section in the series has 0 items -- the organiser created the
+    // header and never filled it. The public page must NOT surface it; only the
+    // populated PARTY section survives.
     const sections = groupIntoSectionsFromServer(
       [mkSlot('party-id', 1290)],
       [
@@ -82,9 +84,7 @@ describe('groupIntoSectionsFromServer — empty-section policy', () => {
         mkPs({ id: 'party-id',   kind: 'party',   itemCount: 1 }),
       ],
     );
-    expect(sections.map((s) => s.id).sort()).toEqual(['classes-id', 'party-id']);
-    const classes = sections.find((s) => s.id === 'classes-id')!;
-    expect(classes.slots.length).toBe(0);
+    expect(sections.map((s) => s.id)).toEqual(['party-id']);
   });
 
   it('keeps a section with surviving sessions (normal case)', () => {
