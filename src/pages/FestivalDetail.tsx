@@ -11,7 +11,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 
-import { useSeo, buildSeoForRoute } from "@/lib/seo";
+import { useSeo, buildSeoForRoute, useEntitySlugOrId } from "@/lib/seo";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -1282,7 +1282,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  const festivalId = id || "";
+  // The URL param may be a slug OR a uuid. Entity queries below hit uuid
+  // columns / RPCs (event_view_p5, get_public_festival_detail), so a raw slug
+  // 400s. When rendered by EventPage the resolved snapshot is passed in and
+  // carries the real uuid; standalone /festival/:id (and the canonicalised
+  // /event/<slug> URL) must resolve slug -> uuid first.
+  const { id: resolvedEventId, slug: resolvedSlug } = useEntitySlugOrId(id, "events");
+  const festivalId = propSnapshot?.eventId ?? resolvedEventId ?? "";
 
 
 
@@ -1353,7 +1359,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   useSeo(
     buildSeoForRoute('festival.detail', {
       entityName: festival?.name,
-      entitySlug: festivalId ?? undefined,
+      entitySlug: resolvedSlug ?? undefined,
       cityDisplay: (festival?.city as string | null | undefined) ?? undefined,
       ogImage: festival?.poster_url ?? undefined,
       isLoading: isFestivalLoading,
