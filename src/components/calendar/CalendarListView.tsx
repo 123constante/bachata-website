@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
+import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 type UserLocation = { lat: number; lng: number };
 
@@ -126,6 +127,8 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
+            textDecoration: event.isCancelled ? 'line-through' : undefined,
+            opacity: event.isCancelled ? 0.6 : undefined,
           }}>
             {event.title}
           </div>
@@ -187,12 +190,18 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
         <div style={{
           width: 62, height: 62, borderRadius: 4, overflow: 'hidden',
           flexShrink: 0, background: '#d4c4a8',
+          position: 'relative',
         }}>
           {event.coverImageUrl ? (
             <img
               src={event.coverImageUrl}
               alt={event.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                filter: event.isCancelled ? 'brightness(0.55) saturate(0.6)' : undefined,
+              }}
               loading="lazy"
             />
           ) : (
@@ -200,9 +209,13 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
               width: '100%', height: '100%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 24, opacity: 0.5,
+              filter: event.isCancelled ? 'brightness(0.55) saturate(0.6)' : undefined,
             }}>
               {event.type === 'parties' ? '🎉' : '🎓'}
             </div>
+          )}
+          {event.isCancelled && (
+            <CancelledRedStrip reasonLabel={event.cancellationReasonLabel} size="sm" />
           )}
         </div>
 

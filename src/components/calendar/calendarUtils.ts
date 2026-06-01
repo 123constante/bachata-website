@@ -32,6 +32,11 @@ export interface CalendarEventItem {
   goingCount?: number;
   venueLat?: number | null;
   venueLng?: number | null;
+  // Cancellation surfacing -- mirrors CalendarEvent.is_cancelled.
+  // Cancelled occurrences still appear on the calendar but render
+  // with the CANCELLED red strip + dimmed image (matches Tonight).
+  isCancelled: boolean;
+  cancellationReasonLabel: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +213,8 @@ export const transformCalendarEvents = (
       coverImageUrl: resolveEventImage(event.photo_url, null),
       venueLat: venueCoords?.get(event.event_id)?.lat ?? null,
       venueLng: venueCoords?.get(event.event_id)?.lng ?? null,
+      isCancelled: event.is_cancelled === true,
+      cancellationReasonLabel: event.cancellation_reason_label ?? null,
     };
   });
 

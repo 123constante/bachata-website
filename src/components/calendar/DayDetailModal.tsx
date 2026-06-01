@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, MONTHS, isEventVisibleOnDay, matchesCategory, mondayIndex } from '@/components/calendar/calendarUtils';
 import { eventCardColour } from '@/lib/eventCardColour';
+import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 interface DayDetailModalProps {
   selectedDay: number | null;
@@ -249,13 +250,16 @@ export const DayDetailModal = ({
                 className="group flex flex-col border border-white/5 hover:border-primary/20 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:brightness-110 transition-all active:scale-[0.98]"
               >
                 {/* Image + title row */}
-                <div className="flex min-h-24 sm:min-h-28">
+                <div className={cn('flex min-h-24 sm:min-h-28', event.isCancelled && 'opacity-90')}>
                   <div className="w-24 sm:w-28 shrink-0 self-stretch relative">
                     {event.coverImageUrl ? (
                       <img
                         src={event.coverImageUrl}
                         alt={event.title}
-                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                        className={cn(
+                          'w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500',
+                          event.isCancelled && 'brightness-[0.55] saturate-[0.6]',
+                        )}
                         loading="lazy"
                       />
                     ) : (
@@ -267,15 +271,24 @@ export const DayDetailModal = ({
                             : event.hasClass
                               ? 'bg-festival-blue/10 text-festival-blue/40'
                               : 'bg-primary/10 text-primary/40',
+                          event.isCancelled && 'brightness-[0.55] saturate-[0.6]',
                         )}
                       >
                         <span aria-hidden="true" className="text-4xl">{event.hasParty ? '🎉' : event.hasClass ? '🎓' : '🎪'}</span>
                       </div>
                     )}
+                    {event.isCancelled && (
+                      <CancelledRedStrip reasonLabel={event.cancellationReasonLabel} size="sm" />
+                    )}
                   </div>
 
                   <div className="flex-1 flex flex-col justify-start items-end px-3 sm:px-5 min-w-0 text-right">
-                    <h4 className="sparkle-title font-bold text-3xl sm:text-4xl leading-normal tracking-tight line-clamp-2 w-full">
+                    <h4
+                      className={cn(
+                        'sparkle-title font-bold text-3xl sm:text-4xl leading-normal tracking-tight line-clamp-2 w-full',
+                        event.isCancelled && 'line-through opacity-60',
+                      )}
+                    >
                       {event.title}
                     </h4>
                     <div className="flex items-center justify-end gap-1.5 font-bold text-[12px] truncate mt-1 w-full">

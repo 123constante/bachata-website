@@ -24,6 +24,9 @@ export interface CalendarEvent {
   occurrence_id: string;
   occurrence_starts_at?: string;
   occurrence_ends_at?: string | null;
+  // Cancellation surfacing -- admin migration 20260601120000.
+  is_cancelled?: boolean;
+  cancellation_reason_label?: string | null;
 }
 
 interface UseCalendarEventsProps {
