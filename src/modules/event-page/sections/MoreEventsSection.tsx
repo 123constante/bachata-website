@@ -38,11 +38,12 @@ type Props = {
 };
 
 // "More from {Organiser}" -- queries event_entities directly (same pattern
-// as OrganiserProfile.tsx), then resolves the next upcoming occurrence per
-// event via calendar_occurrences. Excludes the current event.
+// as OrganiserProfile.tsx), resolves the next upcoming occurrence per event
+// via calendar_occurrences, then ranks by 30-day view counts from
+// event_views. Tie-break: next-occurrence date ASC. Excludes current event.
 const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
   useQuery({
-    queryKey: ['more-events:organiser', organiserId, currentEventId],
+    queryKey: ['more-events:organiser-flagship', organiserId, currentEventId],
     enabled: !!organiserId && !!currentEventId,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<MoreEvent[]> => {
@@ -74,8 +75,28 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
         if (!nextByEvent[r.event_id]) nextByEvent[r.event_id] = { id: r.id, start: r.instance_start };
       }
 
+      const upcomingIds = events.filter((e) => nextByEvent[e.id]).map((e) => e.id);
+      if (upcomingIds.length === 0) return [];
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: views } = await supabase
+        .from('event_views')
+        .select('event_id')
+        .in('event_id', upcomingIds)
+        .gte('viewed_at', thirtyDaysAgo);
+      const viewCount: Record<string, number> = {};
+      for (const v of ((views ?? []) as { event_id: string }[])) {
+        viewCount[v.event_id] = (viewCount[v.event_id] ?? 0) + 1;
+      }
+
       return events
         .filter((e) => nextByEvent[e.id])
+        .sort((a, b) => {
+          const diff = (viewCount[b.id] ?? 0) - (viewCount[a.id] ?? 0);
+          if (diff !== 0) return diff;
+          return nextByEvent[a.id].start.localeCompare(nextByEvent[b.id].start);
+        })
+        .slice(0, 2)
         .map((e) => ({
           id: e.id,
           slug: slugById.get(e.id) ?? null,
@@ -83,9 +104,7 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
           title: e.name,
           dateLabel: formatDate(nextByEvent[e.id].start),
           imageUrl: e.poster_url ?? null,
-        }))
-        .sort((a, b) => nextByEvent[a.id].start.localeCompare(nextByEvent[b.id].start))
-        .slice(0, 2);
+        }));
     },
   });
 
