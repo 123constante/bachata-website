@@ -291,9 +291,11 @@ export const MoreEventsSection = ({
       {hasOrganiserEvents && (
         <div>
           <SectionTitle>More from {organiserName}</SectionTitle>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex justify-center gap-1.5">
             {organiserEvents.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <div key={ev.id} className="w-[calc((100%-1.125rem)/4)]">
+                <EventCard ev={ev} />
+              </div>
             ))}
           </div>
         </div>
