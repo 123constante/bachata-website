@@ -346,7 +346,7 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
               className="text-[14px] font-extrabold leading-[1.15] tracking-[-0.015em]"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
             >
-              You won this one! ðŸŽ‰
+              You won this one! {'\u{1F389}'}
             </div>
             <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
               Organiser will be in touch.
@@ -380,7 +380,7 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
               className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em] truncate"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
             >
-              ðŸŽ‰ {config.winner_display.first_name} won!
+              {'\u{1F389}'} {config.winner_display.first_name} won!
             </div>
             <div className="mt-1 text-[11px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
               Drawn {formatDrawnAt(config.winner_display.drawn_at)}
