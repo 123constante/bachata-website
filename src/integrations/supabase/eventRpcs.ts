@@ -327,7 +327,7 @@ export async function getEventPageSnapshot(
 /**
  * RPC 3: Fetch festival-specific details
  * Call in PARALLEL with getEventPageSnapshot for festival events.
- * Returns null for standard events â€” use this to detect event type.
+ * Returns null for standard events - use this to detect event type.
  */
 export async function getPublicFestivalDetail(
   params: GetPublicFestivalDetailParams,
