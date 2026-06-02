@@ -303,7 +303,7 @@ export async function getCalendarEvents(
  *
  * Phase 5.6 cutover: routes through event_view_p5 in snapshot_compat mode.
  * Compat is byte-equal to the legacy get_event_page_snapshot_v2 by delegation
- * (admin migration 20260601030000); swap to a P5-native body any time before §5.10.
+ * (admin migration 20260601030000); swap to a P5-native body any time before Â§5.10.
  */
 export async function getEventPageSnapshot(
   params: GetEventPageSnapshotParams,
@@ -327,7 +327,7 @@ export async function getEventPageSnapshot(
 /**
  * RPC 3: Fetch festival-specific details
  * Call in PARALLEL with getEventPageSnapshot for festival events.
- * Returns null for standard events — use this to detect event type.
+ * Returns null for standard events â€” use this to detect event type.
  */
 export async function getPublicFestivalDetail(
   params: GetPublicFestivalDetailParams,
@@ -370,12 +370,13 @@ export async function getEventDetailWithFestival(
 export interface LatestEventRow {
   event_id: string;
   name: string;
-  created_at: string; // ISO timestamp, no tz (treat as UTC) -- for "added X ago"
+  created_at: string; // ISO timestamp, no tz (treat as UTC) -- for "added/updated X ago"
+  freshness_kind: 'added' | 'updated'; // 'added' = new event; 'updated' = older event freshened by a human edit / new date
   cover_image_url: string | null;
   photo_url: string[];
   location: string;
   occurrence_id: string | null;
-  instance_date: string | null; // 'YYYY-MM-DD' in city tz (next / most-recent occurrence)
+  instance_date: string | null; // 'YYYY-MM-DD' in city tz (soonest upcoming occurrence)
   city_slug: string | null;
   city_timezone: string | null;
   type: 'standard' | 'festival' | string;

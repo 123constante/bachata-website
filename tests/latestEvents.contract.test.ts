@@ -1,9 +1,10 @@
 /**
- * Contract test: get_latest_events_v1 - homepage "Just added" feed
+ * Contract test: get_latest_events_v2 - homepage "Recently added" feed
  *
  * Pins the public RPC that powers the LatestEventsWheel: anon-callable, capped
- * at the requested limit, ordered by events.created_at DESC (newest uploads
- * first), and carrying the fields the card renders.
+ * at the requested limit, ordered by created_at DESC (freshest first), gated to
+ * still-attendable events (no clearly past-dated rows), each tagged
+ * freshness_kind in {added, updated}, and carrying the fields the card renders.
  *
  * Resilient to the cross-repo deploy gap: the RPC is authored in the admin repo
  * and applied via `supabase db push`. Until that lands, the probe sees a
@@ -51,13 +52,13 @@ const notDeployed = (e: { code?: string; message?: string } | null): boolean => 
 
 const LIMIT = 6;
 
-describe.skipIf(!haveCreds)('get_latest_events_v1 - contract', () => {
+describe.skipIf(!haveCreds)('get_latest_events_v2 - contract', () => {
   let rows: Array<Record<string, unknown>> | null = null;
   let deployed = true;
   let probeError: { message?: string } | null = null;
 
   beforeAll(async () => {
-    const { data, error } = await anon!.rpc('get_latest_events_v1' as never, {
+    const { data, error } = await anon!.rpc('get_latest_events_v2' as never, {
       p_city_slug: null,
       p_limit: LIMIT,
     } as never);
@@ -65,8 +66,8 @@ describe.skipIf(!haveCreds)('get_latest_events_v1 - contract', () => {
       if (notDeployed(error)) {
         deployed = false;
         console.warn(
-          'get_latest_events_v1 not deployed yet - push admin migration ' +
-            '20260707140000. Soft-skipping contract assertions.',
+          'get_latest_events_v2 not deployed yet - push admin migration ' +
+            '20260806000000. Soft-skipping contract assertions.',
         );
         return;
       }
@@ -83,12 +84,28 @@ describe.skipIf(!haveCreds)('get_latest_events_v1 - contract', () => {
     expect((rows ?? []).length).toBeLessThanOrEqual(LIMIT);
   });
 
-  it('is ordered by created_at DESC (newest uploads first)', () => {
+  it('is ordered by created_at DESC (freshest first)', () => {
     if (!deployed || !Array.isArray(rows)) return;
     for (let i = 1; i < rows.length; i++) {
       const prev = new Date(String(rows[i - 1].created_at)).getTime();
       const cur = new Date(String(rows[i].created_at)).getTime();
       expect(prev).toBeGreaterThanOrEqual(cur);
+    }
+  });
+
+  it('only surfaces still-attendable events (no clearly past-dated rows)', () => {
+    if (!deployed || !Array.isArray(rows)) return;
+    // 2-day grace absorbs city-tz vs UTC and the RPC's 6h "just finished" window.
+    const cutoff = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+    for (const r of rows) {
+      if (r.instance_date) expect(String(r.instance_date) >= cutoff).toBe(true);
+    }
+  });
+
+  it('tags each row freshness_kind in {added, updated}', () => {
+    if (!deployed || !Array.isArray(rows)) return;
+    for (const r of rows) {
+      expect(['added', 'updated']).toContain(r.freshness_kind);
     }
   });
 
@@ -98,6 +115,7 @@ describe.skipIf(!haveCreds)('get_latest_events_v1 - contract', () => {
       expect(typeof r.event_id).toBe('string');
       expect(typeof r.name).toBe('string');
       expect('created_at' in r).toBe(true);
+      expect('freshness_kind' in r).toBe(true);
       expect('cover_image_url' in r).toBe(true);
       expect('location' in r).toBe(true);
       expect('instance_date' in r).toBe(true);
@@ -108,7 +126,7 @@ describe.skipIf(!haveCreds)('get_latest_events_v1 - contract', () => {
 
   it('respects the city filter (rows match the requested slug)', async () => {
     if (!deployed) return;
-    const { data, error } = await anon!.rpc('get_latest_events_v1' as never, {
+    const { data, error } = await anon!.rpc('get_latest_events_v2' as never, {
       p_city_slug: 'london-gb',
       p_limit: LIMIT,
     } as never);

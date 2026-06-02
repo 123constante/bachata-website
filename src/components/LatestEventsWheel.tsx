@@ -14,28 +14,29 @@ import { useLatestEvents, type LatestEventCard } from '@/hooks/useLatestEvents';
 const parseUtc = (s: string): Date =>
   new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(' ', 'T') + 'Z');
 
-const addedAgo = (iso: string): string => {
+const addedAgo = (iso: string, kind: 'added' | 'updated' = 'added'): string => {
   const then = parseUtc(iso);
+  const verb = kind === 'updated' ? 'Updated' : 'Added';
   const totalMins = Math.floor((Date.now() - then.getTime()) / 60000);
-  if (totalMins < 1) return 'Added just now';
+  if (totalMins < 1) return verb + ' just now';
 
   const plural = (n: number, unit: string) => n + ' ' + unit + (n === 1 ? '' : 's');
 
   // under 1 hour: minutes only
-  if (totalMins < 60) return 'Added ' + plural(totalMins, 'min') + ' ago';
+  if (totalMins < 60) return verb + ' ' + plural(totalMins, 'min') + ' ago';
 
   const totalHours = Math.floor(totalMins / 60);
   // under 1 day: hours + minutes (drop minutes when zero)
   if (totalHours < 24) {
     const mins = totalMins % 60;
-    return 'Added ' + plural(totalHours, 'hour') + (mins ? ' ' + plural(mins, 'min') : '') + ' ago';
+    return verb + ' ' + plural(totalHours, 'hour') + (mins ? ' ' + plural(mins, 'min') : '') + ' ago';
   }
 
   const totalDays = Math.floor(totalHours / 24);
   // under 1 week: days + hours (drop hours when zero)
   if (totalDays < 7) {
     const hours = totalHours % 24;
-    return 'Added ' + plural(totalDays, 'day') + (hours ? ' ' + plural(hours, 'hour') : '') + ' ago';
+    return verb + ' ' + plural(totalDays, 'day') + (hours ? ' ' + plural(hours, 'hour') : '') + ' ago';
   }
 
   // older: absolute date (include year only when not the current year)
@@ -43,7 +44,7 @@ const addedAgo = (iso: string): string => {
     then.getFullYear() === new Date().getFullYear()
       ? { day: 'numeric', month: 'short' }
       : { day: 'numeric', month: 'short', year: 'numeric' };
-  return 'Added on ' + then.toLocaleDateString(undefined, opts);
+  return verb + ' on ' + then.toLocaleDateString(undefined, opts);
 };
 
 const GRADIENTS = [
@@ -103,13 +104,13 @@ const CardFace = ({ card, gradient }: { card: LatestEventCard; gradient: string 
           </div>
         )}
         <span className="absolute left-2 top-2 rounded-full bg-gradient-to-br from-primary to-accent px-2 py-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider text-black">
-          New
+          {card.kind === 'updated' ? 'Updated' : 'New'}
         </span>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </div>
       <div className="flex flex-1 flex-col justify-center gap-1 p-2.5">
         <h3 className="truncate text-[13px] font-extrabold leading-tight">{card.name}</h3>
-        <p className="text-[0.62rem] text-muted-foreground">{addedAgo(card.createdAt)}</p>
+        <p className="text-[0.62rem] text-muted-foreground">{addedAgo(card.createdAt, card.kind)}</p>
         <span className="inline-flex w-fit items-center gap-0.5 rounded-full border border-primary/40 bg-primary/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wide text-accent">
           {tb.emoji} {tb.label}
         </span>
@@ -209,7 +210,7 @@ export const LatestEventsWheel = () => {
   return (
     <ScrollReveal animation="fadeUp" duration={0.7} delay={0.1}>
       <section className="mb-2 mt-6">
-        <p className="mb-3 text-center text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="mb-3 px-4 text-left text-sm font-bold uppercase tracking-[0.18em] text-white">
           Recently added
         </p>
         <div ref={scrollerRef} className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide">
@@ -217,13 +218,13 @@ export const LatestEventsWheel = () => {
             <button
               key={card.id}
               onClick={() => navigate(card.occurrenceId ? '/event/' + card.id + '?occurrenceId=' + card.occurrenceId : '/event/' + card.id)}
-              className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-colors hover:border-primary/40"
+              className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-[#1c1c1c] text-left shadow-md transition-colors hover:border-primary/40"
             >
               <CardFace card={card} gradient={GRADIENTS[i % GRADIENTS.length]} />
             </button>
           ))}
         </div>
-        <p className="mt-2 px-4 text-center text-[0.7rem] text-muted-foreground">
+        <p className="mt-2 px-4 text-left text-[0.7rem] text-white">
           Swipe to browse &middot; tap to open
         </p>
       </section>

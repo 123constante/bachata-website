@@ -11,8 +11,9 @@ export interface LatestEventCard {
   id: string;
   occurrenceId: string | null;
   name: string;
-  createdAt: string; // ISO upload time (UTC) -> rendered as "added X ago"
-  dateIso: string | null; // 'YYYY-MM-DD' display date (city tz)
+  createdAt: string; // ISO freshness time (UTC) -> rendered as "added/updated X ago"
+  kind: 'added' | 'updated'; // drives the "Added" vs "Updated" verb on the card
+  dateIso: string | null; // 'YYYY-MM-DD' display date (city tz) -- soonest upcoming occurrence
   venueName: string;
   coverImage: string | null;
   type: string; // 'festival' | 'standard' | ...
@@ -39,6 +40,7 @@ export const useLatestEvents = (limit: number = LATEST_EVENTS_LIMIT) => {
         occurrenceId: r.occurrence_id ?? null,
         name: r.name,
         createdAt: r.created_at,
+        kind: r.freshness_kind,
         dateIso: r.instance_date ?? null,
         venueName: r.location || 'TBA',
         coverImage: resolveEventImage(r.photo_url, r.cover_image_url),
