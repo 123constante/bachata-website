@@ -31,7 +31,7 @@ type UseCoverCarouselReturn = {
   /** Currently displayed slide. */
   index: number;
   /**
-   * Monotonic counter that bumps each time a new slide dwell window starts —
+   * Monotonic counter that bumps each time a new slide dwell window starts â€”
    * natural advance, manual advance, or unpause. Consumers key their progress
    * bar fill on this so the CSS animation restarts cleanly in sync with the
    * timer. Also changes on index reset when `count` changes.
@@ -39,6 +39,12 @@ type UseCoverCarouselReturn = {
   sessionId: number;
   /** Advance one step immediately (user tapped to skip). Wraps to the start. */
   advance: () => void;
+  /**
+   * Jump to a specific slide (wraps modulo count). Lets callers step
+   * backwards as well as forwards -- the festival Stories cover's left tap
+   * zone uses `goTo(index - 1)` while the right zone reuses `advance`.
+   */
+  goTo: (target: number) => void;
 };
 
 // Manages the auto-rotation state for CoverBlock's image carousel.
@@ -47,7 +53,7 @@ type UseCoverCarouselReturn = {
 // - `index` state drives which slide is visible.
 // - A `useEffect` keyed on `[disabled, paused, count, index]` owns the
 //   setTimeout. Clearing + re-arming on each index change is what keeps the
-//   timer in sync with manual advances — calling `advance()` from a tap
+//   timer in sync with manual advances â€” calling `advance()` from a tap
 //   updates index, which re-runs the effect and starts a fresh dwell window
 //   for the new slide (user gets their full 4 s to look).
 // - `sessionId` is a signal for consumers: whenever a new dwell window
@@ -71,7 +77,7 @@ export const useCoverCarousel = ({
   }, [count]);
 
   // Timer. Bumps sessionId on entry so the progress-bar animation restarts
-  // any time a new dwell window begins — natural tick, manual advance
+  // any time a new dwell window begins â€” natural tick, manual advance
   // (index change), or unpause transition (paused flips false).
   useEffect(() => {
     if (disabled || paused || count < 2) return;
@@ -80,18 +86,27 @@ export const useCoverCarousel = ({
       setIndex((i) => (i + 1) % count);
     }, advanceMs);
     return () => window.clearTimeout(id);
-    // sessionId is intentionally not in deps — we write to it inside. The
+    // sessionId is intentionally not in deps â€” we write to it inside. The
     // effect re-runs on every index change (which is what we want) and on
     // paused/disabled/count/advanceMs toggles.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled, paused, count, advanceMs, index]);
 
   const advance = useCallback(() => {
-    // Bail out cleanly when there's nothing to cycle through — avoids a
+    // Bail out cleanly when there's nothing to cycle through â€” avoids a
     // modulo-by-zero and keeps callers from having to guard.
     if (count < 1) return;
     setIndex((i) => (i + 1) % count);
   }, [count]);
 
-  return { index, sessionId, advance };
+  const goTo = useCallback(
+    (target: number) => {
+      if (count < 1) return;
+      // Normalise into [0, count) so callers can pass index - 1 to step back.
+      setIndex(((target % count) + count) % count);
+    },
+    [count],
+  );
+
+  return { index, sessionId, advance, goTo };
 };

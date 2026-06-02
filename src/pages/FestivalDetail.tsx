@@ -23,6 +23,8 @@ import { StickyTicketButton } from "@/modules/event-page/bento/StickyTicketButto
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
 
+import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover";
+
 import type { EventPageSnapshot } from "@/modules/event-page/types";
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
@@ -77,7 +79,7 @@ const CINEMATIC_CSS = `
 
 /* HERO */
 
-.cinematic-festival .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:48px 24px;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 50%,rgba(236,72,153,0.15) 0%,transparent 35%),radial-gradient(circle at 80% 30%,rgba(251,146,60,0.18) 0%,transparent 40%),radial-gradient(circle at 50% 80%,rgba(168,85,247,0.12) 0%,transparent 35%),#000}
+.cinematic-festival .hero{min-height:auto;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;text-align:center;padding:0 24px 40px;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 50%,rgba(236,72,153,0.15) 0%,transparent 35%),radial-gradient(circle at 80% 30%,rgba(251,146,60,0.18) 0%,transparent 40%),radial-gradient(circle at 50% 80%,rgba(168,85,247,0.12) 0%,transparent 35%),#000}
 
 .cinematic-festival .hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.015) 0px,rgba(255,255,255,0.015) 1px,transparent 1px,transparent 4px);pointer-events:none;mix-blend-mode:overlay}
 
@@ -85,7 +87,7 @@ const CINEMATIC_CSS = `
 
 /* Floating polaroid -- cover image */
 
-.cinematic-festival .poster-polaroid{position:absolute;top:48px;right:48px;width:170px;background:#fef9ed;padding:8px 8px 32px;box-shadow:0 24px 48px rgba(0,0,0,0.7),0 8px 16px rgba(0,0,0,0.4);transform:rotate(6deg);z-index:3;border:1px solid #d4b896;transition:transform .3s ease;text-decoration:none;color:inherit;display:block;cursor:pointer;font:inherit}
+
 .lf-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.93);display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif}
 .lf-lb-img{max-width:92vw;max-height:80vh;object-fit:contain;border-radius:4px;box-shadow:0 24px 64px rgba(0,0,0,0.6)}
 .lf-lb-close{position:absolute;top:16px;right:20px;width:44px;height:44px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.45);color:#fff;font-size:26px;line-height:1;cursor:pointer;border-radius:50%}
@@ -100,23 +102,23 @@ const CINEMATIC_CSS = `
 .lf-lb-thumb.active img,.lf-lb-thumb:hover img{opacity:1}
 @media (max-width:760px){.lf-lb-nav{width:40px;height:40px;font-size:24px}.lf-lb-thumb{width:44px;height:44px}}
 
-.cinematic-festival .poster-polaroid:hover{transform:rotate(2deg) translateY(-4px);box-shadow:0 32px 64px rgba(251,146,60,0.3),0 8px 16px rgba(0,0,0,0.5)}
 
-.cinematic-festival .poster-polaroid::before{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:54px;height:14px;background:rgba(251,146,60,0.45);border:1px solid rgba(251,146,60,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 
-.cinematic-festival .poster-polaroid img{width:100%;height:auto;display:block;filter:saturate(0.9) sepia(0.1)}
 
-.cinematic-festival .poster-polaroid .pp-caption{font-family:'Caveat',cursive;font-size:18px;color:#3a2818;text-align:center;margin-top:8px;line-height:1}
+
+
+
+
 
 @media (max-width:760px){
 
-  .cinematic-festival .hero{min-height:auto;justify-content:flex-start;padding-top:12px}
+  .cinematic-festival .hero{min-height:auto;justify-content:flex-start;padding-top:0}
 
-  .cinematic-festival .poster-polaroid{position:relative;top:auto;right:auto;width:140px;padding:6px 6px 22px;transform:rotate(-3deg);margin:0 auto 12px;align-self:center}
+  
 
-  .cinematic-festival .poster-polaroid .pp-caption{font-size:13px;margin-top:6px}
+  
 
-  .cinematic-festival .poster-polaroid::before{width:48px;height:12px}
+  
 
   .cinematic-festival .hero-pre{font-size:11px;letter-spacing:4px;white-space:nowrap}
 
@@ -700,7 +702,7 @@ const CINEMATIC_CSS = `
 
 @media (max-width:480px){
 
-  .cinematic-festival .hero{padding:60px 16px}
+  .cinematic-festival .hero{padding:0 16px 40px}
 
   .cinematic-festival .hero h1{font-size:clamp(56px,16vw,80px)}
 
@@ -761,23 +763,30 @@ const CINEMATIC_CSS = `
 
 
 
-/* === P7 calendar icon button ============================== */
 
-.cinematic-festival .cal-icon-btn{width:46px;height:46px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:rgba(255,255,255,0.85);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all .2s;padding:0;list-style:none;flex:0 0 46px}
 
-.cinematic-festival .cal-icon-btn::-webkit-details-marker{display:none}
 
-.cinematic-festival .cal-icon-btn::marker{content:''}
 
-.cinematic-festival .cal-icon-btn:hover{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.05)}
 
-.cinematic-festival .cal-wrap[open] .cal-icon-btn{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.05)}
+
+
+
+
+
+
+.cinematic-festival .cal-cta{display:flex;justify-content:center;width:100%;margin-top:12px;position:relative;z-index:6}
+.cinematic-festival .cal-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.92);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:9px 16px;border-radius:99px;cursor:pointer;list-style:none;transition:border-color .2s,color .2s,background .2s}
+.cinematic-festival .cal-pill::-webkit-details-marker{display:none}
+.cinematic-festival .cal-pill::marker{content:''}
+.cinematic-festival .cal-pill:hover{border-color:#fb923c;color:#fff;background:rgba(251,146,60,0.08)}
+.cinematic-festival .cal-wrap[open] .cal-pill{border-color:#fb923c;color:#fff;background:rgba(251,146,60,0.06)}
+.cinematic-festival .cal-pill .cal-pill-ico{color:#fb923c;flex-shrink:0}
 
 @media (max-width:760px){
 
   .cinematic-festival .hero-cta .cal-wrap{flex:0 0 46px;width:46px}
 
-  .cinematic-festival .hero-cta .cal-icon-btn{width:46px;min-width:46px}
+  
 
 }
 
@@ -912,15 +921,15 @@ const CINEMATIC_CSS = `
 
 /* === Floating Add-to-Calendar FAB (Charcoal Stealth, P06 position) === */
 
-.cal-fab{display:none;position:fixed;right:14px;top:calc(72px + env(safe-area-inset-top));width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#1f2937,#0a0a0a);color:#fb923c;border:1px solid rgba(251,146,60,0.55);align-items:center;justify-content:center;font-size:19px;cursor:pointer;z-index:50;box-shadow:0 8px 22px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05);animation:cal-fab-breath 2.2s ease infinite;font-family:'Inter',sans-serif;padding:0}
 
-.cal-fab::after{content:'+';position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#fb923c;color:#000;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;border:2px solid #050505;font-family:'Bebas Neue',sans-serif;line-height:1}
 
-@keyframes cal-fab-breath{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 
-.cal-fab:hover,.cal-fab:active{border-color:#fb923c;background:linear-gradient(135deg,#374151,#1f2937)}
 
-@media (max-width:760px){.cal-fab{display:inline-flex}}
+
+
+
+
+
 
 @media (max-width:760px){.cinematic-festival .cal-mobile-trigger{display:none}}
 
@@ -1007,6 +1016,28 @@ const CINEMATIC_CSS = `
 /* === P11 venue extra photo strip ========================= */
 
 .cinematic-festival .v-photo-extra{height:72px;background-size:cover;background-position:center;border-top:1px solid rgba(251,146,60,0.2);background-color:#1a1a1a;filter:saturate(0.9)}
+
+/* === Sample 08 Stories cover (replaces poster-polaroid) === */
+.cinematic-festival .story-cover{position:relative;z-index:5;align-self:stretch;margin:0 -24px 22px}
+.cinematic-festival .story{position:relative;aspect-ratio:16/9;border-radius:0;overflow:hidden;background:transparent}
+.cinematic-festival .story .photo{position:absolute;inset:0;opacity:0;transition:opacity .6s ease}
+.cinematic-festival .story .photo.on{opacity:1}
+.cinematic-festival .story .photo img{width:100%;height:100%;object-fit:contain;display:block}
+.cinematic-festival .story .bars{position:absolute;top:10px;left:10px;right:10px;z-index:9;display:flex;gap:6px}
+.cinematic-festival .story .bar{flex:1;height:3px;border-radius:99px;background:rgba(255,255,255,0.28);overflow:hidden}
+.cinematic-festival .story .bar i{display:block;height:100%;width:100%;transform-origin:left;transform:scaleX(0);background:#fb923c;border-radius:99px;box-shadow:0 0 8px rgba(251,146,60,0.6)}
+.cinematic-festival .story .zone{position:absolute;top:0;bottom:0;width:32%;z-index:8;cursor:pointer;background:transparent;border:0;padding:0}
+.cinematic-festival .story .zone.l{left:0}
+.cinematic-festival .story .zone.r{right:0}
+.cinematic-festival .story .center{position:absolute;top:0;bottom:0;left:32%;right:32%;z-index:8;cursor:zoom-in;background:transparent;border:0;padding:0}
+.cinematic-festival .story .aff{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0a0a0a;background:#fb923c;padding:5px 12px;border-radius:99px;display:flex;align-items:center;gap:5px;box-shadow:0 4px 14px rgba(251,146,60,0.5);animation:festival-aff-pulse 2.2s ease-in-out infinite}
+.cinematic-festival .story .aff svg{width:11px;height:11px}
+@keyframes festival-story-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes festival-aff-pulse{0%,100%{transform:translateX(-50%) scale(1);box-shadow:0 4px 14px rgba(251,146,60,0.45)}50%{transform:translateX(-50%) scale(1.06);box-shadow:0 6px 20px rgba(251,146,60,0.75)}}
+@media (prefers-reduced-motion:reduce){.cinematic-festival .story .aff{animation:none}}
+@media (max-width:760px){.cinematic-festival .story-cover{margin-bottom:14px}}
+@media (max-width:480px){.cinematic-festival .story-cover{margin-left:-16px;margin-right:-16px}}
+@media (min-width:761px){.cinematic-festival .story-cover .story{aspect-ratio:auto;height:clamp(300px,46vh,460px)}}
 
 `;
 
@@ -1683,8 +1714,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 
-  // Paid passes, ordered by the day they cover then by price. Free (£0) passes
-  // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
+  // Paid passes, ordered by the day they cover then by price. Free (Â£0) passes
+  // are excluded from the "Reserve Your Pass" grid â€” there's nothing to book.
   const passes = (festivalDetail?.passes ?? [])
     .map((p) => ({ pass: p, amount: p.earlyBirdPrice ?? p.price }))
     .filter(({ amount }) => amount > 0)
@@ -1968,7 +1999,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   return (
 
-    <div className="cinematic-festival min-h-screen pb-24 pt-20">
+    <div className="cinematic-festival min-h-screen pb-24 pt-0">
 
       <style dangerouslySetInnerHTML={{ __html: CINEMATIC_CSS }} />
 
@@ -2029,16 +2060,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       <section className="hero">
 
-        {posterUrl && (
-
-          <button type="button" onClick={() => setLightboxIndex(0)} className="poster-polaroid" aria-label="View festival flyers">
-
-            <img src={posterUrl} alt={`${festival.name} poster`} loading="lazy"/>
-
-            <div className="pp-caption">{galleryImages.length > 1 ? "the flyers." : "the poster."}</div>
-
-          </button>
-
+        {galleryImages.length > 0 && (
+          <FestivalStoriesCover
+            images={galleryImages}
+            title={festival.name}
+            onExpand={(i) => setLightboxIndex(i)}
+            paused={lightboxIndex !== null}
+          />
         )}
 
         {organiser?.displayName && <div className="hero-pre">{organiser.displayName} Presents</div>}
@@ -2145,47 +2173,41 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
           )}
 
-          {calUrls && (<>
-
-            {/* Desktop: existing details dropdown */}
-
-            <details className="cal-wrap cal-wrap-desktop">
-
-              <summary className="cal-icon-btn" aria-label="Add to calendar" title="Add to calendar">
-
-                <span aria-hidden="true">&#128197;</span>
-
-              </summary>
-
-              <div className="cal-menu">
-
-                <a href={calUrls.google} target="_blank" rel="noopener noreferrer">
-
-                  <div className="cal-ico">G</div>
-
-                  <span>Google Calendar</span>
-
-                  <span className="cal-arr">&nearr;</span>
-
-                </a>
-
-                <a href={calUrls.outlook} target="_blank" rel="noopener noreferrer">
-
-                  <div className="cal-ico">O</div>
-
-                  <span>Outlook</span>
-
-                  <span className="cal-arr">&nearr;</span>
-
-                </a>
-
-              </div>
-
-            </details>
-
-          </>)}
+          
 
         </div>
+
+        {calUrls && (
+          <div className="cal-cta">
+            <details className="cal-wrap cal-wrap-desktop">
+              <summary className="cal-pill" aria-label="Add to calendar" title="Add to calendar">
+                <svg className="cal-pill-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <span>Add to Calendar</span>
+              </summary>
+              <div className="cal-menu">
+                <a href={calUrls.google} target="_blank" rel="noopener noreferrer">
+                  <div className="cal-ico">G</div>
+                  <span>Google Calendar</span>
+                  <span className="cal-arr">&#8599;</span>
+                </a>
+                <a href={calUrls.outlook} target="_blank" rel="noopener noreferrer">
+                  <div className="cal-ico">O</div>
+                  <span>Outlook</span>
+                  <span className="cal-arr">&#8599;</span>
+                </a>
+              </div>
+            </details>
+            <button
+              type="button"
+              className="cal-pill cal-mobile-trigger"
+              aria-haspopup="dialog"
+              onClick={() => setIsCalSheetOpen(true)}
+            >
+              <svg className="cal-pill-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+              <span>Add to Calendar</span>
+            </button>
+          </div>
+        )}
 
         {/* Inline hero countdown (P5) */}
         {(countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
@@ -2865,7 +2887,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         <div className="x">
           <div className="x-line x-org">&mdash; {organiser?.displayName ?? "Festival"} &mdash;</div>
-          <div className="x-line x-name">{festival.name.replace(/ - /g, " — ")}</div>
+          <div className="x-line x-name">{festival.name.replace(/ - /g, " â€” ")}</div>
         </div>
 
       </footer>
@@ -2920,31 +2942,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-      {/* Floating Add-to-Calendar FAB (mobile, bottom-right above sticky CTA) (P06 position) */}
-
-      {calUrls && createPortal(
-
-        <button
-
-          type="button"
-
-          className="cal-fab"
-
-          aria-label="Save event to calendar"
-
-          aria-haspopup="dialog"
-
-          onClick={() => setIsCalSheetOpen(true)}
-
-        >
-
-          <span aria-hidden="true">&#128197;</span>
-
-        </button>,
-
-        document.body
-
-      )}
+      {/* Add-to-Calendar lives in the CTA (.cal-cta); floating FAB removed. */}
 
 
 
