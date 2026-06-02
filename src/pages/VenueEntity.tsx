@@ -108,17 +108,6 @@ const parseFromEventParam = (search: string): string | null => {
   return /^[0-9a-f-]{8,}$/i.test(value) ? value : null;
 };
 
-const stripUrl = (url: string): string => {
-  try {
-    const u = new URL(url);
-    return (
-      u.host.replace(/^www\./, '') + (u.pathname === '/' ? '' : u.pathname)
-    );
-  } catch {
-    return url.replace(/^https?:\/\//, '').replace(/^www\./, '');
-  }
-};
-
 
 // ============================================================
 // Data extractors from PublicVenue
@@ -531,8 +520,6 @@ const VenueEntity = () => {
     >[0]["opening_hours"],
   });
 
-  const websiteLabel = venue.website ? stripUrl(venue.website) : null;
-  const phoneLabel = venue.phone;
 
   return (
     <GlobalLayout
@@ -575,13 +562,15 @@ const VenueEntity = () => {
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
             />
-            {venue.phone || venue.website ? (
-              <div className="mt-3">
+            {venue.phone || venue.email || venue.website || venue.instagram || venue.facebook ? (
+              <div className="mt-5">
+                <VenueSectionTitle>Contact</VenueSectionTitle>
                 <VenueContactRow
                   phone={venue.phone}
-                  phoneLabel={phoneLabel}
+                  email={venue.email}
                   website={venue.website}
-                  websiteLabel={websiteLabel}
+                  instagram={venue.instagram}
+                  facebook={venue.facebook}
                 />
               </div>
             ) : null}
