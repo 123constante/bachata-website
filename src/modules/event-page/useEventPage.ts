@@ -18,18 +18,21 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
 
   // Always call get_public_festival_detail — the RPC runs for every published event,
   // not just festivals. Gate isFestival on festival-specific content being present:
-  // - schedule items with explicit YYYY-MM-DD day keys (multi-day festival), OR
+  // - a MULTI-DAY schedule (≥2 distinct YYYY-MM-DD day keys), OR
   // - festival passes (standard events never have passes).
-  // Standard events with programs return schedule items with empty day strings,
-  // so they correctly resolve to isFestival=false.
+  // NB: a single dated day is NOT a festival signal. P5-series standard events
+  // mirror their program into legacy event_program_items with a concrete day,
+  // so "any YYYY-MM-DD day" mis-classified them as festivals (→ "Festival not
+  // found"). Requiring ≥2 distinct days keeps real multi-day festivals while
+  // letting single-day standard events resolve to isFestival=false.
   const festivalQuery = useFestivalDetailQuery(eventId, Boolean(eventId));
   const isFestival = (() => {
     const fd = festivalQuery.data;
     if (!fd) return false;
-    const hasDayedSchedule = fd.schedule.some(
-      (s) => s.day && /^\d{4}-\d{2}-\d{2}$/.test(s.day),
+    const distinctDays = new Set(
+      fd.schedule.map((s) => s.day).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
     );
-    return hasDayedSchedule || fd.passes.length > 0;
+    return distinctDays.size >= 2 || fd.passes.length > 0;
   })();
 
   const pageModel = useMemo(() => {
