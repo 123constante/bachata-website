@@ -39,6 +39,12 @@ type UseCoverCarouselReturn = {
   sessionId: number;
   /** Advance one step immediately (user tapped to skip). Wraps to the start. */
   advance: () => void;
+  /**
+   * Jump to a specific slide (wraps modulo count). Lets callers step
+   * backwards as well as forwards -- the festival Stories cover's left tap
+   * zone uses `goTo(index - 1)` while the right zone reuses `advance`.
+   */
+  goTo: (target: number) => void;
 };
 
 // Manages the auto-rotation state for CoverBlock's image carousel.
@@ -93,5 +99,14 @@ export const useCoverCarousel = ({
     setIndex((i) => (i + 1) % count);
   }, [count]);
 
-  return { index, sessionId, advance };
+  const goTo = useCallback(
+    (target: number) => {
+      if (count < 1) return;
+      // Normalise into [0, count) so callers can pass index - 1 to step back.
+      setIndex(((target % count) + count) % count);
+    },
+    [count],
+  );
+
+  return { index, sessionId, advance, goTo };
 };
