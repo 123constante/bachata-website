@@ -253,12 +253,13 @@ const CINEMATIC_CSS = `
 .cinematic-festival .about-label::after{left:calc(100% + 10px)}
 
 .cinematic-festival .about-text{font-size:14px;line-height:1.65;color:rgba(255,255,255,0.72);text-align:left;white-space:pre-line}
+.cinematic-festival .about-text.is-collapsed{-webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 2.4em),transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 2.4em),transparent 100%)}
 
 .cinematic-festival .about-text b,.cinematic-festival .about-text strong{color:#fff;font-weight:600}
 
-.cinematic-festival .about-toggle{margin-top:16px;background:transparent;border:1px solid rgba(251,146,60,0.4);color:#fb923c;padding:10px 24px;font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:11px;text-transform:uppercase;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.cinematic-festival .about-toggle{margin-top:16px;background:#fb923c;border:1px solid #fb923c;color:#1a0a10;padding:13px 34px;font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:13px;text-transform:uppercase;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 28px rgba(251,146,60,0.45)}
 
-.cinematic-festival .about-toggle:hover{background:rgba(251,146,60,0.1);border-color:#fb923c}
+.cinematic-festival .about-toggle:hover{background:#fff;border-color:#fff;color:#1a0a10;box-shadow:0 0 36px rgba(251,146,60,0.6)}
 
 
 
@@ -414,7 +415,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .vo-col .section-h{margin-bottom:12px;text-align:left}
 
-.cinematic-festival .vo-col .section-h .lab{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:5px;color:#fb923c}
+.cinematic-festival .vo-col .section-h .lab{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:4px;color:#fb923c}
 
 .cinematic-festival .v-card,.cinematic-festival .o-card{display:grid;grid-template-columns:auto 1fr 96px;align-items:stretch;background:#0a0a0a;border:2px solid #fb923c;text-decoration:none;color:inherit;transition:all .2s ease;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(251,146,60,0.1),0 2px 0 #c2410c;animation:vpulse 3s ease-in-out infinite;flex:1}
 
@@ -612,7 +613,7 @@ const CINEMATIC_CSS = `
 
   .cinematic-festival .vo-col .section-h{text-align:center;margin-bottom:8px}
 
-  .cinematic-festival .vo-col .section-h .lab{font-size:9px;letter-spacing:3px}
+  .cinematic-festival .vo-col .section-h .lab{font-size:13px;letter-spacing:2px}
 
   .cinematic-festival .v-card,.cinematic-festival .o-card{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
 
@@ -1008,6 +1009,27 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .v-photo-extra{height:72px;background-size:cover;background-position:center;border-top:1px solid rgba(251,146,60,0.2);background-color:#1a1a1a;filter:saturate(0.9)}
 
+
+/* === Neon Night: headliners grid + description rules (orange-recolored) === */
+.cinematic-festival .neon-rule{height:2px;border:0;margin:0;background:linear-gradient(90deg,transparent,#fb923c 30%,#f97316 70%,transparent);box-shadow:0 0 12px rgba(251,146,60,0.6)}
+.cinematic-festival .nl-head{display:flex;align-items:center;gap:14px;max-width:1100px;margin:0 auto 22px}
+.cinematic-festival .nl-head .neon-rule{flex:1}
+.cinematic-festival .nl-title{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:clamp(30px,5vw,46px);line-height:1;letter-spacing:0.01em;text-transform:uppercase;color:#fff;margin:0;white-space:nowrap;text-shadow:0 0 6px rgba(251,146,60,0.9),0 0 22px rgba(251,146,60,0.65),0 0 44px rgba(249,115,22,0.45)}
+.cinematic-festival .nl-count{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#fb923c;white-space:nowrap;flex-shrink:0}
+.cinematic-festival .nl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;max-width:1100px;margin:0 auto}
+.cinematic-festival .nl-frame{position:relative;display:block;aspect-ratio:3/4;border-radius:4px;overflow:hidden;text-decoration:none;color:inherit;background:#0a0a0a;box-shadow:0 0 0 1.5px rgba(251,146,60,0.8),0 0 22px -2px rgba(251,146,60,0.55),inset 0 0 30px rgba(251,146,60,0.18);transition:box-shadow .25s ease,transform .25s ease}
+.cinematic-festival .nl-frame:hover{transform:translateY(-3px);box-shadow:0 0 0 1.5px #fb923c,0 0 30px -2px rgba(251,146,60,0.85),inset 0 0 34px rgba(251,146,60,0.26)}
+.cinematic-festival .nl-img{position:absolute;inset:0;background-size:cover;background-position:center top;background-color:#1a1a1a;transition:transform .4s ease}
+.cinematic-festival .nl-frame:hover .nl-img{transform:scale(1.05)}
+.cinematic-festival .nl-img.no-photo{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(251,146,60,0.28),rgba(0,0,0,0.55))}
+.cinematic-festival .nl-img.no-photo .initial{font-family:'Bebas Neue',sans-serif;font-size:64px;line-height:1;color:#fb923c;text-shadow:0 0 24px rgba(251,146,60,0.6)}
+.cinematic-festival .nl-scrim{position:absolute;inset:0;z-index:2;background:linear-gradient(0deg,rgba(7,6,11,0.92),transparent 55%);pointer-events:none}
+.cinematic-festival .nl-meta{position:absolute;left:8px;right:6px;bottom:8px;z-index:3}
+.cinematic-festival .nl-name{font-family:'Bebas Neue',sans-serif;font-size:16px;line-height:1.05;letter-spacing:0.01em;color:#fff}
+.cinematic-festival .nl-style{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#fb923c;margin-top:3px;text-shadow:0 0 8px rgba(251,146,60,0.45)}
+.cinematic-festival .nd-rule-top{margin-bottom:18px}
+.cinematic-festival .nd-rule-bottom{margin-top:20px}
+@media (min-width:760px){.cinematic-festival .nl-grid{grid-template-columns:repeat(4,1fr);gap:12px}.cinematic-festival .nl-name{font-size:20px}.cinematic-festival .nl-style{font-size:10px}.cinematic-festival .nl-img.no-photo .initial{font-size:88px}}
 `;
 
 
@@ -2210,90 +2232,39 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
       {teachers.length > 0 && (
 
         <section className="lineup">
-
-          <div className="label">Featuring</div>
-
-          <div className="sub">{teachers.length} {teachers.length === 1 ? "Headliner" : "Headliners"}</div>
-
-
-
-          <div className="filmstrip">
-
-            <div className="frames">
-
-              {teachers.map((teacher, i) => {
-
-                const styleLabel = teacher.id && teacherStyles[teacher.id]
-
-                  ? teacherStyles[teacher.id]
-
-                  : musicStyles[0] ?? "Lineup";
-
-                const initial = (teacher.displayName || "?").charAt(0).toUpperCase();
-
-                const inner = (
-
-                  <a className="frame" href={teacher.href ?? "#"}>
-
-                    <div className="frame-num">{String(i + 1).padStart(2, "0")}</div>
-
-                    <div className="frame-corner">{initial}-26</div>
-
-                    {teacher.avatarUrl ? (
-
-                      <div className="frame-img" style={{ backgroundImage: `url(${teacher.avatarUrl})` }} />
-
-                    ) : (
-
-                      <div className="frame-img no-photo"><span className="initial">{initial}</span></div>
-
-                    )}
-
-                    <div className="frame-info">
-
-                      <div className="frame-name">{teacher.displayName ?? "Artist"}</div>
-
-                      <div className="frame-style">{styleLabel}</div>
-
-
-
-                      <div className="frame-tag">Headliner</div>
-
-                    </div>
-
-                  </a>
-
-                );
-
-                return (
-
-                  <div key={teacher.id}>
-
-                    {teacher.href ? (
-
-                      <Link to={teacher.href} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-
-                        {inner}
-
-                      </Link>
-
-                    ) : (
-
-                      inner
-
-                    )}
-
-                  </div>
-
-                );
-
-              })}
-
-            </div>
-
-          </div>
-
-        </section>
+        <div className="nl-head">
+          <h2 className="nl-title">Headliners</h2>
+          <hr className="neon-rule" />
+          <span className="nl-count">{teachers.length} {teachers.length === 1 ? "Act" : "Acts"}</span>
+        </div>
+        <div className="nl-grid">
+          {teachers.map((teacher) => {
+            const styleLabel = teacher.id && teacherStyles[teacher.id]
+              ? teacherStyles[teacher.id]
+              : musicStyles[0] ?? "Lineup";
+            const initial = (teacher.displayName || "?").charAt(0).toUpperCase();
+            const inner = (
+              <>
+                {teacher.avatarUrl ? (
+                  <div className="nl-img" style={{ backgroundImage: `url(${teacher.avatarUrl})` }} />
+                ) : (
+                  <div className="nl-img no-photo"><span className="initial">{initial}</span></div>
+                )}
+                <div className="nl-scrim" />
+                <div className="nl-meta">
+                  <div className="nl-name">{teacher.displayName ?? "Artist"}</div>
+                  <div className="nl-style">{styleLabel}</div>
+                </div>
+              </>
+            );
+            return teacher.href ? (
+              <Link key={teacher.id} to={teacher.href} className="nl-frame">{inner}</Link>
+            ) : (
+              <div key={teacher.id} className="nl-frame">{inner}</div>
+            );
+          })}
+        </div>
+      </section>
 
       )}
 
@@ -2776,48 +2747,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
       {fullDescription && (
 
         <section className="about">
-
-          <div className="about-wrap">
-
-            <div className="about-label">&mdash; About the festival &mdash;</div>
-
-            {includedItems.length > 0 && (
-
-              <div className="about-includes">
-
-                <div className="about-includes-title">What&rsquo;s included</div>
-
-                {includedItems.map((it, i) => (
-
-                  <div key={i} className="about-includes-row">
-
-                    <span className="check" aria-hidden="true">&#10003;</span>
-
-                    <span>{it}</span>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            )}
-
-            <div className="about-text">{descExpanded ? fullDescription : descPreview}</div>
-
-            {hasMoreDescription && (
-
-              <button type="button" className="about-toggle" onClick={() => setDescExpanded((v) => !v)}>
-
-                {descExpanded ? "Show less \u2191" : "Read more \u2192"}
-
-              </button>
-
-            )}
-
-          </div>
-
-        </section>
+        <div className="about-wrap">
+          <hr className="neon-rule nd-rule-top" />
+          {includedItems.length > 0 && (
+            <div className="about-includes">
+              <div className="about-includes-title">What&rsquo;s included</div>
+              {includedItems.map((it, i) => (
+                <div key={i} className="about-includes-row">
+                  <span className="check" aria-hidden="true">&#10003;</span>
+                  <span>{it}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={`about-text${!descExpanded && hasMoreDescription ? " is-collapsed" : ""}`}>{descExpanded ? fullDescription : descPreview}</div>
+          {hasMoreDescription && (
+            <button type="button" className="about-toggle" onClick={() => setDescExpanded((v) => !v)}>
+              {descExpanded ? "Show less \u2191" : "Read more \u2192"}
+            </button>
+          )}
+          <hr className="neon-rule nd-rule-bottom" />
+        </div>
+      </section>
 
       )}
 
