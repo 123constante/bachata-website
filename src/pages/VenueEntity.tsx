@@ -20,6 +20,7 @@ import {
 } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { splitLineNames } from '@/lib/tubeLineColour';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -107,25 +108,6 @@ const parseFromEventParam = (search: string): string | null => {
   return /^[0-9a-f-]{8,}$/i.test(value) ? value : null;
 };
 
-const stripUrl = (url: string): string => {
-  try {
-    const u = new URL(url);
-    return (
-      u.host.replace(/^www\./, '') + (u.pathname === '/' ? '' : u.pathname)
-    );
-  } catch {
-    return url.replace(/^https?:\/\//, '').replace(/^www\./, '');
-  }
-};
-
-const formatPhone = (phone: string): string => {
-  const digits = phone.replace(/[^0-9+]/g, '');
-  if (digits.startsWith('+44') && digits.length === 13) {
-    return `${digits.slice(3, 5)} ${digits.slice(5, 9)} ${digits.slice(9)}`;
-  }
-  return phone;
-};
-
 
 // ============================================================
 // Data extractors from PublicVenue
@@ -183,9 +165,9 @@ function extractNearestStation(venue: PublicVenue): {
   return {
     station: station?.station ?? null,
     lines: Array.isArray(station?.line_names)
-      ? (station!.line_names!.filter(
-          (s): s is string => typeof s === 'string' && s.length > 0,
-        ) ?? [])
+      ? station!.line_names!
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
+          .flatMap(splitLineNames)
       : [],
     walkMinutes:
       typeof station?.walking_distance_minutes === 'number'
@@ -538,8 +520,6 @@ const VenueEntity = () => {
     >[0]["opening_hours"],
   });
 
-  const websiteLabel = venue.website ? stripUrl(venue.website) : null;
-  const phoneLabel = venue.phone ? formatPhone(venue.phone) : null;
 
   return (
     <GlobalLayout
@@ -582,13 +562,15 @@ const VenueEntity = () => {
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
             />
-            {venue.phone || venue.website ? (
-              <div className="mt-3">
+            {venue.phone || venue.email || venue.website || venue.instagram || venue.facebook ? (
+              <div className="mt-5">
+                <VenueSectionTitle>Contact</VenueSectionTitle>
                 <VenueContactRow
                   phone={venue.phone}
-                  phoneLabel={phoneLabel}
+                  email={venue.email}
                   website={venue.website}
-                  websiteLabel={websiteLabel}
+                  instagram={venue.instagram}
+                  facebook={venue.facebook}
                 />
               </div>
             ) : null}

@@ -1,6 +1,7 @@
 import { Train, Footprints } from 'lucide-react';
 import { VenueSectionTile } from '../VenueSectionTile';
 import { TubeLineChip } from '../TubeLineChip';
+import { splitLineNames } from '@/lib/tubeLineColour';
 
 type Station = {
   station?: string | null;
@@ -21,7 +22,9 @@ const sortByWalk = (a: Station, b: Station) => {
 
 const cleanLines = (s: Station): string[] =>
   Array.isArray(s.line_names)
-    ? s.line_names.filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+    ? s.line_names
+        .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+        .flatMap(splitLineNames)
     : [];
 
 /**
