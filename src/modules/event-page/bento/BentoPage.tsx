@@ -30,7 +30,8 @@ import { DatesBlock } from '@/modules/event-page/bento/blocks/DatesBlock';
 import { WeeksLadderBlock } from '@/modules/event-page/bento/blocks/WeeksLadderBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
-import { StickyTicketButton } from '@/modules/event-page/bento/StickyTicketButton';
+import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActionBar';
+import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventActions';
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
@@ -362,7 +363,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       )}
 
       <div
-        className="mx-auto w-full max-w-[430px] px-2 pb-24 pt-4"
+        className="mx-auto w-full max-w-[430px] px-2 pb-32 pt-4"
         style={{
           color: 'hsl(var(--bento-fg))',
           filter: pageModel.page.isCancelled ? 'saturate(0.78)' : undefined,
@@ -402,14 +403,23 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         />
       </div>
 
-      {/* Floating brass pill linking to the organiser's external ticket page.
-          Self-hides when no ticket URL is set. Fixed-positioned, sits above
-          the BottomNav. Placed outside the centred content column so the
-          viewport-centered layout is correct on wide screens. */}
-      <StickyTicketButton
-        ticketUrl={pageModel.actions.ticketUrl}
+      {/* Sticky bottom action bar -- primary "Get directions" plus Tickets,
+          Add-to-calendar and Share. Folds in the old standalone ticket pill so
+          dancers get one consolidated bar. Fixed above the BottomNav; rendered
+          via a body portal so it escapes the centred content column and any
+          framer-motion transform ancestors. */}
+      <EventStickyActionBar
         eventId={eventId}
-        cancelled={!!occurrence?.isCancelled}
+        directionsUrl={buildDirectionsUrl(pageModel.location)}
+        ticketUrl={past || !!occurrence?.isCancelled ? null : pageModel.actions.ticketUrl}
+        shareTitle={pageModel.identity.title}
+        shareSubtitle={
+          [pageModel.schedule.dateLabel, pageModel.location.venueName]
+            .filter(Boolean)
+            .join(' at ') || null
+        }
+        canAddToCalendar={!past && !!occurrence?.startsAt}
+        onAddToCalendar={() => setCalendarOpen(true)}
       />
 
       {state === 'ready' && snapshot && (
