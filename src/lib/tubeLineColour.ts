@@ -1,7 +1,7 @@
 /**
  * Official TfL line palette + abbreviations, plus a fuzzy resolver that
  * matches the line_names strings we get back from the venue
- * transport_json (organisers type these freely — "Northern", "northern",
+ * transport_json (organisers type these freely - "Northern", "northern",
  * "Northern Line", "n" etc all need to map to the same line).
  *
  * Hex values from TfL's brand guidelines (2024 refresh).
@@ -42,7 +42,7 @@ const LINES: TubeLine[] = [
   { name: 'National Rail',     abbr: 'NR',  bg: '#C00000', fg: '#FFFFFF' },
 ];
 
-// Fallback for a line name we don't recognise — render as brass pill so
+// Fallback for a line name we don't recognise - render as brass pill so
 // the layout stays consistent and the chip is still legible.
 const FALLBACK: TubeLine = {
   name: '',
@@ -73,19 +73,45 @@ const ALIASES: Record<string, string> = {
   'nr': 'nationalrail',
 };
 
-export const resolveTubeLine = (raw: string | null | undefined): TubeLine => {
-  if (!raw) return FALLBACK;
+export const matchKnownLine = (raw: string | null | undefined): TubeLine | null => {
+  if (!raw) return null;
   const trimmed = raw.trim();
-  if (!trimmed) return FALLBACK;
+  if (!trimmed) return null;
   const key = ALIASES[norm(trimmed)] ?? norm(trimmed);
   for (const line of LINES) {
-    if (norm(line.name) === key) {
-      return { ...line, name: line.name };
-    }
-    if (norm(line.abbr) === key) {
+    if (norm(line.name) === key || norm(line.abbr) === key) {
       return { ...line, name: line.name };
     }
   }
+  return null;
+};
+
+export const resolveTubeLine = (raw: string | null | undefined): TubeLine => {
+  const matched = matchKnownLine(raw);
+  if (matched) return matched;
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return FALLBACK;
   // Unrecognised: keep the original string as the displayed name.
   return { ...FALLBACK, name: trimmed, abbr: trimmed.length <= 4 ? trimmed : trimmed.slice(0, 3) };
+};
+
+/**
+ * Split a freeform line_names value into discrete line names. Organisers
+ * sometimes type the lot as one string ("Jubilee and Northern line",
+ * "Circle and District lines"); we split on commas and the space-bounded
+ * word "and" so each renders as its own coloured chip. A value that already
+ * resolves to a known line (e.g. "Hammersmith & City", "National Rail") is
+ * returned untouched so its internal connector is never split.
+ */
+export const splitLineNames = (raw: string | null | undefined): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (matchKnownLine(trimmed)) return [trimmed];
+  const body = trimmed.replace(/\s+lines?$/i, '');
+  const parts = body
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  return parts.length > 0 ? parts : [trimmed];
 };

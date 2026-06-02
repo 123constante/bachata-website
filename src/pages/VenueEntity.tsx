@@ -20,6 +20,7 @@ import {
 } from '@/services/venuePublicService';
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { splitLineNames } from '@/lib/tubeLineColour';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -118,14 +119,6 @@ const stripUrl = (url: string): string => {
   }
 };
 
-const formatPhone = (phone: string): string => {
-  const digits = phone.replace(/[^0-9+]/g, '');
-  if (digits.startsWith('+44') && digits.length === 13) {
-    return `${digits.slice(3, 5)} ${digits.slice(5, 9)} ${digits.slice(9)}`;
-  }
-  return phone;
-};
-
 
 // ============================================================
 // Data extractors from PublicVenue
@@ -183,9 +176,9 @@ function extractNearestStation(venue: PublicVenue): {
   return {
     station: station?.station ?? null,
     lines: Array.isArray(station?.line_names)
-      ? (station!.line_names!.filter(
-          (s): s is string => typeof s === 'string' && s.length > 0,
-        ) ?? [])
+      ? station!.line_names!
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
+          .flatMap(splitLineNames)
       : [],
     walkMinutes:
       typeof station?.walking_distance_minutes === 'number'
@@ -539,7 +532,7 @@ const VenueEntity = () => {
   });
 
   const websiteLabel = venue.website ? stripUrl(venue.website) : null;
-  const phoneLabel = venue.phone ? formatPhone(venue.phone) : null;
+  const phoneLabel = venue.phone;
 
   return (
     <GlobalLayout
