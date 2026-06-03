@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 
-import { StickyTicketButton } from "@/modules/event-page/bento/StickyTicketButton";
+import { EventStickyActionBar } from "@/modules/event-page/bento/EventStickyActionBar";
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
 
@@ -1846,6 +1846,25 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 
+  const directionsUrl = useMemo(() => {
+    const v = festivalDetail?.location.primaryVenue;
+    if (!v) return null;
+    const query = [v.name, v.address].filter(Boolean).join(', ');
+    if (!query) return null;
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
+  }, [festivalDetail]);
+
+  const shareSubtitle = useMemo(() => {
+    if (!startDateRaw) return null;
+    const start = new Date(startDateRaw);
+    const end = endDateRaw ? new Date(endDateRaw) : null;
+    const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
+      d.toLocaleDateString('en-GB', opts);
+    if (!end || end.toDateString() === start.toDateString())
+      return fmt(start, { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${fmt(start, { day: 'numeric', month: 'short' })} – ${fmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }, [startDateRaw, endDateRaw]);
+
   // Paid passes, ordered by the day they cover then by price. Free (£0) passes
   // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
   const passes = (festivalDetail?.passes ?? [])
@@ -3150,7 +3169,16 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-      <StickyTicketButton ticketUrl={festival?.ticket_url ?? null} />
+      <EventStickyActionBar
+        eventId={festivalId || null}
+        directionsUrl={directionsUrl}
+        ticketUrl={ticketUrl}
+        shareTitle={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+        shareSubtitle={shareSubtitle}
+        canAddToCalendar={!!calUrls}
+        onAddToCalendar={() => setIsCalSheetOpen(true)}
+        accentColor="#fb923c"
+      />
 
     </div>
 

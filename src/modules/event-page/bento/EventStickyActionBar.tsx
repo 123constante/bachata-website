@@ -17,9 +17,18 @@ type EventStickyActionBarProps = {
   canAddToCalendar: boolean;
   /** Opens the AddToCalendarChooser drawer (state owned by BentoPage). */
   onAddToCalendar: () => void;
+  /** Override the primary CTA colour (hex). Defaults to yellow when omitted. */
+  accentColor?: string;
 };
 
 const SOURCE = 'bento_action_bar';
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 // Ghost styling shared by the secondary Directions button and the two icon
 // buttons. Translucent raised surface with a hairline border, matching the
@@ -72,12 +81,21 @@ export const EventStickyActionBar = ({
   shareSubtitle,
   canAddToCalendar,
   onAddToCalendar,
+  accentColor,
 }: EventStickyActionBarProps) => {
   if (typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
   const directionsIsPrimary = !ticketUrl;
+
+  const ticketPrimaryStyle: React.CSSProperties = accentColor
+    ? {
+        background: accentColor,
+        color: '#000',
+        boxShadow: `0 10px 26px -10px ${hexToRgba(accentColor, 0.6)}`,
+      }
+    : YELLOW_PRIMARY;
 
   const handleDirections = () => {
     if (!directionsUrl) return;
@@ -123,7 +141,7 @@ export const EventStickyActionBar = ({
               rel="noopener noreferrer"
               onClick={handleTicket}
               className={PRIMARY_CLASS}
-              style={YELLOW_PRIMARY}
+              style={ticketPrimaryStyle}
             >
               <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
               Get Tickets
