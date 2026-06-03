@@ -3,24 +3,15 @@ import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
-import { getRaffleSessionId } from '@/lib/raffleSession';
+import { getRaffleSessionId, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import { Check, Sparkles, Trophy } from 'lucide-react';
 
 const GOLD = 'hsl(var(--bento-accent))';
 
-const tryVibrate = (pattern: number | number[]) => {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
-  } catch { /* no-op */ }
-};
-
-const enteredStorageKey = (eventId: string | null | undefined) =>
-  eventId ? `bcal_raffle_entered_${eventId}` : null;
-
 function formatDrawnAt(iso: string): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
       .format(new Date(iso));
   } catch { return iso; }
 }
@@ -28,9 +19,9 @@ function formatDrawnAt(iso: string): string {
 function formatCloseClock(cutoffAt: string): string {
   try {
     const dt = new Date(cutoffAt);
-    const minutes = dt.getMinutes();
-    const hours12 = dt.getHours() % 12 || 12;
-    const ampm = dt.getHours() < 12 ? 'AM' : 'PM';
+    const minutes = dt.getUTCMinutes();
+    const hours12 = dt.getUTCHours() % 12 || 12;
+    const ampm = dt.getUTCHours() < 12 ? 'AM' : 'PM';
     return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
   } catch {
     return '–';
@@ -268,13 +259,13 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
   const celebrateTimerRef = useRef<number | null>(null);
   const [hasEntered, setHasEntered] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    const key = enteredStorageKey(eventId);
+    const key = raffleEnteredKey(eventId);
     return key ? window.sessionStorage.getItem(key) === '1' : false;
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const key = enteredStorageKey(eventId);
+    const key = raffleEnteredKey(eventId);
     setHasEntered(key ? window.sessionStorage.getItem(key) === '1' : false);
   }, [eventId]);
 
@@ -284,7 +275,7 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
 
   const markEntered = useCallback(() => {
     if (typeof window === 'undefined' || !eventId) return;
-    try { window.sessionStorage.setItem(enteredStorageKey(eventId)!, '1'); } catch { /* no-op */ }
+    try { window.sessionStorage.setItem(raffleEnteredKey(eventId)!, '1'); } catch { /* no-op */ }
     setHasEntered(true);
     setCelebrate(true);
     if (celebrateTimerRef.current !== null) window.clearTimeout(celebrateTimerRef.current);

@@ -1,5 +1,13 @@
 // =============================================================================
-// raffleSession — stable per-browser session id for raffle submissions.
+// raffleSession — shared client-side raffle helpers used by BOTH raffle
+// surfaces (the bento RaffleBlock tile and the festival "Lucky Reels" band).
+//
+//   - getRaffleSessionId(): stable per-browser session id for submissions.
+//   - raffleEnteredKey():   sessionStorage key recording "this browser entered
+//                           event X" — the single source of truth for the
+//                           already-entered state across surfaces.
+//   - tryVibrate():         best-effort haptic that never throws.
+//
 // Mirrors lib/viewerSession.ts convention (bcal_* prefix, crypto.randomUUID
 // with graceful fallback).
 // =============================================================================
@@ -26,3 +34,17 @@ export function getRaffleSessionId(): string {
     return generateUuid();
   }
 }
+
+/** sessionStorage key recording that THIS browser entered a given event's
+ *  raffle. Shared by every raffle surface so "already entered" stays in sync —
+ *  do NOT inline this literal anywhere. Returns null when eventId is absent. */
+export const raffleEnteredKey = (eventId: string | null | undefined): string | null =>
+  eventId ? `bcal_raffle_entered_${eventId}` : null;
+
+/** Best-effort haptic feedback. No-ops where unsupported and never throws
+ *  (some browsers throw on vibrate() inside cross-origin iframes). */
+export const tryVibrate = (pattern: number | number[]): void => {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
+  } catch { /* no-op */ }
+};

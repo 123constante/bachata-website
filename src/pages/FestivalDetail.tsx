@@ -1136,24 +1136,29 @@ const CINEMATIC_CSS = `
 .cinematic-festival .raffle-band .lever:active .lever-arm,.cinematic-festival .raffle-band .lever.is-pulled .lever-arm{transform:scaleY(.42)}
 .cinematic-festival .raffle-band .rb-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:0;background:rgba(245,213,99,0.12);border:1px solid rgba(245,213,99,0.16);border-radius:12px;overflow:hidden}
 .cinematic-festival .raffle-band .meta-cell{background:rgba(8,8,8,0.92);padding:13px 10px;text-align:center}
-.cinematic-festival .raffle-band .meta-cell .k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin:0 0 8px}
+.cinematic-festival .raffle-band .meta-cell .k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,0.62);margin:0 0 8px}
 .cinematic-festival .raffle-band .meta-cell .v{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:.95;color:#fb923c;text-shadow:0 0 26px rgba(251,146,60,0.45);letter-spacing:1px}
 .cinematic-festival .raffle-band .meta-cell .v.gold{color:#f5d563;text-shadow:0 0 26px rgba(245,213,99,0.4)}
-.cinematic-festival .raffle-band .meta-cell .sub{font-family:'Inter',sans-serif;font-size:11px;color:rgba(255,255,255,0.45);margin-top:5px}
+.cinematic-festival .raffle-band .meta-cell .sub{font-family:'Inter',sans-serif;font-size:11px;color:rgba(255,255,255,0.62);margin-top:5px}
 .cinematic-festival .raffle-band .cta-row{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:0}
 .cinematic-festival .raffle-band .pull-btn{position:relative;width:100%;font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:17px;text-transform:uppercase;color:#1a0a10;background:linear-gradient(180deg,#f3d978,#ebc659 48%,#d6ac47);border:none;border-radius:11px;padding:14px 26px;cursor:pointer;box-shadow:0 8px 22px rgba(245,213,99,0.28),inset 0 1px 1px rgba(255,255,255,0.55),inset 0 -2px 5px rgba(0,0,0,0.22);transition:transform .12s ease,box-shadow .25s ease,filter .25s ease}
 .cinematic-festival .raffle-band .pull-btn .lab-small{display:block;font-size:9px;letter-spacing:.22em;color:rgba(26,10,16,0.65);margin-bottom:2px;font-family:'JetBrains Mono',monospace}
 .cinematic-festival .raffle-band .pull-btn:hover{filter:brightness(1.06);box-shadow:0 10px 30px rgba(245,213,99,0.5);transform:translateY(-2px)}
 .cinematic-festival .raffle-band .pull-btn:active{transform:translateY(1px)}
-.cinematic-festival .raffle-band .cta-foot{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.42);text-align:center;line-height:1.7}
+.cinematic-festival .raffle-band .cta-foot{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.62);text-align:center;line-height:1.7}
 .cinematic-festival .raffle-band .cta-foot b{color:#f5d563;font-weight:700}
+.cinematic-festival .raffle-band .pull-btn.is-busy{opacity:.82;cursor:progress;filter:saturate(.9)}
+.cinematic-festival .raffle-band .rb-trust{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);text-align:center;margin:2px 0 0;line-height:1.6}
+.cinematic-festival .raffle-band .rb-chip{display:inline-flex;align-items:center;justify-content:center;gap:9px;align-self:stretch;font-family:'Bebas Neue',sans-serif;letter-spacing:2px;text-transform:uppercase;font-size:15px;color:#1a0a10;background:linear-gradient(180deg,#f3d978,#ebc659 48%,#d6ac47);border-radius:11px;padding:13px 18px;box-shadow:0 8px 22px rgba(245,213,99,0.28),inset 0 1px 1px rgba(255,255,255,0.55)}
+.cinematic-festival .raffle-band .rb-chip-ico{flex:0 0 auto;width:14px;height:14px;position:relative}
+.cinematic-festival .raffle-band .rb-chip-ico::before{content:'';position:absolute;left:4px;top:0;width:5px;height:9px;border:solid #1a0a10;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .cinematic-festival .raffle-band.is-dimmed .bezel{filter:grayscale(.45) brightness(.72)}
 .cinematic-festival .raffle-band.is-dimmed .bulbs i,.cinematic-festival .raffle-band.is-dimmed .reels::after{animation:none}
 @media (max-width:860px){
 .cinematic-festival .raffle-band .rb-body{flex-direction:column;align-items:center;gap:22px}
 .cinematic-festival .raffle-band .rb-machine-col{width:100%;justify-content:center}
 .cinematic-festival .raffle-band .rb-info-col{width:100%;max-width:440px;flex:1 1 auto}
-.cinematic-festival .raffle-band .lever-col{display:none}
+.cinematic-festival .raffle-band .lever-col{display:flex}
 }
 @media (max-width:480px){
 .cinematic-festival .raffle-band{padding:34px 14px 52px}

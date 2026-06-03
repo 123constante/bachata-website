@@ -1,121 +1,120 @@
 // =============================================================================
-// FestivalRaffleSection — festival-page-native raffle band ("Lucky Reels").
+// FestivalRaffleSection -- festival-page-native raffle band ("Lucky Reels").
 //
 // The bento RaffleBlock is a square tile that looks alien inside the
 // cinematic-festival layout, so festival event pages rendered no raffle UI at
-// all ("latent"). This renders the SAME raffle — same get_event_raffle config,
-// same RaffleEntryDialog submit flow — but skinned in the page's black / gold /
+// all ("latent"). This renders the SAME raffle -- same get_event_raffle config,
+// same RaffleEntryDialog submit flow -- but skinned in the page's black / gold /
 // Bebas-Neue language as a slot machine.
 //
 // All styling lives in CINEMATIC_CSS in FestivalDetail.tsx, scoped under
-// `.cinematic-festival .raffle-band …`. This component only emits the markup +
-// wires the real data and the entry dialog.
+// `.cinematic-festival .raffle-band ...`. This component only emits the markup
+// + wires the real data and the entry dialog.
+//
+// Time display: the close clock and draw date are shown AS-STORED (event
+// timezone) via raffleCountdown helpers, never browser-tz-converted. The
+// countdown duration is timezone-invariant.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
-import { getRaffleSessionId } from '@/lib/raffleSession';
+import { getRaffleSessionId, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
+import {
+  countdownParts,
+  formatCloseClock,
+  formatDrawDate,
+  parseCutoffMs,
+  useRaffleNow,
+} from '@/modules/event-page/utils/raffleCountdown';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
-
-const enteredStorageKey = (eventId: string | null | undefined) =>
-  eventId ? `bcal_raffle_entered_${eventId}` : null;
-
-const tryVibrate = (pattern: number | number[]) => {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
-  } catch { /* no-op */ }
-};
 
 const pad = (n: number) => (n < 10 ? '0' : '') + n;
 
-function formatClock(iso: string | null): string {
-  if (!iso) return '—';
-  try { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-  catch { return '—'; }
-}
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  try { return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso)); }
-  catch { return iso ?? ''; }
-}
+// Read the per-browser "already entered" flag. Guarded: sessionStorage.getItem
+// can throw (sandboxed iframes / strict privacy modes) and this runs during
+// render via the lazy initializer, so an unguarded throw would crash the band.
+const readEntered = (eventId: string | null | undefined): boolean => {
+  if (typeof window === 'undefined') return false;
+  const key = raffleEnteredKey(eventId);
+  if (!key) return false;
+  try { return window.sessionStorage.getItem(key) === '1'; } catch { return false; }
+};
 
-// Live "Closes in 16d 06h" label, ticking every 30s. Mirrors the bento
-// countdown's tiers but condensed to a single pill-sized string.
+// Live "Closes in 16d 06h" label. Ticks via useRaffleNow (adaptive: 1s under
+// 10 minutes, 30s otherwise). The countdown duration is timezone-invariant.
 function useCountdownLabel(cutoffAt: string | null, closed: boolean): string {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (closed || !cutoffAt) return;
-    const id = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, [cutoffAt, closed]);
+  const cutoffMs = useMemo(() => parseCutoffMs(cutoffAt), [cutoffAt]);
+  const now = useRaffleNow(cutoffMs, closed);
   return useMemo(() => {
-    if (!cutoffAt) return '';
-    const target = new Date(cutoffAt).getTime();
-    if (!Number.isFinite(target)) return '';
-    const diff = target - now;
-    if (closed || diff <= 0) return 'Closed';
-    const d = Math.floor(diff / 86_400_000);
-    const h = Math.floor((diff % 86_400_000) / 3_600_000);
-    const m = Math.floor((diff % 3_600_000) / 60_000);
-    if (d > 0) return `${d}d ${pad(h)}h left`;
-    if (h > 0) return `${h}h ${pad(m)}m left`;
-    return `${m}m left`;
-  }, [cutoffAt, now, closed]);
+    if (cutoffMs === null) return '';
+    if (closed || cutoffMs - now <= 0) return 'Closed';
+    const { days, hours, mins } = countdownParts(cutoffMs - now);
+    if (days > 0) return `${days}d ${pad(hours)}h left`;
+    if (hours > 0) return `${hours}h ${pad(mins)}m left`;
+    return `${mins}m left`;
+  }, [cutoffMs, now, closed]);
 }
 
-// Each reel repeats its 3-symbol pattern 4× so the CSS translateY loop is seamless.
+// Each reel repeats its 3-symbol pattern 4x so the CSS translateY loop is
+// seamless. Symbols are JS escapes (ASCII source): gift, star, ticket. The
+// three reels are index rotations of one base set (no repeated literals).
+const REEL_SYMS = ['\u{1F381}', '\u{2605}', '\u{1F39F}\u{FE0F}'];
 const REELS: string[][] = [
-  ['\u{1F381}', '★', '\u{1F39F}️'],
-  ['★', '\u{1F39F}️', '\u{1F381}'],
-  ['\u{1F39F}️', '\u{1F381}', '★'],
+  REEL_SYMS,
+  [...REEL_SYMS.slice(1), ...REEL_SYMS.slice(0, 1)],
+  [...REEL_SYMS.slice(2), ...REEL_SYMS.slice(0, 2)],
 ];
 
 export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
   const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
   const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [hasEntered, setHasEntered] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const key = enteredStorageKey(eventId);
-    return key ? window.sessionStorage.getItem(key) === '1' : false;
-  });
+  const [hasEntered, setHasEntered] = useState<boolean>(() => readEntered(eventId));
+  const [announce, setAnnounce] = useState('');
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const key = enteredStorageKey(eventId);
-    setHasEntered(key ? window.sessionStorage.getItem(key) === '1' : false);
-  }, [eventId]);
+  useEffect(() => { setHasEntered(readEntered(eventId)); }, [eventId]);
 
   const markEntered = useCallback(() => {
     if (typeof window === 'undefined' || !eventId) return;
-    try { window.sessionStorage.setItem(enteredStorageKey(eventId)!, '1'); } catch { /* no-op */ }
+    const key = raffleEnteredKey(eventId);
+    try { if (key) window.sessionStorage.setItem(key, '1'); } catch { /* no-op */ }
     setHasEntered(true);
+    setAnnounce('You are entered in the draw.');
     void refresh();
   }, [eventId, refresh]);
 
   const [spinPhase, setSpinPhase] = useState<'idle' | 'spinning' | 'landed'>('idle');
   const spinTimers = useRef<number[]>([]);
-  useEffect(() => () => {
+  const clearSpinTimers = useCallback(() => {
     spinTimers.current.forEach((t) => window.clearTimeout(t));
     spinTimers.current = [];
   }, []);
+  useEffect(() => clearSpinTimers, [clearSpinTimers]);
 
-  // Pull the lever → reels spin, land on the prize, a brief "you're in the draw"
-  // beat, then the entry form opens. Flavour only — the winner is a random draw,
-  // this sequence decides nothing. Respects prefers-reduced-motion (opens at once).
+  // Pull the lever -> reels spin, land on the prize, a brief "you're in the
+  // draw" beat, then the entry form opens. Flavour only -- the winner is a
+  // random draw, this sequence decides nothing. Respects prefers-reduced-motion
+  // (opens at once); a second tap once landed skips straight to the form.
   const handlePull = useCallback(() => {
-    if (spinPhase !== 'idle') return;
+    if (spinPhase === 'spinning') return;
+    if (spinPhase === 'landed') {
+      clearSpinTimers();
+      setSpinPhase('idle');
+      setDialogOpen(true);
+      return;
+    }
     tryVibrate([20, 40, 30]);
+    setAnnounce('Opening entry form.');
     const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) { setDialogOpen(true); return; }
     setSpinPhase('spinning');
-    spinTimers.current.push(window.setTimeout(() => setSpinPhase('landed'), 1000));
+    spinTimers.current.push(window.setTimeout(() => setSpinPhase('landed'), 700));
     spinTimers.current.push(window.setTimeout(() => {
       setDialogOpen(true);
       setSpinPhase('idle');
-    }, 1950));
-  }, [spinPhase]);
+    }, 1300));
+  }, [spinPhase, clearSpinTimers]);
 
   const closed = !!config?.cutoff_passed;
   const winner = config?.winner_display ?? null;
@@ -127,15 +126,17 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
   if (loading && !config) return null;
   if (!config || !config.enabled) return null;
 
-  const prizeText = config.prize_text?.trim() || 'a free pass';
-  const closeClock = formatClock(config.cutoff_at);
-  const drawDate = formatDate(config.draw_date ?? config.cutoff_at);
+  const prizeText = config.prize_text?.trim() || '';
+  const prizeFull = prizeText || 'a free pass';
+  const closeClock = formatCloseClock(config.cutoff_time, config.cutoff_at);
+  const drawDate = formatDrawDate(config.draw_date ?? config.cutoff_at);
   const entryCount = config.entry_count ?? 0;
 
   const isWinnerState = !!winner;
   const isClosed = closed && !isWinnerState;
   const canEnter = !closed && !entered;
   const machineDimmed = isWinnerState || isClosed;
+  const busy = spinPhase !== 'idle';
 
   return (
     <>
@@ -149,12 +150,14 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
             <h2 className="rb-heading">
               {isWinnerState
                 ? <>WE HAVE A <span className="gold">WINNER</span></>
-                : <>WIN A <span className="gold">FREE PRIZE</span></>}
+                : prizeText
+                  ? <>WIN <span className="gold">{prizeText}</span></>
+                  : <>WIN A <span className="gold">FREE PRIZE</span></>}
             </h2>
           </div>
 
           <div className="rb-body">
-            {/* left — the machine */}
+            {/* left -- the machine */}
             <div className="rb-machine-col">
               <div className="machine-wrap">
                 <div className="cabinet">
@@ -185,7 +188,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
                     <span className="label">
                       {isWinnerState
                         ? <>{'\u{1F389}'} <b>{winner!.first_name}</b> WON</>
-                        : <>WIN — <b>{prizeText}</b></>}
+                        : <>WIN &#8212; <b>{prizeFull}</b></>}
                     </span>
                     <span className="lamp" />
                   </div>
@@ -193,7 +196,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
 
                 {canEnter && (
                   <div className="lever-col">
-                    <button className={`lever${spinPhase !== 'idle' ? ' is-pulled' : ''}`} type="button" onClick={handlePull} aria-label="Pull lever to enter raffle">
+                    <button className={`lever${busy ? ' is-pulled' : ''}`} type="button" onClick={handlePull} aria-hidden="true" tabIndex={-1}>
                       <span className="lever-track" />
                       <span className="lever-arm" />
                       <span className="lever-knob" />
@@ -204,14 +207,14 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
               </div>
             </div>
 
-            {/* right — info + CTA */}
+            {/* right -- info + CTA */}
             <div className="rb-info-col">
               {!isWinnerState && (
                 <div className="rb-meta">
                   <div className="meta-cell">
                     <p className="k">Entered</p>
                     <div className="v gold">{entryCount}</div>
-                    <p className="sub">{entryCount === 0 ? 'Be the first' : entered ? "You're in" : 'so far'}</p>
+                    <p className="sub">{entryCount === 0 ? 'Be the first' : entered ? "You're in" : 'in the draw'}</p>
                   </div>
                   <div className="meta-cell">
                     <p className="k">Closes</p>
@@ -228,14 +231,20 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
 
               <div className="cta-row">
                 {canEnter ? (
-                  <button className="pull-btn" type="button" onClick={handlePull}>
-                    <span className="lab-small">Enter Raffle</span>
-                    Pull To Enter
-                  </button>
+                  <>
+                    <button className={`pull-btn${busy ? ' is-busy' : ''}`} type="button" onClick={handlePull} aria-busy={busy}>
+                      <span className="lab-small">Enter Raffle</span>
+                      Pull To Enter
+                    </button>
+                    <p className="rb-trust">Free to enter &#183; one entry per person &#183; just a name &amp; phone</p>
+                  </>
                 ) : isWinnerState ? (
-                  <p className="cta-foot">Winner drawn{drawDate ? ` ${drawDate}` : ''} — <b>thanks for playing.</b></p>
+                  <p className="cta-foot">Winner drawn{drawDate ? ` ${drawDate}` : ''} &#8212; <b>thanks for playing.</b></p>
                 ) : entered ? (
-                  <p className="cta-foot rb-status"><b>You&rsquo;re entered {'\u{1F389}'}</b></p>
+                  <div className="rb-chip" role="status">
+                    <span className="rb-chip-ico" aria-hidden="true" />
+                    You&rsquo;re entered &#8212; good luck
+                  </div>
                 ) : (
                   <p className="cta-foot rb-status"><b>Entries closed</b></p>
                 )}
@@ -243,6 +252,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
             </div>
           </div>
         </div>
+        <p className="sr-only" aria-live="polite">{announce}</p>
       </section>
 
       {eventId && (
