@@ -236,7 +236,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
                       <span className="lab-small">Enter Raffle</span>
                       Pull To Enter
                     </button>
-                    <p className="rb-trust">Free to enter &#183; one entry per person &#183; just a name &amp; phone</p>
+                    <p className="rb-trust">Free to enter &#183; one entry per person &#183; just your phone</p>
                   </>
                 ) : isWinnerState ? (
                   <p className="cta-foot">Winner drawn{drawDate ? ` ${drawDate}` : ''} &#8212; <b>thanks for playing.</b></p>

@@ -10,12 +10,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { triggerMicroConfetti } from '@/lib/confetti';
 import { getRaffleSessionId } from '@/lib/raffleSession';
-import { RafflePhoneInput, isValidE164 } from './RafflePhoneInput';
+import { RafflePhoneInput } from './RafflePhoneInput';
 import { Sparkles } from 'lucide-react';
 
 interface RaffleEntryDialogProps {
@@ -71,7 +70,6 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   consentVersion,
   onSubmitted,
 }) => {
-  const [firstName, setFirstName] = useState('');
   const [phoneE164, setPhoneE164] = useState('');
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -85,7 +83,6 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   useEffect(() => {
     if (!open) {
       const t = window.setTimeout(() => {
-        setFirstName('');
         setPhoneE164('');
         setPhoneValid(false);
         setConsent(false);
@@ -99,14 +96,8 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   }, [open]);
 
   const canSubmit = useMemo(
-    () =>
-      !submitting &&
-      !succeeded &&
-      firstName.trim().length > 0 &&
-      firstName.trim().length <= 80 &&
-      phoneValid &&
-      consent,
-    [submitting, succeeded, firstName, phoneValid, consent],
+    () => !submitting && !succeeded && phoneValid && consent,
+    [submitting, succeeded, phoneValid, consent],
   );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -118,7 +109,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
     const { data, error } = await supabase.rpc('submit_raffle_entry', {
       p_event_id: eventId,
-      p_first_name: firstName.trim(),
+      p_first_name: '—',
       p_phone_e164: phoneE164,
       p_consent_version: consentVersion ?? 'v1',
       p_honeypot: honeypot || null,
@@ -231,24 +222,6 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             </div>
 
             <div>
-              <label htmlFor="raffle-first-name" className="block text-xs mb-1 text-[#D8CCB0]">
-                First name <span className="text-rose-400">*</span>
-              </label>
-              <Input
-                id="raffle-first-name"
-                type="text"
-                autoComplete="given-name"
-                maxLength={80}
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={submitting}
-                className="bg-black/25 border border-[rgba(197,148,10,0.3)] text-white placeholder:text-[#6f6757] focus-visible:border-[rgba(245,213,99,0.55)] focus-visible:ring-[rgba(245,213,99,0.25)]"
-                placeholder="Maria"
-                required
-              />
-            </div>
-
-            <div>
               <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
                 Phone <span className="text-rose-400">*</span>
                 <span className="text-[#A59474] ml-1">(we'll call the winner)</span>
@@ -271,7 +244,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 required
               />
               <span>
-                I agree my first name and phone number will be stored for raffle entry.{' '}
+                I agree my phone number will be stored for raffle entry.{' '}
                 <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[#F5D563] hover:text-[#ffd700]">See privacy policy</a>.
               </span>
             </label>
