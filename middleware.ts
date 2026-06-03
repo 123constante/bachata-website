@@ -149,9 +149,9 @@ async function resolveSlugToUuid(
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
-  const res = await supabaseFetch('/rest/v1/rpc/get_event_page_snapshot_v2', {
+  const res = await supabaseFetch('/rest/v1/rpc/event_view_p5', {
     method: 'POST',
-    body: JSON.stringify({ p_event_id: id }),
+    body: JSON.stringify({ p_target: { series_id: id }, p_viewer: { role: 'anon', shape: 'snapshot_compat' } }),
   });
   if (!res || !res.ok) return null;
 

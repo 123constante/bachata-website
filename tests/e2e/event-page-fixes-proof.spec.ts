@@ -102,7 +102,7 @@ async function interceptWithSnapshot(
   page: import('@playwright/test').Page,
   snapshot: Record<string, unknown>,
 ) {
-  await page.route(`${SUPABASE_URL}/rest/v1/rpc/get_event_page_snapshot*`, async (route) => {
+  await page.route(`${SUPABASE_URL}/rest/v1/rpc/event_view_p5*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

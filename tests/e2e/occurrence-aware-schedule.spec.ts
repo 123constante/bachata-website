@@ -11,7 +11,7 @@
  * happens to coincide with the series state, so the network-routing
  * assertion stands alone as the regression gate.
  *
- * Strategy: mock get_event_page_snapshot_v2 minimally so the page renders
+ * Strategy: mock event_view_p5 (snapshot_compat shape) minimally so the page renders
  * the schedule block, mock both program RPCs with distinguishable bodies,
  * then count requests and verify rendered DOM.
  */
@@ -135,27 +135,21 @@ const OCCURRENCE_PROGRAM = [
 ];
 
 async function installRpcMocks(page: Page) {
-  await page.route(`${SUPABASE_URL}/rest/v1/rpc/get_event_page_snapshot_v2*`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(SNAPSHOT_MOCK),
-    }),
-  );
-  await page.route(`${SUPABASE_URL}/rest/v1/rpc/get_event_program_v1*`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(SERIES_PROGRAM),
-    }),
-  );
-  await page.route(`${SUPABASE_URL}/rest/v1/rpc/get_occurrence_program_v1*`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(OCCURRENCE_PROGRAM),
-    }),
-  );
+  // event_view_p5 now serves snapshot_compat, series legacy_compat, and
+  // occurrence legacy_compat -- inspect the POST body to route the right mock.
+  await page.route(`${SUPABASE_URL}/rest/v1/rpc/event_view_p5*`, async (route) => {
+    let body: Record<string, unknown> = {};
+    try { body = route.request().postDataJSON() ?? {}; } catch { /* ignore */ }
+    const viewer = body.p_viewer as Record<string, unknown> | undefined;
+    const target = body.p_target as Record<string, unknown> | undefined;
+    if (viewer?.shape === 'snapshot_compat') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SNAPSHOT_MOCK) });
+    } else if (target?.occurrence_id) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(OCCURRENCE_PROGRAM) });
+    } else {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SERIES_PROGRAM) });
+    }
+  });
   // Sections RPC — empty array is fine (the schedule falls back to legacy
   // type-inference grouping, which still renders the cards).
   await page.route(`${SUPABASE_URL}/rest/v1/rpc/get_event_program_sections_v1*`, (route) =>
@@ -168,15 +162,23 @@ type RpcCounts = { event: number; occurrence: number };
 function trackRpcCalls(page: Page): RpcCounts {
   const counts: RpcCounts = { event: 0, occurrence: 0 };
   page.on('request', (req: Request) => {
-    const url = req.url();
-    if (url.includes('/rpc/get_event_program_v1')) counts.event += 1;
-    if (url.includes('/rpc/get_occurrence_program_v1')) counts.occurrence += 1;
+    if (!req.url().includes('/rpc/event_view_p5')) return;
+    let body: Record<string, unknown> = {};
+    try { body = req.postDataJSON() ?? {}; } catch { /* ignore */ }
+    const viewer = body.p_viewer as Record<string, unknown> | undefined;
+    if (viewer?.shape !== 'legacy_compat') return;
+    const target = body.p_target as Record<string, unknown> | undefined;
+    if (target?.occurrence_id) {
+      counts.occurrence += 1;
+    } else {
+      counts.event += 1;
+    }
   });
   return counts;
 }
 
 test.describe('Phase C — occurrence-aware schedule RPC routing', () => {
-  test('series mode: /event/:id calls get_event_program_v1 only', async ({ page }) => {
+  test('series mode: /event/:id calls event_view_p5(legacy_compat, series) only', async ({ page }) => {
     await installRpcMocks(page);
     const counts = trackRpcCalls(page);
 
@@ -194,7 +196,7 @@ test.describe('Phase C — occurrence-aware schedule RPC routing', () => {
     await expect(page.locator('text=Cancelled In Override')).toBeVisible();
   });
 
-  test('occurrence mode: /event/:id?occurrenceId=… calls get_occurrence_program_v1 only', async ({ page }) => {
+  test('occurrence mode: /event/:id?occurrenceId=… calls event_view_p5(legacy_compat, occurrence) only', async ({ page }) => {
     await installRpcMocks(page);
     const counts = trackRpcCalls(page);
 

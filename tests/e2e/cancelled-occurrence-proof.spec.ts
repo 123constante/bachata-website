@@ -100,7 +100,7 @@ const MOCK_V2_SNAPSHOT_CANCELLED = {
 // ── helper: intercept the RPC and return the cancelled mock ─────────────────
 async function interceptAsCancelled(page: import('@playwright/test').Page) {
   await page.route(
-    `${SUPABASE_URL}/rest/v1/rpc/get_event_page_snapshot_v2*`,
+    `${SUPABASE_URL}/rest/v1/rpc/event_view_p5*`,
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -116,18 +116,18 @@ async function interceptAsCancelled(page: import('@playwright/test').Page) {
 const CONTROL_EVENT_ID = '2a1522d2-7cb6-4ee2-8c46-c75014b86ba0'; // Mock Party — has 1 organiser with avatar
 
 test('CONTROL: real RPC returns is_cancelled=false on non-cancelled event', async ({ page }) => {
-  let rpcBody: Record<string, unknown> | null = null;
-
-  // Phase 5.6 cutover: page now calls event_view_p5(snapshot_compat) which
-  // is byte-equal to the legacy get_event_page_snapshot_v2.
-  page.on('response', async (resp) => {
-    if (resp.url().includes('event_view_p5') && resp.status() === 200) {
-      try { rpcBody = await resp.json(); } catch { /* ignore */ }
-    }
-  });
+  // Phase 5.6 cutover: page calls event_view_p5(snapshot_compat).
+  // waitForResponse avoids the fixed-delay flakiness of waitForTimeout.
+  const responsePromise = page.waitForResponse(
+    (resp) => resp.url().includes('event_view_p5') && resp.status() === 200,
+    { timeout: 15000 }
+  );
 
   await page.goto(`http://127.0.0.1:4173/event/${CONTROL_EVENT_ID}`);
-  await page.waitForTimeout(4000);
+
+  const response = await responsePromise;
+  let rpcBody: Record<string, unknown> | null = null;
+  try { rpcBody = await response.json(); } catch { /* ignore */ }
 
   expect(rpcBody, 'RPC must have responded').not.toBeNull();
   // occurrence_effective may be null when the event has no occurrences — default to false

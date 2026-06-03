@@ -43,7 +43,7 @@ describe('public event page lineup contract', () => {
       .toBeGreaterThan(0);
   });
 
-  it('get_event_page_snapshot_v2 returns a non-empty lineup for at least one published event', async () => {
+  it('event_view_p5(snapshot_compat) returns a non-empty lineup for at least one published event', async () => {
     // Pick any published event that has EPP data via the health check, then
     // verify the public RPC returns its lineup. Avoids hardcoding a UUID
     // that could drift if events are deleted.

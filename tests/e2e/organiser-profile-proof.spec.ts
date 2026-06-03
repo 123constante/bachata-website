@@ -23,7 +23,7 @@ test('T1: direct load of /organisers/<bogus-id> shows not-found state', async ({
   page.on('pageerror', (err) => errors.push(err.message));
 
   await page.goto(`${BASE}/organisers/${BOGUS_UUID}`);
-  await page.waitForTimeout(5000);
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
   await page.screenshot({ path: 'test-results/organiser-not-found.png', fullPage: true });
 
@@ -51,21 +51,22 @@ test('T2: event page renders organiser section with a clickable link', async ({ 
   let rpcOrganisers: unknown[] = [];
   let organiserEntityId: string | null = null;
 
-  page.on('response', async (resp) => {
-    if (resp.url().includes('get_event_page_snapshot')) {
-      try {
-        const json = await resp.json() as Record<string, unknown>;
-        rpcOrganisers = (json.organisers ?? []) as unknown[];
-        if (Array.isArray(rpcOrganisers) && rpcOrganisers.length > 0) {
-          const first = rpcOrganisers[0] as Record<string, unknown>;
-          organiserEntityId = first.id as string ?? null;
-        }
-      } catch { /* ignore */ }
-    }
-  });
+  const rpcPromise = page.waitForResponse(
+    (r) => r.url().includes('event_view_p5') && r.status() === 200,
+    { timeout: 15000 }
+  );
 
   await page.goto(`${BASE}/event/${EVENT_WITH_ORGANISER}`);
-  await page.waitForTimeout(6000);
+
+  try {
+    const rpcResp = await rpcPromise;
+    const json = await rpcResp.json() as Record<string, unknown>;
+    rpcOrganisers = (json.organisers ?? []) as unknown[];
+    if (Array.isArray(rpcOrganisers) && rpcOrganisers.length > 0) {
+      const first = rpcOrganisers[0] as Record<string, unknown>;
+      organiserEntityId = first.id as string ?? null;
+    }
+  } catch { /* ignore */ }
 
   await page.screenshot({ path: 'test-results/event-page-organiser-section.png', fullPage: true });
 
@@ -100,10 +101,10 @@ test('T3: clicking event page organiser link navigates to organiser profile page
   });
 
   await page.goto(`${BASE}/event/${EVENT_WITH_ORGANISER}`);
-  await page.waitForTimeout(6000);
 
-  // Locate the organiser link
+  // Locate the organiser link — wait for it rather than a fixed delay
   const organiserLink = page.locator('a[href*="/organisers/"]').first();
+  await organiserLink.waitFor({ timeout: 12000 });
   const href = await organiserLink.getAttribute('href');
   expect(href).toBeTruthy();
 
@@ -111,7 +112,7 @@ test('T3: clicking event page organiser link navigates to organiser profile page
 
   // Click the organiser link  
   await organiserLink.click();
-  await page.waitForTimeout(5000);
+  await page.waitForURL(/\/organisers\/[0-9a-f-]{36}/i, { timeout: 12000 });
 
   const finalUrl = page.url();
   console.log('[T3] Final URL after click:', finalUrl);
@@ -148,18 +149,19 @@ test('T4: direct load of real organiser URL (derived from event page) renders pr
   page.on('pageerror', (err) => jsErrors.push(err.message));
 
   // First fetch event page to get the real organiser entity id from RPC
-  page.on('response', async (resp) => {
-    if (resp.url().includes('get_event_page_snapshot') && !organiserEntityId) {
-      try {
-        const json = await resp.json() as Record<string, unknown>;
-        const orgs = (json.organisers ?? []) as Array<Record<string, unknown>>;
-        if (orgs.length > 0) organiserEntityId = orgs[0].id as string;
-      } catch { /* ignore */ }
-    }
-  });
+  const rpcPromise = page.waitForResponse(
+    (r) => r.url().includes('event_view_p5') && r.status() === 200,
+    { timeout: 15000 }
+  );
 
   await page.goto(`${BASE}/event/${EVENT_WITH_ORGANISER}`);
-  await page.waitForTimeout(5000);
+
+  try {
+    const rpcResp = await rpcPromise;
+    const json = await rpcResp.json() as Record<string, unknown>;
+    const orgs = (json.organisers ?? []) as Array<Record<string, unknown>>;
+    if (orgs.length > 0) organiserEntityId = orgs[0].id as string;
+  } catch { /* ignore */ }
 
   console.log('\n[T4] Discovered organiser entity id:', organiserEntityId);
 

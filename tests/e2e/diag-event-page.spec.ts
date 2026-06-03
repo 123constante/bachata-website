@@ -14,14 +14,17 @@ test('DIAG: capture event page state and network activity', async ({ page }) => 
   page.on('request',  (req)  => networkLog.push(`REQ  ${req.method()} ${req.url()}`));
   page.on('response', async (resp) => {
     networkLog.push(`RESP ${resp.status()} ${resp.url()}`);
-    if (resp.url().includes('get_event_page_snapshot')) {
+    if (resp.url().includes('event_view_p5')) {
       rpcStatus = resp.status();
       try { rpcResponse = await resp.json(); } catch { /* ignore */ }
     }
   });
 
   await page.goto(`http://127.0.0.1:4173/event/${EVENT_ID}`);
-  await page.waitForTimeout(6000);
+  await page.waitForResponse(
+    (r) => r.url().includes('event_view_p5') && r.status() === 200,
+    { timeout: 15000 }
+  ).catch(() => { /* diagnostic runs even if RPC times out */ });
 
   // Screenshot
   await page.screenshot({ path: 'test-results/diag-event-page.png', fullPage: true });

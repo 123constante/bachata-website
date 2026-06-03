@@ -1,5 +1,5 @@
 /**
- * DEPLOYMENT-READINESS PROOF: Event Page + get_event_page_snapshot_v2
+ * DEPLOYMENT-READINESS PROOF: Event Page + event_view_p5
  *
  * Tests against the REAL Supabase backend — no mocks.
  * Proves the v2 contract works end-to-end in a real browser.
@@ -96,7 +96,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const proof = await collectProof(page, url);
 
     // 1. RPC was called and returned 200
-    const v2Calls = proof.rpcResponses.filter((r) => r.url.includes('get_event_page_snapshot'));
+    const v2Calls = proof.rpcResponses.filter((r) => r.url.includes('event_view_p5'));
     expect(v2Calls.length, 'Expected at least one v2 RPC call').toBeGreaterThanOrEqual(1);
 
     const rpcOk = v2Calls.every((r) => r.status === 200);
@@ -185,7 +185,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const proof = await collectProof(page, url);
 
     // RPC call happened
-    const v2Calls = proof.rpcResponses.filter((r) => r.url.includes('get_event_page_snapshot'));
+    const v2Calls = proof.rpcResponses.filter((r) => r.url.includes('event_view_p5'));
     console.log(
       `Sparse event RPC calls: ${v2Calls.map((r) => `${r.status}`).join(', ')}`,
     );
@@ -251,7 +251,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const url = `${BASE}/event/${PRIMARY_EVENT_ID}`;
     // Use waitForResponse for reliable detection in fresh context
     const rpcPromise = page.waitForResponse(
-      (r) => r.url().includes('get_event_page_snapshot') && r.url().includes(SUPABASE_HOST),
+      (r) => r.url().includes('event_view_p5') && r.url().includes(SUPABASE_HOST),
       { timeout: 20000 },
     );
     await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
@@ -276,7 +276,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const urlDefault = `${BASE}/event/${MULTI_OCC_EVENT_ID}`;
     const proofDefault = await collectProof(page, urlDefault);
 
-    const v2Calls = proofDefault.rpcResponses.filter((r) => r.url.includes('get_event_page_snapshot'));
+    const v2Calls = proofDefault.rpcResponses.filter((r) => r.url.includes('event_view_p5'));
     expect(v2Calls.length, 'Expected v2 RPC call').toBeGreaterThanOrEqual(1);
     expect(v2Calls[0].status, 'RPC non-200').toBe(200);
     expect(proofDefault.consoleErrors, `Console errors: ${proofDefault.consoleErrors.join('; ')}`).toHaveLength(0);
@@ -294,7 +294,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const urlThird = `${BASE}/event/${MULTI_OCC_EVENT_ID}?occurrenceId=${MULTI_OCC_IDS.third}`;
     const proofThird = await collectProof(page, urlThird);
 
-    const v2CallsThird = proofThird.rpcResponses.filter((r) => r.url.includes('get_event_page_snapshot'));
+    const v2CallsThird = proofThird.rpcResponses.filter((r) => r.url.includes('event_view_p5'));
     expect(v2CallsThird.length).toBeGreaterThanOrEqual(1);
     expect(v2CallsThird[0].status).toBe(200);
     expect(proofThird.consoleErrors, `Console errors on switch: ${proofThird.consoleErrors.join('; ')}`).toHaveLength(0);
@@ -322,7 +322,7 @@ test.describe('Event Page Deploy Readiness (real backend)', () => {
     const url = `${BASE}/event/${GALLERY_EVENT_ID}`;
     // Use waitForResponse alongside collectProof for reliable RPC detection
     const rpcPromise = page.waitForResponse(
-      (r) => r.url().includes('get_event_page_snapshot') && r.url().includes(SUPABASE_HOST),
+      (r) => r.url().includes('event_view_p5') && r.url().includes(SUPABASE_HOST),
       { timeout: 20000 },
     );
     const proof = await collectProof(page, url);
