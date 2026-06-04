@@ -310,15 +310,15 @@ const WrapRow = ({
   if (people.length > threshold) {
     const overflowNames = people.map((p) => p.name).join(', ');
     return (
-      <div className="mt-[8px] flex justify-center">
+      <div className="mt-[4px] flex justify-center">
         <OverflowPill count={people.length} names={overflowNames} onClick={onOverflowClick} />
       </div>
     );
   }
   return (
-    <div className="mt-[8px] flex flex-wrap justify-center gap-[6px]">
+    <div className="mt-[4px] flex flex-wrap justify-center gap-[6px]">
       {people.map((p) => (
-        <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
+        <PersonChip key={p.id} person={p} size="lg" layout="stacked" context={context} eventId={eventId} />
       ))}
     </div>
   );
@@ -344,7 +344,7 @@ const WrapLeveled = ({
   if (people.length > threshold) {
     const overflowNames = people.map((p) => p.name).join(', ');
     return (
-      <div className="mt-[8px] flex justify-center">
+      <div className="mt-[4px] flex justify-center">
         <OverflowPill count={people.length} names={overflowNames} onClick={onOverflowClick} />
       </div>
     );
@@ -359,7 +359,7 @@ const WrapLeveled = ({
   }
   const wholePpl = buckets.get('whole');
   return (
-    <div className="mt-[8px] flex flex-col gap-[6px]">
+    <div className="mt-[4px] flex flex-col gap-[6px]">
       {sortedLevels.map((lvl) => {
         const ppl = buckets.get(lvl);
         if (!ppl || ppl.length === 0) return null;
@@ -372,7 +372,7 @@ const WrapLeveled = ({
               {LEVEL_LABEL_FULL[lvl]}
             </span>
             {ppl.map((p) => (
-              <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
+              <PersonChip key={p.id} person={p} size="lg" layout="stacked" context={context} eventId={eventId} />
             ))}
           </div>
         );
@@ -386,7 +386,7 @@ const WrapLeveled = ({
             Open Level
           </span>
           {wholePpl.map((p) => (
-            <PersonChip key={p.id} person={p} size="xl" layout="stacked" context={context} eventId={eventId} />
+            <PersonChip key={p.id} person={p} size="lg" layout="stacked" context={context} eventId={eventId} />
           ))}
         </div>
       )}
@@ -408,7 +408,7 @@ const VerticalFeature = ({
 }) => {
   if (people.length === 0) return null;
   return (
-    <div className="mt-[10px] flex flex-col items-center gap-[10px]">
+    <div className="mt-[6px] flex flex-col items-center gap-[6px]">
       {people.map((p) => (
         <PersonChip
           key={p.id}

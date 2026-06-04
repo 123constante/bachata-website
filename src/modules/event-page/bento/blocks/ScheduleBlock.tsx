@@ -229,7 +229,7 @@ const RankCard = ({
     <div
       className={
         inGrid
-          ? 'min-w-0 rounded-[10px] px-[8px] pb-[8px] pt-[10px] text-center'
+          ? 'min-w-0 rounded-[10px] px-[6px] pb-[5px] pt-[6px] text-center'
           : 'min-w-0 px-1 pt-[2px] text-center'
       }
       style={session.cancelled ? { opacity: 0.5 } : undefined}
@@ -1103,7 +1103,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
               : 'No sessions on this day'}
           </div>
         ) : (
-          <div className="flex flex-col gap-[14px]" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 1 }}>
           {sections.map((section, sectionIdx) => (
             <div
               key={`section-${section.id}`}
@@ -1111,7 +1111,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                 // Direction D — no section bg tints. Hairline rule divides classes
                 // from party. Horizontal padding dropped so cards line up with the
                 // unified stripe overlay (at left=32px = 24px label + 8px gap).
-                padding: '8px 0',
+                padding: '3px 0',
                 display: 'grid',
                 gridTemplateColumns: '24px 1fr',
                 alignItems: 'stretch',
@@ -1120,8 +1120,8 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                   sectionIdx > 0
                     ? '0.5px solid hsl(var(--bento-accent) / 0.30)'
                     : 'none',
-                paddingTop: sectionIdx > 0 ? '16px' : '8px',
-                marginTop: sectionIdx > 0 ? '4px' : '0',
+                paddingTop: sectionIdx > 0 ? '10px' : '3px',
+                marginTop: 0,
                 position: 'relative',
                 zIndex: 1,
               }}
@@ -1143,13 +1143,13 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '8px 0',
+                  padding: '3px 0',
                 }}
                 aria-label={`${section.label} section`}
               >
                 {section.label}
               </div>
-              <div className="flex flex-col gap-[14px] min-w-0">
+              <div className="flex flex-col gap-[8px] min-w-0">
               {section.slots.length === 0 ? (
                 <div
                   className="py-3 text-[12px]"
