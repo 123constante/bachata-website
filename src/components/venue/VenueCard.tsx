@@ -192,9 +192,9 @@ export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFil
           )}
 
           {/* Tier 4 — Address */}
-          {venue.address && (
+          {(venue.address || venue.city_name) && (
             <div style={{ color: TEXT_BODY }} className="mt-2 text-xs underline">
-              {venue.address}
+              {[venue.address, venue.city_name, venue.postcode].filter(Boolean).join(', ')}
             </div>
           )}
         </div>

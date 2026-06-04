@@ -75,6 +75,7 @@ export interface PublicVenueListItem {
   nearest_station_minutes: number | null;
   day_pattern: string[];
   address: string | null;
+  postcode: string | null;
 }
 
 export async function fetchPublicVenuesList(): Promise<PublicVenueListItem[]> {
