@@ -789,15 +789,15 @@ const OrganiserProfile = () => {
           <div className="relative mt-5 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
             <div className="flex-none self-start mx-auto md:mx-0" style={{ width: 132, height: 158 }}>
               <div
-                className="w-full h-full flex flex-col items-center justify-center px-3"
+                className={`w-full h-full flex flex-col items-center justify-center ${entity.avatar_url ? '' : 'px-3'}`}
                 style={{ background: SP.black, color: SP.gold, clipPath: 'polygon(50% 0,100% 20%,100% 80%,50% 100%,0 80%,0 20%)' }}
               >
                 {entity.avatar_url ? (
-                  <img src={entity.avatar_url} alt={entity.name} className="w-16 h-16 object-contain" loading="lazy"/>
+                  <img src={entity.avatar_url} alt={entity.name} className="w-full h-full object-contain" loading="lazy"/>
                 ) : (
                   <div className="text-3xl" style={DISP}>{initials(entity.name)}</div>
                 )}
-                {estYear !== null && <div className="mt-3 text-[8px] tracking-[0.25em]" style={MONO}>EST {estYear}</div>}
+                {!entity.avatar_url && estYear !== null && <div className="mt-3 text-[8px] tracking-[0.25em]" style={MONO}>EST {estYear}</div>}
               </div>
             </div>
             <h1
