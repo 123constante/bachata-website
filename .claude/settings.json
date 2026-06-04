@@ -29,7 +29,13 @@
       "Bash(SAFEWRITE_HOOK_BYPASS=1 python3)",
       "Bash(node -e \"const yaml=require\\('js-yaml'\\); ['e2e-smoke','e2e-nightly','architecture-guard'].forEach\\(n => { const c=require\\('fs'\\).readFileSync\\('.github/workflows/'+n+'.yml','utf8'\\); try { yaml.load\\(c\\); console.log\\(n, 'ok'\\); } catch\\(e\\) { console.log\\(n, 'FAIL', e.message\\); } }\\)\")",
       "Bash(node scripts/check-occurrence-instance-time-canonical.mjs)",
-      "Bash(SAFEWRITE_HOOK_BYPASS=1 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3)"
+      "Bash(SAFEWRITE_HOOK_BYPASS=1 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3)",
+      "Bash(git -C /c/dev/bachata-admin-11april diff --stat HEAD -- supabase/migrations/20260808000000_venue_rpc_add_missing_fields.sql supabase/migrations/20260808010000_venue_rpc_draft_guard_and_publish_state.sql)",
+      "Bash(git -C /c/dev/bachata-admin-11april status --short -- supabase/migrations/20260808000000_venue_rpc_add_missing_fields.sql supabase/migrations/20260808010000_venue_rpc_draft_guard_and_publish_state.sql)",
+      "Bash(git -C /c/dev/bachata-admin-11april log --oneline -3)",
+      "Bash(git -C /c/dev/bachata-admin-11april log --oneline origin/main..HEAD)",
+      "Bash(git -C /c/dev/bachata-admin-11april push origin main)",
+      "Bash(pkill -f \"vite --port 8080\")"
     ],
     "additionalDirectories": [
       "\\tmp",
