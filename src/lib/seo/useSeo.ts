@@ -10,6 +10,10 @@ const SITE_NAME = 'Bachata Calendar';
 const SITE_ORIGIN = 'https://bachatacalendar.co.uk';
 const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-image.png`;
 
+// Tab title scroll: shift one char per tick; separator pads the gap between repeats
+const SCROLL_INTERVAL_MS = 200;
+const SCROLL_SEPARATOR = '     ';
+
 export interface SeoInput {
   title: string;
   description: string;
@@ -47,6 +51,16 @@ function setProp(property: string, content: string) {
 
 function withSuffix(t: string): string {
   return t.includes(SITE_NAME) ? t : `${t} | ${SITE_NAME}`;
+}
+
+function startTitleScroll(title: string): () => void {
+  const scrollStr = title + SCROLL_SEPARATOR;
+  let pos = 0;
+  const id = setInterval(() => {
+    document.title = scrollStr.slice(pos) + scrollStr.slice(0, pos);
+    pos = (pos + 1) % scrollStr.length;
+  }, SCROLL_INTERVAL_MS);
+  return () => clearInterval(id);
 }
 
 export function useSeo(input: SeoInput | null | undefined) {
@@ -91,7 +105,10 @@ export function useSeo(input: SeoInput | null | undefined) {
       document.head.querySelector('meta[name="robots"]')?.remove();
     }
 
+    const stopScroll = startTitleScroll(title);
+
     return () => {
+      stopScroll();
       const b = baseline.current;
       if (!b) return;
       document.title = b.title;
