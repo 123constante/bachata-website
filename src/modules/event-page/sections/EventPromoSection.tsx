@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { EventPageModel } from '@/modules/event-page/types';
+import { formatDiscount } from '@/modules/event-page/promoFormat';
 
 type EventPromoSectionProps = {
   promoCodes: EventPageModel['promoCodes'];
-};
-
-const formatDiscount = (type: 'percent' | 'fixed', amount: number): string => {
-  if (type === 'percent') return `${amount}% off`;
-  return `£${amount} off`;
 };
 
 export const EventPromoSection = ({ promoCodes }: EventPromoSectionProps) => {
@@ -50,7 +46,7 @@ export const EventPromoSection = ({ promoCodes }: EventPromoSectionProps) => {
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="font-mono text-sm font-bold tracking-wide text-white">{promo.code}</p>
                   <p className="shrink-0 text-sm font-semibold text-orange-400">
-                    {formatDiscount(promo.discount_type, promo.discount_amount)}
+                    {formatDiscount(promo.discount_type, promo.discount_amount, promo.currency)}
                   </p>
                 </div>
                 {promo.valid_until && (

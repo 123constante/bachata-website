@@ -4,14 +4,10 @@ import { toast } from 'sonner';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPagePromoCode } from '@/modules/event-page/types';
+import { formatDiscount } from '@/modules/event-page/promoFormat';
 
 type PromoBlockProps = {
   codes: EventPagePromoCode[];
-};
-
-const formatDiscount = (code: EventPagePromoCode): string => {
-  if (code.discount_type === 'percent') return `${code.discount_amount}% off`;
-  return `£${code.discount_amount} off`;
 };
 
 const TICK_DURATION_MS = 800;
@@ -91,7 +87,7 @@ export const PromoBlock = ({ codes }: PromoBlockProps) => {
                   className="text-[10px]"
                   style={{ color: 'hsl(var(--bento-fg-muted))' }}
                 >
-                  {formatDiscount(code)}
+                  {formatDiscount(code.discount_type, code.discount_amount, code.currency)}
                 </div>
               </div>
             </button>

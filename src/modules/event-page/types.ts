@@ -55,6 +55,7 @@ export type EventPagePromoCode = {
   code: string;
   discount_type: 'percent' | 'fixed';
   discount_amount: number;
+  currency: string;
   limit: string;
   valid_until: string;
 };
@@ -370,9 +371,13 @@ export type FestivalHotel = {
 };
 
 export type FestivalPromoCode = {
+  id: string;
   code: string;
-  discountType: string;
-  discountValue: number;
+  discountType: 'percent' | 'fixed';
+  discountAmount: number;
+  currency: string;
+  limit: string;
+  validUntil: string;
 };
 
 export type FestivalDetail = {

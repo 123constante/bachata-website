@@ -196,6 +196,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
             code: asString(p?.code) ?? '',
             discount_type: discountType === 'fixed' ? 'fixed' : 'percent',
             discount_amount: typeof p?.discount_amount === 'number' ? p.discount_amount : 0,
+            currency: asString(p?.currency) ?? '',
             limit: asString(p?.limit) ?? '',
             valid_until: asString(p?.valid_until) ?? '',
           });

@@ -179,9 +179,13 @@ const parsePromoCodes = (raw: unknown): FestivalPromoCode[] =>
     const code = asString(obj.code);
     if (!code) return acc;
     acc.push({
+      id: asString(obj.id) ?? code,
       code,
-      discountType: asString(obj.discount_type) ?? 'percent',
-      discountValue: asNumber(obj.discount_value) ?? 0,
+      discountType: asString(obj.discount_type) === 'fixed' ? 'fixed' : 'percent',
+      discountAmount: asNumber(obj.discount_amount) ?? 0,
+      currency: asString(obj.currency) ?? '',
+      limit: asString(obj.limit) ?? '',
+      validUntil: asString(obj.valid_until) ?? '',
     });
     return acc;
   }, []);

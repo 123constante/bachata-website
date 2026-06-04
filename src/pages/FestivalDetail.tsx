@@ -26,6 +26,7 @@ import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQu
 import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover";
 
 import { FestivalRaffleSection } from "@/modules/event-page/sections/FestivalRaffleSection";
+import { FestivalPromoBanner } from "@/modules/event-page/sections/FestivalPromoBanner";
 
 import type { EventPageSnapshot } from "@/modules/event-page/types";
 
@@ -2359,6 +2360,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
             </button>
           </div>
         )}
+
+        <FestivalPromoBanner codes={festivalDetail.promoCodes} />
 
         {/* Inline hero countdown (P5) */}
         {(countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (

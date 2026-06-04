@@ -232,9 +232,12 @@ export interface FestivalHotel {
 }
 
 export interface FestivalPromoCode {
+  id?: string | null;
   code: string;
-  discount_value: number | null;
   discount_type: string | null;
+  discount_amount: number | null;
+  limit?: string | null;
+  valid_until?: string | null;
 }
 
 export interface FestivalPublish {

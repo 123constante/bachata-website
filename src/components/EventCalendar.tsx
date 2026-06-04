@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, List, Rss, Check, Copy, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
@@ -73,11 +73,32 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   }, [view]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
+  const [copiedFeed, setCopiedFeed] = useState(false);
+  const subscribeMenuRef = useRef<HTMLDivElement>(null);
   // TODO: Re-enable Near Me when we decide where it should live
   // const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   // const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
   const userLocation = null;
   const { citySlug } = useCity();
+
+  const feedUrl = (() => {
+    const base = `${window.location.origin}/api/ics/calendar`;
+    return citySlug ? `${base}?city_slug=${citySlug}` : base;
+  })();
+  const webcalUrl = feedUrl.replace(/^https?:\/\//, 'webcal://');
+  const googleCalUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
+
+  useEffect(() => {
+    if (!showSubscribeMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (subscribeMenuRef.current && !subscribeMenuRef.current.contains(e.target as Node)) {
+        setShowSubscribeMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSubscribeMenu]);
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -183,7 +204,9 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
               {/* Top control bar */}
               <div className="flex flex-col border-b border-primary/10">
                 {/* Month navigation */}
-                <div className="flex items-center justify-center px-4 pt-4 pb-2">
+                <div className="flex items-center px-4 pt-4 pb-2">
+                  {/* spacer — balances subscribe button so month stays centred */}
+                  <div className="flex-1" />
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => navigateMonth('prev')}
@@ -207,6 +230,62 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
+                  </div>
+                  {/* Subscribe button */}
+                  <div className="flex-1 flex justify-end" ref={subscribeMenuRef}>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSubscribeMenu((v) => !v)}
+                        aria-label="Subscribe to calendar"
+                        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/18 transition-colors"
+                      >
+                        <Rss className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Subscribe</span>
+                      </button>
+
+                      {showSubscribeMenu && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[220px] rounded-xl border border-primary/15 bg-card shadow-lg overflow-hidden">
+                          <div className="px-3 py-2 border-b border-primary/10">
+                            <p className="text-xs font-semibold text-foreground">Subscribe to calendar</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Auto-updates in your calendar app</p>
+                          </div>
+                          <div className="p-1">
+                            <a
+                              href={googleCalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-primary/8 transition-colors"
+                              onClick={() => setShowSubscribeMenu(false)}
+                            >
+                              <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <span>Google Calendar</span>
+                            </a>
+                            <a
+                              href={webcalUrl}
+                              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-primary/8 transition-colors"
+                              onClick={() => setShowSubscribeMenu(false)}
+                            >
+                              <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <span>Apple / Outlook</span>
+                            </a>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(feedUrl).then(() => {
+                                  setCopiedFeed(true);
+                                  setTimeout(() => setCopiedFeed(false), 2000);
+                                });
+                              }}
+                              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-primary/8 transition-colors text-left"
+                            >
+                              {copiedFeed
+                                ? <Check className="w-4 h-4 text-green-400 shrink-0" />
+                                : <Copy className="w-4 h-4 text-muted-foreground shrink-0" />}
+                              <span>{copiedFeed ? 'Copied!' : 'Copy feed URL'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* TODO: Re-enable Near Me toggle when we decide where it should live
