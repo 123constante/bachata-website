@@ -53,30 +53,26 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── static routes ─────────────────────────────────────────────────────────────
+// Only include stable, canonical URLs that Google can land on directly.
+// Excluded: /, /parties, /classes, /tonight, /venues, /discounts,
+// /practice-partners, /cities, /videographers — these all redirect to
+// /city/:slug/... so Google sees a redirect and may not index the clean URL.
+// Venue/event/profile detail pages are covered by the dynamic fetchers below.
 const STATIC_ROUTES = [
-  { path: '/',                   changefreq: 'daily',   priority: '1.0' },
-  { path: '/parties',            changefreq: 'daily',   priority: '0.9' },
-  { path: '/classes',            changefreq: 'daily',   priority: '0.9' },
-  { path: '/festivals',          changefreq: 'weekly',  priority: '0.8' },
-  { path: '/venues',             changefreq: 'weekly',  priority: '0.8' },
-  { path: '/teachers',           changefreq: 'weekly',  priority: '0.7' },
-  { path: '/dancers',            changefreq: 'weekly',  priority: '0.7' },
-  { path: '/djs',                changefreq: 'weekly',  priority: '0.7' },
-  { path: '/organisers',         changefreq: 'weekly',  priority: '0.7' },
-  { path: '/tonight',            changefreq: 'daily',   priority: '0.8' },
-  { path: '/discounts',          changefreq: 'weekly',  priority: '0.6' },
-  { path: '/cities',             changefreq: 'monthly', priority: '0.6' },
-  { path: '/videographers',      changefreq: 'weekly',  priority: '0.5' },
-  { path: '/practice-partners',  changefreq: 'weekly',  priority: '0.5' },
-  { path: '/faq',                changefreq: 'monthly', priority: '0.7' },
-  { path: '/london-bachata-guide', changefreq: 'monthly', priority: '0.9' },
-  { path: '/bachata-london-monday',    changefreq: 'weekly', priority: '0.8' },
-  { path: '/bachata-london-tuesday',   changefreq: 'weekly', priority: '0.8' },
-  { path: '/bachata-london-wednesday', changefreq: 'weekly', priority: '0.8' },
-  { path: '/bachata-london-thursday',  changefreq: 'weekly', priority: '0.8' },
-  { path: '/bachata-london-friday',    changefreq: 'weekly', priority: '0.9' },
-  { path: '/bachata-london-saturday',  changefreq: 'weekly', priority: '0.9' },
-  { path: '/bachata-london-sunday',    changefreq: 'weekly', priority: '0.8' },
+  { path: '/london-bachata-guide',     changefreq: 'monthly', priority: '0.9' },
+  { path: '/faq',                      changefreq: 'monthly', priority: '0.8' },
+  { path: '/festivals',                changefreq: 'weekly',  priority: '0.8' },
+  { path: '/teachers',                 changefreq: 'weekly',  priority: '0.7' },
+  { path: '/djs',                      changefreq: 'weekly',  priority: '0.7' },
+  { path: '/organisers',               changefreq: 'weekly',  priority: '0.7' },
+  { path: '/dancers',                  changefreq: 'weekly',  priority: '0.6' },
+  { path: '/bachata-london-monday',    changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-tuesday',   changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-wednesday', changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-thursday',  changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-friday',    changefreq: 'weekly',  priority: '0.9' },
+  { path: '/bachata-london-saturday',  changefreq: 'weekly',  priority: '0.9' },
+  { path: '/bachata-london-sunday',    changefreq: 'weekly',  priority: '0.8' },
 ];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
