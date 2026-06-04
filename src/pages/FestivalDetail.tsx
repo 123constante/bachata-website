@@ -1028,7 +1028,7 @@ const CINEMATIC_CSS = `
 .cinematic-festival .nl-head .neon-rule{flex:1}
 .cinematic-festival .nl-title{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:clamp(30px,5vw,46px);line-height:1;letter-spacing:0.01em;text-transform:uppercase;color:#fff;margin:0;white-space:nowrap;text-shadow:0 0 6px rgba(251,146,60,0.9),0 0 22px rgba(251,146,60,0.65),0 0 44px rgba(249,115,22,0.45)}
 .cinematic-festival .nl-count{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#fb923c;white-space:nowrap;flex-shrink:0}
-.cinematic-festival .nl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;max-width:1100px;margin:0 auto}
+.cinematic-festival .nl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:9px;max-width:900px;margin:0 auto;justify-content:center}
 .cinematic-festival .nl-frame{position:relative;display:block;aspect-ratio:3/4;border-radius:4px;overflow:hidden;text-decoration:none;color:inherit;background:#0a0a0a;box-shadow:0 0 0 1.5px rgba(251,146,60,0.8),0 0 22px -2px rgba(251,146,60,0.55),inset 0 0 30px rgba(251,146,60,0.18);transition:box-shadow .25s ease,transform .25s ease}
 .cinematic-festival .nl-frame:hover{transform:translateY(-3px);box-shadow:0 0 0 1.5px #fb923c,0 0 30px -2px rgba(251,146,60,0.85),inset 0 0 34px rgba(251,146,60,0.26)}
 .cinematic-festival .nl-img{position:absolute;inset:0;background-size:cover;background-position:center top;background-color:#1a1a1a;transition:transform .4s ease}
@@ -1041,7 +1041,8 @@ const CINEMATIC_CSS = `
 .cinematic-festival .nl-style{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:#fb923c;margin-top:3px;text-shadow:0 0 8px rgba(251,146,60,0.45)}
 .cinematic-festival .nd-rule-top{margin-bottom:18px}
 .cinematic-festival .nd-rule-bottom{margin-top:20px}
-@media (min-width:760px){.cinematic-festival .nl-grid{grid-template-columns:repeat(4,1fr);gap:12px}.cinematic-festival .nl-name{font-size:20px}.cinematic-festival .nl-style{font-size:10px}.cinematic-festival .nl-img.no-photo .initial{font-size:88px}}
+@media (max-width:759px){.cinematic-festival .nl-grid{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:760px){.cinematic-festival .nl-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;justify-content:center}.cinematic-festival .nl-name{font-size:20px}.cinematic-festival .nl-style{font-size:10px}.cinematic-festival .nl-img.no-photo .initial{font-size:88px}}
 /* === Sample 08 Stories cover (replaces poster-polaroid) === */
 .cinematic-festival .story-cover{position:relative;z-index:5;align-self:stretch;margin:0 -24px 22px}
 .cinematic-festival .story{position:relative;aspect-ratio:16/9;border-radius:0;overflow:hidden;background:transparent}
