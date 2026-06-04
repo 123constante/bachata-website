@@ -386,7 +386,9 @@ const PartyCard = ({
   // own role tag, so no shared roleLabel here.
   const trimmedTitle = (session.title ?? '').trim();
   const showTitleAsHeading =
-    trimmedTitle.length > 0 && !isDefaultPartyTitle(trimmedTitle);
+    trimmedTitle.length > 0 &&
+    !isDefaultPartyTitle(trimmedTitle) &&
+    !(isMultiRoom && session.room && trimmedTitle.toLowerCase() === session.room.toLowerCase());
   const headingText = showTitleAsHeading ? trimmedTitle : null;
 
   return (
