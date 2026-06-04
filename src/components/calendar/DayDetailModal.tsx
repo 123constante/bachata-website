@@ -283,6 +283,11 @@ export const DayDetailModal = ({
                   </div>
 
                   <div className="flex-1 flex flex-col justify-start items-end px-3 sm:px-5 min-w-0 text-right">
+                    {event.isFestival && (
+                      <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-400 text-background text-[10px] font-extrabold tracking-wider px-2 py-0.5 uppercase shadow-sm">
+                        🎪 Festival · Multi-day
+                      </span>
+                    )}
                     <h4
                       className={cn(
                         'sparkle-title font-bold text-3xl sm:text-4xl leading-normal tracking-tight line-clamp-2 w-full',

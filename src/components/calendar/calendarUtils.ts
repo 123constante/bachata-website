@@ -17,6 +17,9 @@ export interface CalendarEventItem {
   endDate: Date;
   instanceDateIso: string;
   type: 'parties' | 'classes' | 'both';
+  // Raw series type === 'festival'. Festivals are multi-day and link to the
+  // festival hub page; the calendar marks them distinctly (badge + gold dot).
+  isFestival: boolean;
   hasParty: boolean;
   hasClass: boolean;
   title: string;
@@ -199,6 +202,7 @@ export const transformCalendarEvents = (
       endDate: normalizedEnd,
       instanceDateIso: event.instance_date,
       type,
+      isFestival: event.type === 'festival',
       hasParty,
       hasClass,
       title: event.name,
@@ -248,6 +252,7 @@ export interface DayDotFlags {
   hasEvents: boolean;
   hasParty: boolean;
   hasClass: boolean;
+  hasFestival: boolean;
 }
 
 /**
@@ -265,6 +270,7 @@ export const getDayDotFlags = (
   let hasEvents = false;
   let hasParty = false;
   let hasClass = false;
+  let hasFestival = false;
 
   for (const e of events) {
     const visible = e.instanceDateIso
@@ -279,9 +285,10 @@ export const getDayDotFlags = (
     hasEvents = true;
     if (category !== 'classes' && e.hasParty) hasParty = true;
     if (category !== 'parties' && e.hasClass) hasClass = true;
+    if (e.isFestival) hasFestival = true;
   }
 
-  return { hasEvents, hasParty, hasClass };
+  return { hasEvents, hasParty, hasClass, hasFestival };
 };
 
 /** Monday-adjusted day index (0 = Mon, 6 = Sun) */
