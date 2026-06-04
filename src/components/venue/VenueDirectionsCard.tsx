@@ -6,6 +6,7 @@ interface VenueDirectionsCardProps {
   nearestStation: string | null;
   nearestLines: string[];
   walkMinutes: number | null;
+  googleMapsHref?: string | null;
   onDirections: () => void;
   onCopy: () => void;
 }
@@ -24,6 +25,7 @@ export default function VenueDirectionsCard({
   nearestStation,
   nearestLines,
   walkMinutes,
+  googleMapsHref,
   onDirections,
   onCopy,
 }: VenueDirectionsCardProps) {
@@ -57,7 +59,7 @@ export default function VenueDirectionsCard({
               </svg>
             </span>
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`}
+              href={googleMapsHref ?? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressLine)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="min-w-0 flex-1 no-underline"

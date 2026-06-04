@@ -21,6 +21,7 @@ import {
 import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { splitLineNames } from '@/lib/tubeLineColour';
+import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -38,6 +39,9 @@ import VenueFaqAccordion, {
   type VenueFaqItem,
 } from '@/components/venue/VenueFaqAccordion';
 import VenueStickyBar from '@/components/venue/VenueStickyBar';
+import VenueDescriptionCard from '@/components/venue/VenueDescriptionCard';
+import VenueFacilitiesCard from '@/components/venue/VenueFacilitiesCard';
+import VenueVideoEmbed from '@/components/venue/VenueVideoEmbed';
 import { venueGoldInvertTheme } from '@/components/venue/venuePageTheme';
 
 // ============================================================
@@ -559,6 +563,7 @@ const VenueEntity = () => {
               nearestStation={transport.station}
               nearestLines={transport.lines}
               walkMinutes={transport.walkMinutes}
+              googleMapsHref={venue.google_maps_href}
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
             />
@@ -576,23 +581,54 @@ const VenueEntity = () => {
             ) : null}
           </section>
 
+          {venue.description ? (
+            <section className="va-bento-desc">
+              <VenueSectionTitle>About this venue</VenueSectionTitle>
+              <VenueDescriptionCard description={venue.description} />
+            </section>
+          ) : null}
+
+          {Array.isArray(venue.video_urls) && venue.video_urls.length > 0 && parseVenueVideoUrl(venue.video_urls[0]) ? (
+            <section className="va-bento-video">
+              <VenueSectionTitle>See the venue</VenueSectionTitle>
+              <VenueVideoEmbed videoUrls={venue.video_urls} />
+            </section>
+          ) : null}
+
+          {(venue.facilities_new?.length || venue.floor_type || venue.capacity) ? (
+            <section className="va-bento-facilities">
+              <VenueSectionTitle>Venue features</VenueSectionTitle>
+              <VenueFacilitiesCard
+                facilitiesNew={venue.facilities_new ?? null}
+                floorType={venue.floor_type ?? null}
+                capacity={venue.capacity ?? null}
+              />
+            </section>
+          ) : null}
+
           {(venue.bar_available != null ||
             venue.cloakroom_available != null ||
             venue.id_required != null ||
+            venue.last_entry_time ||
             venue.water_situation ||
             venue.food_situation ||
             parkingNote ||
-            venue.late_night_notes) ? (
+            venue.late_night_notes ||
+            venue.accessibility ||
+            (venue.rules && venue.rules.length > 0)) ? (
             <section className="va-bento-gtk">
               <VenueSectionTitle>Good to know</VenueSectionTitle>
               <VenueGoodToKnow
                 barAvailable={venue.bar_available}
                 cloakroomAvailable={venue.cloakroom_available}
                 idRequired={venue.id_required}
+                lastEntryTime={venue.last_entry_time ?? null}
                 waterNote={venue.water_situation ?? null}
                 foodNote={venue.food_situation ?? null}
                 parkingNote={parkingNote}
                 gettingHomeNote={venue.late_night_notes ?? null}
+                accessibilityNote={venue.accessibility ?? null}
+                rules={venue.rules ?? null}
               />
             </section>
           ) : null}
@@ -638,12 +674,15 @@ const VenueEntity = () => {
               grid-template-columns: repeat(12, minmax(0, 1fr));
               gap: 20px;
             }
-            .va-bento-hero       { grid-column: 1 / span 8; }
-            .va-bento-directions { grid-column: 9 / span 4; }
-            .va-bento-gtk        { grid-column: 1 / span 5; }
-            .va-bento-whatson    { grid-column: 6 / span 7; }
-            .va-bento-hours      { grid-column: 1 / span 6; }
-            .va-bento-faq        { grid-column: 7 / span 6; }
+            .va-bento-hero        { grid-column: 1 / span 8; }
+            .va-bento-directions  { grid-column: 9 / span 4; }
+            .va-bento-desc        { grid-column: 1 / span 12; }
+            .va-bento-video       { grid-column: 1 / span 8; }
+            .va-bento-facilities  { grid-column: 9 / span 4; }
+            .va-bento-gtk         { grid-column: 1 / span 6; }
+            .va-bento-whatson     { grid-column: 7 / span 6; }
+            .va-bento-hours       { grid-column: 1 / span 6; }
+            .va-bento-faq         { grid-column: 7 / span 6; }
           }
         `}</style>
       </div>

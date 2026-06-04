@@ -42,6 +42,7 @@ export interface PublicVenue {
   food_situation?: string | null;
   late_night_notes?: string | null;
   last_entry_time?: string | null;
+  publish_state?: string | null;
 }
 
 export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | null> {

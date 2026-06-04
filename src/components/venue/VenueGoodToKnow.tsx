@@ -6,6 +6,9 @@ interface VenueGoodToKnowProps {
   foodNote: string | null;
   parkingNote: string | null;
   gettingHomeNote: string | null;
+  accessibilityNote: string | null;
+  lastEntryTime: string | null;
+  rules?: string[] | null;
 }
 
 interface Fact {
@@ -18,6 +21,16 @@ interface InfoTile {
   emoji: string;
   label: string;
   text: string;
+  fullWidth?: boolean;
+}
+
+function formatTime(raw: string): string {
+  // raw is HH:MM:SS from Postgres time type
+  const [h, m] = raw.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return raw;
+  const suffix = h >= 12 ? 'pm' : 'am';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
 function buildFacts(p: VenueGoodToKnowProps): Fact[] {
@@ -30,6 +43,9 @@ function buildFacts(p: VenueGoodToKnowProps): Fact[] {
   }
   if (p.idRequired != null) {
     out.push({ emoji: '\u{1FAAA}', label: 'ID', value: p.idRequired ? 'Required' : 'Not needed' });
+  }
+  if (p.lastEntryTime) {
+    out.push({ emoji: '\u{1F55B}', label: 'Last entry', value: formatTime(p.lastEntryTime) });
   }
   return out;
 }
@@ -48,13 +64,13 @@ function buildInfoTiles(p: VenueGoodToKnowProps): InfoTile[] {
   if (p.gettingHomeNote && p.gettingHomeNote.trim()) {
     out.push({ emoji: '\u{1F319}', label: 'Getting home', text: p.gettingHomeNote.trim() });
   }
+  if (p.accessibilityNote && p.accessibilityNote.trim()) {
+    out.push({ emoji: '\u{267F}', label: 'Accessibility', text: p.accessibilityNote.trim(), fullWidth: true });
+  }
   return out;
 }
 
 function gridClassForCount(n: number): string {
-  // Adapt column count to populated tiles so a lone tile does not float in
-  // empty grid space. Mobile caps at 2, desktop caps at 4. A single tile is
-  // centred and width-constrained so it reads as a card, not a banner.
   if (n <= 1) return 'mx-auto grid w-full max-w-sm grid-cols-1 gap-2.5';
   if (n === 2) return 'grid grid-cols-2 gap-2.5';
   if (n === 3) return 'grid grid-cols-2 gap-2.5 md:grid-cols-3';
@@ -64,7 +80,12 @@ function gridClassForCount(n: number): string {
 export default function VenueGoodToKnow(props: VenueGoodToKnowProps) {
   const facts = buildFacts(props);
   const tiles = buildInfoTiles(props);
-  if (facts.length === 0 && tiles.length === 0) return null;
+  const rules = props.rules?.filter((r) => r && r.trim()) ?? [];
+  if (facts.length === 0 && tiles.length === 0 && rules.length === 0) return null;
+
+  // Tiles excluding full-width ones; full-width rendered separately below grid
+  const gridTiles = tiles.filter((t) => !t.fullWidth);
+  const fullWidthTiles = tiles.filter((t) => t.fullWidth);
 
   return (
     <div
@@ -106,9 +127,9 @@ export default function VenueGoodToKnow(props: VenueGoodToKnowProps) {
         </div>
       ) : null}
 
-      {tiles.length > 0 ? (
-        <div className={gridClassForCount(tiles.length)}>
-          {tiles.map((i) => (
+      {gridTiles.length > 0 ? (
+        <div className={gridClassForCount(gridTiles.length)}>
+          {gridTiles.map((i) => (
             <div
               key={i.label}
               className="overflow-hidden rounded-[14px] border"
@@ -134,6 +155,58 @@ export default function VenueGoodToKnow(props: VenueGoodToKnowProps) {
               </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {fullWidthTiles.map((i) => (
+        <div
+          key={i.label}
+          className="mt-2.5 overflow-hidden rounded-[14px] border"
+          style={{ background: 'var(--va-surface2)', borderColor: 'var(--va-line)' }}
+        >
+          <div
+            className="flex items-center gap-1.5 border-b px-3 py-2"
+            style={{
+              background: 'var(--va-accent-soft)',
+              borderColor: 'var(--va-accent-line)',
+            }}
+          >
+            <span className="text-[15px]">{i.emoji}</span>
+            <span className="text-[12.5px] font-bold" style={{ color: 'var(--va-accent)' }}>
+              {i.label}
+            </span>
+          </div>
+          <div
+            className="p-3 text-[12.5px] leading-[1.45]"
+            style={{ color: 'var(--va-text2)' }}
+          >
+            {i.text}
+          </div>
+        </div>
+      ))}
+      {rules.length > 0 ? (
+        <div className="mt-2.5">
+          <div
+            className="mb-1.5 text-[9.5px] font-bold uppercase tracking-[0.12em]"
+            style={{ color: 'var(--va-text3)' }}
+          >
+            House rules
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {rules.map((rule, i) => (
+              <span
+                key={i}
+                className="inline-flex rounded-full border px-2.5 py-1 text-[11.5px] font-medium"
+                style={{
+                  background: 'var(--va-surface2)',
+                  borderColor: 'var(--va-line)',
+                  color: 'var(--va-text2)',
+                }}
+              >
+                {rule}
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>
