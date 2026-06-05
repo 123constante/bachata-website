@@ -387,3 +387,20 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-integrity.mjs
+
+      # 28. Live series occurrence-horizon guardrail (2026-06-05). A live recurring
+      #     series with no future occurrence silently disappears from the public
+      #     calendar (get_calendar_events_v2 sources dates from event_occurrence_p5).
+      #     This is how ~20 backfilled NULL-recurrence_rule series were quietly dying,
+      #     incl. the reported "Bachata on Saturday" (admin migration 20260809120000
+      #     set their rules). Hard-fails only on the unambiguous bug: an OPEN-ENDED
+      #     rule (end.kind='none') with zero future dates = materialisation lapsed.
+      #     NULL-rule / manual / finite series running low are reported, not gated.
+      #     Health-check RPC: check_live_series_occurrence_horizon_v1 (admin migration
+      #     20260809130000).
+      - name: Run live series occurrence-horizon guardrail check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-series-occurrence-horizon.mjs
