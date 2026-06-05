@@ -3,17 +3,17 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import { ChevronLeft, Search } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
-import { useSearchOverlay } from '@/contexts/SearchOverlayContext';
+import { HeaderSearch } from '@/components/search/HeaderSearch';
 
 const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
 
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [searching, setSearching] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
-  const { open } = useSearchOverlay();
   const { pathname } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
 
@@ -24,6 +24,11 @@ export const GlobalHeader = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Collapse the search bar on any route change (e.g. after picking a result).
+  useEffect(() => {
+    setSearching(false);
+  }, [pathname]);
 
   return (
     <motion.header
@@ -41,8 +46,8 @@ export const GlobalHeader = () => {
         Skip to content
       </a>
 
-      <nav className="flex items-center justify-between h-[58px] px-4">
-        {isEventDetail ? (
+      <nav className="flex items-center gap-2 h-[58px] px-4">
+        {!searching && (isEventDetail ? (
           <Link
             to="/"
             className="flex items-center gap-1 text-foreground no-underline -ml-1 pl-1 pr-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
@@ -55,15 +60,8 @@ export const GlobalHeader = () => {
           <Link to={homePath} className="flex items-center shrink-0 no-underline" aria-label="Bachata Calendar home">
             <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" loading="eager" fetchPriority="high" />
           </Link>
-        )}
-        <button
-          type="button"
-          onClick={open}
-          aria-label="Search"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-primary/10 hover:text-primary"
-        >
-          <Search className="h-5 w-5" />
-        </button>
+        ))}
+        <HeaderSearch expanded={searching} onExpandedChange={setSearching} />
       </nav>
 
       {/* Decorative orange line */}
