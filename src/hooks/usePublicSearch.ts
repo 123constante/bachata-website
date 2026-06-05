@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { searchPublicV3 } from '@/lib/searchRpc';
 import { recordSearchQuery } from '@/lib/searchTelemetry';
 
-// Debounced federated search hook for the Cmd+K overlay. Fires v3 RPC once
-// the (trimmed) query reaches 2 chars, debounced ~220ms, 3 results per section.
-// Overlay is upcoming-only - no toggle. The full /search page exposes an
-// "All time" toggle for users who want the back-catalogue.
+// Debounced federated search hook for the header search omnibox. Fires the
+// search RPC once the (trimmed) query reaches 2 chars, debounced ~220ms, 3
+// results per section. The omnibox is upcoming-only - no toggle. The full
+// /search page exposes an "All time" toggle for the back-catalogue.
 export function usePublicSearch(rawQuery: string, citySlug?: string | null) {
   const [debounced, setDebounced] = useState('');
 
