@@ -437,7 +437,7 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
     : `Bachata classes, socials and festivals in ${c.name}.`;
   const description = truncate(rawDesc, 160);
 
-  const image = absoluteUrl(c.hero_image_url) ?? `${SITE_URL.replace(/\/$/, '')}/og-image.png`;
+  const image = absoluteUrl(c.hero_image_url) ?? `${SITE_URL.replace(/\/$/, '')}/og-image.jpg`;
 
   return { title, description, image, type: 'website', url };
 }
