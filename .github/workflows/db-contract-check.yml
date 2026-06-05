@@ -351,3 +351,26 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-cancelled-occurrence-passthrough.mjs
+
+      # 25. Occurrence instance_END canonical (Occurrence Date Integrity arc,
+      #     2026-06-05). instance_end must equal the program-canonical latest
+      #     session end re-anchored to the occurrence local date — sibling of the
+      #     instance_time (start) check above. Catches the start+24h span class of
+      #     bug that produced a spurious multi-day flag on the public event page.
+      - name: Run occurrence instance_END canonical contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-occurrence-instance-end-canonical.mjs
+
+      # 26. Program-day / day_id integrity (Occurrence Date Integrity arc). No
+      #     event_program_item may be filed under a day whose event_date != the
+      #     item's canonical rollover display-day. Misfiled days leaked template
+      #     dates into re-anchored occurrence schedules ("FRI 8 / SAT 9" bug).
+      - name: Run program-day / day_id integrity contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-program-day-integrity.mjs

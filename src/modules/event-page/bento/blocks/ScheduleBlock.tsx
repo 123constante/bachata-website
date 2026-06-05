@@ -718,6 +718,35 @@ export const groupIntoSectionsFromServer = (
   return filtered;
 };
 
+// Occurrence mode (Occurrence Date Integrity arc, 2026-06-05) -- derive the
+// section list from the program items' own section_id / section_kind /
+// section_label, which get_occurrence_program_v1 already merges and re-anchors
+// to the occurrence date. The series-level get_event_program_sections_v1 returns
+// a template-anchored dayEventDate that will not match the re-anchored occurrence
+// day, so its sections would be filtered out and custom labels lost. Reuse
+// groupIntoSectionsFromServer so empty-drop / orphan-fallback / chronological
+// sort behaviour is identical to series mode.
+export const groupIntoSectionsFromItems = (slots: Slot[]): Section[] => {
+  const seen = new Map<string, ProgramSection>();
+  for (const slot of slots) {
+    const s = slot.sessions[0];
+    const sid = s?.sectionId ?? null;
+    if (!sid || seen.has(sid)) continue;
+    seen.set(sid, {
+      id: sid,
+      kind: s.sectionKind ?? 'classes',
+      labelOverride: s.sectionLabel,
+      label: s.sectionLabel ?? s.sectionKind ?? 'classes',
+      sortOrder: 0,
+      dayId: '',
+      dayEventDate: null,
+      daySortOrder: 0,
+      itemCount: 1,
+    });
+  }
+  return groupIntoSectionsFromServer(slots, [...seen.values()]);
+};
+
 // ─── Room column headers (multi-room only) ──────────────────────────────────
 //
 // One sticky-ish row at the top of the schedule that names each room column,
@@ -1026,6 +1055,14 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
   // surface as headers with empty-state copy. When the server returned [],
   // the event is legacy (pre-program-tree) — fall back to type inference.
   const sections = useMemo(() => {
+    // Occurrence mode: items carry their own re-anchored section metadata
+    // (section_id/kind/label) from get_occurrence_program_v1. The series-level
+    // get_event_program_sections_v1 dayEventDate will not match the re-anchored
+    // occurrence day, so derive sections from the items to preserve custom
+    // labels. (Occurrence Date Integrity arc, 2026-06-05.)
+    if (occurrenceId) {
+      return groupIntoSectionsFromItems(slots);
+    }
     // Filter sections to only those whose day matches the active day; for
     // single-day events all sections pass through.
     //

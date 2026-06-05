@@ -165,3 +165,62 @@ describe('get_occurrence_program_v1 contract', () => {
     expect((data as RpcItem[]).length).toBe(0);
   });
 });
+
+describe('get_occurrence_program_v1 occurrence-date re-anchoring (ODI arc 2026-06-05)', () => {
+  it('re-anchors item dates to the occurrence local date (no template-month drift)', async () => {
+    const fixture = await pickHealthyEventWithOccurrence();
+    if (!fixture) return;
+
+    const { data: snap } = await anon.rpc('get_event_page_snapshot_v2', {
+      p_event_id: fixture.eventId,
+    });
+    const occ = (
+      snap as { occurrences?: Array<{ occurrence_id: string; local_date?: string; starts_at?: string }> } | null
+    )?.occurrences?.find((o) => o.occurrence_id === fixture.occurrenceId);
+    const occDateStr = (occ?.local_date ?? occ?.starts_at ?? '').slice(0, 10);
+    if (!occDateStr) return;
+    const occDate = new Date(`${occDateStr}T00:00:00Z`).getTime();
+
+    const { data } = await anon.rpc('get_occurrence_program_v1' as never, {
+      p_occurrence_id: fixture.occurrenceId,
+    } as never);
+    const items = (data as RpcItem[] | null) ?? [];
+    if (items.length === 0) return;
+
+    for (const item of items) {
+      if (!item.start_time) continue;
+      const itemDate = new Date(`${item.start_time.slice(0, 10)}T00:00:00Z`).getTime();
+      const dayDiff = Math.round((itemDate - occDate) / 86_400_000);
+      // Items anchor to the occurrence day: allow -1 (post-midnight rollover)
+      // through +14 (multi-day festival span). The fixed bug showed ~-28 days
+      // (template month leaking through), which this catches.
+      expect(
+        dayDiff,
+        `item ${item.id} start ${item.start_time} vs occurrence ${occDateStr}`,
+      ).toBeGreaterThanOrEqual(-1);
+      expect(dayDiff).toBeLessThanOrEqual(14);
+    }
+  });
+
+  it('every item section_id resolves in the series sections RPC (option-c invariant)', async () => {
+    const fixture = await pickHealthyEventWithOccurrence();
+    if (!fixture) return;
+
+    const [{ data: occData }, { data: secData }] = await Promise.all([
+      anon.rpc('get_occurrence_program_v1' as never, { p_occurrence_id: fixture.occurrenceId } as never),
+      anon.rpc('get_event_program_sections_v1' as never, { p_event_id: fixture.eventId } as never),
+    ]);
+    const items = (occData as RpcItem[] | null) ?? [];
+    if (items.length === 0) return;
+    const sectionIds = new Set(((secData as Array<{ id: string }> | null) ?? []).map((s) => s.id));
+    if (sectionIds.size === 0) return; // legacy event without program-tree sections
+
+    for (const item of items) {
+      if (item.section_id == null) continue; // added / p5-native items may carry null
+      expect(
+        sectionIds.has(item.section_id),
+        `section_id ${item.section_id} (item ${item.id}) must resolve to a series section`,
+      ).toBe(true);
+    }
+  });
+});
