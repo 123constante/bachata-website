@@ -374,3 +374,16 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-day-integrity.mjs
+
+      # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
+      #     2026-06-05). One rollup over date-sync, instance start/end, program-day,
+      #     per-date shadow, program format, and the NEW P5->legacy session-override
+      #     mirror parity. Backstops #19/#20/#25/#26 and the new mirror invariant in a
+      #     single gate that can't be forgotten. Mechanical drift is repairable via
+      #     self_heal_occurrence_integrity_v1(); date direction is a human call.
+      - name: Run occurrence integrity aggregator check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-occurrence-integrity.mjs
