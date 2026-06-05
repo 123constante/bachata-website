@@ -109,8 +109,7 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
   });
 
 // Fallback when the current event's organiser has no other upcoming events:
-// surface other active organisers in the same city, ranked by event count
-// (get_organiser_event_counts RPC). Returns top 2 names + avatars.
+// surface other active organisers in the same city, picked at random.
 const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string | null) =>
   useQuery({
     queryKey: ['more-events:other-organisers', currentOrganiserId, citySlug],
@@ -122,14 +121,17 @@ const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string 
       } as never);
 
       type CountRow = { entity_id: string; event_count: number };
-      const ranked = (((countsData as unknown) as CountRow[]) ?? [])
-        .filter((c) => c.entity_id !== currentOrganiserId && (c.event_count ?? 0) > 0)
-        .sort((a, b) => b.event_count - a.event_count)
-        .slice(0, 2);
+      const eligible = (((countsData as unknown) as CountRow[]) ?? [])
+        .filter((c) => c.entity_id !== currentOrganiserId && (c.event_count ?? 0) > 0);
+      for (let i = eligible.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+      }
+      const picked = eligible.slice(0, 2);
 
-      if (ranked.length === 0) return [];
+      if (picked.length === 0) return [];
 
-      const ids = ranked.map((r) => r.entity_id);
+      const ids = picked.map((r) => r.entity_id);
       const { data: orgData } = await supabase
         .from('organiser_profiles')
         .select('id, name, avatar_url')
@@ -141,7 +143,7 @@ const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string 
         ((orgData ?? []) as OrgRow[]).map((o) => [o.id, o]),
       );
 
-      return ranked
+      return picked
         .map((r) => byId[r.entity_id])
         .filter(Boolean)
         .map((o) => ({ id: o.id, name: o.name, avatarUrl: o.avatar_url }));
