@@ -155,7 +155,7 @@
   "buildCommand": "npm run build",
   "functions": {
     "api/og/card.ts": {
-      "includeFiles": "node_modules/@img/sharp-linux-x64/**,node_modules/@img/sharp-libvips-linux-x64/**"
+      "includeFiles": "api/og/_fonts/**"
     }
   }
 }

@@ -10,7 +10,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     let cardImportErr = null;
     let cardBuf: Buffer | null = null;
     try {
-      const { buildFallbackCard } = await import('./_card.js');
+      const { buildFallbackCard } = await import('./_card');
       cardBuf = await buildFallbackCard({ title: 'Test' });
     } catch (e2: unknown) {
       cardImportErr = e2 instanceof Error ? `${e2.message}\n${e2.stack?.slice(0, 400)}` : String(e2);

@@ -9,8 +9,16 @@
 //
 // Result: 1200x630 JPEG, typically 40-80 KB — well under WhatsApp's ~300KB.
 import sharp from 'sharp';
-import { writeFileSync, existsSync } from 'node:fs';
-import { FONT_INTER_REGULAR, FONT_INTER_SEMIBOLD, FONT_FRAUNCES_SEMIBOLD } from './_fonts';
+import { writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// Read the TTF files bundled alongside this function (included via vercel.json
+// includeFiles). Use __dirname equivalent for ESM context.
+const __dir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURLToPath(import.meta.url));
+const FONT_FRAUNCES_SEMIBOLD = readFileSync(join(__dir, '_fonts/Fraunces-SemiBold.ttf'));
+const FONT_INTER_REGULAR = readFileSync(join(__dir, '_fonts/Inter-Regular.ttf'));
+const FONT_INTER_SEMIBOLD = readFileSync(join(__dir, '_fonts/Inter-SemiBold.ttf'));
 
 export const CARD_W = 1200;
 export const CARD_H = 630;
