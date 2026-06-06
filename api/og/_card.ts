@@ -1,142 +1,246 @@
-// Branded Open Graph card builder for /api/og/card.
+// Branded Open Graph card builder — pure sharp + SVG (librsvg).
 //
-// Pipeline (per the OG-preview plan): sharp decodes the cover (handles WebP,
-// which @vercel/og/Satori cannot) -> @vercel/og composes the branded 1200x630
-// card with real brand fonts -> sharp re-encodes to JPEG q80 so the result
-// stays well under WhatsApp's ~300KB preview budget.
-import { ImageResponse } from '@vercel/og';
+// Uses sharp throughout (no @vercel/og — its Satori WASM doesn't load in
+// Vercel Node.js serverless functions):
+//   1. sharp composites the letterboxed cover onto a brand-dark canvas
+//   2. An SVG brand panel (fonts embedded as base64 data URIs) is composited
+//      over the right-hand side via librsvg (available on Vercel's Lambda env)
+//   3. sharp re-encodes the final composite as JPEG q80
+//
+// Result: 1200x630 JPEG, typically 40-80 KB — well under WhatsApp's ~300KB.
 import sharp from 'sharp';
+import { writeFileSync, existsSync } from 'node:fs';
 import { FONT_INTER_REGULAR, FONT_INTER_SEMIBOLD, FONT_FRAUNCES_SEMIBOLD } from './_fonts';
 
 export const CARD_W = 1200;
 export const CARD_H = 630;
-
-const BRAND_DARK = '#141519';
-const ORANGE = '#f97316';
 const FLYER_W = 720;
+const PANEL_W = CARD_W - FLYER_W; // 480
+const BRAND_DARK = { r: 20, g: 21, b: 25, alpha: 1 } as const;
+const BRAND_DARK_HEX = '#141519';
+const DIVIDER_HEX = '#2a2c33';
+const ORANGE_HEX = '#f97316';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- plain element trees (not JSX); Satori accepts this shape.
-type El = any;
+// ─── Fonts: write to /tmp on first load, reference via file:// ──────────
+// librsvg resolves local file:// URIs in @font-face reliably on both Vercel's
+// Lambda (Linux, /tmp writable) and local dev. data: URIs in @font-face are
+// NOT supported by librsvg (intentionally restricted in all versions).
 
-const FONTS = [
-  { name: 'Inter', data: FONT_INTER_REGULAR, weight: 400 as const, style: 'normal' as const },
-  { name: 'Inter', data: FONT_INTER_SEMIBOLD, weight: 600 as const, style: 'normal' as const },
-  { name: 'Fraunces', data: FONT_FRAUNCES_SEMIBOLD, weight: 600 as const, style: 'normal' as const },
-];
+const TMP_DIR = process.platform === 'win32' ? 'C:/tmp' : '/tmp';
+const F_FRAUNCES = `${TMP_DIR}/og-fraunces-semi.ttf`;
+const F_INTER_REG = `${TMP_DIR}/og-inter-reg.ttf`;
+const F_INTER_SEMI = `${TMP_DIR}/og-inter-semi.ttf`;
+
+function ensureFonts(): void {
+  if (!existsSync(F_FRAUNCES)) writeFileSync(F_FRAUNCES, FONT_FRAUNCES_SEMIBOLD);
+  if (!existsSync(F_INTER_REG)) writeFileSync(F_INTER_REG, FONT_INTER_REGULAR);
+  if (!existsSync(F_INTER_SEMI)) writeFileSync(F_INTER_SEMI, FONT_INTER_SEMIBOLD);
+}
+
+const FONT_FRAUNCES_URI = `file://${F_FRAUNCES}`;
+const FONT_INTER_REG_URI = `file://${F_INTER_REG}`;
+const FONT_INTER_SEMI_URI = `file://${F_INTER_SEMI}`;
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 function truncate(text: string, max: number): string {
   const t = (text ?? '').trim();
   return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + '…';
 }
 
-// Render a Satori element tree to a size-bounded JPEG buffer.
-async function renderToJpeg(element: El): Promise<Buffer> {
-  const resp = new ImageResponse(element, { width: CARD_W, height: CARD_H, fonts: FONTS });
-  const png = Buffer.from(await resp.arrayBuffer());
-  return sharp(png).jpeg({ quality: 80, mozjpeg: true }).toBuffer();
+// Greedy word-wrap: split title into lines that fit `maxChars` per line.
+function wrapTitle(title: string, maxChars: number): string[] {
+  const words = title.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+  for (const w of words) {
+    const candidate = current ? `${current} ${w}` : w;
+    if (candidate.length > maxChars && current) {
+      lines.push(current);
+      current = w;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, 3); // max 3 lines
 }
 
-async function coverToDataUri(coverBuf: Buffer): Promise<string> {
-  // Decode (incl. WebP) + downscale so the embedded data URI stays small.
-  const png = await sharp(coverBuf)
-    .resize(FLYER_W + 40, CARD_H + 30, { fit: 'inside', withoutEnlargement: true })
-    .png()
-    .toBuffer();
-  return `data:image/png;base64,${png.toString('base64')}`;
+// ─── SVG brand panel (right side, x:720–1200) ─────────────────────────────
+
+function buildPanelSvg(title: string, dateLine: string | null, venueLine: string | null): Buffer {
+  const titleText = truncate(title || 'Bachata Calendar', 72);
+
+  // Scale font size to title length, wrap accordingly
+  const fontSize = titleText.length > 30 ? 40 : titleText.length > 20 ? 46 : 54;
+  const maxCharsPerLine = fontSize >= 54 ? 13 : fontSize >= 46 ? 16 : 19;
+  const titleLines = wrapTitle(titleText, maxCharsPerLine);
+
+  // Vertically position the content block in the center of the 630px panel
+  const lineH = Math.round(fontSize * 1.1);
+  const titleH = titleLines.length * lineH;
+  const infoH = (dateLine ? 34 : 0) + (venueLine ? 30 : 0) + (dateLine || venueLine ? 24 : 0); // orange bar + items
+  const totalH = 28 + 10 + titleH + 20 + infoH; // wordmark + gap + title + gap + info
+  const startY = Math.max(56, Math.round((CARD_H - totalH) / 2));
+
+  let y = startY;
+  const pad = 56; // horizontal padding within panel
+
+  const rows: string[] = [];
+
+  // Wordmark
+  rows.push(`<text x="${pad}" y="${y}" font-family="InterSemi" font-size="20" fill="#e7e3da" letter-spacing="2">${esc('BACHATA CALENDAR')}</text>`);
+  y += 38;
+
+  // Title lines
+  for (const line of titleLines) {
+    y += lineH;
+    rows.push(`<text x="${pad}" y="${y}" font-family="Fraunces" font-size="${fontSize}" fill="#ffffff">${esc(line)}</text>`);
+  }
+  y += 24;
+
+  // Orange accent bar
+  rows.push(`<rect x="${pad}" y="${y}" width="64" height="6" fill="${ORANGE_HEX}" rx="1"/>`);
+  y += 28;
+
+  // Date
+  if (dateLine) {
+    rows.push(`<text x="${pad}" y="${y}" font-family="InterReg" font-size="24" fill="#c9cbd1">${esc(dateLine)}</text>`);
+    y += 34;
+  }
+
+  // Venue
+  if (venueLine) {
+    rows.push(`<text x="${pad}" y="${y}" font-family="InterReg" font-size="20" fill="#9398a3">${esc(venueLine)}</text>`);
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PANEL_W}" height="${CARD_H}">
+  <defs>
+    <style>
+      @font-face { font-family: 'Fraunces'; src: url('${FONT_FRAUNCES_URI}'); font-weight: 600; }
+      @font-face { font-family: 'InterReg'; src: url('${FONT_INTER_REG_URI}'); font-weight: 400; }
+      @font-face { font-family: 'InterSemi'; src: url('${FONT_INTER_SEMI_URI}'); font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="${PANEL_W}" height="${CARD_H}" fill="${BRAND_DARK_HEX}"/>
+  <rect x="0" y="0" width="1" height="${CARD_H}" fill="${DIVIDER_HEX}"/>
+  ${rows.join('\n  ')}
+</svg>`;
+
+  return Buffer.from(svg, 'utf8');
 }
 
-// The right-hand brand panel (wordmark + title + accent + date + venue).
-function brandPanel(title: string, dateLine: string | null, venueLine: string | null): El {
-  const fontSize = title.length > 30 ? 40 : title.length > 20 ? 46 : 54;
-  const children: El[] = [
-    { type: 'div', props: { style: { display: 'flex', fontFamily: 'Inter', fontSize: 22, fontWeight: 600, color: '#e7e3da', letterSpacing: 2 }, children: 'BACHATA CALENDAR' } },
-    { type: 'div', props: { style: { display: 'flex', marginTop: 26, fontFamily: 'Fraunces', fontSize, fontWeight: 600, color: '#ffffff', lineHeight: 1.06 }, children: title } },
-    { type: 'div', props: { style: { display: 'flex', width: 64, height: 6, marginTop: 26, backgroundColor: ORANGE } } },
-  ];
-  if (dateLine) children.push({ type: 'div', props: { style: { display: 'flex', marginTop: 24, fontFamily: 'Inter', fontSize: 26, color: '#c9cbd1' }, children: dateLine } });
-  if (venueLine) children.push({ type: 'div', props: { style: { display: 'flex', marginTop: 10, fontFamily: 'Inter', fontSize: 22, color: '#9398a3' }, children: venueLine } });
-  return {
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex', flexDirection: 'column', width: CARD_W - FLYER_W, height: CARD_H,
-        padding: 56, justifyContent: 'center', backgroundColor: BRAND_DARK, borderLeft: '1px solid #2a2c33',
-      },
-      children,
-    },
-  };
+function buildFallbackPanelSvg(title: string, dateLine: string | null, venueLine: string | null): Buffer {
+  const titleText = truncate(title || 'Bachata Calendar', 64);
+  const fontSize = titleText.length > 30 ? 52 : 64;
+  const maxCharsPerLine = fontSize >= 64 ? 15 : 19;
+  const titleLines = wrapTitle(titleText, maxCharsPerLine);
+  const lineH = Math.round(fontSize * 1.1);
+
+  const titleH = titleLines.length * lineH;
+  const infoH = (dateLine ? 38 : 0) + (venueLine ? 32 : 0);
+  const totalH = 44 + 18 + 10 + titleH + 22 + infoH;
+  let y = Math.max(60, Math.round((CARD_H - totalH) / 2));
+
+  const rows: string[] = [];
+  const cx = CARD_W / 2;
+
+  rows.push(`<text x="${cx}" y="${y}" text-anchor="middle" font-family="InterSemi" font-size="26" fill="#e7e3da" letter-spacing="3">${esc('BACHATA CALENDAR')}</text>`);
+  y += 36;
+  rows.push(`<rect x="${cx - 40}" y="${y}" width="80" height="6" fill="${ORANGE_HEX}" rx="1"/>`);
+  y += 28;
+
+  for (const line of titleLines) {
+    y += lineH;
+    rows.push(`<text x="${cx}" y="${y}" text-anchor="middle" font-family="Fraunces" font-size="${fontSize}" fill="#ffffff">${esc(line)}</text>`);
+  }
+  y += 26;
+
+  if (dateLine) {
+    rows.push(`<text x="${cx}" y="${y}" text-anchor="middle" font-family="InterReg" font-size="28" fill="#c9cbd1">${esc(dateLine)}</text>`);
+    y += 38;
+  }
+  if (venueLine) {
+    rows.push(`<text x="${cx}" y="${y}" text-anchor="middle" font-family="InterReg" font-size="22" fill="#9398a3">${esc(venueLine)}</text>`);
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}">
+  <defs>
+    <style>
+      @font-face { font-family: 'Fraunces'; src: url('${FONT_FRAUNCES_URI}'); font-weight: 600; }
+      @font-face { font-family: 'InterReg'; src: url('${FONT_INTER_REG_URI}'); font-weight: 400; }
+      @font-face { font-family: 'InterSemi'; src: url('${FONT_INTER_SEMI_URI}'); font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="${CARD_W}" height="${CARD_H}" fill="${BRAND_DARK_HEX}"/>
+  ${rows.join('\n  ')}
+</svg>`;
+
+  return Buffer.from(svg, 'utf8');
 }
 
-// Full branded card with the flyer letterboxed (never cropped) on the left.
+// ─── Public builders ──────────────────────────────────────────────────────
+
+// Event card: flyer letterboxed on brand-dark left + SVG brand panel right.
 export async function buildEventCard(opts: {
   title: string;
   dateLine?: string | null;
   venueLine?: string | null;
   coverBuf: Buffer;
 }): Promise<Buffer> {
-  const title = truncate(opts.title || 'Bachata Calendar', 72);
-  const dataUri = await coverToDataUri(opts.coverBuf);
-  const element: El = {
-    type: 'div',
-    props: {
-      style: { display: 'flex', width: CARD_W, height: CARD_H, backgroundColor: BRAND_DARK, fontFamily: 'Inter' },
-      children: [
-        {
-          type: 'div',
-          props: {
-            style: { display: 'flex', width: FLYER_W, height: CARD_H, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND_DARK },
-            children: { type: 'img', props: { src: dataUri, width: FLYER_W, height: CARD_H, style: { objectFit: 'contain' } } },
-          },
-        },
-        brandPanel(title, opts.dateLine ?? null, opts.venueLine ?? null),
-      ],
-    },
-  };
-  return renderToJpeg(element);
+  ensureFonts();
+  const coverResized = await sharp(opts.coverBuf)
+    .resize(FLYER_W, CARD_H, { fit: 'contain', background: BRAND_DARK })
+    .png()
+    .toBuffer();
+
+  const panelSvg = buildPanelSvg(opts.title, opts.dateLine ?? null, opts.venueLine ?? null);
+
+  return sharp({
+    create: { width: CARD_W, height: CARD_H, channels: 4, background: BRAND_DARK },
+  })
+    .composite([
+      { input: coverResized, left: 0, top: 0 },
+      { input: panelSvg, left: FLYER_W, top: 0 },
+    ])
+    .jpeg({ quality: 80, mozjpeg: true })
+    .toBuffer();
 }
 
-// No-cover branded fallback: centered wordmark + title + date on brand-dark.
+// No-cover fallback: full-bleed brand-dark with centered wordmark + text.
 export async function buildFallbackCard(opts: {
   title?: string | null;
   dateLine?: string | null;
   venueLine?: string | null;
 }): Promise<Buffer> {
-  const title = truncate(opts.title || 'Bachata Calendar', 64);
-  const children: El[] = [
-    { type: 'div', props: { style: { display: 'flex', fontFamily: 'Inter', fontSize: 28, fontWeight: 600, color: '#e7e3da', letterSpacing: 3 }, children: 'BACHATA CALENDAR' } },
-    { type: 'div', props: { style: { display: 'flex', width: 80, height: 6, marginTop: 28, backgroundColor: ORANGE } } },
-    { type: 'div', props: { style: { display: 'flex', marginTop: 28, fontFamily: 'Fraunces', fontSize: 64, fontWeight: 600, color: '#ffffff', lineHeight: 1.05, textAlign: 'center', maxWidth: 1000 }, children: title } },
-  ];
-  if (opts.dateLine) children.push({ type: 'div', props: { style: { display: 'flex', marginTop: 24, fontFamily: 'Inter', fontSize: 30, color: '#c9cbd1' }, children: opts.dateLine } });
-  if (opts.venueLine) children.push({ type: 'div', props: { style: { display: 'flex', marginTop: 10, fontFamily: 'Inter', fontSize: 24, color: '#9398a3' }, children: opts.venueLine } });
-  const element: El = {
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex', flexDirection: 'column', width: CARD_W, height: CARD_H,
-        alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND_DARK,
-      },
-      children,
-    },
-  };
-  return renderToJpeg(element);
+  ensureFonts();
+  const svg = buildFallbackPanelSvg(
+    opts.title ?? 'Bachata Calendar',
+    opts.dateLine ?? null,
+    opts.venueLine ?? null,
+  );
+
+  return sharp({
+    create: { width: CARD_W, height: CARD_H, channels: 4, background: BRAND_DARK },
+  })
+    .composite([{ input: svg }])
+    .jpeg({ quality: 80, mozjpeg: true })
+    .toBuffer();
 }
 
-// Plain letterbox normalize (no text) for non-event entities (people, cities,
-// venues) whose avatar/hero may be WebP. Pure sharp — no Satori needed.
+// Plain letterbox normalize for non-event entities (people / cities / venues).
 export async function buildImageCard(coverBuf: Buffer): Promise<Buffer> {
+  const resized = await sharp(coverBuf)
+    .resize(CARD_W, CARD_H, { fit: 'inside', withoutEnlargement: false })
+    .png()
+    .toBuffer();
+
   return sharp({
-    create: { width: CARD_W, height: CARD_H, channels: 4, background: { r: 20, g: 21, b: 25, alpha: 1 } },
+    create: { width: CARD_W, height: CARD_H, channels: 4, background: BRAND_DARK },
   })
-    .composite([
-      {
-        input: await sharp(coverBuf)
-          .resize(CARD_W, CARD_H, { fit: 'inside', withoutEnlargement: false })
-          .png()
-          .toBuffer(),
-        gravity: 'centre',
-      },
-    ])
+    .composite([{ input: resized, gravity: 'centre' }])
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer();
 }
