@@ -22,8 +22,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacalendar.co.uk';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
 
-const FALLBACK_OG_IMAGE =
-  'https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5c411db-d29a-4d08-a85b-d1e88b365990/id-preview-c35aebe7--aceee982-d013-4635-84af-1b9a227224dd.lovable.app-1771389005547.png';
+const FALLBACK_OG_IMAGE = `${SITE_URL.replace(/\/$/, '')}/og-image.jpg`;
 
 const SUPABASE_HEADERS = {
   'Content-Type': 'application/json',
@@ -77,6 +76,23 @@ function absoluteUrl(maybeUrl: string | null | undefined): string | null {
   if (!v) return null;
   if (v.startsWith('http://') || v.startsWith('https://')) return v;
   return `${SITE_URL.replace(/\/$/, '')}/${v.replace(/^\//, '')}`;
+}
+
+// ─── Branded OG image seam ──────────────────────────────────────────────────
+// ~60% of event covers are WebP, which WhatsApp/Facebook/LinkedIn refuse to
+// render as link previews (so no card appears), and some are >300KB. Route
+// every OG image through /api/og/card, which returns a normalized 1200x630
+// JPEG: a branded card for events/festivals, a letterboxed normalize for other
+// entities. See api/og/card.ts. Falls back to the static branded og-image.jpg.
+function ogCardUrl(kind: 'event' | 'festival', id: string, version?: string | null): string {
+  const base = SITE_URL.replace(/\/$/, '');
+  const v = version ? `&v=${encodeURIComponent(version)}` : '';
+  return `${base}/api/og/card?kind=${kind}&id=${encodeURIComponent(id)}${v}`;
+}
+function ogNormalizedImage(rawUrl: string | null | undefined): string {
+  const abs = absoluteUrl(rawUrl);
+  if (!abs) return FALLBACK_OG_IMAGE; // already a 1200x630 JPEG
+  return `${SITE_URL.replace(/\/$/, '')}/api/og/card?kind=image&src=${encodeURIComponent(abs)}`;
 }
 
 function capitalize(s: string | null | undefined): string {
@@ -166,7 +182,7 @@ async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
   const city = location?.city;
 
   const title = truncate(event.name ?? 'Bachata Event', 90);
-  const image = absoluteUrl(event.cover_image_url ?? venue?.image_url) ?? FALLBACK_OG_IMAGE;
+  const image = ogCardUrl('event', id, event.updated_at ?? null);
 
   const startDate = occ?.starts_at ?? event.date ?? null;
   const formattedDate = formatDate(startDate);
@@ -244,7 +260,7 @@ async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null
   const city = location?.city;
 
   const title = truncate(identity.name ?? 'Bachata Festival', 90);
-  const image = absoluteUrl(identity.posterUrl ?? venue?.imageUrl) ?? FALLBACK_OG_IMAGE;
+  const image = ogCardUrl('festival', id, identity.updatedAt ?? null);
 
   const startDate = dates?.startsAt ?? null;
   const formattedDate = formatDate(startDate);
@@ -313,7 +329,7 @@ async function fetchVenueMeta(id: string, url: string): Promise<OgMeta | null> {
   if (!venue || !venue.name) return null;
 
   const title = truncate(venue.name, 90);
-  const image = absoluteUrl(firstString(venue.photo_url)) ?? FALLBACK_OG_IMAGE;
+  const image = ogNormalizedImage(firstString(venue.photo_url));
 
   let description: string;
   if (venue.description && String(venue.description).trim()) {
@@ -355,7 +371,7 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
   }
   const description = truncate(base, 160);
 
-  const image = absoluteUrl(firstString(t.photo_url)) ?? FALLBACK_OG_IMAGE;
+  const image = ogNormalizedImage(firstString(t.photo_url));
 
   return { title, description, image, type: 'profile', url };
 }
@@ -390,7 +406,7 @@ async function fetchDjMeta(id: string, url: string): Promise<OgMeta | null> {
     description = truncate(base, 160);
   }
 
-  const image = absoluteUrl(firstString(d.photo_url)) ?? FALLBACK_OG_IMAGE;
+  const image = ogNormalizedImage(firstString(d.photo_url));
 
   return { title, description, image, type: 'profile', url };
 }
@@ -415,7 +431,7 @@ async function fetchDancerMeta(id: string, url: string): Promise<OgMeta | null> 
   }
   const description = truncate(base, 160);
 
-  const image = absoluteUrl(firstString(d.avatar_url)) ?? FALLBACK_OG_IMAGE;
+  const image = ogNormalizedImage(firstString(d.avatar_url));
 
   return { title, description, image, type: 'profile', url };
 }
@@ -437,7 +453,7 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
     : `Bachata classes, socials and festivals in ${c.name}.`;
   const description = truncate(rawDesc, 160);
 
-  const image = absoluteUrl(c.hero_image_url) ?? `${SITE_URL.replace(/\/$/, '')}/og-image.jpg`;
+  const image = ogNormalizedImage(c.hero_image_url);
 
   return { title, description, image, type: 'website', url };
 }
@@ -463,7 +479,7 @@ async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | nul
     description = truncate(base, 160);
   }
 
-  const image = absoluteUrl(firstString(o.avatar_url)) ?? FALLBACK_OG_IMAGE;
+  const image = ogNormalizedImage(firstString(o.avatar_url));
 
   return { title, description, image, type: 'profile', url };
 }
@@ -558,12 +574,16 @@ function buildMetaHtml(meta: OgMeta): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(pageTitle)}</title>
   <meta name="description" content="${escapeHtml(descForMeta)}" />
-  <meta property="og:site_name" content="Bachata Community" />
+  <meta property="og:site_name" content="Bachata Calendar" />
   <meta property="og:type" content="${escapeHtml(type)}" />
   <meta property="og:url" content="${escapeHtml(url)}" />
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(descForMeta)}" />
   <meta property="og:image" content="${escapeHtml(image)}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:alt" content="${escapeHtml(title)}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(descForMeta)}" />

@@ -178,6 +178,14 @@ async function main() {
       const waitUntil = picker.type === 'puppeteer' ? 'networkidle0' : 'networkidle';
       await page.goto(url, { waitUntil, timeout: TIMEOUT });
       await new Promise((r) => setTimeout(r, 500));
+      // Belt-and-braces: useSeo already skips the title-scroll animation under
+      // headless, but force the clean title from og:title before snapshotting
+      // so the indexed <title> is never a scrambled mid-scroll frame.
+      await page.evaluate(() => {
+        const og = document.querySelector('meta[property="og:title"]');
+        const clean = og && og.getAttribute('content');
+        if (clean) document.title = clean;
+      });
       const html = await page.content();
       const outDir = route === '/' ? DIST : path.join(DIST, route.replace(/^\//, ''));
       await mkdir(outDir, { recursive: true });

@@ -1,0 +1,30 @@
+name: OG Image Guard
+
+# Verifies social link previews still render: every sampled page must expose an
+# og:image that resolves to a JPEG/PNG (never WebP) under 300KB, with dimensions.
+# Targets the deployed site (middleware + /api/og/card only exist post-deploy),
+# so this is a scheduled job, not a PR gate.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily, offset from the 3am e2e nightly
+  workflow_dispatch:
+
+jobs:
+  og-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run OG image guard
+        env:
+          OG_CHECK_BASE: https://bachatacalendar.co.uk
+        run: npm run check:og

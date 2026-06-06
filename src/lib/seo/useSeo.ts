@@ -63,6 +63,16 @@ function startTitleScroll(title: string): () => void {
   return () => clearInterval(id);
 }
 
+// The prerender step (scripts/prerender.mjs) and search crawlers snapshot the
+// DOM; if the animated scroll is running, the snapshot captures a scrambled
+// mid-scroll <title>. Skip the animation for headless/bot contexts so the
+// clean title (set above) is what gets indexed. Live human tabs still scroll.
+function isHeadlessOrPrerender(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  if (navigator.webdriver) return true; // Playwright / Puppeteer prerender
+  return /prerender|headless|bot|crawler|spider/i.test(navigator.userAgent || '');
+}
+
 export function useSeo(input: SeoInput | null | undefined) {
   const baseline = useRef<{ title: string; description: string; canonical: string } | null>(null);
 
@@ -93,6 +103,14 @@ export function useSeo(input: SeoInput | null | undefined) {
     setProp('og:description', description);
     setProp('og:url', canonical);
     setProp('og:image', ogImage);
+    // Declare dimensions only for the default card (known 1200x630 JPEG). Per-
+    // page covers have unknown size/type, so we don't assert dimensions there
+    // — and bots get the normalized card via middleware anyway.
+    if (ogImage === DEFAULT_OG_IMAGE) {
+      setProp('og:image:width', '1200');
+      setProp('og:image:height', '630');
+      setProp('og:image:type', 'image/jpeg');
+    }
     setProp('og:type', ogType);
 
     setName('twitter:title', title);
@@ -105,7 +123,7 @@ export function useSeo(input: SeoInput | null | undefined) {
       document.head.querySelector('meta[name="robots"]')?.remove();
     }
 
-    const stopScroll = startTitleScroll(title);
+    const stopScroll = isHeadlessOrPrerender() ? () => {} : startTitleScroll(title);
 
     return () => {
       stopScroll();
