@@ -289,10 +289,6 @@ export interface HomeStats {
   thisWeek: number;
   /** distinct venues with an upcoming listing */
   venues: number;
-  /** distinct upcoming festivals */
-  festivals: number;
-  /** distinct events added in the last 7 days */
-  justAdded: number;
 }
 
 /** Shift a 'YYYY-MM-DD' date string by n days (pure, tz-safe). */
@@ -307,17 +303,13 @@ function shiftDate(dateStr: string, n: number): string {
  * map-events window the page already loaded (no extra query). Distinct by
  * event_id / venue so recurring listings don't inflate the counts.
  */
-export function homeStats(events: MapEvent[], today = todayStr(), now = Date.now()): HomeStats {
+export function homeStats(events: MapEvent[], today = todayStr()): HomeStats {
   const weekEnd = shiftDate(today, 7);
   const week = new Set<string>();
   const venues = new Set<string>();
-  const festivals = new Set<string>();
-  const added = new Set<string>();
   for (const e of events) {
     if (e.venue_name) venues.add(e.venue_name);
     if (e.instance_date && e.instance_date >= today && e.instance_date < weekEnd) week.add(e.event_id);
-    if (e.type === 'festival' && e.instance_date && e.instance_date >= today) festivals.add(e.event_id);
-    if (isFreshNew(e, 7, now)) added.add(e.event_id);
   }
-  return { thisWeek: week.size, venues: venues.size, festivals: festivals.size, justAdded: added.size };
+  return { thisWeek: week.size, venues: venues.size };
 }

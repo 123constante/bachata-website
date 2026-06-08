@@ -206,46 +206,27 @@ describe('buildMonthCells', () => {
 
 
 describe('homeStats', () => {
-  const now = new Date('2026-06-10T12:00:00Z').getTime();
   const today = '2026-06-10';
 
-  it('counts distinct events this week, venues, upcoming festivals and just-added', () => {
+  it('counts distinct events this week and distinct venues', () => {
     const events = [
       ev({ occurrence_id: 's1', event_id: 'e1', instance_date: '2026-06-11', venue_name: 'A' }),
       ev({ occurrence_id: 's2', event_id: 'e1', instance_date: '2026-06-12', venue_name: 'A' }),
       ev({ occurrence_id: 's3', event_id: 'e2', instance_date: '2026-06-13', venue_name: 'B' }),
-      ev({
-        occurrence_id: 's4',
-        event_id: 'e3',
-        instance_date: '2026-06-25',
-        venue_name: 'C',
-        type: 'festival',
-        freshness_kind: 'added',
-        created_at: '2026-06-08T00:00:00Z',
-      }),
+      ev({ occurrence_id: 's4', event_id: 'e3', instance_date: '2026-06-25', venue_name: 'C' }),
     ];
-    const out = homeStats(events, today, now);
+    const out = homeStats(events, today);
     expect(out.thisWeek).toBe(2); // e1 (two days collapse) + e2
     expect(out.venues).toBe(3); // A, B, C
-    expect(out.festivals).toBe(1); // e3 upcoming festival
-    expect(out.justAdded).toBe(1); // e3 added within 7 days
   });
 
-  it('excludes past festivals and stale additions, ignores null venues', () => {
+  it('ignores null venues and events outside the 7-day window', () => {
     const events = [
-      ev({ occurrence_id: 'p1', event_id: 'past', instance_date: '2026-06-01', type: 'festival', venue_name: null }),
-      ev({
-        occurrence_id: 'st',
-        event_id: 'stale',
-        instance_date: '2026-06-15',
-        venue_name: null,
-        freshness_kind: 'added',
-        created_at: '2026-05-01T00:00:00Z',
-      }),
+      ev({ occurrence_id: 'p1', event_id: 'past', instance_date: '2026-06-01', venue_name: null }),
+      ev({ occurrence_id: 'st', event_id: 'far', instance_date: '2026-06-25', venue_name: null }),
     ];
-    const out = homeStats(events, today, now);
-    expect(out.festivals).toBe(0); // festival is in the past
+    const out = homeStats(events, today);
+    expect(out.thisWeek).toBe(0); // both outside the window
     expect(out.venues).toBe(0); // null venues ignored
-    expect(out.justAdded).toBe(0); // added > 7 days ago
   });
 });
