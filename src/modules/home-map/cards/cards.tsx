@@ -17,7 +17,9 @@ import {
   relativeShort,
   isFreshNew,
   distanceMiles,
+  freshnessHeat,
 } from '../mapTypes';
+import type { FreshnessHeat } from '../mapTypes';
 
 type Coords = { lat: number; lng: number } | null;
 
@@ -101,17 +103,40 @@ export function DistanceBadge({
   );
 }
 
-/** Right-aligned "Added/Updated  Xm  ago" freshness stamp. */
+/** Age-temperature palette for the freshness stamp: live green (<5 min, pulsing),
+ *  teal (<2 hr), amber (<6 hr), muted (<24 hr), near-invisible (stale). An empty
+ *  `verb` colour leaves the label on the default muted tone (cool / stale). */
+const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: string; live: boolean }> = {
+  now: { dot: '#5FBF7F', text: '#5FBF7F', verb: '#5FBF7F', live: true },
+  fresh: { dot: '#46B7C9', text: '#46B7C9', verb: '#46B7C9', live: false },
+  warm: { dot: '#E8B450', text: '#E8B450', verb: '#E8B450', live: false },
+  cool: { dot: '#3e3c4e', text: '#7a7690', verb: '', live: false },
+  stale: { dot: '#2a2836', text: '#3e3c4e', verb: '', live: false },
+};
+
+/** Right-aligned "Added/Updated  Xm  ago" freshness stamp. A heat dot + thermal
+ *  text colour show how recently the event changed; the dot pulses while the
+ *  change is fresh (<5 min). Must render inside a `.home-map` ancestor for the
+ *  dot pulse animation (homeMap.css .hm-heatdot). */
 export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
   const { verb, iso } = freshnessDisplay(event);
   const rel = relativeShort(iso);
   if (!rel) return null;
   const justNow = rel === 'just now';
+  const heat = FRESHNESS_HEAT[freshnessHeat(iso)];
   return (
-    <div className={cn('flex shrink-0 flex-col items-end gap-0.5 text-right', className)}>
-      <span className="text-[8px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">{verb}</span>
-      <span className="text-xs font-bold tabular-nums">{rel}</span>
-      {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
+    <div className={cn('flex shrink-0 items-start gap-1.5', className)}>
+      <span className={cn('mt-0.5 hm-heatdot', heat.live && 'is-live')} style={{ background: heat.dot }} />
+      <span className="flex flex-col items-end gap-0.5 text-right">
+        <span
+          className={cn('text-[8px] font-extrabold uppercase tracking-[0.1em]', !heat.verb && 'text-muted-foreground')}
+          style={heat.verb ? { color: heat.verb } : undefined}
+        >
+          {verb}
+        </span>
+        <span className="text-xs font-bold tabular-nums" style={{ color: heat.text }}>{rel}</span>
+        {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
+      </span>
     </div>
   );
 }

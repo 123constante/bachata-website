@@ -149,6 +149,22 @@ export function freshnessDisplay(e: MapEvent): { verb: 'Added' | 'Updated'; iso:
   return { verb: 'Added', iso: e.created_at };
 }
 
+export type FreshnessHeat = 'now' | 'fresh' | 'warm' | 'cool' | 'stale';
+
+/** Bucket a freshness instant into an age "heat" level for the News stamp:
+ *  now <1 hr, fresh <8 hr, warm <24 hr, cool <4 days, else stale. */
+export function freshnessHeat(iso: string | null, now = Date.now()): FreshnessHeat {
+  if (!iso) return 'stale';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'stale';
+  const mins = Math.max(0, (now - then) / 60000);
+  if (mins < 60) return 'now';
+  if (mins < 480) return 'fresh';
+  if (mins < 1440) return 'warm';
+  if (mins < 5760) return 'cool';
+  return 'stale';
+}
+
 /** A News row is a "new" badge when added within `days` (default 30). */
 export function isFreshNew(e: MapEvent, days = 30, now = Date.now()): boolean {
   if (e.freshness_kind !== 'added' || !e.created_at) return false;

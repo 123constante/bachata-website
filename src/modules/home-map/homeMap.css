@@ -101,6 +101,14 @@
   border: 2.5px solid rgba(255,255,255,.92); box-shadow: 0 8px 20px -6px rgba(0,0,0,.7); }
 @keyframes hm-clpulse { 0%{ transform: scale(.62); opacity: .6 } 70%{ transform: scale(1.32); opacity: 0 } 100%{ opacity: 0 } }
 
+/* ---- News freshness "heat" stamp dot (cards.tsx FreshnessClock) ---- */
+.home-map .hm-heatdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.home-map .hm-heatdot.is-live { animation: hm-heatpulse 2.1s ease-out infinite; }
+@keyframes hm-heatpulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--hm-heat, rgba(95,191,127,.6)); }
+  55%      { box-shadow: 0 0 0 5px rgba(0,0,0,0); }
+}
+
 /* ---- popup card (styled Leaflet popup) ---- */
 .home-map .leaflet-popup.rmap-pop { opacity: 1 !important; }
 .home-map .leaflet-popup.rmap-pop .leaflet-popup-content-wrapper {
@@ -126,6 +134,7 @@
 .home-map .rpop-cta { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; line-height: 1; color: var(--hm-accent); text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-map .hm-heatdot.is-live { animation: none; }
   .home-map .rclbubble::before { animation: none; opacity: .35; }
   .home-map .rpinwrap.glow .rpin::before { animation: none; opacity: .4; }
   .home-map .rpinwrap .rpin .pcv { transition: none; }
