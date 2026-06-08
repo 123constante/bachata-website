@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
+import { cn } from '@/lib/utils';
 
 const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
 
@@ -37,7 +38,7 @@ const emojiAnimations = {
   },
 };
 
-export const BottomNav = () => {
+export const BottomNav = ({ className }: { className?: string }) => {
   const location = useLocation();
   const { citySlug } = useCity();
   const prefersReducedMotion = useReducedMotion();
@@ -52,7 +53,10 @@ export const BottomNav = () => {
   return (
     <nav
       aria-label="Main sections"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/10 pb-[env(safe-area-inset-bottom)]"
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 border-t border-primary/10 pb-[env(safe-area-inset-bottom)]",
+        className,
+      )}
       style={{
         backgroundColor: 'hsl(var(--background) / 0.85)',
         backdropFilter: 'blur(8px) saturate(100%)',

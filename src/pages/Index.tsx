@@ -1,20 +1,38 @@
-import { Suspense, lazy, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
-import GlobalLayout from '@/components/layout/GlobalLayout';
-import { ErrorBoundary, PageErrorBoundary } from '@/components/ErrorBoundary';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
-import { LatestEventsWheel } from '@/components/LatestEventsWheel';
+import { useMapEvents } from '@/hooks/useMapEvents';
+import { useMapList } from '@/modules/home-map/useMapList';
+import { todayStr } from '@/modules/home-map/mapTypes';
+import type { MapEvent } from '@/modules/home-map/mapTypes';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
 import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 
-// Lazy load the heavy calendar component
-const EventCalendar = lazy(() => import('@/components/EventCalendar').then(module => ({ default: module.EventCalendar })));
+// Both home surfaces are lazy so neither bundle blocks the other; the Festival
+// Map's Leaflet code only loads once one of them mounts.
+const MobileMapHome = lazy(() => import('@/modules/home-map/mobile/MobileMapHome'));
+const DesktopMapHome = lazy(() => import('@/modules/home-map/DesktopMapHome'));
 
+// Stable empty fallback so useMapList's memoised derivations don't churn while
+// the map query is loading.
+const NO_EVENTS: MapEvent[] = [];
+
+/**
+ * Festival Map homepage (`/city/:slug` and `/city/:slug/calendar`). A thin
+ * responsive switch: the map data + discovery state are built unconditionally,
+ * then the mobile or desktop surface renders. SEO JSON-LD + an sr-only <h1>
+ * stay so the map surface (which has no visible heading) remains crawlable.
+ */
 const Index = () => {
   const { citySlug } = useCity();
+  const { pathname } = useLocation();
+  const isMobile = useIsMobile();
+
   // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
   // 'london-gb'); drop a trailing 2-letter country code and title-case every
   // remaining word so multi-word cities render correctly ('new-york-us' ->
@@ -26,7 +44,8 @@ const Index = () => {
     return parts.map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
   }, [citySlug]);
 
-  // Fetch this week's events for the SEO meta event count + JSON-LD list.
+  // SEO-only: this week's events drive the JSON-LD ItemList. Kept separate from
+  // the map query (different shape + horizon) so search-engine output is stable.
   const weekStart = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -37,24 +56,39 @@ const Index = () => {
     d.setDate(d.getDate() + 7);
     return d;
   }, [weekStart]);
-
   const { data: weekEvents } = useCalendarEvents({
     rangeStart: weekStart,
     rangeEnd: weekEnd,
     citySlug: citySlug ?? null,
     enabled: Boolean(citySlug),
   });
-
-  const thisWeek = weekEvents?.length ?? 0;
-
-  // Schema.org ItemList of this week's events, emitted as inline JSON-LD so
-  // search engines can surface event rich results from the home page.
   const eventsJsonLd = useMemo(() => {
     if (!weekEvents || weekEvents.length === 0) return null;
     const origin =
       typeof window !== 'undefined' && window.location ? window.location.origin : '';
     return renderEventListJsonLd({ events: weekEvents, origin });
   }, [weekEvents]);
+
+  // Map data: a 90-day window of occurrences (coords, cover, times, freshness).
+  const rangeStart = useMemo(() => todayStr(), []);
+  const rangeEnd = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return todayStr(d);
+  }, []);
+  const { data: mapEvents } = useMapEvents({
+    citySlug,
+    rangeStart,
+    rangeEnd,
+    enabled: Boolean(citySlug),
+  });
+  const state = useMapList(mapEvents ?? NO_EVENTS);
+
+  // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
+  const { setTab } = state;
+  useEffect(() => {
+    if (pathname.endsWith('/calendar')) setTab('cal');
+  }, [pathname, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
   useSeo(
@@ -65,71 +99,35 @@ const Index = () => {
 
   return (
     <PageErrorBoundary>
-      <GlobalLayout showSubheader={false}>
-        {eventsJsonLd && (
-          <script
-            type="application/ld+json"
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: eventsJsonLd }}
-          />
+      {eventsJsonLd && (
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: eventsJsonLd }}
+        />
+      )}
+      {/* WebSite + Organization schema - emit on the homepage only.
+          Drives sitelinks searchbox and brand knowledge panel in Google. */}
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: renderWebsiteJsonLd() }}
+      />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
+      />
+      <h1 className="sr-only">What&rsquo;s on in {cityDisplayName}</h1>
+      <Suspense
+        fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
+      >
+        {isMobile ? (
+          <MobileMapHome state={state} />
+        ) : (
+          <DesktopMapHome state={state} />
         )}
-        {/* WebSite + Organization schema - emit on the homepage only.
-            Drives sitelinks searchbox and brand knowledge panel in Google. */}
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: renderWebsiteJsonLd() }}
-        />
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
-        />
-        {/* COMPACT BRAND STRIP */}
-        <div className="relative px-4 pt-8 pb-6 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
-          <div className="relative z-10 flex flex-col items-center justify-center text-center">
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.02] mb-2">
-              What's on in{' '}
-              <span className="text-primary">{cityDisplayName}</span>
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Every class, party &amp; festival in one place
-            </p>
-            {thisWeek > 0 && (
-              <span className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-primary/30 bg-card px-4 py-2 shadow-lg shadow-black/30">
-                <span className="animate-gradient-shift bg-gradient-to-r from-primary via-festival-pink to-primary bg-[length:200%_auto] bg-clip-text text-3xl font-black leading-none text-transparent">
-                  {thisWeek}
-                </span>
-                <span className="text-left text-[11px] font-bold uppercase tracking-wide leading-tight text-muted-foreground">
-                  {thisWeek === 1 ? 'event' : 'events'}<br />this week
-                </span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* JUST ADDED - newest uploads (3D carousel wheel) */}
-        <ErrorBoundary>
-          <LatestEventsWheel />
-        </ErrorBoundary>
-
-        {/* EVENT CALENDAR */}
-        <section className="min-h-[500px] sm:min-h-[650px]">
-          <div className="container mx-auto px-4">
-            <Suspense fallback={
-              <div className="flex flex-col items-center justify-center min-h-[600px] w-full text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-                <p>Loading calendar&hellip;</p>
-              </div>
-            }>
-              <ErrorBoundary>
-                <EventCalendar />
-              </ErrorBoundary>
-            </Suspense>
-          </div>
-        </section>
-      </GlobalLayout>
+      </Suspense>
     </PageErrorBoundary>
   );
 };

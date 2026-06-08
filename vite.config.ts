@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => ({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-motion': ['framer-motion'],
           'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-map': ['leaflet', 'leaflet.markercluster'],
           'vendor-ui': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-popover',
