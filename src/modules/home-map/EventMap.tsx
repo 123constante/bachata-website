@@ -14,9 +14,6 @@ import {
   CATEGORY_LABEL,
   formatTimeRange,
 } from './mapTypes';
-// TEMPORARY touch-debug instrumentation (no-op unless ?touchdebug=1). Revert
-// with the rest of the touch-debug scaffolding.
-import { tlog } from '@/lib/touchDebug';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -145,13 +142,6 @@ export default function EventMap({
       fadeAnimation: false,
     }).setView(center, zoom);
     mapRef.current = m;
-    // TEMPORARY touchdebug: how Leaflet classified this device.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const B = L.Browser as any;
-    tlog(
-      `L.Browser touch=${!!B.touch} touchNative=${!!B.touchNative} ` +
-        `safari=${!!B.safari} mobile=${!!B.mobile} pointer=${!!B.pointer}`,
-    );
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -194,39 +184,17 @@ export default function EventMap({
       const el = e.popup.getElement();
       const card = el ? el.querySelector('.rpop') : null;
       const cta = el ? el.querySelector('a.rpop-cta') : null;
-      tlog(`popupopen card=${!!card} cta=${!!cta}`);
       if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
-      // FIX (iOS Safari dead-tap): on a real iPhone WebKit computes
+      // iOS Safari dead-tap fix: on a real iPhone WebKit computes
       // pointer-events:none on the Leaflet popup subtree here (Chromium
-      // computes auto), so taps fall straight through the card to <html> and
-      // never reach the tap handler. Forcing the popup element interactive
-      // inline beats the inherited none without a specificity fight. Confirmed
-      // via the touch-debug capture (cardPE=none, elementFromPoint=html).
+      // computes auto on the identical DOM), so taps fall straight through the
+      // card to <html> and the tap handler below never runs. Forcing the popup
+      // element interactive inline beats the inherited none without a
+      // specificity fight, restoring whole-card + CTA taps on touch devices.
       if (el instanceof HTMLElement) el.style.pointerEvents = 'auto';
       card.style.pointerEvents = 'auto';
-      // TEMPORARY touchdebug: after autopan settles, measure the card and probe
-      // what is actually on top of its own centre. top!=card => the popup is
-      // occluded / non-interactive; owns=false names the occluder.
-      window.setTimeout(() => {
-        const r = card.getBoundingClientRect();
-        const cx = Math.round(r.left + r.width / 2);
-        const cy = Math.round(r.top + r.height / 2);
-        const top = document.elementFromPoint(cx, cy) as Element | null;
-        const cls =
-          top && typeof top.className === 'string'
-            ? top.className.trim().replace(/\s+/g, '.').slice(0, 24)
-            : '';
-        const tg = top ? `${top.tagName.toLowerCase()}${cls ? '.' + cls : ''}` : 'null';
-        const owns = !!top && (top === card || card.contains(top));
-        tlog(
-          `popup rect=${Math.round(r.left)},${Math.round(r.top)} ` +
-            `${Math.round(r.width)}x${Math.round(r.height)} ctr=${cx},${cy} ` +
-            `top=${tg} owns=${owns} cardPE=${getComputedStyle(card).pointerEvents}`,
-        );
-      }, 90);
       const onTap = (ev: Event) => {
         const href = cta.getAttribute('href');
-        tlog(`onTap ${ev.type} href=${href ?? '(none)'}`);
         if (!href) return;
         ev.preventDefault();
         ev.stopPropagation();

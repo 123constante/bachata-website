@@ -12,7 +12,6 @@ import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
 import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
-import TouchDebugOverlay from '@/modules/home-map/TouchDebugOverlay';
 
 // Both home surfaces are lazy so neither bundle blocks the other; the Festival
 // Map's Leaflet code only loads once one of them mounts.
@@ -147,9 +146,6 @@ const Index = () => {
           />
         )}
       </Suspense>
-      {/* TEMPORARY touch-debug overlay; self-gates on ?touchdebug=1 and
-          self-portals to document.body. Revert with the rest of the scaffolding. */}
-      <TouchDebugOverlay />
     </PageErrorBoundary>
   );
 };
