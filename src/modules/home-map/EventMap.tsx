@@ -196,9 +196,17 @@ export default function EventMap({
       const cta = el ? el.querySelector('a.rpop-cta') : null;
       tlog(`popupopen card=${!!card} cta=${!!cta}`);
       if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
+      // FIX (iOS Safari dead-tap): on a real iPhone WebKit computes
+      // pointer-events:none on the Leaflet popup subtree here (Chromium
+      // computes auto), so taps fall straight through the card to <html> and
+      // never reach the tap handler. Forcing the popup element interactive
+      // inline beats the inherited none without a specificity fight. Confirmed
+      // via the touch-debug capture (cardPE=none, elementFromPoint=html).
+      if (el instanceof HTMLElement) el.style.pointerEvents = 'auto';
+      card.style.pointerEvents = 'auto';
       // TEMPORARY touchdebug: after autopan settles, measure the card and probe
       // what is actually on top of its own centre. top!=card => the popup is
-      // occluded (the real dead-tap cause); owns=false names the occluder.
+      // occluded / non-interactive; owns=false names the occluder.
       window.setTimeout(() => {
         const r = card.getBoundingClientRect();
         const cx = Math.round(r.left + r.width / 2);
