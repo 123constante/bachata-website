@@ -196,6 +196,26 @@ export default function EventMap({
       const cta = el ? el.querySelector('a.rpop-cta') : null;
       tlog(`popupopen card=${!!card} cta=${!!cta}`);
       if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
+      // TEMPORARY touchdebug: after autopan settles, measure the card and probe
+      // what is actually on top of its own centre. top!=card => the popup is
+      // occluded (the real dead-tap cause); owns=false names the occluder.
+      window.setTimeout(() => {
+        const r = card.getBoundingClientRect();
+        const cx = Math.round(r.left + r.width / 2);
+        const cy = Math.round(r.top + r.height / 2);
+        const top = document.elementFromPoint(cx, cy) as Element | null;
+        const cls =
+          top && typeof top.className === 'string'
+            ? top.className.trim().replace(/\s+/g, '.').slice(0, 24)
+            : '';
+        const tg = top ? `${top.tagName.toLowerCase()}${cls ? '.' + cls : ''}` : 'null';
+        const owns = !!top && (top === card || card.contains(top));
+        tlog(
+          `popup rect=${Math.round(r.left)},${Math.round(r.top)} ` +
+            `${Math.round(r.width)}x${Math.round(r.height)} ctr=${cx},${cy} ` +
+            `top=${tg} owns=${owns} cardPE=${getComputedStyle(card).pointerEvents}`,
+        );
+      }, 90);
       const onTap = (ev: Event) => {
         const href = cta.getAttribute('href');
         tlog(`onTap ${ev.type} href=${href ?? '(none)'}`);

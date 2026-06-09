@@ -18,6 +18,9 @@ import {
  * unless touchdebug is enabled, so it is safe to ship. Self-portals to
  * document.body, so a single mount covers both home layouts.
  *
+ * The container is pointer-events-none (only the header buttons are tappable)
+ * so the log never intercepts taps meant for the map popup beneath it.
+ *
  * REVERT once the root cause is confirmed on-device.
  */
 export default function TouchDebugOverlay() {
@@ -56,11 +59,11 @@ export default function TouchDebugOverlay() {
       data-testid="touchdebug-overlay"
       className={cn(
         'fixed top-[64px] left-1 right-1 z-[9999] rounded-md shadow-lg',
-        'bg-black/85 text-green-300 font-mono text-[10px] leading-tight',
-        'pointer-events-auto select-text',
+        'bg-black/70 text-green-300 font-mono text-[10px] leading-tight',
+        'pointer-events-none select-text',
       )}
     >
-      <div className="flex items-center gap-2 px-2 py-1 border-b border-white/15 text-white">
+      <div className="flex items-center gap-2 px-2 py-1 border-b border-white/15 text-white pointer-events-auto">
         <span className="font-bold">touchdebug</span>
         <span className="opacity-70">{log.length}</span>
         <button type="button" className="ml-auto px-1 underline" onClick={() => setCollapsed((c) => !c)}>
