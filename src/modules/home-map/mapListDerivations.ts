@@ -175,8 +175,10 @@ export function listFor(tab: MapTab, a: ListArgs): MapEvent[] {
   if (tab === 'tonight') base = tonightEvents(a.events, a.user, a.today);
   else if (tab === 'cal') base = a.day == null ? [] : a.events.filter((e) => e.instance_date === a.day);
   else if (tab === 'news') base = newsEvents(a.events, a.today);
-  else base = a.events.filter((e) => matchesFilter(e, a.filter));
-  return base.filter((e) => matchesQuery(e, a.q));
+  else base = a.events;
+  // Category filter is an orthogonal axis: apply it on every tab so the chips
+  // compose with each lens (Tonight + Classes, What's New + Festivals, ...).
+  return base.filter((e) => matchesFilter(e, a.filter) && matchesQuery(e, a.q));
 }
 
 /**
@@ -190,10 +192,11 @@ export function mapVisibleFor(
   pinKeyForOcc: Map<string, string>,
   allEvents: MapEvent[],
   q: string,
+  filter: MapFilter,
 ): string[] {
   const source =
     tab === 'news' || (tab === 'cal' && day == null)
-      ? allEvents.filter((e) => matchesQuery(e, q))
+      ? allEvents.filter((e) => matchesFilter(e, filter) && matchesQuery(e, q))
       : listEvents;
   const pins = new Set<string>();
   for (const e of source) {

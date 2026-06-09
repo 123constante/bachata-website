@@ -154,11 +154,21 @@ describe('listFor / mapVisibleFor / glowFor', () => {
 
   it('news + empty calendar keep the whole city; other tabs mirror the list', () => {
     const listAll = listFor('all', { events, day: null, filter: 'parties', q: '', user: null, today });
-    expect(new Set(mapVisibleFor('all', null, listAll, pinKeyForOcc, events, ''))).toEqual(
+    expect(new Set(mapVisibleFor('all', null, listAll, pinKeyForOcc, events, '', 'parties'))).toEqual(
       new Set(['o1']),
     );
-    expect(new Set(mapVisibleFor('news', null, [], pinKeyForOcc, events, ''))).toEqual(
+    expect(new Set(mapVisibleFor('news', null, [], pinKeyForOcc, events, '', 'all'))).toEqual(
       new Set(['o1', 'o2']),
+    );
+  });
+
+  it('category filter composes with every tab (list + map)', () => {
+    // e1 is a party today, e2 is a class on a later day -> Tonight+Classes is empty.
+    const tonightClasses = listFor('tonight', { events, day: null, filter: 'classes', q: '', user: null, today });
+    expect(tonightClasses.map((e) => e.occurrence_id)).toEqual([]);
+    // News + Parties: the whole-city map narrows to the party pin only.
+    expect(new Set(mapVisibleFor('news', null, [], pinKeyForOcc, events, '', 'parties'))).toEqual(
+      new Set(['o1']),
     );
   });
 

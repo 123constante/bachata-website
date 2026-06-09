@@ -10,7 +10,8 @@ import { Plus, Minus, LocateFixed, MapPin } from 'lucide-react';
 import type { UseMapListResult } from './useMapList';
 import { groupByDate } from './mapListDerivations';
 import { EventRow, TonightCard, NewsRow, EmptyState } from './cards/cards';
-import { TabBar, CategoryChips, SearchField } from './cards/controls';
+import { TabBar, SearchField, CategoryFilterBar } from './cards/controls';
+import { MapHint } from './MapHint';
 import { CalendarPanel } from './cards/CalendarPanel';
 import { NewsBrandCard } from './cards/NewsBrandCard';
 
@@ -22,7 +23,6 @@ function AllBody({ state }: { state: UseMapListResult }) {
   return (
     <div className="space-y-3">
       <SearchField value={state.q} onChange={state.setQ} />
-      <CategoryChips filter={state.filter} setFilter={state.setFilter} />
       {groups.length === 0 ? (
         <EmptyState>No events match your search.</EmptyState>
       ) : (
@@ -140,6 +140,10 @@ export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
             onReady={state.onMapReady}
           />
         </Suspense>
+        {/* First-visit hint that the pins are interactive. Self-dismisses. */}
+        <div className="pointer-events-none absolute left-3 top-3 z-[500]">
+          <MapHint />
+        </div>
         {/* Zoom + recenter, lifted clear of the bottom-right attribution badge. */}
         <div className="absolute bottom-7 right-3 z-50 flex flex-col overflow-hidden rounded-xl border border-border shadow-lg">
           <button
@@ -175,11 +179,12 @@ export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
         ref={state.listRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-y-auto border-l border-border bg-background"
       >
-        <div className="sticky top-0 z-10 border-b border-border bg-background px-4 py-3">
+        <div className="sticky top-0 z-10 bg-background px-4 py-3">
           <TabBar tab={state.tab} setTab={state.setTab} />
         </div>
 
         <div className="px-4 pb-8 pt-3">
+          <CategoryFilterBar filter={state.filter} setFilter={state.setFilter} className="mb-3" />
           {state.tab === 'news' && <NewsBody state={state} />}
           {state.tab === 'all' && <AllBody state={state} />}
           {state.tab === 'tonight' && <TonightBody state={state} />}

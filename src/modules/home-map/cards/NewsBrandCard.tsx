@@ -23,11 +23,11 @@ function Stat({ n, label, live = false }: { n: number | null; label: string; liv
         />
       )}
       {n == null ? (
-        <span className="h-7 w-9 animate-pulse rounded bg-muted-foreground/20" aria-hidden />
+        <span className="h-6 w-9 animate-pulse rounded bg-muted-foreground/20" aria-hidden />
       ) : (
-        <span className="text-3xl font-black leading-none tracking-tight text-primary tabular-nums">{n}</span>
+        <span className="text-2xl font-black leading-none tracking-tight text-primary tabular-nums">{n}</span>
       )}
-      <span className="mt-1.5 text-[11px] font-semibold leading-tight text-muted-foreground">{label}</span>
+      <span className="mt-1 text-xs font-medium leading-tight text-foreground/70">{label}</span>
     </div>
   );
 }

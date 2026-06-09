@@ -4,14 +4,13 @@
 import type { UseMapListResult } from '../useMapList';
 import { groupByDate } from '../mapListDerivations';
 import { EventRow, EmptyState } from '../cards/cards';
-import { SearchField, CategoryChips } from '../cards/controls';
+import { SearchField } from '../cards/controls';
 
 export function SheetAllTab({ state }: { state: UseMapListResult }) {
   const groups = groupByDate(state.listEvents);
   return (
     <div className="space-y-3">
       <SearchField value={state.q} onChange={state.setQ} />
-      <CategoryChips filter={state.filter} setFilter={state.setFilter} />
       {groups.length === 0 ? (
         <EmptyState>No events match your search.</EmptyState>
       ) : (

@@ -7,6 +7,7 @@
 import { Suspense, lazy, useCallback, useEffect } from 'react';
 import type { UseMapListResult } from '../useMapList';
 import { MapSheet } from './MapSheet';
+import { MapHint } from '../MapHint';
 
 const EventMap = lazy(() => import('../EventMap'));
 
@@ -40,6 +41,9 @@ export default function MobileMapHome({ state }: { state: UseMapListResult }) {
           onReady={state.onMapReady}
         />
       </Suspense>
+      <div className="pointer-events-none absolute left-3 top-3 z-[500]">
+        <MapHint />
+      </div>
       <MapSheet state={state} onSnapChange={invalidate} />
     </div>
   );

@@ -79,8 +79,8 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
     [tab, events, day, filter, q, user, today],
   );
   const mapVisible = useMemo(
-    () => mapVisibleFor(tab, day, listEvents, pinKeyForOcc, events, q),
-    [tab, day, listEvents, pinKeyForOcc, events, q],
+    () => mapVisibleFor(tab, day, listEvents, pinKeyForOcc, events, q, filter),
+    [tab, day, listEvents, pinKeyForOcc, events, q, filter],
   );
   const glow = useMemo(
     () => glowFor(tab, events, pinKeyForOcc),
