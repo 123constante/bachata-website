@@ -35,6 +35,7 @@ interface EventMapProps {
   onSelect: (occId: string) => void;
   onHover: (occId: string | null) => void;
   onReady?: (api: MapApi) => void;
+  onOpenEvent?: (href: string) => void;
   center?: [number, number];
   zoom?: number;
 }
@@ -110,6 +111,7 @@ export default function EventMap({
   onSelect,
   onHover,
   onReady,
+  onOpenEvent,
   center = LONDON,
   zoom = 12.5,
 }: EventMapProps) {
@@ -119,9 +121,10 @@ export default function EventMap({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
   const markers = useRef<Map<string, L.Marker>>(new Map());
-  const cb = useRef({ onSelect, onHover });
+  const cb = useRef({ onSelect, onHover, onOpenEvent });
   cb.current.onSelect = onSelect;
   cb.current.onHover = onHover;
+  cb.current.onOpenEvent = onOpenEvent;
 
   const eventsKey = events.map((e) => e.occurrence_id).join(',');
   const visKey = visible.join(',');
@@ -171,6 +174,25 @@ export default function EventMap({
       invalidate: () => m.invalidateSize(),
     };
     onReady?.(api);
+
+    // The popup "View event" CTA is a raw <a> in Leaflet-injected HTML; Leaflet
+    // cancels its default navigation on touch, so on mobile the link is a dead
+    // tap. Intercept the click and route client-side instead (the click event
+    // still fires; only the default navigation is swallowed).
+    m.on('popupopen', (e: L.PopupEvent) => {
+      const el = e.popup.getElement();
+      const cta = el ? el.querySelector('a.rpop-cta') : null;
+      if (!(cta instanceof HTMLAnchorElement)) return;
+      const onCta = (ev: Event) => {
+        const href = cta.getAttribute('href');
+        if (!href) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        cb.current.onOpenEvent?.(href);
+      };
+      cta.addEventListener('click', onCta);
+      m.once('popupclose', () => cta.removeEventListener('click', onCta));
+    });
 
     const t1 = window.setTimeout(() => m.invalidateSize(), 60);
     const t2 = window.setTimeout(() => m.invalidateSize(), 400);

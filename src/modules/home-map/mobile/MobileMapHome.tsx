@@ -51,6 +51,7 @@ export default function MobileMapHome({
           onSelect={state.fromPin}
           onHover={state.setHovered}
           onReady={state.onMapReady}
+          onOpenEvent={state.openEvent}
         />
       </Suspense>
       <div className="pointer-events-none absolute left-3 top-3 z-[500]">

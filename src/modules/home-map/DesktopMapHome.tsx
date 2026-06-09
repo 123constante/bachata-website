@@ -175,6 +175,7 @@ export default function DesktopMapHome({
             onSelect={state.fromPin}
             onHover={state.setHovered}
             onReady={state.onMapReady}
+            onOpenEvent={state.openEvent}
           />
         </Suspense>
         {/* First-visit hint that the pins are interactive. Self-dismisses. */}

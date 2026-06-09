@@ -41,6 +41,7 @@ export interface UseMapListResult {
   listRef: React.MutableRefObject<HTMLDivElement | null>;
   fromCard: (occId: string) => void;
   fromPin: (occId: string | null) => void;
+  openEvent: (href: string) => void;
   geo: ReturnType<typeof useGeolocation>;
 }
 
@@ -128,6 +129,11 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
     if (occId) wantScroll.current = true;
   }, []);
 
+  // Map popup "View event" CTA -> client-side route. Leaflet cancels the raw
+  // anchor's default navigation on touch, so the href alone is a dead tap on
+  // mobile; EventMap intercepts the click and calls this instead.
+  const openEvent = useCallback((href: string) => navigate(href), [navigate]);
+
   // After a pin click, scroll the list to the matching card.
   useEffect(() => {
     if (wantScroll.current && selected && listRef.current) {
@@ -166,6 +172,7 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
     listRef,
     fromCard,
     fromPin,
+    openEvent,
     geo,
   };
 }
