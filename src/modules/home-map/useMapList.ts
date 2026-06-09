@@ -13,6 +13,9 @@ import {
 } from './mapListDerivations';
 import type { HomeStats } from './mapListDerivations';
 import type { MapApi } from './EventMap';
+// TEMPORARY touch-debug instrumentation (no-op unless ?touchdebug=1). Revert
+// with the rest of the touch-debug scaffolding.
+import { tlog } from '@/lib/touchDebug';
 
 export interface UseMapListResult {
   tab: MapTab;
@@ -132,7 +135,18 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
   // Map popup "View event" CTA -> client-side route. Leaflet cancels the raw
   // anchor's default navigation on touch, so the href alone is a dead tap on
   // mobile; EventMap intercepts the click and calls this instead.
-  const openEvent = useCallback((href: string) => navigate(href), [navigate]);
+  const openEvent = useCallback(
+    (href: string) => {
+      // TEMPORARY touchdebug: confirm the handler ran and the route changed.
+      tlog('openEvent -> navigate ' + href);
+      navigate(href);
+      window.setTimeout(
+        () => tlog('after navigate path=' + window.location.pathname),
+        0,
+      );
+    },
+    [navigate],
+  );
 
   // After a pin click, scroll the list to the matching card.
   useEffect(() => {

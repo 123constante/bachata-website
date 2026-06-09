@@ -14,6 +14,9 @@ import {
   CATEGORY_LABEL,
   formatTimeRange,
 } from './mapTypes';
+// TEMPORARY touch-debug instrumentation (no-op unless ?touchdebug=1). Revert
+// with the rest of the touch-debug scaffolding.
+import { tlog } from '@/lib/touchDebug';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -142,6 +145,13 @@ export default function EventMap({
       fadeAnimation: false,
     }).setView(center, zoom);
     mapRef.current = m;
+    // TEMPORARY touchdebug: how Leaflet classified this device.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const B = L.Browser as any;
+    tlog(
+      `L.Browser touch=${!!B.touch} touchNative=${!!B.touchNative} ` +
+        `safari=${!!B.safari} mobile=${!!B.mobile} pointer=${!!B.pointer}`,
+    );
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,9 +194,11 @@ export default function EventMap({
       const el = e.popup.getElement();
       const card = el ? el.querySelector('.rpop') : null;
       const cta = el ? el.querySelector('a.rpop-cta') : null;
+      tlog(`popupopen card=${!!card} cta=${!!cta}`);
       if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
       const onTap = (ev: Event) => {
         const href = cta.getAttribute('href');
+        tlog(`onTap ${ev.type} href=${href ?? '(none)'}`);
         if (!href) return;
         ev.preventDefault();
         ev.stopPropagation();
