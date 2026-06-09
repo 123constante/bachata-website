@@ -1,4 +1,4 @@
-// Festival Map mobile sheet -- "News" tab: the brand hero (logo + tagline +
+// Festival Map mobile sheet -- "What's New" tab: the brand hero (logo + tagline +
 // live stats) then recently added/updated events, freshest first. The map keeps
 // the whole city visible and glows new pins (useMapList mapVisibleFor/glowFor).
 
@@ -11,7 +11,7 @@ export function SheetNewsTab({ state }: { state: UseMapListResult }) {
   return (
     <div className="space-y-1">
       <NewsBrandCard state={state} />
-      <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest News!</h3>
+      <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest news</h3>
       {events.length === 0 ? (
         <EmptyState>No recent additions or updates.</EmptyState>
       ) : (

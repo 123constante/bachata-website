@@ -1,22 +1,52 @@
-// Festival Map -- shared discovery controls (tab bar, category filter, search).
-// Prop-driven off useMapList state so mobile + desktop share one implementation.
+// Festival Map -- shared discovery controls (rail header, tab bar, category
+// filter, search). Prop-driven off useMapList state so mobile + desktop share
+// one implementation.
 
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties, type KeyboardEvent } from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MapTab, MapFilter } from '../mapTypes';
 import { CATEGORY_COLORS } from '../mapTypes';
 
+/** Shared id for the single tab panel both surfaces render: every tab points its
+ *  aria-controls here and the panel is labelled by the active tab. */
+export const RAIL_PANEL_ID = 'hm-rail-panel';
+export const railTabId = (t: MapTab) => `hm-tab-${t}`;
+
+/** Reusable keyboard focus ring (no ring on pointer focus, clear ring on Tab). */
+export const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
 const TABS: { id: MapTab; label: string }[] = [
   { id: 'news', label: "What's New" },
-  { id: 'tonight', label: 'Tonight' },
+  { id: 'tonight', label: 'Today' },
   { id: 'cal', label: 'Calendar' },
   { id: 'all', label: 'All Events' },
 ];
 
-/** Underline tab control (What's New / Tonight / Calendar / All Events). The
- *  active tab is marked by an orange underline + orange text so it reads as
- *  navigation, not a filled CTA button. */
+/** Compact rail header: the city the list is scoped to + a live "N this week"
+ *  heartbeat. Makes the city visible on mobile (the header pill is desktop-only)
+ *  and signals the scene is active on every tab, so leading with events doesn't
+ *  cost the liveness cue. */
+export function RailHeader({ cityName, count }: { cityName: string; count: number }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 className="min-w-0 truncate text-sm font-extrabold tracking-tight">
+        What&rsquo;s on in {cityName}
+      </h2>
+      {count > 0 && (
+        <span className="shrink-0 text-xs font-bold tabular-nums text-primary">
+          {count} this week
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Underline tab control (What's New / Today / Calendar / All Events) as a
+ *  WAI-ARIA tablist: roving tabindex, Left/Right/Home/End move + activate, each
+ *  tab drives the shared panel via aria-controls. The active tab is an orange
+ *  underline + orange text so it reads as navigation, not a filled CTA. */
 export function TabBar({
   tab,
   setTab,
@@ -26,22 +56,46 @@ export function TabBar({
   setTab: (t: MapTab) => void;
   className?: string;
 }) {
+  const btns = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = TABS.findIndex((t) => t.id === tab);
+    let next = -1;
+    if (e.key === 'ArrowRight') next = (i + 1) % TABS.length;
+    else if (e.key === 'ArrowLeft') next = (i - 1 + TABS.length) % TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = TABS.length - 1;
+    if (next === -1) return;
+    e.preventDefault();
+    setTab(TABS[next].id);
+    btns.current[next]?.focus();
+  };
+
   return (
     <div
-      className={cn('relative flex items-stretch gap-1 border-b border-border', className)}
       role="tablist"
+      aria-label="Discover events"
+      onKeyDown={onKeyDown}
+      className={cn('relative flex items-stretch gap-1 border-b border-border', className)}
     >
-      {TABS.map((t) => {
+      {TABS.map((t, idx) => {
         const on = tab === t.id;
         return (
           <button
             key={t.id}
+            ref={(el) => {
+              btns.current[idx] = el;
+            }}
+            id={railTabId(t.id)}
             type="button"
             role="tab"
             aria-selected={on}
+            aria-controls={RAIL_PANEL_ID}
+            tabIndex={on ? 0 : -1}
             onClick={() => setTab(t.id)}
             className={cn(
-              'relative flex-1 whitespace-nowrap px-1.5 py-2 text-xs font-bold transition-colors',
+              'relative flex-1 whitespace-nowrap rounded-t px-1.5 py-2 text-xs font-bold transition-colors',
+              focusRing,
               on ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -106,6 +160,7 @@ export function CategoryChips({
             onClick={() => setFilter(c.id)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold transition-all duration-200',
+              focusRing,
               on
                 ? 'border-transparent'
                 : isClasses
@@ -124,7 +179,7 @@ export function CategoryChips({
 }
 
 /** "Filter by type" label + the category chips. Rendered on every tab so the
- *  category filter is a consistent, orthogonal axis (Tonight + Classes, What's
+ *  category filter is a consistent, orthogonal axis (Today + Classes, What's
  *  New + Festivals, ...). */
 export function CategoryFilterBar({
   filter,
@@ -158,7 +213,10 @@ export function SearchField({
 }) {
   return (
     <div
-      className={cn('flex items-center gap-2 rounded-xl border border-border px-3', className)}
+      className={cn(
+        'flex items-center gap-2 rounded-xl border border-border px-3 focus-within:ring-2 focus-within:ring-primary',
+        className,
+      )}
       style={{ background: 'hsl(var(--muted) / 0.3)' }}
     >
       <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -175,7 +233,7 @@ export function SearchField({
           type="button"
           onClick={() => onChange('')}
           aria-label="Clear search"
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          className={cn('shrink-0 rounded text-muted-foreground hover:text-foreground', focusRing)}
         >
           <X className="h-4 w-4" />
         </button>

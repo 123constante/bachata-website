@@ -101,6 +101,16 @@
   border: 2.5px solid rgba(255,255,255,.92); box-shadow: 0 8px 20px -6px rgba(0,0,0,.7); }
 @keyframes hm-clpulse { 0%{ transform: scale(.62); opacity: .6 } 70%{ transform: scale(1.32); opacity: 0 } 100%{ opacity: 0 } }
 
+/* ---- keyboard focus rings (a11y): pins + cluster bubbles are tabbable
+   (L.marker keyboard:true); make the focus visible. Pointer focus stays clean. */
+.home-map .leaflet-marker-icon:focus-visible {
+  outline: 3px solid var(--hm-accent); outline-offset: 3px; border-radius: 16px;
+}
+.home-map .leaflet-marker-icon:focus:not(:focus-visible) { outline: none; }
+.home-map .leaflet-popup.rmap-pop a.rpop-cta:focus-visible {
+  outline: 2px solid var(--hm-accent); outline-offset: 3px; border-radius: 6px;
+}
+
 /* ---- News freshness "heat" stamp dot (cards.tsx FreshnessClock) ---- */
 .home-map .hm-heatdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .home-map .hm-heatdot.is-live { animation: hm-heatpulse 2.1s ease-out infinite; }

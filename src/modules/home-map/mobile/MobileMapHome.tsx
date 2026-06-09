@@ -11,7 +11,19 @@ import { MapHint } from '../MapHint';
 
 const EventMap = lazy(() => import('../EventMap'));
 
-export default function MobileMapHome({ state }: { state: UseMapListResult }) {
+export default function MobileMapHome({
+  state,
+  cityName,
+  loading,
+  error,
+  onRetry,
+}: {
+  state: UseMapListResult;
+  cityName: string;
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+}) {
   const { apiRef } = state;
 
   // Re-measure Leaflet after a sheet snap / tab swap settles (the visible map
@@ -44,7 +56,14 @@ export default function MobileMapHome({ state }: { state: UseMapListResult }) {
       <div className="pointer-events-none absolute left-3 top-3 z-[500]">
         <MapHint />
       </div>
-      <MapSheet state={state} onSnapChange={invalidate} />
+      <MapSheet
+        state={state}
+        cityName={cityName}
+        loading={loading}
+        error={error}
+        onRetry={onRetry}
+        onSnapChange={invalidate}
+      />
     </div>
   );
 }

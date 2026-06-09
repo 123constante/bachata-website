@@ -172,6 +172,16 @@ export function isFreshNew(e: MapEvent, days = 30, now = Date.now()): boolean {
   return !Number.isNaN(then) && now - then <= days * 86400000;
 }
 
+/** Was the event added OR updated within `days` (default 14)? Gates the freshness
+ *  stamp on the events list so only genuinely-recent listings show "Added 2h ago"
+ *  while older ones stay quiet -- liveness without turning the list into timestamps. */
+export function isRecentlyChanged(e: MapEvent, days = 14, now = Date.now()): boolean {
+  const { iso } = freshnessDisplay(e);
+  if (!iso) return false;
+  const then = new Date(iso).getTime();
+  return !Number.isNaN(then) && now - then <= days * 86400000;
+}
+
 // ---- distance -------------------------------------------------------------
 
 /** Miles from user coords to an event, or null if either is missing. */

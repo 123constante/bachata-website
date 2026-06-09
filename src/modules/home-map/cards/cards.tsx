@@ -1,10 +1,11 @@
 // Festival Map -- shared presentational primitives for the map homepage list.
-// Density-agnostic, prop-driven; mobile sheets and (PR E) the desktop rail both
+// Density-agnostic, prop-driven; mobile sheets and the desktop rail both
 // compose these so the markup + map<->list linking stay identical. Must render
 // inside a `.home-map` ancestor so the scoped cover-scene CSS (.cv/.grain/.sc-*
 // + the --hm-poster font var) from homeMap.css applies.
 
 import type { ReactNode } from 'react';
+import { MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MapEvent, MapCategory } from '../mapTypes';
 import {
@@ -16,12 +17,16 @@ import {
   freshnessDisplay,
   relativeShort,
   isFreshNew,
+  isRecentlyChanged,
   distanceMiles,
   freshnessHeat,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
 
 type Coords = { lat: number; lng: number } | null;
+
+const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 /** Cover thumbnail: real flyer when present, else a category gradient + monogram. */
 export function CoverThumb({
@@ -103,6 +108,18 @@ export function DistanceBadge({
   );
 }
 
+/** Muted "Off map" tag for events with no venue coords: they can't be pinned,
+ *  but the card still opens the event -- so flag why there's no pin rather than
+ *  leaving it silent. */
+function OffMapTag() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/80">
+      <MapPinOff className="h-3 w-3" aria-hidden="true" />
+      Off map
+    </span>
+  );
+}
+
 /** Age-temperature palette for the freshness stamp: live green (<5 min, pulsing),
  *  teal (<2 hr), amber (<6 hr), muted (<24 hr), near-invisible (stale). An empty
  *  `verb` colour leaves the label on the default muted tone (cool / stale). */
@@ -144,7 +161,7 @@ export function FreshnessClock({ event, className }: { event: MapEvent; classNam
 /** "Cancelled" pill. */
 function CancelPill() {
   return (
-    <span className="shrink-0 rounded bg-[#E2415C] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+    <span className="shrink-0 rounded bg-[#E2415C] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
       Cancelled
     </span>
   );
@@ -155,6 +172,47 @@ export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="px-2 py-8 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
+/** Shimmer placeholder rows shown while the map query loads, so a loading list,
+ *  an empty list, and a backend-down list are no longer indistinguishable. */
+export function ListSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl p-2">
+          <div className="h-12 w-12 shrink-0 animate-pulse rounded-xl bg-muted/50" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3.5 w-2/3 animate-pulse rounded bg-muted/50" />
+            <div className="h-3 w-2/5 animate-pulse rounded bg-muted/40" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Error state with a retry action. Distinct from the empty state so a failed
+ *  load reads as "something broke, try again", not "nothing on". */
+export function RetryNotice({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+      <p className="text-sm text-muted-foreground">We couldn&rsquo;t load events just now.</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/20',
+            focusRing,
+          )}
+        >
+          <RotateCw className="h-4 w-4" aria-hidden="true" />
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface RowProps {
   event: MapEvent;
   selected: boolean;
@@ -163,13 +221,26 @@ interface RowProps {
   className?: string;
 }
 
-const rowBase =
-  'flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors';
+const rowBase = cn(
+  'flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors',
+  focusRing,
+);
 const rowState = (selected: boolean) =>
   selected ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-muted/40';
 
-/** Grouped-list / day-detail row (cover + title + times + venue). */
-export function EventRow({ event, selected, onSelect, onHover, className }: RowProps) {
+/** Grouped-list / day-detail row (cover + title + times + venue). When
+ *  `showFreshness` is set, a recently added/updated row carries an "Added Xm ago"
+ *  stamp (gated by isRecentlyChanged so the bulk of the list stays quiet). */
+export function EventRow({
+  event,
+  selected,
+  onSelect,
+  onHover,
+  showFreshness,
+  className,
+}: RowProps & { showFreshness?: boolean }) {
+  const cancelled = event.is_cancelled;
+  const offMap = event.lat == null || event.lng == null;
   return (
     <button
       type="button"
@@ -177,13 +248,14 @@ export function EventRow({ event, selected, onSelect, onHover, className }: RowP
       onClick={() => onSelect(event.occurrence_id)}
       onPointerEnter={() => onHover?.(event.occurrence_id)}
       onPointerLeave={() => onHover?.(null)}
-      className={cn(rowBase, rowState(selected), className)}
+      className={cn(rowBase, rowState(selected), cancelled && 'opacity-60', className)}
     >
-      <CoverThumb event={event} className="h-12 w-12 rounded-xl" />
+      <CoverThumb event={event} className={cn('h-12 w-12 rounded-xl', cancelled && 'grayscale')} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold">{event.name}</span>
+        <span className={cn('block truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
+          {offMap && <OffMapTag />}
         </span>
         {event.venue_name && (
           <span className="mt-1 block truncate text-xs text-muted-foreground">
@@ -192,7 +264,11 @@ export function EventRow({ event, selected, onSelect, onHover, className }: RowP
           </span>
         )}
       </span>
-      {event.is_cancelled && <CancelPill />}
+      {cancelled ? (
+        <CancelPill />
+      ) : showFreshness && isRecentlyChanged(event) ? (
+        <FreshnessClock event={event} />
+      ) : null}
     </button>
   );
 }
@@ -205,6 +281,7 @@ export function TonightCard({
   onSelect,
   onHover,
 }: RowProps & { user: Coords }) {
+  const cancelled = event.is_cancelled;
   return (
     <button
       type="button"
@@ -214,13 +291,15 @@ export function TonightCard({
       onPointerLeave={() => onHover?.(null)}
       className={cn(
         'flex w-full items-stretch overflow-hidden rounded-2xl border text-left transition-colors',
+        focusRing,
         selected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40',
+        cancelled && 'opacity-60',
       )}
     >
-      <CoverThumb event={event} className="w-[92px] shrink-0" monoClassName="text-xl" />
+      <CoverThumb event={event} className={cn('w-[92px] shrink-0', cancelled && 'grayscale')} monoClassName="text-xl" />
       <span className="min-w-0 flex-1 p-3">
-        <span className="block truncate text-sm font-bold">{event.name}</span>
-        {event.is_cancelled ? (
+        <span className={cn('block truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
+        {cancelled ? (
           <span className="mt-2 inline-block">
             <CancelPill />
           </span>
@@ -235,6 +314,7 @@ export function TonightCard({
 
 /** News row (portrait flyer + title/venue + freshness stamp + New badge). */
 export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
+  const cancelled = event.is_cancelled;
   return (
     <button
       type="button"
@@ -242,13 +322,13 @@ export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
       onClick={() => onSelect(event.occurrence_id)}
       onPointerEnter={() => onHover?.(event.occurrence_id)}
       onPointerLeave={() => onHover?.(null)}
-      className={cn(rowBase, rowState(selected))}
+      className={cn(rowBase, rowState(selected), cancelled && 'opacity-60')}
     >
-      <CoverThumb event={event} className="h-[68px] w-[52px] rounded-xl" monoClassName="text-xl" />
+      <CoverThumb event={event} className={cn('h-[68px] w-[52px] rounded-xl', cancelled && 'grayscale')} monoClassName="text-xl" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="min-w-0 truncate text-sm font-bold">{event.name}</span>
-          {isFreshNew(event) && (
+          <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
+          {!cancelled && isFreshNew(event) && (
             <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
               New
             </span>
@@ -261,7 +341,7 @@ export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
           </span>
         )}
       </span>
-      <FreshnessClock event={event} />
+      {cancelled ? <CancelPill /> : <FreshnessClock event={event} />}
     </button>
   );
 }

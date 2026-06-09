@@ -198,6 +198,13 @@ export default function EventMap({
           iconAnchor: [23, 52],
           popupAnchor: [0, -52],
         }),
+        // a11y: focusable via keyboard (Tab to reach, Enter/Space to open the
+        // popup, whose "View event" link routes to the event); title gives
+        // screen readers an accessible name for the otherwise-graphic pin.
+        keyboard: true,
+        riseOnHover: true,
+        title: `${e.name}${e.venue_name ? `, ${e.venue_name}` : ''}`,
+        alt: `${CATEGORY_LABEL[deriveCategory(e)]}: ${e.name}`,
       });
       mk.bindPopup(popupHtml(e), {
         className: 'rmap-pop',

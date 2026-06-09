@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
 import { todayStr } from './mapTypes';
@@ -50,13 +51,17 @@ export interface UseMapListResult {
  * occurrence_id throughout (never array index).
  */
 export function useMapList(events: MapEvent[]): UseMapListResult {
-  const [tab, setTab] = useState<MapTab>('news');
+  // Lead with events (audit P1): the homepage opens on the All Events list, not
+  // the brand/freshness hero. The /city/:slug/calendar deep-link still overrides
+  // to the Calendar tab (handled in Index).
+  const [tab, setTab] = useState<MapTab>('all');
   const [day, setDay] = useState<string | null>(null);
   const [filter, setFilter] = useState<MapFilter>('all');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  const navigate = useNavigate();
   const apiRef = useRef<MapApi | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const wantScroll = useRef(false);
@@ -73,6 +78,14 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
   const { pins, pinKeyForOcc } = useMemo(() => dedupePins(events), [events]);
   const calendarDays = useMemo(() => buildCalendarDays(events), [events]);
   const stats = useMemo(() => homeStats(events, today), [events, today]);
+
+  // occurrence_id -> its MapEvent, so a card tap can resolve the event_id it
+  // must navigate to without threading the whole row through every callsite.
+  const byOcc = useMemo(() => {
+    const m = new Map<string, MapEvent>();
+    for (const e of events) m.set(e.occurrence_id, e);
+    return m;
+  }, [events]);
 
   const listEvents = useMemo(
     () => listFor(tab, { events, day, filter, q, user, today }),
@@ -96,13 +109,18 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
     [hovered, pinKeyForOcc],
   );
 
+  // Card tap OPENS the event (audit P0). The list row is the primary route to
+  // /event now; the map-fly is kept as a side effect for coord-bearing events so
+  // the (desktop) map still tracks the selection as the page transitions.
   const fromCard = useCallback(
     (occId: string) => {
       setSelected(occId);
       const pin = pinKeyForOcc.get(occId) ?? occId;
       apiRef.current?.flyTo(pin);
+      const e = byOcc.get(occId);
+      if (e) navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);
     },
-    [pinKeyForOcc],
+    [pinKeyForOcc, byOcc, navigate],
   );
 
   const fromPin = useCallback((occId: string | null) => {

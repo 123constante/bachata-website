@@ -72,23 +72,24 @@ async function installMocks(context: import('@playwright/test').BrowserContext) 
 test.describe('Festival Map Homepage -- mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('renders map canvas and discovery tablist', async ({ context, page }) => {
+  test('renders map canvas and opens on the All Events tab', async ({ context, page }) => {
     await installMocks(context);
     await page.goto(HOME_PATH);
     await expect(page.locator('.home-map__canvas')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('tablist')).toBeVisible();
+    // Lead with events: All Events is the default tab.
     await expect(
-      page.getByRole('tab', { name: "What's New" }),
+      page.getByRole('tab', { name: 'All Events' }),
     ).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('can switch to All Events tab', async ({ context, page }) => {
+  test('can switch to the What\'s New tab', async ({ context, page }) => {
     await installMocks(context);
     await page.goto(HOME_PATH);
     await expect(page.locator('.home-map__canvas')).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('tab', { name: 'All Events' }).click();
+    await page.getByRole('tab', { name: "What's New" }).click();
     await expect(
-      page.getByRole('tab', { name: 'All Events' }),
+      page.getByRole('tab', { name: "What's New" }),
     ).toHaveAttribute('aria-selected', 'true');
   });
 });
@@ -96,16 +97,19 @@ test.describe('Festival Map Homepage -- mobile', () => {
 test.describe('Festival Map Homepage -- desktop', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('clicking an event card selects its map pin', async ({ context, page }) => {
+  test('clicking an event card opens the event page', async ({ context, page }) => {
     await installMocks(context);
     await page.goto(HOME_PATH);
     await expect(page.locator('.home-map__canvas')).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('tab', { name: 'All Events' }).click();
+    // Default tab is All Events; the first dated card is the soonest event.
     const firstCard = page.locator('[data-occ]').first();
     await expect(firstCard).toBeVisible({ timeout: 10_000 });
     await firstCard.click();
 
-    await expect(page.locator('.rpinwrap.sel')).toBeVisible({ timeout: 10_000 });
+    // Audit P0: a card tap routes to the event detail page (not just a map fly).
+    await expect(page).toHaveURL(/\/event\/00000000-0000-0000-0000-000000000001/, {
+      timeout: 10_000,
+    });
   });
 });

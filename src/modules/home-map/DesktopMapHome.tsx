@@ -2,22 +2,41 @@
 // beside a dense, tabbed discovery rail (right ~45%). Reuses the shared cards/
 // primitives + the frozen useMapList state, so the map<->list linking is
 // identical to the mobile surface. The list rail IS the single `listRef`
-// scroller; only the TabBar is sticky inside it. The News tab leads with the
-// brand hero (logo + tagline + live stats); other tabs go straight to content.
+// scroller; the rail header (city + live count) + TabBar are sticky inside it.
+// The default tab is All Events (lead with events); What's New is one tab away.
 
 import { Suspense, lazy, useEffect, useRef } from 'react';
 import { Plus, Minus, LocateFixed, MapPin } from 'lucide-react';
 import type { UseMapListResult } from './useMapList';
 import { groupByDate } from './mapListDerivations';
-import { EventRow, TonightCard, NewsRow, EmptyState } from './cards/cards';
-import { TabBar, SearchField, CategoryFilterBar } from './cards/controls';
+import {
+  EventRow,
+  TonightCard,
+  NewsRow,
+  EmptyState,
+  ListSkeleton,
+  RetryNotice,
+} from './cards/cards';
+import {
+  TabBar,
+  SearchField,
+  CategoryFilterBar,
+  RailHeader,
+  RAIL_PANEL_ID,
+  railTabId,
+} from './cards/controls';
 import { MapHint } from './MapHint';
 import { CalendarPanel } from './cards/CalendarPanel';
 import { NewsBrandCard } from './cards/NewsBrandCard';
 
 const EventMap = lazy(() => import('./EventMap'));
 
-/** All-tab body: search + chips (scroll with the list) then date-grouped rows. */
+const zoomBtn =
+  'grid h-11 w-11 place-items-center bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary';
+
+/** All-tab body: search + chips (scroll with the list) then date-grouped rows.
+ *  Rows carry the freshness stamp so just-added events stand out on the default
+ *  view. */
 function AllBody({ state }: { state: UseMapListResult }) {
   const groups = groupByDate(state.listEvents);
   return (
@@ -41,6 +60,7 @@ function AllBody({ state }: { state: UseMapListResult }) {
                   selected={state.selected === e.occurrence_id}
                   onSelect={state.fromCard}
                   onHover={state.setHovered}
+                  showFreshness
                 />
               ))}
             </div>
@@ -51,7 +71,7 @@ function AllBody({ state }: { state: UseMapListResult }) {
   );
 }
 
-/** Tonight-tab body: optional locate prompt then nearest-first distance cards. */
+/** Today-tab body: optional locate prompt then nearest-first distance cards. */
 function TonightBody({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
   const showLocate = state.geo.status === 'idle' || state.geo.status === 'denied';
@@ -61,14 +81,16 @@ function TonightBody({ state }: { state: UseMapListResult }) {
         <button
           type="button"
           onClick={() => state.geo.request()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-sm font-bold text-primary"
+          className={cnLocate}
         >
           <MapPin className="h-4 w-4" aria-hidden="true" />
-          {state.geo.status === 'denied' ? 'Location blocked - enable to sort by distance' : 'Use my location for distances'}
+          {state.geo.status === 'denied'
+            ? 'Location blocked. Enable it to sort by distance'
+            : 'Use my location for distances'}
         </button>
       )}
       {events.length === 0 ? (
-        <EmptyState>Nothing listed for tonight yet.</EmptyState>
+        <EmptyState>Nothing listed for today yet.</EmptyState>
       ) : (
         events.map((e) => (
           <TonightCard
@@ -85,13 +107,16 @@ function TonightBody({ state }: { state: UseMapListResult }) {
   );
 }
 
+const cnLocate =
+  'flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+
 /** News-tab body: brand hero + recently added/updated events, freshest first. */
 function NewsBody({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
   return (
     <div className="space-y-1">
       <NewsBrandCard state={state} />
-      <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest News!</h3>
+      <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest news</h3>
       {events.length === 0 ? (
         <EmptyState>No recent additions or updates.</EmptyState>
       ) : (
@@ -109,7 +134,19 @@ function NewsBody({ state }: { state: UseMapListResult }) {
   );
 }
 
-export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
+export default function DesktopMapHome({
+  state,
+  cityName,
+  loading,
+  error,
+  onRetry,
+}: {
+  state: UseMapListResult;
+  cityName: string;
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+}) {
   const mapPaneRef = useRef<HTMLDivElement>(null);
   const { apiRef } = state;
 
@@ -146,19 +183,14 @@ export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
         </div>
         {/* Zoom + recenter, lifted clear of the bottom-right attribution badge. */}
         <div className="absolute bottom-7 right-3 z-50 flex flex-col overflow-hidden rounded-xl border border-border shadow-lg">
-          <button
-            type="button"
-            onClick={() => apiRef.current?.zoom(1)}
-            aria-label="Zoom in"
-            className="grid h-11 w-11 place-items-center bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted"
-          >
+          <button type="button" onClick={() => apiRef.current?.zoom(1)} aria-label="Zoom in" className={zoomBtn}>
             <Plus className="h-[18px] w-[18px]" />
           </button>
           <button
             type="button"
             onClick={() => apiRef.current?.zoom(-1)}
             aria-label="Zoom out"
-            className="grid h-11 w-11 place-items-center border-t border-border bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted"
+            className={`${zoomBtn} border-t border-border`}
           >
             <Minus className="h-[18px] w-[18px]" />
           </button>
@@ -166,7 +198,7 @@ export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
             type="button"
             onClick={() => apiRef.current?.reset()}
             aria-label="Recenter map"
-            className="grid h-11 w-11 place-items-center border-t border-border bg-background/80 text-primary backdrop-blur transition-colors hover:bg-muted"
+            className={`${zoomBtn} border-t border-border !text-primary`}
           >
             <LocateFixed className="h-[18px] w-[18px]" />
           </button>
@@ -179,16 +211,30 @@ export default function DesktopMapHome({ state }: { state: UseMapListResult }) {
         ref={state.listRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-y-auto border-l border-border bg-background"
       >
-        <div className="sticky top-0 z-10 bg-background px-4 py-3">
+        <div className="sticky top-0 z-10 space-y-2 bg-background px-4 py-3">
+          <RailHeader cityName={cityName} count={state.stats.thisWeek} />
           <TabBar tab={state.tab} setTab={state.setTab} />
         </div>
 
-        <div className="px-4 pb-8 pt-3">
-          <CategoryFilterBar filter={state.filter} setFilter={state.setFilter} className="mb-3" />
-          {state.tab === 'news' && <NewsBody state={state} />}
-          {state.tab === 'all' && <AllBody state={state} />}
-          {state.tab === 'tonight' && <TonightBody state={state} />}
-          {state.tab === 'cal' && <CalendarPanel state={state} />}
+        <div
+          id={RAIL_PANEL_ID}
+          role="tabpanel"
+          aria-labelledby={railTabId(state.tab)}
+          className="px-4 pb-8 pt-3"
+        >
+          {loading ? (
+            <ListSkeleton />
+          ) : error ? (
+            <RetryNotice onRetry={onRetry} />
+          ) : (
+            <>
+              <CategoryFilterBar filter={state.filter} setFilter={state.setFilter} className="mb-3" />
+              {state.tab === 'news' && <NewsBody state={state} />}
+              {state.tab === 'all' && <AllBody state={state} />}
+              {state.tab === 'tonight' && <TonightBody state={state} />}
+              {state.tab === 'cal' && <CalendarPanel state={state} />}
+            </>
+          )}
         </div>
       </div>
     </div>

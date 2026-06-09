@@ -76,7 +76,7 @@ const Index = () => {
     d.setDate(d.getDate() + 90);
     return todayStr(d);
   }, []);
-  const { data: mapEvents } = useMapEvents({
+  const { data: mapEvents, isLoading, isError, refetch } = useMapEvents({
     citySlug,
     rangeStart,
     rangeEnd,
@@ -87,7 +87,9 @@ const Index = () => {
   // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
   const { setTab } = state;
   useEffect(() => {
-    if (pathname.endsWith('/calendar')) setTab('cal');
+    // /city/:slug/calendar deep-links to Calendar; any other home path resets
+    // to the default (All Events) so leaving /calendar doesn't strand the rail.
+    setTab(pathname.endsWith('/calendar') ? 'cal' : 'all');
   }, [pathname, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
@@ -96,6 +98,10 @@ const Index = () => {
       cityDisplay: cityDisplayName === 'Your City' ? undefined : cityDisplayName,
     }),
   );
+
+  const onRetry = () => {
+    void refetch();
+  };
 
   return (
     <PageErrorBoundary>
@@ -118,14 +124,26 @@ const Index = () => {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
       />
-      <h1 className="sr-only">What&rsquo;s on in {cityDisplayName}</h1>
+      <h1 className="sr-only">Bachata classes, parties &amp; festivals in {cityDisplayName}</h1>
       <Suspense
         fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
       >
         {isMobile ? (
-          <MobileMapHome state={state} />
+          <MobileMapHome
+            state={state}
+            cityName={cityDisplayName}
+            loading={isLoading}
+            error={isError}
+            onRetry={onRetry}
+          />
         ) : (
-          <DesktopMapHome state={state} />
+          <DesktopMapHome
+            state={state}
+            cityName={cityDisplayName}
+            loading={isLoading}
+            error={isError}
+            onRetry={onRetry}
+          />
         )}
       </Suspense>
     </PageErrorBoundary>

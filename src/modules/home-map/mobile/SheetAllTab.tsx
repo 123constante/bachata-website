@@ -1,5 +1,6 @@
-// Festival Map mobile sheet -- "All" tab: search + category chips + a
-// date-grouped event list. Map mirrors the filtered list (handled by useMapList).
+// Festival Map mobile sheet -- "All Events" tab: search + category chips + a
+// date-grouped event list (the homepage default). Rows carry the freshness
+// stamp so just-added events stand out. Map mirrors the filtered list.
 
 import type { UseMapListResult } from '../useMapList';
 import { groupByDate } from '../mapListDerivations';
@@ -29,6 +30,7 @@ export function SheetAllTab({ state }: { state: UseMapListResult }) {
                   selected={state.selected === e.occurrence_id}
                   onSelect={state.fromCard}
                   onHover={state.setHovered}
+                  showFreshness
                 />
               ))}
             </div>

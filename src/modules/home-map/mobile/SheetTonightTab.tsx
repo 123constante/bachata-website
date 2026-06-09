@@ -1,4 +1,4 @@
-// Festival Map mobile sheet -- "Tonight" tab: today's events as distance cards,
+// Festival Map mobile sheet -- "Today" tab: today's events as distance cards,
 // nearest first. Offers a location prompt when geolocation hasn't been requested.
 
 import { MapPin } from 'lucide-react';
@@ -14,14 +14,16 @@ export function SheetTonightTab({ state }: { state: UseMapListResult }) {
         <button
           type="button"
           onClick={() => state.geo.request()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-sm font-bold text-primary"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <MapPin className="h-4 w-4" aria-hidden="true" />
-          {state.geo.status === 'denied' ? 'Location blocked - enable to sort by distance' : 'Use my location for distances'}
+          {state.geo.status === 'denied'
+            ? 'Location blocked. Enable it to sort by distance'
+            : 'Use my location for distances'}
         </button>
       )}
       {events.length === 0 ? (
-        <EmptyState>Nothing listed for tonight yet.</EmptyState>
+        <EmptyState>Nothing listed for today yet.</EmptyState>
       ) : (
         events.map((e) => (
           <TonightCard
