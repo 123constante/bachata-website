@@ -175,26 +175,28 @@ export default function EventMap({
     };
     onReady?.(api);
 
-    // The popup "View event" CTA is a raw <a> in Leaflet-injected HTML. On
-    // mobile the synthetic click is suppressed by Leaflet's touch handling;
+    // The whole popup card routes to the event. The CTA is a raw <a> in
+    // Leaflet-injected HTML, but the entire .rpop body should be tappable.
+    // On mobile the synthetic click is suppressed by Leaflet's touch handling;
     // touchstart fires reliably, and preventDefault blocks the subsequent
     // synthetic click. click handles pointer (non-touch) devices.
     m.on('popupopen', (e: L.PopupEvent) => {
       const el = e.popup.getElement();
+      const card = el ? el.querySelector('.rpop') : null;
       const cta = el ? el.querySelector('a.rpop-cta') : null;
-      if (!(cta instanceof HTMLAnchorElement)) return;
-      const onCta = (ev: Event) => {
+      if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
+      const onTap = (ev: Event) => {
         const href = cta.getAttribute('href');
         if (!href) return;
         ev.preventDefault();
         ev.stopPropagation();
         cb.current.onOpenEvent?.(href);
       };
-      cta.addEventListener('touchstart', onCta);
-      cta.addEventListener('click', onCta);
+      card.addEventListener('touchstart', onTap);
+      card.addEventListener('click', onTap);
       m.once('popupclose', () => {
-        cta.removeEventListener('touchstart', onCta);
-        cta.removeEventListener('click', onCta);
+        card.removeEventListener('touchstart', onTap);
+        card.removeEventListener('click', onTap);
       });
     });
 

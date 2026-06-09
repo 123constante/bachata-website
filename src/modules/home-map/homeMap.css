@@ -130,6 +130,7 @@
   width: 26px; height: 26px; top: 8px; right: 8px; color: #fff; font-weight: 700; font-size: 16px; line-height: 26px;
   background: rgba(8,6,9,.5); border-radius: 50%; backdrop-filter: blur(4px); }
 .home-map .leaflet-popup.rmap-pop a.leaflet-popup-close-button:hover { color: #fff; background: rgba(8,6,9,.7); }
+.home-map .rpop { cursor: pointer; }
 .home-map .rpop-cv { position: relative; height: 106px; }
 .home-map .rpop-body { padding: 12px 13px 14px; }
 .home-map .rpop-cancel { display:inline-block; margin-bottom:8px; padding:3px 8px; border-radius:6px;
