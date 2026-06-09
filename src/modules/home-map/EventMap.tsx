@@ -175,10 +175,10 @@ export default function EventMap({
     };
     onReady?.(api);
 
-    // The popup "View event" CTA is a raw <a> in Leaflet-injected HTML; Leaflet
-    // cancels its default navigation on touch, so on mobile the link is a dead
-    // tap. Intercept the click and route client-side instead (the click event
-    // still fires; only the default navigation is swallowed).
+    // The popup "View event" CTA is a raw <a> in Leaflet-injected HTML. On
+    // mobile the synthetic click is suppressed by Leaflet's touch handling;
+    // touchstart fires reliably, and preventDefault blocks the subsequent
+    // synthetic click. click handles pointer (non-touch) devices.
     m.on('popupopen', (e: L.PopupEvent) => {
       const el = e.popup.getElement();
       const cta = el ? el.querySelector('a.rpop-cta') : null;
@@ -190,8 +190,12 @@ export default function EventMap({
         ev.stopPropagation();
         cb.current.onOpenEvent?.(href);
       };
+      cta.addEventListener('touchstart', onCta);
       cta.addEventListener('click', onCta);
-      m.once('popupclose', () => cta.removeEventListener('click', onCta));
+      m.once('popupclose', () => {
+        cta.removeEventListener('touchstart', onCta);
+        cta.removeEventListener('click', onCta);
+      });
     });
 
     const t1 = window.setTimeout(() => m.invalidateSize(), 60);
