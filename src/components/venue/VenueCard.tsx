@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import type { PublicVenueListItem } from '@/services/venuePublicService';
+import { resolveTransportMode } from '@/lib/transportMode';
 import './VenueCard.css';
 import { parseUtcIso, londonDateKey, londonDaysFromToday, getComingWeekendKeys } from '@/lib/londonDate';
 
@@ -84,8 +85,14 @@ const getThisWeekendDays = (nextEventIso: string | null): { fri: boolean; sat: b
 export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFilterActive = false }: { venue: PublicVenueListItem; isWeekendFilterActive?: boolean; isWoodFloorFilterActive?: boolean }) => {
   const amenities = buildAmenities(venue);
   const nextEvent = formatNextEvent(venue.next_event_iso);
+  // Append " Station" only for rail-type modes (metro/train); an airport/port/
+  // taxi pickup shouldn't read "… Station". Legacy rows (null mode) → metro.
+  const transportMeta = resolveTransportMode(venue.nearest_station_mode);
+  const isRailMode = transportMeta.mode === 'metro' || transportMeta.mode === 'train';
   const stationName = venue.nearest_station
-    ? venue.nearest_station.replace(/\s+station$/i, '') + ' Station'
+    ? isRailMode
+      ? venue.nearest_station.replace(/\s+station$/i, '') + ' Station'
+      : venue.nearest_station
     : null;
   const weekendDays = getThisWeekendDays(venue.next_event_iso);
 
@@ -170,7 +177,7 @@ export const VenueCard = ({ venue, isWeekendFilterActive = false, isWoodFloorFil
               <span aria-hidden="true" className="mr-1.5">📍</span>
               <span>{stationName}</span>
               {venue.nearest_station_minutes != null && (
-                <span style={{ color: TEXT_MUTED }}> · {venue.nearest_station_minutes} min walk</span>
+                <span style={{ color: TEXT_MUTED }}> · {venue.nearest_station_minutes} min {transportMeta.isWalk ? 'walk' : 'away'}</span>
               )}
             </div>
           )}

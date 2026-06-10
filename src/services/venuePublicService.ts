@@ -73,6 +73,9 @@ export interface PublicVenueListItem {
   next_event_name: string | null;
   nearest_station: string | null;
   nearest_station_minutes: number | null;
+  /** Transport mode of the nearest stop (metro/airport/taxi/…); null on legacy
+   *  rows → treated as metro. Drives the card's icon/wording. */
+  nearest_station_mode: string | null;
   day_pattern: string[];
   address: string | null;
   postcode: string | null;
