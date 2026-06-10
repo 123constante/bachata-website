@@ -231,7 +231,7 @@ const Venues = () => {
       <main>
         {isLoading ? (
           <div className="max-w-6xl mx-auto px-4 pt-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-4 xl:grid-cols-5 gap-3">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} style={{ backgroundColor: '#f4e9d2', borderColor: '#c9a86a' }} className="rounded-2xl border overflow-hidden">
                   <Skeleton className="aspect-[4/3] w-full" />
@@ -265,7 +265,7 @@ const Venues = () => {
           </div>
         ) : (
           <div className="max-w-6xl mx-auto px-4 pt-6">
-            <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <StaggerContainer className="grid grid-cols-4 xl:grid-cols-5 gap-3">
               {filteredVenues.map((venue) => (
                 <StaggerItem key={venue.id}>
                   <VenueCard
