@@ -49,6 +49,11 @@ whatson-shipped.md
 # To commit an intentional one: git add -f <file>
 /*.png
 /*-mockups.html
+/*-designs.html
+/*-options.html
+/*-styles.html
+/organiser-profile-*.html
+/tmp_*.html
 
 # Playwright test output (regenerated each run)
 /test-results/
