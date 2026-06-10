@@ -1,4 +1,4 @@
-import { MapPin } from 'lucide-react';
+import { resolveTransportMode } from '@/lib/transportMode';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPageModel } from '@/modules/event-page/types';
@@ -30,6 +30,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
   const walkMinutes = nearest?.walking_distance_minutes;
   const hasWalkingLine =
     Boolean(nearest?.station) && typeof walkMinutes === 'number' && Number.isFinite(walkMinutes);
+  const transportMeta = resolveTransportMode(nearest?.mode, nearest?.line_names);
 
   const showCity = showCityLine && Boolean(location.cityName);
 
@@ -92,9 +93,9 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
               color: 'hsl(var(--bento-fg))',
             }}
           >
-            <MapPin className="h-[14px] w-[14px] shrink-0" />
+            <transportMeta.Icon className="h-[14px] w-[14px] shrink-0" />
             <span className="leading-[1.2]">
-              {walkMinutes} min walk from {nearest?.station}
+              {walkMinutes} min {transportMeta.isWalk ? 'walk from' : 'from'} {nearest?.station}
             </span>
           </div>
         )}

@@ -23,6 +23,8 @@ import { EventStickyActionBar } from "@/modules/event-page/bento/EventStickyActi
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
 
+import { resolveTransportMode } from "@/lib/transportMode";
+
 import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover";
 
 import { FestivalRaffleSection } from "@/modules/event-page/sections/FestivalRaffleSection";
@@ -2709,7 +2711,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                           <span className="n">{venueStation.walkingMinutes}</span>
 
-                          <span className="l">min walk to {venueStation.station}</span>
+                          <span className="l">min {resolveTransportMode(venueStation.mode).isWalk ? 'walk to' : 'from'} {venueStation.station}</span>
 
                         </div>
 

@@ -139,6 +139,7 @@ export type EventPageSnapshot = {
           station: string;
           line_names: string[];
           walking_distance_minutes: number;
+          mode?: string | null;
         }>;
       } | null;
       description: string | null;
@@ -225,6 +226,7 @@ export type EventPageModel = {
         station: string;
         line_names: string[];
         walking_distance_minutes: number;
+        mode?: string | null;
       }>;
     } | null;
     venueDescription: string | null;
@@ -430,7 +432,7 @@ export type FestivalDetail = {
       capacity: number | null;
       floorType: string | null;
       facilities: string[];
-      nearestStation: { station: string; walkingMinutes: number | null; lines: string[] } | null;
+      nearestStation: { station: string; walkingMinutes: number | null; lines: string[]; mode?: string | null } | null;
     } | null;
   };
 

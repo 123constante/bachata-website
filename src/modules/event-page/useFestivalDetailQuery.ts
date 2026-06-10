@@ -268,6 +268,7 @@ const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
                 station: asString(s.station) ?? '',
                 walkingMinutes: asNumber(s.walking_distance_minutes),
                 lines: asStringList(s.line_names),
+                mode: asString(s.mode),
               }))
               .filter((s) => s.station)
               .sort((a, b) => (a.walkingMinutes ?? 999) - (b.walkingMinutes ?? 999));

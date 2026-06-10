@@ -54,6 +54,7 @@ type TransportJson = {
         station?: string | null;
         line_names?: string[] | null;
         walking_distance_minutes?: number | null;
+        mode?: string | null;
       }[]
     | null;
 };
@@ -158,6 +159,7 @@ function extractNearestStation(venue: PublicVenue): {
   station: string | null;
   lines: string[];
   walkMinutes: number | null;
+  mode: string | null;
 } {
   const tj =
     venue.transport_json &&
@@ -177,6 +179,7 @@ function extractNearestStation(venue: PublicVenue): {
       typeof station?.walking_distance_minutes === 'number'
         ? station.walking_distance_minutes
         : null,
+    mode: station?.mode ?? null,
   };
 }
 
@@ -563,6 +566,7 @@ const VenueEntity = () => {
               nearestStation={transport.station}
               nearestLines={transport.lines}
               walkMinutes={transport.walkMinutes}
+              mode={transport.mode}
               googleMapsHref={venue.google_maps_href}
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
