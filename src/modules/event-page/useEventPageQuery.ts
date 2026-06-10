@@ -264,7 +264,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
             ? {
                 notes: asString(tj.notes) ?? undefined,
                 nearest_stations: asArray(tj.nearest_stations).reduce<
-                  Array<{ station: string; line_names: string[]; walking_distance_minutes: number }>
+                  Array<{ station: string; line_names: string[]; walking_distance_minutes: number; mode: string | null }>
                 >((acc, item) => {
                   const s = asObject(item);
                   if (!s) return acc;
@@ -274,6 +274,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
                       .map((l) => asString(l))
                       .filter((l): l is string => l !== null),
                     walking_distance_minutes: asNumber(s.walking_distance_minutes) ?? 0,
+                    mode: asString(s.mode),
                   });
                   return acc;
                 }, []),

@@ -1,11 +1,14 @@
 import { Copy as CopyIcon, Footprints as WalkIcon, Navigation as NavIcon } from 'lucide-react';
 import { TubeLineChip } from './TubeLineChip';
+import { resolveTransportMode } from '@/lib/transportMode';
 
 interface VenueDirectionsCardProps {
   addressLine: string | null;
   nearestStation: string | null;
   nearestLines: string[];
   walkMinutes: number | null;
+  /** How you arrive (metro/airport/taxi/…); absent → metro (TfL roundel kept). */
+  mode?: string | null;
   googleMapsHref?: string | null;
   onDirections: () => void;
   onCopy: () => void;
@@ -25,10 +28,14 @@ export default function VenueDirectionsCard({
   nearestStation,
   nearestLines,
   walkMinutes,
+  mode,
   googleMapsHref,
   onDirections,
   onCopy,
 }: VenueDirectionsCardProps) {
+  // metro (and the legacy default) keeps the TfL roundel; other modes get a
+  // mode-appropriate icon + label so non-London venues read correctly.
+  const meta = resolveTransportMode(mode, nearestLines);
   return (
     <div
       className="overflow-hidden rounded-[18px] border"
@@ -107,13 +114,21 @@ export default function VenueDirectionsCard({
               borderColor: 'var(--va-line)',
             }}
           >
-            <Roundel size={34} />
+            {meta.mode === 'metro' ? (
+              <Roundel size={34} />
+            ) : (
+              <meta.Icon
+                className="h-[30px] w-[30px] flex-shrink-0"
+                style={{ color: 'var(--va-accent)' }}
+                aria-label={meta.label}
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div
                 className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.1em]"
                 style={{ color: 'var(--va-text3)' }}
               >
-                Nearest station
+                {meta.label}
               </div>
               <div
                 className="text-[15.5px] font-bold leading-tight"
@@ -137,10 +152,11 @@ export default function VenueDirectionsCard({
                   borderColor: 'var(--va-accent-line)',
                 }}
               >
-                <WalkIcon
-                  className="h-5 w-5"
-                  style={{ color: 'var(--va-accent)' }}
-                />
+                {meta.isWalk ? (
+                  <WalkIcon className="h-5 w-5" style={{ color: 'var(--va-accent)' }} />
+                ) : (
+                  <meta.Icon className="h-5 w-5" style={{ color: 'var(--va-accent)' }} />
+                )}
                 <span
                   className="text-[26px] font-extrabold leading-none"
                   style={{
@@ -154,7 +170,7 @@ export default function VenueDirectionsCard({
                   className="text-center text-[8.5px] font-bold uppercase leading-tight tracking-[0.1em]"
                   style={{ color: 'var(--va-text2)' }}
                 >
-                  min to venue
+                  {meta.isWalk ? 'min to venue' : 'min away'}
                 </span>
               </div>
             ) : null}

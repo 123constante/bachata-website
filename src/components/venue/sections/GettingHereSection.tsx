@@ -2,11 +2,13 @@ import { Train, Footprints } from 'lucide-react';
 import { VenueSectionTile } from '../VenueSectionTile';
 import { TubeLineChip } from '../TubeLineChip';
 import { splitLineNames } from '@/lib/tubeLineColour';
+import { resolveTransportMode } from '@/lib/transportMode';
 
 type Station = {
   station?: string | null;
   line_names?: string[] | null;
   walking_distance_minutes?: number | null;
+  mode?: string | null;
 };
 
 type Props = {
@@ -43,6 +45,7 @@ export const GettingHereSection = ({ stations, notes }: Props) => {
   if (list.length === 0 && !notes) return null;
 
   const [closest, ...others] = list;
+  const ClosestIcon = resolveTransportMode(closest?.mode, closest?.line_names).Icon;
 
   return (
     <VenueSectionTile eyebrow="GETTING HERE" icon={Train} wide>
@@ -50,7 +53,7 @@ export const GettingHereSection = ({ stations, notes }: Props) => {
         <div className="rounded-lg border border-venue-card-border bg-venue-card-pill p-3 mb-2">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <Train className="w-4 h-4 text-venue-ember flex-shrink-0" aria-hidden="true" />
+              <ClosestIcon className="w-4 h-4 text-venue-ember flex-shrink-0" aria-hidden="true" />
               <span className="text-base font-semibold text-venue-card-fg truncate">
                 {closest.station ?? 'Nearest station'}
               </span>
@@ -79,13 +82,15 @@ export const GettingHereSection = ({ stations, notes }: Props) => {
             Other nearby stations
           </p>
           <div className="flex flex-col gap-1 mb-2">
-            {others.map((s, i) => (
+            {others.map((s, i) => {
+              const OtherIcon = resolveTransportMode(s.mode, s.line_names).Icon;
+              return (
               <div
                 key={i}
                 className="flex items-center justify-between gap-1.5 rounded-md bg-venue-card-pill px-2 py-1"
               >
                 <span className="flex items-center gap-1 min-w-0">
-                  <Train className="w-3 h-3 text-venue-card-mut flex-shrink-0" aria-hidden="true" />
+                  <OtherIcon className="w-3 h-3 text-venue-card-mut flex-shrink-0" aria-hidden="true" />
                   <span className="text-xs font-semibold text-venue-card-fg truncate">
                     {s.station ?? 'Station'}
                   </span>
@@ -102,7 +107,8 @@ export const GettingHereSection = ({ stations, notes }: Props) => {
                   )}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
