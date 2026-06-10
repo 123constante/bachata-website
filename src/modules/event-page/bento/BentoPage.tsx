@@ -15,6 +15,8 @@ import {
 } from '@/modules/event-page/bento/BentoGrid';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { CoverBlock } from '@/modules/event-page/bento/blocks/CoverBlock';
+import { VideoBlock } from '@/modules/event-page/bento/blocks/VideoBlock';
+import { pickPlayableVideo } from '@/lib/parseVenueVideoUrl';
 import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
@@ -127,6 +129,13 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     };
   }, [eventId, pageModel, occurrence]);
 
+  // The first playable video URL (YouTube/Vimeo/direct upload) on the series, or
+  // null. Drives both the dedicated video tile and its hide-logic.
+  const eventVideo = useMemo(
+    () => pickPlayableVideo(pageModel.videoUrls),
+    [pageModel.videoUrls],
+  );
+
   // Compute which blocks are hidden. Driven by content: a block is hidden iff
   // it has nothing meaningful to show. The BentoGrid packer skips these so no
   // empty grid cells are left behind.
@@ -180,8 +189,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       pageModel.identity.eventType === 'class' || pageModel.identity.eventType === 'course';
     if (!snapshot || snapshot.occurrences.length <= 1 || !isMultiDateType) hidden.add('dates');
 
+    // Video tile hides when there's no playable video URL on the series.
+    if (!eventVideo) hidden.add('video');
+
     return hidden;
-  }, [isLoading, past, pageModel, guestList, raffleConfig, snapshot]);
+  }, [isLoading, past, pageModel, guestList, raffleConfig, snapshot, eventVideo]);
 
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
@@ -241,7 +253,6 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <CoverBlock
             imageUrl={coverImageUrl}
             galleryUrls={pageModel.galleryUrls}
-            videoUrls={pageModel.videoUrls}
             title={pageModel.identity.title}
             dateLabel={pageModel.schedule.shortDateLabel}
             venueName={pageModel.location.venueName}
@@ -326,6 +337,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         );
       case 'raffle':
         return <RaffleBlock eventId={eventId} />;
+      case 'video':
+        return eventVideo ? (
+          <VideoBlock video={eventVideo} poster={coverImageUrl} title={pageModel.identity.title} />
+        ) : null;
       default:
         return <BentoTile title={BLOCK_TITLES[id]} color={BLOCK_COLORS[id]} />;
     }

@@ -226,6 +226,7 @@ const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
       dressCode: asString(identity.dress_code),
       livestreamUrl: asString(identity.livestream_url),
       aftermovieUrl: asString(identity.aftermovie_url),
+      videoUrls: asStringList(identity.video_urls),
       posterUrl: asString(identity.poster_url),
       galleryUrls: asStringList(identity.gallery_urls),
       musicStyles: asStringList(identity.music_styles),

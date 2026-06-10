@@ -399,6 +399,7 @@ export type FestivalDetail = {
     dressCode: string | null;
     livestreamUrl: string | null;
     aftermovieUrl: string | null;
+    videoUrls: string[];
     posterUrl: string | null;
     galleryUrls: string[];
     musicStyles: string[];
