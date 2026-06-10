@@ -127,8 +127,7 @@ const CHIPS: {
 ];
 
 /** Category filter chips (All / Parties / Classes / Festivals). The active chip
- *  fills with its own category colour; Classes keeps a persistent cyan glow so
- *  it draws the eye even when another filter is active. */
+ *  fills with its own category colour. */
 export function CategoryChips({
   filter,
   setFilter,
@@ -142,11 +141,7 @@ export function CategoryChips({
     <div className={cn('flex flex-wrap gap-2', className)}>
       {CHIPS.map((c) => {
         const on = filter === c.id;
-        const isClasses = c.id === 'classes';
         const style: CSSProperties = {};
-        if (isClasses) {
-          style.boxShadow = `0 0 8px 1px ${CATEGORY_COLORS.class}66, 0 0 16px 3px ${CATEGORY_COLORS.class}33`;
-        }
         if (on) {
           style.background = c.activeBg;
           style.color = c.activeFg;
@@ -161,11 +156,7 @@ export function CategoryChips({
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold transition-all duration-200',
               focusRing,
-              on
-                ? 'border-transparent'
-                : isClasses
-                  ? 'border-[#46B7C9] text-[#46B7C9]'
-                  : 'border-border text-muted-foreground hover:text-foreground',
+              on ? 'border-transparent' : 'border-border text-muted-foreground hover:text-foreground',
             )}
             style={Object.keys(style).length ? style : undefined}
           >
