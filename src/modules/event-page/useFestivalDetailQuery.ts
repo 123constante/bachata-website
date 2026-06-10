@@ -248,6 +248,11 @@ const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
       // matching guard on the standard-event path.
       ticketUrl: safeExternalHref(links.ticket_url) ?? null,
       whatsappLink: asString(links.whatsapp_link),
+      // Canonical group-chat key with a fallback to the legacy whatsapp_link
+      // (currently the storage key admins write). safeExternalHref guards against
+      // malformed values so no broken "Join the group chat" button renders.
+      groupChatUrl:
+        safeExternalHref(links.group_chat_url) ?? safeExternalHref(links.whatsapp_link) ?? null,
       volunteerUrl: asString(links.volunteer_url),
       codeOfConductUrl: asString(links.code_of_conduct_url),
     },

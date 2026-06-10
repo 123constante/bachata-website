@@ -30,6 +30,8 @@ import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover
 import { FestivalRaffleSection } from "@/modules/event-page/sections/FestivalRaffleSection";
 import { FestivalPromoBanner } from "@/modules/event-page/sections/FestivalPromoBanner";
 
+import { FestivalGroupChatSection } from "@/modules/event-page/sections/FestivalGroupChatSection";
+
 import type { EventPageSnapshot } from "@/modules/event-page/types";
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
@@ -2364,7 +2366,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
           </div>
         )}
 
-        <FestivalPromoBanner codes={festivalDetail.promoCodes} />
+        <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />
 
         {/* Inline hero countdown (P5) */}
         {(countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
@@ -2824,6 +2826,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
       </section>
 
 
+
+      {/* Community — "Join the group chat" band (renders only when a link is set) */}
+      <FestivalGroupChatSection url={festivalDetail?.links.groupChatUrl ?? null} />
 
       {/* FAQ -- renders only when events.faq is populated (P10) */}
 

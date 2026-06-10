@@ -418,6 +418,10 @@ export type FestivalDetail = {
     instagramUrl: string | null;
     ticketUrl: string | null;
     whatsappLink: string | null;
+    /** The festival's community group-chat invite (WhatsApp / Telegram /
+     *  Discord / …). Source: meta_data.group_chat_url, falling back to the
+     *  legacy whatsapp_link key. Rendered as the "Join the group chat" band. */
+    groupChatUrl: string | null;
     volunteerUrl: string | null;
     codeOfConductUrl: string | null;
   };
