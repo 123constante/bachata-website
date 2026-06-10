@@ -110,8 +110,8 @@ export const AnimatedRoutes = () => {
         <Suspense fallback={<RouteFallback />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<CityRedirect />} />
-            <Route path="/city/:slug" element={<PageTransition><Index /></PageTransition>} />
-            <Route path="/city/:slug/calendar" element={<PageTransition><Index /></PageTransition>} />
+            <Route path="/city/:slug" element={<Index />} />
+            <Route path="/city/:slug/calendar" element={<Index />} />
             <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
             <Route path="/city/:slug/parties" element={<PageTransition><Parties /></PageTransition>} />
             <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />

@@ -1,4 +1,5 @@
 import { supabase } from './client';
+import type { MapEvent } from '@/modules/home-map/mapTypes';
 
 // ============================================================================
 // Types for RPC 1: get_calendar_events
@@ -418,4 +419,42 @@ export async function getLatestEvents(
   }
 
   return (data as unknown as LatestEventRow[]) ?? [];
+}
+
+// ============================================================================
+// RPC 5: get_map_events_v1 (Festival Map homepage -- coords + freshness)
+// ============================================================================
+
+export interface GetMapEventsParams {
+  city_slug_param: string; // city slug, e.g. 'london-gb'
+  range_start: string; // 'YYYY-MM-DD' date-only text (RPC accepts '' -> now())
+  range_end: string; // 'YYYY-MM-DD'
+}
+
+/**
+ * RPC 5: One row per occurrence-day for the Festival Map homepage -- venue
+ * coords, cover, times, category flags and added/updated freshness. Thin
+ * wrapper over get_calendar_events_v2 (admin migration 20260810000000).
+ *
+ * Cast through `as never` because the generated types file does not yet include
+ * this RPC (same pattern as get_latest_events_v2 above); MapEvent (from the
+ * home-map module) is the source of truth until types are regenerated. PGRST202
+ * (function not deployed yet) degrades to [] so the homepage never errors.
+ */
+export async function getMapEvents(
+  params: GetMapEventsParams,
+): Promise<MapEvent[]> {
+  const { data, error } = await supabase.rpc('get_map_events_v1' as never, {
+    city_slug_param: params.city_slug_param,
+    range_start: params.range_start,
+    range_end: params.range_end,
+  } as never);
+
+  if (error) {
+    if ((error as { code?: string }).code === 'PGRST202') return [];
+    console.error('getMapEvents RPC error:', error);
+    throw error;
+  }
+
+  return (data as unknown as MapEvent[]) ?? [];
 }

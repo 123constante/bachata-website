@@ -1,0 +1,152 @@
+/* Festival Map -- Leaflet-injected DOM (pins, cluster, popup, cover scenes).
+   Scoped under .home-map so it can't bleed into the rest of the app. The
+   React-rendered list/card UI uses Tailwind; only the DOM Leaflet injects as
+   HTML strings (markers, popups, clusters) lives here. Ported from the design
+   handoff (poster-realmap.css / desktop-realmap.css / bc-base.css) with the
+   handoff theme vars bridged onto the site's tokens (--hm-*). */
+
+.home-map {
+  --hm-accent: hsl(var(--primary));
+  --hm-pop-bg: hsl(var(--card));
+  --hm-pop-tx: hsl(var(--card-foreground));
+  --hm-pop-bd: hsl(var(--border));
+  --hm-pop-meta: hsl(var(--muted-foreground));
+  --hm-cat-social: #5FBF7F;
+  --hm-poster: "Big Shoulders Display", "Archivo Black", system-ui, sans-serif;
+}
+
+/* map canvas fills its (relative, sized) parent */
+.home-map__canvas { position: absolute; inset: 0; }
+.home-map .leaflet-container { background: #11121a; font-family: inherit; }
+.home-map .leaflet-control-attribution {
+  background: rgba(12,10,16,.55); color: #b9b1c2;
+  font-size: 9px; line-height: 1.4; font-weight: 500;
+  padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
+}
+.home-map .leaflet-control-attribution a { color: #d8d2e2; }
+
+/* ---- cover scenes (moody gradient placeholders + real flyer support) ---- */
+.home-map .cv { position: relative; overflow: hidden; background: #0c0d10; isolation: isolate; }
+.home-map .cv > .cv-fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.home-map .cv .grain {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  opacity: .13; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.home-map .sc-rose::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(115% 75% at 62% 8%, rgba(240,106,126,.62), transparent 58%),
+  radial-gradient(80% 60% at 18% 32%, rgba(242,136,75,.34), transparent 60%),
+  radial-gradient(60% 50% at 85% 70%, rgba(181,58,107,.45), transparent 65%),
+  linear-gradient(170deg,#3a1320 0%,#1d0a12 52%,#0a0609 100%); }
+.home-map .sc-plum::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(110% 80% at 30% 10%, rgba(181,58,107,.55), transparent 60%),
+  radial-gradient(70% 60% at 82% 28%, rgba(124,58,160,.4), transparent 62%),
+  linear-gradient(165deg,#2a1230 0%,#160a1c 55%,#08060c 100%); }
+.home-map .sc-amber::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(120% 80% at 50% 4%, rgba(232,180,80,.6), transparent 55%),
+  radial-gradient(75% 60% at 80% 40%, rgba(226,65,92,.4), transparent 60%),
+  linear-gradient(170deg,#3c2010 0%,#20100a 55%,#0a0706 100%); }
+.home-map .sc-night::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(90% 60% at 22% 14%, rgba(226,65,92,.5), transparent 58%),
+  radial-gradient(85% 70% at 88% 84%, rgba(58,120,200,.34), transparent 60%),
+  linear-gradient(160deg,#1a0e18 0%,#0c0810 60%,#060509 100%); }
+.home-map .sc-crowd::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(60% 45% at 50% 6%, rgba(242,136,75,.5), transparent 60%),
+  radial-gradient(40% 30% at 20% 20%, rgba(240,106,126,.4), transparent 70%),
+  radial-gradient(35% 26% at 78% 30%, rgba(232,180,80,.34), transparent 70%),
+  linear-gradient(180deg,#2a1422 0%,#150a14 50%,#090509 100%); }
+.home-map .sc-teal::before { content:""; position:absolute; inset:0; z-index:1; background:
+  radial-gradient(100% 70% at 30% 10%, rgba(70,183,201,.5), transparent 60%),
+  radial-gradient(80% 60% at 84% 40%, rgba(95,191,127,.34), transparent 62%),
+  linear-gradient(165deg,#0f2a30 0%,#0a1a1e 55%,#060c0e 100%); }
+.home-map .sc-stage::before { content:""; position:absolute; inset:0; z-index:1; background:
+  conic-gradient(from 220deg at 50% -10%, rgba(242,136,75,0), rgba(240,106,126,.4) 30%, rgba(232,180,80,.32) 50%, rgba(181,58,107,.4) 70%, transparent 100%),
+  linear-gradient(180deg,#2a1320 0%,#140a12 55%,#080509 100%); }
+.home-map .sc-crowd::after, .home-map .sc-stage::after {
+  content:""; position:absolute; inset:0; z-index:2; pointer-events:none; opacity:.5;
+  background-image:
+    radial-gradient(circle, rgba(255,210,150,.8) 0 1.5px, transparent 2px),
+    radial-gradient(circle, rgba(255,170,180,.6) 0 1px, transparent 2px);
+  background-size: 46px 60px, 78px 90px; background-position: 8px 30px, 40px 60px;
+  -webkit-mask-image: linear-gradient(180deg,#000 0%,transparent 70%);
+          mask-image: linear-gradient(180deg,#000 0%,transparent 70%);
+}
+
+/* ---- poster-image pin marker ---- */
+.home-map .rpinwrap { background: none !important; border: none !important; }
+.home-map .rpin { width: 46px; height: 46px; position: relative; }
+.home-map .rpin .pcv { display: block; width: 46px; height: 46px; border-radius: 13px; overflow: hidden;
+  border: 3px solid var(--pc,#E2415C); box-shadow: 0 8px 18px -6px rgba(0,0,0,.78); position: relative; }
+.home-map .rpin::after { content: ""; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%) rotate(45deg);
+  width: 12px; height: 12px; background: var(--pc,#E2415C); border-radius: 2px; }
+.home-map .rpin-mono { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center;
+  font-family: var(--hm-poster); font-weight: 900; font-size: 17px; line-height: 1; letter-spacing: .02em;
+  color: rgba(255,255,255,.95); text-shadow: 0 1px 7px rgba(0,0,0,.5); }
+.home-map .leaflet-marker-icon:hover .rpin .pcv { outline: 3px solid rgba(255,255,255,.4); outline-offset: 1px; }
+.home-map .rpinwrap .rpin .pcv { transition: transform .16s; }
+.home-map .rpinwrap.hot { z-index: 650 !important; }
+.home-map .rpinwrap.hot .rpin .pcv { outline: 3px solid #fff; outline-offset: 1px; transform: scale(1.14); }
+.home-map .rpinwrap.sel .rpin .pcv { outline: 3px solid var(--hm-accent); outline-offset: 2px; transform: scale(1.12); }
+.home-map .rpinwrap.glow .rpin::before { content: ""; position: absolute; inset: -7px; border-radius: 16px; z-index: -1;
+  border: 2px solid var(--hm-cat-social); animation: hm-pinpulse 1.9s ease-out infinite; }
+@keyframes hm-pinpulse { 0% { transform: scale(.66); opacity: .7; } 70% { transform: scale(1.3); opacity: 0; } 100% { opacity: 0; } }
+
+/* ---- cluster count bubble ---- */
+.home-map .rcl { background: none !important; border: none !important; }
+.home-map .rclbubble { width: 46px; height: 46px; position: relative; }
+.home-map .rclbubble::before { content: ""; position: absolute; inset: -7px; border-radius: 50%;
+  background: rgba(226,65,92,.30); animation: hm-clpulse 2.6s ease-out infinite; }
+.home-map .rclbubble .rcn { position: relative; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+  background: #E2415C; color: #fff; font-weight: 800; font-size: 16px; line-height: 1;
+  border: 2.5px solid rgba(255,255,255,.92); box-shadow: 0 8px 20px -6px rgba(0,0,0,.7); }
+@keyframes hm-clpulse { 0%{ transform: scale(.62); opacity: .6 } 70%{ transform: scale(1.32); opacity: 0 } 100%{ opacity: 0 } }
+
+/* ---- keyboard focus rings (a11y): pins + cluster bubbles are tabbable
+   (L.marker keyboard:true); make the focus visible. Pointer focus stays clean. */
+.home-map .leaflet-marker-icon:focus-visible {
+  outline: 3px solid var(--hm-accent); outline-offset: 3px; border-radius: 16px;
+}
+.home-map .leaflet-marker-icon:focus:not(:focus-visible) { outline: none; }
+.home-map .leaflet-popup.rmap-pop a.rpop-cta:focus-visible {
+  outline: 2px solid var(--hm-accent); outline-offset: 3px; border-radius: 6px;
+}
+
+/* ---- News freshness "heat" stamp dot (cards.tsx FreshnessClock) ---- */
+.home-map .hm-heatdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.home-map .hm-heatdot.is-live { animation: hm-heatpulse 2.1s ease-out infinite; }
+@keyframes hm-heatpulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--hm-heat, rgba(95,191,127,.6)); }
+  55%      { box-shadow: 0 0 0 5px rgba(0,0,0,0); }
+}
+
+/* ---- popup card (styled Leaflet popup) ---- */
+.home-map .leaflet-popup.rmap-pop { opacity: 1 !important; }
+.home-map .leaflet-popup.rmap-pop .leaflet-popup-content-wrapper {
+  background: var(--hm-pop-bg); color: var(--hm-pop-tx); border: 1px solid var(--hm-pop-bd);
+  border-radius: 16px; box-shadow: 0 18px 44px -16px rgba(0,0,0,.7); padding: 0; overflow: hidden; }
+.home-map .leaflet-popup.rmap-pop .leaflet-popup-content { margin: 0; width: 222px !important; }
+.home-map .leaflet-popup.rmap-pop .leaflet-popup-tip { background: var(--hm-pop-bg); border: 1px solid var(--hm-pop-bd); box-shadow: none; }
+.home-map .leaflet-popup.rmap-pop a.leaflet-popup-close-button {
+  width: 26px; height: 26px; top: 8px; right: 8px; color: #fff; font-weight: 700; font-size: 16px; line-height: 26px;
+  background: rgba(8,6,9,.5); border-radius: 50%; backdrop-filter: blur(4px); }
+.home-map .leaflet-popup.rmap-pop a.leaflet-popup-close-button:hover { color: #fff; background: rgba(8,6,9,.7); }
+.home-map .rpop { cursor: pointer; }
+.home-map .rpop-cv { position: relative; height: 106px; }
+.home-map .rpop-body { padding: 12px 13px 14px; }
+.home-map .rpop-cancel { display:inline-block; margin-bottom:8px; padding:3px 8px; border-radius:6px;
+  font-weight:700; font-size:10px; line-height:1; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:#E2415C; }
+.home-map .rpop-t { font-weight: 800; font-size: 17px; line-height: 1.05; letter-spacing: -.01em; margin-bottom: 9px; }
+.home-map .rpop-lines { display: flex; flex-direction: column; gap: 5px; margin: 0 0 10px; }
+.home-map .rpop-line { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 12px; line-height: 1; }
+.home-map .rpop-line .rpop-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.home-map .rpop-line b { font-weight: 700; }
+.home-map .rpop-line span:last-child { color: var(--hm-pop-meta); }
+.home-map .rpop-venue { display: flex; align-items: center; gap: 7px; font-weight: 500; font-size: 12px; line-height: 1; color: var(--hm-pop-meta); }
+.home-map .rpop-cta { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; line-height: 1; color: var(--hm-accent); text-decoration: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-map .hm-heatdot.is-live { animation: none; }
+  .home-map .rclbubble::before { animation: none; opacity: .35; }
+  .home-map .rpinwrap.glow .rpin::before { animation: none; opacity: .4; }
+  .home-map .rpinwrap .rpin .pcv { transition: none; }
+}

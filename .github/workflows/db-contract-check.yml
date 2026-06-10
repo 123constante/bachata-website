@@ -420,3 +420,19 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-orphan-series.mjs
+
+      # 30. Festival Map RPC contract (2026-06-07). Anon-calls
+      #     get_map_events_v1(london-gb, now, now+90d) and asserts the full
+      #     MapEvent shape the homepage map + cards read (coords, cover, times,
+      #     category flags, added/updated freshness), non-null identity/time
+      #     fields, freshness_kind in {added,updated,null}, naive wall-clock
+      #     start/end times (never tz-shifted) and >=1 row with coords (pins).
+      #     The map silently empties if the RPC drifts or the v2 wrapper breaks.
+      #     RPC: admin migration 20260810000000_get_map_events_v1.sql; consumer:
+      #     src/hooks/useMapEvents.ts.
+      - name: Run Festival Map RPC contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-map-events-rpc.mjs
