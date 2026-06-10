@@ -19,6 +19,7 @@ import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
+import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
 import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
@@ -386,6 +387,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {state === 'ready' && !past && <TapHintSticker />}
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
+
+        {/* Group-chat CTA — hidden on past/cancelled occurrences, matching the
+            ticket pill in the sticky bar (a dead date must not advertise a chat). */}
+        {!past && !occurrence?.isCancelled && (
+          <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
+        )}
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
 

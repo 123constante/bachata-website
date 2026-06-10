@@ -216,7 +216,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
         websiteUrl: asString(actions.website_url),
         facebookUrl: asString(actions.facebook_url),
         instagramUrl: asString(actions.instagram_url),
-        whatsappLink: asString(metaPub.whatsapp_link),
+        whatsappLink: safeExternalHref(asString(metaPub.whatsapp_link)) ?? null,
         tiktokUrl: asString(metaPub.tiktok_url),
         livestreamUrl: asString(metaPub.livestream_url),
         pricing: (actions.pricing as Json | null | undefined) ?? null,

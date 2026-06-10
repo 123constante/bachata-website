@@ -95,6 +95,26 @@ function ogNormalizedImage(rawUrl: string | null | undefined): string {
   return `${SITE_URL.replace(/\/$/, '')}/api/og/card?kind=image&src=${encodeURIComponent(abs)}`;
 }
 
+// og:image MUST share the host the crawler actually fetched. SITE_URL can be
+// the apex domain (bachatacalendar.co.uk) while the page is served from www —
+// apex→www is a 308 redirect, and WhatsApp/Facebook preview crawlers drop the
+// card when og:image redirects. Rewriting same-site image hosts to the request
+// origin enforces the og:url ↔ og:image host invariant regardless of SITE_URL.
+function sameHostImage(imageUrl: string, requestOrigin: string): string {
+  try {
+    const img = new URL(imageUrl);
+    if (/(^|\.)bachatacalendar\.co\.uk$/i.test(img.hostname)) {
+      const ro = new URL(requestOrigin);
+      img.protocol = ro.protocol;
+      img.host = ro.host;
+      return img.toString();
+    }
+  } catch {
+    /* not a parseable URL — leave as-is */
+  }
+  return imageUrl;
+}
+
 function capitalize(s: string | null | undefined): string {
   if (!s) return '';
   const t = String(s).trim().toLowerCase();
@@ -672,6 +692,10 @@ export default async function middleware(request: Request): Promise<Response> {
     }
     return next();
   }
+
+  // Keep og:image on the same host as og:url (= the fetched URL) so the
+  // preview image never 308-redirects (apex→www) and breaks the card.
+  meta.image = sameHostImage(meta.image, url.origin);
 
   return new Response(buildMetaHtml(meta), {
     headers: {
