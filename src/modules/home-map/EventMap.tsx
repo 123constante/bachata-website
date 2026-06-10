@@ -38,6 +38,9 @@ interface EventMapProps {
   onOpenEvent?: (href: string) => void;
   center?: [number, number];
   zoom?: number;
+  /** Fraction of the map height to shift the initial view UP, so pins sit above a
+   *  bottom sheet covering the lower map (mobile; audit #10). 0 = no bias. */
+  centerBiasY?: number;
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
@@ -114,6 +117,7 @@ export default function EventMap({
   onOpenEvent,
   center = LONDON,
   zoom = 12.5,
+  centerBiasY = 0,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -171,7 +175,16 @@ export default function EventMap({
       },
       reset: () => m.flyTo(center, zoom, { duration: 0.6 }),
       zoom: (d) => m.setZoom(m.getZoom() + d),
-      invalidate: () => m.invalidateSize(),
+      invalidate: () => {
+        // Called from ResizeObserver / visualViewport / orientation listeners,
+        // which can fire while the map is mid-init or after teardown -- Leaflet
+        // then throws on an unpositioned pane. A missed re-measure is harmless.
+        try {
+          m.invalidateSize();
+        } catch {
+          /* map not ready / removed */
+        }
+      },
     };
     onReady?.(api);
 
@@ -208,7 +221,11 @@ export default function EventMap({
       });
     });
 
-    const t1 = window.setTimeout(() => m.invalidateSize(), 60);
+    const t1 = window.setTimeout(() => {
+      m.invalidateSize();
+      // Bias the initial view up so pins clear the bottom sheet on mobile (#10).
+      if (centerBiasY) m.panBy([0, Math.round(m.getSize().y * centerBiasY)], { animate: false });
+    }, 60);
     const t2 = window.setTimeout(() => m.invalidateSize(), 400);
     return () => {
       window.clearTimeout(t1);
@@ -294,7 +311,7 @@ export default function EventMap({
       if (el) el.classList.toggle('hot', occ === hovered);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hovered, visKey]);
+  }, [hovered, visKey, eventsKey]);
 
   // ---- selection highlight -------------------------------------------------
   useEffect(() => {
@@ -304,7 +321,7 @@ export default function EventMap({
       if (el) el.classList.toggle('sel', occ === selected);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, visKey]);
+  }, [selected, visKey, eventsKey]);
 
   return <div ref={elRef} className="home-map home-map__canvas" />;
 }

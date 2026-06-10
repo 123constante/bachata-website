@@ -13,7 +13,13 @@ export function SheetAllTab({ state }: { state: UseMapListResult }) {
     <div className="space-y-3">
       <SearchField value={state.q} onChange={state.setQ} />
       {groups.length === 0 ? (
-        <EmptyState>No events match your search.</EmptyState>
+        <EmptyState>
+          {state.q
+            ? 'No events match your search.'
+            : state.filter !== 'all'
+              ? 'No events match this filter.'
+              : 'Nothing on right now.'}
+        </EmptyState>
       ) : (
         groups.map((g) => (
           <section key={g.key}>

@@ -43,7 +43,13 @@ function AllBody({ state }: { state: UseMapListResult }) {
     <div className="space-y-3">
       <SearchField value={state.q} onChange={state.setQ} />
       {groups.length === 0 ? (
-        <EmptyState>No events match your search.</EmptyState>
+        <EmptyState>
+          {state.q
+            ? 'No events match your search.'
+            : state.filter !== 'all'
+              ? 'No events match this filter.'
+              : 'Nothing on right now.'}
+        </EmptyState>
       ) : (
         groups.map((g) => (
           <section key={g.key}>
@@ -210,7 +216,8 @@ export default function DesktopMapHome({
           offsetTop is measured from here (the pin->list scroll contract). */}
       <div
         ref={state.listRef}
-        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto border-l border-border bg-background"
+        tabIndex={0}
+        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto border-l border-border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
       >
         <div className="sticky top-0 z-10 space-y-2 bg-background px-4 py-3">
           <RailHeader cityName={cityName} count={state.stats.thisWeek} />
@@ -233,7 +240,7 @@ export default function DesktopMapHome({
               {state.tab === 'news' && <NewsBody state={state} />}
               {state.tab === 'all' && <AllBody state={state} />}
               {state.tab === 'tonight' && <TonightBody state={state} />}
-              {state.tab === 'cal' && <CalendarPanel state={state} />}
+              {state.tab === 'cal' && <CalendarPanel state={state} seedDefault />}
             </>
           )}
         </div>
