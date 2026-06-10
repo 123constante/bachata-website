@@ -84,6 +84,9 @@ export type EventPageSnapshot = {
     imageUrl: string | null;
     posterUrl: string | null;
     galleryUrls: string[];
+    /** P5 — series-level video URLs (YouTube/Vimeo embeds or R2 direct uploads).
+     *  Rendered as the cover video on the event page. */
+    videoUrls: string[];
     musicStyles: string[];
     paymentMethods: string | null;
     level: EventPageEventLevel;
@@ -280,6 +283,7 @@ export type EventPageModel = {
     isVisible: boolean;
   };
   galleryUrls: string[];
+  videoUrls: string[];
   metaDataPublic: Record<string, unknown>;
 };
 

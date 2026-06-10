@@ -147,6 +147,9 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       galleryUrls: asArray(event.photo_urls)
         .map((s) => asString(s))
         .filter((s): s is string => s !== null),
+      videoUrls: asArray(event.video_urls)
+        .map((s) => asString(s))
+        .filter((s): s is string => s !== null),
       musicStyles: asArray(event.music_styles)
         .map((s) => asString(s))
         .filter((s): s is string => s !== null),

@@ -241,6 +241,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <CoverBlock
             imageUrl={coverImageUrl}
             galleryUrls={pageModel.galleryUrls}
+            videoUrls={pageModel.videoUrls}
             title={pageModel.identity.title}
             dateLabel={pageModel.schedule.shortDateLabel}
             venueName={pageModel.location.venueName}
