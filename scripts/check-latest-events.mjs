@@ -13,7 +13,7 @@
  * Exit policy:
  *   ok                                 -> 0 (pass)
  *   ordering / shape / gate violation  -> 1 (fail)
- *   RPC missing (migration not pushed) -> 0 (warn; admin 20260806000000 not live yet)
+ *   RPC missing                        -> 1 (fail; RPC is live on prod)
  *   transport / unexpected RPC error   -> 2
  *
  * Local:  node scripts/check-latest-events.mjs
@@ -67,11 +67,10 @@ const { data, error } = await sb.rpc('get_latest_events_v2', {
 if (error) {
   const msg = `${error.code || ''} ${error.message || ''}`.trim();
   if (/PGRST202|Could not find the function|schema cache|does not exist/i.test(msg)) {
-    console.warn(
-      `WARN: get_latest_events_v2 not found (${msg}). Admin migration ` +
-        `20260806000000 not pushed yet -- skipping (not a regression).`,
+    console.error(
+      `FAIL: get_latest_events_v2 not found (${msg}) -- RPC is missing, contract broken.`,
     );
-    process.exit(0);
+    process.exit(1);
   }
   console.error('RPC failed:', error.message);
   process.exit(2);

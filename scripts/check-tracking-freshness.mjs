@@ -13,7 +13,7 @@
  * Exit policy:
  *   views fresh (<48h)                 -> 0 (pass)
  *   views stale (no rows in 48h)       -> 1 (fail; tracking likely dead)
- *   RPC missing (migration not pushed) -> 0 (warn; not a regression)
+ *   RPC missing                        -> 1 (fail; RPC is live on prod)
  *   transport / unexpected error       -> 2
  *
  * Local:  node scripts/check-tracking-freshness.mjs
@@ -60,11 +60,10 @@ const { data, error } = await sb.rpc('check_event_tracking_health_v1');
 if (error) {
   const msg = `${error.code || ''} ${error.message || ''}`.trim();
   if (/PGRST202|could not find the function|schema cache|does not exist/i.test(msg)) {
-    console.warn(
-      `WARN: check_event_tracking_health_v1 not found (${msg}). Admin migration ` +
-        `20260715030000 not pushed yet -- skipping (not a regression).`,
+    console.error(
+      `FAIL: check_event_tracking_health_v1 not found (${msg}) -- RPC is missing, contract broken.`,
     );
-    process.exit(0);
+    process.exit(1);
   }
   console.error('RPC failed:', error.message);
   process.exit(2);
