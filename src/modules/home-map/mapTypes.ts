@@ -118,20 +118,31 @@ export function formatTime(iso: string | null): string {
   return `${h12}:${mm}${period}`;
 }
 
-/** '8:00pm – 2:00am' from start/end (en-dash). */
+/** '8:00pm - 2:00am' from start/end (rendered with an en-dash). */
 export function formatTimeRange(e: MapEvent): string {
   const s = formatTime(e.start_time);
   const en = formatTime(e.end_time);
-  if (s && en) return `${s} – ${en}`;
+  if (s && en) return `${s} \u2013 ${en}`;
   return s || en || '';
 }
 
 // ---- freshness / relative time -------------------------------------------
 
+/** Parse a PostgREST timestamptz instant ('YYYY-MM-DD HH:MM:SS.sss+00' --
+ *  space-separated, 2-digit zone offset) into epoch ms. iOS Safari rejects
+ *  that form while Chromium tolerates it, so normalise to strict ISO first
+ *  (audit #6): swap the date/time space for 'T' and pad a 2-digit offset to
+ *  '+00:00'. Already-ISO inputs (with 'T'/'Z') pass through unchanged. */
+export function parseInstant(iso: string | null): number {
+  if (!iso) return NaN;
+  const s = iso.trim().replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00');
+  return new Date(s).getTime();
+}
+
 /** Compact "5m", "3h 12m", "2d" from a past instant relative to `now`. */
 export function relativeShort(iso: string | null, now = Date.now()): string {
   if (!iso) return '';
-  const then = new Date(iso).getTime();
+  const then = parseInstant(iso);
   if (Number.isNaN(then)) return '';
   let secs = Math.max(0, Math.floor((now - then) / 1000));
   const d = Math.floor(secs / 86400); secs -= d * 86400;
@@ -155,7 +166,7 @@ export type FreshnessHeat = 'now' | 'fresh' | 'warm' | 'cool' | 'stale';
  *  now <1 hr, fresh <8 hr, warm <24 hr, cool <4 days, else stale. */
 export function freshnessHeat(iso: string | null, now = Date.now()): FreshnessHeat {
   if (!iso) return 'stale';
-  const then = new Date(iso).getTime();
+  const then = parseInstant(iso);
   if (Number.isNaN(then)) return 'stale';
   const mins = Math.max(0, (now - then) / 60000);
   if (mins < 60) return 'now';
@@ -168,7 +179,7 @@ export function freshnessHeat(iso: string | null, now = Date.now()): FreshnessHe
 /** A News row is a "new" badge when added within `days` (default 30). */
 export function isFreshNew(e: MapEvent, days = 30, now = Date.now()): boolean {
   if (e.freshness_kind !== 'added' || !e.created_at) return false;
-  const then = new Date(e.created_at).getTime();
+  const then = parseInstant(e.created_at);
   return !Number.isNaN(then) && now - then <= days * 86400000;
 }
 
@@ -178,7 +189,7 @@ export function isFreshNew(e: MapEvent, days = 30, now = Date.now()): boolean {
 export function isRecentlyChanged(e: MapEvent, days = 14, now = Date.now()): boolean {
   const { iso } = freshnessDisplay(e);
   if (!iso) return false;
-  const then = new Date(iso).getTime();
+  const then = parseInstant(iso);
   return !Number.isNaN(then) && now - then <= days * 86400000;
 }
 

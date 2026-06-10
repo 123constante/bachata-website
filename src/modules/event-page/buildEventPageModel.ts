@@ -66,6 +66,7 @@ const EMPTY_PAGE_MODEL: EventPageModel = {
   tickets: { items: [], isVisible: false },
   promoCodes: { items: [], isVisible: false },
   galleryUrls: [],
+  videoUrls: [],
   metaDataPublic: {},
 };
 
@@ -228,6 +229,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       isVisible: snapshot.event.promoCodes.length > 0,
     },
     galleryUrls: snapshot.event.galleryUrls,
+    videoUrls: snapshot.event.videoUrls,
     metaDataPublic: snapshot.event.metaDataPublic,
   };
 };

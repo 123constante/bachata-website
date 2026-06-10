@@ -21,7 +21,11 @@ import { SheetTonightTab } from './SheetTonightTab';
 import { SheetNewsTab } from './SheetNewsTab';
 import { SheetCalendarTab } from './SheetCalendarTab';
 
-const SNAP_POINTS = [0.18, 0.62, 0.94];
+// Lead with events: default to the tall snap (~80% sheet, ~20% map strip). The
+// low snap is a true "map mode" (drag down to browse spatially); the top snap is
+// the full list. See the post-launch sweep plan (#10) for the rationale.
+const SNAP_POINTS = [0.18, 0.8, 0.94];
+const DEFAULT_SNAP = SNAP_POINTS[1];
 
 export function MapSheet({
   state,
@@ -38,7 +42,7 @@ export function MapSheet({
   onRetry?: () => void;
   onSnapChange?: (snap: number | string | null) => void;
 }) {
-  const [snap, setSnap] = useState<number | string | null>(SNAP_POINTS[1]);
+  const [snap, setSnap] = useState<number | string | null>(DEFAULT_SNAP);
   const [nudge, setNudge] = useState(false);
 
   // One-time first-visit nudge: bounce the grab handle briefly so the
@@ -60,6 +64,27 @@ export function MapSheet({
       }
     }, 2800);
     return () => window.clearTimeout(t);
+  }, []);
+
+  // vaul sets body{pointer-events:none} even with modal={false}; it is inherited
+  // into #root and kills the map (can't pan/drag), the header, and the bottom nav
+  // -- everything outside this sheet's own portal (which vaul re-enables). The
+  // sheet is non-modal, so the background MUST stay interactive: clear the lock and
+  // re-clear it whenever vaul re-applies it (it does so on snap-point drags). Scope
+  // is the home page only -- MapSheet mounts nowhere else, so other modal drawers
+  // keep their background lock.
+  useEffect(() => {
+    const body = document.body;
+    const clear = () => {
+      if (body.style.pointerEvents === 'none') body.style.pointerEvents = '';
+    };
+    clear();
+    const mo = new MutationObserver(clear);
+    mo.observe(body, { attributes: true, attributeFilter: ['style'] });
+    return () => {
+      mo.disconnect();
+      clear();
+    };
   }, []);
 
   const handleSnap = (s: number | string | null) => {
@@ -99,8 +124,9 @@ export function MapSheet({
             ref={state.listRef}
             id={RAIL_PANEL_ID}
             role="tabpanel"
+            tabIndex={0}
             aria-labelledby={railTabId(state.tab)}
-            className="relative min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(64px+env(safe-area-inset-bottom))]"
+            className="relative min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(64px+env(safe-area-inset-bottom))] outline-none"
           >
             {loading ? (
               <div className="pt-3">

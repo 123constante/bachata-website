@@ -14,8 +14,8 @@ export interface UseMapEventsParams {
  * Festival Map homepage (coords, cover, times, category flags, freshness).
  *
  * Keyed by city + date range; 5-minute staleTime since event data moves on the
- * scale of days, not minutes. Mirrors useCalendarEvents conventions. A missing
- * RPC (PGRST202) degrades to [] inside getMapEvents so the page never errors.
+ * scale of days, not minutes. Mirrors useCalendarEvents conventions. RPC errors
+ * surface as isError (the surfaces show RetryNotice) and route to Sentry.
  */
 export const useMapEvents = ({
   citySlug,

@@ -11,6 +11,7 @@ import {
   distanceMiles,
   isFreshNew,
   freshnessDisplay,
+  parseInstant,
   todayStr,
 } from './mapTypes';
 
@@ -22,7 +23,12 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const pinKey = (e: MapEvent) => `${e.event_id}|${e.venue_name ?? ''}`;
+// Pin identity = event + physical coordinate (rounded ~11m). Coords, not
+// venue_name, so two same-named-but-distinct venues don't collapse to one pin
+// and one location vanish from the map (audit #5). pinKey is only called for
+// coord-bearing rows (hasCoords guard), so lat/lng are present.
+const pinKey = (e: MapEvent) =>
+  `${e.event_id}|${e.lat?.toFixed(4) ?? ''},${e.lng?.toFixed(4) ?? ''}`;
 const hasCoords = (e: MapEvent) => e.lat != null && e.lng != null;
 
 export interface DedupedPins {
@@ -106,9 +112,11 @@ export function newsEvents(events: MapEvent[], today = todayStr()): MapEvent[] {
   return dedupeByEvent(events, today).sort((a, b) => {
     const ia = freshnessDisplay(a).iso;
     const ib = freshnessDisplay(b).iso;
-    const ta = ia ? new Date(ia).getTime() : -Infinity;
-    const tb = ib ? new Date(ib).getTime() : -Infinity;
-    return tb - ta;
+    // parseInstant normalises the PostgREST timestamptz so iOS Safari sorts News
+    // correctly (audit #6); NaN (unparseable) sinks to the bottom.
+    const ta = ia ? parseInstant(ia) : NaN;
+    const tb = ib ? parseInstant(ib) : NaN;
+    return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
   });
 }
 

@@ -75,6 +75,7 @@ export function TabBar({
     <div
       role="tablist"
       aria-label="Discover events"
+      aria-orientation="horizontal"
       onKeyDown={onKeyDown}
       className={cn('relative flex items-stretch gap-1 border-b border-border', className)}
     >
@@ -141,8 +142,12 @@ export function CategoryChips({
     <div className={cn('flex flex-wrap gap-2', className)}>
       {CHIPS.map((c) => {
         const on = filter === c.id;
+        // "All" = no filter; keep it visually quiet even when active so the resting
+        // state doesn't masquerade as an applied category filter (audit #12). Only
+        // genuine category chips get the bold colour fill.
+        const quietActive = on && c.id === 'all';
         const style: CSSProperties = {};
-        if (on) {
+        if (on && !quietActive) {
           style.background = c.activeBg;
           style.color = c.activeFg;
           style.borderColor = 'transparent';
@@ -156,7 +161,11 @@ export function CategoryChips({
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold transition-all duration-200',
               focusRing,
-              on ? 'border-transparent' : 'border-border text-muted-foreground hover:text-foreground',
+              quietActive
+                ? 'border-foreground/40 text-foreground'
+                : on
+                  ? 'border-transparent'
+                  : 'border-border text-muted-foreground hover:text-foreground',
             )}
             style={Object.keys(style).length ? style : undefined}
           >

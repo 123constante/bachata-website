@@ -55,19 +55,39 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
   // Lead with events (audit P1): the homepage opens on the All Events list, not
   // the brand/freshness hero. The /city/:slug/calendar deep-link still overrides
   // to the Calendar tab (handled in Index).
-  const [tab, setTab] = useState<MapTab>('all');
+  const [tab, setTabState] = useState<MapTab>('all');
   const [day, setDay] = useState<string | null>(null);
   const [filter, setFilter] = useState<MapFilter>('all');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  // Switching away from Calendar clears the picked day so a stale day can't
+  // silently re-filter the list/map on return (audit #16).
+  const setTab = useCallback((t: MapTab) => {
+    setTabState(t);
+    if (t !== 'cal') setDay(null);
+  }, []);
+
   const navigate = useNavigate();
   const apiRef = useRef<MapApi | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const wantScroll = useRef(false);
-  // Captured once so derivations + query keys stay stable for the session.
-  const today = useMemo(() => todayStr(), []);
+  // Recompute "today" across midnight / tab-refocus so a long-lived session
+  // doesn't freeze Tonight/Calendar filters at the mount day (audit #20).
+  const [today, setToday] = useState(() => todayStr());
+  useEffect(() => {
+    const tick = () => setToday((prev) => (prev === todayStr() ? prev : todayStr()));
+    const id = window.setInterval(tick, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
 
   const geo = useGeolocation();
   const user = geo.coords;
@@ -115,13 +135,14 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
   // the (desktop) map still tracks the selection as the page transitions.
   const fromCard = useCallback(
     (occId: string) => {
+      // Select (so the map highlights the pin) then route to the event. No flyTo:
+      // the navigation unmounts the map immediately, so the fly animation is
+      // wasted and can flash a popup/zoom mid-transition (audit #18).
       setSelected(occId);
-      const pin = pinKeyForOcc.get(occId) ?? occId;
-      apiRef.current?.flyTo(pin);
       const e = byOcc.get(occId);
       if (e) navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);
     },
-    [pinKeyForOcc, byOcc, navigate],
+    [byOcc, navigate],
   );
 
   const fromPin = useCallback((occId: string | null) => {

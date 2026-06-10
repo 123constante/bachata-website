@@ -3,7 +3,7 @@
 // New UI (not the exempt DayDetailModal) so density rules apply. Used by both the
 // mobile sheet (SheetCalendarTab) and the desktop list rail (DesktopMapHome).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
@@ -13,8 +13,25 @@ import { CategoryDot, EventRow, EmptyState } from './cards';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function CalendarPanel({ state }: { state: UseMapListResult }) {
+export function CalendarPanel({
+  state,
+  seedDefault = false,
+}: {
+  state: UseMapListResult;
+  /** Desktop's tall rail looks empty with no day picked, so seed a default day
+   *  on mount (audit #14). The short mobile sheet leaves it unset. */
+  seedDefault?: boolean;
+}) {
   const today = todayStr();
+
+  // Seed the soonest day that has events (else today) once per Calendar entry
+  // when asked (desktop). Runs on mount only, so a manual Clear is respected.
+  useEffect(() => {
+    if (!seedDefault || state.day) return;
+    const dates = [...state.calendarDays.keys()].filter((d) => d >= today).sort();
+    state.setDay(dates[0] ?? today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once on mount
+  }, []);
   // View month: seed from the selected day, else the current month.
   const [view, setView] = useState(() => {
     const seed = state.day ?? today;

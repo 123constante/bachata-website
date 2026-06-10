@@ -1202,3 +1202,15 @@
   66% { background-position: 64px -128px; }
   100% { background-position: -64px 64px; }
 }
+
+/* Festival Map mobile shell height (audit #4). Resilient to iOS Safari: a vh
+   fallback precedes the svh value so a WebKit without small-viewport units keeps
+   a valid height; a min-height floor stops a transient 0/under-collapse from
+   blanking the map; the dark background means any collapse shows #11121a, never
+   the white page surface. 124px = 60px header + 64px bottom nav. */
+.home-map-fill {
+  height: calc(100vh - 124px - env(safe-area-inset-bottom));
+  height: calc(100svh - 124px - env(safe-area-inset-bottom));
+  min-height: 60vh;
+  background-color: #11121a;
+}

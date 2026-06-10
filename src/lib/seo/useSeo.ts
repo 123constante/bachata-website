@@ -73,6 +73,17 @@ function isHeadlessOrPrerender(): boolean {
   return /prerender|headless|bot|crawler|spider/i.test(navigator.userAgent || '');
 }
 
+// Respect the user's reduced-motion preference: a perpetually scrolling
+// document.title is moving content (announced by some screen readers on focus),
+// so users who ask for reduced motion get the static title (audit #7).
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export function useSeo(input: SeoInput | null | undefined) {
   const baseline = useRef<{ title: string; description: string; canonical: string } | null>(null);
 
@@ -123,7 +134,8 @@ export function useSeo(input: SeoInput | null | undefined) {
       document.head.querySelector('meta[name="robots"]')?.remove();
     }
 
-    const stopScroll = isHeadlessOrPrerender() ? () => {} : startTitleScroll(title);
+    const stopScroll =
+      isHeadlessOrPrerender() || prefersReducedMotion() ? () => {} : startTitleScroll(title);
 
     return () => {
       stopScroll();
