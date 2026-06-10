@@ -95,22 +95,29 @@ function ogNormalizedImage(rawUrl: string | null | undefined): string {
   return `${SITE_URL.replace(/\/$/, '')}/api/og/card?kind=image&src=${encodeURIComponent(abs)}`;
 }
 
-// og:image MUST share the host the crawler actually fetched. SITE_URL can be
-// the apex domain (bachatacalendar.co.uk) while the page is served from www —
-// apex→www is a 308 redirect, and WhatsApp/Facebook preview crawlers drop the
-// card when og:image redirects. Rewriting same-site image hosts to the request
-// origin enforces the og:url ↔ og:image host invariant regardless of SITE_URL.
+// og:image MUST be an absolute URL on the host the crawler actually fetched.
+// Two failure modes this guards against, both of which make WhatsApp/Facebook
+// drop the preview card:
+//   1. SITE_URL is the apex domain (bachatacalendar.co.uk) while the page is
+//      served from www — apex→www is a 308 redirect, and crawlers don't follow
+//      redirects on og:image.
+//   2. SITE_URL is unset/empty, so the builders emit a host-less relative URL
+//      ("/api/og/card?…") which is not a valid og:image at all.
+// Resolving against the request origin and pinning same-site hosts to it fixes
+// both, enforcing the og:url ↔ og:image host invariant regardless of SITE_URL.
 function sameHostImage(imageUrl: string, requestOrigin: string): string {
   try {
-    const img = new URL(imageUrl);
-    if (/(^|\.)bachatacalendar\.co\.uk$/i.test(img.hostname)) {
-      const ro = new URL(requestOrigin);
+    const ro = new URL(requestOrigin);
+    // base resolves a relative imageUrl (case 2) against the request origin;
+    // an absolute imageUrl ignores the base and keeps its own host.
+    const img = new URL(imageUrl, ro);
+    if (img.hostname === ro.hostname || /(^|\.)bachatacalendar\.co\.uk$/i.test(img.hostname)) {
       img.protocol = ro.protocol;
       img.host = ro.host;
       return img.toString();
     }
   } catch {
-    /* not a parseable URL — leave as-is */
+    /* unparseable even with a base — leave as-is */
   }
   return imageUrl;
 }
