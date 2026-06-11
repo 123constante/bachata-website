@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Images, Maximize2, Play, Pause, Volume2, VolumeX } from 'lucide-react';
-import { parseVenueVideoUrl, type VenueVideo } from '@/lib/parseVenueVideoUrl';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Images, Maximize2 } from 'lucide-react';
 import { ShareButton } from '@/components/ShareButton';
 import { GalleryLightbox } from '@/modules/event-page/bento/modals/GalleryLightbox';
 import { PinkFallback } from '@/modules/event-page/bento/blocks/PinkFallback';
@@ -12,9 +11,6 @@ import {
 type CoverBlockProps = {
   imageUrl: string | null;
   galleryUrls: string[];
-  // P5 cover video — first parseable URL (YouTube/Vimeo/direct upload) plays
-  // as the cover, replacing the image carousel. Empty/absent = images only.
-  videoUrls?: string[];
   title: string;
   dateLabel: string | null;
   venueName: string | null;
@@ -48,121 +44,6 @@ const usePrefersReducedMotion = (): boolean => {
   return prefers;
 };
 
-// CoverVideo — the P5 cover-video renderer for the bento cover cell. Lifts the
-// proven venue-hero logic (autoplay/mute/loop + IntersectionObserver pause for
-// direct uploads; a plain iframe for YouTube/Vimeo embeds whose egress isn't
-// ours) WITHOUT importing VenueMediaHero (different layout). object-cover fills
-// the portrait cell; the cover image is the poster while a direct clip buffers.
-const CoverVideo = ({
-  video,
-  poster,
-  title,
-  isCancelled,
-}: {
-  video: VenueVideo;
-  poster: string | null;
-  title: string;
-  isCancelled: boolean;
-}) => {
-  const [muted, setMuted] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const isDirect = video.kind === 'direct';
-
-  // Mirror the play/pause toggle onto the <video> element (direct path only).
-  useEffect(() => {
-    if (!isDirect) return;
-    const v = videoRef.current;
-    if (!v) return;
-    if (paused) v.pause();
-    else v.play().catch(() => {/* autoplay may be blocked */});
-  }, [paused, isDirect]);
-
-  // Pause a direct upload when it scrolls out of view — saves our R2 egress.
-  // Embeds stream from YouTube/Vimeo, so their bandwidth isn't ours to manage.
-  useEffect(() => {
-    if (!isDirect) return;
-    const v = videoRef.current;
-    const c = containerRef.current;
-    if (!v || !c || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            try { v.pause(); } catch { /* noop */ }
-          } else if (!paused) {
-            v.play().catch(() => {/* autoplay may be blocked */});
-          }
-        }
-      },
-      { threshold: 0.1 },
-    );
-    io.observe(c);
-    return () => io.disconnect();
-  }, [paused, isDirect]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative block h-full w-full overflow-hidden rounded-[22px] border border-[color:var(--bento-hairline)] bg-[hsl(var(--bento-surface-raised))]"
-      style={{
-        boxShadow:
-          'inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 32px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.45)',
-        filter: isCancelled ? 'saturate(0.45) brightness(0.6)' : undefined,
-      }}
-    >
-      {video.kind === 'direct' ? (
-        <>
-          <video
-            ref={videoRef}
-            className="h-full w-full object-cover object-center"
-            src={video.src}
-            autoPlay
-            preload="metadata"
-            muted={muted}
-            loop
-            playsInline
-            poster={poster ?? undefined}
-            onPlay={() => setPaused(false)}
-            onPause={() => setPaused(true)}
-          />
-          <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPaused((p) => !p)}
-              className="inline-flex items-center justify-center rounded-full bg-black/60 p-1.5 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/80"
-              aria-label={paused ? 'Play video' : 'Pause video'}
-            >
-              {paused ? <Play className="h-4 w-4 fill-white" /> : <Pause className="h-4 w-4 fill-white" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMuted((m) => !m)}
-              className="inline-flex items-center justify-center rounded-full bg-black/60 p-1.5 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/80"
-              aria-label={muted ? 'Unmute video' : 'Mute video'}
-            >
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-          </div>
-        </>
-      ) : (
-        // YouTube / Vimeo: the embed URL already carries autoplay+mute+loop and
-        // its own player owns the controls, so there's no custom overlay here.
-        <iframe
-          src={video.embedUrl}
-          title={`${title} video`}
-          className="absolute inset-0 h-full w-full"
-          loading="lazy"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allowFullScreen
-        />
-      )}
-    </div>
-  );
-};
-
 // Cover lives inside the bento grid as a 2×3 portrait cell. It fills the
 // grid cell rather than imposing its own aspect ratio. Gallery + share
 // overlay sits on the top-right corner of the cell.
@@ -179,7 +60,6 @@ const CoverVideo = ({
 export const CoverBlock = ({
   imageUrl,
   galleryUrls,
-  videoUrls,
   title,
   dateLabel,
   venueName,
@@ -197,23 +77,10 @@ export const CoverBlock = ({
     return list;
   }, [imageUrl, galleryUrls]);
 
-  // P5 cover video: the first parseable URL wins. When present it replaces the
-  // image carousel in the cover cell; the images stay reachable via the gallery
-  // lightbox. parseVenueVideoUrl is the shared YouTube/Vimeo/direct classifier.
-  const coverVideo = useMemo<VenueVideo | null>(() => {
-    if (!Array.isArray(videoUrls)) return null;
-    for (const u of videoUrls) {
-      const parsed = parseVenueVideoUrl(u);
-      if (parsed) return parsed;
-    }
-    return null;
-  }, [videoUrls]);
-
   const { index: currentIndex, sessionId, advance } = useCoverCarousel({
     count: images.length,
     paused: lightboxOpen,
-    // A cover video takes the cell, so freeze the image carousel underneath it.
-    disabled: prefersReducedMotion || coverVideo != null,
+    disabled: prefersReducedMotion,
   });
 
   const handleImageError = useCallback(
@@ -246,16 +113,12 @@ export const CoverBlock = ({
     }
   }, [advance, images.length]);
 
-  // With a cover video, the cell is the video, so surface the gallery button
-  // as soon as there's even one photo (otherwise photos would be unreachable).
-  const showGalleryButton = coverVideo ? images.length >= 1 : images.length >= 2;
+  const showGalleryButton = images.length >= 2;
 
   return (
     <>
       <div className="relative h-full w-full">
-        {coverVideo ? (
-          <CoverVideo video={coverVideo} poster={imageUrl} title={title} isCancelled={isCancelled} />
-        ) : imageUrl ? (
+        {imageUrl ? (
           <button
             type="button"
             aria-label={
@@ -350,9 +213,8 @@ export const CoverBlock = ({
         {/* Stories-style progress segments at the bottom. One segment per
             slide; active segment animates 0 → 100 % via the `cover-progress`
             keyframe over ADVANCE_MS. Completed segments stay filled;
-            upcoming segments stay at 25 % opacity empty. Hidden when a cover
-            video is showing (the carousel is frozen behind it). */}
-        {!coverVideo && images.length > 1 && (
+            upcoming segments stay at 25 % opacity empty. */}
+        {images.length > 1 && (
           <div
             className="pointer-events-none absolute bottom-2 left-2 right-2 z-20 flex gap-[4px]"
             aria-hidden="true"
@@ -395,8 +257,8 @@ export const CoverBlock = ({
             Share/Gallery pill style at the top, so the affordance is
             visible without a heavy scrim strip across the image.
             pointer-events-none so the tap still goes through to the
-            underlying button. Suppressed when a cover video is showing. */}
-        {!coverVideo && images.length === 1 && (
+            underlying button. */}
+        {images.length === 1 && (
           <div
             className="pointer-events-none absolute bottom-2 left-2 z-20 flex h-7 items-center gap-1 rounded-full bg-black/55 px-2 text-white backdrop-blur-sm"
             aria-hidden="true"

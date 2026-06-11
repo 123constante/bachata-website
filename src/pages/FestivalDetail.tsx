@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 
 import { useSeo, buildSeoForRoute, useEntitySlugOrId } from "@/lib/seo";
 
+import { VideoEmbed } from "@/components/VideoEmbed";
+
+import { pickPlayableVideo } from "@/lib/parseVenueVideoUrl";
+
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -1887,6 +1891,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const posterUrl = festivalDetail?.identity.posterUrl ?? festival?.poster_url ?? null;
 
+  // P5 festival video / aftermovie — first playable URL (YouTube/Vimeo/direct).
+  const festivalVideo = pickPlayableVideo(festivalDetail?.identity.videoUrls ?? null);
+
   // Flyer gallery for the lightbox: poster first, then the day/gallery images, deduped.
   const galleryImages = Array.from(
     new Set(
@@ -2427,7 +2434,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       )}
 
-
+      {/* AFTERMOVIE / VIDEO — dedicated section (not the cover). Renders only
+          when the festival series has a playable video URL. */}
+      {festivalVideo && (
+        <section className="lineup">
+          <div className="nl-head">
+            <h2 className="nl-title">Aftermovie</h2>
+            <hr className="neon-rule" />
+          </div>
+          <div className="mx-auto aspect-video w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black">
+            <VideoEmbed
+              video={festivalVideo}
+              poster={posterUrl}
+              title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+            />
+          </div>
+        </section>
+      )}
 
       {/* PROGRAMME / SCHEDULE */}
 

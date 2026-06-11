@@ -59,12 +59,9 @@ const sb = createClient(url, key, {
 const { data, error } = await sb.rpc('check_live_series_occurrence_horizon_v1');
 
 if (error) {
-  // Soft-pass if the RPC is not yet on this environment (e.g. a branch DB that
-  // hasn't had admin migration 20260809130000 applied) — matches the
-  // not-yet-on-prod tolerance of the other newer contract checks.
   if (/function .* does not exist/i.test(error.message)) {
-    console.warn(`SKIP: check_live_series_occurrence_horizon_v1 not present yet (${error.message}).`);
-    process.exit(0);
+    console.error(`FAIL: check_live_series_occurrence_horizon_v1 not found (${error.message}) -- RPC is missing, contract broken.`);
+    process.exit(1);
   }
   console.error('RPC failed:', error.message);
   process.exit(2);

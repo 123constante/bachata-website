@@ -39,10 +39,10 @@
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
-// Bump these once Website readers cut over and the migration baseline is
-// captured. `null` = "no upper bound" → soft-pass any drift with a warning.
-const BASELINE_TEACHERS_UNASSIGNED = null;
-const BASELINE_DJS_UNASSIGNED = null;
+// Locked to prod snapshot 2026-06-10. Increase if roles are intentionally expanded;
+// never decrease without investigating why new unassigned rows appeared.
+const BASELINE_TEACHERS_UNASSIGNED = 21; // active teachers with no epp row
+const BASELINE_DJS_UNASSIGNED = 5;       // active DJs with no epp row
 
 function loadEnv() {
   const env = { ...process.env };
@@ -117,14 +117,6 @@ if (data.status === 'ok') {
   process.exit(0);
 }
 
-if (BASELINE_TEACHERS_UNASSIGNED === null || BASELINE_DJS_UNASSIGNED === null) {
-  console.warn(
-    `\nWARN: baselines unset (teachers_unassigned=${tu}, djs_unassigned=${du}). ` +
-    `Bump BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED once Website ` +
-    `readers cut over to canonical-person joins.`,
-  );
-  process.exit(0);
-}
 
 if (tu <= BASELINE_TEACHERS_UNASSIGNED && du <= BASELINE_DJS_UNASSIGNED) {
   console.warn(

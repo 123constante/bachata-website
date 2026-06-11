@@ -102,3 +102,19 @@ export const isDirectVideoUrl = (url: string | null | undefined): boolean => {
   const parsed = parseVenueVideoUrl(url);
   return parsed?.kind === 'direct';
 };
+
+/**
+ * Pick the first URL in the list that classifies as a playable video, or null.
+ * Used to gate whether the event video tile / festival aftermovie section
+ * renders, and to hand the chosen VenueVideo to <VideoEmbed>.
+ */
+export const pickPlayableVideo = (
+  urls: string[] | null | undefined,
+): VenueVideo | null => {
+  if (!Array.isArray(urls)) return null;
+  for (const u of urls) {
+    const parsed = parseVenueVideoUrl(u);
+    if (parsed) return parsed;
+  }
+  return null;
+};
