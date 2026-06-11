@@ -436,3 +436,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-map-events-rpc.mjs
+
+      # 34. Organiser-link contract (P5 <-> event_entities), 2026-06-11. Every ACTIVE
+      #     event whose organiser is set in event_series_p5.organiser_ids MUST have a
+      #     matching event_entities role='organiser' row, because the public organiser
+      #     page (src/pages/OrganiserProfile.tsx) + MoreEventsSection + FestivalDetail
+      #     read event_entities EXCLUSIVELY. The editor-v2 save path
+      #     (_cmd_series_upsert_p5) writes organisers ONLY to the P5 array, so organiser
+      #     pages silently render "No upcoming events". anon cannot read event_series_p5
+      #     (RLS event_series_p5_ss_select gated by FF_DB_SELF_SERVE_RLS, off in prod),
+      #     so detection needs the anon-exec SECURITY DEFINER RPC
+      #     check_organiser_link_contract_v1 (admin migration, pending). SOFT-PASSES
+      #     until that RPC ships. Full write-through fix: docs/organiser-link-fix-plan.md.
+      - name: Run organiser-link contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-organiser-link-contract.mjs
