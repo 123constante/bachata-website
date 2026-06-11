@@ -35,10 +35,28 @@ type EventRow = {
   city: string | null;
 };
 
-// EventRow enriched with the date/time the row should render and sort by:
-// the next future occurrence (from calendar_occurrences) when one exists,
-// otherwise the base event date. Null = no known date (TBA).
-type OrgEvent = EventRow & { displayStart: string | null };
+// EventRow enriched with the date/time the row should render and sort by.
+// "What's On" is occurrence-aware: one OrgEvent per upcoming occurrence (with
+// the per-date override name/poster where present), so a recurring series shows
+// each of its nights rather than collapsing to a single row. occurrenceId links
+// the row to that specific night. displayStart null = no known date (TBA).
+type OrgEvent = EventRow & { displayStart: string | null; occurrenceId?: string | null };
+
+// One upcoming occurrence for this organiser, from get_organiser_calendar_events_v1
+// (server-side wrapper over get_calendar_events_v2, scoped to the organiser's
+// events). Carries the fully-resolved per-date name/poster the public calendar
+// shows - including guest-artist override names (e.g. "Sensual Vibes - Antoni y Belen").
+type OrgOccRow = {
+  event_id: string;
+  name: string | null;
+  occurrence_id: string | null;
+  instance_date: string | null;
+  start_time: string | null;
+  photo_url: string[] | null;
+  cover_image_url: string | null;
+  location: string | null;
+  is_cancelled: boolean | null;
+};
 
 type TeamMember = {
   id: string;
@@ -240,7 +258,7 @@ const EventRow = ({ event, index }: { event: OrgEvent; index: number }) => {
   const grad = SP_GRADS[index % SP_GRADS.length];
   const rowBg = index % 2 === 1 ? SP.orange : 'transparent';
   return (
-    <Link to={`/event/${event.id}`} className="block">
+    <Link to={event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`} className="block">
       {/* Mobile card */}
       <div className="md:hidden flex items-center gap-3 p-3.5 border-t-2" style={{ borderColor: SP.black, background: rowBg, color: SP.black }}>
         <div className="flex-none w-11 text-center">
@@ -367,28 +385,21 @@ const OrganiserProfile = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Resolve each linked event's next future occurrence. calendar_occurrences
-  // is anon-readable for active events; we filter to this organiser's event IDs
-  // and keep the earliest instance_start >= now per event.
-  const eventIds = useMemo(() => allEvents.map((e) => e.id), [allEvents]);
-
-  const { data: nextByEvent = {} } = useQuery({
-    queryKey: ['organiser-next-occ', id, eventIds],
-    enabled: eventIds.length > 0,
+  // Resolve this organiser's UPCOMING occurrences via a dedicated, organiser-scoped
+  // RPC. It wraps get_calendar_events_v2 (so per-date override names/posters match
+  // the public calendar exactly - incl. guest-artist specials) but filters to this
+  // organiser's events SERVER-SIDE, so the response is tiny and never hits the
+  // 1000-row PostgREST cap a city-wide fetch does. One row per upcoming occurrence.
+  const { data: futureOccs = [] } = useQuery({
+    queryKey: ['organiser-occ-events', id],
+    enabled: !!id,
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Record<string, string>> => {
-      const { data, error } = await supabase
-        .from('calendar_occurrences')
-        .select('event_id, instance_start')
-        .in('event_id', eventIds)
-        .gte('instance_start', new Date().toISOString())
-        .order('instance_start', { ascending: true });
-      if (error) return {};
-      const map: Record<string, string> = {};
-      for (const r of (data ?? []) as { event_id: string; instance_start: string }[]) {
-        if (!map[r.event_id]) map[r.event_id] = r.instance_start; // asc -> first is earliest
-      }
-      return map;
+    queryFn: async (): Promise<OrgOccRow[]> => {
+      const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1' as never, {
+        p_organiser_id: id,
+      } as never);
+      if (error) return [];
+      return (data ?? []) as unknown as OrgOccRow[];
     },
   });
 
@@ -458,29 +469,53 @@ const OrganiserProfile = () => {
   }, []);
 
   const { upcomingEvents, pastEvents } = useMemo(() => {
+    const eventById = new Map(allEvents.map((e) => [e.id, e]));
     const upcoming: OrgEvent[] = [];
+    const eventsWithFutureOcc = new Set<string>();
+
+    // One row per UPCOMING occurrence, with the fully-resolved per-date name /
+    // poster (incl. guest-artist override names). Cancelled dates are dropped.
+    for (const occ of futureOccs) {
+      if (occ.is_cancelled) continue;
+      const e = eventById.get(occ.event_id);
+      if (!e) continue;
+      eventsWithFutureOcc.add(occ.event_id);
+      const poster =
+        occ.cover_image_url ||
+        (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) ||
+        e.poster_url;
+      upcoming.push({
+        ...e,
+        name: occ.name || e.name,
+        poster_url: poster,
+        location: occ.location ?? e.location,
+        displayStart: occ.start_time ?? occ.instance_date ?? null,
+        occurrenceId: occ.occurrence_id,
+      });
+    }
+
+    // Events with no upcoming occurrence: fall back to the base date (one-off
+    // events / TBA), otherwise they are past. Past stays collapsed (one row per
+    // event), never expanded into occurrences.
     const past: OrgEvent[] = [];
     for (const e of allEvents) {
-      const occNext = nextByEvent[e.id] ?? null;
+      if (eventsWithFutureOcc.has(e.id)) continue;
       const baseRaw = e.start_time ?? e.date;
       const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
-      // Next future start: a future occurrence wins; else the base date if it
-      // is itself in the future (covers events with no occurrence rows).
-      const nextStart =
-        occNext ?? (baseRaw && !Number.isNaN(baseMs) && baseMs >= todayMs ? baseRaw : null);
+      const nextStart = baseRaw && !Number.isNaN(baseMs) && baseMs >= todayMs ? baseRaw : null;
       if (nextStart) {
-        upcoming.push({ ...e, displayStart: nextStart });
+        upcoming.push({ ...e, displayStart: nextStart, occurrenceId: null });
       } else if (!baseRaw) {
-        // No date at all - surface as upcoming/TBA (preserves prior behaviour).
-        upcoming.push({ ...e, displayStart: null });
+        upcoming.push({ ...e, displayStart: null, occurrenceId: null });
       } else {
-        past.push({ ...e, displayStart: baseRaw });
+        past.push({ ...e, displayStart: baseRaw, occurrenceId: null });
       }
     }
+
     upcoming.sort((a, b) => (a.displayStart ?? '').localeCompare(b.displayStart ?? ''));
     past.sort((a, b) => (b.displayStart ?? '').localeCompare(a.displayStart ?? ''));
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [allEvents, nextByEvent, todayMs]);
+  }, [allEvents, futureOccs, todayMs]);
 
   const sinceYear = useMemo(() => {
     let earliest: number | null = null;
@@ -903,7 +938,7 @@ const OrganiserProfile = () => {
               <div className="hidden md:grid grid-cols-[56px_150px_1fr_200px_70px] gap-3 px-5 py-2.5 text-[10px] tracking-[0.2em] uppercase" style={{ ...MONO, background: SP.black, color: SP.gold }}>
                 <span>#</span><span>DATE</span><span>EVENT</span><span>VENUE</span><span>TIME</span>
               </div>
-              {upcomingEvents.map((e, i) => <EventRow key={e.id} event={e} index={i} />)}
+              {upcomingEvents.map((e, i) => <EventRow key={e.occurrenceId ?? e.id} event={e} index={i} />)}
             </div>
           ) : (
             <p className="text-sm" style={MONO}>No upcoming events right now &mdash; check back soon.</p>
