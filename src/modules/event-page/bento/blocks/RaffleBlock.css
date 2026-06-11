@@ -1,0 +1,455 @@
+/* =============================================================================
+   RaffleBlock.css -- "Lucky Reels" slot machine, bento-tile skin.
+
+   Ported from the festival CINEMATIC_CSS (.cinematic-festival .raffle-band ...)
+   in FestivalDetail.tsx, scaled to fit a 4-col bento tile and re-themed to the
+   bento dark-surface / gold-black-cabinet hybrid. Class + keyframe prefix `rsb-`
+   (Raffle Slot Bento) avoids collision with the festival `rb-`/`raffle-band`
+   rules if both ever mount on one page.
+
+   No Bebas Neue: machine type uses inherited Inter at heavy weight. Reels are
+   80px tall (festival 120px); symbols 40px (festival 60px); spin/land translate
+   values scaled by 40/60. Text colours read the bento CSS vars (cascade in from
+   the page wrapper); the cabinet stays black/gold per the hybrid theme.
+   ============================================================================= */
+
+.rsb-root { position: relative; }
+
+/* --- free-to-enter badge ---------------------------------------------------- */
+.rsb-free-badge {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.rsb-free-badge span {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f5d563;
+  color: #1a2e2a;
+}
+
+/* --- machine row (cabinet + lever) ------------------------------------------ */
+.rsb-machine-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+/* --- cabinet ---------------------------------------------------------------- */
+.rsb-cabinet {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 240px;
+  background: linear-gradient(180deg, #161616, #0b0b0b 60%, #080808);
+  border: 1px solid rgba(245, 213, 99, 0.16);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 16px 34px rgba(0, 0, 0, 0.5),
+    0 0 36px rgba(245, 213, 99, 0.05);
+}
+
+.rsb-marquee {
+  margin: 0 0 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f5d563;
+  text-shadow: 0 0 16px rgba(245, 213, 99, 0.3);
+}
+.rsb-marquee::before,
+.rsb-marquee::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 213, 99, 0.5));
+}
+.rsb-marquee::after { transform: scaleX(-1); }
+
+/* --- chasing bulbs ---------------------------------------------------------- */
+.rsb-bulbs {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin: -1px 0 9px;
+}
+.rsb-bulbs i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f5d563;
+  box-shadow: 0 0 7px rgba(245, 213, 99, 0.8);
+  animation: rsb-chase 1.4s linear infinite;
+}
+.rsb-bulbs i:nth-child(2) { animation-delay: 0.22s; }
+.rsb-bulbs i:nth-child(3) { animation-delay: 0.44s; }
+.rsb-bulbs i:nth-child(4) { animation-delay: 0.66s; }
+.rsb-bulbs i:nth-child(5) { animation-delay: 0.88s; }
+@keyframes rsb-chase { 0%, 100% { opacity: 0.25; } 45% { opacity: 1; } }
+
+/* --- bezel + reels ---------------------------------------------------------- */
+.rsb-bezel {
+  position: relative;
+  background: linear-gradient(180deg, #ddc587, #bd9d57 20%, #8a6d3c 55%, #6e5630 80%, #a98b4a);
+  border-radius: 10px;
+  padding: 9px;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.45), 0 5px 12px rgba(0, 0, 0, 0.5);
+}
+.rsb-reels {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: #050505;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.8), inset 0 8px 20px rgba(0, 0, 0, 0.9);
+}
+.rsb-reel {
+  position: relative;
+  height: 80px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #191919, #0b0b0b);
+  box-shadow: inset 0 0 0 1px rgba(245, 213, 99, 0.1);
+}
+.rsb-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform;
+  transform: translateY(-20px);
+}
+.rsb-sym {
+  height: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 7px rgba(245, 213, 99, 0.25));
+}
+
+/* reel vignette + centerline highlight */
+.rsb-reel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, transparent 28%,
+    transparent 72%, rgba(0, 0, 0, 0.85) 100%);
+}
+.rsb-reel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 40px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 2;
+  border-top: 1px solid rgba(245, 213, 99, 0.5);
+  border-bottom: 1px solid rgba(245, 213, 99, 0.5);
+  background: rgba(245, 213, 99, 0.05);
+}
+.rsb-reels::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.06) 48%, transparent 58%);
+  background-size: 240% 100%;
+  animation: rsb-shimmer 5s ease-in-out infinite;
+}
+@keyframes rsb-shimmer { 0% { background-position: 140% 0; } 55%, 100% { background-position: -40% 0; } }
+
+/* spinning */
+.rsb-reels.is-spinning .rsb-reel1 .rsb-strip { animation: rsb-spin 0.42s linear infinite; }
+.rsb-reels.is-spinning .rsb-reel2 .rsb-strip { animation: rsb-spin 0.52s linear infinite; }
+.rsb-reels.is-spinning .rsb-reel3 .rsb-strip { animation: rsb-spin 0.36s linear infinite; }
+.rsb-reels.is-spinning .rsb-strip { filter: blur(0.5px); }
+@keyframes rsb-spin { from { transform: translateY(0); } to { transform: translateY(-240px); } }
+
+/* landed */
+.rsb-reels.is-landed {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.8), inset 0 8px 20px rgba(0, 0, 0, 0.9),
+    0 0 22px rgba(245, 213, 99, 0.45);
+}
+.rsb-reels.is-landed .rsb-reel1 .rsb-strip { animation: rsb-land1 0.5s cubic-bezier(0.15, 0.85, 0.3, 1.08) forwards; }
+.rsb-reels.is-landed .rsb-reel2 .rsb-strip { animation: rsb-land2 0.5s cubic-bezier(0.15, 0.85, 0.3, 1.08) 0.12s forwards; }
+.rsb-reels.is-landed .rsb-reel3 .rsb-strip { animation: rsb-land3 0.5s cubic-bezier(0.15, 0.85, 0.3, 1.08) 0.24s forwards; }
+@keyframes rsb-land1 { 0% { transform: translateY(-79px); } 70% { transform: translateY(-104px); } 100% { transform: translateY(-100px); } }
+@keyframes rsb-land2 { 0% { transform: translateY(-159px); } 70% { transform: translateY(-184px); } 100% { transform: translateY(-180px); } }
+@keyframes rsb-land3 { 0% { transform: translateY(-119px); } 70% { transform: translateY(-144px); } 100% { transform: translateY(-140px); } }
+
+/* --- reel flash ("you are in the draw") ------------------------------------ */
+.rsb-reel-flash {
+  position: absolute;
+  inset: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.18s ease, transform 0.28s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.rsb-reel-flash.show { opacity: 1; transform: scale(1); }
+.rsb-reel-flash span {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #1a0a10;
+  background: linear-gradient(180deg, #f7e08a, #f5d563);
+  padding: 6px 10px;
+  border-radius: 7px;
+  box-shadow: 0 0 22px rgba(245, 213, 99, 0.85), 0 5px 12px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  line-height: 1.05;
+}
+
+/* --- winline ---------------------------------------------------------------- */
+.rsb-winline {
+  margin: 9px 1px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-align: center;
+}
+.rsb-lamp {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #f5d563;
+  box-shadow: 0 0 9px rgba(245, 213, 99, 0.9);
+  animation: rsb-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rsb-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+.rsb-winline .rsb-winlabel {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: hsl(var(--bento-fg));
+  line-height: 1.05;
+}
+.rsb-winline .rsb-winlabel b { color: #f5d563; font-weight: 700; }
+
+/* --- lever ------------------------------------------------------------------ */
+.rsb-lever-col {
+  flex: 0 0 30px;
+  align-self: center;
+  margin-left: -12px;
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rsb-lever {
+  position: relative;
+  height: 84px;
+  width: 30px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.rsb-lever::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 26px;
+  background: linear-gradient(180deg, #1b1b1b, #0c0c0c);
+  border: 1px solid rgba(245, 213, 99, 0.18);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 10px rgba(0, 0, 0, 0.5);
+  z-index: 0;
+}
+.rsb-lever-track {
+  position: absolute;
+  left: 11px;
+  top: 6px;
+  bottom: 6px;
+  width: 9px;
+  background: linear-gradient(180deg, #040404, #171717);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(245, 213, 99, 0.22), inset 0 6px 10px rgba(0, 0, 0, 0.85);
+  z-index: 1;
+}
+.rsb-lever-arm {
+  position: absolute;
+  left: 12.5px;
+  top: 7px;
+  width: 6px;
+  height: 35px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(90deg, #7e7e7e, #ededed 45%, #6a6a6a);
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  transition: transform 0.14s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+.rsb-lever-knob {
+  position: absolute;
+  left: 4.5px;
+  top: -3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ff8a5a, #e0511a 58%, #7a1f05);
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.28s cubic-bezier(0.34, 1.3, 0.5, 1);
+  animation: rsb-knob-pulse 1.8s ease-in-out infinite, rsb-knob-bob 3s ease-in-out infinite;
+  z-index: 3;
+}
+@keyframes rsb-knob-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(251, 146, 60, 0.45), inset 0 2px 3px rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(251, 146, 60, 0.9), inset 0 2px 3px rgba(255, 255, 255, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.5); }
+}
+/* Idle teaser: a slow continuous bob to invite a pull. Cancelled on hover /
+   pull (those states override `animation` to glow-only so the transform rule
+   takes over). */
+@keyframes rsb-knob-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(7px); }
+}
+.rsb-lever-hint {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f5d563;
+  text-shadow: 0 0 9px rgba(245, 213, 99, 0.5);
+}
+.rsb-lever:hover .rsb-lever-knob { animation: rsb-knob-pulse 1.8s ease-in-out infinite; transform: translateY(10px); }
+.rsb-lever:hover .rsb-lever-arm { transform: scaleY(0.74); }
+/* While a spin is in progress the knob is still (no idle bob) and rests at
+   the top -- unless is-pulled has it down. is-pulled is declared after this,
+   so it wins when both classes are present (the ~1s hold at the bottom). */
+.rsb-lever.is-active .rsb-lever-knob { animation: rsb-knob-pulse 1.8s ease-in-out infinite; transform: translateY(0); }
+.rsb-lever:active .rsb-lever-knob,
+.rsb-lever.is-pulled .rsb-lever-knob { animation: rsb-knob-pulse 1.8s ease-in-out infinite; transform: translateY(56px); }
+.rsb-lever:active .rsb-lever-arm,
+.rsb-lever.is-pulled .rsb-lever-arm { transform: scaleY(0.22); }
+
+/* --- info: meta grid -------------------------------------------------------- */
+.rsb-info { margin-top: 0; }
+.rsb-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(179, 138, 78, 0.18);
+  border-bottom: 1px solid rgba(179, 138, 78, 0.18);
+}
+.rsb-meta-cell { text-align: center; }
+.rsb-meta-cell:first-child { border-right: 1px solid rgba(179, 138, 78, 0.18); }
+.rsb-meta-k {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--bento-fg-muted));
+}
+.rsb-meta-v {
+  font-size: 15px;
+  font-weight: 800;
+  margin-top: 2px;
+  color: hsl(var(--bento-fg));
+}
+.rsb-meta-sub { font-size: 10px; margin-top: 1px; color: hsl(var(--bento-fg-muted)); }
+.rsb-meta-sub.warn { color: #f5b95a; }
+.rsb-meta-sub.urgent { color: #f06a4a; }
+
+/* --- cta -------------------------------------------------------------------- */
+.rsb-cta {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.rsb-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: #1a0a10;
+  background: linear-gradient(180deg, #f3d978, #ebc659 48%, #d6ac47);
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 6px 18px rgba(245, 213, 99, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.55);
+}
+.rsb-chip-ico { flex: 0 0 auto; width: 13px; height: 13px; position: relative; }
+.rsb-chip-ico::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 9px;
+  border: solid #1a0a10;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.rsb-status {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--bento-fg-muted));
+  text-align: center;
+  line-height: 1.6;
+}
+.rsb-status b { color: #f5d563; font-weight: 700; }
+
+/* --- dimmed (admin-excluded / closed) --------------------------------------- */
+.rsb-is-dimmed .rsb-bezel { filter: grayscale(0.45) brightness(0.72); }
+.rsb-is-dimmed .rsb-bulbs i,
+.rsb-is-dimmed .rsb-reels::after { animation: none; }
+
+/* --- reduced motion --------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .rsb-bulbs i,
+  .rsb-reels::after,
+  .rsb-lamp,
+  .rsb-lever-knob { animation: none; }
+}

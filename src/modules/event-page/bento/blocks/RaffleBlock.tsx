@@ -1,239 +1,140 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence, useAnimationControls } from 'framer-motion';
+// =============================================================================
+// RaffleBlock -- bento-tile raffle as a "Lucky Reels" slot machine.
+//
+// Replaces the earlier animated-chest tile. Same data + entry flow
+// (get_event_raffle config, RaffleEntryDialog submit), re-skinned as the
+// festival slot machine but scaled for the bento grid and themed to the bento
+// dark-surface / gold-black-cabinet hybrid. All keyframes + pseudo-elements
+// live in the co-located RaffleBlock.css under the `.rsb-` prefix.
+//
+// The lever IS the entry action and the SOLE entry control (the redundant
+// "Pull To Enter" CTA was removed -- the lever's PULL hint + the "Free to
+// enter" badge already cover it). Pulling -> reels spin -> land -> the entry
+// dialog opens. The lever is therefore the accessible, labelled control.
+//
+// Time display: close clock + countdown are shown AS-STORED (event timezone)
+// via the shared raffleCountdown helpers, never browser-tz-converted.
+// =============================================================================
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import './RaffleBlock.css';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
+import {
+  countdownParts,
+  formatCloseClock,
+  parseCutoffMs,
+  useRaffleNow,
+} from '@/modules/event-page/utils/raffleCountdown';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
-import { Check, Sparkles, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 const GOLD = 'hsl(var(--bento-accent))';
+const pad = (n: number) => (n < 10 ? '0' : '') + n;
 
+// Winner-state stamp: "12 Jun 19:30" as stored (UTC fields = wall clock).
 function formatDrawnAt(iso: string): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
-      .format(new Date(iso));
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      hour12: false, timeZone: 'UTC',
+    }).format(new Date(iso));
   } catch { return iso; }
 }
 
-function formatCloseClock(cutoffAt: string): string {
-  try {
-    const dt = new Date(cutoffAt);
-    const minutes = dt.getUTCMinutes();
-    const hours12 = dt.getUTCHours() % 12 || 12;
-    const ampm = dt.getUTCHours() < 12 ? 'AM' : 'PM';
-    return `${hours12}:${String(minutes).padStart(2, '0')} ${ampm}`;
-  } catch {
-    return '–';
-  }
+// Read the per-browser "already entered" flag. Guarded: sessionStorage.getItem
+// can throw (sandboxed iframes / strict privacy modes) and this runs during
+// render via the lazy initializer, so an unguarded throw would crash the tile.
+const readEntered = (eventId: string | null | undefined): boolean => {
+  if (typeof window === 'undefined') return false;
+  const key = raffleEnteredKey(eventId);
+  if (!key) return false;
+  try { return window.sessionStorage.getItem(key) === '1'; } catch { return false; }
+};
+
+type CountdownTone = 'normal' | 'warn' | 'urgent';
+
+// Live "16d 06h left" / "8m 30s left" label + urgency tone. Ticks via
+// useRaffleNow (adaptive: 1s under 10 minutes, 30s otherwise). The countdown
+// duration is timezone-invariant. Returns empty label when >24h is implied by
+// days (the clock alone is enough) -- mirrors the festival band's behaviour but
+// keeps the colour cue from the old TimeLeft tile.
+function useCountdown(cutoffAt: string | null, closed: boolean): { label: string; tone: CountdownTone } {
+  const cutoffMs = useMemo(() => parseCutoffMs(cutoffAt), [cutoffAt]);
+  const now = useRaffleNow(cutoffMs, closed);
+  return useMemo(() => {
+    if (cutoffMs === null) return { label: '', tone: 'normal' as CountdownTone };
+    if (closed || cutoffMs - now <= 0) return { label: 'Closed', tone: 'normal' as CountdownTone };
+    const { days, hours, mins, secs, totalMin } = countdownParts(cutoffMs - now);
+    if (days > 0) return { label: `${days}d ${pad(hours)}h left`, tone: 'normal' };
+    if (hours >= 1) return { label: `${hours}h ${pad(mins)}m left`, tone: 'normal' };
+    if (totalMin >= 10) return { label: `${mins}m left`, tone: 'normal' };
+    if (totalMin >= 1) return { label: `${mins}m ${pad(secs)}s left`, tone: 'warn' };
+    return { label: `${secs}s left`, tone: 'urgent' };
+  }, [cutoffMs, now, closed]);
 }
 
-interface TimeLeftProps {
-  cutoffAt: string;
-}
+// Each reel repeats its 3-symbol pattern 4x so the CSS translateY loop is
+// seamless. Symbols are JS escapes (ASCII source): gift, star, ticket. The
+// three reels are index rotations of one base set (no repeated literals).
+const REEL_SYMS = ['\u{1F381}', '\u{2605}', '\u{1F39F}\u{FE0F}'];
+const REELS: string[][] = [
+  REEL_SYMS,
+  [...REEL_SYMS.slice(1), ...REEL_SYMS.slice(0, 1)],
+  [...REEL_SYMS.slice(2), ...REEL_SYMS.slice(0, 2)],
+];
 
-const TimeLeft: React.FC<TimeLeftProps> = ({ cutoffAt }) => {
-  const [now, setNow] = useState(() => Date.now());
-  const target = useMemo(() => {
-    const t = new Date(cutoffAt).getTime();
-    return Number.isFinite(t) ? t : null;
-  }, [cutoffAt]);
+type SpinPhase = 'idle' | 'spinning' | 'landed';
 
-  useEffect(() => {
-    if (target === null) return;
-    const remaining = target - now;
-    const interval = remaining <= 10 * 60 * 1000 ? 1_000 : 60_000;
-    const id = window.setInterval(() => setNow(Date.now()), interval);
-    return () => window.clearInterval(id);
-  }, [target, now]);
-
-  if (target === null) return null;
-  const ms = target - now;
-  if (ms <= 0) return null;
-
-  const totalSec = Math.floor(ms / 1000);
-  const totalMin = Math.floor(totalSec / 60);
-  const hr = Math.floor(totalMin / 60);
-  const min = totalMin % 60;
-  const sec = totalSec % 60;
-
-  // > 24h: hide – clock time alone is enough.
-  if (hr >= 24) return null;
-
-  let label: string;
-  let color = 'hsl(var(--bento-fg-muted))';
-
-  if (hr >= 1) {
-    label = `${hr} hr${hr > 1 ? 's' : ''}${min > 0 ? ` ${min} min` : ''} left`;
-  } else if (totalMin >= 10) {
-    label = `${totalMin} min left`;
-    color = 'hsl(var(--bento-accent))';
-  } else if (totalMin >= 1) {
-    label = `${totalMin} min ${String(sec).padStart(2, '0')}s left`;
-    color = '#f5b95a';
-  } else {
-    label = `${sec}s left`;
-    color = '#f06a4a';
-  }
-
+// The cabinet: marquee, chasing bulbs, reels (+ landing flash) and the winline.
+// Shared by the live tile and the dimmed admin-excluded state. winnerName, when
+// set, replaces the prize on the winline ("[name] WON").
+function Cabinet({ spinPhase, prizeFull, winnerName }: {
+  spinPhase: SpinPhase;
+  prizeFull: string;
+  winnerName?: string | null;
+}) {
+  const reelsCls =
+    spinPhase === 'spinning' ? ' is-spinning' : spinPhase === 'landed' ? ' is-landed' : '';
   return (
-    <div className="text-[10px] mt-0.5 font-medium" style={{ color }}>
-      {label}
+    <div className="rsb-cabinet">
+      <p className="rsb-marquee">Lucky Reels</p>
+      <div className="rsb-bulbs"><i /><i /><i /><i /><i /></div>
+
+      <div className="rsb-bezel">
+        <div className={`rsb-reels${reelsCls}`} aria-hidden="true">
+          {REELS.map((syms, ri) => (
+            <div className={`rsb-reel rsb-reel${ri + 1}`} key={ri}>
+              <div className="rsb-strip">
+                {[0, 1, 2, 3].map((rep) =>
+                  syms.map((s, si) => (
+                    <span className="rsb-sym" key={`${rep}-${si}`}>{s}</span>
+                  )),
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className={`rsb-reel-flash${spinPhase === 'landed' ? ' show' : ''}`} aria-hidden="true">
+          <span>You&rsquo;re in the draw!</span>
+        </div>
+      </div>
+
+      <div className="rsb-winline">
+        <span className="rsb-lamp" />
+        <span className="rsb-winlabel">
+          {winnerName
+            ? <>{'\u{1F389}'} <b>{winnerName}</b> WON</>
+            : <>WIN &#8212; <b>{prizeFull}</b></>}
+        </span>
+        <span className="rsb-lamp" />
+      </div>
     </div>
   );
-};
-
-
-interface AnimatedChestProps {
-  intensity: number;
-  opening: boolean;
-  celebrate: boolean;
-  dimmed?: boolean;
 }
-
-const AnimatedChest: React.FC<AnimatedChestProps> = ({ intensity, opening, celebrate, dimmed }) => {
-  const lidControls = useAnimationControls();
-  const padlockControls = useAnimationControls();
-  const [hovered, setHovered] = useState(false);
-
-  useEffect(() => {
-    if (opening || celebrate) {
-      lidControls.start({
-        rotate: celebrate ? -45 : -28,
-        y: celebrate ? -8 : -5,
-        transition: { duration: 0.35, ease: 'easeOut' },
-      });
-      padlockControls.start({
-        y: 16,
-        rotate: -110,
-        opacity: 0,
-        transition: { duration: 0.4, delay: 0.05, ease: 'easeIn' },
-      });
-    } else {
-      lidControls.start({
-        rotate: -2,
-        y: 0,
-        transition: { duration: 0.3, ease: 'easeInOut' },
-      });
-      padlockControls.start({
-        y: 0,
-        rotate: -22,
-        opacity: 1,
-        transition: { duration: 0.35, ease: 'easeOut', delay: 0.1 },
-      });
-    }
-  }, [opening, celebrate, lidControls, padlockControls]);
-
-  const glowBase = 0.35 + intensity * 0.45;
-  const glowPeak = Math.min(0.95, glowBase + 0.2 + (hovered ? 0.1 : 0));
-
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      className="h-[72px] w-[72px] shrink-0"
-      aria-hidden="true"
-      style={{ opacity: dimmed ? 0.55 : 1, transition: 'opacity 250ms ease' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <defs>
-        <filter id="raffleChest-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.8" />
-        </filter>
-        <filter id="raffleChest-glow-strong" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" />
-        </filter>
-      </defs>
-
-      <motion.ellipse
-        cx="32"
-        cy="26"
-        rx={22 + intensity * 3}
-        ry={2.5 + intensity * 0.8}
-        fill={GOLD}
-        filter="url(#raffleChest-glow)"
-        animate={{ opacity: [glowBase, glowPeak, glowBase] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
-      <AnimatePresence>
-        {celebrate && (
-          <motion.ellipse
-            cx="32"
-            cy="22"
-            rx="30"
-            ry="10"
-            fill={GOLD}
-            filter="url(#raffleChest-glow-strong)"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.5, 0.2] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.1, ease: 'easeOut' }}
-          />
-        )}
-      </AnimatePresence>
-
-      <rect x="6" y="28" width="52" height="28" rx="2" fill="#2a1f17" stroke={GOLD} strokeWidth="1.5" />
-      <line x1="6" y1="40" x2="58" y2="40" stroke={GOLD} strokeWidth="0.5" opacity="0.4" />
-
-      <AnimatePresence>
-        {celebrate &&
-          Array.from({ length: 8 }).map((_, i) => {
-            const angle = (i / 8) * Math.PI - Math.PI / 2;
-            const dx = Math.cos(angle) * 14;
-            const dy = -20 - Math.sin(-angle) * 6;
-            return (
-              <motion.circle
-                key={i}
-                cx={32}
-                cy={26}
-                r={1.1}
-                fill={GOLD}
-                initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
-                animate={{ opacity: [0, 1, 0], x: dx, y: dy, scale: [0.4, 1.1, 0.6] }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.0 + i * 0.04, ease: 'easeOut', delay: i * 0.03 }}
-              />
-            );
-          })}
-      </AnimatePresence>
-
-      <motion.g
-        animate={lidControls}
-        initial={{ rotate: -2, y: 0 }}
-        style={{ originX: '32px', originY: '26px' }}
-      >
-        <path
-          d="M 6 26 L 6 18 Q 6 8 32 8 Q 58 8 58 18 L 58 26 Z"
-          fill="#1f1510"
-          stroke={GOLD}
-          strokeWidth="1.5"
-        />
-        <circle cx="12" cy="22" r="0.9" fill={GOLD} opacity="0.65" />
-        <circle cx="52" cy="22" r="0.9" fill={GOLD} opacity="0.65" />
-      </motion.g>
-
-      <g transform="translate(32 42)">
-        <motion.g
-          animate={padlockControls}
-          initial={{ y: 0, rotate: -22, opacity: 1 }}
-          style={{ originX: '0px', originY: '4px' }}
-        >
-          <rect x="-4.5" y="0" width="9" height="9" rx="1" fill={GOLD} />
-          <path
-            d="M -2.8 0 L -2.8 -2.8 Q -2.8 -6 0 -6 Q 2.4 -6 2.8 -3.5"
-            fill="none"
-            stroke={GOLD}
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-          <circle cx="0" cy="3.8" r="1.1" fill="#141414" />
-          <rect x="-0.55" y="4.2" width="1.1" height="2.6" fill="#141414" />
-        </motion.g>
-      </g>
-    </svg>
-  );
-};
 
 const TrophyCircle = () => (
   <div
@@ -252,81 +153,113 @@ const TrophyCircle = () => (
 // and the raffle-config RPC expects a uuid.
 export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
   const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config, loading, error, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
-  const [shakeKey, setShakeKey] = useState(0);
+  const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [celebrate, setCelebrate] = useState(false);
-  const celebrateTimerRef = useRef<number | null>(null);
-  const [hasEntered, setHasEntered] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const key = raffleEnteredKey(eventId);
-    return key ? window.sessionStorage.getItem(key) === '1' : false;
-  });
+  const [hasEntered, setHasEntered] = useState<boolean>(() => readEntered(eventId));
+  const [announce, setAnnounce] = useState('');
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const key = raffleEnteredKey(eventId);
-    setHasEntered(key ? window.sessionStorage.getItem(key) === '1' : false);
-  }, [eventId]);
-
-  useEffect(() => () => {
-    if (celebrateTimerRef.current !== null) window.clearTimeout(celebrateTimerRef.current);
-  }, []);
+  useEffect(() => { setHasEntered(readEntered(eventId)); }, [eventId]);
 
   const markEntered = useCallback(() => {
     if (typeof window === 'undefined' || !eventId) return;
-    try { window.sessionStorage.setItem(raffleEnteredKey(eventId)!, '1'); } catch { /* no-op */ }
+    const key = raffleEnteredKey(eventId);
+    try { if (key) window.sessionStorage.setItem(key, '1'); } catch { /* no-op */ }
     setHasEntered(true);
-    setCelebrate(true);
-    if (celebrateTimerRef.current !== null) window.clearTimeout(celebrateTimerRef.current);
-    celebrateTimerRef.current = window.setTimeout(() => setCelebrate(false), 1600);
+    setAnnounce('You are entered in the draw.');
     void refresh();
   }, [eventId, refresh]);
 
-  const openEntryForm = useCallback(() => {
-    setShakeKey((k) => k + 1);
-    tryVibrate(30);
-    setDialogOpen(true);
+  const [spinPhase, setSpinPhase] = useState<SpinPhase>('idle');
+  const [leverDown, setLeverDown] = useState(false);
+  const spinTimers = useRef<number[]>([]);
+  const clearSpinTimers = useCallback(() => {
+    spinTimers.current.forEach((t) => window.clearTimeout(t));
+    spinTimers.current = [];
   }, []);
+  useEffect(() => clearSpinTimers, [clearSpinTimers]);
 
-  const intensity = Math.min(1, (config?.entry_count ?? 0) / 50);
+  // Pull the lever -> reels spin, land on the prize, a brief "you're in the
+  // draw" beat, then the entry form opens. Flavour only -- the winner is a
+  // random draw, this sequence decides nothing. Respects prefers-reduced-motion
+  // (opens at once); a second tap once landed skips straight to the form.
+  const handlePull = useCallback(() => {
+    if (spinPhase === 'spinning') return;
+    if (spinPhase === 'landed') {
+      clearSpinTimers();
+      setSpinPhase('idle');
+      setLeverDown(false);
+      setDialogOpen(true);
+      return;
+    }
+    tryVibrate([20, 40, 30]);
+    setAnnounce('Opening entry form.');
+    const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { setDialogOpen(true); return; }
+    setLeverDown(true);
+    setSpinPhase('spinning');
+    // Knob slams down, holds ~1s, then springs back up while the reels keep
+    // spinning; reels land ~0.8s after the spring-back, then the form opens.
+    spinTimers.current.push(window.setTimeout(() => setLeverDown(false), 1000));
+    spinTimers.current.push(window.setTimeout(() => setSpinPhase('landed'), 1800));
+    spinTimers.current.push(window.setTimeout(() => {
+      setDialogOpen(true);
+      setSpinPhase('idle');
+    }, 2500));
+  }, [spinPhase, clearSpinTimers]);
 
-  if (config?.enabled && config.my_status?.status === 'admin_excluded') {
+  const closed = !!config?.cutoff_passed;
+  const cutoff = useCountdown(config?.cutoff_at ?? null, closed);
+
+  // Gate: render nothing until we know the raffle is enabled (BentoPage already
+  // hides the tile when disabled; this avoids a flash before config lands).
+  if (loading && !config) return null;
+  if (!config || !config.enabled) return null;
+
+  const prizeFull = config.prize_text?.trim() || 'a free pass';
+  const closeClock = formatCloseClock(config.cutoff_time, config.cutoff_at);
+  const entryCount = config.entry_count ?? 0;
+  const winner = config.winner_display ?? null;
+  const entered = hasEntered || !!config.my_status?.entered;
+
+  // --- Special states (early returns) ---------------------------------------
+
+  // Admin-excluded: the entrant doesn't meet a special rule. Show the machine
+  // dimmed (no lever) so it reads as unavailable, with a pointer to an alt event.
+  if (config.my_status?.status === 'admin_excluded') {
     const alt = config.my_status.alternate_event;
     return (
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
-        <div className="flex items-start gap-3">
-          <AnimatedChest intensity={0.2} opening={false} celebrate={false} dimmed />
-          <div className="flex-1 min-w-0">
-            <div
-              className="text-[14px] font-semibold leading-[1.2] tracking-[-0.01em]"
-              style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
-            >
-              Thanks for entering!
-            </div>
-            <div className="mt-1 text-[11px] leading-snug" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-              This raffle has a special rule you don't meet this time.
-              {alt && (
-                <>
-                  {' '}Try{' '}
-                  <a
-                    href={`/event/${alt.event_id}`}
-                    className="underline decoration-dotted underline-offset-2"
-                    style={{ color: GOLD }}
-                  >
-                    {alt.name ?? 'another event'}
-                  </a>{' '}
-                  instead.
-                </>
-              )}
-            </div>
+        <div className="rsb-root rsb-is-dimmed">
+          <div className="rsb-machine-row">
+            <Cabinet spinPhase="idle" prizeFull={prizeFull} />
+          </div>
+          <div
+            className="mt-3 text-center text-[11px] leading-snug"
+            style={{ color: 'hsl(var(--bento-fg-muted))' }}
+          >
+            This raffle has a special rule you don&rsquo;t meet this time.
+            {alt && (
+              <>
+                {' '}Try{' '}
+                <a
+                  href={`/event/${alt.event_id}`}
+                  className="underline decoration-dotted underline-offset-2"
+                  style={{ color: GOLD }}
+                >
+                  {alt.name ?? 'another event'}
+                </a>{' '}
+                instead.
+              </>
+            )}
           </div>
         </div>
       </BentoTile>
     );
   }
 
-  if (config?.enabled && config.my_status?.status === 'already_won') {
+  // Already won (this entrant): trophy + organiser-will-be-in-touch.
+  if (config.my_status?.status === 'already_won') {
     const alt = config.my_status.alternate_event;
     return (
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
@@ -361,7 +294,8 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
     );
   }
 
-  if (config?.enabled && config.winner_display) {
+  // Winner drawn: trophy + name.
+  if (winner) {
     return (
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle}>
         <div className="flex items-center gap-3">
@@ -371,10 +305,10 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
               className="text-[15px] font-extrabold leading-[1.15] tracking-[-0.015em] truncate"
               style={{ fontFamily: '"Fraunces", Georgia, serif', color: GOLD }}
             >
-              {'\u{1F389}'} {config.winner_display.first_name} won!
+              {'\u{1F389}'} {winner.first_name} won!
             </div>
             <div className="mt-1 text-[11px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-              Drawn {formatDrawnAt(config.winner_display.drawn_at)}
+              Drawn {formatDrawnAt(winner.drawn_at)}
             </div>
           </div>
         </div>
@@ -382,148 +316,88 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
     );
   }
 
-  if (!loading && (!config || !config.enabled)) {
-    return null;
-  }
+  // --- Live state ------------------------------------------------------------
 
-  const closed = !!config?.cutoff_passed;
-  const canEnter = !closed && !hasEntered;
+  const canEnter = !closed && !entered;
+  const machineDimmed = closed; // winner already handled above
+  const busy = spinPhase !== 'idle';
+  const subToneCls =
+    cutoff.tone === 'warn' ? ' warn' : cutoff.tone === 'urgent' ? ' urgent' : '';
 
   return (
     <>
-      <BentoTile
-        title={BLOCK_TITLES.raffle}
-        color={BLOCK_COLORS.raffle}
-        mode="multi-target"
-      >
-        {canEnter && (
-          <div className="flex justify-center mb-2">
-            <span
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
-              style={{ background: '#f5d563', color: '#1a2e2a', letterSpacing: '0.06em' }}
-            >
-              Free to enter
-            </span>
-          </div>
-        )}
+      <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle} mode="multi-target">
+        <div className={`rsb-root${machineDimmed ? ' rsb-is-dimmed' : ''}`}>
+          {canEnter && (
+            <div className="rsb-free-badge"><span>Free to enter</span></div>
+          )}
 
-        <div
-          key={shakeKey}
-          className="flex flex-1 flex-col items-center justify-center text-center min-h-[170px]"
-          style={{ animation: shakeKey > 0 ? 'raffle-shake 250ms ease' : undefined }}
-        >
-          <div className="relative">
-            <AnimatedChest
-              intensity={intensity}
-              opening={dialogOpen}
-              celebrate={celebrate}
-              dimmed={closed && !hasEntered}
-            />
-            {hasEntered && !celebrate && (
-              <motion.div
-                className="absolute -right-1 -bottom-1 h-6 w-6 rounded-full flex items-center justify-center"
-                style={{ background: GOLD, color: '#1A2E2A' }}
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                aria-hidden
-              >
-                <Check className="w-3.5 h-3.5" strokeWidth={3} />
-              </motion.div>
+          <div className="rsb-machine-row">
+            <Cabinet spinPhase={spinPhase} prizeFull={prizeFull} />
+            {canEnter && (
+              <div className="rsb-lever-col">
+                {/* The lever is the sole entry control, so it carries the
+                    accessible label (no separate CTA button any more). */}
+                <button
+                  className={`rsb-lever${busy ? ' is-active' : ''}${leverDown ? ' is-pulled' : ''}`}
+                  type="button"
+                  onClick={handlePull}
+                  aria-busy={busy}
+                  aria-label="Pull the lever to enter the raffle"
+                >
+                  <span className="rsb-lever-track" />
+                  <span className="rsb-lever-arm" />
+                  <span className="rsb-lever-knob" />
+                  <span className="rsb-lever-hint">Pull</span>
+                </button>
+              </div>
             )}
           </div>
 
-          <div className="mt-1 text-[9px] uppercase" style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}>
-            You could win
+          <div className="rsb-info">
+            <div className="rsb-meta">
+              <div className="rsb-meta-cell">
+                <div className="rsb-meta-k">{closed ? 'Closed' : 'Closes'}</div>
+                <div className="rsb-meta-v">{closeClock}</div>
+                {!closed && cutoff.label && (
+                  <div className={`rsb-meta-sub${subToneCls}`}>{cutoff.label}</div>
+                )}
+              </div>
+              <div className="rsb-meta-cell">
+                <div className="rsb-meta-k">Entered</div>
+                <motion.div
+                  key={entryCount}
+                  initial={{ opacity: 0.3, y: -2 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="rsb-meta-v"
+                >
+                  {entryCount}
+                </motion.div>
+                <div className="rsb-meta-sub">
+                  {entryCount === 0 ? 'be the first' : entered ? "you're in" : entryCount === 1 ? 'dancer' : 'dancers'}
+                </div>
+              </div>
+            </div>
+
+            {/* Post-entry / closed footer only -- the live entry action is the
+                lever itself; the redundant "Pull To Enter" CTA was removed. */}
+            {!canEnter && (
+              <div className="rsb-cta">
+                {entered ? (
+                  <div className="rsb-chip" role="status">
+                    <span className="rsb-chip-ico" aria-hidden="true" />
+                    You&rsquo;re entered &#8212; good luck
+                  </div>
+                ) : (
+                  <p className="rsb-status"><b>Entries closed</b> &#8212; winner drawn soon</p>
+                )}
+              </div>
+            )}
           </div>
-          <div
-            className="text-[16px] font-extrabold leading-[1.2] tracking-[-0.015em] px-1 mt-0.5"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', color: 'hsl(var(--bento-fg))' }}
-          >
-            {config?.prize_text ?? 'Prize pool unlocking soon'}
-          </div>
+
+          <p className="sr-only" aria-live="polite">{announce}</p>
         </div>
-
-        <div
-          className="grid grid-cols-2 mt-3 py-2"
-          style={{
-            borderTop: '1px solid rgba(179,138,78,0.18)',
-            borderBottom: '1px solid rgba(179,138,78,0.18)',
-          }}
-        >
-          <div className="text-center" style={{ borderRight: '1px solid rgba(179,138,78,0.18)' }}>
-            <div
-              className="text-[9px] uppercase"
-              style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}
-            >
-              {closed ? 'Closed' : 'Closes'}
-            </div>
-            <div
-              className="text-[14px] font-bold mt-0.5"
-              style={{ color: 'hsl(var(--bento-fg))' }}
-            >
-              {config?.cutoff_at ? formatCloseClock(config.cutoff_at) : '–'}
-            </div>
-            {!closed && config?.cutoff_at && <TimeLeft cutoffAt={config.cutoff_at} />}
-          </div>
-          <div className="text-center">
-            <div
-              className="text-[9px] uppercase"
-              style={{ letterSpacing: '0.08em', color: 'hsl(var(--bento-fg-muted))' }}
-            >
-              Entered
-            </div>
-            <motion.div
-              key={config?.entry_count ?? 0}
-              initial={{ opacity: 0.3, y: -2 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="text-[14px] font-bold mt-0.5"
-              style={{ color: 'hsl(var(--bento-fg))' }}
-            >
-              {config?.entry_count ?? 0} {(config?.entry_count ?? 0) === 1 ? 'dancer' : 'dancers'}
-            </motion.div>
-          </div>
-        </div>
-
-        {(closed || hasEntered) && (
-          <div
-            className="text-center text-[11px] mt-2"
-            style={{ color: 'hsl(var(--bento-fg-muted))' }}
-          >
-            {closed ? 'Entries closed – winner drawn soon' : "You're entered – we'll call the winner"}
-          </div>
-        )}
-
-        {canEnter && (
-          <div className="mt-3 flex justify-center">
-            <motion.button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); openEntryForm(); }}
-              className="inline-flex items-center gap-1 rounded-full px-4 py-2 text-[12px] font-semibold shadow-md"
-              style={{
-                background: GOLD,
-                color: '#1A2E2A',
-                boxShadow: '0 2px 8px rgba(179,138,78,0.35)',
-              }}
-              whileHover={{ scale: 1.04, boxShadow: '0 4px 14px rgba(245,213,99,0.45)' }}
-              whileTap={{ scale: 0.96 }}
-              animate={{
-                boxShadow: [
-                  '0 2px 8px rgba(179,138,78,0.35)',
-                  '0 2px 14px rgba(245,213,99,0.55)',
-                  '0 2px 8px rgba(179,138,78,0.35)',
-                ],
-              }}
-              transition={{ boxShadow: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}
-              aria-label="Enter the raffle"
-            >
-              <Sparkles className="w-3.5 h-3.5" aria-hidden />
-              Enter raffle
-              <span aria-hidden className="ml-0.5">↑</span>
-            </motion.button>
-          </div>
-        )}
       </BentoTile>
 
       {eventId && (
@@ -531,11 +405,10 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           eventId={eventId}
-          consentVersion={config?.consent_version ?? null}
+          consentVersion={config.consent_version ?? null}
           onSubmitted={markEntered}
         />
       )}
     </>
   );
 };
-
