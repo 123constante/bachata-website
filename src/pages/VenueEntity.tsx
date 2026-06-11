@@ -22,6 +22,7 @@ import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { splitLineNames } from '@/lib/tubeLineColour';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
+import { londonDateKey, parseUtcIso } from '@/lib/londonDate';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -339,6 +340,10 @@ function useVenuePageFonts() {
   }, []);
 }
 
+// Shared chip styling for the Band 1 at-a-glance facts under the hero.
+const FACT_CHIP =
+  'inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white/80';
+
 
 // ============================================================
 // Page
@@ -420,7 +425,7 @@ const VenueEntity = () => {
     () =>
       venue
         ? extractNearestStation(venue)
-        : { station: null, lines: [] as string[], walkMinutes: null },
+        : { station: null, lines: [] as string[], walkMinutes: null, mode: null },
     [venue],
   );
   const parkingNote = useMemo(
@@ -431,6 +436,24 @@ const VenueEntity = () => {
     () => (venue ? extractFaq(venue) : []),
     [venue],
   );
+
+  // Band 1 at-a-glance derived facts.
+  const whatsOn = events ?? [];
+  const capacityLabel =
+    venue?.capacity != null
+      ? venue.capacity <= 80
+        ? 'Intimate'
+        : venue.capacity <= 200
+        ? 'Mid-size'
+        : 'Large'
+      : null;
+  const tonightEvent = useMemo(() => {
+    const todayKey = londonDateKey(new Date());
+    return (events ?? []).find((e) => {
+      const d = parseUtcIso(e.instance_start);
+      return d ? londonDateKey(d) === todayKey : false;
+    });
+  }, [events]);
 
   // ----------------------------------------------------------
   // Loading
@@ -493,6 +516,12 @@ const VenueEntity = () => {
     .join(', ');
   const shortAddress = addressLine;
 
+  const hasContact =
+    !!(venue.phone || venue.email || venue.website || venue.instagram || venue.facebook);
+  // Opening hours only earn a slot when there is nothing live on the calendar
+  // - they are a fallback "the venue is real" signal, not a primary section.
+  const showHoursFallback = whatsOn.length === 0 && hoursRows.length > 0;
+
 
   const copyAddress = async () => {
     try {
@@ -549,6 +578,7 @@ const VenueEntity = () => {
         }}
       >
         <div className="va-bento mx-auto w-full px-3 pt-3 sm:px-5 md:px-8 md:pt-5 lg:px-12 xl:px-16">
+          {/* ---------- Band 1: 3-second decision ---------- */}
           <section className="va-bento-hero">
             <VenueHeroMosaic
               name={venue.name}
@@ -557,8 +587,61 @@ const VenueEntity = () => {
                 setLightboxIndex(Math.min(idx, Math.max(0, photos.length - 1)))
               }
             />
+            {(tonightEvent || venue.floor_type || capacityLabel || transport.station) ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tonightEvent ? (
+                  <span className="inline-flex items-center rounded-full border border-primary/60 bg-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    On tonight
+                  </span>
+                ) : null}
+                {venue.floor_type ? (
+                  <span className={FACT_CHIP}>{venue.floor_type} floor</span>
+                ) : null}
+                {capacityLabel ? (
+                  <span className={FACT_CHIP}>{capacityLabel}</span>
+                ) : null}
+                {transport.station ? (
+                  <span className={FACT_CHIP}>
+                    {transport.station}
+                    {transport.walkMinutes ? (
+                      <>&nbsp;&middot; {transport.walkMinutes} min walk</>
+                    ) : null}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
+          {/* ---------- Band 2: confirm the decision ---------- */}
+          {whatsOn.length > 0 ? (
+            <section className="va-bento-whatson">
+              <VenueSectionTitle>What&rsquo;s on here</VenueSectionTitle>
+              <VenueWhatsOnList
+                events={whatsOn}
+                venueName={venue.name}
+                onSeeAll={() => toast.message('Showing all events at this venue')}
+              />
+            </section>
+          ) : null}
+
+          {showHoursFallback ? (
+            <section className="va-bento-hours">
+              <VenueSectionTitle>Opening hours</VenueSectionTitle>
+              <p className="mb-2 text-xs text-white/55">
+                No upcoming events listed &mdash; usual opening hours:
+              </p>
+              <VenueHoursTable rows={hoursRows} />
+            </section>
+          ) : null}
+
+          {venue.description ? (
+            <section className="va-bento-desc">
+              <VenueSectionTitle>About this venue</VenueSectionTitle>
+              <VenueDescriptionCard description={venue.description} />
+            </section>
+          ) : null}
+
+          {/* ---------- Band 3: logistics ---------- */}
           <section className="va-bento-directions">
             <VenueSectionTitle>Find the venue</VenueSectionTitle>
             <VenueDirectionsCard
@@ -571,44 +654,7 @@ const VenueEntity = () => {
               onDirections={() => setSheetOpen(true)}
               onCopy={copyAddress}
             />
-            {venue.phone || venue.email || venue.website || venue.instagram || venue.facebook ? (
-              <div className="mt-5">
-                <VenueSectionTitle>Contact</VenueSectionTitle>
-                <VenueContactRow
-                  phone={venue.phone}
-                  email={venue.email}
-                  website={venue.website}
-                  instagram={venue.instagram}
-                  facebook={venue.facebook}
-                />
-              </div>
-            ) : null}
           </section>
-
-          {venue.description ? (
-            <section className="va-bento-desc">
-              <VenueSectionTitle>About this venue</VenueSectionTitle>
-              <VenueDescriptionCard description={venue.description} />
-            </section>
-          ) : null}
-
-          {Array.isArray(venue.video_urls) && venue.video_urls.length > 0 && parseVenueVideoUrl(venue.video_urls[0]) ? (
-            <section className="va-bento-video">
-              <VenueSectionTitle>See the venue</VenueSectionTitle>
-              <VenueVideoEmbed videoUrls={venue.video_urls} />
-            </section>
-          ) : null}
-
-          {(venue.facilities_new?.length || venue.floor_type || venue.capacity) ? (
-            <section className="va-bento-facilities">
-              <VenueSectionTitle>Venue features</VenueSectionTitle>
-              <VenueFacilitiesCard
-                facilitiesNew={venue.facilities_new ?? null}
-                floorType={venue.floor_type ?? null}
-                capacity={venue.capacity ?? null}
-              />
-            </section>
-          ) : null}
 
           {(venue.bar_available != null ||
             venue.cloakroom_available != null ||
@@ -637,21 +683,34 @@ const VenueEntity = () => {
             </section>
           ) : null}
 
-          {events && events.length > 0 ? (
-            <section className="va-bento-whatson">
-              <VenueSectionTitle>What&rsquo;s on here</VenueSectionTitle>
-              <VenueWhatsOnList
-                events={events}
-                venueName={venue.name}
-                onSeeAll={() => toast.message('Showing all events at this venue')}
+          {(venue.facilities_new?.length || venue.floor_type || venue.capacity) ? (
+            <section className="va-bento-facilities">
+              <VenueSectionTitle>Venue features</VenueSectionTitle>
+              <VenueFacilitiesCard
+                facilitiesNew={venue.facilities_new ?? null}
+                floorType={venue.floor_type ?? null}
+                capacity={venue.capacity ?? null}
               />
             </section>
           ) : null}
 
-          {hoursRows.length > 0 ? (
-            <section className="va-bento-hours">
-              <VenueSectionTitle>Opening hours</VenueSectionTitle>
-              <VenueHoursTable rows={hoursRows} />
+          {Array.isArray(venue.video_urls) && venue.video_urls.length > 0 && parseVenueVideoUrl(venue.video_urls[0]) ? (
+            <section className="va-bento-video">
+              <VenueSectionTitle>See the venue</VenueSectionTitle>
+              <VenueVideoEmbed videoUrls={venue.video_urls} />
+            </section>
+          ) : null}
+
+          {hasContact ? (
+            <section className="va-bento-contact">
+              <VenueSectionTitle>Contact</VenueSectionTitle>
+              <VenueContactRow
+                phone={venue.phone}
+                email={venue.email}
+                website={venue.website}
+                instagram={venue.instagram}
+                facebook={venue.facebook}
+              />
             </section>
           ) : null}
 
@@ -678,15 +737,16 @@ const VenueEntity = () => {
               grid-template-columns: repeat(12, minmax(0, 1fr));
               gap: 20px;
             }
-            .va-bento-hero        { grid-column: 1 / span 8; }
-            .va-bento-directions  { grid-column: 9 / span 4; }
-            .va-bento-desc        { grid-column: 1 / span 12; }
-            .va-bento-video       { grid-column: 1 / span 8; }
-            .va-bento-facilities  { grid-column: 9 / span 4; }
-            .va-bento-gtk         { grid-column: 1 / span 6; }
-            .va-bento-whatson     { grid-column: 7 / span 6; }
-            .va-bento-hours       { grid-column: 1 / span 6; }
-            .va-bento-faq         { grid-column: 7 / span 6; }
+            .va-bento-hero        { grid-column: 1 / span 8; grid-row: 1; }
+            .va-bento-directions  { grid-column: 9 / span 4; grid-row: 1; }
+            .va-bento-whatson     { grid-column: 1 / span 12; grid-row: 2; }
+            .va-bento-hours       { grid-column: 1 / span 6;  grid-row: 3; }
+            .va-bento-desc        { grid-column: 1 / span 12; grid-row: 3; }
+            .va-bento-gtk         { grid-column: 1 / span 6;  grid-row: 4; }
+            .va-bento-facilities  { grid-column: 7 / span 6;  grid-row: 4; }
+            .va-bento-video       { grid-column: 1 / span 8;  grid-row: 5; }
+            .va-bento-contact     { grid-column: 9 / span 4;  grid-row: 5; }
+            .va-bento-faq         { grid-column: 1 / span 12; grid-row: 6; }
           }
         `}</style>
       </div>
