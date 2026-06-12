@@ -454,3 +454,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-organiser-link-contract.mjs
+
+      # 35. P5 <-> legacy program parity (2026-06-12). The admin editor reads/writes
+      #     the P5 series program tree; THIS site's schedule reads the legacy
+      #     event_program_* mirror (get_occurrence_program_v1). set_program only
+      #     started mirroring P5->legacy on 2026-06-02, and any legacy meta_data
+      #     save used to resurrect stale programs via trg_sync_event_program ->
+      #     replace_event_program. Result: phantom sessions on live pages (the BOS
+      #     "DOMInation Team" showcase that survived deletion in the editor) and
+      #     one live series with NO public schedule. 11/49 live series were drifted
+      #     at first sweep; all reconciled 2026-06-12 and the mirror now keeps
+      #     relational + meta_data.program + per-date session overrides in lockstep
+      #     (admin migrations 20260821000000-20260821030000). Gate baseline: 0.
+      #     Health-check RPC: check_p5_legacy_program_parity_v1.
+      - name: Run P5 legacy program parity check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-p5-legacy-program-parity.mjs
