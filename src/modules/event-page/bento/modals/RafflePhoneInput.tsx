@@ -3,9 +3,20 @@
 // Outputs an E.164 string on every change (e.g. "+447700900123").
 // No external dep; small curated country list prioritised for the bachata
 // audience (UK first, then EU + the main Latin/English markets).
+//
+// 2026-06-12: per-country digit-length validation (src/lib/phoneRules.ts) with
+// inline feedback — winners are contacted on WhatsApp, so a typo'd number
+// means an unreachable winner. Trunk zeros people habitually type
+// ("07700 900123") are stripped before assembling E.164.
 // =============================================================================
 
 import React, { useMemo, useState } from 'react';
+import {
+  checkLocalDigits,
+  isValidE164,
+  normalizeLocalDigits,
+  type PhoneCheck,
+} from '@/lib/phoneRules';
 
 export interface RafflePhoneInputProps {
   value: string;
@@ -58,9 +69,23 @@ const COUNTRIES: Country[] = [
 
 const DEFAULT_COUNTRY_CODE = 'GB';
 
-function isValidE164(e164: string): boolean {
-  // E.164: leading '+', 8-15 digits total after it.
-  return /^\+\d{8,15}$/.test(e164);
+function feedbackFor(country: Country, check: PhoneCheck, touched: boolean): {
+  text: string;
+  tone: 'error' | 'warn';
+} | null {
+  switch (check.status) {
+    case 'short':
+      // Don't nag while they're still typing — only after blur.
+      if (!touched) return null;
+      return { text: `Looks short — ${country.name} numbers have ${check.expected}`, tone: 'error' };
+    case 'long':
+      // Too long is always wrong — say so immediately.
+      return { text: `That's too long for a ${country.name} number (${check.expected})`, tone: 'error' };
+    case 'warn':
+      return { text: check.message, tone: 'warn' };
+    default:
+      return null;
+  }
 }
 
 export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
@@ -80,11 +105,21 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   }, [value]);
 
   const [open, setOpen] = useState(false);
+  const [touched, setTouched] = useState(false);
+
+  const check = useMemo(
+    () => checkLocalDigits(country.code, country.dial, localDigits),
+    [country, localDigits],
+  );
+  const feedback = feedbackFor(country, check, touched);
 
   const emit = (next: Country, nextDigits: string) => {
-    const cleaned = nextDigits.replace(/[^0-9]/g, '');
+    const cleaned = normalizeLocalDigits(next.code, nextDigits.replace(/[^0-9]/g, ''));
     const e164 = cleaned.length > 0 ? `${next.dial}${cleaned}` : '';
-    onChange(e164, isValidE164(e164));
+    const nextCheck = checkLocalDigits(next.code, next.dial, cleaned);
+    // 'warn' still counts as valid — never block a real number on a heuristic.
+    const valid = (nextCheck.status === 'ok' || nextCheck.status === 'warn') && isValidE164(e164);
+    onChange(e164, valid);
   };
 
   const handleSelectCountry = (code: string) => {
@@ -98,61 +133,72 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   };
 
   return (
-    <div className="flex items-stretch gap-1.5">
-      <div className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
+    <div>
+      <div className="flex items-stretch gap-1.5">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            disabled={disabled}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            className="h-full min-w-[5rem] rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-2 text-left text-sm text-[#D8CCB0] hover:border-[rgba(245,213,99,0.55)] focus:border-[rgba(245,213,99,0.55)] focus:outline-none disabled:opacity-50"
+          >
+            <span className="text-base mr-1" aria-hidden>{country.flag}</span>
+            <span className="font-mono text-[11px] text-[#D8CCB0]">{country.dial}</span>
+            <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>▾</span>
+          </button>
+          {open && (
+            <>
+              {/* Click-outside backstop — rendered before the list so list wins pointer priority */}
+              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+              <ul
+                role="listbox"
+                className="absolute top-full left-0 mt-1 z-50 max-h-64 w-64 overflow-auto rounded-md border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] shadow-2xl text-sm"
+              >
+                {COUNTRIES.map((c) => (
+                  <li key={c.code}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={c.code === country.code}
+                      onClick={() => handleSelectCountry(c.code)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/30 ${
+                        c.code === country.code ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
+                      }`}
+                    >
+                      <span className="text-base" aria-hidden>{c.flag}</span>
+                      <span className="flex-1 truncate text-xs">{c.name}</span>
+                      <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        <input
+          id={inputId}
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          autoFocus={autoFocus}
           disabled={disabled}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          className="h-full min-w-[5rem] rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-2 text-left text-sm text-[#D8CCB0] hover:border-[rgba(245,213,99,0.55)] focus:border-[rgba(245,213,99,0.55)] focus:outline-none disabled:opacity-50"
-        >
-          <span className="text-base mr-1" aria-hidden>{country.flag}</span>
-          <span className="font-mono text-[11px] text-[#D8CCB0]">{country.dial}</span>
-          <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>▾</span>
-        </button>
-        {open && (
-          <>
-            {/* Click-outside backstop — rendered before the list so list wins pointer priority */}
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-            <ul
-              role="listbox"
-              className="absolute top-full left-0 mt-1 z-50 max-h-64 w-64 overflow-auto rounded-md border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] shadow-2xl text-sm"
-            >
-              {COUNTRIES.map((c) => (
-                <li key={c.code}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={c.code === country.code}
-                    onClick={() => handleSelectCountry(c.code)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/30 ${
-                      c.code === country.code ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
-                    }`}
-                  >
-                    <span className="text-base" aria-hidden>{c.flag}</span>
-                    <span className="flex-1 truncate text-xs">{c.name}</span>
-                    <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+          value={localDigits}
+          onChange={handleDigitsChange}
+          onBlur={() => setTouched(true)}
+          placeholder="7700 900123"
+          className="flex-1 min-w-0 h-10 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50"
+        />
       </div>
-      <input
-        id={inputId}
-        type="tel"
-        inputMode="numeric"
-        autoComplete="tel-national"
-        autoFocus={autoFocus}
-        disabled={disabled}
-        value={localDigits}
-        onChange={handleDigitsChange}
-        placeholder="7700 900123"
-        className="flex-1 min-w-0 h-10 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50"
-      />
+      {feedback && (
+        <div
+          data-testid="raffle-phone-feedback"
+          className={`mt-1 text-[11px] ${feedback.tone === 'error' ? 'text-rose-400' : 'text-amber-300'}`}
+        >
+          {feedback.text}
+        </div>
+      )}
     </div>
   );
 };

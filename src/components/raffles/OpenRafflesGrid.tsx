@@ -4,7 +4,7 @@
 // Renders a compact 2-up (mobile) grid of every event with an open raffle.
 // Card hierarchy (dancer-first): day chip (Tonight / Tomorrow / Friday 13 Jun)
 // -> event name as the hero (links to the event page) -> demoted "Win:" prize
-// line -> live countdown + entry count -> Enter button + "we only call the
+// line -> live countdown + entry count -> Enter button + "winners contacted
 // winner" reassurance. Entering opens the EXISTING RaffleEntryDialog inline
 // (same submit_raffle_entry flow as the event page — no navigation, no payment).
 //
@@ -91,7 +91,7 @@ const RaffleCard: React.FC<{
           Enter raffle
         </button>
       )}
-      <div className="rp-reassure">Free &middot; we only call the winner</div>
+      <div className="rp-reassure">Free &middot; winners contacted on WhatsApp</div>
     </article>
   );
 };

@@ -3,18 +3,32 @@
 // Bottom-sheet-style modal (mobile-first via shadcn/radix Dialog).
 // Calls public.submit_raffle_entry via the anon Supabase client.
 //
-// Handles all 9 structured reason codes documented on the RPC.
-// On success: confetti, vibrate, modal auto-closes after 2s, parent is told.
+// 2026-06-12 — WhatsApp verification. Winners are contacted ONLY on WhatsApp,
+// so after a successful entry we send a WhatsApp confirmation (the
+// raffle-send-confirmation edge fn) and poll while Meta's delivery webhook
+// settles:
+//   verified → "You're in — check WhatsApp!" (confetti)
+//   failed   → back to the form with a recoverable "no WhatsApp on that
+//              number" banner; the entry is NOT marked entered, the user
+//              corrects the number and resubmits
+//   skipped/timeout/infra-dark → neutral success (legacy behaviour) — the
+//              raffle never breaks because WhatsApp is down
+//
+// onSubmitted() (which sets the per-event "entered" sessionStorage flag in the
+// parent tiles) fires ONLY on ack/verified/neutral — never on a failed
+// verification, so the lever stays available for the retry.
 // =============================================================================
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { triggerMicroConfetti } from '@/lib/confetti';
 import { getRaffleSessionId } from '@/lib/raffleSession';
+import { sendWaConfirmation, pollWaVerifyStatus } from '@/lib/raffleWaVerify';
 import { RafflePhoneInput } from './RafflePhoneInput';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { Sparkles } from 'lucide-react';
 
 interface RaffleEntryDialogProps {
@@ -28,6 +42,14 @@ interface RaffleEntryDialogProps {
 type SubmitResponse =
   | { ok: true; entry_id: string }
   | { ok: false; reason: string };
+
+type Phase =
+  | 'form'              // input form (also re-entered after a WhatsApp failure)
+  | 'submitting'        // submit_raffle_entry in flight
+  | 'confirming'        // entry created; sending WhatsApp confirmation + polling
+  | 'success_verified'  // webhook confirmed delivery — number has WhatsApp
+  | 'success_neutral'   // skipped / timeout / infra dark — entered, unconfirmed
+  | 'ack';              // already_entered / already_won info state
 
 // Map structured backend reason codes to user-facing strings.
 function messageForReason(reason: string): { text: string; toast: 'error' | 'success' } {
@@ -46,6 +68,8 @@ function messageForReason(reason: string): { text: string; toast: 'error' | 'suc
       return { text: 'Raffle is not active for this event', toast: 'error' };
     case 'cutoff_passed':
       return { text: 'Entries have closed for this raffle', toast: 'error' };
+    case 'rate_limited':
+      return { text: 'Too many entries from this device — try again in a few minutes.', toast: 'error' };
     case 'already_entered':
       return { text: "You've already entered this raffle 🎉", toast: 'success' };
     case 'already_won_this_event':
@@ -74,21 +98,30 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);
   const [honeypot, setHoneypot] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [succeeded, setSucceeded] = useState(false);
+  const [phase, setPhase] = useState<Phase>('form');
+  const [waFailed, setWaFailed] = useState(false);
+  const [neutralVariant, setNeutralVariant] = useState<'sent_unconfirmed' | 'no_claim'>('no_claim');
   const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string } | null>(null);
+
+  // Invalidates in-flight confirmation work when the dialog closes/reopens —
+  // a stale poll must never flip state under a new attempt.
+  const generationRef = useRef(0);
+  const phaseRef = useRef<Phase>('form');
+  phaseRef.current = phase;
 
   // Reset form on close so reopens start clean. Keep the sessionId (it's a
   // persistent dedup token), don't rotate it here.
   useEffect(() => {
     if (!open) {
+      generationRef.current += 1;
       const t = window.setTimeout(() => {
         setPhoneE164('');
         setPhoneValid(false);
         setConsent(false);
         setHoneypot('');
-        setSubmitting(false);
-        setSucceeded(false);
+        setPhase('form');
+        setWaFailed(false);
+        setNeutralVariant('no_claim');
         setAckState(null);
       }, 200);
       return () => window.clearTimeout(t);
@@ -96,16 +129,30 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   }, [open]);
 
   const canSubmit = useMemo(
-    () => !submitting && !succeeded && phoneValid && consent,
-    [submitting, succeeded, phoneValid, consent],
+    () => phase === 'form' && phoneValid && consent,
+    [phase, phoneValid, consent],
   );
+
+  const celebrate = (kind: 'verified' | 'neutral') => {
+    tryVibrate([100, 50, 100]);
+    triggerMicroConfetti(window.innerWidth / 2, window.innerHeight / 2, {
+      particleCount: 80,
+      spread: 70,
+      colors: ['#B38A4E', '#F5D563', '#D8CCB0', '#ffd700', '#ff9500'],
+    });
+    toast.success(kind === 'verified' ? "You're in — check WhatsApp! 🎉" : "You're in! Good luck 🎉");
+    onSubmitted();
+    window.setTimeout(() => onOpenChange(false), 2500);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit) return;
 
-    setSubmitting(true);
+    setPhase('submitting');
+    setWaFailed(false);
     const sessionId = getRaffleSessionId();
+    const generation = generationRef.current;
 
     const { data, error } = await supabase.rpc('submit_raffle_entry', {
       p_event_id: eventId,
@@ -115,31 +162,33 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
       p_honeypot: honeypot || null,
       p_session_id: sessionId,
     });
+    if (generation !== generationRef.current) return; // dialog closed mid-flight
 
     if (error) {
-      setSubmitting(false);
+      setPhase('form');
       toast.error('Network error. Please check your connection and try again.');
       return;
     }
 
     const payload = data as SubmitResponse;
     if (!payload?.ok) {
-      setSubmitting(false);
       const reason = (payload as { reason: string })?.reason ?? '';
       // 'already_entered' and 'already_won_this_event' need user acknowledgement
       // — swap the modal into a centered info state instead of a disappearing
       // toast. Parent is told (onSubmitted) so the chest flips to its
       // "Entered" state once the user dismisses.
       if (reason === 'already_entered') {
+        setPhase('ack');
         setAckState({
           title: "You're already in!",
-          body: "You've entered this raffle already. We'll call you if you win — good luck!",
+          body: "You've entered this raffle already. We'll message you on WhatsApp if you win — good luck!",
           emoji: '🎉',
         });
         onSubmitted();
         return;
       }
       if (reason === 'already_won_this_event') {
+        setPhase('ack');
         setAckState({
           title: "You've already won this one!",
           body: "You’ve already won this raffle. Come back next week for another chance — thanks for dancing with us.",
@@ -149,28 +198,62 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         return;
       }
       // Everything else stays as a plain error toast.
+      setPhase('form');
       const { text: errText } = messageForReason(reason);
       toast.error(errText);
       return;
     }
 
-    // Real success — celebrate.
-    setSucceeded(true);
-    tryVibrate([100, 50, 100]);
-    // Aim the confetti at the modal centre — rough but fine on all viewports.
-    triggerMicroConfetti(window.innerWidth / 2, window.innerHeight / 2, {
-      particleCount: 80,
-      spread: 70,
-      colors: ['#B38A4E', '#F5D563', '#D8CCB0', '#ffd700', '#ff9500'],
-    });
-    toast.success("You're in! Good luck 🎉");
-    onSubmitted();
-    // Auto-close after 2s so the user sees the confirmation state.
-    window.setTimeout(() => onOpenChange(false), 2000);
+    // Entry created — now send the WhatsApp confirmation and wait for the
+    // verdict. onSubmitted() is deliberately NOT called yet: a failed
+    // verification must leave the lever available for a corrected retry.
+    setPhase('confirming');
+    const sendOutcome = await sendWaConfirmation(payload.entry_id, sessionId);
+    if (generation !== generationRef.current) return;
+
+    if (sendOutcome === 'failed') {
+      setPhase('form');
+      setWaFailed(true);
+      return;
+    }
+    if (sendOutcome !== 'sent') {
+      // skipped / unavailable — infra dark, legacy neutral success.
+      setNeutralVariant('no_claim');
+      setPhase('success_neutral');
+      celebrate('neutral');
+      return;
+    }
+
+    const verdict = await pollWaVerifyStatus(payload.entry_id, sessionId);
+    if (generation !== generationRef.current) return;
+
+    if (verdict === 'verified') {
+      setPhase('success_verified');
+      celebrate('verified');
+    } else if (verdict === 'failed') {
+      setPhase('form');
+      setWaFailed(true);
+    } else {
+      // timeout / skipped / unavailable — confirmation dispatched, receipt slow.
+      setNeutralVariant('sent_unconfirmed');
+      setPhase('success_neutral');
+      celebrate('neutral');
+    }
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    if (phase === 'submitting') return; // entry creation in flight — hold on
+    if (!v && phase === 'confirming') {
+      // Closing while we wait on the webhook: optimistically count them in —
+      // never trap the user in a modal. (A later failed verdict still excludes
+      // the entry from draws server-side.)
+      onSubmitted();
+    }
+    onOpenChange(v);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!submitting) onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]">
         <DialogHeader className="px-4 pt-4">
           <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
@@ -178,11 +261,11 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             Enter the raffle
           </DialogTitle>
           <DialogDescription className="text-[#A59474]">
-            One entry per person. The winner is drawn after the event.
+            One entry per person. The winner is messaged on WhatsApp after the draw.
           </DialogDescription>
         </DialogHeader>
 
-        {ackState ? (
+        {phase === 'ack' && ackState ? (
           <div className="px-5 pb-5 pt-4 text-center space-y-3">
             <div className="text-4xl" aria-hidden>{ackState.emoji}</div>
             <div className="text-lg font-semibold text-[#F5D563]">{ackState.title}</div>
@@ -197,11 +280,29 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               </Button>
             </div>
           </div>
-        ) : succeeded ? (
+        ) : phase === 'confirming' ? (
+          <div className="px-4 pb-6 pt-3 text-center space-y-2">
+            <WhatsAppIcon className="w-8 h-8 mx-auto text-[#25D366] motion-safe:animate-pulse" />
+            <div className="text-base font-semibold text-[#F5D563]">Sending your WhatsApp confirmation…</div>
+            <div className="text-xs text-[#A59474]">Usually takes a few seconds.</div>
+          </div>
+        ) : phase === 'success_verified' ? (
           <div className="px-4 pb-5 pt-2 text-center">
             <div className="text-2xl mb-1" aria-hidden>🎉</div>
-            <div className="text-base font-semibold text-[#F5D563]">You're entered!</div>
-            <div className="text-xs text-[#A59474] mt-1">We'll call the winner by phone after the draw.</div>
+            <div className="text-base font-semibold text-[#F5D563]">You're in — check WhatsApp!</div>
+            <div className="text-xs text-[#A59474] mt-1">
+              We've sent your entry confirmation. Winners are messaged on WhatsApp after the draw.
+            </div>
+          </div>
+        ) : phase === 'success_neutral' ? (
+          <div className="px-4 pb-5 pt-2 text-center">
+            <div className="text-2xl mb-1" aria-hidden>🎉</div>
+            <div className="text-base font-semibold text-[#F5D563]">You're in! Good luck</div>
+            <div className="text-xs text-[#A59474] mt-1">
+              {neutralVariant === 'sent_unconfirmed'
+                ? "We've sent you a WhatsApp confirmation — it may take a minute to arrive."
+                : 'Winners are messaged on WhatsApp after the draw.'}
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="px-4 pb-4 pt-2 space-y-3">
@@ -221,16 +322,34 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               />
             </div>
 
+            {waFailed && (
+              <div
+                data-testid="raffle-wa-failed"
+                className="rounded-md border border-rose-500/40 bg-rose-950/40 px-3 py-2 text-[12px] leading-snug text-rose-200"
+              >
+                That number doesn't seem to have WhatsApp. Check it and try again —
+                winners can only be contacted on WhatsApp.
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 py-2">
+              <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" />
+              <div className="text-[11px] leading-snug text-[#D8CCB0]">
+                <span className="font-semibold text-[#F5D563]">Winners are contacted on WhatsApp only.</span>{' '}
+                Make sure this number has WhatsApp.
+              </div>
+            </div>
+
             <div>
               <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
                 Phone <span className="text-rose-400">*</span>
-                <span className="text-[#A59474] ml-1">(we'll call the winner)</span>
+                <span className="text-[#A59474] ml-1">(must have WhatsApp)</span>
               </label>
               <RafflePhoneInput
                 inputId="raffle-phone"
                 value={phoneE164}
                 onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); }}
-                disabled={submitting}
+                disabled={phase !== 'form'}
               />
             </div>
 
@@ -239,7 +358,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 type="checkbox"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
-                disabled={submitting}
+                disabled={phase !== 'form'}
                 className="mt-0.5 accent-[#B38A4E]"
                 required
               />
@@ -254,7 +373,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 type="button"
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                disabled={submitting}
+                disabled={phase !== 'form'}
                 className="text-[#A59474] hover:text-[#D8CCB0]"
               >
                 Cancel
@@ -264,7 +383,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 disabled={!canSubmit}
                 className="bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Entering…' : 'Enter raffle'}
+                {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
               </Button>
             </div>
           </form>
