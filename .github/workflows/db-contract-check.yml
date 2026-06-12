@@ -184,103 +184,125 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/precheck-supabase-secrets.mjs
 
+      # All independent contract steps below run with `if: always()` so a single
+      # failing check can never SKIP (and thus silently un-watch) the ones after
+      # it. Each monitors an independent prod invariant; we need every signal on
+      # every run. (The migration-authority + secret precheck above intentionally
+      # stay fail-fast — they are structural prerequisites, not data invariants.)
       - name: Run venue contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-contract.mjs
 
       - name: Run venue coords contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-coords.mjs
 
       - name: Run per-occurrence RPC test suite
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-per-occurrence-rpcs.mjs
 
       - name: Run event-program duration contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-program-duration.mjs
 
       - name: Run session-people display_name override contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-session-people-display-name-contract.mjs
 
       - name: Run epp.display_name drift check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-epp-display-name-drift.mjs
 
       - name: Run epp.avatar_url drift check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-epp-avatar-url-drift.mjs
 
       - name: Run guest-entries contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-guest-entries-contract.mjs
 
       - name: Run program editor Phase 0 schema contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-schema-contract.mjs
 
       - name: Run program save (Phase 1 v2) idempotency contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-save-idempotency-contract.mjs
 
       - name: Run day-rollover consistency contract check (Phase 1F)
+        if: always()
         # No Supabase secrets needed - the gate is pure-JS fixture verification
         # against src/lib/programDayRollover.ts. Cross-repo gap noted in script
         # header: admin lib is manually mirrored here. See script for TODO.
         run: node scripts/check-day-rollover-consistency-v1.mjs
 
       - name: Run admin-list-occurrences null-venue tolerance contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-admin-list-occurrences-null-venue-contract.mjs
 
       - name: Run replace-event-program canvas consistency contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-replace-event-program-canvas-consistency.mjs
 
       - name: Run Phase 2/3 security-hardening policy contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-security-phase2-3-policies.mjs
 
       - name: Run Phase 1 FK-index contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-fk-indexes.mjs
 
       - name: Run event_attendees FK-target contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-attendees-fk-target.mjs
 
       - name: Run teacher/DJ event-program assignment integrity contract check
+        if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}

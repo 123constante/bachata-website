@@ -39,9 +39,17 @@
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
-// Locked to prod snapshot 2026-06-10. Increase if roles are intentionally expanded;
+// Locked to prod snapshot 2026-06-12. Increase if roles are intentionally expanded;
 // never decrease without investigating why new unassigned rows appeared.
-const BASELINE_TEACHERS_UNASSIGNED = 21; // active teachers with no epp row
+//
+// 2026-06-12: bumped teacher floor 21 -> 35. A roster of 14 teacher COUPLES
+// ("Ronald & Alba", "Dario & Sara", …) was bulk-imported at 12:21 UTC as
+// display_name-only dancer_profiles (first_name/surname NULL, slug unclaimed-*)
+// with an active teaching role but no event lineup yet — a legitimate directory
+// expansion, not a dropped-assignment regression (20 of the unassigned predate
+// the import and are stable vs the old baseline). DJ floor unchanged: unassigned
+// DJs actually fell to 4 (<= 5), so the existing ceiling still holds.
+const BASELINE_TEACHERS_UNASSIGNED = 35; // active teachers with no epp row
 const BASELINE_DJS_UNASSIGNED = 5;       // active DJs with no epp row
 
 function loadEnv() {
