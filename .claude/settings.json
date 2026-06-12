@@ -35,7 +35,9 @@
       "Bash(git -C /c/dev/bachata-admin-11april log --oneline -3)",
       "Bash(git -C /c/dev/bachata-admin-11april log --oneline origin/main..HEAD)",
       "Bash(git -C /c/dev/bachata-admin-11april push origin main)",
-      "Bash(pkill -f \"vite --port 8080\")"
+      "Bash(pkill -f \"vite --port 8080\")",
+      "Bash(git -C c:/dev/Website status)",
+      "Bash(git -C c:/dev/Website diff)"
     ],
     "additionalDirectories": [
       "\\tmp",

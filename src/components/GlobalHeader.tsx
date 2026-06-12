@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import { ChevronLeft, ChevronDown, MapPin } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { cn } from '@/lib/utils';
@@ -11,13 +11,6 @@ import { flags } from '@/lib/featureFlags';
 
 const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
 const WHATSAPP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
-
-function slugToDisplayName(slug: string | null): string {
-  if (!slug) return 'Select City';
-  const parts = slug.split('-');
-  const nameParts = parts[parts.length - 1].length === 2 ? parts.slice(0, -1) : parts;
-  return nameParts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-}
 
 const WhatsAppGlyph = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -52,7 +45,6 @@ export const GlobalHeader = () => {
   const { pathname } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
   const prefersReducedMotion = useReducedMotion();
-  const cityDisplayName = slugToDisplayName(citySlug);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -148,18 +140,6 @@ export const GlobalHeader = () => {
         )}
 
         <div className="flex-1" />
-
-        {/* City pill -- desktop only */}
-        {!searching && (
-          <Link
-            to="/cities"
-            className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors no-underline shrink-0"
-          >
-            <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-            {cityDisplayName}
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
-          </Link>
-        )}
 
         <HeaderSearch expanded={searching} onExpandedChange={setSearching} />
       </nav>
