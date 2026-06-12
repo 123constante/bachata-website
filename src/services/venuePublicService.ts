@@ -59,7 +59,7 @@ export interface PublicVenueListItem {
   id: string;
   slug: string | null;
   name: string;
-  /** Curated colloquial area label ("Covent Garden"); null until curated â€”
+  /** Curated colloquial area label ("Covent Garden"); null until curated --
    *  the UI falls back to the postcode district. */
   neighbourhood: string | null;
   cover_image: string | null;
@@ -76,8 +76,8 @@ export interface PublicVenueListItem {
   next_event_name: string | null;
   nearest_station: string | null;
   nearest_station_minutes: number | null;
-  /** Transport mode of the nearest stop (metro/airport/taxi/â€¦); null on legacy
-   *  rows â†’ treated as metro. Drives the card's icon/wording. */
+  /** Transport mode of the nearest stop (metro/airport/taxi/...); null on legacy
+   *  rows -> treated as metro. Drives the card's icon/wording. */
   nearest_station_mode: string | null;
   day_pattern: string[];
   address: string | null;
