@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { cn } from '@/lib/utils';
+import { flags } from '@/lib/featureFlags';
 
 const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
 
@@ -21,6 +22,12 @@ const BASE_NAV_LINKS: Array<{
   { segment: 'tonight',    label: 'Tonight',    emoji: '\u{1F319}' },
   { segment: 'organisers', label: 'Organisers', emoji: '\u{1F3AA}', fixedPath: '/organisers' },
   { segment: 'venues',     label: 'Venues',     emoji: '\u{1F3DB}\u{FE0F}' },
+  // /raffles is NOT city-scoped (no /city/:slug/raffles route), so fixedPath
+  // is required. Flag-gated: the route redirects home when rafflesPage is
+  // off, so the nav entry must disappear with it (prod flag is false for now).
+  ...(flags.rafflesPage
+    ? [{ segment: 'raffles', label: 'Raffles', emoji: '\u{1F3B0}', fixedPath: '/raffles' }]
+    : []),
 ];
 
 const emojiAnimations = {
@@ -35,6 +42,10 @@ const emojiAnimations = {
   '\u{1F3DB}\u{FE0F}': {
     animate: { y: [0, -8, 0] },
     transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' as const },
+  },
+  '\u{1F3B0}': {
+    animate: { y: [0, -8, 0] },
+    transition: { repeat: Infinity, duration: 1.7, ease: 'easeInOut' as const },
   },
 };
 

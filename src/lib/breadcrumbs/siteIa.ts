@@ -48,6 +48,7 @@ export const SITE_IA = {
   choreography:     { label: 'Choreography',      path: '/choreography' },
   cities:           { label: 'Cities',            path: '/cities' },
   discounts:        { label: 'Discounts',         path: '/discounts' },
+  raffles:          { label: 'Raffles',           path: '/raffles' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
   profile:          { label: 'Profile',           path: '/profile' },
   search:           { label: 'Search',            path: '/search' },

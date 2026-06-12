@@ -67,6 +67,7 @@ const CreateVideographerProfile = lazyWithRetry(() => import("../pages/CreateVid
 const VendorDashboardPage = lazyWithRetry(() => import("../pages/VendorDashboardPage"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
+const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const Onboarding = lazyWithRetry(() => import("../pages/Onboarding"));
@@ -140,6 +141,15 @@ export const AnimatedRoutes = () => {
             <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
             <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
+            {/* Standalone raffles landing page. Flag-gated (rafflesPage): default
+                true in dev, false in prod. When off, redirect home rather than
+                render a ComingSoonGate placeholder (this is a marketing page,
+                not a listing-request surface). */}
+            <Route path="/raffles" element={
+              flags.rafflesPage
+                ? <PageTransition><Raffles /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
             <Route path="/experience" element={<PageTransition><Experience /></PageTransition>} />
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
