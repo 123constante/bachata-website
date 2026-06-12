@@ -68,11 +68,31 @@ export function initSentry(): void {
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
     sendDefaultPii: false,
+    // Browser network-layer fetch failures (Safari "Load failed", Chrome
+    // "Failed to fetch") are users losing signal or navigating away mid-fetch
+    // — the affected queries already retry once and surface RetryNotice.
+    // Genuine PostgREST errors carry a code/details message and still report.
+    ignoreErrors: [
+      'Load failed',
+      'Failed to fetch',
+      'NetworkError when attempting to fetch resource',
+    ],
+    // Synthesize a stack for thrown non-Errors (strings, plain objects) so
+    // events like "Error: he" are attributable to a frame.
+    attachStacktrace: true,
     beforeSend(event, hint) {
       const orig = hint?.originalException;
       if (orig && !(orig instanceof Error) && typeof orig === 'object') {
         const e = toError(orig);
-        event.exception = { values: [{ type: 'Error', value: e.message }] };
+        // Override only the message — replacing event.exception wholesale
+        // discards the stacktrace and mechanism Sentry already attached.
+        const first = event.exception?.values?.[0];
+        if (first) {
+          first.type = 'Error';
+          first.value = e.message;
+        } else {
+          event.exception = { values: [{ type: 'Error', value: e.message }] };
+        }
         event.message = e.message;
       }
       return event;
