@@ -1,0 +1,655 @@
+/* ===========================================================================
+   Raffles.css - styling for the public /raffles page.
+   Self-contained .rp-* (page) and .rh-* (hero) classes. ASCII only (FUSE-mount
+   rule). Palette lifted from the Lucky Reels / festival raffle surface:
+   gold #f5d563 / #f7e08a / #b38a4e on near-black cabinet tones.
+   =========================================================================== */
+
+.rp-root {
+  --rp-gold: #f5d563;
+  --rp-gold-lt: #f7e08a;
+  --rp-gold-dk: #b38a4e;
+  --rp-gold-deep: #8a6d3c;
+  --rp-ink: #0a0a0b;
+  --rp-ink-2: #141417;
+  --rp-ink-3: #1d1d22;
+  --rp-screen: #050505;
+  --rp-line: rgba(245, 213, 99, 0.16);
+  --rp-red: #f06a4a;
+  --rp-cream: #e9dfc6;
+  --rp-muted: #9a917c;
+
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 0 56px;
+  color: var(--rp-cream);
+  background: var(--rp-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* full-bleed dark backdrop behind the centered column */
+.rp-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 60% at 50% 0%, #241a06 0%, #0a0a0b 58%),
+    #0a0a0b;
+  pointer-events: none;
+}
+
+/* ---------- HERO ---------- */
+.rh-hero {
+  position: relative;
+  text-align: center;
+  padding: 28px 18px 36px;
+  overflow: hidden;
+}
+.rh-kicker {
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--rp-gold);
+  margin-bottom: 16px;
+}
+.rh-cabinet {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 20px;
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #16110a, #0b0b0b 70%, #080808);
+  border: 2px solid var(--rp-gold-deep);
+  box-shadow: 0 0 0 4px #0a0805, 0 18px 50px rgba(184, 134, 11, 0.22),
+    inset 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.rh-marquee {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold) 55%, var(--rp-gold-dk));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 22px rgba(245, 213, 99, 0.25);
+}
+.rh-bulbs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.rh-bulbs i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rp-gold);
+  box-shadow: 0 0 6px var(--rp-gold);
+  animation: rh-chase 1.2s linear infinite;
+}
+.rh-bulbs i:nth-child(2) { animation-delay: 0.2s; }
+.rh-bulbs i:nth-child(3) { animation-delay: 0.4s; }
+.rh-bulbs i:nth-child(4) { animation-delay: 0.6s; }
+.rh-bulbs i:nth-child(5) { animation-delay: 0.8s; }
+@keyframes rh-chase {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.rh-reels {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--rp-screen);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.9);
+}
+.rh-reel {
+  width: 72px;
+  height: 120px;
+  overflow: hidden;
+  border-radius: 8px;
+  position: relative;
+  background: linear-gradient(180deg, #fffaf0, #e7dcc2);
+  box-shadow: inset 0 8px 14px rgba(0, 0, 0, 0.18), inset 0 -8px 14px rgba(0, 0, 0, 0.18);
+}
+.rh-reel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 26%, transparent 74%, rgba(0, 0, 0, 0.4));
+}
+.rh-strip {
+  display: flex;
+  flex-direction: column;
+  animation: rh-spin 1.1s linear infinite;
+}
+.rh-reel2 .rh-strip { animation-duration: 1.45s; }
+.rh-reel3 .rh-strip { animation-duration: 1.8s; }
+.rh-sym {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  line-height: 1;
+}
+/* one symbol set = 4 * 60px = 240px; loop by exactly one set => seamless */
+@keyframes rh-spin {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-240px); }
+}
+/* Jackpot cell — the word the land animation locks onto. Sits after the 16
+   looping symbol cells (so it's never seen mid-spin), at strip offset
+   960..1020px. Landing centres it: translateY(-(990 - 60)) = -930px. */
+.rh-jackcell {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: #1a1206;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+@keyframes rh-land {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-930px); }
+}
+/* Staggered deceleration: reel 1 locks first, reel 3 last (chunk-chunk-chunk).
+   Keep these durations <= the LAND_MS hold in RaffleHero.tsx. */
+.rh-reels.is-landing .rh-strip {
+  animation: rh-land 1.2s cubic-bezier(0.15, 0.8, 0.25, 1) forwards;
+}
+.rh-reels.is-landing .rh-reel2 .rh-strip { animation-duration: 1.5s; }
+.rh-reels.is-landing .rh-reel3 .rh-strip { animation-duration: 1.8s; }
+.rh-winline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.rh-winline .rh-lamp {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rp-gold);
+  box-shadow: 0 0 8px var(--rp-gold);
+  animation: rh-pulse 1.4s ease-in-out infinite;
+}
+.rh-winlabel {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.18em;
+  color: var(--rp-gold);
+}
+@keyframes rh-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+/* Pay-off flash — fires as the LAST reel locks (1.7s after landing starts). */
+.rh-winline.is-hit .rh-lamp { animation-duration: 0.45s; }
+.rh-winline.is-hit .rh-winlabel {
+  animation: rh-flash 1s ease-out 1.7s both;
+}
+@keyframes rh-flash {
+  0% { transform: scale(1); text-shadow: none; }
+  30% { transform: scale(1.12); text-shadow: 0 0 26px rgba(245, 213, 99, 0.95); }
+  100% { transform: scale(1); text-shadow: 0 0 10px rgba(245, 213, 99, 0.35); }
+}
+.rh-title {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 56px;
+  line-height: 0.92;
+  margin: 6px 0 0;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold) 55%, var(--rp-gold-dk));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rh-sub {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--rp-cream);
+  opacity: 0.85;
+  max-width: 320px;
+  margin: 10px auto 0;
+}
+.rh-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 22px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: none;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 15px;
+  color: #1a1206;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold-dk));
+  box-shadow: 0 8px 26px rgba(245, 213, 99, 0.35);
+  animation: rh-bob 2.4s ease-in-out infinite;
+}
+@keyframes rh-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ---------- SECTIONS ---------- */
+.rp-section {
+  padding: 10px 16px 4px;
+}
+.rp-section-last { padding-bottom: 24px; }
+.rp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.rp-h2 {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 30px;
+  letter-spacing: 0.03em;
+  color: var(--rp-cream);
+}
+.rp-livedot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rp-red);
+}
+.rp-livedot i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rp-red);
+  animation: rp-ping 1.4s infinite;
+}
+@keyframes rp-ping {
+  0% { box-shadow: 0 0 0 0 rgba(240, 106, 74, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(240, 106, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(240, 106, 74, 0); }
+}
+
+/* ---------- CARDS ---------- */
+.rp-card {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--rp-ink-3), var(--rp-ink-2));
+  border: 1px solid var(--rp-line);
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0 0 12px;
+}
+.rp-card-top {
+  display: flex;
+  padding: 10px 12px 0;
+}
+/* day chip — Tonight glows, Tomorrow is warm, other days are quiet */
+.rp-day {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.rp-day-tonight {
+  color: #1a1206;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold-dk));
+  animation: rp-tonight 1.8s ease-in-out infinite;
+}
+@keyframes rp-tonight {
+  0%, 100% { box-shadow: 0 0 8px rgba(245, 213, 99, 0.35); }
+  50% { box-shadow: 0 0 16px rgba(245, 213, 99, 0.7); }
+}
+.rp-day-tomorrow {
+  color: var(--rp-gold);
+  background: rgba(245, 213, 99, 0.12);
+  border: 1px solid var(--rp-line);
+}
+.rp-day-day {
+  color: var(--rp-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+/* event name is the card hero, and the whole title links to the event page */
+.rp-title {
+  display: block;
+  padding: 6px 12px 6px;
+  text-decoration: none;
+}
+.rp-title-name {
+  display: block;
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 21px;
+  line-height: 1.02;
+  color: var(--rp-gold-lt);
+}
+.rp-title-venue {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--rp-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* prize demoted to a quiet one-liner so identical prizes stop dominating */
+.rp-prize {
+  padding: 0 12px 10px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--rp-cream);
+  opacity: 0.85;
+}
+.rp-prize-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rp-gold);
+}
+.rp-meta {
+  display: flex;
+  gap: 7px;
+  padding: 0 12px 10px;
+  margin-top: auto;
+}
+.rp-mbox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px;
+  background: #0c0a06;
+  border: 1px solid var(--rp-line);
+  border-radius: 10px;
+}
+.rp-cd,
+.rp-num {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--rp-gold);
+}
+.rp-num { color: var(--rp-cream); }
+.rp-cd-hot { color: var(--rp-red); }
+.rp-mcap {
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rp-muted);
+}
+.rp-enter {
+  margin: 0 12px;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 13.5px;
+  color: #1a1206;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold-dk));
+  cursor: pointer;
+}
+.rp-enter:active { transform: scale(0.98); }
+.rp-entered {
+  margin: 0 12px;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--rp-gold);
+  background: rgba(245, 213, 99, 0.1);
+  border: 1px solid var(--rp-line);
+}
+/* spam-fear killer, right at the point of decision */
+.rp-reassure {
+  margin-top: 7px;
+  text-align: center;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--rp-muted);
+}
+
+/* filler tile (odd-count balance) */
+.rp-filler {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 16px 12px;
+  text-decoration: none;
+  border-style: dashed;
+}
+.rp-filler-emoji { font-size: 26px; }
+.rp-filler-txt {
+  font-size: 12.5px;
+  color: var(--rp-cream);
+  line-height: 1.3;
+}
+.rp-filler-cta {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--rp-gold);
+}
+
+/* skeleton + empty */
+.rp-skel {
+  min-height: 168px;
+  animation: rp-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes rp-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
+}
+.rp-empty {
+  text-align: center;
+  padding: 30px 18px;
+  border: 1px dashed var(--rp-line);
+  border-radius: 16px;
+  background: var(--rp-ink-2);
+}
+.rp-empty-emoji { font-size: 34px; }
+.rp-empty-title {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 24px;
+  margin-top: 8px;
+  color: var(--rp-cream);
+}
+.rp-empty-sub {
+  font-size: 13px;
+  color: var(--rp-muted);
+  max-width: 340px;
+  margin: 6px auto 0;
+  line-height: 1.5;
+}
+.rp-empty-cta {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rp-gold);
+  text-decoration: none;
+}
+
+/* ---------- DIVIDER ---------- */
+.rp-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 14px;
+}
+.rp-divider span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rp-line), transparent);
+}
+.rp-divider em {
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rp-gold);
+}
+
+/* ---------- HOW IT WORKS ---------- */
+.rp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rp-step {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--rp-ink-2);
+  border: 1px solid var(--rp-line);
+}
+.rp-step-reel {
+  flex: 0 0 52px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #fffaf0, #e7dcc2);
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.15), inset 0 -6px 10px rgba(0, 0, 0, 0.15);
+}
+.rp-step-n {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--rp-gold);
+}
+.rp-step-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 1px 0 3px;
+  color: var(--rp-cream);
+}
+.rp-step-body {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--rp-muted);
+}
+
+/* ---------- JACKPOT ---------- */
+.rp-jackpot {
+  text-align: center;
+  padding: 26px 18px;
+  border-radius: 18px;
+  background: radial-gradient(120% 100% at 50% 0%, #2a1f08, #0d0a06);
+  border: 2px solid var(--rp-gold-deep);
+  box-shadow: 0 0 0 4px #0a0805, inset 0 0 40px rgba(245, 213, 99, 0.08);
+}
+.rp-jackpot-tag {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rp-gold);
+}
+.rp-totes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 16px 0 6px;
+}
+.rp-tote {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rp-tote-num {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 42px;
+  line-height: 0.9;
+  background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold-dk));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rp-tote-cap {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rp-muted);
+  margin-top: 4px;
+}
+.rp-jackpot-foot {
+  font-size: 12.5px;
+  color: var(--rp-cream);
+  opacity: 0.7;
+  margin-top: 10px;
+}
+
+/* ---------- ORGANISER ---------- */
+.rp-org {
+  text-align: center;
+  padding: 22px 18px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--rp-ink-2), var(--rp-ink));
+  border: 1px solid var(--rp-line);
+}
+.rp-org-tag {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rp-gold-dk);
+}
+.rp-org-title {
+  font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  font-size: 26px;
+  margin: 8px 0 6px;
+  color: var(--rp-gold-lt);
+}
+.rp-org-body {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--rp-muted);
+  max-width: 320px;
+  margin: 0 auto 16px;
+}
+.rp-org-cta {
+  display: inline-block;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--rp-gold-deep);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--rp-gold-lt);
+  text-decoration: none;
+}
+
+/* larger screens: hero scales up a touch */
+@media (min-width: 640px) {
+  .rh-title { font-size: 68px; }
+  .rh-reel { width: 84px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rh-strip,
+  .rh-bulbs i,
+  .rh-winline .rh-lamp,
+  .rh-winline.is-hit .rh-winlabel,
+  .rh-cta,
+  .rp-day-tonight,
+  .rp-livedot i,
+  .rp-skel {
+    animation: none !important;
+  }
+  /* RaffleHero pins landed=true under reduced motion; without the land
+     animation the strip must be statically positioned on the jackpot row. */
+  .rh-strip { transform: translateY(-930px); }
+}

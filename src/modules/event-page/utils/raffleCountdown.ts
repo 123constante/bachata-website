@@ -78,6 +78,61 @@ export function formatDrawDate(value: string | null | undefined): string {
   }
 }
 
+export interface RaffleDayLabel {
+  /** "Tonight" | "Tomorrow" | "Friday 13 Jun" (full weekday, house style). */
+  label: string;
+  tone: 'tonight' | 'tomorrow' | 'day';
+}
+
+/** Day label for a raffle card, from an event start ISO.
+ *
+ *  The stored timestamp is wall-clock-as-UTC, so the event's calendar date is
+ *  simply the first 10 chars -- no conversion. "Today/tomorrow" must come from
+ *  the SAME frame the wall clocks are written in (Europe/London), not the
+ *  browser zone and not raw UTC: at 00:30 BST London it is already "tomorrow"
+ *  while UTC still says 23:30 yesterday. Comparing London-today vs stored-date
+ *  keeps the Tonight badge correct across that midnight edge.
+ *
+ *  `nowMs` is injectable for tests; defaults to Date.now(). */
+export function raffleDayLabel(
+  startIso: string | null | undefined,
+  nowMs?: number,
+): RaffleDayLabel | null {
+  if (!startIso) return null;
+  const eventYmd = startIso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventYmd)) return null;
+
+  let todayYmd: string;
+  try {
+    // en-CA formats as YYYY-MM-DD directly.
+    todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' })
+      .format(nowMs != null ? new Date(nowMs) : new Date());
+  } catch {
+    todayYmd = new Date(nowMs != null ? nowMs : Date.now()).toISOString().slice(0, 10);
+  }
+  if (eventYmd === todayYmd) return { label: 'Tonight', tone: 'tonight' };
+
+  // Calendar-day +1 in pure date space (noon anchor avoids DST/day-slip).
+  const t = new Date(`${todayYmd}T12:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + 1);
+  if (eventYmd === t.toISOString().slice(0, 10)) {
+    return { label: 'Tomorrow', tone: 'tomorrow' };
+  }
+
+  const d = new Date(`${eventYmd}T12:00:00Z`);
+  if (!Number.isFinite(d.getTime())) return null;
+  try {
+    const fmt = (opt: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...opt }).format(d);
+    return {
+      label: `${fmt({ weekday: 'long' })} ${fmt({ day: 'numeric' })} ${fmt({ month: 'short' })}`,
+      tone: 'day',
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Reactive `now` (epoch ms) that ticks while the raffle is open. Adaptive:
  *  1s when under 10 minutes to close, 30s otherwise; stops when closed/unset. */
 export function useRaffleNow(cutoffMs: number | null, closed: boolean): number {

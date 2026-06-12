@@ -14,6 +14,11 @@ export const flags = {
   organisersDirectory: import.meta.env.VITE_ENABLE_ORGANISERS_DIRECTORY === 'true',
   organiserDetail:     import.meta.env.VITE_ENABLE_ORGANISER_DETAIL === 'true',
   venueDetail:         import.meta.env.VITE_ENABLE_VENUE_DETAIL === 'true',
+  // Standalone /raffles landing page. NOT a listing-request gate — when false
+  // the route redirects home (see AnimatedRoutes), it does not render
+  // ComingSoonGate. Default true in dev, false in prod until the public
+  // list_open_raffles_v1 RPC is live.
+  rafflesPage:         import.meta.env.VITE_ENABLE_RAFFLES_PAGE === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
