@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -38,17 +38,43 @@ export interface GlobalLayoutProps {
   // companions (gated by showGradientBg). 'default' renders the orange /
   // festival-purple / festival-pink wash that 36+ public pages depend on;
   // 'bento' swaps to brass / plum / velvet for the event page's
-  // themed-surface treatment. Always defaults to 'default' so existing
-  // consumers are unaffected.
-  gradientPalette?: 'default' | 'bento';
+  // themed-surface treatment. 'velvet' is the venues directory's static
+  // "Velvet Grain" wash (plum fade + top-light + vignette + film grain).
+  // 'brass' is the venues directory's warm raffle-surface wash (matching
+  // /raffles backdrop exactly); floating icons are suppressed so the
+  // clean cabinet look is preserved. Always defaults to 'default' so
+  // existing consumers are unaffected.
+  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass';
   floatingCount?: number;
   heroAfter?: ReactNode;
   children: ReactNode;
 }
 
-// PageBreadcrumb auto-prepends the Home icon — this list is the trail AFTER
+// PageBreadcrumb auto-prepends the Home icon -- this list is the trail AFTER
 // Home. Empty default = just the Home icon, no "Home" text duplicated.
 const DEFAULT_BREADCRUMBS: BreadcrumbItemType[] = [];
+
+// "Velvet Grain" page wash (venues directory, approved 2026-06-12): plum
+// linear base, faint purple top-light, viewport-bottom vignette, and an SVG
+// film-grain layer whose opacity is baked into the rect so the whole
+// treatment is a single static background value (no animation, no overlay
+// element).
+const VELVET_BG: CSSProperties = {
+  backgroundColor: '#0d080b',
+  background:
+    `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' opacity='0.05' filter='url(%23n)'/%3E%3C/svg%3E") repeat, ` +
+    'radial-gradient(115% 70% at 50% 0%, rgba(168,85,247,0.10), transparent 58%), ' +
+    'radial-gradient(150% 90% at 50% 115%, rgba(0,0,0,0.85), transparent 55%), ' +
+    'linear-gradient(180deg, #180d15, #0d080b)',
+};
+
+// Brass page wash (venues directory, raffle palette): warm gold radial glow
+// at top fading to near-black -- mirrors the /raffles backdrop exactly.
+// No animation, no film grain, no floating icons (clean cabinet look).
+const BRASS_BG: CSSProperties = {
+  backgroundColor: '#0a0a0b',
+  background: 'radial-gradient(120% 60% at 50% 0%, #241a06 0%, #0a0a0b 58%), #0a0a0b',
+};
 
 // Sub-header row positioning differs by mode:
 //
@@ -101,13 +127,13 @@ const GlobalLayout = ({
 
   // With hero: pt-3 on mobile / pt-20 on desktop. Mobile keeps the breadcrumb
   // tight under the 60px global header; desktop preserves the historical
-  // alignment (breadcrumb text at y≈152, matching the position the old
+  // alignment (breadcrumb text at y~152, matching the position the old
   // in-hero PageBreadcrumb sits at on /parties today). pointer-events-none
   // on the outer wrapper so the transparent zone (and any sub-header area
   // outside the breadcrumb/actions) lets clicks pass through to the hero
   // underneath. Inner interactive wrappers re-enable pointer events.
   //
-  // Without hero: tight sticky bar, no top padding — the row takes its
+  // Without hero: tight sticky bar, no top padding -- the row takes its
   // natural height under the header.
   const subHeaderClasses = hero
     ? 'absolute top-0 left-0 right-0 z-10 px-4 pt-3 md:pt-20 flex items-center justify-between pointer-events-none'
@@ -144,21 +170,29 @@ const GlobalLayout = ({
 
       {showGradientBg && (
         <>
-          <motion.div
-            className={
-              gradientPalette === 'bento'
-                ? "fixed inset-0 bg-gradient-to-br from-bento-accent/20 via-bento-plum/15 to-bento-surface/30 -z-10 pointer-events-none"
-                : "fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
-            }
-            animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
-            transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
-            style={{ backgroundSize: '200% 200%' }}
-          />
-          <div
-            className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden`}
-          >
-            <FloatingElements count={floatingCount} />
-          </div>
+          {gradientPalette === 'velvet' ? (
+            <div className="fixed inset-0 -z-10 pointer-events-none" style={VELVET_BG} />
+          ) : gradientPalette === 'brass' ? (
+            <div className="fixed inset-0 -z-10 pointer-events-none" style={BRASS_BG} />
+          ) : (
+            <motion.div
+              className={
+                gradientPalette === 'bento'
+                  ? "fixed inset-0 bg-gradient-to-br from-bento-accent/20 via-bento-plum/15 to-bento-surface/30 -z-10 pointer-events-none"
+                  : "fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
+              }
+              animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
+              transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
+              style={{ backgroundSize: '200% 200%' }}
+            />
+          )}
+          {gradientPalette !== 'velvet' && gradientPalette !== 'brass' && (
+            <div
+              className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden`}
+            >
+              <FloatingElements count={floatingCount} />
+            </div>
+          )}
         </>
       )}
 
@@ -171,7 +205,7 @@ const GlobalLayout = ({
         // a new empty zone between breadcrumb and emoji on phones; desktop
         // keeps pt-9 to match the historical 36px reservation. When
         // showSubheader=false there is no breadcrumb to clear, so we drop the
-        // shim AND shrink the hero's own top padding (pt-20 → pt-16) since
+        // shim AND shrink the hero's own top padding (pt-20 -> pt-16) since
         // that 80px also exists to push the title below the breadcrumb.
         <div className={showSubheader ? 'pt-3 md:pt-9' : ''}>
           <PageHero
@@ -194,10 +228,11 @@ const GlobalLayout = ({
 
       {stickySubheader && (
         // Renders AFTER the hero so its natural position is below the fold at
-        // scroll=0 — invisible until the user scrolls past the hero, then pins
-        // at top-[60px] (with hero) / top-[101px] (without hero, clears the
-        // breadcrumb row). Previously rendered before the hero, which pinned
-        // it immediately since natural y=60 matched the sticky threshold.
+        // scroll=0 -- invisible until the user scrolls past the hero, then
+        // pins at top-[60px] (with hero) / top-[101px] (without hero, clears
+        // the breadcrumb row). Previously rendered before the hero, which
+        // pinned it immediately since natural y=60 matched the sticky
+        // threshold.
         <div className={`sticky ${hero ? 'top-[60px]' : 'top-[101px]'} z-20`}>
           {stickySubheader}
         </div>

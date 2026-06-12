@@ -59,6 +59,9 @@ export interface PublicVenueListItem {
   id: string;
   slug: string | null;
   name: string;
+  /** Curated colloquial area label ("Covent Garden"); null until curated --
+   *  the UI falls back to the postcode district. */
+  neighbourhood: string | null;
   cover_image: string | null;
   city_name: string | null;
   capacity: number | null;
@@ -73,8 +76,8 @@ export interface PublicVenueListItem {
   next_event_name: string | null;
   nearest_station: string | null;
   nearest_station_minutes: number | null;
-  /** Transport mode of the nearest stop (metro/airport/taxi/…); null on legacy
-   *  rows → treated as metro. Drives the card's icon/wording. */
+  /** Transport mode of the nearest stop (metro/airport/taxi/...); null on legacy
+   *  rows -> treated as metro. Drives the card's icon/wording. */
   nearest_station_mode: string | null;
   day_pattern: string[];
   address: string | null;
@@ -83,6 +86,10 @@ export interface PublicVenueListItem {
 
 export async function fetchPublicVenuesList(): Promise<PublicVenueListItem[]> {
   const { data, error } = await supabase.rpc('get_public_venues_list_v3' as never);
-  if (error || !data) return [];
-  return data as PublicVenueListItem[];
+  // Throw instead of resolving []: a failed RPC must NOT render as an empty
+  // directory. Throwing restores React Query's retry and routes the failure
+  // to Sentry via the global QueryCache onError; the page renders a distinct
+  // error state from isError.
+  if (error) throw error;
+  return (data ?? []) as PublicVenueListItem[];
 }

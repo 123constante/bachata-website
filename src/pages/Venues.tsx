@@ -1,108 +1,192 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, MapPin, Users, Music, Layers, Lightbulb } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
-import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Building2, ChevronDown, Layers, Lightbulb, MapPin, Music, Users } from 'lucide-react';
+import GlobalLayout from '@/components/layout/GlobalLayout';
+import { Skeleton } from '@/components/ui/skeleton';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
-import { VenueCard } from '@/components/venue/VenueCard';
-import { parseUtcIso, londonDateKey, getComingWeekendKeys } from '@/lib/londonDate';
+import { parseUtcIso, londonDaysFromToday } from '@/lib/londonDate';
 
-const UNKNOWN_CITY = 'Other';
-const PINNED_CITY = 'London';
+// ---------------------------------------------------------------------------
+// "Tonight First" venues directory (approved mockup 4, 2026-06-12).
+// Page shape: hero -> "Dancing tonight" photo rail -> sticky area/day filter
+// bar -> collapsible area panels (single-open accordion). Brass/gold palette
+// from the raffle surface; area headers wear the gold jackpot frame.
+// ---------------------------------------------------------------------------
 
-type VenueGroup = { city: string; venues: PublicVenueListItem[] };
-type FilterKey = 'tonight' | 'weekend' | 'wood';
+const LONDON_TZ = 'Europe/London';
 
-// "Tonight" and "Weekend" are evaluated on London's calendar (matching the rest
-// of the app), not the browser's timezone. next_event_iso arrives from the RPC
-// as a timezone-less UTC string; parseUtcIso + londonDateKey normalise that so
-// the filter is correct regardless of where the visitor's browser is set.
-const matchesFilters = (
-  v: PublicVenueListItem,
-  active: Set<FilterKey>,
-  todayKey: string,
-  weekendKeys: Set<string>,
-): boolean => {
-  if (active.has('tonight') || active.has('weekend')) {
-    const dt = parseUtcIso(v.next_event_iso);
-    const key = dt ? londonDateKey(dt) : null;
-    if (active.has('tonight') && key !== todayKey) return false;
-    if (active.has('weekend') && (key === null || !weekendKeys.has(key))) return false;
+// Brass/gold palette lifted verbatim from Raffles.css (rp-* tokens).
+const ACCENT = '#f5d563';                    // rp-gold
+const ACCENT_WARM = '#f7e08a';               // rp-gold-lt
+const ACCENT_DK = '#b38a4e';                 // rp-gold-dk
+const ACCENT_DEEP = '#8a6d3c';               // rp-gold-deep (borders on hot surfaces)
+const ACCENT_SOFT = 'rgba(245,213,99,0.12)'; // subtle gold tint
+const CREAM = '#e9dfc6';                     // rp-cream
+const CARD_BG = '#141417';                   // rp-ink-2
+const LINE = 'rgba(245,213,99,0.16)';        // rp-line
+const MUTED = '#9a917c';                     // rp-muted
+const QUIET = '#9a917c';                     // same
+
+type AreaKey = 'Central' | 'North' | 'East' | 'West' | 'South';
+const AREA_ORDER: AreaKey[] = ['Central', 'North', 'East', 'West', 'South'];
+const AREA_LABEL: Record<AreaKey, string> = {
+  Central: 'Central London',
+  North: 'North London',
+  East: 'East London',
+  West: 'West London',
+  South: 'South London',
+};
+const AREA_DOT: Record<AreaKey, string> = {
+  Central: '#a855f7',
+  North: '#f97316',
+  East: '#ec4899',
+  West: '#d4a017',
+  South: '#ef4444',
+};
+const areaLabel = (k: string) => (k === 'Elsewhere' ? 'Elsewhere' : AREA_LABEL[k as AreaKey]);
+const areaDot = (k: string) => AREA_DOT[k as AreaKey] ?? MUTED;
+
+// Postcode district -> compass area. WC/EC plus the W1/SW1 districts read as
+// Central; the SW3/5/6/7/10 Chelsea-Fulham belt reads as West to a Londoner,
+// the rest of SW as South.
+const WEST_SW = new Set([3, 5, 6, 7, 10]);
+const deriveArea = (postcode: string | null): AreaKey | null => {
+  if (!postcode) return null;
+  const m = postcode.trim().toUpperCase().match(/^([A-Z]{1,2})(\d{1,2})/);
+  if (!m) return null;
+  const letters = m[1];
+  const num = parseInt(m[2], 10);
+  if (letters === 'WC' || letters === 'EC') return 'Central';
+  if (letters === 'W') return num === 1 ? 'Central' : 'West';
+  if (letters === 'SW') return num === 1 ? 'Central' : WEST_SW.has(num) ? 'West' : 'South';
+  if (letters === 'N' || letters === 'NW') return 'North';
+  if (letters === 'SE') return 'South';
+  if (letters === 'E') return 'East';
+  return null;
+};
+
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const weekdayFmt = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON_TZ, weekday: 'long' });
+const shortDateFmt = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON_TZ, day: 'numeric', month: 'short' });
+
+interface VenueVm {
+  v: PublicVenueListItem;
+  area: AreaKey | null;
+  outward: string | null;
+  /** "Tonight" | "Tomorrow" | weekday | "26 Apr"; null when nothing upcoming */
+  nextLabel: string | null;
+  isTonight: boolean;
+  /** London weekday of the next event; drives the day chips together with day_pattern */
+  nextWeekday: string | null;
+  /** Wall-clock start "18:00" sliced from the stored string (times are stored local-as-UTC, displayed as stored) */
+  startTime: string | null;
+  sortKey: number;
+}
+
+const buildVm = (v: PublicVenueListItem): VenueVm => {
+  const dt = parseUtcIso(v.next_event_iso);
+  let nextLabel: string | null = null;
+  let isTonight = false;
+  let nextWeekday: string | null = null;
+  if (dt) {
+    const diff = londonDaysFromToday(dt);
+    nextWeekday = weekdayFmt.format(dt);
+    if (diff <= 0) {
+      nextLabel = 'Tonight';
+      isTonight = true;
+    } else if (diff === 1) {
+      nextLabel = 'Tomorrow';
+    } else if (diff < 7) {
+      nextLabel = nextWeekday;
+    } else {
+      nextLabel = shortDateFmt.format(dt);
+    }
   }
-  if (active.has('wood') && v.floor_type !== 'wood') return false;
-  return true;
+  return {
+    v,
+    area: deriveArea(v.postcode),
+    outward: v.postcode ? v.postcode.trim().split(/\s+/)[0].toUpperCase() : null,
+    nextLabel,
+    isTonight,
+    nextWeekday,
+    startTime: v.next_event_iso?.match(/(\d{2}:\d{2})/)?.[1] ?? null,
+    sortKey: dt ? dt.getTime() : Number.POSITIVE_INFINITY,
+  };
 };
 
-const sortVenues = (venues: PublicVenueListItem[]): PublicVenueListItem[] => {
-  return [...venues].sort((a, b) => {
-    const diff = (b.upcoming_event_count ?? 0) - (a.upcoming_event_count ?? 0);
-    if (diff !== 0) return diff;
-    return a.name.localeCompare(b.name);
-  });
+// Soonest event first; dormant venues (Infinity) last, then by activity.
+const byNextThenActivity = (a: VenueVm, b: VenueVm): number => {
+  if (a.sortKey !== b.sortKey) return a.sortKey < b.sortKey ? -1 : 1;
+  const diff = (b.v.upcoming_event_count ?? 0) - (a.v.upcoming_event_count ?? 0);
+  if (diff !== 0) return diff;
+  return a.v.name.localeCompare(b.v.name);
 };
 
-type ChipDef = { key: FilterKey; label: string; emoji: string };
-const CHIPS: ChipDef[] = [
-  { key: 'tonight', label: 'Tonight', emoji: '🌙' },
-  { key: 'weekend', label: 'Weekend', emoji: '🎉' },
-  { key: 'wood', label: 'Wood', emoji: '🪵' },
-];
+const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={
+      on
+        ? { background: `linear-gradient(180deg, ${ACCENT_WARM}, ${ACCENT_DK})`, borderColor: ACCENT_DK, color: '#1a1206' }
+        : { backgroundColor: '#ffffff08', borderColor: LINE, color: '#cbbf9f' }
+    }
+    className={cn(
+      'shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors',
+      on ? 'shadow-md shadow-amber-500/25' : 'hover:!border-amber-400/50 hover:!text-white',
+    )}
+  >
+    {children}
+  </button>
+);
 
-// Dark warm bar surface, sits cleanly over the black page.
-const BAR_STYLE = { backgroundColor: 'rgba(8,6,4,0.92)', borderColor: '#241c14' } as const;
+// Warm near-black bar surface matching the raffle page cabinet tone.
+const BAR_STYLE = { backgroundColor: 'rgba(13,10,6,0.55)', borderColor: LINE } as const;
 
-// Inner bar content — 3 filter chips + result count + Clear, on a single line
-// (no horizontal scroll; the count word collapses to just the number on the
-// narrowest phones). Shared by the in-flow copy and the portalled pinned copy.
-const FilterBarInner = ({
-  active,
-  onToggle,
-  onClear,
-  count,
-}: {
-  active: Set<FilterKey>;
-  onToggle: (k: FilterKey) => void;
-  onClear: () => void;
+interface FilterBarProps {
+  area: 'All' | AreaKey;
+  day: string | null;
+  days: string[];
   count: number;
-}) => (
-  <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2">
-    <div className="flex items-center gap-1.5">
-      {CHIPS.map(({ key, label, emoji }) => {
-        const isOn = active.has(key);
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onToggle(key)}
-            style={isOn ? undefined : { backgroundColor: '#1a1410', borderColor: '#3a2e1c', color: '#a89875' }}
-            className={`shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-              isOn
-                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                : 'hover:!border-primary/60 hover:!text-stone-100'
-            }`}
-          >
-            <span aria-hidden="true">{emoji}</span>
-            <span>{label}</span>
-          </button>
-        );
-      })}
+  onArea: (a: 'All' | AreaKey) => void;
+  onDay: (d: string) => void;
+  onClear: () => void;
+}
+
+const FilterBarInner = ({ area, day, days, count, onArea, onDay, onClear }: FilterBarProps) => (
+  <div className="mx-auto max-w-6xl px-4 py-2">
+    <div className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: MUTED }}>
+      Area
     </div>
-    <div className="flex items-center gap-2 shrink-0 ml-auto">
-      <span className="text-xs" style={{ color: '#8a7a5c' }}>
-        <span className="font-bold text-stone-300">{count}</span>
-        <span className="hidden sm:inline"> {count === 1 ? 'venue' : 'venues'}</span>
+    <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+      {(['All', ...AREA_ORDER] as const).map((a) => (
+        <Chip key={a} on={area === a} onClick={() => onArea(a)}>
+          {a}
+        </Chip>
+      ))}
+    </div>
+    <div className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: MUTED }}>
+      Day
+    </div>
+    <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+      {days.map((d, i) => (
+        <Chip key={d} on={day === d} onClick={() => onDay(d)}>
+          {i === 0 ? <>{d} &middot; today</> : d}
+        </Chip>
+      ))}
+    </div>
+    <div className="mt-1.5 flex items-center justify-between text-[11px]" style={{ color: MUTED }}>
+      <span>
+        <span className="font-bold" style={{ color: CREAM }}>{count}</span>{' '}
+        {count === 1 ? 'venue' : 'venues'}
       </span>
-      {active.size > 0 && (
-        <button
-          type="button"
-          onClick={onClear}
-          style={{ color: '#d97706' }}
-          className="text-xs hover:underline"
-        >
+      {(area !== 'All' || day !== null) && (
+        <button type="button" onClick={onClear} className="text-xs font-bold hover:underline" style={{ color: ACCENT }}>
           Clear
         </button>
       )}
@@ -110,30 +194,13 @@ const FilterBarInner = ({
   </div>
 );
 
-// Sticky horizontal filter bar (replaces the old left sidebar). The app's
-// page wrapper sets overflow-x:hidden (=> overflow-y:auto) and filter:blur(0),
-// which between them break position:sticky AND position:fixed for in-page
-// content. So we render the bar in normal flow and, once it scrolls under the
-// 60px global header, mount a portalled fixed copy on document.body (outside
-// those wrappers) so it actually pins to the viewport. A callback ref wires the
-// IntersectionObserver the moment the sentinel mounts (i.e. after data loads),
-// not at first render when the bar is still null. Hidden while loading or when
-// there are no venues at all.
-const FilterBar = ({
-  active,
-  onToggle,
-  onClear,
-  count,
-  total,
-  isLoading,
-}: {
-  active: Set<FilterKey>;
-  onToggle: (k: FilterKey) => void;
-  onClear: () => void;
-  count: number;
-  total: number;
-  isLoading: boolean;
-}) => {
+// The app's page wrapper sets overflow-x:hidden and filter:blur(0), which
+// between them break position:sticky AND position:fixed for in-page content.
+// So the bar renders in normal flow and, once it scrolls under the 60px global
+// header, a portalled fixed copy mounts on document.body (outside those
+// wrappers) so it actually pins to the viewport. Same mechanism as the
+// previous directory's filter bar.
+const FilterBar = (props: FilterBarProps) => {
   const [pinned, setPinned] = useState(false);
   const ioRef = useRef<IntersectionObserver | null>(null);
 
@@ -152,21 +219,19 @@ const FilterBar = ({
     }
   }, []);
 
-  if (isLoading || total === 0) return null;
-
   return (
     <>
-      <div ref={setSentinel} aria-hidden className="h-px -mb-px" />
-      <div style={BAR_STYLE} className="border-b backdrop-blur-md">
-        <FilterBarInner active={active} onToggle={onToggle} onClear={onClear} count={count} />
+      <div ref={setSentinel} aria-hidden className="-mb-px h-px" />
+      <div style={BAR_STYLE} className="border-y backdrop-blur-md">
+        <FilterBarInner {...props} />
       </div>
       {pinned &&
         createPortal(
           <div
             style={BAR_STYLE}
-            className="fixed top-[60px] left-0 right-0 z-30 border-b backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200"
+            className="fixed left-0 right-0 top-[60px] z-30 border-b backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200"
           >
-            <FilterBarInner active={active} onToggle={onToggle} onClear={onClear} count={count} />
+            <FilterBarInner {...props} />
           </div>,
           document.body,
         )}
@@ -174,111 +239,341 @@ const FilterBar = ({
   );
 };
 
+const TonightRail = ({ items }: { items: VenueVm[] }) => {
+  if (items.length === 0) return null;
+  return (
+    <section className="mx-auto max-w-6xl px-4 pb-1 pt-4">
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.15em]" style={{ color: ACCENT }}>
+        Dancing tonight &middot; {items.length} {items.length === 1 ? 'venue' : 'venues'}
+      </div>
+      <div className="mt-3 flex gap-3 overflow-x-auto pb-2 pt-1.5 [scrollbar-width:none]">
+        {items.map(({ v, startTime }) => (
+          <Link key={v.id} to={`/venue-entity/${v.slug ?? v.id}`} className="w-[88px] shrink-0 text-center">
+            <div className="relative">
+              <span
+                className="absolute -top-1.5 left-1/2 z-10 -translate-x-1/2 rounded-md px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider"
+                style={{ background: `linear-gradient(180deg, ${ACCENT_WARM}, ${ACCENT_DK})`, color: '#1a1206' }}
+              >
+                TONIGHT
+              </span>
+              {v.cover_image ? (
+                <img
+                  src={v.cover_image}
+                  alt={v.name}
+                  loading="lazy"
+                  className="h-[88px] w-[88px] rounded-2xl border-2 object-cover"
+                  style={{ borderColor: ACCENT_DEEP, boxShadow: `0 5px 15px rgba(184,134,11,0.25)` }}
+                />
+              ) : (
+                <div
+                  className="flex h-[88px] w-[88px] items-center justify-center rounded-2xl border-2"
+                  style={{ borderColor: ACCENT_DEEP, backgroundColor: CARD_BG }}
+                >
+                  <Building2 className="h-6 w-6" style={{ color: MUTED }} />
+                </div>
+              )}
+            </div>
+            <div className="mt-1.5 truncate text-[11px] font-bold" style={{ color: CREAM }}>{v.name}</div>
+            {startTime && (
+              <div className="text-[10px]" style={{ color: MUTED }}>
+                from {startTime}
+              </div>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+const VenueRow = ({ vm }: { vm: VenueVm }) => {
+  const { v } = vm;
+  const dormant = vm.nextLabel === null;
+  return (
+    <Link to={`/venue-entity/${v.slug ?? v.id}`} className="block">
+      <div
+        style={{ backgroundColor: CARD_BG, borderColor: LINE }}
+        className="mx-3 mb-2 flex items-center gap-2.5 rounded-2xl border p-2.5 transition-colors hover:border-amber-400/40 lg:mx-0 lg:mb-0"
+      >
+        {v.cover_image ? (
+          <img
+            src={v.cover_image}
+            alt={v.name}
+            loading="lazy"
+            className={cn('h-14 w-14 shrink-0 rounded-xl object-cover', dormant && 'opacity-60 grayscale')}
+          />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: '#0d0a06' }}>
+            <Building2 className="h-5 w-5" style={{ color: MUTED }} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="truncate">
+            <span
+              className="text-sm font-bold"
+              style={{ color: dormant ? '#78716c' : CREAM }}
+            >
+              {v.name}
+            </span>
+            {(v.neighbourhood ?? vm.outward) && (
+              <span className="ml-1.5 text-[11px] font-medium" style={{ color: MUTED }}>
+                ({v.neighbourhood ?? vm.outward})
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 truncate text-xs" style={{ color: MUTED }}>
+            <span aria-hidden="true" className="mr-1">
+              &#x1F4CD;
+            </span>
+            {v.nearest_station ? (
+              v.nearest_station_minutes != null ? (
+                <>
+                  {v.nearest_station_minutes} min from {v.nearest_station}
+                </>
+              ) : (
+                <>near {v.nearest_station}</>
+              )
+            ) : (
+              v.address ?? 'London'
+            )}
+          </div>
+          {dormant ? (
+            <div className="mt-0.5 truncate text-xs font-medium" style={{ color: QUIET }}>
+              No upcoming events
+            </div>
+          ) : (
+            <div className="mt-0.5 truncate text-xs font-bold" style={{ color: ACCENT_WARM }}>
+              {v.next_event_name ?? 'Upcoming event'}
+            </div>
+          )}
+        </div>
+        {dormant ? (
+          <span className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold" style={{ color: QUIET }}>
+            quiet
+          </span>
+        ) : (
+          <span
+            className={cn('shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold', vm.isTonight && 'animate-pulse')}
+            style={
+              vm.isTonight
+                ? { background: `linear-gradient(180deg, ${ACCENT_WARM}, ${ACCENT_DK})`, color: '#1a1206' }
+                : { backgroundColor: ACCENT_SOFT, color: ACCENT }
+            }
+          >
+            {vm.nextLabel}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+};
+
+const AreaPanel = ({
+  areaKey,
+  rows,
+  open,
+  onToggle,
+}: {
+  areaKey: string;
+  rows: VenueVm[];
+  open: boolean;
+  onToggle: () => void;
+}) => (
+  <div>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{
+        background: 'radial-gradient(120% 100% at 50% 0%, #2a1f08, #0d0a06)',
+        borderColor: ACCENT_DEEP,
+        boxShadow: `0 0 0 3px #0a0805, inset 0 0 26px rgba(245,213,99,0.08)`,
+      }}
+      className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center justify-between rounded-xl border-2 px-3.5 py-2.5 text-sm font-extrabold transition-colors hover:border-amber-500/70"
+    >
+      <span className="flex items-center gap-2" style={{ color: CREAM }}>
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: areaDot(areaKey) }} />
+        {areaLabel(areaKey)}
+        <span className="text-[11px] font-bold" style={{ color: MUTED }}>
+          {rows.length}
+        </span>
+      </span>
+      <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} style={{ color: MUTED }} />
+    </button>
+    {open && (
+      <div className="space-y-0 lg:mb-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:px-3 xl:grid-cols-3">
+        {rows.map((vm) => (
+          <VenueRow key={vm.v.id} vm={vm} />
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const VenuesSkeleton = () => (
+  <div className="mx-auto max-w-6xl px-4 pt-5">
+    <div className="flex gap-3 overflow-hidden pb-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-[88px] w-[88px] shrink-0 rounded-2xl" />
+      ))}
+    </div>
+    <Skeleton className="mt-3 h-[108px] w-full rounded-xl" />
+    <div className="mt-4 space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-[76px] w-full rounded-2xl" />
+      ))}
+    </div>
+  </div>
+);
+
 const Venues = () => {
   useSeo(buildSeoForRoute('venues'));
-  const { data: venues = [], isLoading } = useQuery({
+  const {
+    data: venues = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['venues-directory'],
     queryFn: fetchPublicVenuesList,
     staleTime: 5 * 60 * 1000,
   });
 
-  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const [area, setArea] = useState<'All' | AreaKey>('All');
+  const [day, setDay] = useState<string | null>(null);
+  const [openArea, setOpenArea] = useState<string | null>(null);
+  const didInitOpen = useRef(false);
 
-  const toggleFilter = (k: FilterKey) => {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
+  const vms = useMemo(() => venues.map(buildVm), [venues]);
+  const tonight = useMemo(() => vms.filter((x) => x.isTonight).sort(byNextThenActivity), [vms]);
+
+  // Day chips run today-first on London's calendar.
+  const todayName = weekdayFmt.format(new Date());
+  const todayIdx = WEEKDAYS.indexOf(todayName);
+  const days = todayIdx < 0 ? WEEKDAYS : [...WEEKDAYS.slice(todayIdx), ...WEEKDAYS.slice(0, todayIdx)];
+
+  // A venue matches a day chip when its regular pattern includes that day OR
+  // its next event falls on it (catches one-off events at venues whose
+  // pattern says otherwise).
+  const filtered = useMemo(
+    () =>
+      vms.filter((x) => {
+        if (area !== 'All' && x.area !== area) return false;
+        if (day !== null && x.nextWeekday !== day && !x.v.day_pattern.includes(day)) return false;
+        return true;
+      }),
+    [vms, area, day],
+  );
+
+  const groups = useMemo(() => {
+    const map = new Map<string, VenueVm[]>();
+    filtered.forEach((x) => {
+      const key = x.area ?? 'Elsewhere';
+      const bucket = map.get(key);
+      if (bucket) bucket.push(x);
+      else map.set(key, [x]);
     });
-  };
+    return [...AREA_ORDER, 'Elsewhere']
+      .filter((k) => map.has(k))
+      .map((k) => ({ key: k, rows: map.get(k)!.sort(byNextThenActivity) }));
+  }, [filtered]);
 
-  const filteredVenues = useMemo(() => {
-    const todayKey = londonDateKey(new Date());
-    const wk = getComingWeekendKeys();
-    const weekendKeys = new Set([wk.fri, wk.sat, wk.sun]);
-    return sortVenues(venues.filter((v) => matchesFilters(v, activeFilters, todayKey, weekendKeys)));
-  }, [venues, activeFilters]);
+  // Open the area with tonight's dancing by default (first load only, so a
+  // deliberately closed panel stays closed).
+  useEffect(() => {
+    if (didInitOpen.current || vms.length === 0) return;
+    didInitOpen.current = true;
+    const tonightArea = vms.find((x) => x.isTonight)?.area;
+    if (tonightArea) {
+      setOpenArea(tonightArea);
+      return;
+    }
+    const present = new Set(vms.map((x) => x.area ?? 'Elsewhere'));
+    setOpenArea([...AREA_ORDER, 'Elsewhere'].find((k) => present.has(k)) ?? null);
+  }, [vms]);
+
+  const clearFilters = () => {
+    setArea('All');
+    setDay(null);
+  };
 
   return (
     <GlobalLayout
-      showSubheader={false}
+      breadcrumbs={buildBreadcrumbs('venues')}
+      gradientPalette="brass"
       hero={{
-        emoji: '🏛️',
+        emoji: '\u{1F3DB}\uFE0F',
         titleWhite: 'Dance',
         titleOrange: 'Venues',
+        highlightColor: 'text-amber-300',
         floatingIcons: [Building2, MapPin, Users, Music, Layers, Lightbulb],
       }}
     >
-      <section className="mx-auto max-w-3xl px-4 pt-3 pb-1">
-        <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
-          Every bachata venue in London - dance floors, addresses, opening nights,
-          and what's running at each. Filter by night to find a venue that opens
-          when you're free, or check{' '}
-          <Link to="/tonight" className="text-primary underline">what's on tonight</Link>.
+      <section className="mx-auto max-w-3xl px-4 pb-1 pt-3 text-center">
+        <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
+          Every bachata venue in London &mdash; filter by area or by night, or check{' '}
+          <Link to="/tonight" className="font-semibold underline" style={{ color: ACCENT_WARM }}>
+            what&rsquo;s on tonight
+          </Link>
+          .
         </p>
       </section>
 
-      <FilterBar
-        active={activeFilters}
-        onToggle={toggleFilter}
-        onClear={() => setActiveFilters(new Set())}
-        count={filteredVenues.length}
-        total={venues.length}
-        isLoading={isLoading}
-      />
-
-      <main>
-        {isLoading ? (
-          <div className="max-w-6xl mx-auto px-4 pt-6">
-            <div className="grid grid-cols-4 xl:grid-cols-5 gap-3">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} style={{ backgroundColor: '#f4e9d2', borderColor: '#c9a86a' }} className="rounded-2xl border overflow-hidden">
-                  <Skeleton className="aspect-[4/3] w-full" />
-                  <div className="p-3 space-y-1.5">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                    <Skeleton className="h-3 w-2/3" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : venues.length === 0 ? (
-          <div className="text-center py-12">
-            <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">No venues yet.</p>
-          </div>
-        ) : filteredVenues.length === 0 ? (
-          <div className="text-center py-12">
-            <Building2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">
-              No venues match your filters.
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveFilters(new Set())}
-              className="text-xs text-primary hover:underline mt-2"
-            >
-              Clear filters
-            </button>
-          </div>
-        ) : (
-          <div className="max-w-6xl mx-auto px-4 pt-6">
-            <StaggerContainer className="grid grid-cols-4 xl:grid-cols-5 gap-3">
-              {filteredVenues.map((venue) => (
-                <StaggerItem key={venue.id}>
-                  <VenueCard
-                    venue={venue}
-                    isWeekendFilterActive={activeFilters.has('weekend')}
-                    isWoodFloorFilterActive={activeFilters.has('wood')}
-                  />
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-          </div>
-        )}
-      </main>
+      {isLoading ? (
+        <VenuesSkeleton />
+      ) : isError ? (
+        <div className="py-14 text-center">
+          <Building2 className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+          <p className="text-sm" style={{ color: MUTED }}>Couldn&rsquo;t load venues.</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-3 rounded-lg px-3 py-1.5 text-xs font-bold"
+            style={{ background: `linear-gradient(180deg, ${ACCENT_WARM}, ${ACCENT_DK})`, color: '#1a1206' }}
+          >
+            Try again
+          </button>
+        </div>
+      ) : venues.length === 0 ? (
+        <div className="py-14 text-center">
+          <Building2 className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+          <p className="text-xs" style={{ color: MUTED }}>No venues yet.</p>
+        </div>
+      ) : (
+        <>
+          <TonightRail items={tonight} />
+          <FilterBar
+            area={area}
+            day={day}
+            days={days}
+            count={filtered.length}
+            onArea={setArea}
+            onDay={(d) => setDay((prev) => (prev === d ? null : d))}
+            onClear={clearFilters}
+          />
+          <main className="mx-auto max-w-6xl pb-10 pt-4">
+            {groups.length === 0 ? (
+              <div className="py-12 text-center">
+                <Building2 className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                <p className="text-xs" style={{ color: MUTED }}>No venues match your filters.</p>
+                <button type="button" onClick={clearFilters} className="mt-2 text-xs font-bold hover:underline" style={{ color: ACCENT }}>
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              groups.map((g) => (
+                <AreaPanel
+                  key={g.key}
+                  areaKey={g.key}
+                  rows={g.rows}
+                  open={groups.length === 1 || openArea === g.key}
+                  onToggle={() => setOpenArea((prev) => (prev === g.key ? null : g.key))}
+                />
+              ))
+            )}
+          </main>
+        </>
+      )}
     </GlobalLayout>
   );
 };

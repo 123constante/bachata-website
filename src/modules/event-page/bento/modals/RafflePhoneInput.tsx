@@ -1,16 +1,17 @@
 // =============================================================================
-// RafflePhoneInput — lightweight country-code picker + digits.
+// RafflePhoneInput — country-code picker + digits field.
 // Outputs an E.164 string on every change (e.g. "+447700900123").
-// No external dep; small curated country list prioritised for the bachata
-// audience (UK first, then EU + the main Latin/English markets).
+// No external dep; full world country list (src/lib/countryDialCodes.ts) with
+// dance-audience countries pinned at the top; type-to-search filters the list.
 //
-// 2026-06-12: per-country digit-length validation (src/lib/phoneRules.ts) with
-// inline feedback — winners are contacted on WhatsApp, so a typo'd number
-// means an unreachable winner. Trunk zeros people habitually type
-// ("07700 900123") are stripped before assembling E.164.
+// Bug fix 2026-06-12: selected country is now held in local state so it
+// persists even when the digits field is empty (previously the component was
+// fully controlled by the E.164 value, so picking a country with no digits
+// emitted '' → parent stored '' → prefix match fell back to GB on re-render).
 // =============================================================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { COUNTRIES, PINNED, type DialCountry } from '@/lib/countryDialCodes';
 import {
   checkLocalDigits,
   isValidE164,
@@ -26,60 +27,23 @@ export interface RafflePhoneInputProps {
   inputId?: string;
 }
 
-interface Country {
-  code: string;   // ISO 3166-1 alpha-2
-  name: string;
-  dial: string;   // e.g. "+44"
-  flag: string;   // emoji flag
+const DEFAULT_CODE = 'GB';
+
+function findByPrefix(e164: string): DialCountry | undefined {
+  // Longest-dial-first to avoid +1 matching before +1-area-code entries
+  const sorted = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+  return sorted.find((c) => e164.startsWith(c.dial));
 }
 
-// Curated list — the regions we actually get bachata dancers from.
-const COUNTRIES: Country[] = [
-  { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧' },
-  { code: 'ES', name: 'Spain',          dial: '+34', flag: '🇪🇸' },
-  { code: 'FR', name: 'France',         dial: '+33', flag: '🇫🇷' },
-  { code: 'IT', name: 'Italy',          dial: '+39', flag: '🇮🇹' },
-  { code: 'DE', name: 'Germany',        dial: '+49', flag: '🇩🇪' },
-  { code: 'IE', name: 'Ireland',        dial: '+353', flag: '🇮🇪' },
-  { code: 'PT', name: 'Portugal',       dial: '+351', flag: '🇵🇹' },
-  { code: 'NL', name: 'Netherlands',    dial: '+31', flag: '🇳🇱' },
-  { code: 'BE', name: 'Belgium',        dial: '+32', flag: '🇧🇪' },
-  { code: 'CH', name: 'Switzerland',    dial: '+41', flag: '🇨🇭' },
-  { code: 'AT', name: 'Austria',        dial: '+43', flag: '🇦🇹' },
-  { code: 'SE', name: 'Sweden',         dial: '+46', flag: '🇸🇪' },
-  { code: 'NO', name: 'Norway',         dial: '+47', flag: '🇳🇴' },
-  { code: 'DK', name: 'Denmark',        dial: '+45', flag: '🇩🇰' },
-  { code: 'FI', name: 'Finland',        dial: '+358', flag: '🇫🇮' },
-  { code: 'PL', name: 'Poland',         dial: '+48', flag: '🇵🇱' },
-  { code: 'CZ', name: 'Czechia',        dial: '+420', flag: '🇨🇿' },
-  { code: 'US', name: 'United States',  dial: '+1',  flag: '🇺🇸' },
-  { code: 'CA', name: 'Canada',         dial: '+1',  flag: '🇨🇦' },
-  { code: 'MX', name: 'Mexico',         dial: '+52', flag: '🇲🇽' },
-  { code: 'DO', name: 'Dominican Rep.', dial: '+1',  flag: '🇩🇴' },
-  { code: 'CO', name: 'Colombia',       dial: '+57', flag: '🇨🇴' },
-  { code: 'AR', name: 'Argentina',      dial: '+54', flag: '🇦🇷' },
-  { code: 'BR', name: 'Brazil',         dial: '+55', flag: '🇧🇷' },
-  { code: 'CL', name: 'Chile',          dial: '+56', flag: '🇨🇱' },
-  { code: 'PE', name: 'Peru',           dial: '+51', flag: '🇵🇪' },
-  { code: 'VE', name: 'Venezuela',      dial: '+58', flag: '🇻🇪' },
-  { code: 'AU', name: 'Australia',      dial: '+61', flag: '🇦🇺' },
-  { code: 'NZ', name: 'New Zealand',    dial: '+64', flag: '🇳🇿' },
-  { code: 'JP', name: 'Japan',          dial: '+81', flag: '🇯🇵' },
-];
-
-const DEFAULT_COUNTRY_CODE = 'GB';
-
-function feedbackFor(country: Country, check: PhoneCheck, touched: boolean): {
+function feedbackFor(country: DialCountry, check: PhoneCheck, touched: boolean): {
   text: string;
   tone: 'error' | 'warn';
 } | null {
   switch (check.status) {
     case 'short':
-      // Don't nag while they're still typing — only after blur.
       if (!touched) return null;
       return { text: `Looks short — ${country.name} numbers have ${check.expected}`, tone: 'error' };
     case 'long':
-      // Too long is always wrong — say so immediately.
       return { text: `That's too long for a ${country.name} number (${check.expected})`, tone: 'error' };
     case 'warn':
       return { text: check.message, tone: 'warn' };
@@ -95,17 +59,26 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   autoFocus,
   inputId,
 }) => {
-  // Derive country + local-digits from current value, fall back to defaults.
-  const { country, localDigits } = useMemo(() => {
-    const match = COUNTRIES.find((c) => value.startsWith(c.dial));
-    if (match) {
-      return { country: match, localDigits: value.slice(match.dial.length) };
-    }
-    return { country: COUNTRIES.find((c) => c.code === DEFAULT_COUNTRY_CODE)!, localDigits: '' };
-  }, [value]);
+  // Country held in state — not derived from value — so selection sticks when digits are empty.
+  const [countryCode, setCountryCode] = useState<string>(() => {
+    const match = findByPrefix(value);
+    return match?.code ?? DEFAULT_CODE;
+  });
+
+  const country = useMemo(
+    () => COUNTRIES.find((c) => c.code === countryCode) ?? COUNTRIES.find((c) => c.code === DEFAULT_CODE)!,
+    [countryCode],
+  );
+
+  // Local digits = value minus the current dial prefix (or empty if mismatch).
+  const localDigits = useMemo(() => {
+    return value.startsWith(country.dial) ? value.slice(country.dial.length) : '';
+  }, [value, country.dial]);
 
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [touched, setTouched] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const check = useMemo(
     () => checkLocalDigits(country.code, country.dial, localDigits),
@@ -113,18 +86,40 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   );
   const feedback = feedbackFor(country, check, touched);
 
-  const emit = (next: Country, nextDigits: string) => {
+  // Ordered list: pinned section first, then rest alphabetical.
+  const { pinned, rest } = useMemo(() => {
+    const pinnedSet = new Set(PINNED);
+    const p = PINNED.map((code) => COUNTRIES.find((c) => c.code === code)!).filter(Boolean);
+    const r = COUNTRIES.filter((c) => !pinnedSet.has(c.code)).sort((a, b) => a.name.localeCompare(b.name));
+    return { pinned: p, rest: r };
+  }, []);
+
+  const q = search.toLowerCase();
+  const filterFn = (c: DialCountry) =>
+    !q || c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q);
+  const filteredPinned = pinned.filter(filterFn);
+  const filteredRest = rest.filter(filterFn);
+
+  const emit = (next: DialCountry, nextDigits: string) => {
     const cleaned = normalizeLocalDigits(next.code, nextDigits.replace(/[^0-9]/g, ''));
     const e164 = cleaned.length > 0 ? `${next.dial}${cleaned}` : '';
     const nextCheck = checkLocalDigits(next.code, next.dial, cleaned);
-    // 'warn' still counts as valid — never block a real number on a heuristic.
     const valid = (nextCheck.status === 'ok' || nextCheck.status === 'warn') && isValidE164(e164);
     onChange(e164, valid);
   };
 
+  const handleOpen = () => {
+    setOpen(true);
+    setSearch('');
+    // Defer focus so the input is mounted
+    setTimeout(() => searchRef.current?.focus(), 0);
+  };
+
   const handleSelectCountry = (code: string) => {
     const next = COUNTRIES.find((c) => c.code === code) ?? country;
+    setCountryCode(next.code);
     setOpen(false);
+    setSearch('');
     emit(next, localDigits);
   };
 
@@ -138,7 +133,7 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
         <div className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
+            onClick={open ? () => setOpen(false) : handleOpen}
             disabled={disabled}
             aria-haspopup="listbox"
             aria-expanded={open}
@@ -148,35 +143,61 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
             <span className="font-mono text-[11px] text-[#D8CCB0]">{country.dial}</span>
             <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>▾</span>
           </button>
+
           {open && (
             <>
-              {/* Click-outside backstop — rendered before the list so list wins pointer priority */}
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-              <ul
-                role="listbox"
-                className="absolute top-full left-0 mt-1 z-50 max-h-64 w-64 overflow-auto rounded-md border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] shadow-2xl text-sm"
+              <div
+                className="absolute top-full left-0 mt-1 z-50 w-72 rounded-md border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] shadow-2xl flex flex-col"
+                style={{ maxHeight: '18rem' }}
               >
-                {COUNTRIES.map((c) => (
-                  <li key={c.code}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={c.code === country.code}
-                      onClick={() => handleSelectCountry(c.code)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/30 ${
-                        c.code === country.code ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
-                      }`}
-                    >
-                      <span className="text-base" aria-hidden>{c.flag}</span>
-                      <span className="flex-1 truncate text-xs">{c.name}</span>
-                      <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                {/* Search box */}
+                <div className="p-1.5 border-b border-[rgba(197,148,10,0.2)]">
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+                    placeholder="Search country or code…"
+                    className="w-full rounded px-2 py-1 text-xs bg-black/30 border border-[rgba(197,148,10,0.25)] text-[#D8CCB0] placeholder:text-[#6f6757] focus:outline-none focus:border-[rgba(245,213,99,0.55)]"
+                  />
+                </div>
+
+                {/* Country list */}
+                <ul role="listbox" className="overflow-auto flex-1 text-sm">
+                  {filteredPinned.length > 0 && (
+                    <>
+                      {filteredPinned.map((c) => (
+                        <CountryRow
+                          key={c.code}
+                          c={c}
+                          selected={c.code === countryCode}
+                          onSelect={handleSelectCountry}
+                        />
+                      ))}
+                      {filteredRest.length > 0 && (
+                        <li className="border-t border-[rgba(197,148,10,0.2)] my-0.5" aria-hidden />
+                      )}
+                    </>
+                  )}
+                  {filteredRest.map((c) => (
+                    <CountryRow
+                      key={c.code}
+                      c={c}
+                      selected={c.code === countryCode}
+                      onSelect={handleSelectCountry}
+                    />
+                  ))}
+                  {filteredPinned.length === 0 && filteredRest.length === 0 && (
+                    <li className="px-3 py-2 text-xs text-[#6f6757]">No results</li>
+                  )}
+                </ul>
+              </div>
             </>
           )}
         </div>
+
         <input
           id={inputId}
           type="tel"
@@ -191,6 +212,7 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
           className="flex-1 min-w-0 h-10 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50"
         />
       </div>
+
       {feedback && (
         <div
           data-testid="raffle-phone-feedback"
@@ -202,5 +224,27 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
     </div>
   );
 };
+
+const CountryRow: React.FC<{
+  c: DialCountry;
+  selected: boolean;
+  onSelect: (code: string) => void;
+}> = ({ c, selected, onSelect }) => (
+  <li>
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      onMouseDown={(e) => { e.preventDefault(); onSelect(c.code); }}
+      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/30 ${
+        selected ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
+      }`}
+    >
+      <span className="text-base" aria-hidden>{c.flag}</span>
+      <span className="flex-1 truncate text-xs">{c.name}</span>
+      <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
+    </button>
+  </li>
+);
 
 export { isValidE164 };
