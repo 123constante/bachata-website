@@ -112,7 +112,7 @@
       "destination": "/api/sitemap"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
   ],
@@ -123,6 +123,15 @@
         {
           "key": "Cache-Control",
           "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     },

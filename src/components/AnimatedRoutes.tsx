@@ -8,26 +8,23 @@ import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { isStaleChunkError, attemptChunkReloadOnce, clearChunkReloadFlag } from "@/lib/staleChunk";
 
 // Wraps lazy() so a chunk-load failure (typically: stale cached HTML referencing
 // a chunk URL that 404s after a Vercel deploy -> "Failed to fetch dynamically
 // imported module" / MIME error) triggers ONE reload to pick up the fresh HTML.
-// sessionStorage flag prevents reload loops if the chunk genuinely can't load.
-const CHUNK_RELOAD_KEY = 'chunk-reload-attempted';
+// Detection + the once-per-session reload flag live in lib/staleChunk.ts,
+// shared with the vite:preloadError handler (main.tsx) and error boundaries.
 function lazyWithRetry<T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>,
 ): LazyExoticComponent<T> {
   return lazy(async () => {
     try {
       const mod = await factory();
-      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      clearChunkReloadFlag();
       return mod;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const isChunkErr = /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|is not a valid JavaScript MIME type/i.test(msg);
-      if (isChunkErr && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
-        window.location.reload();
+      if (isStaleChunkError(err) && attemptChunkReloadOnce()) {
         return new Promise<{ default: T }>(() => {});
       }
       throw err;
