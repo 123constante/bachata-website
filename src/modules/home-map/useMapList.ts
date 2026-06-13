@@ -138,9 +138,15 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
       // Select (so the map highlights the pin) then route to the event. No flyTo:
       // the navigation unmounts the map immediately, so the fly animation is
       // wasted and can flash a popup/zoom mid-transition (audit #18).
+      // Remote festivals (global, not in this city) route to /festival/:id.
       setSelected(occId);
       const e = byOcc.get(occId);
-      if (e) navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);
+      if (!e) return;
+      if (occId.startsWith('remote-')) {
+        navigate(`/festival/${e.event_id}`);
+      } else {
+        navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);
+      }
     },
     [byOcc, navigate],
   );

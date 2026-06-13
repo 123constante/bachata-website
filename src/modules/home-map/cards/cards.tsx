@@ -5,7 +5,8 @@
 // + the --hm-poster font var) from homeMap.css applies.
 
 import type { ReactNode } from 'react';
-import { MapPinOff, RotateCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MapEvent, MapCategory } from '../mapTypes';
 import {
@@ -270,6 +271,34 @@ export function EventRow({
         <FreshnessClock event={event} />
       ) : null}
     </button>
+  );
+}
+
+
+/** Row for a festival outside the current city. Links directly to the festival
+ *  page and shows a pin icon + city name so users know they'd be travelling. */
+export function RemoteFestivalRow({ event }: { event: MapEvent }) {
+  const cancelled = event.is_cancelled;
+  return (
+    <Link
+      to={`/festival/${event.event_id}`}
+      data-occ={event.occurrence_id}
+      className={cn(rowBase, 'hover:bg-muted/40', cancelled && 'opacity-60')}
+    >
+      <CoverThumb event={event} className={cn('h-12 w-12 rounded-xl', cancelled && 'grayscale')} />
+      <span className="min-w-0 flex-1">
+        <span className={cn('block truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <TimePills event={event} />
+        </span>
+        {event.venue_name && (
+          <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{event.venue_name}</span>
+          </span>
+        )}
+      </span>
+    </Link>
   );
 }
 

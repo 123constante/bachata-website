@@ -1,10 +1,12 @@
 // Festival Map mobile sheet -- "All Events" tab: search + category chips + a
 // date-grouped event list (the homepage default). Rows carry the freshness
-// stamp so just-added events stand out. Map mirrors the filtered list.
+// stamp so just-added events stand out. Remote festivals (from all cities) are
+// merged upstream in Index and arrive via state.listEvents; they render with a
+// pin icon so users know they'd be travelling.
 
 import type { UseMapListResult } from '../useMapList';
 import { groupByDate } from '../mapListDerivations';
-import { EventRow, EmptyState } from '../cards/cards';
+import { EventRow, EmptyState, RemoteFestivalRow } from '../cards/cards';
 import { SearchField } from '../cards/controls';
 
 export function SheetAllTab({ state }: { state: UseMapListResult }) {
@@ -29,16 +31,20 @@ export function SheetAllTab({ state }: { state: UseMapListResult }) {
               <span className="text-[10px] font-bold text-muted-foreground">{g.items.length}</span>
             </header>
             <div className="space-y-1">
-              {g.items.map((e) => (
-                <EventRow
-                  key={e.occurrence_id}
-                  event={e}
-                  selected={state.selected === e.occurrence_id}
-                  onSelect={state.fromCard}
-                  onHover={state.setHovered}
-                  showFreshness
-                />
-              ))}
+              {g.items.map((e) =>
+                e.occurrence_id.startsWith('remote-') ? (
+                  <RemoteFestivalRow key={e.occurrence_id} event={e} />
+                ) : (
+                  <EventRow
+                    key={e.occurrence_id}
+                    event={e}
+                    selected={state.selected === e.occurrence_id}
+                    onSelect={state.fromCard}
+                    onHover={state.setHovered}
+                    showFreshness
+                  />
+                )
+              )}
             </div>
           </section>
         ))
