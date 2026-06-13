@@ -43,6 +43,14 @@ jobs:
       - name: Run runtime architecture guard
         run: npm run lint:architecture
 
+      # a11y + lazy-load guard: every <img> in src/**/*.tsx must carry
+      # alt= and loading=. Script-only, zero deps. AUDIT_STRICT=1 makes a
+      # missing attribute a hard fail (backlog swept to zero 2026-06-13).
+      - name: Image-attribute audit (alt + loading)
+        env:
+          AUDIT_STRICT: '1'
+        run: npm run check:images
+
       # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
       # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was

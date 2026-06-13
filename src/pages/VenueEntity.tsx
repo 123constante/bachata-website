@@ -279,6 +279,7 @@ function VenueLightbox({ photos, index, onClose, onStep }: VenueLightboxProps) {
         <img
           src={src}
           alt={`Photo ${index + 1}`}
+          loading="lazy"
           className="h-full w-full object-contain"
         />
         {photos.length > 1 ? (
