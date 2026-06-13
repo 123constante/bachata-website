@@ -67,6 +67,30 @@ if (error) {
   process.exit(2);
 }
 
+// Digest mode: emit a compact markdown nudge and exit 0 (informational, never gates).
+if (process.argv.includes('--markdown')) {
+  const lines = ['### Live recurring series', ''];
+  lines.push(`- ${data.total_live_recurring ?? '?'} live recurring series tracked`);
+  const n = data.within_threshold_count ?? 0;
+  if (n > 0) {
+    lines.push(`- ${n} within ${data.threshold_days}d of running out of dates (or already none):`);
+    for (const s of (data.sample || [])) {
+      const when = s.last_future_date
+        ? `last date ${s.last_future_date}${s.days_left != null ? ` (${s.days_left}d left)` : ''}`
+        : 'no future date set';
+      lines.push(`  - ${s.name} - ${when}${s.open_ended ? ' [open-ended]' : ''}`);
+    }
+  } else {
+    lines.push('- none within threshold');
+  }
+  if (data.status && data.status !== 'ok') {
+    lines.push(`- WARNING: status=${data.status} - an OPEN-ENDED series has zero future dates (materialisation lapsed); re-materialise`);
+  }
+  lines.push('');
+  console.log(lines.join('\n'));
+  process.exit(0);
+}
+
 console.log(JSON.stringify(data, null, 2));
 
 // Always surface the soft early-warning list (non-gating).

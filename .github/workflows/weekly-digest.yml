@@ -1,0 +1,68 @@
+name: Weekly Digest
+
+# A weekly search + traffic + content-health briefing for the operator,
+# delivered as a GitHub Issue (GitHub emails the repo owner on new issues - a
+# push channel needing no extra secret). Reuses data the daily checks already
+# compute, so this is pure delivery:
+#   - GSC analytics, 28d with week-over-week delta + top queries + sitemap
+#     health (check-gsc.mjs --digest, readonly service-account token)
+#   - live recurring series running out of dates
+#     (check-series-occurrence-horizon.mjs --markdown)
+#
+# To switch delivery to WhatsApp/Telegram later, replace the final step.
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'   # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build GSC section (analytics delta + top queries + sitemap)
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/check-gsc.mjs --digest --digest-out digest.md
+
+      - name: Append live-series section
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          {
+            echo ""
+            node scripts/check-series-occurrence-horizon.mjs --markdown
+            echo ""
+            echo "---"
+            echo "_Auto-generated weekly. Close this issue when read._"
+          } >> digest.md
+
+      - name: Open digest issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Weekly digest - $(date -u +%Y-%m-%d)"
+          gh issue create --title "$TITLE" --body-file digest.md --label digest \
+            || gh issue create --title "$TITLE" --body-file digest.md

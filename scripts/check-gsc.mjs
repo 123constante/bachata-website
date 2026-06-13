@@ -68,6 +68,8 @@ const ARGV = process.argv.slice(2);
 const FLAGS = {
   deleteJunk: ARGV.includes('--delete-junk'),
   submitCanonical: ARGV.includes('--submit-canonical'),
+  digest: ARGV.includes('--digest'),
+  digestOut: (() => { const i = ARGV.indexOf('--digest-out'); return i >= 0 ? ARGV[i + 1] : null; })(),
   skipLiveDiff: ARGV.includes('--skip-live-diff'),
   jsonPath: (() => { const i = ARGV.indexOf('--json'); return i >= 0 ? ARGV[i + 1] : null; })(),
 };
@@ -438,12 +440,86 @@ async function submitSitemap(token) {
   }
 }
 
+// section 5b: weekly digest (markdown) - analytics WoW delta, top queries, sitemap health
+async function analyticsTotals(token, startDate, endDate) {
+  const res = await api(token, 'POST', `${WMT}/sites/${encSite}/searchAnalytics/query`, { startDate, endDate, dimensions: [] });
+  return res.ok ? (res.body?.rows?.[0] || null) : null;
+}
+async function analyticsTopQueries(token, startDate, endDate, n) {
+  const res = await api(token, 'POST', `${WMT}/sites/${encSite}/searchAnalytics/query`, { startDate, endDate, dimensions: ['query'], rowLimit: n });
+  return res.ok ? (res.body?.rows || []) : [];
+}
+function deltaPct(cur, prev) {
+  if (prev == null || prev === 0) return cur > 0 ? 'new' : 'flat';
+  const d = ((cur - prev) / prev) * 100;
+  return `${d >= 0 ? '+' : ''}${d.toFixed(0)}%`;
+}
+async function buildDigest(token) {
+  const day = 86400000;
+  const curEnd = Date.now() - 3 * day;            // GSC data lags ~3 days
+  const curStart = curEnd - 27 * day;
+  const prevEnd = curStart - day;
+  const prevStart = prevEnd - 27 * day;
+  const [cur, prev, top] = await Promise.all([
+    analyticsTotals(token, isoDate(curStart), isoDate(curEnd)),
+    analyticsTotals(token, isoDate(prevStart), isoDate(prevEnd)),
+    analyticsTopQueries(token, isoDate(curStart), isoDate(curEnd), 10),
+  ]);
+
+  const L = [];
+  L.push(`# Search digest - ${isoDate(curStart)} to ${isoDate(curEnd)}`);
+  L.push('');
+  L.push(`Property: \`${SITE_URL}\`  (delta vs previous 28 days ${isoDate(prevStart)} to ${isoDate(prevEnd)})`);
+  L.push('');
+  if (cur) {
+    const c = cur; const p = prev || {};
+    const posDelta = (p.position != null) ? `${c.position - p.position >= 0 ? '+' : ''}${(c.position - p.position).toFixed(1)}` : 'n/a';
+    L.push('| Metric | This 28d | vs prev |');
+    L.push('|---|---|---|');
+    L.push(`| Clicks | **${c.clicks}** | ${deltaPct(c.clicks, p.clicks)} |`);
+    L.push(`| Impressions | ${c.impressions} | ${deltaPct(c.impressions, p.impressions)} |`);
+    L.push(`| CTR | ${(c.ctr * 100).toFixed(1)}% | ${deltaPct(c.ctr, p.ctr)} |`);
+    L.push(`| Avg position | ${c.position.toFixed(1)} | ${posDelta} (lower is better) |`);
+  } else {
+    L.push('_No search-analytics data in window (property new or mis-scoped)._');
+  }
+  L.push('');
+  if (top.length) {
+    L.push('### Top queries');
+    L.push('');
+    L.push('| Query | Clicks | Impr | CTR | Pos |');
+    L.push('|---|---|---|---|---|');
+    for (const r of top) L.push(`| ${r.keys[0]} | ${r.clicks} | ${r.impressions} | ${(r.ctr * 100).toFixed(1)}% | ${r.position.toFixed(1)} |`);
+    L.push('');
+  }
+  const smRes = await api(token, 'GET', `${WMT}/sites/${encSite}/sitemaps`);
+  if (smRes.ok) {
+    const entries = smRes.body?.sitemap || [];
+    const canonical = entries.find((s) => s.path === CANONICAL_SITEMAP);
+    const junkN = entries.filter((s) => s.path !== CANONICAL_SITEMAP && s.path !== WWW_SITEMAP && !/\.xml($|\?)/i.test(s.path || '')).length;
+    L.push('### Sitemap');
+    L.push('');
+    L.push(`- Canonical: ${canonical ? `${canonical.contents?.[0]?.submitted ?? '?'} URLs, last read ${canonical.lastDownloaded || 'never'}` : '**MISSING**'}`);
+    if (junkN) L.push(`- ${junkN} junk HTML submission(s) still present (clear with \`--delete-junk\`)`);
+    L.push('');
+  }
+  return L.join('\n');
+}
+
 // main
 async function main() {
-  console.log(`check-gsc - ${SITE_URL}`);
-  const scope = (FLAGS.deleteJunk || FLAGS.submitCanonical) ? SCOPE_FULL : SCOPE_READONLY;   // decided BEFORE the token is minted
+  const scope = (FLAGS.deleteJunk || FLAGS.submitCanonical) ? SCOPE_FULL : SCOPE_READONLY;   // decided BEFORE the token is minted (digest is readonly)
   const key = loadServiceAccountKey();
   const token = await getAccessToken(key, scope);
+
+  if (FLAGS.digest) {
+    const md = await buildDigest(token);
+    if (FLAGS.digestOut) { fs.writeFileSync(FLAGS.digestOut, md); console.error(`digest written to ${FLAGS.digestOut}`); }
+    else process.stdout.write(md);
+    process.exit(0);
+  }
+
+  console.log(`check-gsc - ${SITE_URL}`);
 
   if (FLAGS.submitCanonical) {
     await submitSitemap(token);
