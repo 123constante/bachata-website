@@ -5,6 +5,8 @@ import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useMapEvents } from '@/hooks/useMapEvents';
 import { useMapList } from '@/modules/home-map/useMapList';
+import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
+import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
 import { todayStr } from '@/modules/home-map/mapTypes';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -82,7 +84,39 @@ const Index = () => {
     rangeEnd,
     enabled: Boolean(citySlug),
   });
-  const state = useMapList(mapEvents ?? NO_EVENTS);
+  const { data: globalFestivals = [] } = useUpcomingFestivalsGlobal();
+
+  const allMapEvents = useMemo(() => {
+    const base = mapEvents ?? NO_EVENTS;
+    const localIds = new Set(base.map((e) => e.event_id));
+    const remote = globalFestivals
+      .filter((f: FestivalPreview) => !localIds.has(f.id))
+      .map((f: FestivalPreview) => ({
+        occurrence_id: `remote-${f.id}`,
+        event_id: f.id,
+        name: f.name,
+        cover_image_url: f.poster_url,
+        venue_name: f.city,
+        area: null,
+        city_slug: null,
+        lat: null,
+        lng: null,
+        instance_date: f.date,
+        start_time: f.start_time,
+        end_time: null,
+        type: 'festival' as const,
+        has_party: false,
+        has_class: false,
+        created_at: null,
+        updated_at: null,
+        freshness_kind: null as null,
+        is_cancelled: false,
+        cancellation_reason_label: null,
+      }));
+    return remote.length ? [...base, ...remote] : base;
+  }, [mapEvents, globalFestivals]);
+
+  const state = useMapList(allMapEvents);
 
   // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
   const { setTab } = state;

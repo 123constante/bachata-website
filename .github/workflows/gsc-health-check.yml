@@ -1,0 +1,55 @@
+name: GSC Health Check
+
+# Daily Google Search Console health check for bachatacalendar.co.uk via the
+# GSC API (service-account JWT auth, zero npm deps - same install-free pattern
+# as og-image-check.yml). Verifies sitemap submissions are clean, key routes
+# are indexable, and no sitemap URL 404s before Google finds it.
+#
+# Findings are WARN by default so the known backlog of 404s does not hold the
+# job red; once those are fixed in generate-sitemap.mjs, set STRICT: '1' below
+# to lock 404s / redirects / junk sitemaps as hard failures.
+#
+# Requires repo secret GSC_SERVICE_ACCOUNT_KEY (the service-account JSON).
+# The SA only ever holds a readonly token here - cleanup (--delete-junk) is a
+# deliberate local one-off and is never run in CI.
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # daily, 30 min after db-contract-check / og-image guard
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/check-gsc.mjs'
+      - '.github/workflows/gsc-health-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gsc-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12   # live-diff worst case ~9 min + spinup headroom
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No npm install: check-gsc.mjs imports only node built-ins.
+      - name: Run GSC health check
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+          # STRICT: '1'   # uncomment once the sitemap 404 backlog is fixed
+        run: node scripts/check-gsc.mjs --json gsc-report.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsc-report
+          path: gsc-report.json
+          retention-days: 14

@@ -117,14 +117,28 @@ export async function searchPublicV3(
   // Phase 1E #2 cutover (2026-05-27): search_public_v4 reads from
   // event_series_p5 + event_occurrence_p5 (vs v3 which read legacy events).
   // Identical JSONB envelope shape; other 5 sections unchanged.
-  const { data, error } = await supabase.rpc('search_public_v4' as never, {
-    p_query: term,
-    p_city_slug: citySlug ?? null,
-    p_section_limit: sectionLimit,
-    p_include_past: includePast,
-  });
-  if (error) throw error;
-  const payload = data as V3Payload;
+  const today = new Date().toISOString().slice(0, 10);
+  let festQuery = supabase
+    .from('events')
+    .select('id, name, city, poster_url, date')
+    .eq('type', 'festival')
+    .eq('is_active', true)
+    .ilike('name', `%${term}%`)
+    .order('date', { ascending: true })
+    .limit(sectionLimit);
+  if (!includePast) festQuery = festQuery.gte('date', today);
+
+  const [rpcResult, festResult] = await Promise.all([
+    supabase.rpc('search_public_v4' as never, {
+      p_query: term,
+      p_city_slug: citySlug ?? null,
+      p_section_limit: sectionLimit,
+      p_include_past: includePast,
+    }),
+    festQuery,
+  ]);
+  if (rpcResult.error) throw rpcResult.error;
+  const payload = rpcResult.data as V3Payload;
   if (!payload) return [];
 
   const mapPerson = (r: V3PersonRow, kind: SearchKind): SearchResult => ({
@@ -138,6 +152,20 @@ export async function searchPublicV3(
     href: hrefFor(kind, r.id),
   });
 
+  const localEventIds = new Set((payload.events ?? []).map((e) => e.id));
+  const globalFests: SearchResult[] = ((festResult.data ?? []) as { id: string; name: string; city: string | null; poster_url: string | null; date: string | null }[])
+    .filter((f) => !localEventIds.has(f.id))
+    .map((f) => ({
+      kind: 'event' as SearchKind,
+      id: f.id,
+      title: f.name,
+      subtitle: f.city,
+      imageUrl: resolveEventImage(f.poster_url, null),
+      eventType: 'festival',
+      startTime: null,
+      href: `/festival/${f.id}`,
+    }));
+
   return [
     ...(payload.events ?? []).map((e): SearchResult => ({
       kind: 'event',
@@ -147,8 +175,9 @@ export async function searchPublicV3(
       imageUrl: resolveEventImage(e.poster_url, null),
       eventType: e.event_type,
       startTime: e.start_time,
-      href: hrefFor('event', e.id),
+      href: e.event_type === 'festival' ? `/festival/${e.id}` : hrefFor('event', e.id),
     })),
+    ...globalFests,
     ...(payload.organisers ?? []).map((o): SearchResult => ({
       kind: 'organiser',
       id: o.id,

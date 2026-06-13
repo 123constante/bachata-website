@@ -567,7 +567,7 @@ const TeacherProfile = () => {
                       whileHover={{ scale: 1.05 }}
                       className="aspect-square rounded-xl overflow-hidden border border-white/10"
                     >
-                      <img src={url} alt={`${displayName} gallery ${i + 1}`} className="w-full h-full object-cover" />
+                      <img src={url} alt={`${displayName} gallery ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
                     </motion.div>
                   ))}
                 </div>

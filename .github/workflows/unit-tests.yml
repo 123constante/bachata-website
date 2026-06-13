@@ -1,0 +1,45 @@
+name: Unit & Contract Tests
+
+# Vitest unit + contract suite (212 tests across 22 files). CLAUDE.md names
+# these as the unit/contract gate, but they ran only by hand until now - a
+# regression in the event_view_p5 snapshot_compat shape could ship unblocked.
+#
+# The 4 contract tests (eventViewCompat, publicEventPageLineup,
+# occurrenceProgram, latestEvents) hit the live READ-ONLY DB via the anon key,
+# so the same Supabase secrets db-contract-check.yml uses are required. The
+# tests read process.env.VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
+# directly; pure-logic tests ignore them.
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit + contract suite
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run test:unit

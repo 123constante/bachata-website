@@ -80,6 +80,7 @@ const PartnerLogo = ({ logo, name }: PartnerLogoProps) => (
     <img 
       src={logo} 
       alt={name} 
+      loading="lazy"
       className="w-full h-full object-cover"
     />
   </div>

@@ -81,7 +81,13 @@ const collectEventLinks = async (page, result) => {
 
 const run = async () => {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: { width: 390, height: 844 },          // mobile - ~95% of real users
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 '
+      + '(KHTML, like Gecko) Mobile/15E148 bachatacalendar-smoke-bot/1.0',  // 'bot' => server view-tracking RPCs skip it
+  });
   const page = await context.newPage();
 
   let current = null;
@@ -115,6 +121,25 @@ const run = async () => {
   let selectedOrganiserPath = null;
   let selectedVenuePath = null;
 
+  await runScenario('0) Homepage map paints markers', async () => {
+    await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
+    // map is lazy-loaded; give the container + RPC-driven pins time to paint
+    const mounted = await page.locator('.home-map').first()
+      .waitFor({ state: 'attached', timeout: 20000 }).then(() => true).catch(() => false);
+    if (!mounted) {
+      current.ok = false;
+      current.notes.push('home-map container never mounted (homepage map missing)');
+      return;
+    }
+    await page.waitForTimeout(2500);
+    const markers = await page.locator('.home-map .leaflet-marker-icon, .home-map .marker-cluster').count();
+    current.notes.push(`map markers/clusters painted: ${markers}`);
+    if (markers === 0) {
+      current.ok = false;
+      current.notes.push('No Leaflet markers/clusters on homepage map (RPC ok but nothing rendered)');
+    }
+  });
+
   await runScenario('1) Calendar month view', async () => {
     await page.goto(`${baseUrl}/parties`, { waitUntil: 'networkidle' });
     const hasCalendarHeading = await page.locator('text=What\'s On').first().isVisible().catch(() => false);
@@ -123,47 +148,50 @@ const run = async () => {
     }
   });
 
-  await runScenario('2) Event detail via list/refresh/direct URL', async () => {
+  await runScenario('2) Event detail renders (list/sitemap/direct URL)', async () => {
+    // Source a real event URL robustly. On prod the listing routes
+    // client-redirect to /city/..., so fall back to the live sitemap.
+    let eventPath = null;
     await page.goto(`${baseUrl}/parties`, { waitUntil: 'networkidle' });
-
-    const eventLink = page.locator('a[href^="/event/"]').first();
-    const linkCount = await page.locator('a[href^="/event/"]').count();
-
-    if (linkCount > 0) {
-      const href = await eventLink.getAttribute('href');
-      if (href) selectedEventPath = href;
-      await eventLink.click();
-      await page.waitForURL(/\/event\//, { timeout: 15000 });
-    } else if (selectedEventPath) {
-      await page.goto(`${baseUrl}${selectedEventPath}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+    if ((await page.locator('a[href^="/event/"]').count()) > 0) {
+      eventPath = await page.locator('a[href^="/event/"]').first().getAttribute('href');
     } else {
-      throw new Error('No /event/ link found from list to validate detail flow');
+      try {
+        const res = await page.request.get(`${baseUrl}/sitemap.xml`);
+        if (res.ok()) {
+          const mm = (await res.text()).match(/<loc>([^<]*\/event\/[^<]+)<\/loc>/);
+          if (mm) eventPath = new URL(mm[1]).pathname;
+        }
+      } catch {
+        // sitemap unavailable (e.g. dev server) - skipped below
+      }
     }
+    if (!eventPath) {
+      current.notes.push('No event URL discoverable from /parties or sitemap - detail check skipped');
+      return;
+    }
+    selectedEventPath = eventPath;
+    await page.goto(`${baseUrl}${eventPath}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
 
-    const currentPath = new URL(page.url()).pathname;
-    selectedEventPath = currentPath;
-
-    await page.reload({ waitUntil: 'networkidle' });
-
+    // exercise the cold direct-hydration path in a fresh tab
     const directPage = await context.newPage();
     let directErrors = 0;
-    directPage.on('console', (msg) => {
-      if (msg.type() === 'error') directErrors += 1;
-    });
-    directPage.on('pageerror', () => {
-      directErrors += 1;
-    });
-    await directPage.goto(`${baseUrl}${selectedEventPath}`, { waitUntil: 'networkidle' });
+    directPage.on('console', (msg) => { if (msg.type() === 'error') directErrors += 1; });
+    directPage.on('pageerror', () => { directErrors += 1; });
+    await directPage.goto(`${baseUrl}${eventPath}`, { waitUntil: 'networkidle' });
     await directPage.waitForTimeout(1500);
     await directPage.close();
-
     if (directErrors > 0) {
-      current.consoleErrors.push(`Direct URL open had ${directErrors} errors`);
+      current.ok = false;
+      current.notes.push(`Direct URL open had ${directErrors} console/page errors`);
     }
 
     const notFoundVisible = await page.locator('text=Event Not Found').first().isVisible().catch(() => false);
     if (notFoundVisible) {
-      throw new Error('Event detail rendered NotFound for selected event path');
+      current.ok = false;
+      current.notes.push(`Event detail rendered NotFound for ${eventPath}`);
     }
   });
 
@@ -263,6 +291,12 @@ const run = async () => {
   };
 
   console.log(JSON.stringify(report, null, 2));
+
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length > 0) {
+    console.error(`SMOKE_FAILED: ${failed.map((r) => r.name).join('; ')}`);
+    process.exit(1);
+  }
 };
 
 run().catch((error) => {

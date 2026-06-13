@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
 import { todayStr } from '../mapTypes';
-import { CategoryDot, EventRow, EmptyState } from './cards';
+import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -124,15 +124,19 @@ export function CalendarPanel({
           {state.listEvents.length === 0 ? (
             <EmptyState>Nothing listed for this day yet.</EmptyState>
           ) : (
-            state.listEvents.map((e) => (
-              <EventRow
-                key={e.occurrence_id}
-                event={e}
-                selected={state.selected === e.occurrence_id}
-                onSelect={state.fromCard}
-                onHover={state.setHovered}
-              />
-            ))
+            state.listEvents.map((e) =>
+              e.occurrence_id.startsWith('remote-') ? (
+                <RemoteFestivalRow key={e.occurrence_id} event={e} />
+              ) : (
+                <EventRow
+                  key={e.occurrence_id}
+                  event={e}
+                  selected={state.selected === e.occurrence_id}
+                  onSelect={state.fromCard}
+                  onHover={state.setHovered}
+                />
+              )
+            )
           )}
         </div>
       ) : (

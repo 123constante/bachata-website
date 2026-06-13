@@ -1,0 +1,45 @@
+version: 2
+
+# Weekly grouped dependency PRs so 90+ deps stop being bumped by hand. Minor +
+# patch land in a single PR/week (existing e2e-smoke + architecture-guard +
+# db-contract gates vet each before merge). MAJORS of the cache-tuned vendor
+# chunks (vite.config.ts manualChunks) are ignored: this repo is acutely
+# stale-chunk sensitive, so a chunk-affecting major must be a deliberate,
+# tested bump - never an auto-PR that silently re-buckets a tuned chunk.
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: react-router-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@tanstack/react-query"
+        update-types: [version-update:semver-major]
+      - dependency-name: framer-motion
+        update-types: [version-update:semver-major]
+      - dependency-name: "@supabase/supabase-js"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"

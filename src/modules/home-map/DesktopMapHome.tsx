@@ -16,6 +16,7 @@ import {
   EmptyState,
   ListSkeleton,
   RetryNotice,
+  RemoteFestivalRow,
 } from './cards/cards';
 import {
   TabBar,
@@ -36,7 +37,8 @@ const zoomBtn =
 
 /** All-tab body: search + chips (scroll with the list) then date-grouped rows.
  *  Rows carry the freshness stamp so just-added events stand out on the default
- *  view. */
+ *  view. Remote festivals (merged upstream) render with a pin icon via
+ *  RemoteFestivalRow so users can see they'd be travelling. */
 function AllBody({ state }: { state: UseMapListResult }) {
   const groups = groupByDate(state.listEvents);
   return (
@@ -59,16 +61,20 @@ function AllBody({ state }: { state: UseMapListResult }) {
               <span className="text-[10px] font-bold text-muted-foreground">{g.items.length}</span>
             </header>
             <div className="space-y-1">
-              {g.items.map((e) => (
-                <EventRow
-                  key={e.occurrence_id}
-                  event={e}
-                  selected={state.selected === e.occurrence_id}
-                  onSelect={state.fromCard}
-                  onHover={state.setHovered}
-                  showFreshness
-                />
-              ))}
+              {g.items.map((e) =>
+                e.occurrence_id.startsWith('remote-') ? (
+                  <RemoteFestivalRow key={e.occurrence_id} event={e} />
+                ) : (
+                  <EventRow
+                    key={e.occurrence_id}
+                    event={e}
+                    selected={state.selected === e.occurrence_id}
+                    onSelect={state.fromCard}
+                    onHover={state.setHovered}
+                    showFreshness
+                  />
+                )
+              )}
             </div>
           </section>
         ))

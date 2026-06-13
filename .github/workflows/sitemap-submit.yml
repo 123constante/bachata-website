@@ -1,0 +1,37 @@
+name: Sitemap Submit
+
+# Notify Google to re-crawl the canonical sitemap after every deploy to main.
+# Runs immediately on push (Vercel deploys in ~60s; sitemaps.submit just queues
+# a crawl - it does not need the deploy to be live first).
+#
+# Uses the same service-account key as gsc-health-check.yml but requests
+# webmasters scope (Full) so it can call sitemaps.submit. The SA holds Full
+# permission on the GSC property; Owner is not required for submit.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  sitemap-submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No npm install: check-gsc.mjs imports only node built-ins.
+      - name: Submit sitemap to Google Search Console
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/check-gsc.mjs --submit-canonical

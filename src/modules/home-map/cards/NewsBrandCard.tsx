@@ -38,6 +38,7 @@ export function NewsBrandCard({ state }: { state: UseMapListResult }) {
         alt="Bachata Calendar"
         width={80}
         height={80}
+        loading="lazy"
         className="mx-auto h-20 w-20 rounded-2xl"
       />
       <p className="mt-2 text-sm font-semibold text-foreground">

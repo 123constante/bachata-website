@@ -7,7 +7,7 @@
 // Bug fix 2026-06-12: selected country is now held in local state so it
 // persists even when the digits field is empty (previously the component was
 // fully controlled by the E.164 value, so picking a country with no digits
-// emitted '' → parent stored '' → prefix match fell back to GB on re-render).
+// emitted '' -> parent stored '' -> prefix match fell back to GB on re-render).
 // =============================================================================
 
 import React, { useMemo, useRef, useState } from 'react';
@@ -42,14 +42,26 @@ function feedbackFor(country: DialCountry, check: PhoneCheck, touched: boolean):
   switch (check.status) {
     case 'short':
       if (!touched) return null;
-      return { text: `Looks short — ${country.name} numbers have ${check.expected}`, tone: 'error' };
+      return { text: `Looks short &mdash; ${country.name} numbers have ${check.expected}`, tone: 'error' };
     case 'long':
-      return { text: `That's too long for a ${country.name} number (${check.expected})`, tone: 'error' };
+      return { text: `That&rsquo;s too long for a ${country.name} number (${check.expected})`, tone: 'error' };
     case 'warn':
       return { text: check.message, tone: 'warn' };
     default:
       return null;
   }
+}
+
+function FlagImg({ code, className }: { code: string; className?: string }) {
+  return (
+    <img
+      src={`https://flagcdn.com/w20/${code.toLowerCase()}.png`}
+      width={20}
+      height={15}
+      alt=""
+      className={`inline-block rounded-[2px] ${className ?? ''}`}
+    />
+  );
 }
 
 export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
@@ -59,7 +71,7 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   autoFocus,
   inputId,
 }) => {
-  // Country held in state — not derived from value — so selection sticks when digits are empty.
+  // Country held in state -- not derived from value -- so selection sticks when digits are empty.
   const [countryCode, setCountryCode] = useState<string>(() => {
     const match = findByPrefix(value);
     return match?.code ?? DEFAULT_CODE;
@@ -139,9 +151,9 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
             aria-expanded={open}
             className="h-full min-w-[5rem] rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-2 text-left text-sm text-[#D8CCB0] hover:border-[rgba(245,213,99,0.55)] focus:border-[rgba(245,213,99,0.55)] focus:outline-none disabled:opacity-50"
           >
-            <span className="text-base mr-1" aria-hidden>{country.flag}</span>
+            <FlagImg code={country.code} className="mr-1" />
             <span className="font-mono text-[11px] text-[#D8CCB0]">{country.dial}</span>
-            <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>▾</span>
+            <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>&#9660;</span>
           </button>
 
           {open && (
@@ -159,7 +171,7 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-                    placeholder="Search country or code…"
+                    placeholder="Search country or code..."
                     className="w-full rounded px-2 py-1 text-xs bg-black/30 border border-[rgba(197,148,10,0.25)] text-[#D8CCB0] placeholder:text-[#6f6757] focus:outline-none focus:border-[rgba(245,213,99,0.55)]"
                   />
                 </div>
@@ -240,7 +252,13 @@ const CountryRow: React.FC<{
         selected ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
       }`}
     >
-      <span className="text-base" aria-hidden>{c.flag}</span>
+      <img
+        src={`https://flagcdn.com/w20/${c.code.toLowerCase()}.png`}
+        width={20}
+        height={15}
+        alt=""
+        className="rounded-[2px] shrink-0"
+      />
       <span className="flex-1 truncate text-xs">{c.name}</span>
       <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
     </button>
