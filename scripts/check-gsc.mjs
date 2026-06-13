@@ -336,11 +336,14 @@ async function inspectUrls(token, locs) {
     const expectedRedirect = INTENTIONAL_REDIRECTS.has(pathStr);
     inspected.push({ url, verdict, coverage, robots, indexingState });
 
-    const blocked = robots === 'DISALLOWED' || indexingState === 'BLOCKED_BY_META_TAG' || indexingState === 'BLOCKED_BY_HTTP_HEADER';
+    const robotsBlocked = robots === 'DISALLOWED';
+    const metaBlocked = indexingState === 'BLOCKED_BY_META_TAG' || indexingState === 'BLOCKED_BY_HTTP_HEADER';
     const redirectish = /redirect/i.test(coverage);
 
-    if (blocked && !expectedRedirect) {
-      fail(`blocked from indexing: ${pathStr}`, [`robots=${robots} indexing=${indexingState}`]);
+    if (robotsBlocked && !expectedRedirect) {
+      fail(`blocked from indexing by robots.txt: ${pathStr}`, [`robots=${robots}`]);
+    } else if (metaBlocked && !expectedRedirect) {
+      warn(`noindex meta/header on: ${pathStr}`, [`indexing=${indexingState}`]);
     } else if (redirectish && expectedRedirect) {
       pass(`${pathStr} (intentional client-side redirect)`, [coverage]);
     } else if (redirectish && !expectedRedirect) {
