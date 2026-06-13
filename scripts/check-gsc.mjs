@@ -67,6 +67,7 @@ const ENV = loadEnv();
 const ARGV = process.argv.slice(2);
 const FLAGS = {
   deleteJunk: ARGV.includes('--delete-junk'),
+  submitCanonical: ARGV.includes('--submit-canonical'),
   skipLiveDiff: ARGV.includes('--skip-live-diff'),
   jsonPath: (() => { const i = ARGV.indexOf('--json'); return i >= 0 ? ARGV[i + 1] : null; })(),
 };
@@ -423,12 +424,35 @@ function writeReport(exitCode) {
   try { fs.writeFileSync(FLAGS.jsonPath, JSON.stringify(report, null, 2)); } catch (e) { console.error(`could not write ${FLAGS.jsonPath}: ${e.message}`); }
 }
 
+// section 5: sitemap submit (notify Google to re-crawl after a deploy)
+async function submitSitemap(token) {
+  console.log('\nSitemap submit');
+  const feedpath = encodeURIComponent(CANONICAL_SITEMAP);
+  const res = await api(token, 'PUT', `${WMT}/sites/${encSite}/sitemaps/${feedpath}`);
+  if (res.ok) {
+    pass('sitemap submitted to Google', [CANONICAL_SITEMAP]);
+  } else if (res.status === 403) {
+    configError('sitemaps.submit returned 403 - SA needs Full or Owner permission on the GSC property.');
+  } else {
+    fail(`sitemaps.submit failed (HTTP ${res.status})`, res.errMsg ? [res.errMsg] : undefined);
+  }
+}
+
 // main
 async function main() {
   console.log(`check-gsc - ${SITE_URL}`);
-  const scope = FLAGS.deleteJunk ? SCOPE_FULL : SCOPE_READONLY;   // decided BEFORE the token is minted
+  const scope = (FLAGS.deleteJunk || FLAGS.submitCanonical) ? SCOPE_FULL : SCOPE_READONLY;   // decided BEFORE the token is minted
   const key = loadServiceAccountKey();
   const token = await getAccessToken(key, scope);
+
+  if (FLAGS.submitCanonical) {
+    await submitSitemap(token);
+    const { pass: p, warn: w, fail: f } = report.summary;
+    console.log(`\n${f} failed, ${w} warned, ${p} passed.`);
+    const exitCode = f > 0 ? 1 : 0;
+    writeReport(exitCode);
+    process.exit(exitCode);
+  }
 
   const junk = await checkSitemaps(token);
   if (FLAGS.deleteJunk) await deleteJunkSitemaps(token, junk);
