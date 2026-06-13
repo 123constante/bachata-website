@@ -1,0 +1,67 @@
+name: Prod Smoke
+
+# Headless Playwright smoke against LIVE production (scripts/launch-critical-smoke.mjs).
+# Asserts: the homepage map paints Leaflet markers/clusters, an event page renders
+# (sourced from the live sitemap), key routes mount with no console/page errors,
+# and Supabase returns no 4xx/5xx. Runs at a mobile viewport (~95% of users) with a
+# 'bot' user-agent so the server-side view-tracking RPCs skip these runs - no
+# analytics pollution.
+#
+# Triggers:
+#   deployment_status - validate immediately after a successful Vercel deploy
+#   schedule          - synthetic-uptime safety net (catches drift with no deploy,
+#                       and covers the case where Vercel's deployment_status
+#                       integration is not wired to GitHub)
+#   workflow_dispatch - on demand
+
+on:
+  deployment_status:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    # Ignore pending/error/preview deployment_status noise - only a successful deploy.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke live production
+        env:
+          SMOKE_BASE_URL: https://bachatacalendar.co.uk
+        run: |
+          set -o pipefail
+          node scripts/launch-critical-smoke.mjs | tee smoke-report.json
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-smoke-report
+          path: smoke-report.json
+          retention-days: 14
