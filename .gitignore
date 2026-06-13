@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# GSC service-account key (kept outside the repo, but never commit if present)
+# and the local --json report output.
+gsc-service-account*.json
+gsc-report*.json
+
 # Logs
 logs
 *.log

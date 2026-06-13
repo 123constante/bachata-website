@@ -11,6 +11,7 @@
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
     "check:no-social-word": "node scripts/check-no-social-word.mjs",
     "check:og": "node scripts/check-og-images.mjs",
+    "check:gsc": "node scripts/check-gsc.mjs",
     "check:legacy-tables": "node scripts/check-no-legacy-tables.mjs",
     "check:legacy-program-rpcs": "node scripts/check-no-legacy-program-rpcs.mjs",
     "preview": "vite preview",
