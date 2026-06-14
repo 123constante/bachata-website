@@ -495,3 +495,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-legacy-program-parity.mjs
+
+      # 36. Festival publish readiness (atomic publish arc, 2026-06-14). A LIVE
+      #     event_series_p5 festival whose legacy public.events row is NOT
+      #     'published' renders on the calendar list (P5 read) but 404s on its
+      #     detail page (get_public_festival_detail needs the legacy row at
+      #     lifecycle_status='published') — the AB International Congress Barcelona
+      #     bug: P5 went live, but events.country was NULL so the lifecycle mirror
+      #     silently hit events_country_city_required. Publish is now atomic +
+      #     hard-blocked and country auto-derives from the city (admin migration
+      #     20260825000000), so this stays at 0 for app publishes; the gate catches
+      #     raw-SQL / import drift. Health-check RPC:
+      #     check_festival_publish_readiness_v1.
+      - name: Run festival publish readiness check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-festival-publish-readiness.mjs
