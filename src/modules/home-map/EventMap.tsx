@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import './homeMap.css';
 import { cn } from '@/lib/utils';
+import { MapDisposer } from '@/lib/leaflet-safety';
 import type { MapEvent } from './mapTypes';
 import {
   categoryColor,
@@ -183,6 +184,9 @@ export default function EventMap({
       ...(maxBounds ? { maxBounds, maxBoundsViscosity: 0.8 } : {}),
     }).setView(center, zoom);
     mapRef.current = m;
+    // All deferred Leaflet calls route through this so they no-op (and their
+    // timeouts are cancelled) once the map is torn down on unmount.
+    const disposer = new MapDisposer(mapRef);
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
     // Mobile (onClusterSelect set): a cluster tap surfaces its children in the
@@ -238,7 +242,10 @@ export default function EventMap({
         const mk = markers.current.get(occId);
         if (!mk) return;
         cl.zoomToShowLayer(mk, () => {
-          window.setTimeout(() => mk.openPopup(), 40);
+          // Tracked + mount-guarded: if the user navigates away during the
+          // zoom animation, this won't openPopup() on a removed map (the old
+          // _leaflet_pos crash, BACHATA-WEBSITE-2C).
+          disposer.safeTimeout(() => mk.openPopup(), 40);
         });
       },
       reset: () => doFitVisible(!prefersReducedMotion()),
@@ -247,11 +254,7 @@ export default function EventMap({
         // Called from ResizeObserver / visualViewport / orientation listeners,
         // which can fire while the map is mid-init or after teardown -- Leaflet
         // then throws on an unpositioned pane. A missed re-measure is harmless.
-        try {
-          m.invalidateSize();
-        } catch {
-          /* map not ready / removed */
-        }
+        disposer.safeCall((map) => map.invalidateSize());
       },
       pinHalf: (occId) => {
         const mk = markers.current.get(occId);
@@ -308,11 +311,13 @@ export default function EventMap({
       });
     }
 
-    const t1 = window.setTimeout(() => m.invalidateSize(), 60);
-    const t2 = window.setTimeout(() => m.invalidateSize(), 400);
+    disposer.safeTimeout((map) => map.invalidateSize(), 60);
+    disposer.safeTimeout((map) => map.invalidateSize(), 400);
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
+      // dispose() cancels any pending timeouts AND marks the map dead, so a
+      // deferred call (e.g. flyTo's openPopup) scheduled just before unmount
+      // can't fire against the removed map.
+      disposer.dispose();
       m.remove();
       mapRef.current = null;
       markers.current = new Map();

@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ComponentType, type LazyExoticComponent } from "react";
+import { Suspense } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
@@ -8,29 +8,7 @@ import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { isStaleChunkError, attemptChunkReloadOnce, clearChunkReloadFlag } from "@/lib/staleChunk";
-
-// Wraps lazy() so a chunk-load failure (typically: stale cached HTML referencing
-// a chunk URL that 404s after a Vercel deploy -> "Failed to fetch dynamically
-// imported module" / MIME error) triggers ONE reload to pick up the fresh HTML.
-// Detection + the once-per-session reload flag live in lib/staleChunk.ts,
-// shared with the vite:preloadError handler (main.tsx) and error boundaries.
-function lazyWithRetry<T extends ComponentType<unknown>>(
-  factory: () => Promise<{ default: T }>,
-): LazyExoticComponent<T> {
-  return lazy(async () => {
-    try {
-      const mod = await factory();
-      clearChunkReloadFlag();
-      return mod;
-    } catch (err) {
-      if (isStaleChunkError(err) && attemptChunkReloadOnce()) {
-        return new Promise<{ default: T }>(() => {});
-      }
-      throw err;
-    }
-  });
-}
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 // --- Landing page: lazy-loaded here (along with all other pages) ---
 const Index = lazyWithRetry(() => import("../pages/Index"));

@@ -1,0 +1,43 @@
+name: Sourcemap Resolve Check
+
+# Verifies production Sentry events resolve to ORIGINAL source (.ts/.tsx) rather
+# than minified /assets/*.js chunks. A regression here (missing Vercel Sentry
+# credential, or a release-name mismatch in @sentry/vite-plugin) silently makes
+# every prod error undebuggable, so we fail CI on it.
+#
+# Requires repo secret SENTRY_READ_TOKEN (personal/project token, scopes
+# project:read + event:read). Without it the script skips (exit 0).
+#
+# Triggers mirror prod-smoke.yml: validate right after a successful Vercel deploy,
+# plus a daily safety net.
+
+on:
+  deployment_status:
+  schedule:
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check production sourcemaps resolve
+        env:
+          SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
+        run: node scripts/check-sourcemaps-resolve.mjs

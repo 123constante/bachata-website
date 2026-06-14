@@ -83,7 +83,10 @@ const Organisers = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: nextEventDates } = useQuery({
+  // Default to {} so the liveOrganisers useMemo+filter below never indexes
+  // `undefined[org.id]` on the first render before this query resolves
+  // (BACHATA-WEBSITE-1M).
+  const { data: nextEventDates = {} } = useQuery({
     queryKey: ['organiser-next-event-dates'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_organiser_next_event_dates' as any);

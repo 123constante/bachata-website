@@ -7,9 +7,10 @@
 // layout (index.css). The map is compact + popup-less: a pin tap shows an inline
 // MapPreviewCard, a cluster tap lists its events, a background tap clears it.
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Plus, Minus, Focus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from '../useMapList';
 import type { MapEvent, MapFilter } from '../mapTypes';
 import { CATEGORY_COLORS } from '../mapTypes';
@@ -22,7 +23,7 @@ import { SheetCalendarTab } from './SheetCalendarTab';
 import { MapPreviewCard } from './MapPreviewCard';
 import { MapHintPill } from './MapHintPill';
 
-const EventMap = lazy(() => import('../EventMap'));
+const EventMap = lazyWithRetry(() => import('../EventMap'));
 
 // Constrain the mobile map to Greater London so a fling rubber-bands back rather
 // than drifting to empty ocean (EventMap applies maxBoundsViscosity).

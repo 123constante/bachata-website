@@ -5,8 +5,9 @@
 // scroller; the rail header (city + live count) + TabBar are sticky inside it.
 // The default tab is All Events (lead with events); What's New is one tab away.
 
-import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { Plus, Minus, LocateFixed, MapPin } from 'lucide-react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
 import { groupByDate } from './mapListDerivations';
 import {
@@ -30,7 +31,7 @@ import { MapHint } from './MapHint';
 import { CalendarPanel } from './cards/CalendarPanel';
 import { NewsBrandCard } from './cards/NewsBrandCard';
 
-const EventMap = lazy(() => import('./EventMap'));
+const EventMap = lazyWithRetry(() => import('./EventMap'));
 
 const zoomBtn =
   'grid h-11 w-11 place-items-center bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary';

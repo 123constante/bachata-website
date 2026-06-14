@@ -1,3 +1,5 @@
+import { safeDynamicImport } from '@/lib/lazyWithRetry';
+
 export type Country = {
   code: string;
   name: string;
@@ -32,7 +34,7 @@ let cachedCountries: Country[] | null = null;
 export async function loadCountries(): Promise<Country[]> {
   if (cachedCountries) return cachedCountries;
 
-  const { default: worldCountries } = await import('world-countries');
+  const { default: worldCountries } = await safeDynamicImport(() => import('world-countries'));
 
   type WC = (typeof worldCountries)[number];
   const mapWorldCountry = (country: WC): Country | null => {

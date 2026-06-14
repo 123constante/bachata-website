@@ -1,6 +1,7 @@
-import { Suspense, lazy, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useMapEvents } from '@/hooks/useMapEvents';
@@ -17,8 +18,8 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 
 // Both home surfaces are lazy so neither bundle blocks the other; the Festival
 // Map's Leaflet code only loads once one of them mounts.
-const MobileMapHome = lazy(() => import('@/modules/home-map/mobile/MobileMapHome'));
-const DesktopMapHome = lazy(() => import('@/modules/home-map/DesktopMapHome'));
+const MobileMapHome = lazyWithRetry(() => import('@/modules/home-map/mobile/MobileMapHome'));
+const DesktopMapHome = lazyWithRetry(() => import('@/modules/home-map/DesktopMapHome'));
 
 // Stable empty fallback so useMapList's memoised derivations don't churn while
 // the map query is loading.

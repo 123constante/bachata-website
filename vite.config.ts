@@ -11,6 +11,33 @@ const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
 
+// The release name uploaded artifacts are tagged with MUST match the release
+// the running client reports (src/lib/sentry.ts reads VITE_VERCEL_GIT_COMMIT_SHA).
+// Without pinning it, @sentry/vite-plugin auto-detects a release that can drift
+// from the runtime value, leaving prod stack frames minified. VERCEL_GIT_COMMIT_SHA
+// is Vercel's build-time auto var; VITE_VERCEL_GIT_COMMIT_SHA is the one mirrored
+// to the client bundle.
+const sentryRelease =
+  process.env.VITE_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+
+// Self-policing: a Vercel PRODUCTION build with a missing Sentry credential would
+// silently ship a sourcemap-less release (every prod error then undebuggable).
+// Fail the build instead so the gap can't go unnoticed.
+if (process.env.VERCEL_ENV === "production") {
+  const missing = [
+    !sentryAuthToken && "SENTRY_AUTH_TOKEN",
+    !sentryOrg && "SENTRY_ORG",
+    !sentryProject && "SENTRY_PROJECT",
+  ].filter(Boolean);
+  if (missing.length) {
+    throw new Error(
+      `[sentry] Production build is missing required env var(s): ${missing.join(
+        ", ",
+      )}. Sourcemaps would not upload — add them to the Vercel Production scope.`,
+    );
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -25,6 +52,9 @@ export default defineConfig(({ mode }) => ({
         authToken: sentryAuthToken,
         org: sentryOrg,
         project: sentryProject,
+        // Pin the release so uploaded sourcemaps associate with the exact
+        // release the client reports at runtime (see comment above).
+        release: sentryRelease ? { name: sentryRelease } : undefined,
         sourcemaps: { assets: "./dist/**" },
         telemetry: false,
       }),

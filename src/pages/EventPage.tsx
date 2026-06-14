@@ -1,15 +1,16 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BentoPage } from '@/modules/event-page/bento/BentoPage';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useSeo, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Festivals hit /event/:slugOrId when linked from calendars that don't know the type.
 // Render the dedicated FestivalDetail page in that case — lazy so standard
 // events don't pay for the festival bundle.
-const FestivalDetail = lazy(() => import('@/pages/FestivalDetail'));
+const FestivalDetail = lazyWithRetry(() => import('@/pages/FestivalDetail'));
 
 const FestivalFallback = () => (
   <div className="mx-auto w-full max-w-6xl space-y-3 px-3 pt-[84px] pb-24">

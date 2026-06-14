@@ -109,9 +109,110 @@ const noBareAvatarImagesRule = {
   },
 };
 
+// `local/no-bare-lazy-imports` — every code-split import must route through
+// `lazyWithRetry` (src/lib/lazyWithRetry.ts) so a stale-chunk failure after a
+// Vercel deploy is healed identically everywhere. A bare `lazy(() => import(...))`
+// — especially nested inside an already-lazy component — bypasses that healing
+// and hits the error boundary (BACHATA-WEBSITE-1/-3/-7/-11). lazyWithRetry.ts is
+// the one allowed caller of `lazy()`.
+const ALLOWED_BARE_LAZY_FILES = ["src/lib/lazyWithRetry.ts"];
+
+const noBareLazyImportsRule = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Forbid bare React.lazy()/lazy() outside lazyWithRetry.ts — route code-split imports through lazyWithRetry so stale-chunk failures after a deploy self-heal.",
+    },
+    schema: [],
+    messages: {
+      bareLazy:
+        "Bare lazy() — use lazyWithRetry() from '@/lib/lazyWithRetry' instead so a stale chunk after a deploy triggers a reload rather than an error boundary. For on-demand library import() calls use safeDynamicImport().",
+    },
+  },
+  create(context) {
+    const filename = (context.filename || context.physicalFilename || context.getFilename?.() || "").replace(/\\/g, "/");
+    if (ALLOWED_BARE_LAZY_FILES.some((p) => filename.endsWith(p))) return {};
+    return {
+      CallExpression(node) {
+        const callee = node.callee;
+        // lazy(...)
+        if (callee.type === "Identifier" && callee.name === "lazy") {
+          context.report({ node, messageId: "bareLazy" });
+          return;
+        }
+        // React.lazy(...)
+        if (
+          callee.type === "MemberExpression" &&
+          callee.property.type === "Identifier" &&
+          callee.property.name === "lazy"
+        ) {
+          context.report({ node, messageId: "bareLazy" });
+        }
+      },
+    };
+  },
+};
+
+// `local/react-query-default-or-chain` — a `const { data: X } = useQuery(...)`
+// (or useInfiniteQuery/useSuspenseQuery) whose `data` has NO destructure default
+// is `undefined` on first render; indexing/iterating it then throws (e.g.
+// `nextEventDates[org.id]` → BACHATA-WEBSITE-1M). Require a default (`= []`/`= {}`)
+// or rely on optional chaining at the use site. Flags the destructure that lacks
+// a default; fires at WARN.
+const reactQueryDefaultRule = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Require a destructure default for useQuery data (const { data: X = [] } = useQuery(...)) so it is never undefined on first render.",
+    },
+    schema: [],
+    messages: {
+      needsDefault:
+        "useQuery `data` destructured without a default — add `= []`/`= {}` (or optional-chain every use). Undefined-on-first-render indexing crashed Organisers (BACHATA-WEBSITE-1M).",
+    },
+  },
+  create(context) {
+    const QUERY_HOOKS = new Set([
+      "useQuery",
+      "useInfiniteQuery",
+      "useSuspenseQuery",
+      "useSuspenseInfiniteQuery",
+    ]);
+    return {
+      VariableDeclarator(node) {
+        // init must be a call to a query hook
+        const init = node.init;
+        if (!init || init.type !== "CallExpression") return;
+        const callee = init.callee;
+        const name =
+          callee.type === "Identifier"
+            ? callee.name
+            : callee.type === "MemberExpression" && callee.property.type === "Identifier"
+              ? callee.property.name
+              : null;
+        if (!name || !QUERY_HOOKS.has(name)) return;
+        if (node.id.type !== "ObjectPattern") return;
+        for (const prop of node.id.properties) {
+          if (prop.type !== "Property") continue;
+          if (prop.key.type !== "Identifier" || prop.key.name !== "data") continue;
+          // value is either `data` (shorthand), `data: X`, or `data: X = default`.
+          // A default makes value an AssignmentPattern → safe.
+          if (prop.value.type !== "AssignmentPattern") {
+            context.report({ node: prop, messageId: "needsDefault" });
+          }
+        }
+      },
+    };
+  },
+};
+
 const localPlugin = {
   rules: {
     "no-bare-avatar-images": noBareAvatarImagesRule,
+    "no-bare-lazy-imports": noBareLazyImportsRule,
+    "react-query-default-or-chain": reactQueryDefaultRule,
   },
 };
 
@@ -132,5 +233,7 @@ export default tseslint.config({ ignores: ["dist", "storybook-static", "**/*.tim
     "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     "@typescript-eslint/no-unused-vars": "off",
     "local/no-bare-avatar-images": "warn",
+    "local/no-bare-lazy-imports": "warn",
+    "local/react-query-default-or-chain": "warn",
   },
 });

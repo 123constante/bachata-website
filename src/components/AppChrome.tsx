@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GlobalBackground } from '@/components/GlobalBackground';
 import { GlobalHeader } from '@/components/GlobalHeader';
@@ -7,9 +7,10 @@ import { GlobalFooter } from '@/components/layout/GlobalFooter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Lazy-load AnimatedRoutes to defer framer-motion out of the initial bundle.
-const AnimatedRoutes = lazy(() =>
+const AnimatedRoutes = lazyWithRetry(() =>
   import('@/components/AnimatedRoutes').then((m) => ({ default: m.AnimatedRoutes })),
 );
 

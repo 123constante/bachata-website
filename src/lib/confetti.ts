@@ -1,5 +1,7 @@
-﻿export const triggerGlobalConfetti = () => {
-    import('canvas-confetti').then(mod => {
+﻿import { safeDynamicImport } from '@/lib/lazyWithRetry';
+
+export const triggerGlobalConfetti = () => {
+    safeDynamicImport(() => import('canvas-confetti')).then(mod => {
         const confetti = mod.default;
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
@@ -37,7 +39,7 @@ export const triggerMicroConfetti = (
     y: number,
     options?: MicroConfettiOptions,
 ) => {
-    import('canvas-confetti').then(mod => {
+    safeDynamicImport(() => import('canvas-confetti')).then(mod => {
         const confetti = mod.default;
         // Normalize coordinates to 0-1 range for canvas-confetti
         const xNorm = x / window.innerWidth;

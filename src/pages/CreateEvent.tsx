@@ -101,7 +101,7 @@ const CreateEvent = () => {
     },
   });
 
-  const { data: venues } = useQuery({
+  const { data: venues = [] } = useQuery({
     queryKey: ['venues'],
     queryFn: async () => {
       const { data, error } = await supabase.from('venues').select('id, name, city_id, cities(name)').order('name');

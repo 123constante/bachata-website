@@ -29,6 +29,53 @@ export function isSentryEnabled(): boolean {
   return Boolean(SENTRY_DSN);
 }
 
+// --- Injected / third-party-script noise classifier -----------------------
+// A recurring class of events (BACHATA-WEBSITE-N "Maximum call stack",
+// BACHATA-WEBSITE-2A "Error: he") comes entirely from scripts injected by the
+// client — in-app browsers (WhatsApp/Instagram), content blockers, Chrome-iOS
+// injected JS — never from our bundle. They share one verified signature: every
+// stack frame's file location is junk ("undefined" / "<anonymous>" / empty).
+//
+// NOTE: `in_app` is NOT a usable discriminator — Sentry marks these frames
+// in_app:true, identical to our own (verified on the live BACHATA-WEBSITE-N
+// event). We key off the file location instead: a genuine error in our code
+// always has ≥1 frame pointing at an `/assets/*.js` chunk (or, once sourcemaps
+// resolve, a `.tsx` source path), so this never drops a real bug.
+const JUNK_FRAME_LOCATIONS = new Set([
+  '',
+  'undefined',
+  'null',
+  '<anonymous>',
+  '[native code]',
+  '?',
+]);
+
+type MinimalFrame = { filename?: string; abs_path?: string };
+type MinimalEvent = {
+  exception?: { values?: Array<{ stacktrace?: { frames?: MinimalFrame[] } }> };
+};
+
+function frameHasRealSource(frame: MinimalFrame): boolean {
+  const loc = frame.abs_path || frame.filename;
+  if (!loc || typeof loc !== 'string') return false;
+  return !JUNK_FRAME_LOCATIONS.has(loc.trim());
+}
+
+// True when the event HAS stack frames but EVERY one lacks a usable source
+// location → it originated entirely in injected/third-party code.
+export function isInjectedThirdPartyEvent(event: MinimalEvent): boolean {
+  const values = event.exception?.values;
+  if (!values?.length) return false;
+  let sawFrame = false;
+  for (const v of values) {
+    for (const f of v.stacktrace?.frames ?? []) {
+      sawFrame = true;
+      if (frameHasRealSource(f)) return false;
+    }
+  }
+  return sawFrame;
+}
+
 // Coerces anything thrown/captured into a real Error. Supabase PostgREST errors
 // arrive as plain objects ({ code, message, details, hint }); without this they
 // surface in Sentry as "Object captured as exception with keys: cod...".
@@ -81,6 +128,11 @@ export function initSentry(): void {
     // events like "Error: he" are attributable to a frame.
     attachStacktrace: true,
     beforeSend(event, hint) {
+      // Drop injected / third-party-script noise (see isInjectedThirdPartyEvent).
+      // Safe: only fires when every frame lacks a real source location, which our
+      // own bundle errors never do.
+      if (isInjectedThirdPartyEvent(event)) return null;
+
       const orig = hint?.originalException;
       if (orig && !(orig instanceof Error) && typeof orig === 'object') {
         const e = toError(orig);
