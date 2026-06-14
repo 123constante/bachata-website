@@ -198,18 +198,29 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
     }
   };
 
-  // ----- collapsed: just the icon button -----
+  // ----- collapsed: mobile = a visible search pill, desktop = the icon button.
+  // The pill makes navigational search discoverable on mobile, where the in-feed
+  // map filter was removed in favour of this omnibox; md+ keeps the compact icon.
   if (!expanded) {
     return (
       <button
         ref={triggerRef}
         type="button"
         onClick={() => onExpandedChange(true)}
-        aria-label="Search"
+        aria-label="Search events, venues, people"
         aria-expanded={false}
-        className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className={cn(
+          'flex items-center text-foreground/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          // mobile: a search pill that fills the bar (GlobalHeader hides its spacer < md)
+          'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-border bg-muted/30 px-3 hover:bg-muted/50 hover:text-primary',
+          // desktop (md+): collapse back to the icon-only circle
+          'md:ml-auto md:h-9 md:w-9 md:max-w-none md:flex-none md:justify-center md:gap-0 md:rounded-full md:border-0 md:bg-transparent md:px-0 md:hover:bg-primary/10',
+        )}
       >
-        <Search className="h-5 w-5" />
+        <Search className="h-4 w-4 shrink-0 md:h-5 md:w-5" aria-hidden="true" />
+        <span className="truncate text-sm text-muted-foreground md:hidden">
+          Search events, venues, people&hellip;
+        </span>
       </button>
     );
   }

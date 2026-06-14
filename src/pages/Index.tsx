@@ -104,19 +104,23 @@ const Index = () => {
         instance_date: f.date,
         start_time: f.start_time,
         end_time: null,
-        type: 'festival' as const,
+        type: 'festival',
         has_party: false,
         has_class: false,
+        class_start: null,
+        class_end: null,
+        party_start: null,
+        party_end: null,
         created_at: null,
         updated_at: null,
-        freshness_kind: null as null,
+        freshness_kind: null,
         is_cancelled: false,
         cancellation_reason_label: null,
       }));
     return remote.length ? [...base, ...remote] : base;
   }, [mapEvents, globalFestivals]);
 
-  const state = useMapList(allMapEvents);
+  const state = useMapList(allMapEvents, { scrollOnPinSelect: !isMobile });
 
   // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
   const { setTab } = state;

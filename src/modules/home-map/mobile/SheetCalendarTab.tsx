@@ -1,4 +1,4 @@
-// Festival Map mobile sheet -- "Calendar" tab. The month grid + selected-day
+// Festival Map mobile feed -- "Calendar" tab. The month grid + selected-day
 // list now live in the shared cards/CalendarPanel (reused by the desktop list
 // rail too); this file just slots it into the mobile sheet's tab routing.
 

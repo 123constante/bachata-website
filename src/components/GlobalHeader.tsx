@@ -139,7 +139,7 @@ export const GlobalHeader = () => {
           </div>
         )}
 
-        <div className="flex-1" />
+        <div className="hidden md:block flex-1" />
 
         <HeaderSearch expanded={searching} onExpandedChange={setSearching} />
       </nav>

@@ -25,6 +25,12 @@ export interface MapEvent {
   type: string; // 'standard' | 'festival' | 'course' | ...
   has_party: boolean;
   has_class: boolean;
+  // Split class/party times for "Class & Party" events ('HH:MM' wall-clock,
+  // or null when the RPC has no split / the build predates 20260823000000).
+  class_start: string | null;
+  class_end: string | null;
+  party_start: string | null;
+  party_end: string | null;
   created_at: string | null; // real timestamptz instant
   updated_at: string | null; // real timestamptz instant (human curation), nullable
   freshness_kind: 'added' | 'updated' | null;
@@ -103,7 +109,9 @@ export function monogram(name: string): string {
 
 function wallClock(iso: string | null): { h: number; m: number } | null {
   if (!iso) return null;
-  const m = /[T ](\d{2}):(\d{2})/.exec(iso);
+  // Also matches a bare 'HH:MM' (the RPC split-time fields), not just the time
+  // portion of an ISO instant, so formatTime serves both split + merged ranges.
+  const m = /(?:^|[T ])(\d{1,2}):(\d{2})/.exec(iso.trim());
   if (!m) return null;
   return { h: Number(m[1]), m: Number(m[2]) };
 }
@@ -124,6 +132,39 @@ export function formatTimeRange(e: MapEvent): string {
   const en = formatTime(e.end_time);
   if (s && en) return `${s} \u2013 ${en}`;
   return s || en || '';
+}
+
+// ---- split class/party times ----------------------------------------------
+
+export interface TimeSegment {
+  label: 'Class' | 'Party';
+  /** category whose colour the dot/label uses ('class' teal, 'party' rose) */
+  category: 'class' | 'party';
+  range: string;
+}
+
+function clockRange(s: string | null, en: string | null): string {
+  // Reuse formatTimeRange (am/pm + en-dash) so the time formatting lives in one
+  // place; wallClock now also parses the bare 'HH:MM' split tokens.
+  return formatTimeRange({ start_time: s, end_time: en } as MapEvent);
+}
+
+/**
+ * For a "Class & Party" event (has_class && has_party) with split times present,
+ * two coloured segments -- Class then Party. Returns null when the event isn't a
+ * mix, or when either side's split times are missing (caller renders the merged
+ * range via formatTimeRange instead). Both segments must resolve so we never show
+ * a half-split that reads as if the other half doesn't exist.
+ */
+export function formatSplitTimes(e: MapEvent): TimeSegment[] | null {
+  if (!(e.has_class && e.has_party)) return null;
+  const cls = clockRange(e.class_start, e.class_end);
+  const pty = clockRange(e.party_start, e.party_end);
+  if (!cls || !pty) return null;
+  return [
+    { label: 'Class', category: 'class', range: cls },
+    { label: 'Party', category: 'party', range: pty },
+  ];
 }
 
 // ---- freshness / relative time -------------------------------------------
