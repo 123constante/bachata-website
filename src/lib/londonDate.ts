@@ -33,6 +33,24 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+/**
+ * YYYY-MM-DD for the given instant in an arbitrary IANA timezone (DST-safe).
+ * Falls back to the London calendar if `timeZone` is missing or invalid, so a
+ * bad value can never throw at a call site.
+ */
+export const dateKeyInTz = (d: Date, timeZone: string): string => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  } catch {
+    return londonKeyFormatter.format(d);
+  }
+};
+
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */
 export const londonDateKey = (d: Date): string => londonKeyFormatter.format(d);
 

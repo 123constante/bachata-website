@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 
 import { createPortal } from "react-dom";
 
@@ -26,6 +26,10 @@ import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 import { EventStickyActionBar } from "@/modules/event-page/bento/EventStickyActionBar";
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
+
+import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
+
+import { dateKeyInTz } from "@/lib/londonDate";
 
 import { resolveTransportMode } from "@/lib/transportMode";
 
@@ -371,6 +375,10 @@ const CINEMATIC_CSS = `
 .cinematic-festival .tl-day .date{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;display:block;margin-top:4px;letter-spacing:-0.01em;line-height:1}
 
 .cinematic-festival .tl-day .date .lbl{color:rgba(255,255,255,0.5);font-size:0.55em;margin-left:6px;letter-spacing:0.15em}
+
+.cinematic-festival .tl-day.today{background:rgba(251,146,60,0.10);box-shadow:inset 0 2px 0 #fb923c}
+
+.cinematic-festival .tl-day-today{display:block;margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.18em;color:#000;background:#fb923c;border-radius:99px;padding:1px 7px;width:fit-content;margin-left:auto;margin-right:auto}
 
 .cinematic-festival .tl-body{position:relative}
 
@@ -809,6 +817,12 @@ const CINEMATIC_CSS = `
 .cinematic-festival .day-tab-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;margin-left:6px;font-weight:400}
 
 .cinematic-festival .day-tab.active .day-tab-count{color:rgba(0,0,0,0.5)}
+
+.cinematic-festival .day-tab.today:not(.active){border-color:rgba(251,146,60,0.7)}
+
+.cinematic-festival .day-tab-today{margin-left:7px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.16em;text-transform:uppercase;color:#000;background:#fb923c;border-radius:99px;padding:1px 6px;vertical-align:middle}
+
+.cinematic-festival .day-tab.active .day-tab-today{background:#000;color:#fb923c}
 
 .cinematic-festival .all-days-toggle{display:flex;justify-content:center;margin:-6px 0 12px}
 
@@ -1839,6 +1853,26 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
+  // Today's date key in the FESTIVAL's timezone (not the visitor's browser zone),
+  // used both to default the open day-tab and to badge today's tab/column.
+  const todayKey = useMemo(
+    () => dateKeyInTz(new Date(), festivalDetail?.dates.timezone ?? "Europe/London"),
+    [festivalDetail?.dates.timezone],
+  );
+
+  // Open the schedule on TODAY when the festival is live (else day 1). Runs once
+  // per festival load — a ref keyed on eventId stops it from overriding a user's
+  // later tab click or re-firing on unrelated re-renders.
+  const defaultedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    const eid = festivalDetail?.eventId ?? null;
+    if (!eid || days.length === 0 || defaultedForRef.current === eid) return;
+    defaultedForRef.current = eid;
+    setActiveDayIdx(pickDefaultDayIndex(days, festivalDetail?.dates.timezone ?? null));
+  }, [festivalDetail?.eventId, festivalDetail?.dates.timezone, days]);
+
+
+
   const venue = festivalDetail?.location.primaryVenue ?? null;
 
   const organiser = festivalDetail?.organiser ?? null;
@@ -2504,19 +2538,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
 
+                const isToday = day === todayKey;
+
                 return (
 
                   <button
 
                     key={day}
 
-                    className={`day-tab ${activeDayIdx === i ? "active" : ""}`}
+                    className={`day-tab ${activeDayIdx === i ? "active" : ""} ${isToday ? "today" : ""}`}
 
                     onClick={() => setActiveDayIdx(i)}
 
                   >
 
                     {label}<span className="day-tab-count">&middot; {count}</span>
+
+                    {isToday && <span className="day-tab-today">Today</span>}
 
                   </button>
 
@@ -2552,13 +2590,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                   const monthShort = d.toLocaleDateString("en-GB", { month: "short" });
 
+                  const isToday = day === todayKey;
+
                   return (
 
-                    <div key={day} className="tl-day">
+                    <div key={day} className={`tl-day ${isToday ? "today" : ""}`}>
 
                       <span className="name">{weekday}</span>
 
                       <div className="date">{dayNum}<span className="lbl">{monthShort}</span></div>
+
+                      {isToday && <span className="tl-day-today">Today</span>}
 
                     </div>
 
