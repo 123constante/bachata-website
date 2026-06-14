@@ -14,7 +14,9 @@ import {
   eventScene,
   monogram,
   CATEGORY_COLORS,
+  CATEGORY_LABEL,
   formatTimeRange,
+  formatSplitTimes,
   freshnessDisplay,
   relativeShort,
   isFreshNew,
@@ -70,13 +72,33 @@ export function CategoryDot({ category, className }: { category: MapCategory; cl
   );
 }
 
-/** Category dot + start/end time range (en-dash). Renders nothing if no times. */
+/** Time row for a list/card. A "Class & Party" event with split times shows two
+ *  coloured segments (Class teal, Party rose); everything else shows the single
+ *  category dot + merged start/end range. Renders nothing if there are no times. */
 export function TimePills({ event, className }: { event: MapEvent; className?: string }) {
+  const split = formatSplitTimes(event);
+  if (split) {
+    return (
+      <span className={cn('inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground', className)}>
+        {split.map((seg) => (
+          <span key={seg.label} className="inline-flex items-center gap-1.5">
+            <CategoryDot category={seg.category} className="h-1.5 w-1.5" />
+            <span className="font-bold" style={{ color: CATEGORY_COLORS[seg.category] }}>{seg.label}</span>
+            <span>{seg.range}</span>
+          </span>
+        ))}
+      </span>
+    );
+  }
   const range = formatTimeRange(event);
   if (!range) return null;
+  // Single-category (or a mix event missing split times): show the coloured dot +
+  // category word + range, mirroring the split segments so every row names its type.
+  const cat = deriveCategory(event);
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-xs text-muted-foreground', className)}>
-      <CategoryDot category={deriveCategory(event)} className="h-1.5 w-1.5" />
+      <CategoryDot category={cat} className="h-1.5 w-1.5" />
+      <span className="font-bold" style={{ color: CATEGORY_COLORS[cat] }}>{CATEGORY_LABEL[cat]}</span>
       <span>{range}</span>
     </span>
   );

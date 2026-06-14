@@ -101,6 +101,17 @@
   border: 2.5px solid rgba(255,255,255,.92); box-shadow: 0 8px 20px -6px rgba(0,0,0,.7); }
 @keyframes hm-clpulse { 0%{ transform: scale(.62); opacity: .6 } 70%{ transform: scale(1.32); opacity: 0 } 100%{ opacity: 0 } }
 
+/* ---- compact pins + clusters (mobile inset map card; EventMap compact prop).
+   Smaller footprint so the short clamped map card isn't dominated by chrome.
+   iconSize [36,40] pin / [34,34] cluster -- keep these in sync with EventMap. */
+.home-map--compact .rpin { width: 36px; height: 36px; }
+.home-map--compact .rpin .pcv { width: 36px; height: 36px; border-radius: 10px; border-width: 2.5px; }
+.home-map--compact .rpin::after { width: 9px; height: 9px; bottom: -4px; }
+.home-map--compact .rpin-mono { font-size: 13px; }
+.home-map--compact .rclbubble { width: 34px; height: 34px; }
+.home-map--compact .rclbubble::before { inset: -6px; }
+.home-map--compact .rclbubble .rcn { width: 34px; height: 34px; font-size: 13px; border-width: 2px; }
+
 /* ---- keyboard focus rings (a11y): pins + cluster bubbles are tabbable
    (L.marker keyboard:true); make the focus visible. Pointer focus stays clean. */
 .home-map .leaflet-marker-icon:focus-visible {

@@ -4,6 +4,7 @@ import 'leaflet.markercluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import './homeMap.css';
+import { cn } from '@/lib/utils';
 import type { MapEvent } from './mapTypes';
 import {
   categoryColor,
@@ -21,6 +22,10 @@ export interface MapApi {
   reset(): void;
   zoom(delta: number): void;
   invalidate(): void;
+  /** Where the given pin sits vertically in the map viewport, so the mobile
+   *  preview card can dock to the opposite edge (avoid covering the tapped pin).
+   *  null when the pin isn't on the map. */
+  pinHalf(occId: string): 'top' | 'bottom' | null;
 }
 
 interface EventMapProps {
@@ -32,15 +37,25 @@ interface EventMapProps {
   glow: string[];
   selected: string | null;
   hovered: string | null;
-  onSelect: (occId: string) => void;
+  /** null clears the selection (mobile background-map tap). */
+  onSelect: (occId: string | null) => void;
   onHover: (occId: string | null) => void;
   onReady?: (api: MapApi) => void;
   onOpenEvent?: (href: string) => void;
+  /** Mobile: a cluster tap surfaces the child events in an inline preview card
+   *  instead of zooming/spiderfying. When set, clusters don't zoom on click. */
+  onClusterSelect?: (occIds: string[]) => void;
   center?: [number, number];
   zoom?: number;
-  /** Fraction of the map height to shift the initial view UP, so pins sit above a
-   *  bottom sheet covering the lower map (mobile; audit #10). 0 = no bias. */
-  centerBiasY?: number;
+  /** 'popup' (desktop): Leaflet popup on pin tap. 'none' (mobile): no popup --
+   *  the parent renders an inline preview card; a background tap clears it. */
+  popupMode?: 'popup' | 'none';
+  /** Smaller pins + clusters for the mobile inset map card. */
+  compact?: boolean;
+  /** Constrain panning (mobile: keep the city in view). */
+  maxBounds?: L.LatLngBoundsExpression;
+  /** Floor zoom (mobile keeps the city legible). */
+  minZoom?: number;
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
@@ -60,6 +75,16 @@ function esc(s: string | null | undefined): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/** Live read so a session-long map honours an OS reduced-motion toggle made
+ *  after init (CSS media queries update live; this is the JS-animation path). */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
 function posterHtml(e: MapEvent): string {
@@ -115,9 +140,13 @@ export default function EventMap({
   onHover,
   onReady,
   onOpenEvent,
+  onClusterSelect,
   center = LONDON,
   zoom = 12.5,
-  centerBiasY = 0,
+  popupMode = 'popup',
+  compact = false,
+  maxBounds,
+  minZoom = 9,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -125,10 +154,17 @@ export default function EventMap({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
   const markers = useRef<Map<string, L.Marker>>(new Map());
-  const cb = useRef({ onSelect, onHover, onOpenEvent });
+  // The markers currently added to the cluster group (drives fit-to-pins).
+  const shownRef = useRef<L.Marker[]>([]);
+  const didInitialFit = useRef(false);
+  // Stash the map's fit-to-visible-pins fn so the visibility effect (which runs
+  // outside the init closure) can trigger the one-time initial framing.
+  const fitRef = useRef<((animate: boolean) => void) | null>(null);
+  const cb = useRef({ onSelect, onHover, onOpenEvent, onClusterSelect });
   cb.current.onSelect = onSelect;
   cb.current.onHover = onHover;
   cb.current.onOpenEvent = onOpenEvent;
+  cb.current.onClusterSelect = onClusterSelect;
 
   const eventsKey = events.map((e) => e.occurrence_id).join(',');
   const visKey = visible.join(',');
@@ -140,30 +176,62 @@ export default function EventMap({
     const m = L.map(elRef.current, {
       zoomControl: false,
       attributionControl: true,
-      minZoom: 9,
+      minZoom,
       maxZoom: 18,
       zoomSnap: 0.5,
       fadeAnimation: false,
+      ...(maxBounds ? { maxBounds, maxBoundsViscosity: 0.8 } : {}),
     }).setView(center, zoom);
     mapRef.current = m;
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
+    // Mobile (onClusterSelect set): a cluster tap surfaces its children in the
+    // inline preview card rather than zooming, so disable the built-in zoom +
+    // spiderfy. Desktop keeps the default zoom-to-bounds behaviour.
+    const interceptCluster = typeof cb.current.onClusterSelect === 'function';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
-      maxClusterRadius: 40,
+      maxClusterRadius: compact ? 44 : 40,
       showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
+      spiderfyOnMaxZoom: !interceptCluster,
+      zoomToBoundsOnClick: !interceptCluster,
       removeOutsideVisibleBounds: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       iconCreateFunction: (c: any) =>
         L.divIcon({
           html: `<div class="rclbubble"><span class="rcn">${c.getChildCount()}</span></div>`,
           className: 'rcl',
-          iconSize: [46, 46],
+          iconSize: compact ? [34, 34] : [46, 46],
         }),
     });
     clusterRef.current = cl;
     m.addLayer(cl);
+
+    if (interceptCluster) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cl.on('clusterclick', (ev: any) => {
+        const ids: string[] = ev.layer
+          .getAllChildMarkers()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((k: any) => k._occ as string | undefined)
+          .filter((x: string | undefined): x is string => Boolean(x));
+        if (ids.length) cb.current.onClusterSelect?.(ids);
+      });
+    }
+
+    // Fit the view to the pins currently shown (padding so they clear the card
+    // edges; cap the zoom so a single pin doesn't slam to street level). Falls
+    // back to the default view when nothing is visible yet (still loading).
+    const doFitVisible = (animate: boolean) => {
+      const layers = shownRef.current;
+      if (!layers.length) {
+        m.setView(center, zoom, { animate });
+        return;
+      }
+      const b = L.latLngBounds(layers.map((mk) => mk.getLatLng()));
+      m.fitBounds(b, { padding: [24, 24], maxZoom: 13, animate });
+    };
+    fitRef.current = doFitVisible;
 
     const api: MapApi = {
       flyTo: (occId) => {
@@ -173,7 +241,7 @@ export default function EventMap({
           window.setTimeout(() => mk.openPopup(), 40);
         });
       },
-      reset: () => m.flyTo(center, zoom, { duration: 0.6 }),
+      reset: () => doFitVisible(!prefersReducedMotion()),
       zoom: (d) => m.setZoom(m.getZoom() + d),
       invalidate: () => {
         // Called from ResizeObserver / visualViewport / orientation listeners,
@@ -185,47 +253,62 @@ export default function EventMap({
           /* map not ready / removed */
         }
       },
+      pinHalf: (occId) => {
+        const mk = markers.current.get(occId);
+        if (!mk) return null;
+        try {
+          const pt = m.latLngToContainerPoint(mk.getLatLng());
+          const h = m.getSize().y;
+          if (h <= 0) return null;
+          return pt.y > h / 2 ? 'bottom' : 'top';
+        } catch {
+          return null;
+        }
+      },
     };
     onReady?.(api);
 
-    // The whole popup card routes to the event. The CTA is a raw <a> in
-    // Leaflet-injected HTML, but the entire .rpop body should be tappable.
-    // On mobile the synthetic click is suppressed by Leaflet's touch handling;
-    // touchstart fires reliably, and preventDefault blocks the subsequent
-    // synthetic click. click handles pointer (non-touch) devices.
-    m.on('popupopen', (e: L.PopupEvent) => {
-      const el = e.popup.getElement();
-      const card = el ? el.querySelector('.rpop') : null;
-      const cta = el ? el.querySelector('a.rpop-cta') : null;
-      if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
-      // iOS Safari dead-tap fix: on a real iPhone WebKit computes
-      // pointer-events:none on the Leaflet popup subtree here (Chromium
-      // computes auto on the identical DOM), so taps fall straight through the
-      // card to <html> and the tap handler below never runs. Forcing the popup
-      // element interactive inline beats the inherited none without a
-      // specificity fight, restoring whole-card + CTA taps on touch devices.
-      if (el instanceof HTMLElement) el.style.pointerEvents = 'auto';
-      card.style.pointerEvents = 'auto';
-      const onTap = (ev: Event) => {
-        const href = cta.getAttribute('href');
-        if (!href) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        cb.current.onOpenEvent?.(href);
-      };
-      card.addEventListener('touchstart', onTap);
-      card.addEventListener('click', onTap);
-      m.once('popupclose', () => {
-        card.removeEventListener('touchstart', onTap);
-        card.removeEventListener('click', onTap);
+    // Mobile: no Leaflet popup -- a background-map tap clears the inline preview.
+    // (Marker/cluster clicks don't bubble to the map 'click', so this only fires
+    // on empty map.)
+    if (popupMode === 'none') {
+      m.on('click', () => cb.current.onSelect?.(null));
+    } else {
+      // The whole popup card routes to the event. The CTA is a raw <a> in
+      // Leaflet-injected HTML, but the entire .rpop body should be tappable.
+      // On mobile the synthetic click is suppressed by Leaflet's touch handling;
+      // touchstart fires reliably, and preventDefault blocks the subsequent
+      // synthetic click. click handles pointer (non-touch) devices.
+      m.on('popupopen', (e: L.PopupEvent) => {
+        const el = e.popup.getElement();
+        const card = el ? el.querySelector('.rpop') : null;
+        const cta = el ? el.querySelector('a.rpop-cta') : null;
+        if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
+        // iOS Safari dead-tap fix: on a real iPhone WebKit computes
+        // pointer-events:none on the Leaflet popup subtree here (Chromium
+        // computes auto on the identical DOM), so taps fall straight through the
+        // card to <html> and the tap handler below never runs. Forcing the popup
+        // element interactive inline beats the inherited none without a
+        // specificity fight, restoring whole-card + CTA taps on touch devices.
+        if (el instanceof HTMLElement) el.style.pointerEvents = 'auto';
+        card.style.pointerEvents = 'auto';
+        const onTap = (ev: Event) => {
+          const href = cta.getAttribute('href');
+          if (!href) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          cb.current.onOpenEvent?.(href);
+        };
+        card.addEventListener('touchstart', onTap);
+        card.addEventListener('click', onTap);
+        m.once('popupclose', () => {
+          card.removeEventListener('touchstart', onTap);
+          card.removeEventListener('click', onTap);
+        });
       });
-    });
+    }
 
-    const t1 = window.setTimeout(() => {
-      m.invalidateSize();
-      // Bias the initial view up so pins clear the bottom sheet on mobile (#10).
-      if (centerBiasY) m.panBy([0, Math.round(m.getSize().y * centerBiasY)], { animate: false });
-    }, 60);
+    const t1 = window.setTimeout(() => m.invalidateSize(), 60);
     const t2 = window.setTimeout(() => m.invalidateSize(), 400);
     return () => {
       window.clearTimeout(t1);
@@ -233,6 +316,9 @@ export default function EventMap({
       m.remove();
       mapRef.current = null;
       markers.current = new Map();
+      shownRef.current = [];
+      fitRef.current = null;
+      didInitialFit.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -240,6 +326,9 @@ export default function EventMap({
   // ---- (re)build markers when the pin set changes --------------------------
   useEffect(() => {
     if (!clusterRef.current) return;
+    const size: [number, number] = compact ? [36, 40] : [46, 52];
+    const anchor: [number, number] = compact ? [18, 40] : [23, 52];
+    const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
     const next = new Map<string, L.Marker>();
     for (const e of events) {
       if (e.lat == null || e.lng == null) continue;
@@ -247,9 +336,9 @@ export default function EventMap({
         icon: L.divIcon({
           html: posterHtml(e),
           className: 'rpinwrap',
-          iconSize: [46, 52],
-          iconAnchor: [23, 52],
-          popupAnchor: [0, -52],
+          iconSize: size,
+          iconAnchor: anchor,
+          popupAnchor: popAnchor,
         }),
         // a11y: focusable via keyboard (Tab to reach, Enter/Space to open the
         // popup, whose "View event" link routes to the event); title gives
@@ -259,13 +348,15 @@ export default function EventMap({
         title: `${e.name}${e.venue_name ? `, ${e.venue_name}` : ''}`,
         alt: `${CATEGORY_LABEL[deriveCategory(e)]}: ${e.name}`,
       });
-      mk.bindPopup(popupHtml(e), {
-        className: 'rmap-pop',
-        maxWidth: 248,
-        minWidth: 228,
-        keepInView: true,
-        autoPanPadding: [40, 40],
-      });
+      if (popupMode !== 'none') {
+        mk.bindPopup(popupHtml(e), {
+          className: 'rmap-pop',
+          maxWidth: 248,
+          minWidth: 228,
+          keepInView: true,
+          autoPanPadding: [40, 40],
+        });
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mk as any)._occ = e.occurrence_id;
       mk.on('click', () => cb.current.onSelect?.(e.occurrence_id));
@@ -289,6 +380,15 @@ export default function EventMap({
       if (show.has(occ)) layers.push(mk);
     });
     cl.addLayers(layers);
+    shownRef.current = layers;
+    // One-time initial framing once real pins exist: fit the view to them so the
+    // city fills the (short, on mobile) map card. Filter/tab changes after this
+    // do NOT re-fit (that would yank the map on every chip tap); the recentre
+    // control calls reset() for an explicit re-fit.
+    if (!didInitialFit.current && layers.length > 0) {
+      didInitialFit.current = true;
+      fitRef.current?.(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visKey, eventsKey]);
 
@@ -310,7 +410,6 @@ export default function EventMap({
       const el = (mk as any)._icon as HTMLElement | undefined;
       if (el) el.classList.toggle('hot', occ === hovered);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hovered, visKey, eventsKey]);
 
   // ---- selection highlight -------------------------------------------------
@@ -320,8 +419,7 @@ export default function EventMap({
       const el = (mk as any)._icon as HTMLElement | undefined;
       if (el) el.classList.toggle('sel', occ === selected);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, visKey, eventsKey]);
 
-  return <div ref={elRef} className="home-map home-map__canvas" />;
+  return <div ref={elRef} className={cn('home-map home-map__canvas', compact && 'home-map--compact')} />;
 }

@@ -17,11 +17,13 @@ export const railTabId = (t: MapTab) => `hm-tab-${t}`;
 export const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
+// Lead with events: All Events is first AND the default tab (audit P1). Order is
+// shared by mobile + desktop; the /city/:slug/calendar deep-link still opens Cal.
 const TABS: { id: MapTab; label: string }[] = [
-  { id: 'news', label: "What's New" },
-  { id: 'tonight', label: 'Today' },
-  { id: 'cal', label: 'Calendar' },
   { id: 'all', label: 'All Events' },
+  { id: 'tonight', label: 'Today' },
+  { id: 'news', label: "What's New" },
+  { id: 'cal', label: 'Calendar' },
 ];
 
 /** Compact rail header: the city the list is scoped to + a live "N this week"
@@ -43,20 +45,24 @@ export function RailHeader({ cityName, count }: { cityName: string; count: numbe
   );
 }
 
-/** Underline tab control (What's New / Today / Calendar / All Events) as a
- *  WAI-ARIA tablist: roving tabindex, Left/Right/Home/End move + activate, each
- *  tab drives the shared panel via aria-controls. The active tab is an orange
- *  underline + orange text so it reads as navigation, not a filled CTA. */
+/** Tab control as a WAI-ARIA tablist: roving tabindex, Left/Right/Home/End move +
+ *  activate, each tab drives the shared panel via aria-controls. `variant`:
+ *  'underline' (desktop -- orange underline + orange text, reads as navigation)
+ *  or 'pill' (mobile C3 -- a segmented control whose active tab is a filled
+ *  primary pill). */
 export function TabBar({
   tab,
   setTab,
   className,
+  variant = 'underline',
 }: {
   tab: MapTab;
   setTab: (t: MapTab) => void;
   className?: string;
+  variant?: 'underline' | 'pill';
 }) {
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
+  const pill = variant === 'pill';
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = TABS.findIndex((t) => t.id === tab);
@@ -77,7 +83,11 @@ export function TabBar({
       aria-label="Discover events"
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
-      className={cn('relative flex items-stretch gap-1 border-b border-border', className)}
+      className={cn(
+        'relative flex items-stretch gap-1',
+        pill ? 'rounded-full bg-muted/40 p-1' : 'border-b border-border',
+        className,
+      )}
     >
       {TABS.map((t, idx) => {
         const on = tab === t.id;
@@ -95,13 +105,18 @@ export function TabBar({
             tabIndex={on ? 0 : -1}
             onClick={() => setTab(t.id)}
             className={cn(
-              'relative flex-1 whitespace-nowrap rounded-t px-1.5 py-2 text-xs font-bold transition-colors',
+              'relative flex-1 whitespace-nowrap text-xs font-bold transition-colors',
               focusRing,
-              on ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+              pill ? 'rounded-full px-3 py-1.5' : 'rounded-t px-1.5 py-2',
+              on
+                ? pill
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-primary'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {t.label}
-            {on && (
+            {!pill && on && (
               <span
                 aria-hidden="true"
                 className="absolute inset-x-1.5 -bottom-px h-[3px] rounded-t-full bg-primary"
@@ -128,18 +143,22 @@ const CHIPS: {
 ];
 
 /** Category filter chips (All / Parties / Classes / Festivals). The active chip
- *  fills with its own category colour. */
+ *  fills with its own category colour. `size`: 'md' (desktop -- wraps) or 'sm'
+ *  (mobile -- compact + horizontal scroll on a single row). */
 export function CategoryChips({
   filter,
   setFilter,
   className,
+  size = 'md',
 }: {
   filter: MapFilter;
   setFilter: (f: MapFilter) => void;
   className?: string;
+  size?: 'sm' | 'md';
 }) {
+  const sm = size === 'sm';
   return (
-    <div className={cn('flex flex-wrap gap-2', className)}>
+    <div className={cn('flex gap-2', sm ? 'flex-nowrap overflow-x-auto py-1 -my-1' : 'flex-wrap', className)}>
       {CHIPS.map((c) => {
         const on = filter === c.id;
         // "All" = no filter; keep it visually quiet even when active so the resting
@@ -159,7 +178,8 @@ export function CategoryChips({
             aria-pressed={on}
             onClick={() => setFilter(c.id)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold transition-all duration-200',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full border font-bold transition-all duration-200',
+              sm ? 'px-3 py-1.5 text-xs' : 'px-4 py-1.5 text-sm',
               focusRing,
               quietActive
                 ? 'border-foreground/40 text-foreground'

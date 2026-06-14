@@ -1,4 +1,4 @@
-// Festival Map mobile sheet -- "Today" tab: today's events as distance cards,
+// Festival Map mobile feed -- "Today" tab: today's events as distance cards,
 // nearest first. Offers a location prompt when geolocation hasn't been requested.
 
 import { MapPin } from 'lucide-react';

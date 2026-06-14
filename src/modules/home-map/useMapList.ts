@@ -14,6 +14,12 @@ import {
 import type { HomeStats } from './mapListDerivations';
 import type { MapApi } from './EventMap';
 
+export interface UseMapListOptions {
+  /** When true (desktop), a pin tap scrolls the list to the matching card. On
+   *  mobile the inline preview card replaces that scroll, so pass false. */
+  scrollOnPinSelect?: boolean;
+}
+
 export interface UseMapListResult {
   tab: MapTab;
   setTab: (t: MapTab) => void;
@@ -51,28 +57,55 @@ export interface UseMapListResult {
  * mapListDerivations functions so it can be unit-tested without React. Keyed by
  * occurrence_id throughout (never array index).
  */
-export function useMapList(events: MapEvent[]): UseMapListResult {
+export function useMapList(
+  events: MapEvent[],
+  opts?: UseMapListOptions,
+): UseMapListResult {
   // Lead with events (audit P1): the homepage opens on the All Events list, not
   // the brand/freshness hero. The /city/:slug/calendar deep-link still overrides
   // to the Calendar tab (handled in Index).
   const [tab, setTabState] = useState<MapTab>('all');
-  const [day, setDay] = useState<string | null>(null);
-  const [filter, setFilter] = useState<MapFilter>('all');
+  const [day, setDayState] = useState<string | null>(null);
+  const [filter, setFilterState] = useState<MapFilter>('all');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-
-  // Switching away from Calendar clears the picked day so a stale day can't
-  // silently re-filter the list/map on return (audit #16).
-  const setTab = useCallback((t: MapTab) => {
-    setTabState(t);
-    if (t !== 'cal') setDay(null);
-  }, []);
 
   const navigate = useNavigate();
   const apiRef = useRef<MapApi | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const wantScroll = useRef(false);
+  // Mobile suppresses the pin-tap -> list-scroll (the inline preview card stands
+  // in for it); desktop keeps it. Read through a ref so the callbacks stay stable.
+  const scrollOnPinSelect = useRef(opts?.scrollOnPinSelect ?? true);
+  scrollOnPinSelect.current = opts?.scrollOnPinSelect ?? true;
+
+  // Switching tabs clears any picked day (a stale Calendar day must not silently
+  // re-filter the list/map on return; audit #16) and the current selection (so a
+  // preview/highlight from the old tab can't survive into the new one), and
+  // resets the feed scroll to the top so each tab opens at its head.
+  const setTab = useCallback((t: MapTab) => {
+    setTabState(t);
+    if (t !== 'cal') setDayState(null);
+    setSelected(null);
+    listRef.current?.scrollTo({ top: 0 });
+  }, []);
+
+  // Changing the category filter clears the selection too, so a preview card for
+  // an event the new filter hides can't linger.
+  const setFilter = useCallback((f: MapFilter) => {
+    setFilterState(f);
+    setSelected(null);
+  }, []);
+
+  // Picking a different Calendar day re-filters the day-scoped map; clear the
+  // selection so a stale highlight/preview can't survive into the new day
+  // (parity with setTab/setFilter).
+  const setDay = useCallback((d: string | null) => {
+    setDayState(d);
+    setSelected(null);
+  }, []);
+
   // Recompute "today" across midnight / tab-refocus so a long-lived session
   // doesn't freeze Tonight/Calendar filters at the mount day (audit #20).
   const [today, setToday] = useState(() => todayStr());
@@ -153,7 +186,7 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
 
   const fromPin = useCallback((occId: string | null) => {
     setSelected(occId);
-    if (occId) wantScroll.current = true;
+    if (occId && scrollOnPinSelect.current) wantScroll.current = true;
   }, []);
 
   // Map popup "View event" CTA -> client-side route. Leaflet cancels the raw
@@ -161,7 +194,8 @@ export function useMapList(events: MapEvent[]): UseMapListResult {
   // mobile; EventMap intercepts the click and calls this instead.
   const openEvent = useCallback((href: string) => navigate(href), [navigate]);
 
-  // After a pin click, scroll the list to the matching card.
+  // After a pin click, scroll the list to the matching card (desktop only -- on
+  // mobile scrollOnPinSelect is false so wantScroll never arms).
   useEffect(() => {
     if (wantScroll.current && selected && listRef.current) {
       const el = listRef.current.querySelector(

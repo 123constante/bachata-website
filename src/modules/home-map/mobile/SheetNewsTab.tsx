@@ -1,4 +1,4 @@
-// Festival Map mobile sheet -- "What's New" tab: the brand hero (logo + tagline +
+// Festival Map mobile feed -- "What's New" tab: the brand hero (logo + tagline +
 // live stats) then recently added/updated events, freshest first. The map keeps
 // the whole city visible and glows new pins (useMapList mapVisibleFor/glowFor).
 

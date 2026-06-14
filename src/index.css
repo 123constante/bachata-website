@@ -1208,9 +1208,47 @@
    a valid height; a min-height floor stops a transient 0/under-collapse from
    blanking the map; the dark background means any collapse shows #11121a, never
    the white page surface. 124px = 60px header + 64px bottom nav. */
+/* Festival Map mobile shell (Approach C3 inset layout): a flex column of
+   page head / map card / dock / feed. Resilient to iOS Safari: a vh fallback
+   precedes the svh value so a WebKit without small-viewport units keeps a valid
+   height; a min-height floor (portrait only) stops a transient collapse from
+   blanking the map; the dark background means any collapse shows #11121a, never
+   the white page surface. 124px = 60px header + 64px bottom nav. */
 .home-map-fill {
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - 124px - env(safe-area-inset-bottom));
   height: calc(100svh - 124px - env(safe-area-inset-bottom));
   min-height: 60vh;
   background-color: #11121a;
+}
+
+/* Inset map card: a responsive clamp so it never dominates a short viewport nor
+   shrinks to a sliver. Fullscreen lets it fill the shell (head + feed unmount). */
+.home-map-fill .hm-mapcard { flex: 0 0 clamp(148px, 32%, 236px); }
+.home-map-fill.is-fullscreen .hm-mapcard { flex: 1 1 auto; }
+
+/* Soft fade at the foot of the feed so rows dissolve toward the nav rather than
+   hard-cutting. A pointer-events:none overlay pinned to the bottom of .hm-side
+   (fading to the shell bg) -- NOT a mask on the scroller, which would permanently
+   ghost the genuinely-last row and fade the native scrollbar. */
+.home-map-fill .hm-side { position: relative; }
+.home-map-fill .hm-side::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(to top, #11121a, transparent);
+}
+
+/* Landscape / short viewports: drop the page head, zero the portrait min-height
+   floor (it would push the feed under the nav), and lay the map card beside the
+   dock+feed column instead of stacking them. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .home-map-fill { flex-direction: row; min-height: 0; }
+  .home-map-fill .hm-pagehead { display: none; }
+  .home-map-fill .hm-mapcard { flex: 0 0 42%; margin-right: 0; }
+  .home-map-fill .hm-side { flex: 1 1 auto; min-width: 0; }
 }
