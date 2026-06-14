@@ -17,30 +17,12 @@ import {
   clearChunkReloadFlag,
 } from "@/lib/staleChunk";
 
-export function lazyWithRetry<T extends ComponentType<unknown>>(
-  factory: () => Promise<{ default: T }>,
-): LazyExoticComponent<T> {
-  return lazy(async () => {
-    try {
-      const mod = await factory();
-      clearChunkReloadFlag();
-      return mod;
-    } catch (err) {
-      if (isStaleChunkError(err) && attemptChunkReloadOnce()) {
-        // Reload initiated — return a never-resolving promise so React keeps the
-        // Suspense fallback up until the page navigates, instead of flashing an
-        // error boundary.
-        return new Promise<{ default: T }>(() => {});
-      }
-      throw err;
-    }
-  });
-}
-
-// For non-component dynamic `import()` of on-demand libraries (canvas-confetti,
-// world-countries, …). Same stale-chunk healing: a deploy-stale chunk triggers
-// the once-per-session reload; any other rejection propagates to the caller
-// unchanged.
+// The single heal implementation: await the dynamic import; on a deploy-stale
+// chunk trigger the once-per-session reload (returning a never-settling promise so
+// the caller doesn't act on the failed import in the brief window before
+// navigation); any other rejection propagates unchanged. Used directly for
+// on-demand library imports (world-countries, …) and wrapped by lazyWithRetry for
+// components, so both heal identically.
 export async function safeDynamicImport<T>(factory: () => Promise<T>): Promise<T> {
   try {
     const mod = await factory();
@@ -52,4 +34,12 @@ export async function safeDynamicImport<T>(factory: () => Promise<T>): Promise<T
     }
     throw err;
   }
+}
+
+export function lazyWithRetry<T extends ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>,
+): LazyExoticComponent<T> {
+  // Delegate to safeDynamicImport so the heal logic lives in ONE place; a
+  // never-settling promise keeps React's Suspense fallback up until the reload.
+  return lazy(() => safeDynamicImport(factory));
 }

@@ -156,10 +156,12 @@ const noBareLazyImportsRule = {
 
 // `local/react-query-default-or-chain` — a `const { data: X } = useQuery(...)`
 // (or useInfiniteQuery/useSuspenseQuery) whose `data` has NO destructure default
-// is `undefined` on first render; indexing/iterating it then throws (e.g.
-// `nextEventDates[org.id]` → BACHATA-WEBSITE-1M). Require a default (`= []`/`= {}`)
-// or rely on optional chaining at the use site. Flags the destructure that lacks
-// a default; fires at WARN.
+// is `undefined` on first render; indexing it then throws (BACHATA-WEBSITE-1M:
+// `nextEventDates[org.id]`). To stay HIGH-SIGNAL it flags ONLY the binding that is
+// actually used as a non-optional COMPUTED index `X[expr]` — the exact crash
+// pattern — and leaves optional-chained / dot-access / nullable-typed uses alone
+// (they were the bulk of false positives). Fix = add `= []`/`= {}` or optional-
+// chain the index. Fires at WARN.
 const reactQueryDefaultRule = {
   meta: {
     type: "suggestion",
@@ -180,6 +182,22 @@ const reactQueryDefaultRule = {
       "useSuspenseQuery",
       "useSuspenseInfiniteQuery",
     ]);
+    const sourceCode = context.sourceCode || context.getSourceCode();
+    // True when the binding is the object of a NON-optional COMPUTED member access
+    // `X[expr]` — the exact undefined-index crash. Optional chaining (`X?.[...]`)
+    // and dot access are intentionally NOT flagged.
+    const usedAsComputedIndex = (variable) =>
+      variable.references.some((ref) => {
+        const id = ref.identifier;
+        const p = id.parent;
+        return (
+          p &&
+          p.type === "MemberExpression" &&
+          p.object === id &&
+          p.computed === true &&
+          p.optional !== true
+        );
+      });
     return {
       VariableDeclarator(node) {
         // init must be a call to a query hook
@@ -194,12 +212,17 @@ const reactQueryDefaultRule = {
               : null;
         if (!name || !QUERY_HOOKS.has(name)) return;
         if (node.id.type !== "ObjectPattern") return;
+        const declared = sourceCode.getDeclaredVariables(node);
         for (const prop of node.id.properties) {
           if (prop.type !== "Property") continue;
           if (prop.key.type !== "Identifier" || prop.key.name !== "data") continue;
-          // value is either `data` (shorthand), `data: X`, or `data: X = default`.
-          // A default makes value an AssignmentPattern → safe.
-          if (prop.value.type !== "AssignmentPattern") {
+          // `data: X = default` is an AssignmentPattern → already safe.
+          if (prop.value.type === "AssignmentPattern") continue;
+          // Only `data` (shorthand) or `data: X` bind a plain identifier we can
+          // trace; anything else (nested pattern) we can't reason about → skip.
+          if (prop.value.type !== "Identifier") continue;
+          const variable = declared.find((v) => v.name === prop.value.name);
+          if (variable && usedAsComputedIndex(variable)) {
             context.report({ node: prop, messageId: "needsDefault" });
           }
         }

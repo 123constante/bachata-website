@@ -1,13 +1,20 @@
 #!/usr/bin/env node
-// Post-deploy guardrail: verify production Sentry events resolve to ORIGINAL
-// source (e.g. EventMap.tsx:241) rather than minified chunks (/assets/index-*.js).
-// Unresolved frames mean the sourcemap upload silently broke (missing Vercel
-// credential, or a release-name mismatch between @sentry/vite-plugin and the
+// Sourcemap drift monitor: verify recent production Sentry events resolve to
+// ORIGINAL source (e.g. EventMap.tsx:241) rather than minified chunks
+// (/assets/index-*.js). Unresolved frames mean the sourcemap upload broke (missing
+// Vercel credential, or a release-name mismatch between @sentry/vite-plugin and the
 // runtime VITE_VERCEL_GIT_COMMIT_SHA) — which makes every prod error undebuggable.
+//
+// SCOPE: this inspects the most-recent unresolved prod issues, NOT a specific
+// release — right after a deploy the new release usually has no errors yet, so it
+// cannot prove "this exact build's maps resolve". It is a DRIFT MONITOR (the daily
+// cron is its real value), not a per-deploy proof. It catches a broken upload
+// within ~24h of the first error on the bad release.
 //
 // Usage: node scripts/check-sourcemaps-resolve.mjs
 // Requires: SENTRY_READ_TOKEN (or SENTRY_AUTH_TOKEN) with project:read + event:read.
-// Exit codes: 0 = resolved (or skipped, no token); 1 = confirmed unresolved.
+// Exit codes: 0 = resolved (or intentionally skipped); 1 = unresolved OR missing
+// token when SOURCEMAP_CHECK_REQUIRE_TOKEN is set (trusted CI).
 
 const ORG = 'bachata-community'
 const PROJECT = 'bachata-website'
@@ -15,8 +22,16 @@ const BASE = 'https://sentry.io/api/0'
 
 const token = process.env.SENTRY_READ_TOKEN || process.env.SENTRY_AUTH_TOKEN
 if (!token) {
-  // No read token in this environment (e.g. a fork/contributor without the
-  // secret). Skip rather than fail — the guard is only meaningful with a token.
+  // On trusted CI (base-repo schedule/deployment_status) the workflow sets
+  // SOURCEMAP_CHECK_REQUIRE_TOKEN=1, so a forgotten/renamed secret FAILS loudly
+  // instead of silently going green. Forks/local runs (no flag) just skip.
+  if (process.env.SOURCEMAP_CHECK_REQUIRE_TOKEN) {
+    console.error(
+      '[sourcemaps] FAIL: SENTRY_READ_TOKEN is required here but not set — the guard ' +
+        'cannot run. Add the SENTRY_READ_TOKEN repo secret (project:read + event:read).',
+    )
+    process.exit(1)
+  }
   console.warn(
     '[sourcemaps] No SENTRY_READ_TOKEN/SENTRY_AUTH_TOKEN — skipping the resolve check.',
   )
@@ -74,8 +89,11 @@ for (const issue of issues) {
   const frames = inAppFrames(event)
   if (!frames.length) continue // injected/third-party — no app frames to resolve
   inspected++
-  if (frames.some(isResolvedFrame)) resolved++
-  else minifiedSamples.push(`${issue.shortId}: ${frames[0]?.absPath || frames[0]?.filename}`)
+  if (frames.some(isResolvedFrame)) {
+    resolved++
+    break // one resolved issue is enough to prove maps work — stop the API calls
+  }
+  minifiedSamples.push(`${issue.shortId}: ${frames[0]?.absPath || frames[0]?.filename}`)
 }
 
 if (inspected === 0) {

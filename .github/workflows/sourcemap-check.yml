@@ -1,15 +1,18 @@
 name: Sourcemap Resolve Check
 
-# Verifies production Sentry events resolve to ORIGINAL source (.ts/.tsx) rather
-# than minified /assets/*.js chunks. A regression here (missing Vercel Sentry
-# credential, or a release-name mismatch in @sentry/vite-plugin) silently makes
-# every prod error undebuggable, so we fail CI on it.
+# Drift monitor: checks recent production Sentry events resolve to ORIGINAL source
+# (.ts/.tsx) rather than minified /assets/*.js chunks. A regression (missing Vercel
+# Sentry credential, or a release-name mismatch in @sentry/vite-plugin) silently
+# makes every prod error undebuggable, so we fail CI on it. NOTE: this inspects the
+# most-recent unresolved issues, not a specific release — the daily cron is its real
+# value (a just-deployed release usually has no errors yet to inspect).
 #
 # Requires repo secret SENTRY_READ_TOKEN (personal/project token, scopes
-# project:read + event:read). Without it the script skips (exit 0).
+# project:read + event:read). SOURCEMAP_CHECK_REQUIRE_TOKEN=1 makes a missing/renamed
+# secret FAIL here (these triggers only run on the trusted base repo) rather than
+# silently skip to green.
 #
-# Triggers mirror prod-smoke.yml: validate right after a successful Vercel deploy,
-# plus a daily safety net.
+# Triggers mirror prod-smoke.yml: a successful Vercel deploy, plus a daily safety net.
 
 on:
   deployment_status:
@@ -40,4 +43,7 @@ jobs:
       - name: Check production sourcemaps resolve
         env:
           SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
+          # These triggers only fire on the trusted base repo, so a missing token
+          # is a misconfiguration, not a fork — fail loudly instead of skipping.
+          SOURCEMAP_CHECK_REQUIRE_TOKEN: '1'
         run: node scripts/check-sourcemaps-resolve.mjs

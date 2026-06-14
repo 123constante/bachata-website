@@ -148,14 +148,16 @@ const Organisers = () => {
   }, [organisers, categoryFilter, searchFilter]);
 
   const liveOrganisers = useMemo(() => {
+    // `today` is loop-invariant — compute it once per memo eval, not per organiser.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayMs = today.getTime();
     return filteredOrganisers.filter((org) => {
       const nextDate = nextEventDates[org.id];
       if (!nextDate) return false;
       const d = new Date(nextDate);
-      const today = new Date();
       d.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      return d.getTime() === today.getTime();
+      return d.getTime() === todayMs;
     });
   }, [filteredOrganisers, nextEventDates]);
 

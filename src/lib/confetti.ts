@@ -1,7 +1,9 @@
-﻿import { safeDynamicImport } from '@/lib/lazyWithRetry';
-
+﻿// Confetti is purely decorative. Its chunk is loaded with a plain dynamic
+// import() (NOT safeDynamicImport): a failed load should silently no-op, never
+// trigger the stale-chunk full-page reload — losing in-progress form state for a
+// cosmetic effect would be disproportionate (code-review finding).
 export const triggerGlobalConfetti = () => {
-    safeDynamicImport(() => import('canvas-confetti')).then(mod => {
+    import('canvas-confetti').then(mod => {
         const confetti = mod.default;
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
@@ -39,7 +41,7 @@ export const triggerMicroConfetti = (
     y: number,
     options?: MicroConfettiOptions,
 ) => {
-    safeDynamicImport(() => import('canvas-confetti')).then(mod => {
+    import('canvas-confetti').then(mod => {
         const confetti = mod.default;
         // Normalize coordinates to 0-1 range for canvas-confetti
         const xNorm = x / window.innerWidth;
