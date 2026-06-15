@@ -360,12 +360,19 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-tracking-freshness.mjs
 
-      - name: Run search_public_v3 contract check
+      - name: Run search_public_v5 contract check
         if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-search-public-v3.mjs
+        run: node scripts/check-search-public-v5.mjs
+
+      - name: Run search telemetry contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-search-telemetry-v1.mjs
 
       - name: Run cancelled-occurrence passthrough contract check
         if: always()

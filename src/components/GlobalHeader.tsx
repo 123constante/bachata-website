@@ -6,6 +6,7 @@ import { buildCityPath } from '@/lib/cityPath';
 import { ChevronLeft } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 import { HeaderSearch } from '@/components/search/HeaderSearch';
+import { SearchTrigger } from '@/components/search/SearchTrigger';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 
@@ -141,7 +142,7 @@ export const GlobalHeader = () => {
 
         <div className="hidden md:block flex-1" />
 
-        <HeaderSearch expanded={searching} onExpandedChange={setSearching} />
+        {flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />}
       </nav>
 
       {/* Decorative orange line */}

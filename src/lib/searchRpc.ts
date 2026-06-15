@@ -1,7 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolveEventImage } from '@/lib/utils';
+import { flags } from '@/lib/featureFlags';
+import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 
-export type SearchKind = 'event' | 'venue' | 'organiser' | 'teacher' | 'dj' | 'dancer';
+// Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the
+// existing `import { SearchKind } from '@/lib/searchRpc'` call sites keep working.
+export type { SearchKind } from '@/lib/searchEntities';
 
 // search_public_v2 row (events/venues/organisers by name)
 interface SearchRow {
@@ -27,15 +31,6 @@ export interface SearchResult {
   href: string;
 }
 
-const hrefFor = (kind: SearchKind, id: string): string => {
-  if (kind === 'venue') return `/venue-entity/${id}`;
-  if (kind === 'organiser') return `/organisers/${id}`;
-  if (kind === 'teacher') return `/teachers/${id}`;
-  if (kind === 'dj') return `/djs/${id}`;
-  if (kind === 'dancer') return `/dancers/${id}`;
-  return `/event/${id}`;
-};
-
 // search_public_v2 -- events / venues / organisers text-match by name.
 export async function searchPublic(query: string, limitPerKind = 6): Promise<SearchResult[]> {
   const term = query.trim();
@@ -57,9 +52,9 @@ export async function searchPublic(query: string, limitPerKind = 6): Promise<Sea
   }));
 }
 
-// search_public_v3 -- all entity types: events, organisers, venues, teachers, djs, dancers.
-// Used by: Cmd+K overlay (sectionLimit=3) and /search results page (sectionLimit=12).
-
+// search_public_v4 / v5 -- federated search across all entity types. The overlay
+// (usePublicSearch) consumes the flat SearchResult[]. v5 adds vendors + cities
+// as two extra optional sections; the rest of the envelope is unchanged.
 interface V3EventRow {
   id: string;
   name: string;
@@ -92,6 +87,21 @@ interface V3PersonRow {
   slug: string | null;
 }
 
+interface V3VendorRow {
+  id: string;
+  name: string | null;
+  photo_url: string | null;
+  short_description: string | null;
+}
+
+interface V3CityRow {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  country_name: string | null;
+  image_url: string | null;
+}
+
 interface V3Payload {
   query: string;
   events: V3EventRow[];
@@ -100,7 +110,10 @@ interface V3Payload {
   djs: V3PersonRow[];
   dancers: V3PersonRow[];
   venues: V3VenueRow[];
+  vendors?: V3VendorRow[];  // v5 only
+  cities?: V3CityRow[];     // v5 only
   total_count: number;
+  did_you_mean?: string | null;
 }
 
 const personName = (r: V3PersonRow): string =>
@@ -114,9 +127,9 @@ export async function searchPublicV3(
 ): Promise<SearchResult[]> {
   const term = query.trim();
   if (!term) return [];
-  // Phase 1E #2 cutover (2026-05-27): search_public_v4 reads from
-  // event_series_p5 + event_occurrence_p5 (vs v3 which read legacy events).
-  // Identical JSONB envelope shape; other 5 sections unchanged.
+  const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
+  // Global festivals still come from the legacy events table so a festival in
+  // another city surfaces in search (mirrors prior v3/v4 behaviour).
   const today = new Date().toISOString().slice(0, 10);
   let festQuery = supabase
     .from('events')
@@ -129,7 +142,7 @@ export async function searchPublicV3(
   if (!includePast) festQuery = festQuery.gte('date', today);
 
   const [rpcResult, festResult] = await Promise.all([
-    supabase.rpc('search_public_v4' as never, {
+    supabase.rpc(fn as never, {
       p_query: term,
       p_city_slug: citySlug ?? null,
       p_section_limit: sectionLimit,
@@ -178,6 +191,16 @@ export async function searchPublicV3(
       href: e.event_type === 'festival' ? `/festival/${e.id}` : hrefFor('event', e.id),
     })),
     ...globalFests,
+    ...(payload.venues ?? []).map((v): SearchResult => ({
+      kind: 'venue',
+      id: v.id,
+      title: v.name,
+      subtitle: v.address,
+      imageUrl: resolveEventImage(v.photo_url, null),
+      eventType: null,
+      startTime: null,
+      href: hrefFor('venue', v.id),
+    })),
     ...(payload.organisers ?? []).map((o): SearchResult => ({
       kind: 'organiser',
       id: o.id,
@@ -188,15 +211,25 @@ export async function searchPublicV3(
       startTime: null,
       href: hrefFor('organiser', o.id),
     })),
-    ...(payload.venues ?? []).map((v): SearchResult => ({
-      kind: 'venue',
+    ...(payload.vendors ?? []).map((v): SearchResult => ({
+      kind: 'vendor',
       id: v.id,
-      title: v.name,
-      subtitle: v.address,
+      title: v.name ?? 'Vendor',
+      subtitle: v.short_description,
       imageUrl: resolveEventImage(v.photo_url, null),
       eventType: null,
       startTime: null,
-      href: hrefFor('venue', v.id),
+      href: hrefFor('vendor', v.id),
+    })),
+    ...(payload.cities ?? []).map((c): SearchResult => ({
+      kind: 'city',
+      id: c.id,
+      title: c.name ?? 'City',
+      subtitle: c.country_name,
+      imageUrl: resolveEventImage(c.image_url, null),
+      eventType: null,
+      startTime: null,
+      href: hrefFor('city', c.id, c.slug),
     })),
     ...(payload.teachers ?? []).map((r) => mapPerson(r, 'teacher')),
     ...(payload.djs ?? []).map((r) => mapPerson(r, 'dj')),

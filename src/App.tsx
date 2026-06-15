@@ -8,6 +8,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CityProvider } from "@/contexts/CityContext";
 import { AppChrome } from "@/components/AppChrome";
+import { SearchProvider } from "@/components/search/SearchProvider";
 import { Analytics } from "@vercel/analytics/react";
 
 // Global query defaults: 60s staleTime, single retry, no window-focus refetches.
@@ -45,7 +46,9 @@ const App = () => {
           <BrowserRouter>
             <ScrollToTop />
             <CityProvider>
-              <AppChrome />
+              <SearchProvider>
+                <AppChrome />
+              </SearchProvider>
             </CityProvider>
           </BrowserRouter>
         </TooltipProvider>

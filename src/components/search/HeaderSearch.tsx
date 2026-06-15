@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, X, Loader2, Clock, CornerDownLeft,
-  Calendar, MapPin, Building2, GraduationCap, Music, User,
+  Calendar, MapPin, Building2, GraduationCap, Music, User, ShoppingBag, Globe,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,11 +27,11 @@ const ELLIPSIS = '...';
 
 const KIND_ICON: Record<SearchKind, LucideIcon> = {
   event: Calendar, venue: MapPin, organiser: Building2,
-  teacher: GraduationCap, dj: Music, dancer: User,
+  teacher: GraduationCap, dj: Music, dancer: User, vendor: ShoppingBag, city: Globe,
 };
 const KIND_LABEL: Record<SearchKind, string> = {
   event: 'Event', venue: 'Venue', organiser: 'Organiser',
-  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer',
+  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer', vendor: 'Vendor', city: 'City',
 };
 const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer'];
 
