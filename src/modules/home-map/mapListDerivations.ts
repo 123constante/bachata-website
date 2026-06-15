@@ -5,7 +5,6 @@
 
 import type { MapEvent, MapCategory, MapFilter, MapTab } from './mapTypes';
 import {
-  deriveCategory,
   matchesFilter,
   matchesQuery,
   distanceMiles,
@@ -155,15 +154,34 @@ export function groupByDate(events: MapEvent[]): DateGroup[] {
     }));
 }
 
-/** Per-day distinct categories (drives the calendar dots). */
+/** Per-day distinct dot categories (drives the calendar dots). A class+party
+ *  event contributes BOTH a party and a class dot rather than a single 'mix'
+ *  dot, so the grid answers "parties? classes? festival?" at a glance. Dots are
+ *  emitted in a stable order (party, class, fest); 'social' is a fallback only
+ *  for a day whose events are neither class, party nor festival. */
 export function calendarDays(events: MapEvent[]): Map<string, MapCategory[]> {
-  const m = new Map<string, MapCategory[]>();
+  const flags = new Map<string, { party: boolean; class: boolean; fest: boolean; other: boolean }>();
   for (const e of events) {
     if (!e.instance_date) continue;
-    const cats = m.get(e.instance_date) ?? [];
-    const c = deriveCategory(e);
-    if (!cats.includes(c)) cats.push(c);
-    m.set(e.instance_date, cats);
+    const f = flags.get(e.instance_date) ?? { party: false, class: false, fest: false, other: false };
+    if (e.type === 'festival') {
+      f.fest = true;
+    } else if (e.has_party || e.has_class) {
+      if (e.has_party) f.party = true;
+      if (e.has_class) f.class = true;
+    } else {
+      f.other = true;
+    }
+    flags.set(e.instance_date, f);
+  }
+  const m = new Map<string, MapCategory[]>();
+  for (const [date, f] of flags) {
+    const cats: MapCategory[] = [];
+    if (f.party) cats.push('party');
+    if (f.class) cats.push('class');
+    if (f.fest) cats.push('fest');
+    if (cats.length === 0 && f.other) cats.push('social');
+    m.set(date, cats);
   }
   return m;
 }
@@ -240,6 +258,8 @@ export interface MonthCell {
   cats: MapCategory[];
   isToday: boolean;
   isSelected: boolean;
+  /** date < today (a past day). Blanks are never past. */
+  isPast: boolean;
 }
 
 export interface MonthGrid {
@@ -270,7 +290,7 @@ export function buildMonthCells(
 
   const cells: MonthCell[] = [];
   for (let i = 0; i < lead; i++) {
-    cells.push({ date: null, day: null, cats: [], isToday: false, isSelected: false });
+    cells.push({ date: null, day: null, cats: [], isToday: false, isSelected: false, isPast: false });
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const date = `${year}-${pad2(month + 1)}-${pad2(d)}`;
@@ -280,11 +300,12 @@ export function buildMonthCells(
       cats: cal.get(date) ?? [],
       isToday: date === today,
       isSelected: date === selectedDay,
+      isPast: date < today,
     });
   }
   // Pad the final week to a multiple of 7.
   while (cells.length % 7 !== 0) {
-    cells.push({ date: null, day: null, cats: [], isToday: false, isSelected: false });
+    cells.push({ date: null, day: null, cats: [], isToday: false, isSelected: false, isPast: false });
   }
 
   const weeks: MonthCell[][] = [];

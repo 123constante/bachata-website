@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
-import { todayStr } from './mapTypes';
+import { matchesFilter, todayStr } from './mapTypes';
 import {
   dedupePins,
   listFor,
@@ -130,7 +130,10 @@ export function useMapList(
   }, []);
 
   const { pins, pinKeyForOcc } = useMemo(() => dedupePins(events), [events]);
-  const calendarDays = useMemo(() => buildCalendarDays(events), [events]);
+  const calendarDays = useMemo(
+    () => buildCalendarDays(events.filter((e) => matchesFilter(e, filter))),
+    [events, filter],
+  );
   const stats = useMemo(() => homeStats(events, today), [events, today]);
 
   // occurrence_id -> its MapEvent, so a card tap can resolve the event_id it

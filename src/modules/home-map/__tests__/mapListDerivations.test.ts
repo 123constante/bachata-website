@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MapEvent } from '../mapTypes';
+import { matchesFilter } from '../mapTypes';
 import {
   dedupePins,
   tonightEvents,
@@ -128,6 +129,30 @@ describe('calendarDays', () => {
     ]);
     expect(new Set(m.get('2026-06-10'))).toEqual(new Set(['party', 'class']));
   });
+
+  it('only dots filter-matched events (dots respect the category filter)', () => {
+    const events = [
+      ev({ instance_date: '2026-06-10', type: 'festival', has_party: false, has_class: false }),
+      ev({ instance_date: '2026-06-11', type: 'standard', has_party: false, has_class: true }),
+    ];
+    const fests = calendarDays(events.filter((e) => matchesFilter(e, 'festivals')));
+    expect([...fests.keys()]).toEqual(['2026-06-10']);
+    expect(fests.get('2026-06-10')).toEqual(['fest']);
+  });
+
+  it('splits a single class+party event into both dots (no purple mix)', () => {
+    const m = calendarDays([
+      ev({ instance_date: '2026-06-10', type: 'standard', has_party: true, has_class: true }),
+    ]);
+    expect(m.get('2026-06-10')).toEqual(['party', 'class']);
+  });
+
+  it('a festival contributes only a fest dot, not party/class', () => {
+    const m = calendarDays([
+      ev({ instance_date: '2026-06-10', type: 'festival', has_party: true, has_class: true }),
+    ]);
+    expect(m.get('2026-06-10')).toEqual(['fest']);
+  });
 });
 
 describe('listFor / mapVisibleFor / glowFor', () => {
@@ -215,6 +240,17 @@ describe('buildMonthCells', () => {
     expect(g.weeks[0][0].date).toBeNull();
     expect(g.weeks[0][1].date).toBeNull();
     expect(g.weeks[0][2].day).toBe(1);
+  });
+
+  it('flags days before today as past; blanks are never past', () => {
+    const g = buildMonthCells(2026, 5, new Map(), '2026-06-15', null);
+    const byDate = (d: string) => g.weeks.flat().find((c) => c.date === d)!;
+    expect(byDate('2026-06-14').isPast).toBe(true);
+    expect(byDate('2026-06-15').isPast).toBe(false);
+    expect(byDate('2026-06-16').isPast).toBe(false);
+    const jul = buildMonthCells(2026, 6, new Map(), '2026-06-15', null);
+    expect(jul.weeks[0][0].date).toBeNull();
+    expect(jul.weeks[0][0].isPast).toBe(false);
   });
 });
 

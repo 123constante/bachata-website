@@ -62,7 +62,7 @@ export const DayDetailModal = ({
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     // Horizontal swipe wins if it dominates and clears the threshold.
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 60) {
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 80) {
       if (deltaX < 0) goToNextDay();
       else goToPrevDay();
     } else if (deltaY > 80) {

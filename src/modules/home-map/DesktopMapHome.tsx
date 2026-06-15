@@ -29,7 +29,6 @@ import {
 } from './cards/controls';
 import { MapHint } from './MapHint';
 import { CalendarPanel } from './cards/CalendarPanel';
-import { NewsBrandCard } from './cards/NewsBrandCard';
 
 const EventMap = lazyWithRetry(() => import('./EventMap'));
 
@@ -128,7 +127,6 @@ function NewsBody({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
   return (
     <div className="space-y-1">
-      <NewsBrandCard state={state} />
       <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest news</h3>
       {events.length === 0 ? (
         <EmptyState>No recent additions or updates.</EmptyState>

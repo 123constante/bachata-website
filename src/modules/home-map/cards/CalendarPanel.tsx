@@ -79,12 +79,20 @@ export function CalendarPanel({
         {grid.weeks.flat().map((cell, i) =>
           cell.date == null ? (
             <span key={`b${i}`} aria-hidden="true" />
+          ) : cell.isPast && cell.cats.length === 0 ? (
+            <span
+              key={cell.date}
+              aria-hidden="true"
+              className="flex aspect-square items-center justify-center rounded-lg text-xs font-bold text-muted-foreground/40"
+            >
+              {cell.day}
+            </span>
           ) : (
             <button
               key={cell.date}
               type="button"
               onClick={() => state.setDay(cell.isSelected ? null : cell.date)}
-              aria-label={cell.date}
+              aria-label={`${formatDayLabel(cell.date)}${cell.cats.length ? ', has events' : ''}${cell.isToday ? ', today' : ''}`}
               aria-pressed={cell.isSelected}
               className={cn(
                 'relative flex aspect-square flex-col items-center justify-center rounded-lg text-xs',

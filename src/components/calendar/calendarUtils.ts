@@ -253,6 +253,8 @@ export interface DayDotFlags {
   hasParty: boolean;
   hasClass: boolean;
   hasFestival: boolean;
+  /** Every visible event on the day (in the active category) is cancelled. */
+  allCancelled: boolean;
 }
 
 /**
@@ -271,6 +273,8 @@ export const getDayDotFlags = (
   let hasParty = false;
   let hasClass = false;
   let hasFestival = false;
+  let visibleCount = 0;
+  let cancelledCount = 0;
 
   for (const e of events) {
     const visible = e.instanceDateIso
@@ -283,12 +287,15 @@ export const getDayDotFlags = (
     if (category === 'classes' && !e.hasClass) continue;
 
     hasEvents = true;
+    visibleCount += 1;
+    if (e.isCancelled) cancelledCount += 1;
     if (category !== 'classes' && e.hasParty) hasParty = true;
     if (category !== 'parties' && e.hasClass) hasClass = true;
     if (e.isFestival) hasFestival = true;
   }
 
-  return { hasEvents, hasParty, hasClass, hasFestival };
+  const allCancelled = hasEvents && cancelledCount === visibleCount;
+  return { hasEvents, hasParty, hasClass, hasFestival, allCancelled };
 };
 
 /** Monday-adjusted day index (0 = Mon, 6 = Sun) */

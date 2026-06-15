@@ -57,14 +57,14 @@ export const CalendarGrid = ({
                 key={`past-${day}`}
                 className="aspect-square rounded-xl flex items-center justify-center"
               >
-                <span className="text-sm text-muted-foreground/40">{day}</span>
+                <span className="text-sm text-muted-foreground/60">{day}</span>
               </div>
             );
           }
 
           const checkDate = new Date(currentYear, currentMonth, day);
           checkDate.setHours(12, 0, 0, 0);
-          const { hasEvents, hasParty, hasClass, hasFestival } = getDayDotFlags(events, checkDate, selectedCategory);
+          const { hasEvents, hasParty, hasClass, hasFestival, allCancelled } = getDayDotFlags(events, checkDate, selectedCategory);
           const isToday = isCurrentMonth && today.getDate() === day;
 
           return (
@@ -89,7 +89,7 @@ export const CalendarGrid = ({
                 {day}
               </span>
               {hasEvents && (
-                <div className="flex gap-0.5 mt-1">
+                <div className={cn('flex gap-0.5 mt-1', allCancelled && 'opacity-40')}>
                   {hasFestival && <div className="w-1.5 h-1.5 rounded-full bg-amber-400 ring-1 ring-amber-200/50" title="Festival" />}
                   {hasParty && <div className="w-1.5 h-1.5 rounded-full bg-festival-pink" />}
                   {hasClass && <div className="w-1.5 h-1.5 rounded-full bg-festival-blue" />}
