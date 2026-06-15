@@ -503,6 +503,22 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-legacy-program-parity.mjs
 
+      # 37. P5 <-> legacy SESSION-PEOPLE parity (M1, 2026-06-15). #35 above is
+      #     people-blind (type+title only). This multiset-diffs the per-session
+      #     people roster (profile_id/type/role, keyed by legacy_program_item_id)
+      #     between the P5 store and the legacy mirror this site renders, so the
+      #     §5.7d session-people read flip (#53) won't silently add/drop line-up
+      #     people on live pages. Base roster gates; the per-occurrence overlay is
+      #     reported but non-gating (deferred to #53). Healed to 0/0 by admin
+      #     migrations 20260827030000 / 20260827040000. Health-check RPC:
+      #     check_p5_session_override_parity_v1.
+      - name: Run P5 legacy session-people parity check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-p5-session-people-parity.mjs
+
       # 36. Festival publish readiness (atomic publish arc, 2026-06-14). A LIVE
       #     event_series_p5 festival whose legacy public.events row is NOT
       #     'published' renders on the calendar list (P5 read) but 404s on its
