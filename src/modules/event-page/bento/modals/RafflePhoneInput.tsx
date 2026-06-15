@@ -59,6 +59,7 @@ function FlagImg({ code, className }: { code: string; className?: string }) {
       width={20}
       height={15}
       alt=""
+      loading="lazy"
       className={`inline-block rounded-[2px] ${className ?? ''}`}
     />
   );
@@ -257,6 +258,7 @@ const CountryRow: React.FC<{
         width={20}
         height={15}
         alt=""
+        loading="lazy"
         className="rounded-[2px] shrink-0"
       />
       <span className="flex-1 truncate text-xs">{c.name}</span>
