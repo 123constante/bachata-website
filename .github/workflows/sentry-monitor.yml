@@ -1,0 +1,47 @@
+name: Sentry Monitor
+
+# Daily Sentry hygiene, three jobs in one (scripts/sentry-monitor.mjs):
+#  - resolve-noise: auto-resolve injected/third-party-script issues (needs
+#    SENTRY_WRITE_TOKEN; skips if absent).
+#  - tokens: verify the Sentry tokens still authenticate, so an expiry is caught
+#    BEFORE it silently breaks the next deploy's sourcemap upload.
+#  - digest: list actionable open issues (known noise filtered); FAILS the job
+#    only when a NEW actionable issue appeared (the "ping").
+#
+# Secrets used (set in repo → Settings → Secrets → Actions):
+#  - SENTRY_READ_TOKEN   (required; project:read + event:read) — already set.
+#  - SENTRY_UPLOAD_TOKEN (org:ci) — add to monitor the sourcemap-upload token.
+#  - SENTRY_WRITE_TOKEN  (issue:write) — add to enable auto-resolve.
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
+      SENTRY_UPLOAD_TOKEN: ${{ secrets.SENTRY_UPLOAD_TOKEN }}
+      SENTRY_WRITE_TOKEN: ${{ secrets.SENTRY_WRITE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Auto-resolve injected-script noise
+        run: node scripts/sentry-monitor.mjs resolve-noise
+
+      - name: Verify Sentry tokens still authenticate
+        if: always()
+        run: node scripts/sentry-monitor.mjs tokens
+
+      - name: Actionable-issue digest
+        if: always()
+        run: node scripts/sentry-monitor.mjs digest
