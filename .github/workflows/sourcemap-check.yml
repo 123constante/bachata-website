@@ -40,10 +40,20 @@ jobs:
         with:
           node-version: 22
 
-      - name: Check production sourcemaps resolve
+      # Primary gate: deterministic per-deploy check — reads the LIVE bundle's
+      # debug-ids and asks Sentry whether a matching sourcemap was uploaded. Needs
+      # no error traffic, so it validates the just-shipped release directly.
+      - name: Check deployed debug-ids have uploaded sourcemaps
         env:
           SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
-          # These triggers only fire on the trusted base repo, so a missing token
-          # is a misconfiguration, not a fork — fail loudly instead of skipping.
+          SOURCEMAP_CHECK_REQUIRE_TOKEN: '1'
+        run: node scripts/check-sourcemap-debugids.mjs
+
+      # Secondary: event-based drift monitor (catches resolution failures seen in
+      # real prod errors). Informational — does not fail the job on its own.
+      - name: Check recent production errors resolve (drift monitor)
+        continue-on-error: true
+        env:
+          SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
           SOURCEMAP_CHECK_REQUIRE_TOKEN: '1'
         run: node scripts/check-sourcemaps-resolve.mjs
