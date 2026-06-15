@@ -31,7 +31,7 @@ src/
     programDayRollover.ts  Day-rollover logic (must mirror admin lib)
   hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
   contexts/            CityContext
-scripts/               CI contract check scripts (34 checks in db-contract-check.yml)
+scripts/               CI contract check scripts (35 checks in db-contract-check.yml)
 tests/                 Vitest unit tests + Playwright e2e specs
 bin/                   Integrity and session-lock tools
 .github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
@@ -179,7 +179,7 @@ applied via `supabase db push` from there (CLI-only).
 - Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
 **What this repo owns:**
-- Contract-check scripts (`scripts/check-*.mjs`) — 34 checks in db-contract-check.yml
+- Contract-check scripts (`scripts/check-*.mjs`) — 35 checks in db-contract-check.yml
 - `supabase/config.toml` project_id pin
 
 CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
@@ -249,7 +249,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 34 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 35 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `e2e-nightly.yml` | daily | Full Playwright suite |
@@ -280,7 +280,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 - Latest-events ordering contract (#23)
 - Tracking RPC param-contract (#24)
 - Tracking freshness heartbeat (#25)
-- search_public_v3 contract (#26)
+- search_public_v5 contract (#26)
 - Cancelled-occurrence passthrough (#27)
 - Occurrence instance_END canonical (#28)
 - Program-day / day_id integrity (#29)
@@ -289,6 +289,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 - P5 orphan-series guard (#32)
 - Festival Map RPC contract (#33)
 - Organiser-link contract / P5 organiser_ids vs event_entities (#34)
+- Search telemetry param-contract (#35)
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 

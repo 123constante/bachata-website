@@ -19,6 +19,10 @@ export const flags = {
   // ComingSoonGate. Default true in dev, false in prod until the public
   // list_open_raffles_v1 RPC is live.
   rafflesPage:         import.meta.env.VITE_ENABLE_RAFFLES_PAGE === 'true',
+  // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
+  // When false the existing HeaderSearch omnibox (search_public_v4) renders
+  // unchanged, so prod is untouched until this flips per-environment.
+  searchV5:            import.meta.env.VITE_ENABLE_SEARCH_V5 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
