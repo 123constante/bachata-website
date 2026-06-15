@@ -9,12 +9,12 @@
 // Targets the DEPLOYED site (middleware + the /api/og/card endpoint only exist
 // post-deploy), so this runs as a scheduled job, not a PR gate.
 //
-//   OG_CHECK_BASE    base URL (default https://bachatacalendar.co.uk)
+//   OG_CHECK_BASE    base URL (default https://www.bachatacalendar.co.uk)
 //   OG_CHECK_STRICT  '1' => transient network errors fail instead of warn
 //
 // Exit 1 if any sampled page would show no preview.
 
-const BASE = (process.env.OG_CHECK_BASE ?? 'https://bachatacalendar.co.uk').replace(/\/$/, '');
+const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;

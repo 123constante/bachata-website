@@ -18,6 +18,19 @@ export const config = {
 const BOT_UA_PATTERN =
   /googlebot|bingbot|facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot/i;
 
+// Search engines get the rich prerendered homepage on a bare /city/:slug; social
+// bots keep the OG-card HTML so WhatsApp/Facebook link previews still work.
+const SEARCH_BOT_PATTERN = /googlebot|bingbot/i;
+
+// Clean (non-city-prefixed) public listing routes. City-prefixed duplicates
+// (/city/:slug/<listing>) canonicalise onto these so equity consolidates on the
+// prerendered clean pages instead of splitting across the /city/* variants.
+const CLEAN_LISTINGS = new Set([
+  'parties', 'classes', 'tonight', 'venues', 'discounts', 'practice-partners',
+  'choreography', 'dancers', 'festivals', 'teachers', 'djs', 'organisers',
+  'cities', 'videographers', 'vendors', 'search',
+]);
+
 const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacalendar.co.uk';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
@@ -41,6 +54,7 @@ interface OgMeta {
   image: string;
   type: string;
   url: string;
+  canonicalHref?: string;
   eventExtras?: {
     startDate: string | null;
     endDate: string | null;
@@ -170,23 +184,18 @@ async function supabaseFetch(path: string, init?: RequestInit): Promise<Response
   }
 }
 
-// URL params on slug-enabled routes (events, venues, organiser_profiles,
-// dancer_profiles) can arrive as either a UUID or an SEO slug. Pass UUIDs
-// through unchanged; resolve slugs against the table's `slug` column.
-async function resolveSlugToUuid(
-  table: string,
-  idColumn: string,
-  param: string,
-): Promise<string | null> {
-  if (UUID_RE.test(param)) return param;
-  const query = `slug=eq.${encodeURIComponent(param)}&select=${idColumn}`;
-  const res = await supabaseFetch(`/rest/v1/${table}?${query}`);
+// Resolve an event/festival param (slug OR uuid) to BOTH its uuid and canonical
+// slug in one round trip, so bot HTML can emit a slug-based <link rel=canonical>
+// that consolidates the legacy /event/{uuid}?occurrenceId= URLs onto the slug.
+async function resolveEventRef(param: string): Promise<{ id: string; slug: string | null } | null> {
+  const col = UUID_RE.test(param) ? 'id' : 'slug';
+  const res = await supabaseFetch(`/rest/v1/events?${col}=eq.${encodeURIComponent(param)}&select=id,slug`);
   if (!res || !res.ok) return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: any = await res.json();
   const row = Array.isArray(rows) ? rows[0] : null;
-  const value = row ? row[idColumn] : null;
-  return typeof value === 'string' ? value : null;
+  if (!row || typeof row.id !== 'string') return null;
+  return { id: row.id, slug: typeof row.slug === 'string' && row.slug ? row.slug : null };
 }
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
@@ -514,7 +523,7 @@ async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | nul
 // ─── HTML renderer ────────────────────────────────────────────────────────────
 
 function buildMetaHtml(meta: OgMeta): string {
-  const { title, description, image, type, url, eventExtras } = meta;
+  const { title, description, image, type, url, eventExtras, canonicalHref } = meta;
 
   let pageTitle = title;
   let bodyLine = title;
@@ -593,6 +602,9 @@ function buildMetaHtml(meta: OgMeta): string {
   }
 
   const descForMeta = description || title;
+  const canonicalTag = canonicalHref
+    ? `<link rel="canonical" href="${escapeHtml(canonicalHref)}" />`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -601,6 +613,7 @@ function buildMetaHtml(meta: OgMeta): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(pageTitle)}</title>
   <meta name="description" content="${escapeHtml(descForMeta)}" />
+  ${canonicalTag}
   <meta property="og:site_name" content="Bachata Calendar" />
   <meta property="og:type" content="${escapeHtml(type)}" />
   <meta property="og:url" content="${escapeHtml(url)}" />
@@ -628,6 +641,7 @@ function buildMetaHtml(meta: OgMeta): string {
 export default async function middleware(request: Request): Promise<Response> {
   const ua = request.headers.get('user-agent') ?? '';
   if (!BOT_UA_PATTERN.test(ua)) return next();
+  const isSearchBot = SEARCH_BOT_PATTERN.test(ua);
 
   const url = new URL(request.url);
   const segments = url.pathname.split('/').filter(Boolean);
@@ -642,13 +656,15 @@ export default async function middleware(request: Request): Promise<Response> {
   let meta: OgMeta | null = null;
   switch (kind) {
     case 'event': {
-      const eventId = await resolveSlugToUuid('events', 'id', id);
-      meta = eventId ? await fetchEventMeta(eventId, canonicalUrl) : null;
+      const ref = await resolveEventRef(id);
+      meta = ref ? await fetchEventMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/event/${ref.slug || ref.id}`;
       break;
     }
     case 'festival': {
-      const festivalId = await resolveSlugToUuid('events', 'id', id);
-      meta = festivalId ? await fetchFestivalMeta(festivalId, canonicalUrl) : null;
+      const ref = await resolveEventRef(id);
+      meta = ref ? await fetchFestivalMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/festival/${ref.slug || ref.id}`;
       break;
     }
     case 'venue-entity':
@@ -671,22 +687,38 @@ export default async function middleware(request: Request): Promise<Response> {
       if (!UUID_RE.test(id)) return next();
       meta = await fetchOrganiserMeta(id, canonicalUrl);
       break;
-    case 'city':
+    case 'city': {
       if (!CITY_SLUG_RE.test(id)) return next();
+      const isBareCity = segments.length === 2;
+      // Bare /city/:slug is the homepage equivalent (canonical '/'). Send search
+      // crawlers to the rich prerendered homepage (next() -> the SPA rewrite
+      // serves dist/index.html) rather than the thin city skeleton; social bots
+      // still get the OG card so link previews keep working.
+      if (isBareCity && isSearchBot) return next();
       meta = await fetchCityMeta(id, canonicalUrl);
+      if (meta) {
+        const listing = segments[2];
+        meta.canonicalHref = isBareCity
+          ? `${SITE_URL}/`
+          : CLEAN_LISTINGS.has(listing)
+            ? `${SITE_URL}/${listing}`
+            : `${SITE_URL}/`;
+      }
       break;
+    }
     default:
       return next();
   }
 
   if (!meta) {
-    // Soft-404 fix: when an event or festival ID doesn't resolve to a real
-    // record, return HTTP 404 to the bot so Google drops the page from the
-    // index. Other entity kinds keep the fall-through behaviour because the
-    // SPA can still render something useful for them.
-    if (kind === 'event' || kind === 'festival') {
+    // Soft-404 fix: a UUID-shaped id that doesn't resolve to a real record is a
+    // dead URL, so return 404 + noindex and let Google drop it. Slug params for
+    // these kinds already returned next() above, so reaching here is a genuine
+    // miss. City misses fall through to next() (the SPA still renders a city).
+    const NOINDEX_404_KINDS = ['event', 'festival', 'venue-entity', 'teachers', 'djs', 'dancers', 'organisers'];
+    if (NOINDEX_404_KINDS.includes(kind)) {
       return new Response(
-        `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Event not found</title><meta name="robots" content="noindex"></head><body><p>Event not found.</p></body></html>`,
+        `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Not found</title><meta name="robots" content="noindex"></head><body><p>Not found.</p></body></html>`,
         {
           status: 404,
           headers: {

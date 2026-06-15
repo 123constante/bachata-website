@@ -111,7 +111,7 @@ function buildVEvent(ev: FeedEvent, nowStamp: string, publicOrigin: string): str
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? '';
-const PUBLIC_ORIGIN = process.env.SITE_URL ?? 'https://bachatacalendar.co.uk';
+const PUBLIC_ORIGIN = process.env.SITE_URL ?? 'https://www.bachatacalendar.co.uk';
 
 function asString(v: string | string[] | undefined): string | null {
   if (v === undefined) return null;

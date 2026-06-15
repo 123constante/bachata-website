@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://bachatacalendar.co.uk/sitemap.xml
+Sitemap: https://www.bachatacalendar.co.uk/sitemap.xml

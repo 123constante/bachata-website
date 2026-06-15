@@ -25,7 +25,7 @@
  *   GSC_SERVICE_ACCOUNT_KEY        raw service-account JSON (CI secret)
  *   GSC_SERVICE_ACCOUNT_KEY_FILE   path to the JSON key file (local)
  *   GSC_SITE_URL                   override property (default sc-domain:bachatacalendar.co.uk)
- *   GSC_CHECK_BASE                 override site base (default https://bachatacalendar.co.uk)
+ *   GSC_CHECK_BASE                 override site base (default https://www.bachatacalendar.co.uk)
  *   STRICT=1                       escalate WARNs (junk sitemaps, sitemap 404s,
  *                                  redirects, timeouts) to hard FAILs
  *
@@ -76,7 +76,7 @@ const FLAGS = {
 const STRICT = ENV.STRICT === '1';
 
 const SITE_URL = ENV.GSC_SITE_URL || 'sc-domain:bachatacalendar.co.uk';
-const BASE = (ENV.GSC_CHECK_BASE || 'https://bachatacalendar.co.uk').replace(/\/$/, '');
+const BASE = (ENV.GSC_CHECK_BASE || 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const CANONICAL_SITEMAP = `${BASE}/sitemap.xml`;
 const WWW_SITEMAP = CANONICAL_SITEMAP.replace('://', '://www.');
 

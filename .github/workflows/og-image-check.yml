@@ -26,5 +26,5 @@ jobs:
 
       - name: Run OG image guard
         env:
-          OG_CHECK_BASE: https://bachatacalendar.co.uk
+          OG_CHECK_BASE: https://www.bachatacalendar.co.uk
         run: npm run check:og
