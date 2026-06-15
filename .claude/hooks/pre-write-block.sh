@@ -70,6 +70,8 @@ fi
 
 # If neither the existing file nor the proposed content exceeds the
 # threshold, the corruption class doesn't apply — let it through.
+CONTENT_LEN="${CONTENT_LEN//[^0-9]/}"; CONTENT_LEN="${CONTENT_LEN:-0}"
+EXISTING_SIZE="${EXISTING_SIZE//[^0-9]/}"; EXISTING_SIZE="${EXISTING_SIZE:-0}"
 if [ "$EXISTING_SIZE" -lt "$THRESHOLD" ] && [ "${CONTENT_LEN:-0}" -lt "$THRESHOLD" ]; then
     exit 0
 fi
