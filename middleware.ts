@@ -184,12 +184,14 @@ async function supabaseFetch(path: string, init?: RequestInit): Promise<Response
   }
 }
 
-// Resolve an event/festival param (slug OR uuid) to BOTH its uuid and canonical
-// slug in one round trip, so bot HTML can emit a slug-based <link rel=canonical>
-// that consolidates the legacy /event/{uuid}?occurrenceId= URLs onto the slug.
-async function resolveEventRef(param: string): Promise<{ id: string; slug: string | null } | null> {
+// Resolve a param (slug OR uuid) to BOTH its uuid and canonical slug in one round
+// trip, so bot HTML can emit a slug-based <link rel=canonical> that consolidates the
+// legacy /{kind}/{uuid} URLs onto the slug. `table` must expose `id` + `slug`
+// (events, venues, dancer_profiles, organiser_profiles) -- the same `id` the detail
+// page's useEntitySlugOrId (idColumn:'id') and the entity's fetcher/RPC expect.
+async function resolveRef(table: string, param: string): Promise<{ id: string; slug: string | null } | null> {
   const col = UUID_RE.test(param) ? 'id' : 'slug';
-  const res = await supabaseFetch(`/rest/v1/events?${col}=eq.${encodeURIComponent(param)}&select=id,slug`);
+  const res = await supabaseFetch(`/rest/v1/${table}?${col}=eq.${encodeURIComponent(param)}&select=id,slug`);
   if (!res || !res.ok) return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: any = await res.json();
@@ -495,8 +497,8 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
 }
 
 async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&type=eq.organiser&select=name,avatar_url,bio,cities:cities!entities_city_id_fkey(name)`;
-  const res = await supabaseFetch(`/rest/v1/entities?${query}`);
+  const query = `id=eq.${encodeURIComponent(id)}&select=name,avatar_url,bio`;
+  const res = await supabaseFetch(`/rest/v1/organiser_profiles?${query}`);
   if (!res || !res.ok) return null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -656,37 +658,47 @@ export default async function middleware(request: Request): Promise<Response> {
   let meta: OgMeta | null = null;
   switch (kind) {
     case 'event': {
-      const ref = await resolveEventRef(id);
+      const ref = await resolveRef('events', id);
       meta = ref ? await fetchEventMeta(ref.id, canonicalUrl) : null;
       if (meta && ref) meta.canonicalHref = `${SITE_URL}/event/${ref.slug || ref.id}`;
       break;
     }
     case 'festival': {
-      const ref = await resolveEventRef(id);
+      const ref = await resolveRef('events', id);
       meta = ref ? await fetchFestivalMeta(ref.id, canonicalUrl) : null;
       if (meta && ref) meta.canonicalHref = `${SITE_URL}/festival/${ref.slug || ref.id}`;
       break;
     }
-    case 'venue-entity':
-      if (!UUID_RE.test(id)) return next();
-      meta = await fetchVenueMeta(id, canonicalUrl);
+    case 'venue-entity': {
+      const ref = await resolveRef('venues', id);
+      meta = ref ? await fetchVenueMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/venue-entity/${ref.slug || ref.id}`;
       break;
-    case 'teachers':
-      if (!UUID_RE.test(id)) return next();
-      meta = await fetchTeacherMeta(id, canonicalUrl);
+    }
+    case 'teachers': {
+      const ref = await resolveRef('dancer_profiles', id);
+      meta = ref ? await fetchTeacherMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
       break;
-    case 'djs':
-      if (!UUID_RE.test(id)) return next();
-      meta = await fetchDjMeta(id, canonicalUrl);
+    }
+    case 'djs': {
+      const ref = await resolveRef('dancer_profiles', id);
+      meta = ref ? await fetchDjMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/djs/${ref.slug || ref.id}`;
       break;
-    case 'dancers':
-      if (!UUID_RE.test(id)) return next();
-      meta = await fetchDancerMeta(id, canonicalUrl);
+    }
+    case 'dancers': {
+      const ref = await resolveRef('dancer_profiles', id);
+      meta = ref ? await fetchDancerMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/dancers/${ref.slug || ref.id}`;
       break;
-    case 'organisers':
-      if (!UUID_RE.test(id)) return next();
-      meta = await fetchOrganiserMeta(id, canonicalUrl);
+    }
+    case 'organisers': {
+      const ref = await resolveRef('organiser_profiles', id);
+      meta = ref ? await fetchOrganiserMeta(ref.id, canonicalUrl) : null;
+      if (meta && ref) meta.canonicalHref = `${SITE_URL}/organisers/${ref.slug || ref.id}`;
       break;
+    }
     case 'city': {
       if (!CITY_SLUG_RE.test(id)) return next();
       const isBareCity = segments.length === 2;
