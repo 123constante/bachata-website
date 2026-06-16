@@ -7,7 +7,7 @@
 import { useEffect, useRef } from 'react';
 
 const SITE_NAME = 'Bachata Calendar';
-const SITE_ORIGIN = 'https://bachatacalendar.co.uk';
+const SITE_ORIGIN = 'https://www.bachatacalendar.co.uk';
 const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-image.jpg`;
 
 // Tab title scroll: shift one char per tick; separator pads the gap between repeats

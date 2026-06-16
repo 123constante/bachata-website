@@ -53,7 +53,7 @@ jobs:
 
       - name: Smoke live production
         env:
-          SMOKE_BASE_URL: https://bachatacalendar.co.uk
+          SMOKE_BASE_URL: https://www.bachatacalendar.co.uk
         run: |
           set -o pipefail
           node scripts/launch-critical-smoke.mjs | tee smoke-report.json

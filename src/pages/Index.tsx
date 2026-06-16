@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
 import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
-import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
 
 // Both home surfaces are lazy so neither bundle blocks the other; the Festival
 // Map's Leaflet code only loads once one of them mounts.
@@ -67,9 +67,7 @@ const Index = () => {
   });
   const eventsJsonLd = useMemo(() => {
     if (!weekEvents || weekEvents.length === 0) return null;
-    const origin =
-      typeof window !== 'undefined' && window.location ? window.location.origin : '';
-    return renderEventListJsonLd({ events: weekEvents, origin });
+    return renderEventListJsonLd({ events: weekEvents, origin: SITE_ORIGIN });
   }, [weekEvents]);
 
   // Map data: a 90-day window of occurrences (coords, cover, times, freshness).

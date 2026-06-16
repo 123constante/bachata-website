@@ -43,7 +43,7 @@ function loadEnv() {
 const env = loadEnv();
 const SUPABASE_URL = env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const BASE_URL = 'https://bachatacalendar.co.uk';
+const BASE_URL = 'https://www.bachatacalendar.co.uk';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY');
@@ -52,28 +52,46 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Feature flags (same source of truth as the app). Gated directory + detail
+// surfaces render noindex in prod, so keep their URLs OUT of the sitemap until
+// the flag is on, else Google logs "submitted URL marked noindex".
+const ENABLE_VENUE_DETAIL = env.VITE_ENABLE_VENUE_DETAIL === 'true';
+const ENABLE_TEACHERS = env.VITE_ENABLE_TEACHERS_DIRECTORY === 'true';
+const ENABLE_TEACHER_DETAIL = env.VITE_ENABLE_TEACHER_DETAIL === 'true';
+const ENABLE_ORGANISERS = env.VITE_ENABLE_ORGANISERS_DIRECTORY === 'true';
+const ENABLE_ORGANISER_DETAIL = env.VITE_ENABLE_ORGANISER_DETAIL === 'true';
+
 // ── static routes ─────────────────────────────────────────────────────────────
-// Only include stable, canonical URLs that Google can land on directly.
-// Excluded: /, /parties, /classes, /tonight, /venues, /discounts,
-// /practice-partners, /cities, /videographers — these all redirect to
-// /city/:slug/... so Google sees a redirect and may not index the clean URL.
-// Venue/event/profile detail pages are covered by the dynamic fetchers below.
 const STATIC_ROUTES = [
-  { path: '/london-bachata-guide',     changefreq: 'monthly', priority: '0.9' },
-  { path: '/faq',                      changefreq: 'monthly', priority: '0.8' },
-  { path: '/festivals',                changefreq: 'weekly',  priority: '0.8' },
-  { path: '/teachers',                 changefreq: 'weekly',  priority: '0.7' },
-  { path: '/djs',                      changefreq: 'weekly',  priority: '0.7' },
-  { path: '/organisers',               changefreq: 'weekly',  priority: '0.7' },
-  { path: '/dancers',                  changefreq: 'weekly',  priority: '0.6' },
-  { path: '/bachata-london-monday',    changefreq: 'weekly',  priority: '0.8' },
-  { path: '/bachata-london-tuesday',   changefreq: 'weekly',  priority: '0.8' },
-  { path: '/bachata-london-wednesday', changefreq: 'weekly',  priority: '0.8' },
-  { path: '/bachata-london-thursday',  changefreq: 'weekly',  priority: '0.8' },
-  { path: '/bachata-london-friday',    changefreq: 'weekly',  priority: '0.9' },
-  { path: '/bachata-london-saturday',  changefreq: 'weekly',  priority: '0.9' },
-  { path: '/bachata-london-sunday',    changefreq: 'weekly',  priority: '0.8' },
+  { path: '/',                                 changefreq: 'daily',   priority: '1.0' },
+  { path: '/parties',                          changefreq: 'daily',   priority: '0.9' },
+  { path: '/classes',                          changefreq: 'daily',   priority: '0.9' },
+  { path: '/tonight',                          changefreq: 'daily',   priority: '0.8' },
+  { path: '/festivals',                        changefreq: 'weekly',  priority: '0.8' },
+  { path: '/venues',                           changefreq: 'weekly',  priority: '0.7' },
+  { path: '/djs',                              changefreq: 'weekly',  priority: '0.6' },
+  { path: '/dancers',                          changefreq: 'weekly',  priority: '0.6' },
+  { path: '/discounts',                        changefreq: 'weekly',  priority: '0.5' },
+  { path: '/practice-partners',                changefreq: 'weekly',  priority: '0.5' },
+  { path: '/choreography',                     changefreq: 'weekly',  priority: '0.5' },
+  { path: '/videographers',                    changefreq: 'weekly',  priority: '0.5' },
+  { path: '/cities',                           changefreq: 'monthly', priority: '0.5' },
+  { path: '/london-bachata-guide',             changefreq: 'monthly', priority: '0.9' },
+  { path: '/bachata-parties-london',           changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-sensual-parties',   changefreq: 'weekly',  priority: '0.7' },
+  { path: '/bachata-london-dominican-parties', changefreq: 'weekly',  priority: '0.7' },
+  { path: '/faq',                              changefreq: 'monthly', priority: '0.8' },
+  { path: '/bachata-london-monday',            changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-tuesday',           changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-wednesday',         changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-thursday',          changefreq: 'weekly',  priority: '0.8' },
+  { path: '/bachata-london-friday',            changefreq: 'weekly',  priority: '0.9' },
+  { path: '/bachata-london-saturday',          changefreq: 'weekly',  priority: '0.9' },
+  { path: '/bachata-london-sunday',            changefreq: 'weekly',  priority: '0.8' },
 ];
+// Feature-gated directory listings: only sitemap them once their flag is on.
+if (ENABLE_TEACHERS) STATIC_ROUTES.push({ path: '/teachers', changefreq: 'weekly', priority: '0.7' });
+if (ENABLE_ORGANISERS) STATIC_ROUTES.push({ path: '/organisers', changefreq: 'weekly', priority: '0.7' });
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function escapeXml(str) {
@@ -147,20 +165,7 @@ async function fetchDancerProfiles() {
     .order('updated_at', { ascending: false })
     .limit(500);
   if (error) { console.warn('  dancer_profiles fetch error:', error.message); return []; }
-  return (data || []).flatMap(d => [
-    {
-      loc: `${BASE_URL}/dancers/${d.slug || d.id}`,
-      lastmod: toDate(d.updated_at),
-      changefreq: 'weekly',
-      priority: '0.6',
-    },
-    {
-      loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
-      lastmod: toDate(d.updated_at),
-      changefreq: 'weekly',
-      priority: '0.6',
-    },
-  ]);
+  return (data || []).map(d => ({ id: d.id, slug: d.slug, updated_at: d.updated_at }));
 }
 
 // organiser_profiles: used for /organisers/:id pages.
@@ -189,14 +194,26 @@ async function main() {
     urlEntry({ loc: `${BASE_URL}${r.path}`, lastmod: today, changefreq: r.changefreq, priority: r.priority })
   );
 
-  const [events, venues, profiles, organisers] = await Promise.all([
+  const [events, venueUrls, dancerRows, organiserUrls] = await Promise.all([
     fetchEvents(),
-    fetchVenues(),
+    ENABLE_VENUE_DETAIL ? fetchVenues() : Promise.resolve([]),
     fetchDancerProfiles(),
-    fetchOrganiserProfiles(),
+    ENABLE_ORGANISER_DETAIL ? fetchOrganiserProfiles() : Promise.resolve([]),
   ]);
 
-  const dynamicEntries = [...events, ...venues, ...profiles, ...organisers].map(urlEntry);
+  // Dancer detail pages are public; teacher detail pages are feature-gated.
+  const dancerUrls = dancerRows.map(d => ({
+    loc: `${BASE_URL}/dancers/${d.slug || d.id}`,
+    lastmod: toDate(d.updated_at), changefreq: 'weekly', priority: '0.6',
+  }));
+  const teacherUrls = ENABLE_TEACHER_DETAIL
+    ? dancerRows.map(d => ({
+        loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
+        lastmod: toDate(d.updated_at), changefreq: 'weekly', priority: '0.6',
+      }))
+    : [];
+
+  const dynamicEntries = [...events, ...venueUrls, ...dancerUrls, ...teacherUrls, ...organiserUrls].map(urlEntry);
   const totalUrls = staticEntries.length + dynamicEntries.length;
 
   const xml = [
@@ -210,7 +227,7 @@ async function main() {
   const outPath = path.join(ROOT, 'public', 'sitemap.xml');
   fs.writeFileSync(outPath, xml, 'utf8');
   console.log(`sitemap.xml written: ${totalUrls} URLs`);
-  console.log(`  Static: ${staticEntries.length}, Events: ${events.length}, Venues: ${venues.length}, Profiles: ${profiles.length / 2} (x2 routes), Organisers: ${organisers.length}`);
+  console.log(`  Static: ${staticEntries.length}, Events: ${events.length}, Venues: ${venueUrls.length}, Dancers: ${dancerUrls.length}, Teachers: ${teacherUrls.length}, Organisers: ${organiserUrls.length}`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
