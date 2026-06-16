@@ -184,10 +184,13 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // advertise a prize draw or show a past winner (raffle audit #1).
     if (pageModel.schedule.isCancelled) hidden.add('raffle');
 
-    // 'dates' slot is shown for multi-occurrence classes (flat list) and
-    // courses (Weeks Ladder). Single-occurrence events and other types hide it.
-    const isMultiDateType =
-      pageModel.identity.eventType === 'class' || pageModel.identity.eventType === 'course';
+    // 'dates' slot is shown only for multi-occurrence courses (Weeks Ladder).
+    // Layout is driven by SHAPE, not genre: an ongoing class/party/social renders
+    // the clean per-day SCHEDULE tile like any standard event, so it must not
+    // enumerate its whole materialised year. Only a bounded, ordered course earns
+    // the date list. (Interim form of the type→format split: this re-expresses on
+    // `format === 'course'` once the website cuts over to the format field.)
+    const isMultiDateType = pageModel.identity.eventType === 'course';
     if (!snapshot || snapshot.occurrences.length <= 1 || !isMultiDateType) hidden.add('dates');
 
     // Video tile hides when there's no playable video URL on the series.
