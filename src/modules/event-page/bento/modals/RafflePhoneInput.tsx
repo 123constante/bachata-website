@@ -10,7 +10,7 @@
 // emitted '' -> parent stored '' -> prefix match fell back to GB on re-render).
 // =============================================================================
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 import { COUNTRIES, PINNED, type DialCountry } from '@/lib/countryDialCodes';
 import {
   checkLocalDigits,
@@ -18,6 +18,7 @@ import {
   normalizeLocalDigits,
   type PhoneCheck,
 } from '@/lib/phoneRules';
+import { AlertCircle, Info } from 'lucide-react';
 
 export interface RafflePhoneInputProps {
   value: string;
@@ -42,9 +43,9 @@ function feedbackFor(country: DialCountry, check: PhoneCheck, touched: boolean):
   switch (check.status) {
     case 'short':
       if (!touched) return null;
-      return { text: `Looks short &mdash; ${country.name} numbers have ${check.expected}`, tone: 'error' };
+      return { text: `Looks short \u2014 ${country.name} numbers have ${check.expected}`, tone: 'error' };
     case 'long':
-      return { text: `That&rsquo;s too long for a ${country.name} number (${check.expected})`, tone: 'error' };
+      return { text: `That\u2019s too long for a ${country.name} number (${check.expected})`, tone: 'error' };
     case 'warn':
       return { text: check.message, tone: 'warn' };
     default:
@@ -92,6 +93,8 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
   const [search, setSearch] = useState('');
   const [touched, setTouched] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listboxId = useId();
+  const feedbackId = useId();
 
   const check = useMemo(
     () => checkLocalDigits(country.code, country.dial, localDigits),
@@ -150,22 +153,23 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
             disabled={disabled}
             aria-haspopup="listbox"
             aria-expanded={open}
-            className="h-full min-w-[5rem] rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-2 text-left text-sm text-[#D8CCB0] hover:border-[rgba(245,213,99,0.55)] focus:border-[rgba(245,213,99,0.55)] focus:outline-none disabled:opacity-50"
+            aria-controls={open ? listboxId : undefined}
+            className="h-full min-w-[5rem] rounded-md border border-[color:var(--bento-hairline)] bg-black/25 px-2 text-left text-sm text-[hsl(var(--bento-fg))] hover:border-[hsl(var(--bento-accent-bright)_/_0.55)] focus:border-[hsl(var(--bento-accent-bright)_/_0.55)] focus:outline-none disabled:opacity-50"
           >
             <FlagImg code={country.code} className="mr-1" />
-            <span className="font-mono text-[11px] text-[#D8CCB0]">{country.dial}</span>
-            <span className="ml-1 text-[9px] text-[#A59474]" aria-hidden>&#9660;</span>
+            <span className="font-mono text-[11px] text-[hsl(var(--bento-fg))]">{country.dial}</span>
+            <span className="ml-1 text-[9px] text-[hsl(var(--bento-fg-muted))]" aria-hidden>&#9660;</span>
           </button>
 
           {open && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
               <div
-                className="absolute top-full left-0 mt-1 z-50 w-72 rounded-md border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] shadow-2xl flex flex-col"
+                className="absolute top-full left-0 mt-1 z-50 w-72 rounded-md border border-[color:var(--bento-hairline)] bg-[hsl(var(--bento-surface-raised))] shadow-2xl flex flex-col"
                 style={{ maxHeight: '18rem' }}
               >
                 {/* Search box */}
-                <div className="p-1.5 border-b border-[rgba(197,148,10,0.2)]">
+                <div className="p-1.5 border-b border-[color:var(--bento-hairline)]">
                   <input
                     ref={searchRef}
                     type="text"
@@ -173,12 +177,12 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
                     placeholder="Search country or code..."
-                    className="w-full rounded px-2 py-1 text-xs bg-black/30 border border-[rgba(197,148,10,0.25)] text-[#D8CCB0] placeholder:text-[#6f6757] focus:outline-none focus:border-[rgba(245,213,99,0.55)]"
+                    className="w-full rounded px-2 py-1 text-xs bg-black/30 border border-[color:var(--bento-hairline)] text-[hsl(var(--bento-fg))] placeholder:text-[#6f6757] focus:outline-none focus:border-[hsl(var(--bento-accent-bright)_/_0.55)]"
                   />
                 </div>
 
                 {/* Country list */}
-                <ul role="listbox" className="overflow-auto flex-1 text-sm">
+                <ul role="listbox" id={listboxId} className="overflow-auto flex-1 text-sm">
                   {filteredPinned.length > 0 && (
                     <>
                       {filteredPinned.map((c) => (
@@ -190,7 +194,7 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
                         />
                       ))}
                       {filteredRest.length > 0 && (
-                        <li className="border-t border-[rgba(197,148,10,0.2)] my-0.5" aria-hidden />
+                        <li className="border-t border-[color:var(--bento-hairline)] my-0.5" aria-hidden />
                       )}
                     </>
                   )}
@@ -221,17 +225,27 @@ export const RafflePhoneInput: React.FC<RafflePhoneInputProps> = ({
           value={localDigits}
           onChange={handleDigitsChange}
           onBlur={() => setTouched(true)}
+          aria-describedby={feedback ? feedbackId : undefined}
+          aria-invalid={feedback?.tone === 'error' || undefined}
           placeholder="7700 900123"
-          className="flex-1 min-w-0 h-10 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50"
+          className="flex-1 min-w-0 h-10 rounded-md border border-[color:var(--bento-hairline)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[hsl(var(--bento-accent-bright)_/_0.55)] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--bento-accent-bright)_/_0.25)] disabled:opacity-50"
         />
       </div>
 
       {feedback && (
         <div
+          id={feedbackId}
+          role="status"
+          aria-live="polite"
           data-testid="raffle-phone-feedback"
-          className={`mt-1 text-[11px] ${feedback.tone === 'error' ? 'text-rose-400' : 'text-amber-300'}`}
+          className={`mt-1 flex items-center gap-1 text-[11px] ${feedback.tone === 'error' ? 'text-rose-400' : 'text-amber-300'}`}
         >
-          {feedback.text}
+          {feedback.tone === 'error' ? (
+            <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+          ) : (
+            <Info className="h-3 w-3 shrink-0" aria-hidden />
+          )}
+          <span>{feedback.text}</span>
         </div>
       )}
     </div>
@@ -248,9 +262,10 @@ const CountryRow: React.FC<{
       type="button"
       role="option"
       aria-selected={selected}
-      onMouseDown={(e) => { e.preventDefault(); onSelect(c.code); }}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => onSelect(c.code)}
       className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/30 ${
-        selected ? 'bg-black/25 text-[#F5D563]' : 'text-[#D8CCB0]'
+        selected ? 'bg-black/25 text-[hsl(var(--bento-accent-bright))]' : 'text-[hsl(var(--bento-fg))]'
       }`}
     >
       <img
@@ -262,7 +277,7 @@ const CountryRow: React.FC<{
         className="rounded-[2px] shrink-0"
       />
       <span className="flex-1 truncate text-xs">{c.name}</span>
-      <span className="font-mono text-[11px] text-[#A59474]">{c.dial}</span>
+      <span className="font-mono text-[11px] text-[hsl(var(--bento-fg-muted))]">{c.dial}</span>
     </button>
   </li>
 );

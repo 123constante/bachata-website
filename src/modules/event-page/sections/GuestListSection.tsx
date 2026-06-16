@@ -68,19 +68,19 @@ const sectionStyles = `
     text-align: center;
   }
   .gl-input::placeholder {
-    color: rgba(240, 230, 233, 0.35) !important;
+    color: hsl(var(--bento-fg) / 0.35) !important;
     text-align: center;
   }
   .gl-input:focus-visible {
-    border-color: rgba(245, 213, 99, 0.55) !important;
+    border-color: hsl(var(--bento-accent-bright) / 0.55) !important;
     outline: none;
-    box-shadow: 0 0 0 1px rgba(245, 213, 99, 0.25) !important;
+    box-shadow: 0 0 0 1px hsl(var(--bento-accent-bright) / 0.25) !important;
   }
 `;
 
-const MUTED_PRIMARY = 'rgba(240, 230, 233, 0.45)';
-const MUTED_SECONDARY = 'rgba(240, 230, 233, 0.35)';
-const STRIKE = 'rgba(240, 230, 233, 0.3)';
+const MUTED_PRIMARY = 'hsl(var(--bento-fg) / 0.45)';
+const MUTED_SECONDARY = 'hsl(var(--bento-fg) / 0.35)';
+const STRIKE = 'hsl(var(--bento-fg) / 0.3)';
 
 // Gold palette shared with ConfettiButton — stays on-brand when confetti
 // fires over the dark-brown guest-list surface.
@@ -298,7 +298,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
       {hasDescription && (
         <p
           className="mx-auto mb-4 max-w-md text-center"
-          style={{ color: 'rgba(240, 230, 233, 0.5)', fontSize: '13px', lineHeight: 1.8 }}
+          style={{ color: 'hsl(var(--bento-fg) / 0.5)', fontSize: '13px', lineHeight: 1.8 }}
         >
           {config.description.split('\n').map((line, i, arr) => (
             <span key={i}>
@@ -335,6 +335,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your first name"
+            aria-label="Your first name"
             maxLength={80}
             className="gl-input h-9 flex-1 py-2"
           />
@@ -382,7 +383,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
 
       {/* Count */}
       {count > 0 && (
-        <p className="text-[10px]" style={{ color: 'rgba(240, 230, 233, 0.3)' }}>
+        <p className="text-[10px]" style={{ color: 'hsl(var(--bento-fg) / 0.3)' }}>
           {count} {count === 1 ? 'name' : 'names'} on the guest list
         </p>
       )}

@@ -8,6 +8,7 @@ import {
   formatDuration,
   isOccurrenceToday,
 } from '@/modules/event-page/bento/blocks/occurrenceFormat';
+import { BENTO_TYPE } from '@/modules/event-page/bento/blocks/bentoType';
 
 type DatesBlockProps = {
   occurrences: EventPageSnapshotOccurrence[];
@@ -27,14 +28,15 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
         const isLast    = i === occurrences.length - 1;
 
         let rowBg: string | undefined;
-        if (isActive)             rowBg = 'rgba(201,168,67,0.13)';
-        else if (occ.isCancelled) rowBg = 'rgba(224,82,82,0.10)';
-        else if (isToday)         rowBg = 'rgba(201,168,67,0.06)';
+        if (isActive)             rowBg = 'hsl(var(--bento-accent) / 0.05)';
+        else if (occ.isCancelled) rowBg = 'hsl(var(--bento-danger) / 0.10)';
+        else if (isToday)         rowBg = 'hsl(var(--bento-accent) / 0.03)';
 
         return (
           <Link
             key={occ.occurrenceId}
             to={`?occurrenceId=${occ.occurrenceId}`}
+            aria-label={`View ${dateLabel}${occ.isCancelled ? ' (cancelled)' : ''}`}
             className="relative flex items-center px-3 py-[9px]"
             style={{
               background: rowBg,
@@ -51,10 +53,11 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
 
             <div className="flex flex-1 flex-col gap-[2px]">
               <span
-                className="text-[10.5px] leading-none"
+                className="leading-none"
                 style={{
+                  fontSize: BENTO_TYPE.dateLabel,
                   fontWeight: isActive ? 800 : 700,
-                  color: occ.isCancelled ? 'rgba(248,113,113,0.7)' : 'hsl(var(--bento-fg))',
+                  color: occ.isCancelled ? 'hsl(var(--bento-danger) / 0.7)' : 'hsl(var(--bento-fg))',
                   textDecoration: occ.isCancelled ? 'line-through' : undefined,
                 }}
               >
@@ -65,16 +68,16 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
                 <div className="mt-[2px] flex flex-wrap gap-1">
                   {isToday && !occ.isCancelled && (
                     <span
-                      className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
-                      style={{ background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }}
+                      className="rounded-[3px] px-[4px] py-px font-extrabold uppercase tracking-[0.06em]"
+                      style={{ fontSize: BENTO_TYPE.badge, background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }}
                     >
                       Today
                     </span>
                   )}
                   {occ.isCancelled && (
                     <span
-                      className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
-                      style={{ background: '#dc2626', color: '#fff' }}
+                      className="rounded-[3px] px-[4px] py-px font-extrabold uppercase tracking-[0.06em]"
+                      style={{ fontSize: BENTO_TYPE.badge, background: 'hsl(var(--bento-danger))', color: '#fff' }}
                     >
                       Cancelled
                     </span>
@@ -89,7 +92,7 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
                   <span
                     className="leading-none tracking-[-0.01em]"
                     style={{
-                      fontSize: occ.isPast ? '11px' : '13px',
+                      fontSize: occ.isPast ? BENTO_TYPE.timePast : BENTO_TYPE.time,
                       fontWeight: occ.isPast ? 700 : 900,
                       color: occ.isPast
                         ? 'hsl(var(--bento-fg-muted))'
@@ -101,8 +104,8 @@ export const DatesBlock = ({ occurrences, currentOccurrenceId }: DatesBlockProps
                 )}
                 {duration && (
                   <span
-                    className="text-[7.5px] font-semibold leading-none"
-                    style={{ color: 'hsl(var(--bento-fg-muted))' }}
+                    className="font-semibold leading-none"
+                    style={{ color: 'hsl(var(--bento-fg-muted))', fontSize: BENTO_TYPE.duration }}
                   >
                     {duration}
                   </span>

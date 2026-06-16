@@ -80,11 +80,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   // Phase 6D -- drives whether the bento grid reserves a slot for the raffle
   // tile. When the event has no raffle (config.enabled === false), 'raffle' is
-  // added to hiddenBlocks below so the packer skips it entirely. RaffleBlock
-  // also fetches this internally, but keeping it here is the single source of
-  // truth for grid layout.
+  // added to hiddenBlocks below so the packer skips it entirely. BentoPage is
+  // the single fetcher of the raffle config and passes config/loading/refresh
+  // down to RaffleBlock as props (one get_event_raffle call + poll per page).
   const raffleSessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config: raffleConfig } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
+  const { config: raffleConfig, loading: raffleLoading, refresh: refreshRaffle } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
 
   // Mount-time 3s-delay view recording. Arc 15: forward occurrenceId so analytics
   // can bucket views by occurrence, not just by event.
@@ -337,7 +337,14 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           />
         );
       case 'raffle':
-        return <RaffleBlock eventId={eventId} />;
+        return (
+          <RaffleBlock
+            eventId={eventId}
+            config={raffleConfig}
+            loading={raffleLoading}
+            refresh={refreshRaffle}
+          />
+        );
       case 'video':
         return eventVideo ? (
           <VideoBlock video={eventVideo} poster={coverImageUrl} title={pageModel.identity.title} />

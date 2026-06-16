@@ -67,7 +67,7 @@ export const TapHintSticker = () => {
             transform: 'rotate(-2deg)',
           }}
         />
-        <span>Psst — every card opens something. Tap around!</span>
+        <span>Psst &mdash; every card opens something. Tap around!</span>
         <button
           type="button"
           onClick={dismiss}

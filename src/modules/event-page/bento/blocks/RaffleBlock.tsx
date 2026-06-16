@@ -21,8 +21,8 @@ import { motion } from 'framer-motion';
 import './RaffleBlock.css';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
-import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
-import { getRaffleSessionId, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
+import type { RaffleConfig } from '@/hooks/useEventRaffleConfig';
+import { raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
 import {
   countdownParts,
   formatCloseClock,
@@ -151,9 +151,17 @@ const TrophyCircle = () => (
 // eventId is the RESOLVED event uuid (passed from BentoPage). Reading it from
 // useParams() here used to break: the URL param is a slug after canonicalisation,
 // and the raffle-config RPC expects a uuid.
-export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
-  const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
+export const RaffleBlock = ({
+  eventId,
+  config,
+  loading,
+  refresh,
+}: {
+  eventId: string | null;
+  config: RaffleConfig | null;
+  loading: boolean;
+  refresh: () => void;
+}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [hasEntered, setHasEntered] = useState<boolean>(() => readEntered(eventId));
   const [announce, setAnnounce] = useState('');

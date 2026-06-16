@@ -110,6 +110,7 @@
 }
 .rsb-reels {
   position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -176,15 +177,18 @@
 .rsb-reels::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 55%;
   border-radius: 6px;
   pointer-events: none;
   z-index: 5;
-  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.06) 48%, transparent 58%);
-  background-size: 240% 100%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.06) 50%, transparent);
   animation: rsb-shimmer 5s ease-in-out infinite;
+  will-change: transform;
 }
-@keyframes rsb-shimmer { 0% { background-position: 140% 0; } 55%, 100% { background-position: -40% 0; } }
+@keyframes rsb-shimmer { 0% { transform: translateX(-150%); } 55%, 100% { transform: translateX(320%); } }
 
 /* spinning */
 .rsb-reels.is-spinning .rsb-reel1 .rsb-strip { animation: rsb-spin 0.42s linear infinite; }
@@ -451,5 +455,7 @@
   .rsb-bulbs i,
   .rsb-reels::after,
   .rsb-lamp,
-  .rsb-lever-knob { animation: none; }
+  .rsb-lever-knob,
+  .rsb-reels .rsb-strip { animation: none; }
+  .rsb-reel-flash { transition: none; }
 }

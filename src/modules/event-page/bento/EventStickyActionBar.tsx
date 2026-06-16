@@ -53,7 +53,7 @@ const GOLD_PRIMARY: React.CSSProperties = {
 };
 
 const PRIMARY_CLASS =
-  'flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
+  'flex h-12 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px] font-bold tracking-[0.01em]';
 const SECONDARY_CLASS =
   'flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
 const ICON_CLASS = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-full';
@@ -143,8 +143,8 @@ export const EventStickyActionBar = ({
               className={PRIMARY_CLASS}
               style={ticketPrimaryStyle}
             >
-              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
-              Get Tickets
+              <Ticket className="h-[17px] w-[17px] shrink-0" strokeWidth={2.2} />
+              Tickets
             </a>
           )}
 
@@ -157,8 +157,8 @@ export const EventStickyActionBar = ({
               className={directionsIsPrimary ? PRIMARY_CLASS : SECONDARY_CLASS}
               style={directionsIsPrimary ? GOLD_PRIMARY : GHOST_STYLE}
             >
-              <Navigation className="h-[17px] w-[17px]" strokeWidth={2.2} />
-              {directionsIsPrimary ? 'Get directions' : 'Directions'}
+              <Navigation className="h-[17px] w-[17px] shrink-0" strokeWidth={2.2} />
+              Directions
             </a>
           )}
 

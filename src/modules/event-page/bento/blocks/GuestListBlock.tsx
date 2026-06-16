@@ -40,14 +40,14 @@ const COLLISION_CARD_EXIT_MS = 220;
 const COUNTDOWN_TICK_MS = 60_000;
 const POST_SUBMIT_REMINDER_MS = 5_000;
 
-const MUTED_PRIMARY = 'rgba(240, 230, 233, 0.55)';
-const MUTED_SECONDARY = 'rgba(240, 230, 233, 0.4)';
-const STRIKE = 'rgba(240, 230, 233, 0.3)';
-const WARNING_ORANGE = '#ff9500';
+const MUTED_PRIMARY = 'hsl(var(--bento-fg) / 0.55)';
+const MUTED_SECONDARY = 'hsl(var(--bento-fg) / 0.4)';
+const STRIKE = 'hsl(var(--bento-fg) / 0.3)';
+const WARNING_ORANGE = 'hsl(var(--bento-warn))';
 
 const COUNTDOWN_TONE_COLOR: Record<CountdownTone, string> = {
-  muted: 'rgba(245, 213, 99, 0.55)',
-  normal: '#f5d563',
+  muted: 'hsl(var(--bento-accent-bright) / 0.55)',
+  normal: 'hsl(var(--bento-accent-bright))',
   warning: WARNING_ORANGE,
   urgent: WARNING_ORANGE,
 };
@@ -281,7 +281,7 @@ export const GuestListBlock = ({
         {savingsLabel && (
           <p
             className="text-center text-xs font-semibold leading-tight"
-            style={{ color: '#f5d563' }}
+            style={{ color: 'hsl(var(--bento-accent-bright))' }}
           >
             🎫 Save {savingsLabel} when you&rsquo;re on the list
           </p>
@@ -317,7 +317,7 @@ export const GuestListBlock = ({
         {hasDescription && (
           <p
             className="text-center text-[11px]"
-            style={{ color: 'rgba(240, 230, 233, 0.55)', lineHeight: 1.5 }}
+            style={{ color: 'hsl(var(--bento-fg) / 0.55)', lineHeight: 1.5 }}
           >
             {config.description.split('\n').map((line, i, arr) => (
               <span key={i}>
@@ -401,6 +401,7 @@ export const GuestListBlock = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your first name"
+              aria-label="Your first name"
               maxLength={80}
               className="gl-input h-9 flex-1 py-2 text-sm"
             />
@@ -422,9 +423,9 @@ export const GuestListBlock = ({
           <div
             className="gl-collision-card mt-1 rounded-xl px-3 py-2 text-center text-xs font-medium"
             style={{
-              background: 'rgba(245, 213, 99, 0.08)',
-              border: '0.5px solid rgba(245, 213, 99, 0.3)',
-              color: '#f5d563',
+              background: 'hsl(var(--bento-accent-bright) / 0.08)',
+              border: '0.5px solid hsl(var(--bento-accent-bright) / 0.3)',
+              color: 'hsl(var(--bento-accent-bright))',
             }}
             role="status"
           >
@@ -443,7 +444,7 @@ export const GuestListBlock = ({
               aria-expanded={explainerExpanded}
               aria-controls={explainerPanelId}
               className="mx-auto flex items-center justify-center gap-1 py-1 text-xs hover:underline"
-              style={{ color: 'rgba(245, 213, 99, 0.7)' }}
+              style={{ color: 'hsl(var(--bento-accent-bright) / 0.7)' }}
             >
               How to claim your discount
               <ChevronDown
@@ -473,7 +474,7 @@ export const GuestListBlock = ({
                   className="mt-1 flex list-none flex-col gap-1.5 rounded-lg p-3 text-xs leading-snug"
                   style={{
                     background: 'rgba(0, 0, 0, 0.2)',
-                    color: 'rgba(240, 230, 233, 0.75)',
+                    color: 'hsl(var(--bento-fg) / 0.75)',
                   }}
                 >
                   {[
@@ -485,8 +486,8 @@ export const GuestListBlock = ({
                       <span
                         className="mt-[1px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
                         style={{
-                          background: 'rgba(245, 213, 99, 0.15)',
-                          color: '#f5d563',
+                          background: 'hsl(var(--bento-accent-bright) / 0.15)',
+                          color: 'hsl(var(--bento-accent-bright))',
                         }}
                         aria-hidden
                       >

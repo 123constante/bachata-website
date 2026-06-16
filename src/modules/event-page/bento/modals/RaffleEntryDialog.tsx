@@ -69,7 +69,7 @@ function messageForReason(reason: string): { text: string; toast: 'error' | 'suc
     case 'cutoff_passed':
       return { text: 'Entries have closed for this raffle', toast: 'error' };
     case 'rate_limited':
-      return { text: 'Too many entries from this device — try again in a few minutes.', toast: 'error' };
+      return { text: 'Too many entries from this device \u2014 try again in a few minutes.', toast: 'error' };
     case 'already_entered':
       return { text: "You've already entered this raffle 🎉", toast: 'success' };
     case 'already_won_this_event':
@@ -140,7 +140,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
       spread: 70,
       colors: ['#B38A4E', '#F5D563', '#D8CCB0', '#ffd700', '#ff9500'],
     });
-    toast.success(kind === 'verified' ? "You're in — check WhatsApp! 🎉" : "You're in! Good luck 🎉");
+    toast.success(kind === 'verified' ? "You're in \u2014 check WhatsApp! 🎉" : "You're in! Good luck 🎉");
     onSubmitted();
     window.setTimeout(() => onOpenChange(false), 2500);
   };
@@ -156,7 +156,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
     const { data, error } = await supabase.rpc('submit_raffle_entry', {
       p_event_id: eventId,
-      p_first_name: '—',
+      p_first_name: '\u2014',
       p_phone_e164: phoneE164,
       p_consent_version: consentVersion ?? 'v1',
       p_honeypot: honeypot || null,
@@ -181,7 +181,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setPhase('ack');
         setAckState({
           title: "You're already in!",
-          body: "You've entered this raffle already. We'll message you on WhatsApp if you win — good luck!",
+          body: "You've entered this raffle already. We'll message you on WhatsApp if you win \u2014 good luck!",
           emoji: '🎉',
         });
         onSubmitted();
@@ -191,7 +191,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setPhase('ack');
         setAckState({
           title: "You've already won this one!",
-          body: "You’ve already won this raffle. Come back next week for another chance — thanks for dancing with us.",
+          body: "You've already won this raffle. Come back next week for another chance \u2014 thanks for dancing with us.",
           emoji: '🏆',
         });
         onSubmitted();
@@ -254,13 +254,13 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]">
+      <DialogContent className="mx-auto max-w-[430px] p-0 border-[color:var(--bento-hairline)] bg-[hsl(var(--bento-surface-raised))] text-[hsl(var(--bento-fg))]">
         <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
+          <DialogTitle className="flex items-center gap-2 text-[hsl(var(--bento-accent-bright))]">
             <Sparkles className="w-4 h-4" aria-hidden />
             Enter the raffle
           </DialogTitle>
-          <DialogDescription className="text-[#A59474]">
+          <DialogDescription className="text-[hsl(var(--bento-fg-muted))]">
             One entry per person. The winner is messaged on WhatsApp after the draw.
           </DialogDescription>
         </DialogHeader>
@@ -268,13 +268,13 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         {phase === 'ack' && ackState ? (
           <div className="px-5 pb-5 pt-4 text-center space-y-3">
             <div className="text-4xl" aria-hidden>{ackState.emoji}</div>
-            <div className="text-lg font-semibold text-[#F5D563]">{ackState.title}</div>
-            <div className="text-sm text-[#D8CCB0] leading-relaxed max-w-sm mx-auto">{ackState.body}</div>
+            <div className="text-lg font-semibold text-[hsl(var(--bento-accent-bright))]">{ackState.title}</div>
+            <div className="text-sm text-[hsl(var(--bento-fg))] leading-relaxed max-w-sm mx-auto">{ackState.body}</div>
             <div className="pt-2">
               <Button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold min-w-[120px]"
+                className="bg-[hsl(var(--bento-accent))] hover:bg-[#c99a54] text-[hsl(var(--bento-surface-raised))] font-semibold min-w-[120px]"
               >
                 Got it
               </Button>
@@ -283,24 +283,24 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         ) : phase === 'confirming' ? (
           <div className="px-4 pb-6 pt-3 text-center space-y-2">
             <WhatsAppIcon className="w-8 h-8 mx-auto text-[#25D366] motion-safe:animate-pulse" />
-            <div className="text-base font-semibold text-[#F5D563]">Sending your WhatsApp confirmation…</div>
-            <div className="text-xs text-[#A59474]">Usually takes a few seconds.</div>
+            <div className="text-base font-semibold text-[hsl(var(--bento-accent-bright))]">Sending your WhatsApp confirmation&hellip;</div>
+            <div className="text-xs text-[hsl(var(--bento-fg-muted))]">Usually takes a few seconds.</div>
           </div>
         ) : phase === 'success_verified' ? (
           <div className="px-4 pb-5 pt-2 text-center">
             <div className="text-2xl mb-1" aria-hidden>🎉</div>
-            <div className="text-base font-semibold text-[#F5D563]">You're in — check WhatsApp!</div>
-            <div className="text-xs text-[#A59474] mt-1">
+            <div className="text-base font-semibold text-[hsl(var(--bento-accent-bright))]">You're in &mdash; check WhatsApp!</div>
+            <div className="text-xs text-[hsl(var(--bento-fg-muted))] mt-1">
               We've sent your entry confirmation. Winners are messaged on WhatsApp after the draw.
             </div>
           </div>
         ) : phase === 'success_neutral' ? (
           <div className="px-4 pb-5 pt-2 text-center">
             <div className="text-2xl mb-1" aria-hidden>🎉</div>
-            <div className="text-base font-semibold text-[#F5D563]">You're in! Good luck</div>
-            <div className="text-xs text-[#A59474] mt-1">
+            <div className="text-base font-semibold text-[hsl(var(--bento-accent-bright))]">You're in! Good luck</div>
+            <div className="text-xs text-[hsl(var(--bento-fg-muted))] mt-1">
               {neutralVariant === 'sent_unconfirmed'
-                ? "We've sent you a WhatsApp confirmation — it may take a minute to arrive."
+                ? "We've sent you a WhatsApp confirmation \u2014 it may take a minute to arrive."
                 : 'Winners are messaged on WhatsApp after the draw.'}
             </div>
           </div>
@@ -327,23 +327,23 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 data-testid="raffle-wa-failed"
                 className="rounded-md border border-rose-500/40 bg-rose-950/40 px-3 py-2 text-[12px] leading-snug text-rose-200"
               >
-                That number doesn't seem to have WhatsApp. Check it and try again —
+                That number doesn't seem to have WhatsApp. Check it and try again &mdash;
                 winners can only be contacted on WhatsApp.
               </div>
             )}
 
-            <div className="flex items-start gap-2 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 py-2">
+            <div className="flex items-start gap-2 rounded-md border border-[color:var(--bento-hairline)] bg-black/25 px-3 py-2">
               <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" />
-              <div className="text-[11px] leading-snug text-[#D8CCB0]">
-                <span className="font-semibold text-[#F5D563]">Winners are contacted on WhatsApp only.</span>{' '}
+              <div className="text-[11px] leading-snug text-[hsl(var(--bento-fg))]">
+                <span className="font-semibold text-[hsl(var(--bento-accent-bright))]">Winners are contacted on WhatsApp only.</span>{' '}
                 Make sure this number has WhatsApp.
               </div>
             </div>
 
             <div>
-              <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
+              <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[hsl(var(--bento-fg))]">
                 Phone <span className="text-rose-400">*</span>
-                <span className="text-[#A59474] ml-1">(must have WhatsApp)</span>
+                <span className="text-[hsl(var(--bento-fg-muted))] ml-1">(must have WhatsApp)</span>
               </label>
               <RafflePhoneInput
                 inputId="raffle-phone"
@@ -353,18 +353,18 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               />
             </div>
 
-            <label className="flex items-start gap-2 text-[11px] leading-snug text-[#D8CCB0] select-none cursor-pointer">
+            <label className="flex items-start gap-2 text-[11px] leading-snug text-[hsl(var(--bento-fg))] select-none cursor-pointer">
               <input
                 type="checkbox"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
                 disabled={phase !== 'form'}
-                className="mt-0.5 accent-[#B38A4E]"
+                className="mt-0.5 accent-[hsl(var(--bento-accent))]"
                 required
               />
               <span>
                 I agree my phone number will be stored for raffle entry.{' '}
-                <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[#F5D563] hover:text-[#ffd700]">See privacy policy</a>.
+                <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[hsl(var(--bento-accent-bright))] hover:text-[#ffd700]">See privacy policy</a>.
               </span>
             </label>
 
@@ -374,16 +374,16 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
                 disabled={phase !== 'form'}
-                className="text-[#A59474] hover:text-[#D8CCB0]"
+                className="text-[hsl(var(--bento-fg-muted))] hover:text-[hsl(var(--bento-fg))]"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={!canSubmit}
-                className="bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[hsl(var(--bento-accent))] hover:bg-[#c99a54] text-[hsl(var(--bento-surface-raised))] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
+                {phase === 'submitting' ? 'Entering\u2026' : waFailed ? 'Try again' : 'Enter raffle'}
               </Button>
             </div>
           </form>

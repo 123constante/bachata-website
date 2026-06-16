@@ -402,7 +402,7 @@ const PartyCard = ({
             border: `1px solid ${roomAccent ?? 'hsl(var(--bento-accent))'}66`,
           }}
         >
-          âœ¦ Show
+          &#10022; Show
         </div>
       )}
       {headingText && (() => {

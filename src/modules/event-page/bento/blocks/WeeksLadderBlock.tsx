@@ -35,7 +35,7 @@ export const WeeksLadderBlock = ({
     <BentoTile title="Course" color="hsl(var(--bento-surface-raised))" mode="multi-target">
       <div className="px-1 pb-1">
         <div
-          className="mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+          className="mb-2 flex items-center justify-center gap-1.5 text-[0.737rem] font-bold uppercase tracking-[0.04em]"
           style={{ color: 'hsl(var(--bento-accent))' }}
         >
           {finished ? (
@@ -77,6 +77,7 @@ export const WeeksLadderBlock = ({
               <Link
                 key={occ.occurrenceId}
                 to={`?occurrenceId=${occ.occurrenceId}`}
+                aria-label={`View week ${i + 1}, ${dateLabel}${occ.isCancelled ? ' (cancelled)' : ''}`}
                 className="relative flex items-center gap-3 py-[9px]"
                 style={{ opacity: dimmed ? 0.4 : undefined }}
               >
@@ -90,7 +91,7 @@ export const WeeksLadderBlock = ({
                     />
                   )}
                   <span
-                    className="relative flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-extrabold"
+                    className="relative flex h-7 w-7 items-center justify-center rounded-full text-[0.811rem] font-extrabold"
                     style={
                       isUpcoming
                         ? { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }
@@ -108,10 +109,10 @@ export const WeeksLadderBlock = ({
                 {/* Label */}
                 <div className="flex flex-1 flex-col gap-[1px]">
                   <span
-                    className="text-[12px] font-extrabold leading-none"
+                    className="text-[0.884rem] font-extrabold leading-none"
                     style={{
                       color: occ.isCancelled
-                        ? 'rgba(248,113,113,0.7)'
+                        ? 'hsl(var(--bento-danger) / 0.7)'
                         : isUpcoming
                           ? 'hsl(var(--bento-fg))'
                           : 'hsl(var(--bento-fg-muted))',
@@ -120,21 +121,21 @@ export const WeeksLadderBlock = ({
                   >
                     Week {i + 1}
                   </span>
-                  <span className="text-[9.5px] font-semibold" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+                  <span className="text-[0.774rem] font-semibold" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
                     {dateLabel}
                   </span>
                   {(isUpcoming || today || occ.isCancelled) && (
                     <span className="mt-[3px] flex gap-1">
                       {occ.isCancelled ? (
                         <span
-                          className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
-                          style={{ background: '#dc2626', color: '#fff' }}
+                          className="rounded-[3px] px-[4px] py-px text-[0.663rem] font-extrabold uppercase tracking-[0.06em]"
+                          style={{ background: 'hsl(var(--bento-danger))', color: '#fff' }}
                         >
                           Cancelled
                         </span>
                       ) : (
                         <span
-                          className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
+                          className="rounded-[3px] px-[4px] py-px text-[0.663rem] font-extrabold uppercase tracking-[0.06em]"
                           style={{ background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }}
                         >
                           {today ? 'Today' : 'Next session'}
@@ -150,7 +151,7 @@ export const WeeksLadderBlock = ({
                     <span
                       className="leading-none tracking-[-0.01em]"
                       style={{
-                        fontSize: isUpcoming ? '13px' : '11px',
+                        fontSize: isUpcoming ? '0.958rem' : '0.811rem',
                         fontWeight: isUpcoming ? 900 : 700,
                         color: isUpcoming ? 'hsl(var(--bento-accent))' : 'hsl(var(--bento-fg-muted))',
                       }}
@@ -158,7 +159,7 @@ export const WeeksLadderBlock = ({
                       {time}
                     </span>
                     {duration && (
-                      <span className="text-[7.5px] font-semibold leading-none" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+                      <span className="text-[0.663rem] font-semibold leading-none" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
                         {duration}
                       </span>
                     )}

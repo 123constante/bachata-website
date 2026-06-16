@@ -106,7 +106,7 @@ export const GroupChatBlock = ({ url, eventId }: GroupChatBlockProps) => {
         style={{ color: 'hsl(var(--bento-accent))' }}
         aria-hidden="true"
       >
-        →
+        &rarr;
       </span>
     </a>
   );

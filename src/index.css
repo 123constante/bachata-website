@@ -309,6 +309,9 @@
     --bento-fg: 41 38% 76%;              /* #D8CCB0 — aged cream body text */
     --bento-fg-muted: 41 17% 56%;        /* #A59474 — muted body text */
     --bento-hairline: hsl(var(--bento-accent) / 0.18);
+    --bento-danger: 0 72% 51%;           /* ~#DC2626 - cancelled/error red */
+    --bento-accent-bright: 47 88% 67%;   /* ~#F5D563 - brighter brass highlight */
+    --bento-warn: 34 100% 50%;           /* ~#FF9500 - countdown warning */
     --bento-plum: 280 35% 25%;           /* #2C1F3E — deep aubergine, pairs brass+velvet for the bento gradient palette */
 
     /* Venue page — Latin Warm palette (locked 2026-04-30).

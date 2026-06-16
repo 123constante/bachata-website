@@ -137,13 +137,32 @@ export function raffleDayLabel(
  *  1s when under 10 minutes to close, 30s otherwise; stops when closed/unset. */
 export function useRaffleNow(cutoffMs: number | null, closed: boolean): number {
   const [now, setNow] = useState(() => Date.now());
+  // Whether we are within the final 10 minutes -- drives the tick cadence
+  // (1s vs 30s). Kept as its own state so the interval re-arms at most once
+  // (when this flips) rather than on every tick, which listing `now` in the
+  // effect deps used to cause.
+  const [isUrgent, setIsUrgent] = useState(
+    () => cutoffMs !== null && cutoffMs - Date.now() <= 10 * 60 * 1000,
+  );
   useEffect(() => {
     if (closed || cutoffMs === null) return;
-    const remaining = cutoffMs - now;
-    if (remaining <= 0) return;
-    const interval = remaining <= 10 * 60 * 1000 ? 1_000 : 30_000;
-    const id = window.setInterval(() => setNow(Date.now()), interval);
+    if (cutoffMs - Date.now() <= 0) return;
+    // Re-derive urgency on every (re)arm so a changed cutoff uses the right
+    // cadence; sync state so a boundary-cross re-arms via the deps.
+    const armUrgent = cutoffMs - Date.now() <= 10 * 60 * 1000;
+    if (armUrgent !== isUrgent) setIsUrgent(armUrgent);
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (cutoffMs - t <= 0) {
+        // Cutoff reached: stop ticking -- the countdown label is now static.
+        window.clearInterval(id);
+        return;
+      }
+      const urgent = cutoffMs - t <= 10 * 60 * 1000;
+      setIsUrgent((prev) => (prev === urgent ? prev : urgent));
+    }, armUrgent ? 1_000 : 30_000);
     return () => window.clearInterval(id);
-  }, [cutoffMs, closed, now]);
+  }, [cutoffMs, closed, isUrgent]);
   return now;
 }

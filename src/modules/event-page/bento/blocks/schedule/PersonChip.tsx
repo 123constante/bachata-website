@@ -31,18 +31,18 @@ const SIZE_TABLE: Record<
   PersonChipSize,
   {
     avatarPx: number;
-    nameFontPx: number;
+    nameFont: string;
     showName: boolean;
-    initialFontPx: number;
+    initialFont: string;
     gapPx: number;
     nameMaxCh: number;
   }
 > = {
-  xs: { avatarPx: 24, nameFontPx: 0,  showName: false, initialFontPx: 11, gapPx: 0, nameMaxCh: 0 },
-  sm: { avatarPx: 28, nameFontPx: 13, showName: true,  initialFontPx: 12, gapPx: 7, nameMaxCh: 18 },
-  md: { avatarPx: 40, nameFontPx: 14, showName: true,  initialFontPx: 15, gapPx: 8, nameMaxCh: 18 },
-  lg: { avatarPx: 52, nameFontPx: 13, showName: true,  initialFontPx: 18, gapPx: 9, nameMaxCh: 18 },
-  xl: { avatarPx: 64, nameFontPx: 9,  showName: true,  initialFontPx: 22, gapPx: 0, nameMaxCh: 0  },
+  xs: { avatarPx: 24, nameFont: '0',  showName: false, initialFont: '0.811rem', gapPx: 0, nameMaxCh: 0 },
+  sm: { avatarPx: 28, nameFont: '0.958rem', showName: true,  initialFont: '0.884rem', gapPx: 7, nameMaxCh: 18 },
+  md: { avatarPx: 40, nameFont: '1.031rem', showName: true,  initialFont: '1.105rem', gapPx: 8, nameMaxCh: 18 },
+  lg: { avatarPx: 52, nameFont: '0.958rem', showName: true,  initialFont: '1.326rem', gapPx: 9, nameMaxCh: 18 },
+  xl: { avatarPx: 64, nameFont: '0.663rem',  showName: true,  initialFont: '1.62rem', gapPx: 0, nameMaxCh: 0  },
 };
 
 // Minimum interactive hit area, per WCAG 2.5.5 / Material's 48 dp guideline.
@@ -152,7 +152,7 @@ const AvatarCircle = ({
       style={{
         width: t.avatarPx,
         height: t.avatarPx,
-        fontSize: t.initialFontPx,
+        fontSize: t.initialFont,
         background: showAvatar ? undefined : 'hsl(var(--bento-surface))',
         border: showAvatar ? undefined : '1.5px solid var(--bento-hairline)',
         color: 'hsl(var(--bento-accent))',
@@ -214,7 +214,7 @@ export const PersonChip = ({
             // 'xl' (class-card) uses sans + 9 px to match the legacy WrapCell;
             // 'lg' (party headliner) uses serif + 13 px to match FeatureCell.
             fontFamily: size === 'xl' ? undefined : '"Fraunces", Georgia, serif',
-            fontSize: t.nameFontPx,
+            fontSize: t.nameFont,
             color: 'hsl(var(--bento-fg))',
             opacity: isDimmed ? 0.7 : 1,
             marginTop: 5,
@@ -251,7 +251,7 @@ export const PersonChip = ({
           className="truncate"
           style={{
             fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: t.nameFontPx,
+            fontSize: t.nameFont,
             fontWeight: 500,
             color: 'hsl(var(--bento-fg))',
             opacity: isDimmed ? 0.7 : 1,

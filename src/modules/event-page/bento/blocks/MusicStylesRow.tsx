@@ -22,9 +22,14 @@ export const MusicStylesRow = ({ musicStyles }: MusicStylesRowProps) => {
           <Link
             key={slug}
             to={to}
-            className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-[6px] text-[12px] font-medium text-white/80 transition hover:bg-white/[0.08]"
+            className="rounded-full px-3 py-[6px] text-[12px] font-medium transition active:scale-[0.97]"
+            style={{
+              background: 'hsl(var(--bento-surface))',
+              border: '1px solid var(--bento-hairline)',
+              color: 'hsl(var(--bento-fg-muted))',
+            }}
           >
-            #{slug}
+            <span style={{ color: 'hsl(var(--bento-accent))' }}>#</span>{slug}
           </Link>
         );
       })}
