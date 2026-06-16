@@ -75,6 +75,10 @@ export type EventPageSnapshot = {
     description: string | null;
     date: string | null;
     type: string | null;
+    /** P5 structural shape: one_off | recurring | course | festival. Null for legacy-only events. */
+    format: string | null;
+    /** P5 discovery genre: party | class | workshop | masterclass. Null for legacy-only events. */
+    category: string | null;
     timezone: string | null;
     citySlug: string | null;
     location: string | null;
@@ -183,6 +187,7 @@ export type EventPageModel = {
     occurrenceId: string | null;
     statusLabel: string | null;
     eventType: string | null;
+    eventFormat: string | null;
     level: EventPageEventLevel;
     musicStyles: string[];
   };

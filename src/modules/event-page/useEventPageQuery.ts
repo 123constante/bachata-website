@@ -132,6 +132,8 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       description: asString(event.description),
       date: asString(event.date),
       type: asString(event.type),
+      format: asString(event.format),
+      category: asString(event.category),
       timezone: asString(event.timezone),
       citySlug: asString(event.city_slug),
       location: asString(event.location),

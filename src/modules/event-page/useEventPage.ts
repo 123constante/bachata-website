@@ -17,16 +17,19 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
   });
 
   // Always call get_public_festival_detail — the RPC runs for every published event,
-  // not just festivals. Gate isFestival on festival-specific content being present:
-  // - a MULTI-DAY schedule (≥2 distinct YYYY-MM-DD day keys), OR
-  // - festival passes (standard events never have passes).
-  // NB: a single dated day is NOT a festival signal. P5-series standard events
-  // mirror their program into legacy event_program_items with a concrete day,
-  // so "any YYYY-MM-DD day" mis-classified them as festivals (→ "Festival not
-  // found"). Requiring ≥2 distinct days keeps real multi-day festivals while
-  // letting single-day standard events resolve to isFestival=false.
+  // not just festivals. Gate isFestival on:
+  // - format === 'festival' (P5 canonical field, Phase 8 primary signal), OR
+  // - content-sniff fallback: MULTI-DAY schedule (≥2 distinct YYYY-MM-DD day keys),
+  //   OR festival passes (standard events never have passes).
+  // The content-sniff is kept as a COALESCE because legacy-only / null-format
+  // events must not misroute to "Festival not found" (plan Phase 8, critique P0-5).
+  // NB: a single dated day is NOT a festival signal — P5 standard events mirror
+  // their program into legacy event_program_items with a concrete day, so
+  // "any YYYY-MM-DD day" mis-classified them. ≥2 distinct days keeps real
+  // multi-day festivals while letting single-day standard events resolve correctly.
   const festivalQuery = useFestivalDetailQuery(eventId, Boolean(eventId));
   const isFestival = (() => {
+    if (query.data?.event.format === 'festival') return true;
     const fd = festivalQuery.data;
     if (!fd) return false;
     const distinctDays = new Set(

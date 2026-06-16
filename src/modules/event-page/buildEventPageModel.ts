@@ -52,7 +52,7 @@ const formatShortDateLabel = (value: string | null, timezone: string | null): st
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
   page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null },
-  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, level: null, musicStyles: [] },
+  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, eventFormat: null, level: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
   schedule: { dateLabel: null, shortDateLabel: null, timeLabel: null, timezoneLabel: null, keyTimes: null, isCancelled: false, isVisible: false },
@@ -126,6 +126,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       occurrenceId: snapshot.occurrenceId,
       statusLabel,
       eventType: snapshot.event.type,
+      eventFormat: snapshot.event.format,
       level: snapshot.event.level,
       musicStyles: snapshot.event.musicStyles,
     },
