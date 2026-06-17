@@ -1215,7 +1215,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                   return (
                     <div
                       key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}
-                      className="grid items-center gap-[6px]"
+                      className="grid items-start gap-[6px]"
                       style={{ gridTemplateColumns: `64px repeat(${orderedRooms.length}, 1fr)` }}
                     >
                       <div className="text-center">
