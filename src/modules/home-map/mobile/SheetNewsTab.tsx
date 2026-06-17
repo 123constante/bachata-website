@@ -9,7 +9,13 @@ export function SheetNewsTab({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
   return (
     <div className="space-y-1">
-      <h3 className="px-1 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Latest news</h3>
+      <div className="px-1 pt-1 pb-2">
+        <div className="flex items-center gap-2 pb-1.5">
+          <h3 className="text-[11px] font-extrabold uppercase tracking-wide text-foreground">Latest news</h3>
+          <span className="rounded-full bg-primary px-[5px] py-[1.5px] text-[8px] font-black uppercase leading-none tracking-wide text-black">Live</span>
+        </div>
+        <div className="h-px w-full bg-gradient-to-r from-primary/70 to-primary/0" />
+      </div>
       {events.length === 0 ? (
         <EmptyState>No recent additions or updates.</EmptyState>
       ) : (

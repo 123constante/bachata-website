@@ -33,7 +33,7 @@ const NAV_ITEMS: {
   // /raffles is NOT city-scoped (no /city/:slug/raffles route), so fixedPath
   // is required. Flag-gated alongside the route: hidden while rafflesPage is false.
   ...(flags.rafflesPage
-    ? [{ label: 'Raffles', emoji: '\u{1F3B0}', fixedPath: '/raffles', external: false, duration: 1.7 }]
+    ? [{ label: 'Raffles', emoji: '\u{1F381}', fixedPath: '/raffles', external: false, duration: 1.7 }]
     : []),
   { label: 'Community',  emoji: null,                 fixedPath: WHATSAPP_URL,  external: true,  duration: 2.0 },
 ];

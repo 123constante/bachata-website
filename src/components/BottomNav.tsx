@@ -26,7 +26,7 @@ const BASE_NAV_LINKS: Array<{
   // is required. Flag-gated: the route redirects home when rafflesPage is
   // off, so the nav entry must disappear with it (prod flag is false for now).
   ...(flags.rafflesPage
-    ? [{ segment: 'raffles', label: 'Raffles', emoji: '\u{1F3B0}', fixedPath: '/raffles' }]
+    ? [{ segment: 'raffles', label: 'Raffles', emoji: '\u{1F381}', fixedPath: '/raffles' }]
     : []),
 ];
 
@@ -43,7 +43,7 @@ const emojiAnimations = {
     animate: { y: [0, -8, 0] },
     transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' as const },
   },
-  '\u{1F3B0}': {
+  '\u{1F381}': {
     animate: { y: [0, -8, 0] },
     transition: { repeat: Infinity, duration: 1.7, ease: 'easeInOut' as const },
   },
