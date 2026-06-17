@@ -201,6 +201,7 @@ export default function EventMap({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
       maxClusterRadius: compact ? 24 : 28,
+      disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: !interceptCluster,
       zoomToBoundsOnClick: !interceptCluster,
@@ -417,6 +418,62 @@ export default function EventMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventsKey]);
 
+
+  // ---- (re)build markers when the pin set changes --------------------------
+  useEffect(() => {
+    if (!clusterRef.current) return;
+    const size: [number, number] = compact ? [36, 40] : [46, 52];
+    const anchor: [number, number] = compact ? [18, 40] : [23, 52];
+    const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
+    const next = new Map<string, L.Marker>();
+    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
+    const eventsByCoord = new Map<string, MapEvent[]>();
+    for (const e of events) {
+      if (e.lat == null || e.lng == null) continue;
+      const key = coordKey(e.lat, e.lng);
+      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
+      eventsByCoord.get(key)!.push(e);
+    }
+    for (const e of events) {
+      if (e.lat == null || e.lng == null) continue;
+      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
+      const index = colocated.indexOf(e);
+      const offsetDeg = index * 0.000005;
+      const lat = e.lat + offsetDeg;
+      const lng = e.lng + offsetDeg;
+      const mk = L.marker([lat, lng], {
+        icon: L.divIcon({
+          html: posterHtml(e),
+          className: 'rpinwrap',
+          iconSize: size,
+          iconAnchor: anchor,
+          popupAnchor: popAnchor,
+        }),
+        keyboard: true,
+        riseOnHover: true,
+        title: `${e.name}${e.venue_name ? `, ${e.venue_name}` : ''}`,
+        alt: `${CATEGORY_LABEL[deriveCategory(e)]}: ${e.name}`,
+      });
+      if (popupMode !== 'none') {
+        mk.bindPopup(popupHtml(e), {
+          className: 'rmap-pop',
+          maxWidth: 248,
+          minWidth: 228,
+          keepInView: true,
+          autoPanPadding: [40, 40],
+        });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mk as any)._occ = e.occurrence_id;
+      mk.on('click', () => cb.current.onSelect?.(e.occurrence_id));
+      mk.on('mouseover', () => cb.current.onHover?.(e.occurrence_id));
+      mk.on('mouseout', () => cb.current.onHover?.(null));
+      next.set(e.occurrence_id, mk);
+    }
+    markers.current = next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventsKey]);
+
   // ---- visibility ----------------------------------------------------------
   useEffect(() => {
     const cl = clusterRef.current;
@@ -429,11 +486,6 @@ export default function EventMap({
     });
     cl.addLayers(layers);
     shownRef.current = layers;
-    // One-time initial framing once real pins exist: fit the view to them so the
-    // city fills the (short, on mobile) map card. Filter/tab changes after this
-    // do NOT re-fit (that would yank the map on every chip tap). A first
-    // location fix sets this flag early (see the user-dot effect) so the view
-    // stays centred on the user instead of snapping to fit-all.
     if (!didInitialFit.current && layers.length > 0) {
       didInitialFit.current = true;
       fitRef.current?.(false);
