@@ -1,10 +1,13 @@
 /**
- * FAQ page - targeted at "bachata London" long-tail queries.
- * Emits FAQPage schema for rich snippet eligibility in Google SERPs.
+ * FAQ page - targeted at "bachata London" long-tail + People-Also-Ask queries.
+ * Emits FAQPage schema. Note: Google retired FAQPage blue-link rich results in
+ * 2026, so the value here is People Also Ask / AI Overview coverage, on-page
+ * text and internal links - not a star-styled rich result. Keep the schema
+ * (harmless, may aid AI surfaces).
  */
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo } from '@/lib/seo';
+import { useSeo, SITE_ORIGIN } from '@/lib/seo';
 
 interface Faq {
   q: string;
@@ -93,7 +96,9 @@ const FAQS: Faq[] = [
       <>
         Yes. The basic step is a simple side-to-side weight shift (1-2-3-tap) - you can
         pick it up in your first class. Most London schools run dedicated beginner
-        rooms. Find one near you on the{' '}
+        rooms. New to it all? Read our{' '}
+        <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide</Link>{' '}
+        or find a class on the{' '}
         <Link to="/classes" className="text-primary underline">Classes page</Link>.
       </>
     ),
@@ -156,6 +161,120 @@ const FAQS: Faq[] = [
       </>
     ),
   },
+  {
+    q: "What's the difference between salsa and bachata?",
+    a: 'Salsa is faster, usually danced in a slot or on a circle with lots of spins, to brassy Cuban and Puerto Rican music. Bachata is slower and more grounded, danced close in a side-to-side step to Dominican guitar music. Many London nights play both, so you can try each.',
+    body: (
+      <>
+        Salsa is faster and spinnier, danced to brassy Cuban and Puerto Rican music;
+        bachata is slower and more grounded, danced close in a side-to-side step to
+        Dominican guitar music. Many London nights play both - the music policy is on
+        each listing on the{' '}
+        <Link to="/parties" className="text-primary underline">Parties page</Link>.
+      </>
+    ),
+  },
+  {
+    q: 'Is bachata hard to learn?',
+    a: 'No - bachata is widely considered the easiest Latin partner dance to begin. The basic step is a side-to-side weight shift on a 1-2-3-tap count, and you can dance it to music in your first hour. Looking polished takes months, but having fun takes one class.',
+    body: (
+      <>
+        No. The basic step is a side-to-side weight shift (1-2-3-tap) you can do to music
+        in your first hour - bachata is the easiest Latin partner dance to start. Polish
+        takes months; fun takes one class. Our{' '}
+        <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide</Link>{' '}
+        walks you through it.
+      </>
+    ),
+  },
+  {
+    q: 'Where is bachata most popular in London?',
+    a: 'South London (Kennington, Vauxhall, Clapham) is the studio heartland; Covent Garden, the City and King\'s Cross host the big club-room nights; Fulham and Hackney anchor the west and east teaching scenes. There is a bachata night within reach of almost every part of the city.',
+    body: (
+      <>
+        South London (Kennington, Vauxhall, Clapham) is the studio heartland; Covent
+        Garden, the City and King's Cross host the big club nights; Fulham and Hackney
+        anchor west and east. The{' '}
+        <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}
+        maps it area by area, and the{' '}
+        <Link to="/venues" className="text-primary underline">Venues page</Link>{' '}
+        lists every room.
+      </>
+    ),
+  },
+  {
+    q: 'Are there free bachata events in London?',
+    a: 'Yes. Some socials are free entry, and many class nights include the social for free once you have paid for the lesson. Free taster classes pop up too. Check each listing for the door price - free events are flagged where they exist.',
+    body: (
+      <>
+        Yes - some socials are free entry, and many nights include the social for free
+        with a class ticket. Free tasters appear too. Each listing shows the door price,
+        so browse the{' '}
+        <Link to="/parties" className="text-primary underline">Parties</Link>{' '}and{' '}
+        <Link to="/tonight" className="text-primary underline">Tonight</Link>{' '}pages and
+        look for the free ones.
+      </>
+    ),
+  },
+  {
+    q: 'Am I too old to start bachata?',
+    a: 'No. Bachata floors in London span every age from teens to people in their sixties and beyond. It is low-impact, you set your own pace, and partner rotation means you are always dancing with someone at a friendly level. Plenty of people start in their forties and fifties.',
+    body: (
+      <>
+        No - London bachata floors span every age, from teens to dancers in their
+        sixties. It is low-impact and you set your own pace. Plenty of people start in
+        their forties and fifties; a beginner class is the easiest place to begin - find
+        one on the{' '}
+        <Link to="/classes" className="text-primary underline">Classes page</Link>.
+      </>
+    ),
+  },
+  {
+    q: 'Is there bachata in London on a Saturday?',
+    a: 'Yes - Saturday is one of the biggest nights. Expect flagship big-room parties, the occasional two-room salsa-and-bachata event, and festival programming when a congress is in town. See the Saturday page for this weekend.',
+    body: (
+      <>
+        Yes - Saturday is a headline night, with big-room parties and festival events
+        when a congress is in town. See what&rsquo;s on this{' '}
+        <Link to="/bachata-london-saturday" className="text-primary underline">Saturday</Link>{' '}
+        or browse the full{' '}
+        <Link to="/parties" className="text-primary underline">Parties page</Link>.
+      </>
+    ),
+  },
+  {
+    q: 'How do I meet other bachata dancers in London?',
+    a: 'The fastest way is to stay for the social after a class - partner rotation means you meet most of the room in an hour. London also has a 1,800-member bachata WhatsApp community run by Bachata Community UK that shares what is on each week.',
+    body: (
+      <>
+        Stay for the social after a class - partner rotation means you meet most of the
+        room in an hour. London also has a 1,800-member bachata WhatsApp community run by
+        Bachata Community UK that shares what&rsquo;s on each week; find us on Instagram{' '}
+        <a
+          href="https://www.instagram.com/bachata.community.uk/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline"
+        >@bachata.community.uk</a>.
+      </>
+    ),
+  },
+  {
+    q: 'How do I find bachata classes near me in London?',
+    a: 'Use the Classes page to see beginner and improver classes across London, grouped by night and venue, or open the calendar to filter by area. Each listing shows the venue, postcode, level and price so you can pick the closest, friendliest option.',
+    body: (
+      <>
+        The{' '}
+        <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}
+        lists classes across London by night and venue, with postcode, level and price
+        on each one. Browse by weekday from{' '}
+        <Link to="/bachata-london-monday" className="text-primary underline">Monday</Link>{' '}
+        onward, or read the{' '}
+        <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide</Link>{' '}
+        to choose your first.
+      </>
+    ),
+  },
 ];
 
 const FaqJsonLd = () => {
@@ -181,7 +300,7 @@ const Faq = () => {
     title: 'Bachata in London - FAQ',
     description:
       "Common questions about bachata in London - where to dance, what to wear, how to start, what to expect. Answers from the city's bachata calendar.",
-    canonical: 'https://bachatacalendar.co.uk/faq',
+    canonical: `${SITE_ORIGIN}/faq`,
   });
 
   return (

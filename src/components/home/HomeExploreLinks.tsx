@@ -9,6 +9,7 @@ const EXPLORE: ReadonlyArray<readonly [string, string]> = [
   ['On tonight', '/tonight'],
   ['Bachata parties', '/parties'],
   ['Bachata classes', '/classes'],
+  ['Learn bachata (beginners)', '/learn-bachata-london'],
   ['Festivals', '/festivals'],
   ['London bachata guide', '/london-bachata-guide'],
   ['FAQ', '/faq'],
