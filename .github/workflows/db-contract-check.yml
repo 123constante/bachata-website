@@ -1,4 +1,4 @@
-﻿name: DB Contract Check
+name: DB Contract Check
 
 # Verifies database invariants:
 #  1. The calendar_occurrences venue/city override contract
