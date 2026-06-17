@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@/components/ui/card';
+﻿import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
+import { eventHref } from '@/lib/seo/eventHref';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
 import NearMeCta from '@/components/tonight/NearMeCta';
@@ -42,6 +43,7 @@ type TonightEvent = {
   originalClassEnd: string | null;
   originalPartyStart: string | null;
   originalPartyEnd: string | null;
+  slug?: string | null;
 };
 
 const formatHHmm = (value?: string | null) => {
@@ -143,6 +145,7 @@ const Tonight = () => {
 
         return {
           id: String(event.event_id),
+          slug: event.slug ?? null,
           // ADR-007 Phase 4.2c — deep-link cards to the specific date so
           // the public page shows that date's per-occurrence program.
           occurrenceId: (event.occurrence_id as string | null) ?? null,
@@ -313,11 +316,11 @@ const Tonight = () => {
                     role="link"
                     tabIndex={0}
                     aria-label={`Open ${event.name}`}
-                    onClick={() => navigate(event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`)}
+                    onClick={() => navigate(eventHref({ slug: event.slug, event_id: event.id }, event.occurrenceId))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        navigate(event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`);
+                        navigate(eventHref({ slug: event.slug, event_id: event.id }, event.occurrenceId));
                       }
                     }}
                     className="bg-neutral-900/90 border-neutral-800 overflow-hidden hover:border-primary/50 transition-all duration-300 h-full flex flex-col cursor-pointer"

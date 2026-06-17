@@ -34,6 +34,7 @@ export interface CalendarEventRow {
   original_class_end?: string | null;
   original_party_start?: string | null;
   original_party_end?: string | null;
+  slug?: string | null;
 }
 
 export interface GetCalendarEventsParams {

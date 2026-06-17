@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
@@ -65,8 +65,8 @@ export const ComingUpSection = ({ className, title = "Coming Up" }: ComingUpSect
                 className="min-w-[140px] cursor-pointer"
                 onClick={() => navigate(
                   event.occurrenceId
-                    ? `/event/${event.id}?occurrenceId=${event.occurrenceId}`
-                    : `/event/${event.id}`
+                    ? `/event/${event.slug || event.id}?occurrenceId=${event.occurrenceId}`
+                    : `/event/${event.slug || event.id}`
                 )}
               >
                 <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/30 transition-all">

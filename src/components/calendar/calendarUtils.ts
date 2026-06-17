@@ -1,5 +1,6 @@
 import { resolveEventImage } from '@/lib/utils';
 import type { CalendarEvent } from '@/hooks/useCalendarEvents';
+import { eventHref } from '@/lib/seo/eventHref';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -213,7 +214,7 @@ export const transformCalendarEvents = (
       classStart,
       classEnd,
       venueName: event.location || (meta.venues as any)?.[0]?.name || 'Venue TBA',
-      eventLink: `/event/${event.event_id}?occurrenceId=${event.occurrence_id}`,
+      eventLink: eventHref(event as { slug?: string | null; event_id: string }, String(event.occurrence_id ?? "")),
       coverImageUrl: resolveEventImage(event.photo_url, null),
       venueLat: venueCoords?.get(event.event_id)?.lat ?? null,
       venueLng: venueCoords?.get(event.event_id)?.lng ?? null,

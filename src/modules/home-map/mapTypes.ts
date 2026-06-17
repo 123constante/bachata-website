@@ -36,6 +36,7 @@ export interface MapEvent {
   freshness_kind: 'added' | 'updated' | null;
   is_cancelled: boolean;
   cancellation_reason_label: string | null;
+  slug?: string | null;
 }
 
 // Category colour system (handoff bc-base.css --cat-*).

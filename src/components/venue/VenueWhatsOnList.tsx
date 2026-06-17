@@ -5,6 +5,7 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 export interface VenueWhatsOnEvent {
   event_id: string;
   occurrence_id: string;
+  slug?: string | null;
   instance_start: string;
   name: string;
   poster_url: string | null;
@@ -25,7 +26,8 @@ const POSTER_FALLBACKS = [
 ];
 
 function buildHref(ev: VenueWhatsOnEvent): string {
-  return `/event/${ev.event_id}?occurrenceId=${ev.occurrence_id}`;
+  const base = `/event/${ev.slug || ev.event_id}`;
+  return `${base}?occurrenceId=${ev.occurrence_id}`;
 }
 
 function dayParts(iso: string): { day: string; mon: string; weekday: string } {
