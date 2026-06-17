@@ -46,7 +46,7 @@ export function CoverThumb({
   return (
     <span className={cn('cv block', scene, className)}>
       {event.cover_image_url ? (
-        <img className="cv-fill" src={event.cover_image_url} loading="lazy" alt="" />
+        <img className="cv-fill" src={event.cover_image_url} loading="lazy" alt={event.name} />
       ) : (
         <span
           className={cn(

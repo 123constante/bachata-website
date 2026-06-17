@@ -330,7 +330,7 @@ const Tonight = () => {
                         src={event.image}
                         alt={event.name}
                         className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${event.isCancelled ? 'brightness-[0.55] saturate-[0.6]' : ''}`}
-                        loading="lazy"/>
+                        width={800} height={450} loading="lazy"/>
                       <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
 
                       {/* Countdown is suppressed when cancelled — it's misleading
