@@ -1,6 +1,7 @@
 import { resolveEventImage } from '@/lib/utils';
 import type { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { eventHref } from '@/lib/seo/eventHref';
+import { isFestivalByFormat } from '@/lib/eventFormat';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,8 +19,10 @@ export interface CalendarEventItem {
   endDate: Date;
   instanceDateIso: string;
   type: 'parties' | 'classes' | 'both';
-  // Raw series type === 'festival'. Festivals are multi-day and link to the
-  // festival hub page; the calendar marks them distinctly (badge + gold dot).
+  // Format-primary festival flag (Phase 8): format === 'festival', falling back to
+  // the legacy `type` proxy for null-format rows (see src/lib/eventFormat.ts).
+  // Festivals are multi-day and link to the festival hub page; the calendar marks
+  // them distinctly (badge + gold dot).
   isFestival: boolean;
   hasParty: boolean;
   hasClass: boolean;
@@ -203,7 +206,9 @@ export const transformCalendarEvents = (
       endDate: normalizedEnd,
       instanceDateIso: event.instance_date,
       type,
-      isFestival: event.type === 'festival',
+      // Phase 8: format-primary festival check (shared predicate) with a legacy
+      // `type` fallback for null-format rows. See src/lib/eventFormat.ts.
+      isFestival: isFestivalByFormat(event),
       hasParty,
       hasClass,
       title: event.name,

@@ -65,7 +65,9 @@ export interface SearchResultsPayload {
 
 export interface SearchFilterOpts {
   includePast?: boolean;
-  eventTypes?: string[];      // lowercase tokens (v5 only)
+  eventTypes?: string[];      // legacy `type` tokens (v5 only) — kept for back-compat
+  formats?: string[];         // SHAPE: one_off|recurring|course|festival (v5 only)
+  categories?: string[];      // GENRE: party|class|workshop|masterclass (v5 only)
   styles?: string[];          // v5 only
   dateFrom?: string | null;   // YYYY-MM-DD (v5 only)
   dateTo?: string | null;     // v5 only
@@ -84,6 +86,8 @@ export function useSearchResults(
   const includePast = opts.includePast ?? false;
   const city = opts.citySlugOverride ?? citySlug;
   const etype = opts.eventTypes && opts.eventTypes.length ? opts.eventTypes : null;
+  const formats = opts.formats && opts.formats.length ? opts.formats : null;
+  const categories = opts.categories && opts.categories.length ? opts.categories : null;
   const styles = opts.styles && opts.styles.length ? opts.styles : null;
   const from = opts.dateFrom || null;
   const to = opts.dateTo || null;
@@ -91,7 +95,7 @@ export function useSearchResults(
   return useQuery<SearchResultsPayload>({
     // searchV5 is a build-time constant but keep it in the key so a flag flip
     // between builds never serves a stale v4 envelope.
-    queryKey: ['search-results', term, city, includePast, etype, styles, from, to, flags.searchV5],
+    queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5],
     enabled: term.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
@@ -106,6 +110,8 @@ export function useSearchResults(
             p_styles: styles,
             p_date_from: from,
             p_date_to: to,
+            p_format: formats,
+            p_category: categories,
           }
         : { p_query: term, p_city_slug: city, p_section_limit: 12, p_include_past: includePast };
 

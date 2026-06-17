@@ -110,6 +110,10 @@ const DancerProfile = () => {
     queryFn: async () => {
       if (!attendanceRows.length) return [] as AttendanceEvent[];
       const eventIds = attendanceRows.map((row) => row.event_id);
+      // Phase 8 note: reads the legacy `events.type` proxy on purpose. The
+      // format/category axes live on event_series_p5, not the events table;
+      // events.type stays as a legacy proxy (= format-derived), so the
+      // festival-vs-standard split below remains correct without a join.
       const { data, error } = await supabase
         .from("events")
         .select("id, name, city, country, date, start_time, type")

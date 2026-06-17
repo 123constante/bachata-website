@@ -56,6 +56,10 @@ const GRADIENTS = [
   'from-festival-rose to-primary',
 ];
 
+// Phase 8 note: these read the legacy `type` proxy (NOT `format`) on purpose —
+// get_latest_events_v2 does not emit format/category. Since `type` is now a
+// GENERATED column (= 'festival' iff format='festival'), the festival check is
+// already correct; revisit only if that RPC gains the format axis.
 const glyphFor = (c: LatestEventCard): string => {
   if (c.type === 'festival') return '\u{1F525}'; // fire
   if (c.hasClass && !c.hasParty) return '\u{1F393}'; // graduation cap

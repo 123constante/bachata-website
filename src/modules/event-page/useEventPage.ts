@@ -27,6 +27,10 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
   // their program into legacy event_program_items with a concrete day, so
   // "any YYYY-MM-DD day" mis-classified them. ≥2 distinct days keeps real
   // multi-day festivals while letting single-day standard events resolve correctly.
+  // NB: this is INTENTIONALLY not src/lib/eventFormat.ts's isFestivalByFormat — the
+  // event page layers a richer content-sniff (multi-day schedule / passes) on top of
+  // `format === 'festival'` rather than a raw `type` fallback, so a null-format legacy
+  // festival still routes to the festival hub instead of "Festival not found".
   const festivalQuery = useFestivalDetailQuery(eventId, Boolean(eventId));
   const isFestival = (() => {
     if (query.data?.event.format === 'festival') return true;

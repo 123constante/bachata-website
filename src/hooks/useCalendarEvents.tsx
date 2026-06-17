@@ -13,7 +13,11 @@ export interface CalendarEvent {
   is_recurring: boolean;
   meta_data: any;
   key_times?: any;
-  type: string;
+  type: string; // legacy GENERATED proxy (= format-derived)
+  // Phase 8 (format/category split): format drives layout/festival routing,
+  // category is the discovery genre. Nullable for legacy-only series.
+  format?: 'one_off' | 'recurring' | 'course' | 'festival' | null;
+  category?: string | null;
   has_party: boolean;
   has_class: boolean;
   class_start?: string | null;

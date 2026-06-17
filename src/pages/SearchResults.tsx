@@ -15,6 +15,7 @@ import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { highlight } from '@/components/search/highlight';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
+import { normalizeGenreToken } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -28,15 +29,21 @@ const chipBase = 'text-sm px-3 py-1.5 rounded-full border transition-colors whit
 const chipOn = 'bg-primary text-primary-foreground border-primary';
 const chipOff = 'bg-transparent text-foreground border-primary/20 hover:border-primary/40';
 
-// Event-type tokens MUST be the stored lowercase forms (the v5 filter is a
-// case-sensitive exact match against event_series_p5.type).
-const TYPE_OPTIONS: { token: string; label: string }[] = [
+// Phase 8 (format/category split): two orthogonal facet axes.
+// Tokens MUST be the stored lowercase forms (the v5 filter is an exact match
+// against event_series_p5.format / .category).
+//   FORMAT = structural SHAPE (one-off is omitted — not a useful search facet).
+//   GENRE  = discovery category. 'social' is gone (folds to Party — genreSynonyms).
+const FORMAT_OPTIONS: { token: string; label: string }[] = [
+  { token: 'recurring', label: 'Recurring' },
+  { token: 'course', label: 'Course' },
+  { token: 'festival', label: 'Festival' },
+];
+const GENRE_OPTIONS: { token: string; label: string }[] = [
   { token: 'party', label: 'Party' },
   { token: 'class', label: 'Class' },
   { token: 'workshop', label: 'Workshop' },
-  { token: 'course', label: 'Course' },
-  { token: 'festival', label: 'Festival' },
-  { token: 'social', label: 'Social' },
+  { token: 'masterclass', label: 'Masterclass' },
 ];
 
 const FACETS = [
@@ -103,7 +110,8 @@ const SearchResults = () => {
   const query = (params.get('q') ?? '').trim();
   const facet = params.get('type') ?? 'all';
   const time = params.get('time') === 'all' ? 'all' : 'upcoming';
-  const etype = (params.get('etype') ?? '').split(',').filter(Boolean);
+  const eformat = (params.get('eformat') ?? '').split(',').filter(Boolean);
+  const ecat = (params.get('ecat') ?? '').split(',').filter(Boolean);
   const styles = (params.get('styles') ?? '').split(',').filter(Boolean);
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
@@ -111,7 +119,10 @@ const SearchResults = () => {
 
   const { data, isLoading, error } = useSearchResults(query, citySlug, {
     includePast: time === 'all',
-    eventTypes: etype,
+    formats: eformat,
+    // Fold legacy/synonym genre tokens (e.g. a bookmarked `ecat=social`) to the
+    // canonical category before it hits the RPC. dedupe in case the fold collides.
+    categories: Array.from(new Set(ecat.map(normalizeGenreToken))),
     styles,
     dateFrom: from || null,
     dateTo: to || null,
@@ -132,7 +143,7 @@ const SearchResults = () => {
       if (next.length) p.set(key, next.join(',')); else p.delete(key);
     });
   const clearAllFilters = () =>
-    update((p) => { ['time', 'etype', 'styles', 'from', 'to', 'city'].forEach((k) => p.delete(k)); });
+    update((p) => { ['time', 'eformat', 'ecat', 'styles', 'from', 'to', 'city'].forEach((k) => p.delete(k)); });
 
   const dym = data?.did_you_mean ?? null;
   const total = data?.total_count ?? 0;
@@ -147,7 +158,7 @@ const SearchResults = () => {
     cities: data?.cities.length ?? 0,
   };
   const activeGroups =
-    (etype.length ? 1 : 0) + (styles.length ? 1 : 0) + (from || to ? 1 : 0) + (time === 'all' ? 1 : 0) + (cityOverride ? 1 : 0);
+    (eformat.length ? 1 : 0) + (ecat.length ? 1 : 0) + (styles.length ? 1 : 0) + (from || to ? 1 : 0) + (time === 'all' ? 1 : 0) + (cityOverride ? 1 : 0);
   const showSection = (key: string) => facet === 'all' || facet === key;
   const facetCount = (key: string) => (key === 'all' ? total : counts[key] ?? 0);
 
@@ -326,10 +337,18 @@ const SearchResults = () => {
           </div>
           <div className="overflow-y-auto px-4 pb-2">
             <div className="border-b border-border/60 py-3">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Type</div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Format</div>
               <div className="flex flex-wrap gap-2">
-                {TYPE_OPTIONS.map((t) => (
-                  <button key={t.token} type="button" onClick={() => toggleCsv('etype', t.token)} className={cn(chipBase, etype.includes(t.token) ? chipOn : chipOff)}>{t.label}</button>
+                {FORMAT_OPTIONS.map((t) => (
+                  <button key={t.token} type="button" onClick={() => toggleCsv('eformat', t.token)} className={cn(chipBase, eformat.includes(t.token) ? chipOn : chipOff)}>{t.label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="border-b border-border/60 py-3">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Genre</div>
+              <div className="flex flex-wrap gap-2">
+                {GENRE_OPTIONS.map((t) => (
+                  <button key={t.token} type="button" onClick={() => toggleCsv('ecat', t.token)} className={cn(chipBase, ecat.includes(t.token) ? chipOn : chipOff)}>{t.label}</button>
                 ))}
               </div>
             </div>

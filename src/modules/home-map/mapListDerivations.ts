@@ -10,6 +10,7 @@ import {
   distanceMiles,
   isFreshNew,
   freshnessDisplay,
+  isFestivalFormat,
   parseInstant,
   todayStr,
 } from './mapTypes';
@@ -164,7 +165,7 @@ export function calendarDays(events: MapEvent[]): Map<string, MapCategory[]> {
   for (const e of events) {
     if (!e.instance_date) continue;
     const f = flags.get(e.instance_date) ?? { party: false, class: false, fest: false, other: false };
-    if (e.type === 'festival') {
+    if (isFestivalFormat(e)) {
       f.fest = true;
     } else if (e.has_party || e.has_class) {
       if (e.has_party) f.party = true;

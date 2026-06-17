@@ -23,6 +23,12 @@ export interface CalendarEventRow {
   party_start: string | null;
   party_end: string | null;
   type: 'standard' | 'festival' | string;
+  // Phase 8 (format/category split): additive axes from get_calendar_events_v2.
+  // `format` drives LAYOUT (one_off|recurring|course|festival); `category` is the
+  // discovery genre. Nullable for legacy-only series — read format-primary with a
+  // `type` COALESCE fallback (type is now a GENERATED proxy = format-derived).
+  format?: 'one_off' | 'recurring' | 'course' | 'festival' | null;
+  category?: string | null;
   city_slug: string | null;
   // Added by admin migration 20260601120000_get_calendar_events_v2_cancelled_and_time_changed.
   // is_cancelled drives the Tonight CANCELLED red strip + dimmed image; original_*
@@ -100,6 +106,10 @@ export interface EventSnapshot {
   photo_urls: string[] | null;
   music_styles: string[] | null;
   type: 'standard' | 'festival' | string;
+  // Phase 8 (format/category split): `format` drives layout, `category` is genre.
+  // Nullable for legacy-only events; consumers read format-primary + `type` fallback.
+  format?: 'one_off' | 'recurring' | 'course' | 'festival' | null;
+  category?: string | null;
   is_recurring: boolean;
   actions: EventActions;
   key_times?: KeyTimes;

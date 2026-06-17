@@ -3,6 +3,7 @@
 // wrapper over get_calendar_events_v2 that adds added/updated freshness.
 
 import { haversineKm } from '@/lib/geo/haversineKm';
+import { isFestivalByFormat } from '@/lib/eventFormat';
 
 export type MapCategory = 'class' | 'party' | 'mix' | 'fest' | 'social';
 export type MapFilter = 'all' | 'parties' | 'classes' | 'festivals';
@@ -22,7 +23,12 @@ export interface MapEvent {
   instance_date: string | null; // 'YYYY-MM-DD' in city tz (display day)
   start_time: string | null; // ISO 'YYYY-MM-DD HH:MM:SS+00' -- wall-clock, do NOT tz-convert
   end_time: string | null;
-  type: string; // 'standard' | 'festival' | 'course' | ...
+  type: string; // 'standard' | 'festival' | 'course' | ... (legacy GENERATED proxy)
+  // Phase 8 (format/category split): `format` drives layout/festival routing,
+  // `category` is the discovery genre. Nullable for legacy-only series — read
+  // format-primary with a `type` fallback (see isFestivalFormat / deriveCategory).
+  format?: 'one_off' | 'recurring' | 'course' | 'festival' | null;
+  category?: string | null;
   has_party: boolean;
   has_class: boolean;
   // Split class/party times for "Class & Party" events ('HH:MM' wall-clock,
@@ -65,9 +71,17 @@ export const CATEGORY_LABEL: Record<MapCategory, string> = {
   social: 'Party',
 };
 
-/** Map an event's type/flags to a single display category. */
-export function deriveCategory(e: Pick<MapEvent, 'type' | 'has_party' | 'has_class'>): MapCategory {
-  if (e.type === 'festival') return 'fest';
+/**
+ * Festival check, format-primary (Phase 8). Thin re-export of the shared
+ * `isFestivalByFormat` predicate (src/lib/eventFormat.ts) so the map module and the
+ * calendar module decide festival-ness with one definition of the null-format
+ * fallback. Kept as a named export here for the existing map-module call sites.
+ */
+export const isFestivalFormat = isFestivalByFormat;
+
+/** Map an event's format/flags to a single display category. */
+export function deriveCategory(e: Pick<MapEvent, 'type' | 'format' | 'has_party' | 'has_class'>): MapCategory {
+  if (isFestivalFormat(e)) return 'fest';
   if (e.has_party && e.has_class) return 'mix';
   if (e.has_party) return 'party';
   if (e.has_class) return 'class';
@@ -87,7 +101,7 @@ export function matchesFilter(e: MapEvent, f: MapFilter): boolean {
   if (f === 'all') return true;
   if (f === 'parties') return e.has_party;
   if (f === 'classes') return e.has_class;
-  if (f === 'festivals') return e.type === 'festival';
+  if (f === 'festivals') return isFestivalFormat(e);
   return true;
 }
 

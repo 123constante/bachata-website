@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MapEvent } from '../mapTypes';
-import { matchesFilter } from '../mapTypes';
+import { matchesFilter, deriveCategory, isFestivalFormat } from '../mapTypes';
 import {
   dedupePins,
   tonightEvents,
@@ -152,6 +152,41 @@ describe('calendarDays', () => {
       ev({ instance_date: '2026-06-10', type: 'festival', has_party: true, has_class: true }),
     ]);
     expect(m.get('2026-06-10')).toEqual(['fest']);
+  });
+});
+
+describe('Phase 8 format-primary festival classification', () => {
+  it('isFestivalFormat reads format first when present', () => {
+    // format wins over a disagreeing legacy type
+    expect(isFestivalFormat({ format: 'festival', type: 'standard' })).toBe(true);
+    expect(isFestivalFormat({ format: 'recurring', type: 'festival' })).toBe(false);
+    expect(isFestivalFormat({ format: 'one_off', type: 'standard' })).toBe(false);
+  });
+
+  it('isFestivalFormat falls back to legacy type when format is null/absent', () => {
+    expect(isFestivalFormat({ format: null, type: 'festival' })).toBe(true);
+    expect(isFestivalFormat({ format: null, type: 'standard' })).toBe(false);
+    expect(isFestivalFormat({ type: 'festival' } as never)).toBe(true);
+  });
+
+  it('deriveCategory classifies as fest from format even when type disagrees', () => {
+    expect(
+      deriveCategory({ format: 'festival', type: 'standard', has_party: true, has_class: true }),
+    ).toBe('fest');
+  });
+
+  it('a format=festival row contributes only a fest dot regardless of legacy type', () => {
+    const m = calendarDays([
+      ev({ instance_date: '2026-06-10', format: 'festival', type: 'standard', has_party: true, has_class: true }),
+    ]);
+    expect(m.get('2026-06-10')).toEqual(['fest']);
+  });
+
+  it('matchesFilter "festivals" gates on format-primary', () => {
+    const festByFormat = ev({ format: 'festival', type: 'standard' });
+    const recurringClass = ev({ format: 'recurring', type: 'festival', has_class: true });
+    expect(matchesFilter(festByFormat, 'festivals')).toBe(true);
+    expect(matchesFilter(recurringClass, 'festivals')).toBe(false);
   });
 });
 
