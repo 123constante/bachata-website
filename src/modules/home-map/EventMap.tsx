@@ -363,9 +363,22 @@ export default function EventMap({
     const anchor: [number, number] = compact ? [18, 40] : [23, 52];
     const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
     const next = new Map<string, L.Marker>();
+    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
+    const eventsByCoord = new Map<string, MapEvent[]>();
     for (const e of events) {
       if (e.lat == null || e.lng == null) continue;
-      const mk = L.marker([e.lat, e.lng], {
+      const key = coordKey(e.lat, e.lng);
+      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
+      eventsByCoord.get(key)!.push(e);
+    }
+    for (const e of events) {
+      if (e.lat == null || e.lng == null) continue;
+      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
+      const index = colocated.indexOf(e);
+      const offsetDeg = index * 0.00002;
+      const lat = e.lat + offsetDeg;
+      const lng = e.lng + offsetDeg;
+      const mk = L.marker([lat, lng], {
         icon: L.divIcon({
           html: posterHtml(e),
           className: 'rpinwrap',
@@ -410,9 +423,22 @@ export default function EventMap({
     const anchor: [number, number] = compact ? [18, 40] : [23, 52];
     const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
     const next = new Map<string, L.Marker>();
+    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
+    const eventsByCoord = new Map<string, MapEvent[]>();
     for (const e of events) {
       if (e.lat == null || e.lng == null) continue;
-      const mk = L.marker([e.lat, e.lng], {
+      const key = coordKey(e.lat, e.lng);
+      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
+      eventsByCoord.get(key)!.push(e);
+    }
+    for (const e of events) {
+      if (e.lat == null || e.lng == null) continue;
+      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
+      const index = colocated.indexOf(e);
+      const offsetDeg = index * 0.00002;
+      const lat = e.lat + offsetDeg;
+      const lng = e.lng + offsetDeg;
+      const mk = L.marker([lat, lng], {
         icon: L.divIcon({
           html: posterHtml(e),
           className: 'rpinwrap',
