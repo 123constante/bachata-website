@@ -119,6 +119,7 @@ export function DistanceBadge({
   if (mi == null) return null;
   return (
     <div
+      data-testid="distance-badge"
       className={cn('flex flex-col items-center justify-center rounded-xl', className)}
       style={{ background: 'rgba(70,183,201,.14)' }}
     >

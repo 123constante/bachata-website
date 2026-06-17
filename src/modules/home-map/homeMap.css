@@ -155,8 +155,22 @@
 .home-map .rpop-venue { display: flex; align-items: center; gap: 7px; font-weight: 500; font-size: 12px; line-height: 1; color: var(--hm-pop-meta); }
 .home-map .rpop-cta { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; line-height: 1; color: var(--hm-accent); text-decoration: none; }
 
+/* ---- user "you are here" location dot (EventMap userCoords; Approach B sonar) ---- */
+.home-map .hm-userloc { background: none !important; border: none !important; }
+.home-map .hm-userdot { position: relative; width: 22px; height: 22px; }
+.home-map .hm-userdot .core { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+  transform: translate(-50%,-50%); border-radius: 50%; background: #3B82F6; border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.5); }
+.home-map .hm-userdot .r1, .home-map .hm-userdot .r2 { position: absolute; left: 50%; top: 50%;
+  width: 14px; height: 14px; transform: translate(-50%,-50%); border-radius: 50%;
+  border: 2px solid rgba(96,165,250,.55); animation: hm-usersonar 2.4s ease-out infinite; }
+.home-map .hm-userdot .r2 { animation-delay: 1.2s; }
+@keyframes hm-usersonar { 0% { transform: translate(-50%,-50%) scale(1); opacity: .7; }
+  80% { transform: translate(-50%,-50%) scale(3.4); opacity: 0; } 100% { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .home-map .hm-heatdot.is-live { animation: none; }
+  .home-map .hm-userdot .r1, .home-map .hm-userdot .r2 { animation: none; opacity: .3; }
   .home-map .rclbubble::before { animation: none; opacity: .35; }
   .home-map .rpinwrap.glow .rpin::before { animation: none; opacity: .4; }
   .home-map .rpinwrap .rpin .pcv { transition: none; }

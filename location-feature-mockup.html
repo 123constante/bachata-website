@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Location feature - map control + user dot mockups</title>
+<style>
+  /* Real codebase tokens (homeMap.css / index.css dark theme) */
+  :root{
+    --bg:#11121a; --surface:#15171B; --surface2:#1c1f24;
+    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.16);
+    --fg:#f4f4f6; --muted:#9aa0ad;
+    --primary:#E8B450;              /* gold/amber primary */
+    --teal:#46B7C9;                 /* distance chip */
+    --rose:#E2415C; --green:#5FBF7F;
+    --loc:#3B82F6; --loc-lt:#60A5FA; /* location blue */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#0b0c12;color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--loc-lt)}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 8px;max-width:760px;line-height:1.5}
+  .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0 22px;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid var(--border2);background:var(--surface2);
+    color:var(--fg);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer}
+  .btn.on{background:var(--loc);border-color:var(--loc);color:#06122b}
+  .legend{color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media (max-width:1000px){.grid{grid-template-columns:1fr}}
+  .col{background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    overflow:hidden;display:flex;flex-direction:column}
+  .col h2{font-size:15px;font-weight:800;margin:0;padding:14px 14px 2px}
+  .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--loc-lt);background:rgba(59,130,246,.14);
+    border:1px solid rgba(59,130,246,.3);border-radius:6px;padding:2px 6px;margin:0 14px}
+  .desc{color:var(--muted);font-size:12px;line-height:1.5;padding:8px 14px 12px}
+
+  /* ---- mock map ---- */
+  .map{position:relative;height:300px;margin:0 14px 12px;border-radius:14px;overflow:hidden;
+    border:1px solid var(--border);
+    background:
+      radial-gradient(120% 90% at 30% 20%, #1b2030 0%, #11131c 55%, #0d0f16 100%);}
+  .streets{position:absolute;inset:0;opacity:.5;
+    background-image:
+      linear-gradient(transparent 49%, rgba(255,255,255,.05) 50%, transparent 51%),
+      linear-gradient(90deg, transparent 49%, rgba(255,255,255,.05) 50%, transparent 51%);
+    background-size:46px 46px;}
+  .streets::after{content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(56deg, transparent 48.6%, rgba(255,255,255,.07) 49.4%, transparent 50.2%),
+      linear-gradient(-37deg, transparent 48.6%, rgba(255,255,255,.06) 49.4%, transparent 50.2%);}
+  .river{position:absolute;left:-10%;right:-10%;top:62%;height:34px;transform:rotate(-7deg);
+    background:linear-gradient(180deg,rgba(70,120,200,.16),rgba(70,120,200,.06));
+    filter:blur(.5px);border-radius:40px}
+
+  /* event pins (poster pins, simplified) */
+  .pin{position:absolute;width:30px;height:30px;border-radius:9px;transform:translate(-50%,-50%);
+    border:2px solid rgba(255,255,255,.9);box-shadow:0 8px 18px -6px rgba(0,0,0,.8);
+    display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff}
+  .pin.p1{left:30%;top:34%;background:linear-gradient(135deg,#7b3ff2,#b14ad8)}
+  .pin.p2{left:64%;top:30%;background:linear-gradient(135deg,#E2415C,#f0766a)}
+  .pin.p3{left:54%;top:70%;background:linear-gradient(135deg,#2f9e8f,#46B7C9)}
+
+  /* ---- control stack (real ctrlBtn styling) ---- */
+  .ctrlstack{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:6}
+  .ctrl{width:40px;height:40px;display:grid;place-items:center;border-radius:999px;
+    background:rgba(17,18,26,.8);color:var(--fg);border:none;cursor:pointer;
+    box-shadow:0 6px 16px -4px rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+  .ctrl svg{width:18px;height:18px}
+  .ctrl.recenter{color:var(--primary)}
+  /* the locate control - blue */
+  .ctrl.locate{color:var(--loc-lt)}
+  .ctrl.locate.is-granted{background:var(--loc);color:#06122b}
+  .ctrl.locate.is-denied{color:#f0a;color:var(--rose)}
+  .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(96,165,250,.25);
+    border-top-color:var(--loc-lt);animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* approach C - pill locate */
+  .locpill{position:absolute;left:10px;bottom:12px;z-index:6;display:inline-flex;align-items:center;gap:7px;
+    border-radius:999px;padding:9px 13px;font-size:12px;font-weight:800;cursor:pointer;
+    background:rgba(59,130,246,.16);border:1px solid rgba(59,130,246,.45);color:var(--loc-lt);
+    box-shadow:0 6px 16px -6px rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+  .locpill svg{width:15px;height:15px}
+
+  /* ---- the user dot (3 variants) ---- */
+  .userdot{position:absolute;left:48%;top:52%;transform:translate(-50%,-50%);z-index:5;
+    width:18px;height:18px}
+  .userdot .core{position:absolute;inset:0;border-radius:50%;background:var(--loc);
+    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 3px 8px rgba(0,0,0,.5)}
+  /* A Beacon: single expanding halo */
+  .dotA .ring{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;
+    transform:translate(-50%,-50%);background:rgba(59,130,246,.35);
+    animation:beacon 2.1s ease-out infinite}
+  @keyframes beacon{0%{transform:translate(-50%,-50%) scale(1);opacity:.55}
+    70%{transform:translate(-50%,-50%) scale(3.6);opacity:0}100%{opacity:0}}
+  /* B Sonar: two staggered rings */
+  .dotB .ring,.dotB .ring2{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;
+    transform:translate(-50%,-50%);border:2px solid rgba(96,165,250,.55);
+    animation:sonar 2.4s ease-out infinite}
+  .dotB .ring2{animation-delay:1.2s}
+  @keyframes sonar{0%{transform:translate(-50%,-50%) scale(1);opacity:.7}
+    80%{transform:translate(-50%,-50%) scale(4.4);opacity:0}100%{opacity:0}}
+  /* C Accuracy: soft translucent accuracy circle + gentle breathe */
+  .dotC .acc{position:absolute;left:50%;top:50%;width:120px;height:120px;border-radius:50%;
+    transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(59,130,246,.20),rgba(59,130,246,.04) 60%,transparent 72%);
+    border:1px solid rgba(59,130,246,.25);animation:breathe 3s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(.92);opacity:.85}
+    50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
+  .dotC .core{animation:corepulse 2.1s ease-out infinite}
+  @keyframes corepulse{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.55),0 3px 8px rgba(0,0,0,.5)}
+    55%{box-shadow:0 0 0 7px rgba(59,130,246,0),0 3px 8px rgba(0,0,0,.5)}}
+
+  .hide{display:none !important}
+
+  .autopan{position:absolute;left:10px;top:10px;z-index:6;font-size:10px;color:var(--muted);
+    background:rgba(0,0,0,.45);border:1px solid var(--border);border-radius:7px;padding:3px 7px}
+
+  /* ---- filmstrip of states ---- */
+  .strip{padding:6px 14px 16px}
+  .strip h3{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);margin:14px 0 8px}
+  .frames{display:flex;gap:8px;flex-wrap:wrap}
+  .frame{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;align-items:center}
+  .frame .lbl{font-size:10px;color:var(--muted)}
+  .swatch{position:relative;width:78px;height:62px;border-radius:12px;border:1px solid var(--border);
+    background:radial-gradient(120% 90% at 30% 20%, #1b2030, #0d0f16);display:grid;place-items:center}
+  .swatch .ctrl{width:36px;height:36px}
+  .swatch .ctrl svg{width:16px;height:16px}
+
+  /* ---- list LocateControl states (Tonight tab pill) ---- */
+  .listcol{margin-top:8px}
+  .lc{display:flex;width:100%;align-items:center;gap:8px;border-radius:12px;padding:9px 12px;
+    font-size:13px;font-weight:800;justify-content:center}
+  .lc.idle{border:1px solid rgba(232,180,80,.4);background:rgba(232,180,80,.10);color:var(--primary)}
+  .lc.loading{border:1px solid rgba(96,165,250,.4);background:rgba(59,130,246,.10);color:var(--loc-lt)}
+  .lc.granted{justify-content:space-between;border:1px solid rgba(95,191,127,.35);
+    background:rgba(95,191,127,.10);color:var(--green)}
+  .lc.denied{flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--border);
+    background:rgba(255,255,255,.04);color:#d7dae2;font-weight:600}
+  .lc .clr{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    color:rgba(95,191,127,.85);cursor:pointer;background:none;border:none}
+  .lc .retry{align-self:flex-end;font-size:11px;color:#cfd3db;text-decoration:underline;cursor:pointer}
+  .lc svg{width:16px;height:16px;flex:0 0 auto}
+  .lc .sp{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(96,165,250,.25);
+    border-top-color:var(--loc-lt);animation:spin .8s linear infinite}
+  .note{color:var(--muted);font-size:11px;line-height:1.5;padding:0 14px 16px}
+  code{background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Location on the map &mdash; control + pulsing user dot</h1>
+  <p class="sub">Three treatments for the blue &ldquo;locate me&rdquo; control and the
+  &ldquo;you are here&rdquo; dot on the Festival Map homepage. Real dark-theme tokens.
+  The dot is animating live; toggle the located state to see grant &rarr; dot + control change.
+  Every approach is wired to the same <code>state.geo</code> (one source of truth: idle / loading / granted / denied).</p>
+
+  <div class="toolbar">
+    <button class="btn" id="toggleLoc">Toggle located state</button>
+    <span class="legend" id="locState">State: <b>idle</b> &middot; control blue, no dot yet</span>
+  </div>
+
+  <div class="grid" id="grid">
+
+    <!-- ================= APPROACH A ================= -->
+    <div class="col">
+      <h2>A &mdash; Beacon</h2>
+      <span class="tag">Recommended</span>
+      <p class="desc">Crosshair (lucide <code>Locate</code>) control in the existing top-right
+      stack, blue and distinct from the grey recenter. Dot is a solid blue core with a single
+      expanding halo &mdash; the familiar &ldquo;blue dot&rdquo; users know from Google&nbsp;Maps.</p>
+      <div class="map">
+        <div class="streets"></div><div class="river"></div>
+        <span class="autopan loc-only hide">auto-panned to you</span>
+        <div class="pin p1">B</div><div class="pin p2">S</div><div class="pin p3">L</div>
+        <!-- user dot A -->
+        <div class="userdot dotA loc-only hide">
+          <span class="ring"></span><span class="core"></span>
+        </div>
+        <!-- control stack -->
+        <div class="ctrlstack">
+          <button class="ctrl recenter" title="Recenter (existing)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+          </button>
+          <button class="ctrl locate ctrlA" title="Use my location">
+            <span class="ico">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="strip">
+        <h3>Map control states</h3>
+        <div class="frames">
+          <div class="frame"><div class="swatch"><div class="ctrl locate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg></div></div><span class="lbl">idle</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate"><span class="spin"></span></div></div><span class="lbl">loading</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate is-granted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg></div></div><span class="lbl">granted</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate is-denied"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/></svg></div></div><span class="lbl">denied</span></div>
+        </div>
+        <h3>Tonight-tab list control</h3>
+        <div class="listcol">
+          <div class="lc idle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Use my location for distances</div>
+        </div>
+        <div class="listcol"><div class="lc loading"><span class="sp"></span> Finding you&hellip;</div></div>
+        <div class="listcol"><div class="lc granted"><span>&check; Sorted by distance from you</span><button class="clr">Clear</button></div></div>
+        <div class="listcol"><div class="lc denied"><span>Couldn&rsquo;t get your location. Check the site&rsquo;s permissions.</span><button class="retry">Try again</button></div></div>
+      </div>
+    </div>
+
+    <!-- ================= APPROACH B ================= -->
+    <div class="col">
+      <h2>B &mdash; Sonar compass</h2>
+      <span class="tag">Alt</span>
+      <p class="desc">A compass arrow (lucide <code>Navigation</code>) that fills solid blue once
+      granted. Dot emits two staggered &ldquo;sonar&rdquo; rings &mdash; more energetic, reads as
+      live tracking. Slightly louder than A.</p>
+      <div class="map">
+        <div class="streets"></div><div class="river"></div>
+        <span class="autopan loc-only hide">auto-panned to you</span>
+        <div class="pin p1">B</div><div class="pin p2">S</div><div class="pin p3">L</div>
+        <div class="userdot dotB loc-only hide">
+          <span class="ring"></span><span class="ring2"></span><span class="core"></span>
+        </div>
+        <div class="ctrlstack">
+          <button class="ctrl recenter" title="Recenter (existing)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+          </button>
+          <button class="ctrl locate ctrlB" title="Use my location">
+            <span class="ico">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="strip">
+        <h3>Map control states</h3>
+        <div class="frames">
+          <div class="frame"><div class="swatch"><div class="ctrl locate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div></div><span class="lbl">idle</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate"><span class="spin"></span></div></div><span class="lbl">loading</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate is-granted"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div></div><span class="lbl">granted</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate is-denied"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/><line x1="4.5" y1="4.5" x2="19.5" y2="19.5"/></svg></div></div><span class="lbl">denied</span></div>
+        </div>
+        <h3>Tonight-tab list control</h3>
+        <div class="listcol"><div class="lc idle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg> Use my location for distances</div></div>
+        <div class="listcol"><div class="lc loading"><span class="sp"></span> Finding you&hellip;</div></div>
+        <div class="listcol"><div class="lc granted"><span>&check; Sorted by distance from you</span><button class="clr">Clear</button></div></div>
+        <div class="listcol"><div class="lc denied"><span>Location is off for this site. Settings &rsaquo; Safari &rsaquo; Location &rarr; Allow.</span></div></div>
+      </div>
+    </div>
+
+    <!-- ================= APPROACH C ================= -->
+    <div class="col">
+      <h2>C &mdash; Accuracy pill</h2>
+      <span class="tag">Alt</span>
+      <p class="desc">A labelled &ldquo;Locate me&rdquo; pill (bottom-left) that&rsquo;s more
+      discoverable than an icon, collapsing to a dot control once granted. Dot sits inside a soft
+      translucent accuracy circle with a gentle breathing pulse &mdash; the quietest, most
+      &ldquo;Apple Maps&rdquo; option.</p>
+      <div class="map">
+        <div class="streets"></div><div class="river"></div>
+        <span class="autopan loc-only hide">auto-panned to you</span>
+        <div class="pin p1">B</div><div class="pin p2">S</div><div class="pin p3">L</div>
+        <div class="userdot dotC loc-only hide">
+          <span class="acc"></span><span class="core"></span>
+        </div>
+        <!-- idle: pill; granted: icon in stack -->
+        <button class="locpill ctrlC-pill" title="Use my location">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg>
+          <span class="pill-label">Locate me</span>
+        </button>
+        <div class="ctrlstack">
+          <button class="ctrl recenter" title="Recenter (existing)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="strip">
+        <h3>Control states</h3>
+        <div class="frames">
+          <div class="frame"><div class="swatch" style="width:108px"><span class="locpill" style="position:static;box-shadow:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg>Locate me</span></div><span class="lbl">idle (pill)</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate"><span class="spin"></span></div></div><span class="lbl">loading</span></div>
+          <div class="frame"><div class="swatch"><div class="ctrl locate is-granted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg></div></div><span class="lbl">granted</span></div>
+        </div>
+        <h3>Tonight-tab list control</h3>
+        <div class="listcol"><div class="lc idle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg> Use my location for distances</div></div>
+        <div class="listcol"><div class="lc loading"><span class="sp"></span> Finding you&hellip;</div></div>
+        <div class="listcol"><div class="lc granted"><span>&check; Sorted by distance from you</span><button class="clr">Clear</button></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="note" style="padding-top:22px">
+  All three reuse the proven <code>useGeolocation</code> hook + a shared denial-copy module, and
+  the same dot/control respond to one shared <code>state.geo</code>. The dot shows on every tab;
+  the Tonight tab additionally sorts cards by distance and shows teal MI chips. Reduced-motion
+  disables the pulse (the static blue dot + ring remain). Recommended: <b>A &mdash; Beacon</b>
+  (most recognisable, calmest), with the louder <b>B</b> or the more-discoverable pill <b>C</b>
+  as alternatives.
+  </p>
+</div>
+
+<script>
+  // Toggle the "located" state across all three maps so the dot + auto-pan appear
+  // and the controls flip to granted, mimicking state.geo going idle -> granted.
+  let located = false;
+  const btn = document.getElementById('toggleLoc');
+  const stateLbl = document.getElementById('locState');
+  function apply(){
+    document.querySelectorAll('.loc-only').forEach(el=>el.classList.toggle('hide', !located));
+    // control A/B -> granted look
+    document.querySelectorAll('.ctrlA, .ctrlB').forEach(el=>el.classList.toggle('is-granted', located));
+    // A granted icon gains a center dot; B fills. Swap A icon center dot:
+    document.querySelectorAll('.ctrlA .ico svg').forEach(svg=>{
+      svg.innerHTML = located
+        ? '<line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>'
+        : '<line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/>';
+    });
+    document.querySelectorAll('.ctrlB .ico svg').forEach(svg=>{
+      svg.setAttribute('fill', located ? 'currentColor' : 'none');
+    });
+    // C: hide pill, show stack icon when granted
+    document.querySelectorAll('.ctrlC-pill').forEach(el=>el.classList.toggle('hide', located));
+    const cStack = document.querySelectorAll('.col')[2].querySelector('.ctrlstack');
+    let cIcon = cStack.querySelector('.ctrl.locate');
+    if(located && !cIcon){
+      cIcon = document.createElement('button');
+      cIcon.className = 'ctrl locate is-granted';
+      cIcon.title = 'Recenter on me';
+      cIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>';
+      cStack.appendChild(cIcon);
+    } else if(!located && cIcon){ cIcon.remove(); }
+    stateLbl.innerHTML = located
+      ? 'State: <b>granted</b> &middot; pulsing blue dot + control active + auto-pan'
+      : 'State: <b>idle</b> &middot; control blue, no dot yet';
+    btn.classList.toggle('on', located);
+  }
+  btn.addEventListener('click', ()=>{ located = !located; apply(); });
+  apply();
+</script>
+</body>
+</html>

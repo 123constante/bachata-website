@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { denialCopy, showRetry } from '@/lib/geo/denialCopy';
 
 /**
  * Contract tests for the GPS-only Tonight location flow.
@@ -39,14 +40,8 @@ describe('useGeolocation error -> reason mapping (contract)', () => {
 });
 
 describe('NearMeCta retry-link visibility contract', () => {
-  // The "Try again" link is rendered iff retry can plausibly succeed.
-  // PERMISSION_DENIED on iOS sticks per-site and re-issuing
-  // getCurrentPosition fails instantly. For timeout/unavailable, retry
-  // can legitimately recover (better signal, GPS warm-up, etc.).
-  const showRetry = (
-    reason: 'denied' | 'unavailable' | 'timeout' | 'insecure' | null,
-    onIOS: boolean,
-  ) => !(reason === 'denied' && onIOS) && reason !== 'insecure';
+  // The predicate exercised here is the real shared one from
+  // @/lib/geo/denialCopy (also drives NearMeCta + the home-map controls).
 
   it('hides retry on iOS when reason is denied', () => {
     expect(showRetry('denied', true)).toBe(false);
@@ -64,5 +59,20 @@ describe('NearMeCta retry-link visibility contract', () => {
   it('never shows retry when reason is insecure (HTTP context unfixable client-side)', () => {
     expect(showRetry('insecure', true)).toBe(false);
     expect(showRetry('insecure', false)).toBe(false);
+  });
+});
+
+describe('denialCopy (contract)', () => {
+  it('insecure context copy is platform-agnostic', () => {
+    expect(denialCopy('insecure', false)).toMatch(/secure connection/i);
+    expect(denialCopy('insecure', true)).toMatch(/secure connection/i);
+  });
+
+  it('iOS denial points at the Settings app', () => {
+    expect(denialCopy('denied', true)).toMatch(/settings/i);
+  });
+
+  it('non-iOS denial points at browser site permissions', () => {
+    expect(denialCopy('denied', false)).toMatch(/permissions/i);
   });
 });

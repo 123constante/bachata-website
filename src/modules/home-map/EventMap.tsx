@@ -20,13 +20,14 @@ import {
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
   flyTo(occId: string): void;
-  reset(): void;
   zoom(delta: number): void;
   invalidate(): void;
   /** Where the given pin sits vertically in the map viewport, so the mobile
    *  preview card can dock to the opposite edge (avoid covering the tapped pin).
    *  null when the pin isn't on the map. */
   pinHalf(occId: string): 'top' | 'bottom' | null;
+  /** Pan/zoom to the user's location dot (granted control + first-fix auto-pan). */
+  panToUser(coords: { lat: number; lng: number } | null): void;
 }
 
 interface EventMapProps {
@@ -57,6 +58,8 @@ interface EventMapProps {
   maxBounds?: L.LatLngBoundsExpression;
   /** Floor zoom (mobile keeps the city legible). */
   minZoom?: number;
+  /** The user's location ("you are here" dot); null hides/removes it. */
+  userCoords?: { lat: number; lng: number } | null;
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
@@ -148,6 +151,7 @@ export default function EventMap({
   compact = false,
   maxBounds,
   minZoom = 9,
+  userCoords,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -155,6 +159,7 @@ export default function EventMap({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
   const markers = useRef<Map<string, L.Marker>>(new Map());
+  const userMarkerRef = useRef<L.Marker | null>(null);
   // The markers currently added to the cluster group (drives fit-to-pins).
   const shownRef = useRef<L.Marker[]>([]);
   const didInitialFit = useRef(false);
@@ -195,7 +200,7 @@ export default function EventMap({
     const interceptCluster = typeof cb.current.onClusterSelect === 'function';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
-      maxClusterRadius: compact ? 44 : 40,
+      maxClusterRadius: compact ? 24 : 28,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: !interceptCluster,
       zoomToBoundsOnClick: !interceptCluster,
@@ -248,7 +253,6 @@ export default function EventMap({
           disposer.safeTimeout(() => mk.openPopup(), 40);
         });
       },
-      reset: () => doFitVisible(!prefersReducedMotion()),
       zoom: (d) => m.setZoom(m.getZoom() + d),
       invalidate: () => {
         // Called from ResizeObserver / visualViewport / orientation listeners,
@@ -267,6 +271,11 @@ export default function EventMap({
         } catch {
           return null;
         }
+      },
+      panToUser: (coords) => {
+        if (!coords || !mapRef.current) return;
+        const z = Math.max(m.getZoom(), 14);
+        m.setView([coords.lat, coords.lng], z, { animate: !prefersReducedMotion() });
       },
     };
     onReady?.(api);
@@ -321,12 +330,46 @@ export default function EventMap({
       m.remove();
       mapRef.current = null;
       markers.current = new Map();
+      userMarkerRef.current = null;
       shownRef.current = [];
       fitRef.current = null;
       didInitialFit.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---- "you are here" user-location dot (non-clustered, above pins) ---------
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+    if (userCoords) {
+      const ll: L.LatLngExpression = [userCoords.lat, userCoords.lng];
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng(ll);
+      } else {
+        userMarkerRef.current = L.marker(ll, {
+          icon: L.divIcon({
+            className: 'hm-userloc',
+            html: '<span class="hm-userdot" data-testid="user-location-dot"><i class="r1"></i><i class="r2"></i><i class="core"></i></span>',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          }),
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 10000,
+        }).addTo(m);
+        // First appearance: frame on the user and suppress the later
+        // fit-to-pins so the view stays centred on "you are here". Runs here
+        // (not in the parent) so the map is guaranteed ready -- avoids the
+        // cached-coords race where a parent effect pans a still-null apiRef.
+        didInitialFit.current = true;
+        m.setView(ll, Math.max(m.getZoom(), 14), { animate: !prefersReducedMotion() });
+      }
+    } else if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+  }, [userCoords]);
 
   // ---- (re)build markers when the pin set changes --------------------------
   useEffect(() => {
@@ -388,8 +431,9 @@ export default function EventMap({
     shownRef.current = layers;
     // One-time initial framing once real pins exist: fit the view to them so the
     // city fills the (short, on mobile) map card. Filter/tab changes after this
-    // do NOT re-fit (that would yank the map on every chip tap); the recentre
-    // control calls reset() for an explicit re-fit.
+    // do NOT re-fit (that would yank the map on every chip tap). A first
+    // location fix sets this flag early (see the user-dot effect) so the view
+    // stays centred on the user instead of snapping to fit-all.
     if (!didInitialFit.current && layers.length > 0) {
       didInitialFit.current = true;
       fitRef.current?.(false);

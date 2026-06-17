@@ -8,7 +8,7 @@
 // MapPreviewCard, a cluster tap lists its events, a background tap clears it.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Plus, Minus, Focus } from 'lucide-react';
+import { Maximize2, Minimize2, Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from '../useMapList';
@@ -16,6 +16,7 @@ import type { MapEvent, MapFilter } from '../mapTypes';
 import { CATEGORY_COLORS } from '../mapTypes';
 import { TabBar, CategoryChips, RAIL_PANEL_ID, railTabId, focusRing } from '../cards/controls';
 import { ListSkeleton, RetryNotice } from '../cards/cards';
+import { MapLocateButton } from '../cards/LocateControl';
 import { SheetAllTab } from './SheetAllTab';
 import { SheetTonightTab } from './SheetTonightTab';
 import { SheetNewsTab } from './SheetNewsTab';
@@ -209,6 +210,7 @@ export default function MobileMapHome({
             onReady={state.onMapReady}
             onOpenEvent={state.openEvent}
             onClusterSelect={handleClusterSelect}
+            userCoords={state.geo.coords}
             popupMode="none"
             compact
             maxBounds={GREATER_LONDON}
@@ -235,14 +237,11 @@ export default function MobileMapHome({
             <button type="button" onClick={() => apiRef.current?.zoom(-1)} aria-label="Zoom out" className={ctrlBtn}>
               <Minus className="h-[18px] w-[18px]" />
             </button>
-            <button
-              type="button"
-              onClick={() => apiRef.current?.reset()}
-              aria-label="Re-frame the map on the visible events"
-              className={cn(ctrlBtn, '!text-primary')}
-            >
-              <Focus className="h-[18px] w-[18px]" />
-            </button>
+            <MapLocateButton
+              geo={state.geo}
+              baseClassName={ctrlBtn}
+              onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
+            />
           </div>
         )}
 

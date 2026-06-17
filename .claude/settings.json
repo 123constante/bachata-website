@@ -38,7 +38,8 @@
       "Bash(pkill -f \"vite --port 8080\")",
       "Bash(git -C c:/dev/Website status)",
       "Bash(git -C c:/dev/Website diff)",
-      "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py src/modules/event-page/bento/modals/RafflePhoneInput.tsx)"
+      "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py src/modules/event-page/bento/modals/RafflePhoneInput.tsx)",
+      "Bash(dir \"C:\\\\dev\\\\Website\\\\src\\\\modules\")"
     ],
     "additionalDirectories": [
       "\\tmp",

@@ -6,7 +6,7 @@
 // The default tab is All Events (lead with events); What's New is one tab away.
 
 import { Suspense, useEffect, useRef } from 'react';
-import { Plus, Minus, LocateFixed, MapPin } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
 import { groupByDate } from './mapListDerivations';
@@ -19,6 +19,7 @@ import {
   RetryNotice,
   RemoteFestivalRow,
 } from './cards/cards';
+import { LocateControl, MapLocateButton } from './cards/LocateControl';
 import {
   TabBar,
   SearchField,
@@ -87,21 +88,9 @@ function AllBody({ state }: { state: UseMapListResult }) {
 /** Today-tab body: optional locate prompt then nearest-first distance cards. */
 function TonightBody({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
-  const showLocate = state.geo.status === 'idle' || state.geo.status === 'denied';
   return (
     <div className="space-y-3">
-      {showLocate && (
-        <button
-          type="button"
-          onClick={() => state.geo.request()}
-          className={cnLocate}
-        >
-          <MapPin className="h-4 w-4" aria-hidden="true" />
-          {state.geo.status === 'denied'
-            ? 'Location blocked. Enable it to sort by distance'
-            : 'Use my location for distances'}
-        </button>
-      )}
+      <LocateControl geo={state.geo} />
       {events.length === 0 ? (
         <EmptyState>Nothing listed for today yet.</EmptyState>
       ) : (
@@ -119,9 +108,6 @@ function TonightBody({ state }: { state: UseMapListResult }) {
     </div>
   );
 }
-
-const cnLocate =
-  'flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
 /** News-tab body: brand hero + recently added/updated events, freshest first. */
 function NewsBody({ state }: { state: UseMapListResult }) {
@@ -188,6 +174,7 @@ export default function DesktopMapHome({
             onHover={state.setHovered}
             onReady={state.onMapReady}
             onOpenEvent={state.openEvent}
+            userCoords={state.geo.coords}
           />
         </Suspense>
         {/* First-visit hint that the pins are interactive. Self-dismisses. */}
@@ -207,14 +194,11 @@ export default function DesktopMapHome({
           >
             <Minus className="h-[18px] w-[18px]" />
           </button>
-          <button
-            type="button"
-            onClick={() => apiRef.current?.reset()}
-            aria-label="Recenter map"
-            className={`${zoomBtn} border-t border-border !text-primary`}
-          >
-            <LocateFixed className="h-[18px] w-[18px]" />
-          </button>
+          <MapLocateButton
+            geo={state.geo}
+            baseClassName={`${zoomBtn} border-t border-border`}
+            onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
+          />
         </div>
       </div>
 

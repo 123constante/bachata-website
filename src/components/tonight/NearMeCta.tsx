@@ -4,29 +4,13 @@ import type {
   GeolocationDenialReason,
   GeolocationStatus,
 } from '@/hooks/useGeolocation';
+import { denialCopy, isIOSUserAgent, showRetry } from '@/lib/geo/denialCopy';
 
 type NearMeCtaProps = {
   status: GeolocationStatus;
   reason: GeolocationDenialReason;
   onRequest: () => void;
   onClear: () => void;
-};
-
-const isIOSUserAgent = () =>
-  typeof navigator !== 'undefined' &&
-  /iPhone|iPad|iPod/.test(navigator.userAgent || '');
-
-const denialCopy = (
-  reason: GeolocationDenialReason,
-  onIOS: boolean,
-): string => {
-  if (reason === 'insecure') {
-    return 'Location needs a secure connection.';
-  }
-  if (onIOS) {
-    return "Location is off for this site. Open Settings > Apps > Safari > Location and set this site to Allow, then refresh.";
-  }
-  return "Couldn't get your location. Check your browser's site permissions.";
 };
 
 const NearMeCta = ({ status, reason, onRequest, onClear }: NearMeCtaProps) => {
@@ -76,7 +60,7 @@ const NearMeCta = ({ status, reason, onRequest, onClear }: NearMeCtaProps) => {
     // Hide "Try again" when retry provably can't help: PERMISSION_DENIED on
     // iOS Safari sticks per-site and re-issuing getCurrentPosition just
     // re-fails instantly. For timeout/unavailable, retry can succeed.
-    const showRetry = !(reason === 'denied' && onIOS) && reason !== 'insecure';
+    const retry = showRetry(reason, onIOS);
     return (
       <div
         className={cn(
@@ -91,7 +75,7 @@ const NearMeCta = ({ status, reason, onRequest, onClear }: NearMeCtaProps) => {
           />
           <span>{denialCopy(reason, onIOS)}</span>
         </div>
-        {showRetry && (
+        {retry && (
           <div className="mt-2 flex justify-end">
             <button
               type="button"
