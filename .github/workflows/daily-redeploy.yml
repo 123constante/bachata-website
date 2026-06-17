@@ -1,0 +1,35 @@
+name: Daily Redeploy
+
+# Triggers a fresh Vercel build at 04:30 UTC every day so the prerendered
+# HTML is never more than ~24 hours stale. Prerender runs at deploy time and
+# embeds live DB data (event JSON-LD, sitemap URLs, etc.); without a daily
+# redeploy the prerendered bot HTML drifts from prod and Googlebot sees
+# yesterday's events list.
+#
+# The deploy hook is a Vercel "Deploy Hook" URL (project settings -> Git ->
+# Deploy Hooks). Store it as repo secret VERCEL_DEPLOY_HOOK_URL (no trailing
+# slash). The hook triggers a production deploy of the main branch.
+#
+# workflow_dispatch allows one-off manual triggers (e.g. after a DB content
+# bulk-edit that needs immediate freshness).
+
+on:
+  schedule:
+    - cron: '30 4 * * *'   # 04:30 UTC daily
+  workflow_dispatch:
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: |
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$VERCEL_DEPLOY_HOOK_URL")
+          if [ "$HTTP" -lt 200 ] || [ "$HTTP" -ge 300 ]; then
+            echo "ERROR: deploy hook returned HTTP $HTTP"
+            exit 1
+          fi
+          echo "OK: Vercel deploy triggered (HTTP $HTTP)"
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}

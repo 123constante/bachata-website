@@ -1,4 +1,4 @@
-name: DB Contract Check
+﻿name: DB Contract Check
 
 # Verifies database invariants:
 #  1. The calendar_occurrences venue/city override contract
@@ -536,3 +536,16 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-festival-publish-readiness.mjs
+      # 38. SEO plan 1.2 slug-column contract (2026-06-17). get_calendar_events_v2
+      #     and get_map_events_v1 must expose a slug column (text, nullable) added
+      #     by admin migrations 20260829074000 / 20260829075000. Without it every
+      #     internal event link falls back to UUID -- no slug URLs on calendar, map,
+      #     venue pages, Tonight or ComingUp feeds. Also asserts >=1 non-null slug
+      #     on London rows (published events always have slugs; all-null = migration
+      #     was never applied to prod).
+      - name: Run slug-column contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-slug-column.mjs
