@@ -33,7 +33,7 @@ interface Spec {
 
 const SPECS: Record<string, Spec> = {
   home: {
-    title: (c) => `Bachata in ${city(c)} - Classes, Socials & Festivals`,
+    title: (c) => city(c) === 'London' ? 'Bachata London - Events, Classes & Parties Calendar' : `Bachata in ${city(c)} - Classes, Socials & Festivals`,
     description: (c) => `Every bachata class, social and festival in ${city(c)}, updated daily. The complete calendar for ${city(c)}'s bachata scene.`,
     path: () => '/',
   },
