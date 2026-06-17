@@ -3,13 +3,25 @@
  *
  * Targets long-tail queries like "bachata friday london". Pulls live events
  * for the next 4 weeks, filters to the URL weekday, renders a list.
+ *
+ * SEO plan 2.3 fixes:
+ *   - citySlug defaults to london-gb (cold visitors + prerender got 0 events)
+ *   - venue names read e.location (the real RPC field, not missing e.venueName)
+ *   - event links use eventHref() (slug-ready, uuid fallback)
+ *   - recurring events deduplicated to the soonest occurrence per event
+ *   - title: "Bachata in London on {Day}s - Classes & Socials"
+ *   - canonical uses SITE_ORIGIN (www)
+ *   - ItemList JSON-LD for the live event list
+ *   - closing links to guide, bachata-parties-london, classes
  */
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo } from '@/lib/seo';
+import { useSeo, SITE_ORIGIN } from '@/lib/seo';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
+import { eventHref } from '@/lib/seo/eventHref';
+import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 
 interface WeekdayMeta {
   slug: string;
@@ -57,12 +69,49 @@ const WEEKDAYS: Record<string, WeekdayMeta> = {
   },
 };
 
-function isSameWeekday(iso: string | null | undefined, dow: number): boolean {
+function isSameWeekday(e: CalendarEventRow, dow: number): boolean {
+  // instance_date is 'YYYY-MM-DD' (calendar day); start_time is ISO8601.
+  // Both stored naive as UTC, so getDay() returns the correct calendar day.
+  const iso = e.instance_date ?? e.start_time;
   if (!iso) return false;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return false;
   return d.getDay() === dow;
 }
+
+const fmt = (iso: string): string =>
+  new Date(iso).toLocaleString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+interface ItemListJsonLdProps {
+  events: CalendarEventRow[];
+  canonicalBase: string;
+}
+
+const ItemListJsonLd = ({ events, canonicalBase }: ItemListJsonLdProps) => {
+  const payload = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    url: canonicalBase,
+    itemListElement: events.map((e, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${SITE_ORIGIN}${eventHref(e)}`,
+      name: e.name,
+    })),
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+    />
+  );
+};
 
 const BachataWeekday = () => {
   const location = useLocation();
@@ -71,6 +120,11 @@ const BachataWeekday = () => {
   const weekdayMatch = location.pathname.match(/^\/bachata-london-([a-z]+)\/?$/i);
   const meta = weekdayMatch ? WEEKDAYS[weekdayMatch[1].toLowerCase()] : undefined;
   const { citySlug } = useCity();
+  // These are explicitly London SEO pages. CityContext only sets citySlug from
+  // the URL (/city/:slug) or prior localStorage, so a first-time visitor and
+  // the headless prerender (neither URL nor localStorage) would otherwise get a
+  // null slug and 0 live events. Defaulting to london-gb fixes both.
+  const effectiveCitySlug = citySlug ?? 'london-gb';
 
   const rangeStart = useMemo(() => {
     const d = new Date();
@@ -86,31 +140,44 @@ const BachataWeekday = () => {
   const { data: events = [] } = useCalendarEvents({
     rangeStart,
     rangeEnd,
-    citySlug: citySlug ?? null,
-    enabled: Boolean(meta && citySlug),
+    citySlug: effectiveCitySlug,
+    enabled: Boolean(meta),
   });
 
-  const matched = useMemo(() => {
+  const matched = useMemo((): CalendarEventRow[] => {
     if (!meta) return [];
-    return (events as ReadonlyArray<Record<string, unknown>>).filter((e) =>
-      isSameWeekday(
-        (e.startsAt as string | null | undefined) ??
-          (e.start_time as string | null | undefined) ??
-          (e.date as string | null | undefined),
-        meta.dow,
-      ),
+    const filtered = (events as CalendarEventRow[]).filter((e) =>
+      isSameWeekday(e, meta.dow),
     );
+    // Recurring events return one row per occurrence; collapse to the soonest
+    // so the list shows distinct events rather than the same night four times.
+    const seen = new Set<string>();
+    const deduped: CalendarEventRow[] = [];
+    for (const e of filtered) {
+      if (seen.has(e.event_id)) continue;
+      seen.add(e.event_id);
+      deduped.push(e);
+    }
+    return deduped.slice(0, 30);
   }, [events, meta]);
+
+  const canonical = meta
+    ? `${SITE_ORIGIN}/bachata-london-${meta.slug}`
+    : `${SITE_ORIGIN}/`;
 
   useSeo(
     meta
       ? {
-          title: `Bachata in London on ${meta.label}`,
+          title: `Bachata in London on ${meta.label}s - Classes & Socials`,
           description: meta.intro,
-          canonical: `https://bachatacalendar.co.uk/bachata-london-${meta.slug}`,
+          canonical,
           ogType: 'article',
         }
-      : { title: 'Bachata in London', description: 'Bachata events in London by weekday.', noindex: true },
+      : {
+          title: 'Bachata in London',
+          description: 'Bachata events in London by weekday.',
+          noindex: true,
+        },
   );
 
   if (!meta) {
@@ -131,13 +198,14 @@ const BachataWeekday = () => {
   }
 
   return (
-    <GlobalLayout
-      showSubheader={false}
-    >
+    <GlobalLayout showSubheader={false}>
+      {matched.length > 0 && (
+        <ItemListJsonLd events={matched} canonicalBase={canonical} />
+      )}
       <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
         <header className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Bachata in London &mdash; {meta.label}
+            Bachata in London on {meta.label}s &mdash; Classes &amp; Socials
           </h1>
           <p className="text-base text-muted-foreground">{meta.intro}</p>
         </header>
@@ -149,7 +217,8 @@ const BachataWeekday = () => {
 
         <section className="space-y-3">
           <h2 className="text-xl font-bold">
-            What&rsquo;s on this {meta.label} ({matched.length} event{matched.length === 1 ? '' : 's'})
+            What&rsquo;s on {meta.label}s in London
+            {' '}({matched.length} event{matched.length === 1 ? '' : 's'})
           </h2>
           {matched.length === 0 ? (
             <p className="text-muted-foreground text-sm">
@@ -160,23 +229,20 @@ const BachataWeekday = () => {
             </p>
           ) : (
             <ul className="space-y-2">
-              {matched.slice(0, 30).map((e) => {
-                const id = (e.id as string | undefined) ?? (e.event_id as string | undefined) ?? '';
-                const name = (e.name as string | undefined) ?? (e.title as string | undefined) ?? '';
-                const venueName = (e.venueName as string | undefined) ?? (e.venue_name as string | undefined) ?? '';
-                const when = (e.startsAt as string | undefined) ?? (e.start_time as string | undefined);
-                return (
-                  <li key={id} className="rounded border border-border/60 p-3 hover:bg-primary/5 transition">
-                    <Link to={`/event/${id}`} className="block">
-                      <div className="font-semibold text-base">{name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {venueName}
-                        {when ? ` - ${new Date(when).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
+              {matched.map((e) => (
+                <li
+                  key={`${e.event_id}-${e.instance_date}`}
+                  className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
+                >
+                  <Link to={eventHref(e)} className="block">
+                    <div className="font-semibold text-base">{e.name}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {e.location}
+                      {e.start_time ? <> &middot; {fmt(e.start_time)}</> : null}
+                    </div>
+                  </Link>
+                </li>
+              ))}
             </ul>
           )}
         </section>
@@ -184,17 +250,36 @@ const BachataWeekday = () => {
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Other weekdays</h2>
           <ul className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Object.values(WEEKDAYS).filter((w) => w.slug !== meta.slug).map((w) => (
-              <li key={w.slug}>
-                <Link
-                  to={`/bachata-london-${w.slug}`}
-                  className="block rounded border border-border/60 px-3 py-2 text-center text-sm font-semibold hover:bg-primary/10 transition"
-                >
-                  {w.label}
-                </Link>
-              </li>
-            ))}
+            {Object.values(WEEKDAYS)
+              .filter((w) => w.slug !== meta.slug)
+              .map((w) => (
+                <li key={w.slug}>
+                  <Link
+                    to={`/bachata-london-${w.slug}`}
+                    className="block rounded border border-border/60 px-3 py-2 text-center text-sm font-semibold hover:bg-primary/10 transition"
+                  >
+                    {w.label}
+                  </Link>
+                </li>
+              ))}
           </ul>
+        </section>
+
+        <section className="border-t border-border/40 pt-6">
+          <p className="text-sm text-muted-foreground">
+            More London bachata:{' '}
+            <Link to="/london-bachata-guide" className="text-primary underline">
+              London Bachata Guide
+            </Link>
+            {' '}&middot;{' '}
+            <Link to="/bachata-parties-london" className="text-primary underline">
+              Bachata parties in London
+            </Link>
+            {' '}&middot;{' '}
+            <Link to="/classes" className="text-primary underline">
+              Find a class
+            </Link>
+          </p>
         </section>
       </article>
     </GlobalLayout>
