@@ -549,3 +549,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-slug-column.mjs
+
+      # 39. Cancelled-occurrence VISIBILITY on the default detail page (centralized
+      #     occurrence-policy arc, 2026-06-17). Sibling of #24 (passthrough, which
+      #     covers the explicitly-requested occurrence). This covers the DEFAULT /
+      #     slug-only case: a public event-detail page must lead with the next
+      #     chronological occurrence INCLUDING a cancelled imminent date, so the
+      #     cancellation is visible — not silently skipped to the next live date.
+      #     The "Sensual Vibes this Friday" bug: get_event_page_snapshot_v2 /
+      #     _event_view_snapshot_compat_v1 picked the default occurrence with
+      #     "<> 'cancelled'", hiding a cancelled imminent date. Both now delegate to
+      #     the canonical _public_featured_occurrence_p5_v1. Also gates reason parity
+      #     (legacy mirror == vocabulary-coerced P5 override reason). Health-check RPC:
+      #     check_cancelled_occurrence_visibility_v1 (admin migration 20260829104000).
+      - name: Run cancelled-occurrence visibility contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-cancelled-occurrence-visibility.mjs

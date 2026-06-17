@@ -39,7 +39,13 @@
       "Bash(git -C c:/dev/Website status)",
       "Bash(git -C c:/dev/Website diff)",
       "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py src/modules/event-page/bento/modals/RafflePhoneInput.tsx)",
-      "Bash(dir \"C:\\\\dev\\\\Website\\\\src\\\\modules\")"
+      "Bash(dir \"C:\\\\dev\\\\Website\\\\src\\\\modules\")",
+      "Bash(xargs -I {} gh api {} --jq '.[0] | \"\\\\\\(.state\\): \\\\\\(.environment_url\\)\"')",
+      "Bash(gh deployment *)",
+      "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.status == \"completed\"\\) | {name: .name, conclusion: .conclusion}')",
+      "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.name == \"Smoke live production\"\\) | .status')",
+      "Bash(xargs -I {} sh -c 'gh api repos/123constante/bachata-website/actions/runs/{} --jq \".name, .status, .conclusion, .html_url\"')",
+      "Bash(python3 scripts/safe-write.py src/modules/home-map/EventMap.tsx)"
     ],
     "additionalDirectories": [
       "\\tmp",

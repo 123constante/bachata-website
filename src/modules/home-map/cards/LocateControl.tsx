@@ -92,7 +92,7 @@ export function LocateControl({ geo }: { geo: Geo }) {
 /** Round map control (Approach B compass). Sits in each surface's overlay
  *  control stack; `baseClassName` is the stack's button base (ctrlBtn / zoomBtn).
  *  idle -> blue compass, loading -> spinner, granted -> filled blue (tap =
- *  recentre on the user dot), denied -> rose compass (tap retries when it can
+ *  turn off location), denied -> rose compass (tap retries when it can
  *  help). Tap calls request() synchronously to preserve the iOS user gesture. */
 export function MapLocateButton({
   geo,
@@ -105,7 +105,7 @@ export function MapLocateButton({
   iconClassName?: string;
   onRecenter?: () => void;
 }) {
-  const { status, reason, request } = geo;
+  const { status, reason, request, clear } = geo;
   const onIOS = isIOSUserAgent();
   const loading = status === 'loading';
   const granted = status === 'granted';
@@ -114,7 +114,7 @@ export function MapLocateButton({
   const handleClick = () => {
     if (loading) return;
     if (granted) {
-      onRecenter?.();
+      clear();
       return;
     }
     // idle or denied: (re)request. A sticky iOS denial re-fails fast but still
@@ -125,7 +125,7 @@ export function MapLocateButton({
   const label = loading
     ? 'Finding your location'
     : granted
-      ? 'Recentre map on your location'
+      ? 'Turn off location'
       : denied
         ? denialCopy(reason, onIOS)
         : 'Use my location';

@@ -115,11 +115,11 @@ export function MapPreviewCard({
       </button>
 
       {isCluster ? (
-        <div className="p-3 pr-12">
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <div className="flex max-h-[60vh] flex-col p-3 pr-12">
+          <p className="mb-2 shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             {events.length} events here
           </p>
-          <ul className="space-y-1">
+          <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             {rows.map((e) => (
               <li key={e.occurrence_id}>
                 <button
@@ -127,11 +127,11 @@ export function MapPreviewCard({
                   data-occ={e.occurrence_id}
                   onClick={() => onOpen(e.occurrence_id)}
                   className={cn(
-                    'flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-muted/50',
+                    'flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-muted/50',
                     focusRing,
                   )}
                 >
-                  <CoverThumb event={e} className="h-10 w-10 shrink-0 rounded-lg" monoClassName="text-sm" />
+                  <CoverThumb event={e} className="h-11 w-11 shrink-0 rounded-lg" monoClassName="text-sm" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{e.name}</span>
                     <TimePills event={e} className="mt-0.5" />
@@ -142,7 +142,7 @@ export function MapPreviewCard({
             ))}
           </ul>
           {extra > 0 && (
-            <p className="mt-1.5 px-1.5 text-xs text-muted-foreground">+{extra} more &middot; zoom in to see all</p>
+            <p className="mt-2 shrink-0 px-2 text-xs text-muted-foreground">+{extra} more &middot; zoom in to see all</p>
           )}
         </div>
       ) : (
