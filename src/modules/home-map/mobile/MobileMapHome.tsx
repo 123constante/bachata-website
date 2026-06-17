@@ -144,13 +144,6 @@ export default function MobileMapHome({
     },
     [fromPin, dockFor],
   );
-  const handleClusterSelect = useCallback(
-    (ids: string[]) => {
-      fromPin(null);
-      setPreview(ids.length ? { kind: 'cluster', ids, dock: dockFor(ids[0]) } : null);
-    },
-    [fromPin, dockFor],
-  );
   const closePreview = useCallback(() => {
     fromPin(null);
     setPreview(null);
@@ -209,7 +202,6 @@ export default function MobileMapHome({
             onHover={state.setHovered}
             onReady={state.onMapReady}
             onOpenEvent={state.openEvent}
-            onClusterSelect={handleClusterSelect}
             userCoords={state.geo.coords}
             popupMode="none"
             compact

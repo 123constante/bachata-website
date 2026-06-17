@@ -194,17 +194,13 @@ export default function EventMap({
     const disposer = new MapDisposer(mapRef);
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
-    // Mobile (onClusterSelect set): a cluster tap surfaces its children in the
-    // inline preview card rather than zooming, so disable the built-in zoom +
-    // spiderfy. Desktop keeps the default zoom-to-bounds behaviour.
-    const interceptCluster = typeof cb.current.onClusterSelect === 'function';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
       maxClusterRadius: compact ? 24 : 28,
       disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
-      spiderfyOnMaxZoom: !interceptCluster,
-      zoomToBoundsOnClick: !interceptCluster,
+      spiderfyOnMaxZoom: true,
+      zoomToBoundsOnClick: true,
       removeOutsideVisibleBounds: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       iconCreateFunction: (c: any) =>
@@ -216,18 +212,6 @@ export default function EventMap({
     });
     clusterRef.current = cl;
     m.addLayer(cl);
-
-    if (interceptCluster) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cl.on('clusterclick', (ev: any) => {
-        const ids: string[] = ev.layer
-          .getAllChildMarkers()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((k: any) => k._occ as string | undefined)
-          .filter((x: string | undefined): x is string => Boolean(x));
-        if (ids.length) cb.current.onClusterSelect?.(ids);
-      });
-    }
 
     // Fit the view to the pins currently shown (padding so they clear the card
     // edges; cap the zoom so a single pin doesn't slam to street level). Falls
@@ -426,22 +410,9 @@ export default function EventMap({
     const anchor: [number, number] = compact ? [18, 40] : [23, 52];
     const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
     const next = new Map<string, L.Marker>();
-    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
-    const eventsByCoord = new Map<string, MapEvent[]>();
     for (const e of events) {
       if (e.lat == null || e.lng == null) continue;
-      const key = coordKey(e.lat, e.lng);
-      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
-      eventsByCoord.get(key)!.push(e);
-    }
-    for (const e of events) {
-      if (e.lat == null || e.lng == null) continue;
-      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
-      const index = colocated.indexOf(e);
-      const offsetDeg = index * 0.000005;
-      const lat = e.lat + offsetDeg;
-      const lng = e.lng + offsetDeg;
-      const mk = L.marker([lat, lng], {
+      const mk = L.marker([e.lat, e.lng], {
         icon: L.divIcon({
           html: posterHtml(e),
           className: 'rpinwrap',
