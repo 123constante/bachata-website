@@ -267,28 +267,6 @@ const RankCard = ({
         </div>
       )}
 
-      {/* Arc 6 / Premium D (2026-05-30) — "Special tonight" chip on added-only
-           sessions. The flag arrives via get_occurrence_program_v1.added_only
-           (Bundle 1, 2026-05-30). Quiet on series sessions (most cards). */}
-      {session.addedOnly && (
-        <div
-          data-testid={`schedule-special-chip-${session.id}`}
-          className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
-          style={{
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'hsl(var(--bento-accent))',
-            background: 'hsl(var(--bento-accent) / 0.12)',
-            border: '1px solid hsl(var(--bento-accent) / 0.4)',
-          }}
-          title="Added for this date only — won't appear on other dates"
-        >
-          ★ Special tonight
-        </div>
-      )}
-
       {/* Arc 13 / Premium D — "Cancelled" chip + card dimming when a session
            has been individually cancelled for this occurrence and the event's
            show_cancelled_publicly flag is on. The flag arrives via
@@ -325,6 +303,28 @@ const RankCard = ({
           }}
         >
           {titleText}
+        </div>
+      )}
+
+      {/* Arc 6 / Premium D (2026-05-30) — "Special tonight" chip on added-only
+           sessions. Rendered AFTER the title so the title row aligns with the
+           adjacent room column's title (chip above title caused height mismatch). */}
+      {session.addedOnly && (
+        <div
+          data-testid={`schedule-special-chip-${session.id}`}
+          className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
+          style={{
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'hsl(var(--bento-accent))',
+            background: 'hsl(var(--bento-accent) / 0.12)',
+            border: '1px solid hsl(var(--bento-accent) / 0.4)',
+          }}
+          title="Added for this date only — won't appear on other dates"
+        >
+          ★ Special tonight
         </div>
       )}
 
