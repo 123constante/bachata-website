@@ -61,6 +61,9 @@ function ensureFonts(): void {
   if (!existsSync(F_INTER_SEMI)) writeFileSync(F_INTER_SEMI, readFileSync(join(__dir, '_fonts/Inter-SemiBold.ttf')));
 }
 
+// Hoist font init to module load so it runs once per function instance, not per request.
+ensureFonts();
+
 // ─── SVG helpers ──────────────────────────────────────────────────────────
 
 function esc(s: string): string {
@@ -147,7 +150,6 @@ function fallbackSvg(title: string, dateLine: string | null, venueLine: string |
 // ─── Card builders ────────────────────────────────────────────────────────
 
 async function buildEventCard(title: string, dateLine: string | null, venueLine: string | null, coverBuf: Buffer): Promise<Buffer> {
-  ensureFonts();
   const cover = await sharp(coverBuf).resize(FLYER_W, CARD_H, { fit: 'contain', background: BRAND_DARK }).png().toBuffer();
   const panel = brandPanelSvg(title, dateLine, venueLine);
   return sharp({ create: { width: CARD_W, height: CARD_H, channels: 4, background: BRAND_DARK } })
@@ -156,7 +158,6 @@ async function buildEventCard(title: string, dateLine: string | null, venueLine:
 }
 
 async function buildFallbackCard(title: string | null, dateLine: string | null, venueLine: string | null): Promise<Buffer> {
-  ensureFonts();
   return sharp({ create: { width: CARD_W, height: CARD_H, channels: 4, background: BRAND_DARK } })
     .composite([{ input: fallbackSvg(title ?? 'Bachata Calendar', dateLine, venueLine) }])
     .jpeg({ quality: 80, mozjpeg: true }).toBuffer();
@@ -235,11 +236,16 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
 
 // ─── Handler ──────────────────────────────────────────────────────────────
 
-function sendImage(res: VercelResponse, buf: Buffer): void {
+function makeEtag(kind: string, idParam: string, src: string): string {
+  return `"${Buffer.from(`${kind}:${idParam}:${src}`).toString('base64').slice(0, 24)}"`;
+}
+
+function sendImage(res: VercelResponse, buf: Buffer, etag?: string): void {
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Content-Length', String(buf.length));
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800');
+  if (etag) res.setHeader('ETag', etag);
   res.status(200).send(buf);
 }
 
@@ -257,21 +263,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const idParam = (Array.isArray(q.id) ? q.id[0] : q.id) ?? '';
   const src = (Array.isArray(q.src) ? q.src[0] : q.src) ?? '';
 
+  const etag = makeEtag(kind, idParam, src);
+  if (req.headers['if-none-match'] === etag) { res.status(304).end(); return; }
+
   try {
     if (kind === 'image') {
       if (!src) return redirectToStatic(res);
       const bytes = await fetchImageBytes(src);
       if (!bytes) return redirectToStatic(res);
-      return sendImage(res, await buildImageCard(bytes));
+      return sendImage(res, await buildImageCard(bytes), etag);
     }
     if (!idParam) return redirectToStatic(res);
     const id = await resolveEventId(idParam);
     if (!id) return redirectToStatic(res);
     const data = kind === 'festival' ? await fetchFestivalData(id) : await fetchEventData(id);
-    if (!data) return sendImage(res, await buildFallbackCard(null, null, null));
+    if (!data) return sendImage(res, await buildFallbackCard(null, null, null), etag);
     const coverBytes = data.coverUrl ? await fetchImageBytes(data.coverUrl) : null;
-    if (!coverBytes) return sendImage(res, await buildFallbackCard(data.title, data.dateLine, data.venueLine));
-    return sendImage(res, await buildEventCard(data.title, data.dateLine, data.venueLine, coverBytes));
+    if (!coverBytes) return sendImage(res, await buildFallbackCard(data.title, data.dateLine, data.venueLine), etag);
+    return sendImage(res, await buildEventCard(data.title, data.dateLine, data.venueLine, coverBytes), etag);
   } catch (err) {
     console.error('[og/card] render_failed', err);
     return redirectToStatic(res);
