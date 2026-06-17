@@ -28,6 +28,8 @@ export interface MapApi {
   pinHalf(occId: string): 'top' | 'bottom' | null;
   /** Pan/zoom to the user's location dot (granted control + first-fix auto-pan). */
   panToUser(coords: { lat: number; lng: number } | null): void;
+  /** Fit/zoom the view to all currently visible event pins. */
+  reset(): void;
 }
 
 interface EventMapProps {
@@ -262,6 +264,7 @@ export default function EventMap({
         const z = Math.max(m.getZoom(), 14);
         m.setView([coords.lat, coords.lng], z, { animate: !prefersReducedMotion() });
       },
+      reset: () => fitRef.current?.(true),
     };
     onReady?.(api);
 

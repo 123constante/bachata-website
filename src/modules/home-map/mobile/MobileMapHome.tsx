@@ -8,7 +8,7 @@
 // MapPreviewCard, a cluster tap lists its events, a background tap clears it.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Plus, Minus } from 'lucide-react';
+import { Maximize2, Minimize2, Plus, Minus, Focus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from '../useMapList';
@@ -213,7 +213,7 @@ export default function MobileMapHome({
         {/* Control stack -- hidden while a preview is open (it would collide with
             a top-docked card and is redundant mid-preview). */}
         {!previewOpen && (
-          <div className="absolute right-2 top-2 z-[500] flex flex-col gap-1.5">
+          <div className="absolute right-2 top-2 z-[500] flex flex-row gap-1.5">
             <button
               type="button"
               onClick={() => setFullscreen((v) => !v)}
@@ -234,6 +234,14 @@ export default function MobileMapHome({
               baseClassName={ctrlBtn}
               onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
             />
+            <button
+              type="button"
+              onClick={() => apiRef.current?.reset?.()}
+              aria-label="Fit map to all events"
+              className={cn(ctrlBtn, '!text-primary')}
+            >
+              <Focus className="h-[18px] w-[18px]" />
+            </button>
           </div>
         )}
 

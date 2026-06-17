@@ -181,8 +181,8 @@ export default function DesktopMapHome({
         <div className="pointer-events-none absolute left-3 top-3 z-[500]">
           <MapHint />
         </div>
-        {/* Zoom + recenter, lifted clear of the bottom-right attribution badge. */}
-        <div className="absolute bottom-7 right-3 z-50 flex flex-col overflow-hidden rounded-xl border border-border shadow-lg">
+        {/* Map controls (top-right): zoom, compass, reframe. */}
+        <div className="absolute right-3 top-3 z-50 flex flex-row gap-1.5">
           <button type="button" onClick={() => apiRef.current?.zoom(1)} aria-label="Zoom in" className={zoomBtn}>
             <Plus className="h-[18px] w-[18px]" />
           </button>
@@ -190,15 +190,23 @@ export default function DesktopMapHome({
             type="button"
             onClick={() => apiRef.current?.zoom(-1)}
             aria-label="Zoom out"
-            className={`${zoomBtn} border-t border-border`}
+            className={zoomBtn}
           >
             <Minus className="h-[18px] w-[18px]" />
           </button>
           <MapLocateButton
             geo={state.geo}
-            baseClassName={`${zoomBtn} border-t border-border`}
+            baseClassName={zoomBtn}
             onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
           />
+          <button
+            type="button"
+            onClick={() => apiRef.current?.reset?.()}
+            aria-label="Fit map to all events"
+            className={`${zoomBtn} !text-primary`}
+          >
+            <Focus className="h-[18px] w-[18px]" />
+          </button>
         </div>
       </div>
 
