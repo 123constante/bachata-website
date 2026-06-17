@@ -199,7 +199,7 @@ export default function EventMap({
       maxClusterRadius: compact ? 24 : 28,
       disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
+      spiderfyOnMaxZoom: false,
       zoomToBoundsOnClick: true,
       removeOutsideVisibleBounds: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
