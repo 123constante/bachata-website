@@ -29,6 +29,7 @@ import {
 } from './cards/controls';
 import { MapHint } from './MapHint';
 import { CalendarPanel } from './cards/CalendarPanel';
+import { HomeExploreLinks } from '@/components/home/HomeExploreLinks';
 
 const EventMap = lazyWithRetry(() => import('./EventMap'));
 
@@ -248,6 +249,7 @@ export default function DesktopMapHome({
               {state.tab === 'cal' && <CalendarPanel state={state} seedDefault />}
             </>
           )}
+          {!loading && !error && <HomeExploreLinks />}
         </div>
       </div>
     </div>

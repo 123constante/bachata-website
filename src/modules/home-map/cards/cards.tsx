@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { eventHref } from '@/lib/seo/eventHref';
 import type { MapEvent, MapCategory } from '../mapTypes';
 import {
   deriveCategory,
@@ -265,10 +266,13 @@ export function EventRow({
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
   return (
-    <button
-      type="button"
+    <a
+      href={eventHref(event, event.occurrence_id)}
       data-occ={event.occurrence_id}
-      onClick={() => onSelect(event.occurrence_id)}
+      onClick={(e) => {
+        e.preventDefault();
+        onSelect(event.occurrence_id);
+      }}
       onPointerEnter={() => onHover?.(event.occurrence_id)}
       onPointerLeave={() => onHover?.(null)}
       className={cn(rowBase, rowState(selected), cancelled && 'opacity-60', className)}
@@ -292,7 +296,7 @@ export function EventRow({
       ) : showFreshness && isRecentlyChanged(event) ? (
         <FreshnessClock event={event} />
       ) : null}
-    </button>
+    </a>
   );
 }
 
@@ -334,10 +338,13 @@ export function TonightCard({
 }: RowProps & { user: Coords }) {
   const cancelled = event.is_cancelled;
   return (
-    <button
-      type="button"
+    <a
+      href={eventHref(event, event.occurrence_id)}
       data-occ={event.occurrence_id}
-      onClick={() => onSelect(event.occurrence_id)}
+      onClick={(e) => {
+        e.preventDefault();
+        onSelect(event.occurrence_id);
+      }}
       onPointerEnter={() => onHover?.(event.occurrence_id)}
       onPointerLeave={() => onHover?.(null)}
       className={cn(
@@ -359,7 +366,7 @@ export function TonightCard({
         )}
       </span>
       <DistanceBadge event={event} user={user} className="m-3 h-[54px] w-[54px] shrink-0" />
-    </button>
+    </a>
   );
 }
 
@@ -367,10 +374,13 @@ export function TonightCard({
 export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
   const cancelled = event.is_cancelled;
   return (
-    <button
-      type="button"
+    <a
+      href={eventHref(event, event.occurrence_id)}
       data-occ={event.occurrence_id}
-      onClick={() => onSelect(event.occurrence_id)}
+      onClick={(e) => {
+        e.preventDefault();
+        onSelect(event.occurrence_id);
+      }}
       onPointerEnter={() => onHover?.(event.occurrence_id)}
       onPointerLeave={() => onHover?.(null)}
       className={cn(rowBase, rowState(selected), cancelled && 'opacity-60')}
@@ -393,6 +403,6 @@ export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
         )}
       </span>
       {cancelled ? <CancelPill /> : <FreshnessClock event={event} />}
-    </button>
+    </a>
   );
 }

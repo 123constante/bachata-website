@@ -22,6 +22,7 @@ import { SheetNewsTab } from './SheetNewsTab';
 import { SheetCalendarTab } from './SheetCalendarTab';
 import { MapPreviewCard } from './MapPreviewCard';
 import { MapHintPill } from './MapHintPill';
+import { HomeExploreLinks } from '@/components/home/HomeExploreLinks';
 
 const EventMap = lazyWithRetry(() => import('../EventMap'));
 
@@ -307,6 +308,7 @@ export default function MobileMapHome({
                 {state.tab === 'cal' && <SheetCalendarTab state={state} />}
               </>
             )}
+            {!loading && !error && <HomeExploreLinks />}
           </div>
         </div>
       )}
