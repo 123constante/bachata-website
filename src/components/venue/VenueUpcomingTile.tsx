@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 export type VenueUpcomingEvent = {
   event_id: string;
   occurrence_id: string;
+  slug?: string | null;
   name: string;
   instance_start: string;
   poster_url: string | null;
@@ -61,7 +62,7 @@ export const VenueUpcomingTile = ({
             {visible.map((event) => (
               <Link
                 key={event.occurrence_id}
-                to={`/event/${event.event_id}?occurrenceId=${event.occurrence_id}`}
+                to={`/event/${event.slug || event.event_id}?occurrenceId=${event.occurrence_id}`}
                 className="group flex flex-col gap-1.5 rounded-md bg-venue-card-pill hover:bg-white border border-transparent hover:border-venue-card-border p-2 transition-colors"
               >
                 <div className="aspect-square rounded-md overflow-hidden bg-venue-card-border">

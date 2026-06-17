@@ -77,6 +77,7 @@ const STATIC_ROUTES = [
   { path: '/videographers',                    changefreq: 'weekly',  priority: '0.5' },
   { path: '/cities',                           changefreq: 'monthly', priority: '0.5' },
   { path: '/london-bachata-guide',             changefreq: 'monthly', priority: '0.9' },
+  { path: '/learn-bachata-london',             changefreq: 'monthly', priority: '0.9' },
   { path: '/bachata-parties-london',           changefreq: 'weekly',  priority: '0.8' },
   { path: '/bachata-london-sensual-parties',   changefreq: 'weekly',  priority: '0.7' },
   { path: '/bachata-london-dominican-parties', changefreq: 'weekly',  priority: '0.7' },

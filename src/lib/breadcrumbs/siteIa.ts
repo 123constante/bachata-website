@@ -54,6 +54,7 @@ export const SITE_IA = {
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
+  learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,
                       detailPath: (slug: string) => `/bachata-london-${slug}` },
 

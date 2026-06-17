@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { EventPageModel, FestivalDetail, FestivalScheduleItem } from '@/modules/event-page/types';
 import type { RsvpStatus } from '@/modules/event-page/useEventPageRsvpMutation';
 import PageHero from '@/components/PageHero';
@@ -82,6 +83,11 @@ export const EventPageScreen = ({
 
   const { white, orange } = splitTitle(pageModel.identity.title);
 
+  // Weekday name for the backlink; null for festivals and events with no resolved date.
+  const weekdayName = !festivalDetail
+    ? (pageModel.schedule.dateLabel?.split(',')[0] ?? null)
+    : null;
+
   return (
     <div className="relative min-h-screen bg-background pb-24">
       <EventDraftBadge
@@ -102,7 +108,7 @@ export const EventPageScreen = ({
       />
 
       <div className="mx-auto w-full max-w-2xl space-y-3 px-3 sm:px-4">
-        {/* ── Top half (1-5) ── */}
+        {/* -- Top half (1-5) -- */}
 
         <EventHeroMetaBlock
           hero={pageModel.hero}
@@ -137,7 +143,7 @@ export const EventPageScreen = ({
 
         <GuestListSection eventId={pageModel.identity.eventId} />
 
-        {/* ── Bottom half (6-11) ── */}
+        {/* -- Bottom half (6-11) -- */}
 
         <EventAttendanceSection attendance={pageModel.attendance} />
 
@@ -159,11 +165,23 @@ export const EventPageScreen = ({
 
         <EventMusicStylesSection musicStyles={musicStyles} />
 
-        {/* ── Festival-only extras (no 6-11 equivalent; preserved to avoid data loss) ── */}
+        {/* -- Festival-only extras -- */}
 
         {festivalDetail && <FestivalPassesSection passes={festivalDetail.passes} />}
         {festivalDetail && <FestivalHotelsSection hotels={festivalDetail.hotels} />}
         {festivalDetail && <FestivalCompetitionsSection competitions={festivalDetail.competitions} />}
+
+        {/* Weekday backlink -- non-festival events only */}
+        {weekdayName && (
+          <div className="border-t border-border pt-3 text-center">
+            <Link
+              to={`/bachata-london-${weekdayName.toLowerCase()}`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              More bachata in London on {weekdayName}s &rarr;
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

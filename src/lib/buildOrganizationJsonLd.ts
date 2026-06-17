@@ -8,11 +8,11 @@
  * official channel goes live.
  */
 
-import { SITE_NAME, SITE_ORIGIN, DEFAULT_OG_IMAGE } from './seo';
+import { SITE_NAME, SITE_ORIGIN } from './seo';
 
 const SAME_AS: string[] = [
-  // Add Instagram / WhatsApp / Facebook profile URLs here as they go live.
-  // e.g. 'https://www.instagram.com/bachata.community.uk',
+  // Official channels. Add WhatsApp / Facebook profile URLs here as they go live.
+  'https://www.instagram.com/bachata.community.uk/',
 ];
 
 export function buildOrganizationJsonLd() {
@@ -21,7 +21,14 @@ export function buildOrganizationJsonLd() {
     '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_ORIGIN,
-    logo: DEFAULT_OG_IMAGE,
+    // Square logo for the brand knowledge panel (Google prefers a square,
+    // legible mark here over the 1200x630 OG card).
+    logo: {
+      '@type': 'ImageObject',
+      url: `${SITE_ORIGIN}/apple-touch-icon.png`,
+      width: 180,
+      height: 180,
+    },
     description:
       "London's bachata community calendar - classes, socials, festivals, teachers and venues in one place.",
     areaServed: {

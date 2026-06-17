@@ -1,18 +1,23 @@
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 
-// Auth / onboarding render their own chrome -- skip the global footer there
-// so they keep their bespoke layout. Matches the same pattern used by
-// GlobalLayout's showSubheader opt-out.
 const HIDDEN_RE = /^\/(auth|onboarding)(\/|$)/i;
 
-// "Get Listed" opens WhatsApp with a pre-filled DM. Matches the current
-// manual-onboarding workflow -- direct chat lets us qualify the lead and
-// run the free-vs-paid pitch on first reply. Swap target once self-serve
-// ships.
 const WHATSAPP_NUMBER = '447577576006';
 const WHATSAPP_MESSAGE = "Hi! I'd like to list my events on Bachata Calendar.";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+
+const WEEKDAYS = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+] as const;
+
+const GUIDES: ReadonlyArray<readonly [string, string]> = [
+  ['London Bachata Guide', '/london-bachata-guide'],
+  ['Beginners', '/learn-bachata-london'],
+  ['Parties', '/parties'],
+  ['Classes', '/classes'],
+  ['FAQ', '/faq'],
+];
 
 export const GlobalFooter = () => {
   const { pathname } = useLocation();
@@ -22,10 +27,43 @@ export const GlobalFooter = () => {
   return (
     <footer
       role="contentinfo"
-      className="relative border-t border-primary/10 bg-background px-4 py-5"
+      className="relative border-t border-primary/10 bg-background px-4 pb-5 pt-4"
     >
       {/* Decorative orange line -- matches the GlobalHeader top accent */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
+
+      {/* Sitewide guide + weekday links */}
+      <nav aria-label="Guides and weekday pages" className="mb-4 space-y-1.5 text-xs">
+        <p className="flex flex-wrap items-baseline gap-x-0.5 gap-y-0.5 leading-relaxed">
+          <span className="mr-1 font-bold uppercase tracking-wide text-muted-foreground">Guides:</span>
+          {GUIDES.map(([label, to], i) => (
+            <span key={to}>
+              {i > 0 && (
+                <span aria-hidden="true" className="mx-0.5 text-muted-foreground/40">&middot;</span>
+              )}
+              <Link to={to} className="text-muted-foreground transition-colors hover:text-primary">
+                {label}
+              </Link>
+            </span>
+          ))}
+        </p>
+        <p className="flex flex-wrap items-baseline gap-x-0.5 gap-y-0.5 leading-relaxed">
+          <span className="mr-1 font-bold uppercase tracking-wide text-muted-foreground">By day:</span>
+          {WEEKDAYS.map((d, i) => (
+            <span key={d}>
+              {i > 0 && (
+                <span aria-hidden="true" className="mx-0.5 text-muted-foreground/40">&middot;</span>
+              )}
+              <Link
+                to={`/bachata-london-${d.toLowerCase()}`}
+                className="text-muted-foreground transition-colors hover:text-primary"
+              >
+                {d}
+              </Link>
+            </span>
+          ))}
+        </p>
+      </nav>
 
       <div className="flex justify-center">
         <a

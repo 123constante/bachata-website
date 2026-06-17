@@ -55,6 +55,7 @@ const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const Faq = lazyWithRetry(() => import("../pages/seo/Faq"));
 const BachataInLondon = lazyWithRetry(() => import("../pages/seo/BachataInLondon"));
 const BachataWeekday = lazyWithRetry(() => import("../pages/seo/BachataWeekday"));
+const LearnBachataLondon = lazyWithRetry(() => import("../pages/seo/LearnBachataLondon"));
 const BachataPartiesLondon = lazyWithRetry(() => import("../pages/seo/BachataPartiesLondon"));
 const BachataStyleParties = lazyWithRetry(() => import("../pages/seo/BachataStyleParties"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -103,6 +104,7 @@ export const AnimatedRoutes = () => {
             <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
             <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
             <Route path="/london-bachata-guide" element={<PageTransition><BachataInLondon /></PageTransition>} />
+            <Route path="/learn-bachata-london" element={<PageTransition><LearnBachataLondon /></PageTransition>} />
             <Route path="/bachata-london-monday" element={<PageTransition><BachataWeekday /></PageTransition>} />
             <Route path="/bachata-london-tuesday" element={<PageTransition><BachataWeekday /></PageTransition>} />
             <Route path="/bachata-london-wednesday" element={<PageTransition><BachataWeekday /></PageTransition>} />

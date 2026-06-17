@@ -30,6 +30,7 @@ export const useUpcomingEvents = () => {
       // not a fallback / next-upcoming heuristic.
       const events = (data as unknown as any[]).map((event) => ({
         id: event.event_id,
+        slug: event.slug ?? null,
         occurrenceId: event.occurrence_id ?? null,
         name: event.name,
         date: event.instance_date, // This ensures we show the correct instance date

@@ -9,6 +9,7 @@
  * rich-result lever here.
  */
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { eventHref } from '@/lib/seo/eventHref';
 
 export interface BuildEventListJsonLdInput {
   events: CalendarEventRow[];
@@ -37,7 +38,7 @@ export const buildEventListJsonLd = ({
   limit = 25,
 }: BuildEventListJsonLdInput): Record<string, unknown> => {
   const itemListElement = events.slice(0, limit).map((e, i) => {
-    const eventUrl = `${origin}/event/${e.event_id}`;
+    const eventUrl = `${origin}${eventHref(e)}`;
     const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
     const description: string =
       (e.meta_data as Record<string, unknown>)?.description as string ||
