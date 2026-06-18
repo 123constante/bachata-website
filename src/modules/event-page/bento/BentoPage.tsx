@@ -137,6 +137,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     [pageModel.videoUrls],
   );
 
+  const isMultiDateType =
+    pageModel.identity.eventFormat === 'course' ||
+    (pageModel.identity.eventFormat === null && pageModel.identity.eventType === 'course');
+
   // Compute which blocks are hidden. Driven by content: a block is hidden iff
   // it has nothing meaningful to show. The BentoGrid packer skips these so no
   // empty grid cells are left behind.
@@ -189,9 +193,6 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // the clean per-day SCHEDULE tile, so it must not enumerate its whole
     // materialised year. Only format='course' earns the date list.
     // COALESCE: eventFormat is null for legacy-only events; fall back to eventType.
-    const isMultiDateType =
-      pageModel.identity.eventFormat === 'course' ||
-      (pageModel.identity.eventFormat === null && pageModel.identity.eventType === 'course');
     if (!snapshot || snapshot.occurrences.length <= 1 || !isMultiDateType) hidden.add('dates');
 
     // Video tile hides when there's no playable video URL on the series.

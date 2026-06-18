@@ -6,7 +6,7 @@
 // The default tab is All Events (lead with events); What's New is one tab away.
 
 import { Suspense, useEffect, useRef } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Focus } from 'lucide-react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
 import { groupByDate } from './mapListDerivations';
