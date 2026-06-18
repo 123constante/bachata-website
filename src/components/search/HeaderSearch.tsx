@@ -210,14 +210,14 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
         aria-label="Search events, venues, people"
         aria-expanded={false}
         className={cn(
-          'flex items-center text-foreground/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          'flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           // mobile: a search pill that fills the bar (GlobalHeader hides its spacer < md)
-          'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-border bg-muted/30 px-3 hover:bg-muted/50 hover:text-primary',
+          'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
           // desktop (md+): collapse back to the icon-only circle
-          'md:ml-auto md:h-9 md:w-9 md:max-w-none md:flex-none md:justify-center md:gap-0 md:rounded-full md:border-0 md:bg-transparent md:px-0 md:hover:bg-primary/10',
+          'md:ml-auto md:h-9 md:w-9 md:max-w-none md:flex-none md:justify-center md:gap-0 md:rounded-full md:border-0 md:bg-transparent md:px-0 md:shadow-none md:hover:bg-primary/10',
         )}
       >
-        <Search className="h-4 w-4 shrink-0 md:h-5 md:w-5" aria-hidden="true" />
+        <Search className="h-4 w-4 shrink-0 text-primary md:h-5 md:w-5" aria-hidden="true" />
         <span className="truncate text-sm text-muted-foreground md:hidden">
           Search events, venues, people&hellip;
         </span>

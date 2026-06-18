@@ -85,7 +85,7 @@ export const GlobalHeader = () => {
             <span className="text-sm font-semibold">All events</span>
           </Link>
         ) : (
-          <Link to={homePath} className="flex items-center shrink-0 no-underline" aria-label="Bachata Calendar home">
+          <Link to={homePath} className="flex items-center shrink-0 no-underline self-stretch" aria-label="Bachata Calendar home">
             <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" loading="eager" fetchpriority="high" />
           </Link>
         ))}

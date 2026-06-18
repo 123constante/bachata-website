@@ -22,12 +22,12 @@ export function SearchTrigger() {
       onClick={openSearch}
       aria-label="Search events, venues, people"
       className={cn(
-        'flex items-center text-foreground/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-        'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-border bg-muted/30 px-3 hover:bg-muted/50 hover:text-primary',
+        'flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
         'md:ml-auto md:h-9 md:w-64 md:max-w-none md:flex-none md:justify-start',
       )}
     >
-      <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <Search className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
       <span className="truncate text-sm text-muted-foreground">Search events, venues, people&hellip;</span>
       <kbd className="ml-auto hidden shrink-0 items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground md:inline-flex">
         {SHORTCUT}
