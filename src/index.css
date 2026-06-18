@@ -9,6 +9,11 @@
      raffle-shake           : 250ms side-to-side shake on tap
      raffle-glow-pulse-soft : 2s opacity pulse, low amplitude 0.65→0.95, for
                               the gold wedge escaping the chest's ajar lid */
+@keyframes shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 @keyframes raffle-shake {
   0%, 100% { transform: translateX(0); }
   10% { transform: translateX(-3px); }
