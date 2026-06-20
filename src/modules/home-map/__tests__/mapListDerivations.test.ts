@@ -13,6 +13,8 @@ import {
   glowFor,
   buildMonthCells,
   homeStats,
+  collapseFestivals,
+  festivalRangeLabel,
 } from '../mapListDerivations';
 
 const base: MapEvent = {
@@ -313,5 +315,73 @@ describe('homeStats', () => {
     const out = homeStats(events, today);
     expect(out.thisWeek).toBe(0); // both outside the window
     expect(out.venues).toBe(0); // null venues ignored
+  });
+});
+describe('festivalRangeLabel', () => {
+  it('formats a same-month range with an en-dash', () => {
+    expect(festivalRangeLabel(['2026-06-19', '2026-06-20', '2026-06-21'])).toBe('19\u201321 June');
+  });
+  it('formats a cross-month range', () => {
+    expect(festivalRangeLabel(['2026-06-29', '2026-07-01'])).toBe('29 June \u2013 1 July');
+  });
+  it('returns null for a single distinct day', () => {
+    expect(festivalRangeLabel(['2026-06-19'])).toBeNull();
+    expect(festivalRangeLabel(['2026-06-19', '2026-06-19'])).toBeNull();
+  });
+});
+
+describe('collapseFestivals', () => {
+  it('collapses a single-occurrence multi-day festival to one row with a date range', () => {
+    const events = [
+      ev({ occurrence_id: 'o', event_id: 'f1', format: 'festival', instance_date: '2026-06-19' }),
+      ev({ occurrence_id: 'o', event_id: 'f1', format: 'festival', instance_date: '2026-06-20' }),
+      ev({ occurrence_id: 'o', event_id: 'f1', format: 'festival', instance_date: '2026-06-21' }),
+    ];
+    const out = collapseFestivals(events);
+    expect(out).toHaveLength(1);
+    expect(out[0].instance_date).toBe('2026-06-19');
+    expect(out[0].festivalDateRange).toBe('19\u201321 June');
+  });
+
+  it('collapses a multi-row festival (one occurrence per day) to one ranged row', () => {
+    const events = [
+      ev({ occurrence_id: 'a', event_id: 'ab', format: 'festival', instance_date: '2027-03-26' }),
+      ev({ occurrence_id: 'b', event_id: 'ab', format: 'festival', instance_date: '2027-03-27' }),
+      ev({ occurrence_id: 'c', event_id: 'ab', format: 'festival', instance_date: '2027-03-28' }),
+      ev({ occurrence_id: 'd', event_id: 'ab', format: 'festival', instance_date: '2027-03-29' }),
+    ];
+    const out = collapseFestivals(events);
+    expect(out).toHaveLength(1);
+    expect(out[0].instance_date).toBe('2027-03-26');
+    expect(out[0].festivalDateRange).toBe('26\u201329 March');
+  });
+
+  it('passes non-festivals through and collapses festivals among them (order preserved)', () => {
+    const events = [
+      ev({ occurrence_id: 'p1', event_id: 'party', format: 'recurring', instance_date: '2026-06-19' }),
+      ev({ occurrence_id: 'f1', event_id: 'fest', format: 'festival', instance_date: '2026-06-19' }),
+      ev({ occurrence_id: 'f2', event_id: 'fest', format: 'festival', instance_date: '2026-06-20' }),
+      ev({ occurrence_id: 'p2', event_id: 'party2', format: 'recurring', instance_date: '2026-06-20' }),
+    ];
+    const out = collapseFestivals(events);
+    expect(out.map((e) => e.event_id)).toEqual(['party', 'fest', 'party2']);
+    expect(out.find((e) => e.event_id === 'fest')!.festivalDateRange).toBe('19\u201320 June');
+  });
+
+  it('leaves a non-festival list untouched (no festivalDateRange)', () => {
+    const out = collapseFestivals([
+      ev({ occurrence_id: 'a', event_id: 'e1', format: 'recurring', instance_date: '2026-06-19' }),
+      ev({ occurrence_id: 'b', event_id: 'e2', format: 'recurring', instance_date: '2026-06-20' }),
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.every((e) => e.festivalDateRange === undefined)).toBe(true);
+  });
+
+  it('does not stamp a range on a single-day festival', () => {
+    const out = collapseFestivals([
+      ev({ occurrence_id: 'o', event_id: 'f', format: 'festival', instance_date: '2026-06-19' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].festivalDateRange).toBeUndefined();
   });
 });

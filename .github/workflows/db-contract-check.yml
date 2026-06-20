@@ -577,3 +577,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-cancelled-occurrence-visibility.mjs
+
+      # 40. Festival multi-day span (program-day-canonical, 2026-06-20). A festival's
+      #     calendar days are derived from its program-day structure
+      #     (event_series_program_day_p5) by get_calendar_events_v2 (admin migration
+      #     20260904000000), not from a duration-derived materialised_end_utc. This
+      #     guard asserts every LIVE festival renders exactly its program-day span --
+      #     single-occurrence -> max(date_offset_days)+1, multi-occurrence ->
+      #     scheduled occurrence count -- and flags single-occurrence festivals with
+      #     NO program days (indeterminate span). Origin: "London Sensual Days missing
+      #     Sunday" -- the old RPC fanned festivals off materialised_end_utc, which
+      #     collapsed multi-day single-row festivals and over-fanned multi-row ones
+      #     (duplicate + phantom days). Health-check RPC:
+      #     check_festival_occurrence_span_v1 (admin migration 20260905000000).
+      - name: Run festival multi-day span check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-festival-span.mjs

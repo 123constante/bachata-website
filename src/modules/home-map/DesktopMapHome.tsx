@@ -9,7 +9,7 @@ import { Suspense, useEffect, useRef } from 'react';
 import { Plus, Minus, Focus } from 'lucide-react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
-import { groupByDate } from './mapListDerivations';
+import { groupByDate, collapseFestivals } from './mapListDerivations';
 import {
   EventRow,
   TonightCard,
@@ -42,7 +42,7 @@ const zoomBtn =
  *  view. Remote festivals (merged upstream) render with a pin icon via
  *  RemoteFestivalRow so users can see they'd be travelling. */
 function AllBody({ state }: { state: UseMapListResult }) {
-  const groups = groupByDate(state.listEvents);
+  const groups = groupByDate(collapseFestivals(state.listEvents));
   return (
     <div className="space-y-3">
       <SearchField value={state.q} onChange={state.setQ} />

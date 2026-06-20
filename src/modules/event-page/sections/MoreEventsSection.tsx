@@ -171,7 +171,15 @@ const useThisWeekEvents = (citySlug: string | null, currentEventId: string | nul
       } as never);
       if (error) throw error;
       type Row = { event_id: string; occurrence_id: string | null; name: string; instance_date: string; cover_image_url: string | null; photo_url: string | null };
-      const candidates = ((data as unknown as Row[]) ?? []).filter((e) => e.event_id !== currentEventId);
+      const allRows = ((data as unknown as Row[]) ?? []).filter((e) => e.event_id !== currentEventId);
+      // Collapse multi-day festivals (one row per day) to a single card per
+      // event -- keep the earliest occurrence so a festival fills one slot, not many.
+      const byEvent = new Map<string, Row>();
+      for (const r of allRows) {
+        const cur = byEvent.get(r.event_id);
+        if (!cur || (r.instance_date ?? '') < (cur.instance_date ?? '')) byEvent.set(r.event_id, r);
+      }
+      const candidates = [...byEvent.values()];
       if (candidates.length === 0) return [];
 
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

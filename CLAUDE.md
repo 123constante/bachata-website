@@ -31,7 +31,7 @@ src/
     programDayRollover.ts  Day-rollover logic (must mirror admin lib)
   hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
   contexts/            CityContext
-scripts/               CI contract check scripts (35 checks in db-contract-check.yml)
+scripts/               CI contract check scripts (40 checks in db-contract-check.yml)
 tests/                 Vitest unit tests + Playwright e2e specs
 bin/                   Integrity and session-lock tools
 .github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
@@ -179,7 +179,7 @@ applied via `supabase db push` from there (CLI-only).
 - Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
 **What this repo owns:**
-- Contract-check scripts (`scripts/check-*.mjs`) — 35 checks in db-contract-check.yml
+- Contract-check scripts (`scripts/check-*.mjs`) — 40 checks in db-contract-check.yml
 - `supabase/config.toml` project_id pin
 
 CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
@@ -249,7 +249,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 35 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 40 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `e2e-nightly.yml` | daily | Full Playwright suite |
@@ -290,6 +290,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 - Festival Map RPC contract (#33)
 - Organiser-link contract / P5 organiser_ids vs event_entities (#34)
 - Search telemetry param-contract (#35)
+- Festival multi-day span / program-day-canonical (#40)
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 

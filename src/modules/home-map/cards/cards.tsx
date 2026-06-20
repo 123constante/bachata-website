@@ -285,6 +285,11 @@ export function EventRow({
           <TimePills event={event} />
           {offMap && <OffMapTag />}
         </span>
+        {event.festivalDateRange && (
+          <span className="mt-1 block text-xs font-semibold text-primary">
+            {event.festivalDateRange}
+          </span>
+        )}
         {event.venue_name && (
           <span className="mt-1 block truncate text-xs text-muted-foreground">
             {event.venue_name}

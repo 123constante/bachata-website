@@ -346,3 +346,65 @@ export function homeStats(events: MapEvent[], today = todayStr()): HomeStats {
   }
   return { thisWeek: week.size, venues: venues.size };
 }
+/** Parse 'YYYY-MM-DD' into numeric calendar parts (no tz). */
+function parseYMD(s: string): { y: number; mo: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return null;
+  return { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) };
+}
+
+/**
+ * Compact festival date-range label from a set of 'YYYY-MM-DD' dates:
+ *   same month  -> "19-21 June"
+ *   cross month -> "29 June - 1 July"
+ * Returns null for a single distinct day (nothing to range). The separator is an
+ * en-dash written as the \u2013 escape so source stays ASCII (FUSE/cp1252
+ * mojibake guard) yet renders a real en-dash.
+ */
+export function festivalRangeLabel(dates: string[]): string | null {
+  const uniq = [...new Set(dates.filter(Boolean))].sort();
+  if (uniq.length < 2) return null;
+  const first = parseYMD(uniq[0]);
+  const last = parseYMD(uniq[uniq.length - 1]);
+  if (!first || !last) return null;
+  const DASH = '\u2013';
+  if (first.y === last.y && first.mo === last.mo) {
+    return `${first.d}${DASH}${last.d} ${MONTHS[first.mo - 1]}`;
+  }
+  return `${first.d} ${MONTHS[first.mo - 1]} ${DASH} ${last.d} ${MONTHS[last.mo - 1]}`;
+}
+
+/**
+ * Collapse multi-day festivals to a single representative row (earliest day),
+ * stamping festivalDateRange so flat lists show the festival ONCE with a date
+ * range instead of one row per spanned day. Non-festival rows pass through
+ * unchanged; single-day festivals get no range badge. The calendar grid keeps
+ * per-day rows (it needs a dot per day) -- this is for flat list surfaces only.
+ */
+export function collapseFestivals(events: MapEvent[]): MapEvent[] {
+  const rep = new Map<string, MapEvent>();
+  const dates = new Map<string, string[]>();
+  for (const e of events) {
+    if (!isFestivalFormat(e)) continue;
+    const d = e.instance_date ?? '';
+    const ds = dates.get(e.event_id);
+    if (ds) ds.push(d);
+    else dates.set(e.event_id, [d]);
+    const cur = rep.get(e.event_id);
+    if (!cur || d < (cur.instance_date ?? '9999-99-99')) rep.set(e.event_id, e);
+  }
+  const emitted = new Set<string>();
+  const out: MapEvent[] = [];
+  for (const e of events) {
+    if (!isFestivalFormat(e)) {
+      out.push(e);
+      continue;
+    }
+    if (emitted.has(e.event_id)) continue;
+    emitted.add(e.event_id);
+    const r = rep.get(e.event_id) ?? e;
+    const range = festivalRangeLabel(dates.get(e.event_id) ?? []);
+    out.push(range ? { ...r, festivalDateRange: range } : r);
+  }
+  return out;
+}

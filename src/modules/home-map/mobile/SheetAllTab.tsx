@@ -6,11 +6,11 @@
 // there is no in-feed search field here (the `q` filter stays wired for desktop).
 
 import type { UseMapListResult } from '../useMapList';
-import { groupByDate } from '../mapListDerivations';
+import { groupByDate, collapseFestivals } from '../mapListDerivations';
 import { EventRow, EmptyState, RemoteFestivalRow } from '../cards/cards';
 
 export function SheetAllTab({ state }: { state: UseMapListResult }) {
-  const groups = groupByDate(state.listEvents);
+  const groups = groupByDate(collapseFestivals(state.listEvents));
   return (
     <div className="space-y-3">
       {groups.length === 0 ? (

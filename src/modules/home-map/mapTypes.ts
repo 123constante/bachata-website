@@ -43,6 +43,9 @@ export interface MapEvent {
   is_cancelled: boolean;
   cancellation_reason_label: string | null;
   slug?: string | null;
+  /** Client-derived by collapseFestivals(): a "19-21 June" range stamped on
+   *  the representative row of a collapsed multi-day festival. Not from the RPC. */
+  festivalDateRange?: string;
 }
 
 // Category colour system (handoff bc-base.css --cat-*).
