@@ -196,6 +196,15 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-contract.mjs
 
+      - name: Run unmigrated-DDL drift check
+        # Fails when real structural DDL hit prod without a committed migration
+        # (admin ADR-009 out-of-band-change class). Anon-callable; no Docker.
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-unmigrated-ddl.mjs
+
       - name: Run venue coords contract check
         if: always()
         env:
