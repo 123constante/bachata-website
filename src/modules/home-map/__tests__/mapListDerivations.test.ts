@@ -384,4 +384,26 @@ describe('collapseFestivals', () => {
     expect(out).toHaveLength(1);
     expect(out[0].festivalDateRange).toBeUndefined();
   });
+
+  it('keeps a multi-day festival LIVE when only its first day is cancelled', () => {
+    const out = collapseFestivals([
+      ev({ occurrence_id: 'a', event_id: 'f', format: 'festival', instance_date: '2027-03-26', is_cancelled: true }),
+      ev({ occurrence_id: 'b', event_id: 'f', format: 'festival', instance_date: '2027-03-27', is_cancelled: false }),
+      ev({ occurrence_id: 'c', event_id: 'f', format: 'festival', instance_date: '2027-03-28', is_cancelled: false }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].is_cancelled).toBe(false);
+    expect(out[0].instance_date).toBe('2027-03-27');
+    expect(out[0].festivalDateRange).toBe('26\u201328 March');
+  });
+
+  it('marks a collapsed festival cancelled only when every day is cancelled', () => {
+    const out = collapseFestivals([
+      ev({ occurrence_id: 'a', event_id: 'f', format: 'festival', instance_date: '2027-03-26', is_cancelled: true }),
+      ev({ occurrence_id: 'b', event_id: 'f', format: 'festival', instance_date: '2027-03-27', is_cancelled: true }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].is_cancelled).toBe(true);
+    expect(out[0].instance_date).toBe('2027-03-26');
+  });
 });

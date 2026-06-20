@@ -381,6 +381,15 @@ export function festivalRangeLabel(dates: string[]): string | null {
  * unchanged; single-day festivals get no range badge. The calendar grid keeps
  * per-day rows (it needs a dot per day) -- this is for flat list surfaces only.
  */
+/** Representative-row preference for a collapsed festival: a non-cancelled
+ *  day wins over a cancelled one, then the earliest instance_date. Keeps a
+ *  festival shown as live unless EVERY day is cancelled, so a cancelled first
+ *  day no longer mislabels the whole festival. */
+function preferFestivalRep(a: MapEvent, b: MapEvent): boolean {
+  if (a.is_cancelled !== b.is_cancelled) return !a.is_cancelled;
+  return (a.instance_date ?? '9999-99-99') < (b.instance_date ?? '9999-99-99');
+}
+
 export function collapseFestivals(events: MapEvent[]): MapEvent[] {
   const rep = new Map<string, MapEvent>();
   const dates = new Map<string, string[]>();
@@ -391,7 +400,7 @@ export function collapseFestivals(events: MapEvent[]): MapEvent[] {
     if (ds) ds.push(d);
     else dates.set(e.event_id, [d]);
     const cur = rep.get(e.event_id);
-    if (!cur || d < (cur.instance_date ?? '9999-99-99')) rep.set(e.event_id, e);
+    if (!cur || preferFestivalRep(e, cur)) rep.set(e.event_id, e);
   }
   const emitted = new Set<string>();
   const out: MapEvent[] = [];
