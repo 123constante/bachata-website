@@ -617,3 +617,36 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-organiser-past-events-rpc.mjs
+
+      # 42. Occurrence-time stamping convention guardrail (tz-stash durable fix,
+      #     2026-06-20). Occurrence/program times are a local-as-UTC stash; the
+      #     convention was re-implemented inline in ~8 writers and several stamped
+      #     with the series timezone, shifting every BST-dated occurrence -1h (207
+      #     rows / 30 series; the 2026-08-28 fix patched some and silently missed the
+      #     rest, incl. the hot materialiser + _cmd_series_add_date_p5). Admin
+      #     migrations 20260908000000..20260912000000 centralized the convention into
+      #     stash_local_as_utc(), repointed every writer, healed the data, and added
+      #     this guardrail. It scans pg_proc and FAILS if any occurrence-time writer
+      #     re-introduces a non-UTC stamp (festival anchor-seed allowlisted = nuance B).
+      #     Health-check RPC: check_occurrence_time_stamping_convention_v1.
+      - name: Run occurrence time-stamping convention guardrail check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-occurrence-time-stamping-convention.mjs
+
+      # 43. P5 occurrence materialised-time canonical (tz-stash durable fix,
+      #     2026-06-20). Sibling of #42 (code regression); this catches DATA
+      #     regression. The check was date-only (blind to the hour) — which is why
+      #     the 207 BST shifts went undetected. It now also asserts the time-of-day
+      #     for non-festival series equals the local-as-UTC stash of
+      #     (occurrence_date + COALESCE(custom start, series default)). Festivals stay
+      #     date-only. Admin migration 20260911000000. Health-check RPC:
+      #     check_occurrence_p5_materialised_canonical_v1.
+      - name: Run P5 occurrence materialised canonical check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-occurrence-p5-materialised-canonical.mjs
