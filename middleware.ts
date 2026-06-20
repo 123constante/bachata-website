@@ -98,10 +98,26 @@ function absoluteUrl(maybeUrl: string | null | undefined): string | null {
 // every OG image through /api/og/card, which returns a normalized 1200x630
 // JPEG: a branded card for events/festivals, a letterboxed normalize for other
 // entities. See api/og/card.ts. Falls back to the static branded og-image.jpg.
-function ogCardUrl(kind: 'event' | 'festival', id: string, version?: string | null): string {
+// A stable per-cover token: the cover's filename (R2 names are unique per upload).
+// When the cover changes this changes, so the og:image URL changes and BOTH the CDN
+// edge cache and WhatsApp's URL-keyed preview cache are busted. Previously the intended
+// `&v=` was always empty (event_view_p5's snapshot_compat omits updated_at), so cards
+// froze for the full 1-year s-maxage on whatever cover existed at first scrape.
+function coverVersionToken(coverUrl: string | null | undefined): string | null {
+  if (!coverUrl) return null;
+  const seg = String(coverUrl).split('?')[0].split('/').pop() ?? '';
+  return seg ? seg.slice(0, 64) : null;
+}
+function ogCardUrl(
+  kind: 'event' | 'festival',
+  id: string,
+  opts?: { occ?: string | null; version?: string | null },
+): string {
   const base = SITE_URL.replace(/\/$/, '');
-  const v = version ? `&v=${encodeURIComponent(version)}` : '';
-  return `${base}/api/og/card?kind=${kind}&id=${encodeURIComponent(id)}${v}`;
+  const params = new URLSearchParams({ kind, id });
+  if (opts?.occ) params.set('occ', opts.occ);
+  if (opts?.version) params.set('v', opts.version);
+  return `${base}/api/og/card?${params.toString()}`;
 }
 function ogNormalizedImage(rawUrl: string | null | undefined): string {
   const abs = absoluteUrl(rawUrl);
@@ -184,6 +200,27 @@ async function supabaseFetch(path: string, init?: RequestInit): Promise<Response
   }
 }
 
+// Prefer a pre-baked, immutable R2 OG image (rendered once on cover change, stored
+// in R2) over a live /api/og/card render. get_og_image_v1 matches on the cover
+// token, so a stale/not-yet-baked entry returns NULL and the caller falls back to
+// the (always-current) live card — previews are never broken or stale.
+async function fetchBakedOgImage(
+  entityType: string, entityId: string, occ: string | null, coverToken: string | null,
+): Promise<string | null> {
+  const res = await supabaseFetch('/rest/v1/rpc/get_og_image_v1', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_entity_type: entityType, p_entity_id: entityId,
+      p_occurrence_id: occ, p_cover_token: coverToken,
+    }),
+  });
+  if (!res || !res.ok) return null;
+  try {
+    const url = await res.json();
+    return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null;
+  } catch { return null; }
+}
+
 // Resolve a param (slug OR uuid) to BOTH its uuid and canonical slug in one round
 // trip, so bot HTML can emit a slug-based <link rel=canonical> that consolidates the
 // legacy /{kind}/{uuid} URLs onto the slug. `table` must expose `id` + `slug`
@@ -202,10 +239,12 @@ async function resolveRef(table: string, param: string): Promise<{ id: string; s
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
-async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
+async function fetchEventMeta(id: string, occId: string | null, url: string): Promise<OgMeta | null> {
+  const target: Record<string, string> = { series_id: id };
+  if (occId) target.occurrence_id = occId;
   const res = await supabaseFetch('/rest/v1/rpc/event_view_p5', {
     method: 'POST',
-    body: JSON.stringify({ p_target: { series_id: id }, p_viewer: { role: 'anon', shape: 'snapshot_compat' } }),
+    body: JSON.stringify({ p_target: target, p_viewer: { role: 'anon', shape: 'snapshot_compat' } }),
   });
   if (!res || !res.ok) return null;
 
@@ -220,7 +259,9 @@ async function fetchEventMeta(id: string, url: string): Promise<OgMeta | null> {
   const city = location?.city;
 
   const title = truncate(event.name ?? 'Bachata Event', 90);
-  const image = ogCardUrl('event', id, event.updated_at ?? null);
+  const coverToken = coverVersionToken(event.cover_image_url);
+  const image = (await fetchBakedOgImage('event', id, occId, coverToken))
+    ?? ogCardUrl('event', id, { occ: occId, version: coverToken });
 
   const startDate = occ?.starts_at ?? event.date ?? null;
   const formattedDate = formatDate(startDate);
@@ -298,7 +339,9 @@ async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null
   const city = location?.city;
 
   const title = truncate(identity.name ?? 'Bachata Festival', 90);
-  const image = ogCardUrl('festival', id, identity.updatedAt ?? null);
+  const coverToken = coverVersionToken(identity.posterUrl);
+  const image = (await fetchBakedOgImage('festival', id, null, coverToken))
+    ?? ogCardUrl('festival', id, { version: coverToken ?? identity.updatedAt ?? null });
 
   const startDate = dates?.startsAt ?? null;
   const formattedDate = formatDate(startDate);
@@ -659,7 +702,8 @@ export default async function middleware(request: Request): Promise<Response> {
   switch (kind) {
     case 'event': {
       const ref = await resolveRef('events', id);
-      meta = ref ? await fetchEventMeta(ref.id, canonicalUrl) : null;
+      const occ = url.searchParams.get('occurrenceId');
+      meta = ref ? await fetchEventMeta(ref.id, occ, canonicalUrl) : null;
       if (meta && ref) meta.canonicalHref = `${SITE_URL}/event/${ref.slug || ref.id}`;
       break;
     }

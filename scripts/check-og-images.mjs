@@ -63,6 +63,9 @@ async function sampleUrls() {
       for (const u of matches) urls.push(u.replace(/^https?:\/\/[^/]+/, ''));
     }
   }
+  // Fixed sample: an event shared with a specific occurrence — the case that
+  // regressed (preview showed the series flyer, not the per-date flyer).
+  urls.push('/event/makondo?occurrenceId=03f492d3-1663-4c4e-a753-2be0f7bdcb2b');
   return urls;
 }
 
@@ -84,6 +87,23 @@ async function checkPage(pathOrUrl) {
   if (!/^https:\/\//i.test(ogImage)) failures.push(`og:image not absolute https: ${ogImage}`);
   if (!/og:image:width/i.test(html)) failures.push('missing og:image:width');
   if (!/og:image:height/i.test(html)) failures.push('missing og:image:height');
+
+  // Durability guards for the link-preview pipeline. An event/festival preview must
+  // be either a pre-baked immutable R2 image, or a live card carrying a cover
+  // version (v=) so a cover change always busts the cache. Occurrence URLs must
+  // carry the occurrence into a live card (occ=); a baked R2 image encodes it in
+  // the object key, so it needs no query param.
+  if (/\/(event|festival)\//.test(url)) {
+    const isCard = /\/api\/og\/card\?/i.test(ogImage);
+    const isBaked = /\.r2\.dev\//i.test(ogImage) || /\/og\/(event|festival)\//i.test(ogImage);
+    if (isCard && !/[?&]v=/.test(ogImage)) failures.push(`og:image card missing cover version (v=): ${ogImage}`);
+    if (/[?&]occurrenceId=/i.test(url) && isCard && !/[?&]occ=/.test(ogImage)) {
+      failures.push(`occurrence URL but og:image card drops occ=: ${ogImage}`);
+    }
+    if (!isCard && !isBaked && !/\/api\/og\//i.test(ogImage)) {
+      failures.push(`event/festival og:image is neither a baked R2 image nor an og card: ${ogImage}`);
+    }
+  }
 
   try {
     const img = await headImage(ogImage);

@@ -161,6 +161,9 @@
   "functions": {
     "api/og/card.ts": {
       "includeFiles": "api/og/_fonts/**"
+    },
+    "api/og/bake.ts": {
+      "includeFiles": "api/og/_fonts/**"
     }
   }
 }
