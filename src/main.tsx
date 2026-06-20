@@ -9,7 +9,7 @@ import { attemptChunkReloadOnce } from "@/lib/staleChunk";
 initSentry();
 
 // Stale-chunk guard: force a reload when Vite can't load a hashed asset after
-// a new deploy. Once per session â€” a second failure falls through to the
+// a new deploy. Once per session -- a second failure falls through to the
 // error boundaries instead of reload-looping.
 window.addEventListener('vite:preloadError', () => { attemptChunkReloadOnce() })
 
@@ -17,7 +17,7 @@ if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
-// Decorative fonts are not needed for initial render â€” load them after the
+// Decorative fonts are not needed for initial render -- load them after the
 // page is interactive so they never block LCP or hold up the critical path.
 window.addEventListener('load', () => {
   const link = document.createElement('link');
