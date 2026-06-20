@@ -49,6 +49,7 @@ type OrgOccRow = {
   cover_image_url: string | null;
   location: string | null;
   is_cancelled: boolean | null;
+  is_past: boolean | null;
 };
 
 type TeamMember = {
@@ -420,6 +421,24 @@ const OrganiserProfile = () => {
     },
   });
 
+  // Past occurrences. Separate query (and cache key) from the future feed above,
+  // so the upcoming list never breaks even if the p_include_past RPC arg is not
+  // yet deployed (PostgREST rejects the unknown param -> we degrade to empty).
+  // The server tags each row with is_past (inverse of the 6h-grace keep-window);
+  // we keep only is_past rows so today's already-ended events count as past.
+  const { data: pastOccs = [] } = useQuery({
+    queryKey: ['organiser-occ-events-past', id],
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<OrgOccRow[]> => {
+      const from = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 10);
+      const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1' as never, { p_organiser_id: id, p_from: from, p_to: to, p_include_past: true } as never);
+      if (error) return [];
+      return (data ?? []) as unknown as OrgOccRow[];
+    },
+  });
+
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['organiser-team', id],
     queryFn: async (): Promise<TeamMember[]> => {
@@ -472,9 +491,28 @@ const OrganiserProfile = () => {
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
       upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: occ.start_time ?? occ.instance_date ?? null, occurrenceId: occ.occurrence_id });
     }
+    // Past list: driven by real past occurrences (server is_past flag), one
+    // OrgEvent per past date. Cancelled rows are passed through by the RPC, so
+    // skip them here to keep the "X hosted" count honest.
     const past: OrgEvent[] = [];
+    const pastSeen = new Set<string>();
+    for (const occ of pastOccs) {
+      if (occ.is_cancelled) continue;
+      if (!occ.is_past) continue;
+      const e = eventById.get(occ.event_id);
+      if (!e) continue;
+      const startRaw = occ.start_time ?? occ.instance_date ?? null;
+      const dedupeKey = occ.occurrence_id ?? `${occ.event_id}:${startRaw}`;
+      if (pastSeen.has(dedupeKey)) continue;
+      pastSeen.add(dedupeKey);
+      const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
+      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: startRaw, occurrenceId: occ.occurrence_id });
+    }
+    // Base-date fallback only for legacy events the occurrence feed never
+    // surfaced (no future AND no past occurrence row at all).
+    const eventsWithAnyOcc = new Set<string>([...eventsWithFutureOcc, ...pastOccs.map((o) => o.event_id)]);
     for (const e of allEvents) {
-      if (eventsWithFutureOcc.has(e.id)) continue;
+      if (eventsWithAnyOcc.has(e.id)) continue;
       const baseRaw = e.start_time ?? e.date;
       const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
       const nextStart = baseRaw && !Number.isNaN(baseMs) && baseMs >= todayMs ? baseRaw : null;
@@ -485,7 +523,7 @@ const OrganiserProfile = () => {
     upcoming.sort((a, b) => (a.displayStart ?? '').localeCompare(b.displayStart ?? ''));
     past.sort((a, b) => (b.displayStart ?? '').localeCompare(a.displayStart ?? ''));
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [allEvents, futureOccs, todayMs]);
+  }, [allEvents, futureOccs, pastOccs, todayMs]);
 
   const totalEventsCount = allEvents.length;
 
@@ -944,7 +982,7 @@ const OrganiserProfile = () => {
             </div>
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
               {pastVisible.map((e, i) => (
-                <Link key={e.id} to={`/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: e.poster_url ? `url(${e.poster_url})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
+                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: e.poster_url ? `url(${e.poster_url})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '6px 7px', background: 'linear-gradient(transparent,rgba(12,10,13,0.88))', fontSize: 9, fontWeight: 700, color: D.cream, lineHeight: 1.3 }}>
                     {e.name.length > 14 ? e.name.slice(0, 13) + '???' : e.name}
                   </div>

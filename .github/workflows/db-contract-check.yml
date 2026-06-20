@@ -596,3 +596,24 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-festival-span.mjs
+
+      # 41. Organiser past-events inclusion (recurring "0 Past" fix, 2026-06-20).
+      #     get_organiser_calendar_events_v1 gained an optional p_include_past
+      #     boolean + an is_past per-row flag (admin migration 20260908000000); it
+      #     used to hard-code false as v2's p_include_past arg, so it returned
+      #     future occurrences only. The organiser page's client useMemo then
+      #     skipped any event with a future occurrence, so organisers running
+      #     recurring weekly events showed "0 Past" and hid "Past nights". The
+      #     page (src/pages/OrganiserProfile.tsx) now makes a 2nd include-past
+      #     call and buckets by is_past. This guard discovers a recurring
+      #     organiser dynamically and asserts: include-past surfaces >=1 is_past
+      #     row, the default (no-flag) call stays future-only (backward-compat),
+      #     and the OrgOccRow shape is intact. SOFT-PASSES until the admin
+      #     migration ships (PGRST202), SKIPs if no organiser has past
+      #     occurrences yet. Read path: get_organiser_calendar_events_v1.
+      - name: Run organiser past-events inclusion check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-organiser-past-events-rpc.mjs
