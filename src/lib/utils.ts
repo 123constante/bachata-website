@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+// deploy-test marker: chunk-hash rotation for iOS bfcache repro (revert after test)
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
