@@ -182,7 +182,7 @@ const Organisers = () => {
   };
 
   return (
-    <GlobalLayout showSubheader={false} showSubheader={true}>
+    <GlobalLayout showSubheader={true}>
       <div className="bg-gradient-to-b from-primary/10 to-transparent px-4 py-8 text-center sm:py-10">
         <div className="text-xs font-bold uppercase tracking-widest text-primary">Organisers</div>
         <h1 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
