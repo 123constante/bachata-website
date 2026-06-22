@@ -305,7 +305,11 @@ async function fetchEventMeta(id: string, occId: string | null, url: string): Pr
     title,
     description,
     image,
-    type: 'event',
+    // og:type 'website' (not 'event'): the OG "event" structured type requires
+    // event:start_time/end_time, which we don't emit — so Meta's Graph scrape
+    // rejects the URL (400) and never refreshes the preview cache. The schema.org
+    // DanceEvent JSON-LD (for Google rich results) is separate and unaffected.
+    type: 'website',
     url,
     eventExtras: {
       startDate,
@@ -382,7 +386,11 @@ async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null
     title,
     description,
     image,
-    type: 'event',
+    // og:type 'website' (not 'event'): the OG "event" structured type requires
+    // event:start_time/end_time, which we don't emit — so Meta's Graph scrape
+    // rejects the URL (400) and never refreshes the preview cache. The schema.org
+    // DanceEvent JSON-LD (for Google rich results) is separate and unaffected.
+    type: 'website',
     url,
     eventExtras: {
       startDate,
