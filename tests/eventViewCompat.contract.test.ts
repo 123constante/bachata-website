@@ -24,7 +24,7 @@ const BOGUS_UUID = '00000000-0000-0000-0000-000000000000';
 
 async function pickFixture(): Promise<{ eventId: string; occurrenceId: string } | null> {
   // get_calendar_events is anon-callable and surfaces both event_id and
-  // occurrence_id in one row. Walks ±30 days around now to find a published
+  // occurrence_id in one row. Walks +-30 days around now to find a published
   // event with a real occurrence; returns the first hit.
   const now = new Date();
   const start = new Date(now); start.setDate(now.getDate() - 30);
@@ -112,6 +112,11 @@ describe('event_view_p5(legacy_compat) — contract', () => {
 });
 
 describe('event_view_p5(snapshot_compat) — contract', () => {
+  // event_view_p5 is a superset of the legacy RPC: it may return additional
+  // fields (e.g. lifecycle_status added for paused-event banner). Use
+  // toMatchObject so the test catches missing/changed legacy fields without
+  // blocking intentional additions.
+
   it('series path is byte-equal to get_event_page_snapshot_v2(event_id, NULL)', async () => {
     const fixture = await pickFixture();
     expect(fixture, 'expected a published event with occurrences').toBeTruthy();
@@ -126,7 +131,7 @@ describe('event_view_p5(snapshot_compat) — contract', () => {
       } as never),
     ]);
 
-    expect(compat).toEqual(legacy);
+    expect(compat).toMatchObject(legacy as object);
   });
 
   it('occurrence path is byte-equal to get_event_page_snapshot_v2(event_id, occurrence_id)', async () => {
@@ -147,7 +152,7 @@ describe('event_view_p5(snapshot_compat) — contract', () => {
       } as never),
     ]);
 
-    expect(compat).toEqual(legacy);
+    expect(compat).toMatchObject(legacy as object);
   });
 
   it('is anon-callable', async () => {

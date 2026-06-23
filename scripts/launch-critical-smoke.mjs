@@ -231,13 +231,16 @@ const run = async () => {
 
   await runScenario('7) Organiser detail events', async () => {
     await page.goto(`${baseUrl}/organisers`, { waitUntil: 'networkidle' });
-    const link = page.locator('a[href^="/organisers/"]').first();
     const count = await page.locator('a[href^="/organisers/"]').count();
+    // Use getAttribute + goto rather than click: the desktop sidebar layout
+    // hides organiser links at mobile viewport (hidden lg:flex), so click
+    // times out even though the href is present in the DOM.
     if (count > 0) {
-      const href = await link.getAttribute('href');
-      if (href) selectedOrganiserPath = href;
-      await link.click();
-      await page.waitForURL(/\/organisers\//, { timeout: 15000 });
+      const href = await page.locator('a[href^="/organisers/"]').first().getAttribute('href');
+      if (href) {
+        selectedOrganiserPath = href;
+        await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle' });
+      }
     } else if (selectedOrganiserPath) {
       await page.goto(`${baseUrl}${selectedOrganiserPath}`, { waitUntil: 'networkidle' });
     } else {
