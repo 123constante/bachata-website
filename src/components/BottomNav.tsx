@@ -63,6 +63,7 @@ export const BottomNav = ({ className }: { className?: string }) => {
 
   return (
     <nav
+      id="app-nav"
       aria-label="Main sections"
       className={cn(
         "fixed bottom-0 left-0 right-0 z-50 border-t border-primary/10 pb-[env(safe-area-inset-bottom)]",

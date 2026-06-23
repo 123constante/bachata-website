@@ -20,7 +20,7 @@ export const EventPausedBanner = () => {
             <div className="text-[13px] font-bold leading-tight tracking-[-0.01em]">
               On hiatus — no upcoming dates
             </div>
-            <div className="mt-0.5 text-[11px] leading-tight opacity-80">
+            <div className="mt-0.5 text-[11px] leading-tight opacity-90">
               Check back later or follow the organiser for updates.
             </div>
           </div>
