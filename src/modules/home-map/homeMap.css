@@ -148,6 +148,11 @@
   0%, 100% { box-shadow: 0 0 0 0 var(--hm-heat, rgba(95,191,127,.6)); }
   55%      { box-shadow: 0 0 0 5px rgba(0,0,0,0); }
 }
+.home-map .hm-heatdot.is-updated { animation: hm-dotblink 1.6s ease-in-out infinite; }
+@keyframes hm-dotblink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
 
 /* ---- popup card (styled Leaflet popup) ---- */
 .home-map .leaflet-popup.rmap-pop { opacity: 1 !important; }
@@ -213,6 +218,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .home-map .hm-heatdot.is-live { animation: none; }
+  .home-map .hm-heatdot.is-updated { animation: none; }
   .home-map .hm-userdot .r1, .home-map .hm-userdot .r2 { animation: none; opacity: .3; }
   .home-map .rclbubble::before { animation: none; opacity: .35; }
   .home-map .rpinwrap.glow .rpin::before { animation: none; opacity: .4; }

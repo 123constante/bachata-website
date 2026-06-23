@@ -26,11 +26,10 @@ import {
   freshnessHeat,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
+import { focusRing } from './controls';
 
 type Coords = { lat: number; lng: number } | null;
 
-const focusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 /** Cover thumbnail: real flyer when present, else a category gradient + monogram. */
 export function CoverThumb({
@@ -146,14 +145,13 @@ function OffMapTag() {
 }
 
 /** Age-temperature palette for the freshness stamp: live green (<5 min, pulsing),
- *  teal (<2 hr), amber (<6 hr), muted (<24 hr), near-invisible (stale). An empty
- *  `verb` colour leaves the label on the default muted tone (cool / stale). */
-const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: string; live: boolean }> = {
-  now: { dot: '#5FBF7F', text: '#5FBF7F', verb: '#5FBF7F', live: true },
-  fresh: { dot: '#46B7C9', text: '#46B7C9', verb: '#46B7C9', live: false },
-  warm: { dot: '#E8B450', text: '#E8B450', verb: '#E8B450', live: false },
-  cool: { dot: '#3e3c4e', text: '#7a7690', verb: '', live: false },
-  stale: { dot: '#2a2836', text: '#3e3c4e', verb: '', live: false },
+ *  teal (<8 hr), amber (<24 hr), purple blinking dot (cool/stale). */
+const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: string; live: boolean; updated: boolean }> = {
+  now:   { dot: '#5FBF7F', text: '#5FBF7F', verb: '#5FBF7F', live: true,  updated: false },
+  fresh: { dot: '#46B7C9', text: '#46B7C9', verb: '#46B7C9', live: false, updated: true  },
+  warm:  { dot: '#E8B450', text: '#E8B450', verb: '#E8B450', live: false, updated: true  },
+  cool:  { dot: '#9B7FD4', text: '#9B7FD4', verb: '#9B7FD4', live: false, updated: true  },
+  stale: { dot: '#9B7FD4', text: '#9B7FD4', verb: '#9B7FD4', live: false, updated: true  },
 };
 
 /** Right-aligned "Added/Updated  Xm  ago" freshness stamp. A heat dot + thermal
@@ -168,11 +166,11 @@ export function FreshnessClock({ event, className }: { event: MapEvent; classNam
   const heat = FRESHNESS_HEAT[freshnessHeat(iso)];
   return (
     <div className={cn('flex shrink-0 items-start gap-1.5', className)}>
-      <span className={cn('mt-0.5 hm-heatdot', heat.live && 'is-live')} style={{ background: heat.dot }} />
+      <span className={cn('mt-0.5 hm-heatdot', heat.live && 'is-live', heat.updated && 'is-updated')} style={{ background: heat.dot }} />
       <span className="flex flex-col items-end gap-0.5 text-right">
         <span
-          className={cn('text-[8px] font-extrabold uppercase tracking-[0.1em]', !heat.verb && 'text-muted-foreground')}
-          style={heat.verb ? { color: heat.verb } : undefined}
+          className="text-[8px] font-extrabold uppercase tracking-[0.1em]"
+          style={{ color: heat.verb || undefined }}
         >
           {verb}
         </span>

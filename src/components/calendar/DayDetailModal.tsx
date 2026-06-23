@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X, Filter, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, MONTHS, isEventVisibleOnDay, matchesCategory, mondayIndex } from '@/components/calendar/calendarUtils';
 import { eventCardColour } from '@/lib/eventCardColour';
-import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 interface DayDetailModalProps {
   selectedDay: number | null;
@@ -21,7 +19,7 @@ interface DayDetailModalProps {
   onClose: () => void;
   /** Optional: when provided, prev/next day navigation is enabled inside the modal. */
   onChangeDate?: (newDate: Date) => void;
-  /** When true, the modal shows a skeleton instead of the empty-state — used to
+  /** When true, the modal shows a skeleton instead of the empty-state -- used to
       avoid the brief "no events" flash during cross-month refetches. */
   eventsLoading?: boolean;
 }
@@ -37,28 +35,18 @@ export const DayDetailModal = ({
   eventsLoading = false,
 }: DayDetailModalProps) => {
   const [popupFilter, setPopupFilter] = useState<Category>(parentCategory);
-  const [isMobile, setIsMobile] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const touchStartX = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const mql = window.matchMedia('(max-width: 768px)');
-    const update = () => setIsMobile(mql.matches);
-    update();
-    mql.addEventListener('change', update);
-    return () => mql.removeEventListener('change', update);
-  }, []);
-
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile) return;
     touchStartY.current = e.touches[0].clientY;
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isMobile || touchStartY.current === null || touchStartX.current === null) return;
+    if (touchStartY.current === null || touchStartX.current === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     // Horizontal swipe wins if it dominates and clears the threshold.
@@ -106,7 +94,6 @@ export const DayDetailModal = ({
   useEffect(updateFade, [displayedEvents.length, selectedDay, popupFilter]);
 
   return (
-    <>
     <Dialog
       open={!!selectedDay}
       onOpenChange={(open) => {
@@ -120,9 +107,9 @@ export const DayDetailModal = ({
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 rounded-full bg-white/30" aria-hidden="true" />
           </div>
-          <DialogHeader className="px-6 pt-3 pb-4 border-b border-white/5 bg-background/95 backdrop-blur-xl space-y-5">
-          {/* Headline date */}
-          <div className="flex items-start gap-3">
+          <DialogHeader className="px-4 pt-3 pb-4 border-b border-white/5 bg-background/95 backdrop-blur-xl space-y-5">
+          {/* Headline date + inline prev/next nav */}
+          <div className="flex items-start gap-2">
             <button
               onClick={onClose}
               aria-label="Back to calendar"
@@ -131,12 +118,22 @@ export const DayDetailModal = ({
               <ArrowLeft className="w-5 h-5 opacity-80 group-hover:opacity-100" />
             </button>
 
+            {onChangeDate && prevDate ? (
+              <button
+                onClick={goToPrevDay}
+                aria-label={`Previous day, ${format(prevDate, 'EEEE MMMM d')}`}
+                className="h-11 w-11 shrink-0 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors group"
+              >
+                <ChevronLeft className="w-5 h-5 text-primary opacity-90 group-hover:opacity-100" />
+              </button>
+            ) : <div className="w-11 shrink-0" />}
+
             <DialogTitle className="flex items-end gap-0.5 select-none flex-1 min-w-0">
-              <span className="text-7xl font-black leading-[0.75] tracking-tighter text-primary">
+              <span className="text-6xl font-black leading-[0.75] tracking-tighter text-primary">
                 {selectedDay}
               </span>
-              <div className="flex flex-col pb-1.5 pl-1 min-w-0">
-                <span className="text-4xl font-black uppercase tracking-tighter text-foreground leading-[0.85]">
+              <div className="flex flex-col pb-1 pl-1 min-w-0">
+                <span className="text-3xl font-black uppercase tracking-tighter text-foreground leading-[0.85]">
                   {selectedDate && DAYS[mondayIndex(selectedDate.getDay())]}
                 </span>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-0.5 ml-0.5">
@@ -144,6 +141,16 @@ export const DayDetailModal = ({
                 </span>
               </div>
             </DialogTitle>
+
+            {onChangeDate && nextDate ? (
+              <button
+                onClick={goToNextDay}
+                aria-label={`Next day, ${format(nextDate, 'EEEE MMMM d')}`}
+                className="h-11 w-11 shrink-0 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors group"
+              >
+                <ChevronRight className="w-5 h-5 text-primary opacity-90 group-hover:opacity-100" />
+              </button>
+            ) : <div className="w-11 shrink-0" />}
 
             <button
               onClick={onClose}
@@ -153,28 +160,6 @@ export const DayDetailModal = ({
               <X className="w-5 h-5 opacity-80 group-hover:opacity-100" />
             </button>
           </div>
-
-          {/* Mobile prev / next day navigation (desktop uses fixed-position portal pills) */}
-          {onChangeDate && isMobile && prevDate && nextDate && (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={goToPrevDay}
-                aria-label={`Previous day, ${format(prevDate, 'EEEE MMMM d')}`}
-                className="flex items-center justify-center gap-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 py-2 px-3 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4 text-primary" />
-                <span className="text-xs font-medium">{format(prevDate, 'EEE MMM d')}</span>
-              </button>
-              <button
-                onClick={goToNextDay}
-                aria-label={`Next day, ${format(nextDate, 'EEEE MMMM d')}`}
-                className="flex items-center justify-center gap-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 py-2 px-3 transition-colors"
-              >
-                <span className="text-xs font-medium">{format(nextDate, 'EEE MMM d')}</span>
-                <ChevronRight className="w-4 h-4 text-primary" />
-              </button>
-            </div>
-          )}
 
           {/* Category tabs */}
           <div role="tablist" aria-label="Filter events by type" className="flex items-center justify-around w-full border-b border-white/10">
@@ -239,19 +224,31 @@ export const DayDetailModal = ({
         <div
           ref={scrollRef}
           onScroll={updateFade}
-          className="h-full overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-transparent to-black/20"
+          className="h-full overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-transparent to-black/20"
         >
           {displayedEvents.length > 0 ? (
-            displayedEvents.map((event, i) => (
-              <Link
-                key={`${event.id}-${i}`}
-                to={event.eventLink}
-                style={{ backgroundColor: eventCardColour(event.id) }}
-                className="group flex flex-col border border-white/5 hover:border-primary/20 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:brightness-110 transition-all active:scale-[0.98]"
-              >
-                {/* Image + title row */}
-                <div className={cn('flex min-h-24 sm:min-h-28', event.isCancelled && 'opacity-90')}>
-                  <div className="w-24 sm:w-28 shrink-0 self-stretch relative">
+            displayedEvents.map((event, i) => {
+              const showClasses = event.hasClass && (popupFilter === 'all' || popupFilter === 'classes');
+              const showParty   = event.hasParty  && (popupFilter === 'all' || popupFilter === 'parties');
+              const showFallback = !event.hasParty && !event.hasClass;
+
+              const classTime = event.classStart && event.classEnd
+                ? `${event.classStart} - ${event.classEnd}`
+                : event.classStart ?? event.classEnd ?? null;
+
+              const partyTime = event.partyStart && event.partyEnd
+                ? `${event.partyStart} - ${event.partyEnd}`
+                : event.partyStart ?? event.partyEnd ?? null;
+
+              return (
+                <Link
+                  key={`${event.id}-${i}`}
+                  to={event.eventLink}
+                  style={{ backgroundColor: eventCardColour(event.id) }}
+                  className="group flex min-h-[80px] border border-white/5 hover:border-primary/20 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:brightness-110 transition-all active:scale-[0.98]"
+                >
+                  {/* Left image — overflow-hidden clips CancelledRedStrip to image bounds */}
+                  <div className="w-[90px] shrink-0 self-stretch relative overflow-hidden">
                     {event.coverImageUrl ? (
                       <img
                         src={event.coverImageUrl}
@@ -274,81 +271,68 @@ export const DayDetailModal = ({
                           event.isCancelled && 'brightness-[0.55] saturate-[0.6]',
                         )}
                       >
-                        <span aria-hidden="true" className="text-4xl">{event.hasParty ? '🎉' : event.hasClass ? '🎓' : '🎪'}</span>
+                        <span aria-hidden="true" className="text-3xl">
+                          {event.hasParty ? '🎉' : event.hasClass ? '🎓' : '🎪'}
+                        </span>
                       </div>
                     )}
                     {event.isCancelled && (
-                      <CancelledRedStrip reasonLabel={event.cancellationReasonLabel} size="sm" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 flex flex-col justify-start items-end px-3 sm:px-5 min-w-0 text-right">
-                    {event.isFestival && (
-                      <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-amber-400 text-background text-[10px] font-extrabold tracking-wider px-2 py-0.5 uppercase shadow-sm">
-                        🎪 Festival · Multi-day
-                      </span>
-                    )}
-                    <h4
-                      className={cn(
-                        'sparkle-title font-bold text-3xl sm:text-4xl leading-normal tracking-tight line-clamp-2 w-full',
-                        event.isCancelled && 'line-through opacity-60',
-                      )}
-                    >
-                      {event.title}
-                    </h4>
-                    <div className="flex items-center justify-end gap-1.5 font-bold text-[12px] truncate mt-1 w-full">
-                      <span aria-hidden="true" className="text-[12px]">📍</span>
-                      <span className="truncate tracking-wide">{event.venueName}</span>
-                    </div>
-                    {(event.goingCount ?? 0) > 0 && (
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5 mt-1 w-fit ml-auto">
-                        {event.goingCount} going
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Time bars */}
-                {(() => {
-                  const showClasses = event.hasClass && (popupFilter === 'all' || popupFilter === 'classes');
-                  const showParty   = event.hasParty  && (popupFilter === 'all' || popupFilter === 'parties');
-                  const showFallback = !event.hasParty && !event.hasClass;
-
-                  const classTime = event.classStart && event.classEnd
-                    ? `${event.classStart} - ${event.classEnd}`
-                    : event.classStart ?? event.classEnd ?? null;
-
-                  const partyTime = event.partyStart && event.partyEnd
-                    ? `${event.partyStart} - ${event.partyEnd}`
-                    : event.partyStart ?? event.partyEnd ?? null;
-
-                  return (
-                    <div className="flex flex-col text-sm">
-                      {showClasses && classTime && (
-                        <div className="flex items-center justify-between px-5 py-3 h-12">
-                          <span className="text-lg font-bold text-white tracking-wide">CLASSES</span>
-                          <span className="font-mono text-xl tracking-tight text-white opacity-90">{classTime}</span>
+                      <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+                        <div className="w-full border-y-2 border-white py-1 text-center"
+                          style={{ background: 'rgba(220,38,38,0.94)', textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>
+                          <div className="text-[11px] font-black uppercase tracking-[0.16em] text-white leading-none">Cancelled</div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right info */}
+                  <div className="flex-1 flex flex-col justify-between px-3 py-3 min-w-0 gap-2">
+                    <div className="min-w-0">
+                      {event.isFestival && (
+                        <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-amber-400 text-background text-[10px] font-extrabold tracking-wider px-2 py-0.5 uppercase shadow-sm">
+                          Festival
+                        </span>
+                      )}
+                      <h4
+                        className={cn(
+                          'font-bold text-[15px] leading-tight line-clamp-2',
+                          event.isCancelled && 'line-through opacity-60',
+                        )}
+                      >
+                        {event.title}
+                      </h4>
+                      <div className="flex items-center gap-1 mt-1 min-w-0">
+                        <span aria-hidden="true" className="text-[11px] shrink-0">📍</span>
+                        <span className="text-[11px] font-semibold text-muted-foreground truncate">{event.venueName}</span>
+                      </div>
+                    </div>
+
+                    {/* Time chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {showClasses && classTime && (
+                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-festival-blue/10 text-festival-blue px-2 py-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-festival-blue shrink-0" aria-hidden="true" />
+                          Classes &middot; {classTime}
+                        </span>
                       )}
                       {showParty && partyTime && (
-                        <div className="flex items-center justify-between px-5 py-3 h-12">
-                          <span className="text-lg font-bold text-white tracking-wide">PARTY</span>
-                          <span className="font-mono text-xl tracking-tight text-white opacity-90">{partyTime}</span>
-                        </div>
+                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-festival-pink/10 text-festival-pink px-2 py-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-festival-pink shrink-0" aria-hidden="true" />
+                          Party &middot; {partyTime}
+                        </span>
                       )}
                       {showFallback && (
-                        <div className="flex items-center justify-between px-5 py-3 h-12">
-                          <span className="text-lg font-bold text-white tracking-wide">EVENT</span>
-                          <span className="font-mono text-xl tracking-tight text-white opacity-90">
-                            {event.startTime} - {event.endTime}
-                          </span>
-                        </div>
+                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary px-2 py-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
+                          Event &middot; {event.startTime} - {event.endTime}
+                        </span>
                       )}
                     </div>
-                  );
-                })()}
-              </Link>
-            ))
+                  </div>
+                </Link>
+              );
+            })
           ) : null}
 
           {displayedEvents.length > 0 && (
@@ -357,22 +341,25 @@ export const DayDetailModal = ({
                 onClick={onClose}
                 className="text-sm text-muted-foreground hover:text-foreground hover:underline transition-colors"
               >
-                ← Back to calendar
+                &larr; Back to calendar
               </button>
             </div>
           )}
 
           {displayedEvents.length === 0 && eventsLoading && (
-            <div className="space-y-4" aria-busy="true" aria-label="Loading events">
+            <div className="space-y-3" aria-busy="true" aria-label="Loading events">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex min-h-24 sm:min-h-28 rounded-xl overflow-hidden border border-white/5 bg-black/30 animate-pulse"
+                  className="flex min-h-[80px] rounded-xl overflow-hidden border border-white/5 bg-black/30 animate-pulse"
                 >
-                  <div className="w-24 sm:w-28 shrink-0 self-stretch bg-white/5 border-r border-white/5" />
-                  <div className="flex-1 px-3 sm:px-5 py-3 flex flex-col items-end gap-2">
-                    <div className="h-6 w-3/4 rounded bg-white/10" />
-                    <div className="h-3 w-1/2 rounded bg-white/5" />
+                  <div className="w-[90px] shrink-0 self-stretch bg-white/5 border-r border-white/5" />
+                  <div className="flex-1 px-3 py-3 flex flex-col justify-between gap-2">
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-3/4 rounded bg-white/10" />
+                      <div className="h-3 w-1/2 rounded bg-white/5" />
+                    </div>
+                    <div className="h-6 w-2/5 rounded-full bg-white/5" />
                   </div>
                 </div>
               ))}
@@ -401,46 +388,5 @@ export const DayDetailModal = ({
         </div>
       </DialogContent>
     </Dialog>
-
-    {/* Desktop prev / next day pills — rendered to document.body via portal so
-        they sit on the viewport edges. Per project memory, fixed-position
-        overlays rendered from inside a route must use createPortal because
-        PageTransition breaks position:fixed. */}
-    {onChangeDate && !isMobile && selectedDay && prevDate && nextDate && createPortal(
-      <>
-        <button
-          onClick={goToPrevDay}
-          aria-label={`Previous day, ${format(prevDate, 'EEEE MMMM d')}`}
-          className="fixed left-6 top-1/2 -translate-y-1/2 z-50 flex items-center gap-3 rounded-full bg-zinc-900/95 backdrop-blur-md border border-white/10 hover:border-primary px-4 py-3 text-white transition-colors shadow-lg shadow-black/40"
-        >
-          <ChevronLeft className="w-5 h-5 text-primary" />
-          <div className="text-left">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-0.5">
-              {format(prevDate, 'EEE')}
-            </div>
-            <div className="text-sm font-semibold leading-none">
-              {format(prevDate, 'MMM d')}
-            </div>
-          </div>
-        </button>
-        <button
-          onClick={goToNextDay}
-          aria-label={`Next day, ${format(nextDate, 'EEEE MMMM d')}`}
-          className="fixed right-6 top-1/2 -translate-y-1/2 z-50 flex items-center gap-3 rounded-full bg-zinc-900/95 backdrop-blur-md border border-white/10 hover:border-primary px-4 py-3 text-white transition-colors shadow-lg shadow-black/40"
-        >
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-0.5">
-              {format(nextDate, 'EEE')}
-            </div>
-            <div className="text-sm font-semibold leading-none">
-              {format(nextDate, 'MMM d')}
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-primary" />
-        </button>
-      </>,
-      document.body
-    )}
-    </>
   );
 };

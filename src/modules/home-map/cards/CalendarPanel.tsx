@@ -1,5 +1,5 @@
 // Festival Map -- shared "Calendar" panel: a month grid with category dots.
-// Tap a day to filter the list + map to that day; tap again (or Clear) to reset.
+// Tap a day to open the DayDetailModal (same rich view as the /parties page).
 // New UI (not the exempt DayDetailModal) so density rules apply. Used by both the
 // mobile sheet (SheetCalendarTab) and the desktop list rail (DesktopMapHome).
 
@@ -10,6 +10,10 @@ import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
 import { todayStr } from '../mapTypes';
 import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
+import { DayDetailModal } from '@/components/calendar/DayDetailModal';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
+import { useCity } from '@/contexts/CityContext';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -23,6 +27,8 @@ export function CalendarPanel({
   seedDefault?: boolean;
 }) {
   const today = todayStr();
+  const { citySlug } = useCity();
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Seed the soonest day that has events (else today) once per Calendar entry
   // when asked (desktop). Runs on mount only, so a manual Clear is respected.
@@ -30,8 +36,10 @@ export function CalendarPanel({
     if (!seedDefault || state.day) return;
     const dates = [...state.calendarDays.keys()].filter((d) => d >= today).sort();
     state.setDay(dates[0] ?? today);
+    setModalOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once on mount
   }, []);
+
   // View month: seed from the selected day, else the current month.
   const [view, setView] = useState(() => {
     const seed = state.day ?? today;
@@ -47,6 +55,40 @@ export function CalendarPanel({
   };
 
   const grid = buildMonthCells(view.y, view.m, state.calendarDays, today, state.day);
+
+  // Fetch rich event data for the displayed month (powers DayDetailModal).
+  const rangeStart = new Date(view.y, view.m, 1);
+  const rangeEnd = new Date(view.y, view.m + 1, 0, 23, 59, 59);
+  const { data: rawEvents = [], isLoading: eventsLoading } = useCalendarEvents({
+    rangeStart,
+    rangeEnd,
+    citySlug,
+  });
+  const allItems = transformCalendarEvents(rawEvents);
+
+  // Day number extracted from "YYYY-MM-DD" for DayDetailModal (view tracks month/year).
+  const modalDay: number | null = (() => { if (!state.day) return null; const d = parseInt(state.day.slice(8, 10), 10); return d >= 1 ? d : null; })();
+
+  const handleDateClick = (date: string, isSelected: boolean) => {
+    if (isSelected) {
+      setModalOpen(false);
+      state.setDay(null);
+    } else {
+      state.setDay(date);
+      setModalOpen(true);
+    }
+  };
+
+  const handleClose = () => {
+    setModalOpen(false);
+    state.setDay(null);
+  };
+
+  // Keep view month in sync when modal's prev/next nav crosses a month boundary.
+  const handleChangeDate = (newDate: Date) => {
+    state.setDay(newDate.toISOString().slice(0, 10));
+    setView({ y: newDate.getFullYear(), m: newDate.getMonth() });
+  };
 
   return (
     <div className="space-y-3">
@@ -91,7 +133,7 @@ export function CalendarPanel({
             <button
               key={cell.date}
               type="button"
-              onClick={() => state.setDay(cell.isSelected ? null : cell.date)}
+              onClick={() => handleDateClick(cell.date!, cell.isSelected)}
               aria-label={`${formatDayLabel(cell.date)}${cell.cats.length ? ', has events' : ''}${cell.isToday ? ', today' : ''}`}
               aria-pressed={cell.isSelected}
               className={cn(
@@ -117,13 +159,13 @@ export function CalendarPanel({
         )}
       </div>
 
-      {state.day ? (
+      {state.day && !modalOpen ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between px-1 pt-1">
             <span className="text-sm font-bold">{formatDayLabel(state.day)}</span>
             <button
               type="button"
-              onClick={() => state.setDay(null)}
+              onClick={handleClose}
               className="text-xs font-bold text-primary"
             >
               Clear
@@ -147,11 +189,22 @@ export function CalendarPanel({
             )
           )}
         </div>
-      ) : (
+      ) : !state.day ? (
         <p className="px-1 pt-1 text-center text-sm text-primary">
           Tap a date to see what&rsquo;s on &mdash; the map updates too.
         </p>
-      )}
+      ) : null}
+
+      <DayDetailModal
+        selectedDay={modalOpen && modalDay !== null ? modalDay : null}
+        currentMonth={view.m}
+        currentYear={view.y}
+        parentCategory="all"
+        events={allItems}
+        onClose={handleClose}
+        onChangeDate={handleChangeDate}
+        eventsLoading={eventsLoading}
+      />
     </div>
   );
 }

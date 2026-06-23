@@ -132,45 +132,42 @@ export function TabBar({
 const CHIPS: {
   id: MapFilter;
   label: string;
-  color?: string;
-  activeBg: string;
-  activeFg: string;
+  icon: string;
+  borderColor: string;
+  activeTint: string;
+  activeText: string;
+  glow: string;
 }[] = [
-  { id: 'all', label: 'All', activeBg: 'hsl(var(--primary))', activeFg: '#1a1a1a' },
-  { id: 'parties', label: 'Parties', color: CATEGORY_COLORS.party, activeBg: CATEGORY_COLORS.party, activeFg: '#ffffff' },
-  { id: 'classes', label: 'Classes', color: CATEGORY_COLORS.class, activeBg: CATEGORY_COLORS.class, activeFg: '#04222a' },
-  { id: 'festivals', label: 'Festivals', color: CATEGORY_COLORS.fest, activeBg: CATEGORY_COLORS.fest, activeFg: '#2a1e00' },
+  { id: 'all',       label: 'All',       icon: '\u2605',  borderColor: 'hsl(var(--primary))', activeTint: 'rgba(183,154,255,.12)', activeText: 'hsl(var(--primary))', glow: 'rgba(183,154,255,.45)' },
+  { id: 'parties',   label: 'Parties',   icon: '\u{1F389}', borderColor: CATEGORY_COLORS.party, activeTint: 'rgba(226,65,92,.12)',   activeText: CATEGORY_COLORS.party, glow: 'rgba(226,65,92,.45)'   },
+  { id: 'classes',   label: 'Classes',   icon: '\u{1F3B5}', borderColor: CATEGORY_COLORS.class, activeTint: 'rgba(70,183,201,.12)',  activeText: CATEGORY_COLORS.class, glow: 'rgba(70,183,201,.45)'  },
+  { id: 'festivals', label: 'Festivals', icon: '\u{1F3AA}',  borderColor: CATEGORY_COLORS.fest,  activeTint: 'rgba(232,180,80,.12)',  activeText: CATEGORY_COLORS.fest,  glow: 'rgba(232,180,80,.45)'  },
 ];
 
-/** Category filter chips (All / Parties / Classes / Festivals). The active chip
- *  fills with its own category colour. `size`: 'md' (desktop -- wraps) or 'sm'
- *  (mobile -- compact + horizontal scroll on a single row). */
+/** Category filter chips (All / Parties / Classes / Festivals). Folder-tab style:
+ *  icon above label, coloured top border + upward glow when active. */
 export function CategoryChips({
   filter,
   setFilter,
   className,
-  size = 'md',
 }: {
   filter: MapFilter;
   setFilter: (f: MapFilter) => void;
   className?: string;
   size?: 'sm' | 'md';
 }) {
-  const sm = size === 'sm';
   return (
-    <div className={cn('flex gap-2', sm ? 'flex-nowrap overflow-x-auto py-1 -my-1' : 'flex-wrap', className)}>
+    <div className={cn('flex gap-px', className)}>
       {CHIPS.map((c) => {
         const on = filter === c.id;
-        // "All" = no filter; keep it visually quiet even when active so the resting
-        // state doesn't masquerade as an applied category filter (audit #12). Only
-        // genuine category chips get the bold colour fill.
-        const quietActive = on && c.id === 'all';
-        const style: CSSProperties = {};
-        if (on && !quietActive) {
-          style.background = c.activeBg;
-          style.color = c.activeFg;
-          style.borderColor = 'transparent';
-        }
+        const style: CSSProperties = on
+          ? {
+              borderTopColor: c.borderColor,
+              background: c.activeTint,
+              color: c.activeText,
+              boxShadow: `0 -4px 12px -4px ${c.glow}`,
+            }
+          : {};
         return (
           <button
             key={c.id}
@@ -178,18 +175,13 @@ export function CategoryChips({
             aria-pressed={on}
             onClick={() => setFilter(c.id)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-full border font-bold transition-all duration-200',
-              sm ? 'px-3 py-1.5 text-xs' : 'px-4 py-1.5 text-sm',
+              'flex flex-1 flex-col items-center gap-1 rounded-t-lg border-t-[3px] border-t-transparent px-2 pb-2 pt-2 text-[10px] font-bold transition-all duration-200',
               focusRing,
-              quietActive
-                ? 'border-foreground/40 text-foreground'
-                : on
-                  ? 'border-transparent'
-                  : 'border-border text-muted-foreground hover:text-foreground',
+              on ? '' : 'text-muted-foreground hover:text-foreground',
             )}
             style={Object.keys(style).length ? style : undefined}
           >
-            {!on && c.color && <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />}
+            <span className="text-sm leading-none">{c.icon}</span>
             {c.label}
           </button>
         );
