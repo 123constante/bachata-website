@@ -795,7 +795,7 @@ const OrganiserProfile = () => {
           ].map((s) => (
             <div key={s.label} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{s.label}</div>
+              <div style={{ fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{s.label}</div>
             </div>
           ))}
         </div>
