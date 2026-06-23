@@ -240,6 +240,7 @@ const run = async () => {
       if (href) {
         selectedOrganiserPath = href;
         await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle' });
+        if (!page.url().includes('/organisers/')) throw new Error(`Expected organiser detail URL, got ${page.url()}`);
       }
     } else if (selectedOrganiserPath) {
       await page.goto(`${baseUrl}${selectedOrganiserPath}`, { waitUntil: 'networkidle' });

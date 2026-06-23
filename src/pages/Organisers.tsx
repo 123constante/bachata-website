@@ -244,7 +244,10 @@ const formatLastSeen = (dateStr: string | undefined): string => {
   const d = new Date(dateStr);
   const days = Math.floor((Date.now() - d.getTime()) / 86400000);
   if (days < 60) return days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
-  return d.toLocaleDateString('en-GB', { month: 'long' });
+  const opts: Intl.DateTimeFormatOptions = days > 365
+    ? { month: 'long', year: 'numeric' }
+    : { month: 'long' };
+  return d.toLocaleDateString('en-GB', opts);
 };
 
 const Organisers = () => {
@@ -323,7 +326,7 @@ const Organisers = () => {
     queryFn: async () => {
       const today = new Date().toISOString().slice(0, 10);
       const [entitiesRes, occRes] = await Promise.all([
-        supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser'),
+        supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser').limit(5000),
         supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today).order('instance_start', { ascending: false }).limit(2000),
       ]);
       if (entitiesRes.error || occRes.error) return {} as Record<string, string>;
