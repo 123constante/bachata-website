@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+﻿import { format } from 'date-fns';
 import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
 
@@ -51,7 +51,7 @@ const formatShortDateLabel = (value: string | null, timezone: string | null): st
 };
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
-  page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null },
+  page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false },
   identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, eventFormat: null, level: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
@@ -119,6 +119,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       message: null,
       isCancelled: isWholeEventCancelled,
       cancellationReasonLabel: wholeEventCancellationReason,
+      isPaused: snapshot.event.lifecycleStatus === 'paused',
     },
     identity: {
       title: snapshot.event.name ?? 'Event',
@@ -237,20 +238,20 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
 
 export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: BuildEventPageModelArgs): EventPageModel => {
   if (isLoading) {
-    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null, isCancelled: false, cancellationReasonLabel: null } };
+    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false } };
   }
 
   if (hasError && !snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.', isCancelled: false, cancellationReasonLabel: null },
+      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.', isCancelled: false, cancellationReasonLabel: null, isPaused: false },
     };
   }
 
   if (!snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed.", isCancelled: false, cancellationReasonLabel: null },
+      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed.", isCancelled: false, cancellationReasonLabel: null, isPaused: false },
     };
   }
 
@@ -265,6 +266,7 @@ export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: 
         message: 'This event is not publicly available yet.',
         isCancelled: readyPageModel.page.isCancelled,
         cancellationReasonLabel: readyPageModel.page.cancellationReasonLabel,
+        isPaused: readyPageModel.page.isPaused,
       },
     };
   }

@@ -650,3 +650,23 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-p5-materialised-canonical.mjs
+
+      # 44. Per-occurrence override identity sync (P5 typed columns -> legacy
+      #     override_payload), 2026-06-22. calendar_occurrences.override_payload is
+      #     the legacy shape the public event-detail read consumes; its identity keys
+      #     (name/poster_url/ticket_url/description/level) are now a pure derived
+      #     projection of event_occurrence_override_p5, maintained by one trigger
+      #     (trg_mirror_p5_override_identity_to_legacy, admin migration 20260925000000).
+      #     The old per-writer dirty-key-gated mirror left a partial edit (retitling one
+      #     date of a recurring series) with a stale payload, so the date's overridden
+      #     cover/ticket/title silently never reached the website (the "Antoni y Belen -
+      #     Poolside Glam" report). forward_drift_count is GATED at 0; reverse_orphan_count
+      #     (payload identity with no typed row, e.g. legacy admin_bulk_patch_occurrences_v1
+      #     writes) is reported, non-gating. Health-check RPC:
+      #     check_override_payload_identity_sync_v1.
+      - name: Run per-occurrence override identity sync check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-override-identity-sync.mjs

@@ -6,9 +6,16 @@
 // cards; the `.home-map-fill` class supplies the shell height + the column/landscape
 // layout (index.css). The map is compact + popup-less: a pin tap shows an inline
 // MapPreviewCard, a cluster tap lists its events, a background tap clears it.
+//
+// "Explore the map" (fullscreen): the map card becomes a true edge-to-edge
+// overlay (index.css .is-fullscreen makes .hm-mapcard position:fixed over the
+// global header + bottom nav). A top bar overlays a clear "List" exit pill + the
+// category chips, so the expanded map stays filterable and obviously exitable.
+// The feed stays mounted underneath (covered), so leaving fullscreen restores the
+// list exactly where it was.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Plus, Minus, Focus } from 'lucide-react';
+import { Maximize2, Plus, Minus, Focus, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from '../useMapList';
@@ -93,10 +100,15 @@ export default function MobileMapHome({
     };
   }, [apiRef]);
 
-  // Expand/collapse changes the map cell size -- re-measure once it settles.
+  // Enter/exit fullscreen changes the map cell size (inset card <-> fixed
+  // overlay) -- re-measure once it settles so Leaflet repaints at the new size.
   useEffect(() => {
     const t = window.setTimeout(() => apiRef.current?.invalidate(), 80);
-    return () => window.clearTimeout(t);
+    const t2 = window.setTimeout(() => apiRef.current?.invalidate(), 320);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
   }, [fullscreen, apiRef]);
 
   // A tab, filter OR day change dismisses any open preview (the event it
@@ -106,9 +118,6 @@ export default function MobileMapHome({
     setPreview(null);
   }, [state.tab, state.filter, state.day]);
 
-  // Resolve preview ids from the FULL event map (state.eventsByOcc), not just
-  // pins: a collapsed venue stack's non-representative members aren't in
-  // state.pins, so a cluster preview must look them up here to list all N.
   const previewEvents = useMemo(() => {
     if (!preview) return [] as MapEvent[];
     return preview.ids
@@ -189,9 +198,17 @@ export default function MobileMapHome({
         </div>
       )}
 
-      {/* Map card (inset bento). Height + landscape behaviour come from the
-          .hm-mapcard / .is-fullscreen rules in index.css. */}
-      <div className="hm-mapcard relative mx-3 overflow-hidden rounded-2xl border border-border" role="region" aria-label="Event map">
+      {/* Map card (inset bento by default; a fixed edge-to-edge overlay in
+          fullscreen). Sizing/positioning come from .hm-mapcard / .is-fullscreen
+          in index.css. */}
+      <div
+        className={cn(
+          'hm-mapcard relative overflow-hidden border-border',
+          !fullscreen && 'mx-3 rounded-2xl border',
+        )}
+        role="region"
+        aria-label="Event map"
+      >
         <Suspense
           fallback={
             <div className="absolute inset-0 animate-pulse" style={{ background: '#11121a' }}>
@@ -218,19 +235,50 @@ export default function MobileMapHome({
           />
         </Suspense>
 
-        {/* Control stack -- hidden while a preview is open (it would collide with
-            a top-docked card and is redundant mid-preview). */}
-        {!previewOpen && (
-          <div className="absolute left-2 top-2 z-[500] flex flex-col gap-1.5">
+        {/* Fullscreen top bar: a clear "List" exit pill + the category chips, so
+            the expanded map stays filterable and obviously exitable. Hidden while
+            a preview is open (the preview owns the surface then). */}
+        {fullscreen && !previewOpen && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex items-start gap-2 bg-gradient-to-b from-background/95 via-background/65 to-transparent px-2 pb-5 pt-2">
             <button
               type="button"
-              onClick={() => setFullscreen((v) => !v)}
-              aria-label={fullscreen ? 'Exit full screen map' : 'Expand map to full screen'}
-              aria-pressed={fullscreen}
-              className={ctrlBtn}
+              onClick={() => setFullscreen(false)}
+              aria-label="Back to the list"
+              className={cn(
+                'pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/90 py-2 pl-2 pr-3.5 text-sm font-bold text-foreground shadow-lg backdrop-blur hover:bg-muted',
+                focusRing,
+              )}
             >
-              {fullscreen ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              List
             </button>
+            <div className="pointer-events-auto min-w-0 flex-1 overflow-x-auto">
+              <CategoryChips filter={state.filter} setFilter={state.setFilter} size="sm" />
+            </div>
+          </div>
+        )}
+
+        {/* Control stack -- hidden while a preview is open (it would collide with
+            a top-docked card and is redundant mid-preview). In fullscreen the
+            expand toggle is replaced by the top-bar "List" pill, and the stack
+            drops below the top bar. */}
+        {!previewOpen && (
+          <div
+            className={cn(
+              'absolute left-2 z-[500] flex flex-col gap-1.5',
+              fullscreen ? 'top-16' : 'top-2',
+            )}
+          >
+            {!fullscreen && (
+              <button
+                type="button"
+                onClick={() => setFullscreen(true)}
+                aria-label="Explore the full map"
+                className={ctrlBtn}
+              >
+                <Maximize2 className="h-[18px] w-[18px]" />
+              </button>
+            )}
             <button type="button" onClick={() => apiRef.current?.zoom(1)} aria-label="Zoom in" className={ctrlBtn}>
               <Plus className="h-[18px] w-[18px]" />
             </button>
@@ -285,40 +333,43 @@ export default function MobileMapHome({
         )}
       </div>
 
-      {!fullscreen && (
-        <div className="hm-side flex min-h-0 flex-1 flex-col">
-          <div className="hm-dock shrink-0 px-3 pt-3">
-            <TabBar tab={state.tab} setTab={state.setTab} variant="pill" />
-            <CategoryChips filter={state.filter} setFilter={state.setFilter} size="sm" className="mt-2 pb-0.5" />
-          </div>
-
-          <div
-            ref={state.listRef}
-            id={RAIL_PANEL_ID}
-            role="tabpanel"
-            tabIndex={0}
-            aria-labelledby={railTabId(state.tab)}
-            className="hm-feed relative min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2 outline-none"
-          >
-            <h2 className="sr-only">Events near you</h2>
-            {loading ? (
-              <div className="pt-1">
-                <ListSkeleton />
-              </div>
-            ) : error ? (
-              <RetryNotice onRetry={onRetry} />
-            ) : (
-              <>
-                {state.tab === 'all' && <SheetAllTab state={state} />}
-                {state.tab === 'tonight' && <SheetTonightTab state={state} />}
-                {state.tab === 'news' && <SheetNewsTab state={state} />}
-                {state.tab === 'cal' && <SheetCalendarTab state={state} />}
-              </>
-            )}
-            {!loading && !error && <HomeExploreLinks />}
-          </div>
+      {/* Feed stays mounted in fullscreen (covered by the fixed map overlay) so
+          leaving fullscreen restores the list scroll position. */}
+      <div
+        className={cn('hm-side flex min-h-0 flex-1 flex-col', fullscreen && 'pointer-events-none')}
+        aria-hidden={fullscreen}
+      >
+        <div className="hm-dock shrink-0 px-3 pt-3">
+          <TabBar tab={state.tab} setTab={state.setTab} variant="pill" />
+          <CategoryChips filter={state.filter} setFilter={state.setFilter} size="sm" className="mt-2 pb-0.5" />
         </div>
-      )}
+
+        <div
+          ref={state.listRef}
+          id={RAIL_PANEL_ID}
+          role="tabpanel"
+          tabIndex={0}
+          aria-labelledby={railTabId(state.tab)}
+          className="hm-feed relative min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2 outline-none"
+        >
+          <h2 className="sr-only">Events near you</h2>
+          {loading ? (
+            <div className="pt-1">
+              <ListSkeleton />
+            </div>
+          ) : error ? (
+            <RetryNotice onRetry={onRetry} />
+          ) : (
+            <>
+              {state.tab === 'all' && <SheetAllTab state={state} />}
+              {state.tab === 'tonight' && <SheetTonightTab state={state} />}
+              {state.tab === 'news' && <SheetNewsTab state={state} />}
+              {state.tab === 'cal' && <SheetCalendarTab state={state} />}
+            </>
+          )}
+          {!loading && !error && <HomeExploreLinks />}
+        </div>
+      </div>
     </div>
   );
 }

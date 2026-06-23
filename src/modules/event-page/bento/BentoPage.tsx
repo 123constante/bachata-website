@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
@@ -36,6 +36,7 @@ import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCal
 import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActionBar';
 import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventActions';
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
+import { EventPausedBanner } from '@/modules/event-page/bento/EventPausedBanner';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -382,6 +383,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
       {state === 'ready' && pageModel.page.isCancelled && (
         <EventCancelledBanner reasonLabel={pageModel.page.cancellationReasonLabel} />
+      )}
+      {state === 'ready' && pageModel.page.isPaused && (
+        <EventPausedBanner />
       )}
 
       <div

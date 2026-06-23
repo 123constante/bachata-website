@@ -1231,7 +1231,12 @@
 /* Inset map card: a responsive clamp so it never dominates a short viewport nor
    shrinks to a sliver. Fullscreen lets it fill the shell (head + feed unmount). */
 .home-map-fill .hm-mapcard { flex: 0 0 clamp(148px, 32%, 236px); }
-.home-map-fill.is-fullscreen .hm-mapcard { flex: 1 1 auto; }
+/* Fullscreen "explore the map": the card becomes a true edge-to-edge overlay
+   ABOVE the global header (z-60) + bottom nav, so the expanded map is genuinely
+   immersive. The feed stays mounted underneath (covered) so exit restores the
+   list scroll. Relies on no transformed ancestor on the home route (PageTransition
+   is intentionally dropped there) so position:fixed is viewport-relative. */
+.home-map-fill.is-fullscreen .hm-mapcard { position: fixed; inset: 0; z-index: 1000; }
 
 /* Soft fade at the foot of the feed so rows dissolve toward the nav rather than
    hard-cutting. A pointer-events:none overlay pinned to the bottom of .hm-side

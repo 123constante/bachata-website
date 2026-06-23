@@ -138,6 +138,7 @@ const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
       citySlug: asString(event.city_slug),
       location: asString(event.location),
       status: asString(event.status),
+      lifecycleStatus: asString(event.lifecycle_status),
       isPublished: event.is_published !== false,
       createdBy: asString(event.created_by),
       imageUrl:

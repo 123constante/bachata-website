@@ -83,6 +83,7 @@ export type EventPageSnapshot = {
     citySlug: string | null;
     location: string | null;
     status: string | null;
+    lifecycleStatus: string | null;
     isPublished: boolean;
     createdBy: string | null;
     imageUrl: string | null;
@@ -180,6 +181,7 @@ export type EventPageModel = {
     // existing DateBlock/DatesBlock pill treatment instead.
     isCancelled: boolean;
     cancellationReasonLabel: string | null;
+    isPaused: boolean;
   };
   identity: {
     title: string;
