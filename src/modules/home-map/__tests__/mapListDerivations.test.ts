@@ -15,6 +15,7 @@ import {
   homeStats,
   collapseFestivals,
   festivalRangeLabel,
+  groupPinsByLocation,
 } from '../mapListDerivations';
 
 const base: MapEvent = {
@@ -405,5 +406,70 @@ describe('collapseFestivals', () => {
     expect(out).toHaveLength(1);
     expect(out[0].is_cancelled).toBe(true);
     expect(out[0].instance_date).toBe('2027-03-26');
+  });
+});
+
+describe('groupPinsByLocation', () => {
+  it('collapses multiple distinct events at one venue-coordinate into a stack', () => {
+    const pins = [
+      ev({ occurrence_id: 'a', event_id: 'e1', venue_name: 'Pura', lat: 51.49, lng: -0.25, instance_date: '2026-06-12' }),
+      ev({ occurrence_id: 'b', event_id: 'e2', venue_name: 'Pura', lat: 51.49, lng: -0.25, instance_date: '2026-06-10' }),
+      ev({ occurrence_id: 'c', event_id: 'e3', venue_name: 'Pura', lat: 51.49, lng: -0.25, instance_date: '2026-06-14' }),
+    ];
+    const groups = groupPinsByLocation(pins);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].isStack).toBe(true);
+    expect(groups[0].members).toHaveLength(3);
+    expect(groups[0].venueName).toBe('Pura');
+    expect(groups[0].repOccId).toBe('b'); // soonest, non-cancelled
+    expect(new Set(groups[0].memberOccs)).toEqual(new Set(['a', 'b', 'c']));
+  });
+
+  it('picks a non-cancelled representative over a sooner cancelled one', () => {
+    const pins = [
+      ev({ occurrence_id: 'x', event_id: 'e1', venue_name: 'V', lat: 51.5, lng: -0.1, instance_date: '2026-06-05', is_cancelled: true }),
+      ev({ occurrence_id: 'y', event_id: 'e2', venue_name: 'V', lat: 51.5, lng: -0.1, instance_date: '2026-06-09' }),
+    ];
+    const groups = groupPinsByLocation(pins);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].repOccId).toBe('y'); // cancelled 'x' is sooner but not the face
+  });
+
+  it('keeps different venue_names at the same coord as separate, offset pins', () => {
+    const pins = [
+      ev({ occurrence_id: 'a', event_id: 'e1', venue_name: 'Bar A', lat: 51.526, lng: -0.078 }),
+      ev({ occurrence_id: 'b', event_id: 'e2', venue_name: 'Bar B', lat: 51.526, lng: -0.078 }),
+    ];
+    const groups = groupPinsByLocation(pins);
+    expect(groups).toHaveLength(2);
+    expect(groups.every((g) => !g.isStack)).toBe(true);
+    expect(new Set(groups.map((g) => g.offsetIndex))).toEqual(new Set([0, 1]));
+  });
+
+  it('collapses NULL-venue colocated events with a neutral (null) venueName', () => {
+    const pins = [
+      ev({ occurrence_id: 'a', event_id: 'e1', venue_name: null, lat: 51.4, lng: -0.2 }),
+      ev({ occurrence_id: 'b', event_id: 'e2', venue_name: null, lat: 51.4, lng: -0.2 }),
+    ];
+    const groups = groupPinsByLocation(pins);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].isStack).toBe(true);
+    expect(groups[0].venueName).toBeNull();
+  });
+
+  it('leaves a single-event location as a non-stack pin', () => {
+    const groups = groupPinsByLocation([ev({ occurrence_id: 'solo', lat: 51.51, lng: -0.13 })]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].isStack).toBe(false);
+    expect(groups[0].repOccId).toBe('solo');
+  });
+
+  it('does not collapse coords that differ beyond ~11m (4dp)', () => {
+    const pins = [
+      ev({ occurrence_id: 'a', event_id: 'e1', venue_name: 'V', lat: 51.5, lng: -0.1 }),
+      ev({ occurrence_id: 'b', event_id: 'e2', venue_name: 'V', lat: 51.502, lng: -0.1 }),
+    ];
+    const groups = groupPinsByLocation(pins);
+    expect(groups).toHaveLength(2);
   });
 });

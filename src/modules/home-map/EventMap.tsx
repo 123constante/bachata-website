@@ -16,6 +16,7 @@ import {
   CATEGORY_LABEL,
   formatTimeRange,
 } from './mapTypes';
+import { groupPinsByLocation } from './mapListDerivations';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -46,8 +47,9 @@ interface EventMapProps {
   onHover: (occId: string | null) => void;
   onReady?: (api: MapApi) => void;
   onOpenEvent?: (href: string) => void;
-  /** Mobile: a cluster tap surfaces the child events in an inline preview card
-   *  instead of zooming/spiderfying. When set, clusters don't zoom on click. */
+  /** Mobile: a tap on a multi-event location pin surfaces its events in an inline
+   *  preview card instead of a Leaflet popup. Carries the currently-visible
+   *  member occurrence_ids. */
   onClusterSelect?: (occIds: string[]) => void;
   center?: [number, number];
   zoom?: number;
@@ -93,13 +95,64 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-function posterHtml(e: MapEvent): string {
+/** Live-wins representative among a (visible) member subset: a non-cancelled
+ *  event beats a cancelled one, then the soonest date. Mirrors pickLiveRep in
+ *  mapListDerivations so the pin face stays a real, live event after filtering. */
+function repOf(list: MapEvent[]): MapEvent {
+  return list.reduce((best, e) => {
+    if (best.is_cancelled !== e.is_cancelled) return best.is_cancelled ? e : best;
+    return (e.instance_date ?? '9999-99-99') < (best.instance_date ?? '9999-99-99') ? e : best;
+  });
+}
+
+/** The poster body of a pin (cover image or monogram on a scene gradient). */
+function posterCore(e: MapEvent): string {
   const color = categoryColor(e);
   const inner = e.cover_image_url
     ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" />`
     : `<span class="rpin-mono">${esc(monogram(e.name))}</span>`;
   const scene = e.cover_image_url ? '' : eventScene(e);
   return `<div class="rpin" style="--pc:${color}"><span class="pcv cv ${scene}">${inner}<span class="grain"></span></span></div>`;
+}
+
+/** A single-event location pin: poster + event-name label (revealed at zoom). */
+function singlePinHtml(e: MapEvent): string {
+  const color = categoryColor(e);
+  const label = `<span class="plabel"><i class="pdot" style="background:${color}"></i><span class="ptxt">${esc(
+    e.name,
+  )}</span></span>`;
+  return `${posterCore(e)}${label}`;
+}
+
+/** A multi-event location pin (Approach B): the rep poster on a stacked-card
+ *  silhouette + a neutral count chip + a "Venue . N events" label. */
+function stackPinHtml(rep: MapEvent, venueName: string | null, count: number): string {
+  const color = categoryColor(rep);
+  const labelInner = venueName
+    ? `<span class="ptxt">${esc(venueName)}</span><span class="pcount">&middot; ${count} events</span>`
+    : `<span class="ptxt">${count} events here</span>`;
+  const label = `<span class="plabel"><i class="pdot" style="background:${color}"></i>${labelInner}</span>`;
+  const chip = `<span class="rpin-count" aria-hidden="true">${count}</span>`;
+  return `<div class="rpin-stack">${posterCore(rep)}</div>${chip}${label}`;
+}
+
+/** Build the divIcon for a location, single or stacked, sized for the surface. */
+function locationIcon(
+  rep: MapEvent,
+  venueName: string | null,
+  count: number,
+  size: [number, number],
+  anchor: [number, number],
+  popAnchor: [number, number],
+): L.DivIcon {
+  const isStack = count >= 2;
+  return L.divIcon({
+    html: isStack ? stackPinHtml(rep, venueName, count) : singlePinHtml(rep),
+    className: isStack ? 'rpinwrap rpinloc' : 'rpinwrap',
+    iconSize: size,
+    iconAnchor: anchor,
+    popupAnchor: popAnchor,
+  });
 }
 
 function popupHtml(e: MapEvent): string {
@@ -130,11 +183,52 @@ function popupHtml(e: MapEvent): string {
   );
 }
 
+/** Desktop stack popup: the full list of events at one location. Each row is an
+ *  <a> the popupopen handler routes through onOpenEvent for SPA navigation. The
+ *  venue subline only shows when every event agrees on the venue (so the rare
+ *  mixed-venue-at-one-coord case stays a neutral "N events here"). */
+function stackPopupHtml(events: MapEvent[]): string {
+  const venues = new Set(events.map((e) => e.venue_name).filter(Boolean) as string[]);
+  const venue = venues.size === 1 ? [...venues][0] : null;
+  const area = venue ? events.find((e) => e.venue_name === venue)?.area : null;
+  const sub = venue
+    ? `<span class="rstack-sub">${PIN_SVG} ${esc(venue)}${area ? `, ${esc(area)}` : ''}</span>`
+    : '';
+  const head = `<div class="rstack-head"><b>${events.length} events here</b>${sub}</div>`;
+  const rows = events
+    .map((e) => {
+      const cat = deriveCategory(e);
+      const color = CATEGORY_COLORS[cat];
+      const cover = e.cover_image_url
+        ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" />`
+        : '';
+      const scene = e.cover_image_url ? '' : eventScene(e);
+      const time = formatTimeRange(e);
+      const meta = time ? `${esc(CATEGORY_LABEL[cat])} &middot; ${esc(time)}` : esc(CATEGORY_LABEL[cat]);
+      const inner = e.is_cancelled ? `<span class="rstack-x">Cancelled</span>` : meta;
+      const href = `/event/${esc(e.event_id)}?occurrenceId=${esc(e.occurrence_id)}`;
+      return (
+        `<a class="rstack-row" href="${href}">` +
+        `<span class="rstack-cv cv ${scene}">${cover}<span class="grain"></span></span>` +
+        `<span class="rstack-meta"><b class="rstack-name">${esc(e.name)}</b>` +
+        `<span class="rstack-line"><span class="rpop-dot" style="background:${color}"></span>${inner}</span></span>` +
+        `${ARROW_SVG}</a>`
+      );
+    })
+    .join('');
+  return `<div class="rstack">${head}<div class="rstack-list">${rows}</div></div>`;
+}
+
 /**
  * Lazy-loaded Leaflet map. Initialised once; markers / visibility / glow /
- * selection are reconciled on prop changes WITHOUT tearing the map down. Keyed
- * end-to-end by occurrence_id. Must be rendered inside a position:relative,
- * height-bearing parent (Leaflet needs a definite size).
+ * selection are reconciled on prop changes WITHOUT tearing the map down.
+ *
+ * Colocated events collapse to ONE marker per physical venue-coordinate
+ * (groupPinsByLocation): a multi-event location shows a stacked-card pin with a
+ * count chip + venue label and lists its events on tap; a single-event location
+ * is a normal pin. The count reflects only the events visible under the active
+ * filter (computed against `visible`). Must be rendered inside a
+ * position:relative, height-bearing parent (Leaflet needs a definite size).
  */
 export default function EventMap({
   events,
@@ -160,7 +254,10 @@ export default function EventMap({
   // markercluster's types are awkward; `any` keeps the call sites readable.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
+  // markers keyed by the group's representative occurrence_id.
   const markers = useRef<Map<string, L.Marker>>(new Map());
+  // every member occurrence_id -> its location marker (for flyTo/pinHalf).
+  const occMarkerRef = useRef<Map<string, L.Marker>>(new Map());
   const userMarkerRef = useRef<L.Marker | null>(null);
   // The markers currently added to the cluster group (drives fit-to-pins).
   const shownRef = useRef<L.Marker[]>([]);
@@ -202,7 +299,9 @@ export default function EventMap({
       disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: false,
-      zoomToBoundsOnClick: true,
+      // We own every cluster tap (handler below): a residual colocated bundle
+      // lists its events; a spread cluster zooms to its bounds.
+      zoomToBoundsOnClick: false,
       removeOutsideVisibleBounds: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       iconCreateFunction: (c: any) =>
@@ -214,6 +313,49 @@ export default function EventMap({
     });
     clusterRef.current = cl;
     m.addLayer(cl);
+
+    // Cluster tap. Colocated events at one venue are already collapsed to a
+    // single marker, so a geographic cluster normally holds DISTINCT locations
+    // -> zoom to its bounds. The one exception is the rare residual case of two
+    // different venues at the same rounded coord (same _coordKey): zoom can't
+    // separate them, so list their combined events instead.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cl.on('clusterclick', (ev: any) => {
+      const cluster = ev.layer;
+      const children = cluster.getAllChildMarkers();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const keys = new Set(children.map((c: any) => c._coordKey));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const members: MapEvent[] = children.flatMap((c: any) => (c._stack as MapEvent[]) || []);
+      if (keys.size > 1 || members.length < 2) {
+        cluster.zoomToBounds({ padding: [40, 40] });
+        return;
+      }
+      if (popupMode === 'none') {
+        cb.current.onClusterSelect?.(members.map((e) => e.occurrence_id));
+      } else {
+        const popup = L.popup({
+          className: 'rmap-pop rmap-stack',
+          maxWidth: 280,
+          minWidth: 252,
+          keepInView: true,
+          autoPanPadding: [40, 40],
+        })
+          .setLatLng(cluster.getLatLng())
+          .setContent(stackPopupHtml(members));
+        m.openPopup(popup);
+      }
+    });
+
+    // Progressive disclosure: reveal pin name labels (CSS) once zoomed in past
+    // neighbourhood level. Toggling a class on the canvas avoids re-rendering
+    // every marker on each zoom.
+    const LABEL_ZOOM = 15;
+    const applyZoomClass = () => {
+      if (elRef.current) elRef.current.classList.toggle('hm-zoomed', m.getZoom() >= LABEL_ZOOM);
+    };
+    m.on('zoomend', applyZoomClass);
+    applyZoomClass();
 
     // Fit the view to the pins currently shown (padding so they clear the card
     // edges; cap the zoom so a single pin doesn't slam to street level). Falls
@@ -231,7 +373,7 @@ export default function EventMap({
 
     const api: MapApi = {
       flyTo: (occId) => {
-        const mk = markers.current.get(occId);
+        const mk = occMarkerRef.current.get(occId);
         if (!mk) return;
         cl.zoomToShowLayer(mk, () => {
           // Tracked + mount-guarded: if the user navigates away during the
@@ -248,7 +390,7 @@ export default function EventMap({
         disposer.safeCall((map) => map.invalidateSize());
       },
       pinHalf: (occId) => {
-        const mk = markers.current.get(occId);
+        const mk = occMarkerRef.current.get(occId);
         if (!mk) return null;
         try {
           const pt = m.latLngToContainerPoint(mk.getLatLng());
@@ -274,15 +416,33 @@ export default function EventMap({
     if (popupMode === 'none') {
       m.on('click', () => cb.current.onSelect?.(null));
     } else {
-      // The whole popup card routes to the event. The CTA is a raw <a> in
-      // Leaflet-injected HTML, but the entire .rpop body should be tappable.
-      // On mobile the synthetic click is suppressed by Leaflet's touch handling;
-      // touchstart fires reliably, and preventDefault blocks the subsequent
-      // synthetic click. click handles pointer (non-touch) devices.
       m.on('popupopen', (e: L.PopupEvent) => {
         const el = e.popup.getElement();
-        const card = el ? el.querySelector('.rpop') : null;
-        const cta = el ? el.querySelector('a.rpop-cta') : null;
+        if (!(el instanceof HTMLElement)) return;
+        // Stack popup (location list): every row is an <a> to its event. Route
+        // through onOpenEvent for SPA navigation. Desktop is pointer-based so the
+        // iOS pointer-events workaround below isn't needed here.
+        const stack = el.querySelector('.rstack');
+        if (stack instanceof HTMLElement) {
+          el.style.pointerEvents = 'auto';
+          stack.querySelectorAll('a.rstack-row').forEach((row) => {
+            row.addEventListener('click', (rev) => {
+              const href = (row as HTMLAnchorElement).getAttribute('href');
+              if (!href) return;
+              rev.preventDefault();
+              rev.stopPropagation();
+              cb.current.onOpenEvent?.(href);
+            });
+          });
+          return;
+        }
+        // The whole popup card routes to the event. The CTA is a raw <a> in
+        // Leaflet-injected HTML, but the entire .rpop body should be tappable.
+        // On mobile the synthetic click is suppressed by Leaflet's touch handling;
+        // touchstart fires reliably, and preventDefault blocks the subsequent
+        // synthetic click. click handles pointer (non-touch) devices.
+        const card = el.querySelector('.rpop');
+        const cta = el.querySelector('a.rpop-cta');
         if (!(card instanceof HTMLElement) || !(cta instanceof HTMLAnchorElement)) return;
         // iOS Safari dead-tap fix: on a real iPhone WebKit computes
         // pointer-events:none on the Leaflet popup subtree here (Chromium
@@ -290,13 +450,13 @@ export default function EventMap({
         // card to <html> and the tap handler below never runs. Forcing the popup
         // element interactive inline beats the inherited none without a
         // specificity fight, restoring whole-card + CTA taps on touch devices.
-        if (el instanceof HTMLElement) el.style.pointerEvents = 'auto';
+        el.style.pointerEvents = 'auto';
         card.style.pointerEvents = 'auto';
-        const onTap = (ev: Event) => {
+        const onTap = (rev: Event) => {
           const href = cta.getAttribute('href');
           if (!href) return;
-          ev.preventDefault();
-          ev.stopPropagation();
+          rev.preventDefault();
+          rev.stopPropagation();
           cb.current.onOpenEvent?.(href);
         };
         card.addEventListener('touchstart', onTap);
@@ -318,6 +478,7 @@ export default function EventMap({
       m.remove();
       mapRef.current = null;
       markers.current = new Map();
+      occMarkerRef.current = new Map();
       userMarkerRef.current = null;
       shownRef.current = [];
       fitRef.current = null;
@@ -360,130 +521,126 @@ export default function EventMap({
   }, [userCoords]);
 
   // ---- (re)build markers when the pin set changes --------------------------
+  // One marker per physical venue-coordinate (groupPinsByLocation). Icons are
+  // built with the FULL member count; the visibility effect below narrows the
+  // count to the events matching the active filter.
   useEffect(() => {
     if (!clusterRef.current) return;
     const size: [number, number] = compact ? [36, 40] : [46, 52];
     const anchor: [number, number] = compact ? [18, 40] : [23, 52];
     const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
+    const groups = groupPinsByLocation(events);
     const next = new Map<string, L.Marker>();
-    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
-    const eventsByCoord = new Map<string, MapEvent[]>();
-    for (const e of events) {
-      if (e.lat == null || e.lng == null) continue;
-      const key = coordKey(e.lat, e.lng);
-      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
-      eventsByCoord.get(key)!.push(e);
-    }
-    for (const e of events) {
-      if (e.lat == null || e.lng == null) continue;
-      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
-      const index = colocated.indexOf(e);
-      const offsetDeg = index * 0.00002;
-      const lat = e.lat + offsetDeg;
-      const lng = e.lng + offsetDeg;
-      const mk = L.marker([lat, lng], {
-        icon: L.divIcon({
-          html: posterHtml(e),
-          className: 'rpinwrap',
-          iconSize: size,
-          iconAnchor: anchor,
-          popupAnchor: popAnchor,
-        }),
-        // a11y: focusable via keyboard (Tab to reach, Enter/Space to open the
-        // popup, whose "View event" link routes to the event); title gives
-        // screen readers an accessible name for the otherwise-graphic pin.
+    const occIdx = new Map<string, L.Marker>();
+    for (const g of groups) {
+      const off = g.offsetIndex * 0.00002;
+      const mk = L.marker([g.lat + off, g.lng + off], {
+        icon: locationIcon(g.rep, g.venueName, g.members.length, size, anchor, popAnchor),
+        // a11y: focusable via keyboard (Tab to reach, Enter/Space to open); title
+        // gives screen readers an accessible name for the otherwise-graphic pin.
         keyboard: true,
         riseOnHover: true,
-        title: `${e.name}${e.venue_name ? `, ${e.venue_name}` : ''}`,
-        alt: `${CATEGORY_LABEL[deriveCategory(e)]}: ${e.name}`,
+        title: g.isStack
+          ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
+          : `${g.rep.name}${g.rep.venue_name ? `, ${g.rep.venue_name}` : ''}`,
+        alt: g.isStack
+          ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
+          : `${CATEGORY_LABEL[deriveCategory(g.rep)]}: ${g.rep.name}`,
       });
       if (popupMode !== 'none') {
-        mk.bindPopup(popupHtml(e), {
-          className: 'rmap-pop',
-          maxWidth: 248,
-          minWidth: 228,
-          keepInView: true,
-          autoPanPadding: [40, 40],
-        });
+        if (g.isStack) {
+          mk.bindPopup(stackPopupHtml(g.members), {
+            className: 'rmap-pop rmap-stack',
+            maxWidth: 280,
+            minWidth: 252,
+            keepInView: true,
+            autoPanPadding: [40, 40],
+          });
+        } else {
+          mk.bindPopup(popupHtml(g.rep), {
+            className: 'rmap-pop',
+            maxWidth: 248,
+            minWidth: 228,
+            keepInView: true,
+            autoPanPadding: [40, 40],
+          });
+        }
       }
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      (mk as any)._occ = g.repOccId;
+      (mk as any)._members = new Set(g.memberOccs);
+      (mk as any)._stackAll = g.members;
+      (mk as any)._stack = g.members;
+      (mk as any)._venueName = g.venueName;
+      (mk as any)._renderedCount = g.members.length;
+      (mk as any)._coordKey = `${g.lat.toFixed(4)},${g.lng.toFixed(4)}`;
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+      // A multi-event location lists its events; a single one selects/previews.
+      // Stacks don't fire onSelect (avoids a stale .sel ring under the open list).
+      mk.on('click', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const stack = (mk as any)._stack as MapEvent[];
+        if (stack && stack.length >= 2) {
+          if (popupMode === 'none') cb.current.onClusterSelect?.(stack.map((e) => e.occurrence_id));
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const occ = stack && stack[0] ? stack[0].occurrence_id : (mk as any)._occ;
+          cb.current.onSelect?.(occ);
+        }
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mk as any)._occ = e.occurrence_id;
-      mk.on('click', () => cb.current.onSelect?.(e.occurrence_id));
-      mk.on('mouseover', () => cb.current.onHover?.(e.occurrence_id));
+      mk.on('mouseover', () => cb.current.onHover?.((mk as any)._occ));
       mk.on('mouseout', () => cb.current.onHover?.(null));
-      next.set(e.occurrence_id, mk);
+      next.set(g.repOccId, mk);
+      for (const occ of g.memberOccs) occIdx.set(occ, mk);
     }
     markers.current = next;
+    occMarkerRef.current = occIdx;
     // visibility is applied by the effect below (depends on visKey + eventsKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventsKey]);
 
-
-  // ---- (re)build markers when the pin set changes --------------------------
-  useEffect(() => {
-    if (!clusterRef.current) return;
-    const size: [number, number] = compact ? [36, 40] : [46, 52];
-    const anchor: [number, number] = compact ? [18, 40] : [23, 52];
-    const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
-    const next = new Map<string, L.Marker>();
-    const coordKey = (lat: number | null, lng: number | null) => `${lat},${lng}`;
-    const eventsByCoord = new Map<string, MapEvent[]>();
-    for (const e of events) {
-      if (e.lat == null || e.lng == null) continue;
-      const key = coordKey(e.lat, e.lng);
-      if (!eventsByCoord.has(key)) eventsByCoord.set(key, []);
-      eventsByCoord.get(key)!.push(e);
-    }
-    for (const e of events) {
-      if (e.lat == null || e.lng == null) continue;
-      const colocated = eventsByCoord.get(coordKey(e.lat, e.lng))!;
-      const index = colocated.indexOf(e);
-      const offsetDeg = index * 0.00002;
-      const lat = e.lat + offsetDeg;
-      const lng = e.lng + offsetDeg;
-      const mk = L.marker([lat, lng], {
-        icon: L.divIcon({
-          html: posterHtml(e),
-          className: 'rpinwrap',
-          iconSize: size,
-          iconAnchor: anchor,
-          popupAnchor: popAnchor,
-        }),
-        keyboard: true,
-        riseOnHover: true,
-        title: `${e.name}${e.venue_name ? `, ${e.venue_name}` : ''}`,
-        alt: `${CATEGORY_LABEL[deriveCategory(e)]}: ${e.name}`,
-      });
-      if (popupMode !== 'none') {
-        mk.bindPopup(popupHtml(e), {
-          className: 'rmap-pop',
-          maxWidth: 248,
-          minWidth: 228,
-          keepInView: true,
-          autoPanPadding: [40, 40],
-        });
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mk as any)._occ = e.occurrence_id;
-      mk.on('click', () => cb.current.onSelect?.(e.occurrence_id));
-      mk.on('mouseover', () => cb.current.onHover?.(e.occurrence_id));
-      mk.on('mouseout', () => cb.current.onHover?.(null));
-      next.set(e.occurrence_id, mk);
-    }
-    markers.current = next;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventsKey]);
-
-  // ---- visibility ----------------------------------------------------------
+  // ---- visibility + count-of-visible ---------------------------------------
+  // A location marker shows when >=1 of its events is visible under the active
+  // filter; its chip/label count reflect ONLY the visible events (decision 2),
+  // re-iconed when that count changes (cheap: only affected stacks). When a
+  // filter narrows a stack to a single event it renders as a plain single pin.
   useEffect(() => {
     const cl = clusterRef.current;
     if (!cl) return;
-    cl.clearLayers();
+    const size: [number, number] = compact ? [36, 40] : [46, 52];
+    const anchor: [number, number] = compact ? [18, 40] : [23, 52];
+    const popAnchor: [number, number] = compact ? [0, -40] : [0, -52];
     const show = new Set(visible);
     const layers: L.Marker[] = [];
-    markers.current.forEach((mk, occ) => {
-      if (show.has(occ)) layers.push(mk);
+    markers.current.forEach((mk) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const all = (mk as any)._stackAll as MapEvent[];
+      const vis = all.filter((e) => show.has(e.occurrence_id));
+      if (!vis.length) return;
+      const count = vis.length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((mk as any)._renderedCount !== count) {
+        const rep = count >= 2 ? repOf(vis) : vis[0];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        mk.setIcon(locationIcon(rep, (mk as any)._venueName, count, size, anchor, popAnchor));
+        if (popupMode !== 'none') {
+          mk.setPopupContent(count >= 2 ? stackPopupHtml(vis) : popupHtml(vis[0]));
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const venueName = (mk as any)._venueName as string | null;
+        mk.options.title =
+          count >= 2
+            ? `${count} events at ${venueName ?? 'this location'}`
+            : `${vis[0].name}${vis[0].venue_name ? `, ${vis[0].venue_name}` : ''}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (mk as any)._renderedCount = count;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mk as any)._stack = vis;
+      layers.push(mk);
     });
+    cl.clearLayers();
     cl.addLayers(layers);
     shownRef.current = layers;
     if (!didInitialFit.current && layers.length > 0) {
@@ -496,29 +653,42 @@ export default function EventMap({
   // ---- glow (re-applied after visibility rebuilds the icon DOM) ------------
   useEffect(() => {
     const g = new Set(glow);
-    markers.current.forEach((mk, occ) => {
+    markers.current.forEach((mk) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const el = (mk as any)._icon as HTMLElement | undefined;
-      if (el) el.classList.toggle('glow', g.has(occ));
+      if (!el) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const members = (mk as any)._members as Set<string>;
+      let on = false;
+      g.forEach((o) => {
+        if (members.has(o)) on = true;
+      });
+      el.classList.toggle('glow', on);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [glowKey, visKey, eventsKey]);
 
   // ---- hover highlight -----------------------------------------------------
   useEffect(() => {
-    markers.current.forEach((mk, occ) => {
+    markers.current.forEach((mk) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const el = (mk as any)._icon as HTMLElement | undefined;
-      if (el) el.classList.toggle('hot', occ === hovered);
+      if (!el) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const members = (mk as any)._members as Set<string>;
+      el.classList.toggle('hot', !!hovered && members.has(hovered));
     });
   }, [hovered, visKey, eventsKey]);
 
   // ---- selection highlight -------------------------------------------------
   useEffect(() => {
-    markers.current.forEach((mk, occ) => {
+    markers.current.forEach((mk) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const el = (mk as any)._icon as HTMLElement | undefined;
-      if (el) el.classList.toggle('sel', occ === selected);
+      if (!el) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const members = (mk as any)._members as Set<string>;
+      el.classList.toggle('sel', !!selected && members.has(selected));
     });
   }, [selected, visKey, eventsKey]);
 

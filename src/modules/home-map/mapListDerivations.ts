@@ -417,3 +417,88 @@ export function collapseFestivals(events: MapEvent[]): MapEvent[] {
   }
   return out;
 }
+
+// ---- colocated events: one map pin per venue-coordinate -------------------
+
+export interface LocationGroup {
+  /** representative occurrence_id -- the marker's stable identity + face. */
+  repOccId: string;
+  /** the representative event (live-wins): drives the pin face + colour. */
+  rep: MapEvent;
+  lat: number;
+  lng: number;
+  venueName: string | null;
+  area: string | null;
+  /** all events at this venue-coordinate (already event-deduped by dedupePins). */
+  members: MapEvent[];
+  /** every member occurrence_id, for occ -> marker resolution. */
+  memberOccs: string[];
+  /** >= 2 distinct events here. */
+  isStack: boolean;
+  /** offset slot for the rare same-coord-different-venue case (0 otherwise). */
+  offsetIndex: number;
+}
+
+/** Round coords to ~11m, matching pinKey, so grouping lines up with dedupePins. */
+const groupCoordKey = (e: MapEvent) =>
+  `${e.lat?.toFixed(4) ?? ''},${e.lng?.toFixed(4) ?? ''}`;
+
+// Sentinel venue key so colocated rows with a NULL venue_name collapse together
+// (same coord, no name to claim) -- rendered with the neutral "N events here".
+const NO_VENUE = '__NO_VENUE__';
+
+/** Live-wins representative: a non-cancelled event beats a cancelled one, then
+ *  the soonest date -- so a busy venue's face is never a cancelled flyer. */
+function pickLiveRep(members: MapEvent[]): MapEvent {
+  return members.reduce((best, e) => {
+    if (best.is_cancelled !== e.is_cancelled) return best.is_cancelled ? e : best;
+    return (e.instance_date ?? '9999-99-99') < (best.instance_date ?? '9999-99-99') ? e : best;
+  });
+}
+
+/**
+ * Group already-deduped pins into one entry per physical venue-coordinate, so
+ * the map renders ONE marker per location instead of overlapping per-event pins.
+ * Only events that AGREE on venue_name collapse together (there is no venue_id);
+ * same coord but different venue_name -> separate groups (offset so markercluster
+ * still bundles them). Pins are already one-per-event_id+coord (dedupePins), so
+ * members are distinct events (no festival day-duplication to dedupe again).
+ */
+export function groupPinsByLocation(pins: MapEvent[]): LocationGroup[] {
+  const byCoord = new Map<string, MapEvent[]>();
+  for (const e of pins) {
+    if (e.lat == null || e.lng == null) continue;
+    const k = groupCoordKey(e);
+    const arr = byCoord.get(k);
+    if (arr) arr.push(e);
+    else byCoord.set(k, [e]);
+  }
+  const groups: LocationGroup[] = [];
+  for (const atCoord of byCoord.values()) {
+    const byVenue = new Map<string, MapEvent[]>();
+    for (const e of atCoord) {
+      const vk = e.venue_name ?? NO_VENUE;
+      const arr = byVenue.get(vk);
+      if (arr) arr.push(e);
+      else byVenue.set(vk, [e]);
+    }
+    const venueGroups = [...byVenue.values()];
+    venueGroups.forEach((members, i) => {
+      const rep = pickLiveRep(members);
+      groups.push({
+        repOccId: rep.occurrence_id,
+        rep,
+        lat: members[0].lat as number,
+        lng: members[0].lng as number,
+        venueName: rep.venue_name ?? null,
+        area: rep.area ?? null,
+        members,
+        memberOccs: members.map((m) => m.occurrence_id),
+        isStack: members.length >= 2,
+        // only the rare multi-venue-at-one-coord case needs an offset.
+        offsetIndex: venueGroups.length > 1 ? i : 0,
+      });
+    });
+  }
+  return groups;
+}

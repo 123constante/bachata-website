@@ -112,6 +112,25 @@
 .home-map--compact .rclbubble::before { inset: -6px; }
 .home-map--compact .rclbubble .rcn { width: 34px; height: 34px; font-size: 13px; border-width: 2px; }
 
+/* ---- pin name label (progressive disclosure, Approach B "inline-right").
+   Baked into each pin's divIcon, hidden by default; EventMap toggles .hm-zoomed
+   on the canvas at zoom >= LABEL_ZOOM (15) and CSS reveals it. pointer-events
+   are off so the label never intercepts a pin tap. */
+.home-map .plabel {
+  position: absolute; left: 50px; top: 13px; display: flex; align-items: center; gap: 5px;
+  max-width: 162px; font-weight: 700; font-size: 11.5px; line-height: 1; color: #fff;
+  background: rgba(14,12,20,.86); border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
+  padding: 4px 7px; box-shadow: 0 4px 12px -4px rgba(0,0,0,.7); backdrop-filter: blur(3px);
+  pointer-events: none; opacity: 0; transform: translateX(-4px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.home-map .plabel .pdot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.home-map .plabel .ptxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-map__canvas.hm-zoomed .plabel { opacity: 1; transform: translateX(0); }
+/* Compact inset map: smaller pin (36px) -> tuck the label closer + tighter type. */
+.home-map--compact .plabel { left: 40px; top: 9px; max-width: 130px; font-size: 10.5px; padding: 3px 6px; }
+.home-map--compact .plabel .pdot { width: 5px; height: 5px; }
+
 /* ---- keyboard focus rings (a11y): pins + cluster bubbles are tabbable
    (L.marker keyboard:true); make the focus visible. Pointer focus stays clean. */
 .home-map .leaflet-marker-icon:focus-visible {
@@ -155,6 +174,30 @@
 .home-map .rpop-venue { display: flex; align-items: center; gap: 7px; font-weight: 500; font-size: 12px; line-height: 1; color: var(--hm-pop-meta); }
 .home-map .rpop-cta { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; line-height: 1; color: var(--hm-accent); text-decoration: none; }
 
+/* ---- stack popup (desktop): the full list of events at one venue/coord, opened
+   when a colocated "venue stack" cluster is tapped (zoom can't separate them). */
+.home-map .leaflet-popup.rmap-stack .leaflet-popup-content { width: 254px !important; }
+.home-map .rstack { display: flex; flex-direction: column; max-height: 326px; }
+.home-map .rstack-head { padding: 12px 13px 9px; border-bottom: 1px solid var(--hm-pop-bd); }
+.home-map .rstack-head b { display: block; font-weight: 800; font-size: 14px; line-height: 1.1; }
+.home-map .rstack-sub { display: flex; align-items: center; gap: 5px; margin-top: 4px;
+  font-weight: 500; font-size: 11.5px; line-height: 1.2; color: var(--hm-pop-meta); }
+.home-map .rstack-sub svg { width: 11px; height: 11px; flex: 0 0 auto; }
+.home-map .rstack-list { overflow-y: auto; padding: 5px; display: flex; flex-direction: column; gap: 1px; }
+.home-map .rstack-row { display: flex; align-items: center; gap: 9px; padding: 6px; border-radius: 11px;
+  text-decoration: none; color: var(--hm-pop-tx); transition: background-color .14s; }
+.home-map .rstack-row:hover { background: hsl(var(--muted) / .5); }
+.home-map .rstack-row:focus-visible { outline: 2px solid var(--hm-accent); outline-offset: -2px; }
+.home-map .rstack-cv { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 9px; }
+.home-map .rstack-meta { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; }
+.home-map .rstack-name { font-weight: 700; font-size: 13px; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-map .rstack-line { display: flex; align-items: center; gap: 6px;
+  font-weight: 500; font-size: 11.5px; line-height: 1; color: var(--hm-pop-meta); }
+.home-map .rstack-line .rpop-dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+.home-map .rstack-x { color: #E2415C; font-weight: 700; }
+.home-map .rstack-row > svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--hm-pop-meta); }
+
 /* ---- user "you are here" location dot (EventMap userCoords; Approach B sonar) ---- */
 .home-map .hm-userloc { background: none !important; border: none !important; }
 .home-map .hm-userdot { position: relative; width: 22px; height: 22px; }
@@ -174,4 +217,34 @@
   .home-map .rclbubble::before { animation: none; opacity: .35; }
   .home-map .rpinwrap.glow .rpin::before { animation: none; opacity: .4; }
   .home-map .rpinwrap .rpin .pcv { transition: none; }
+  .home-map .plabel { transition: none; }
 }
+
+/* ---- multi-event location pin (Approach B: stacked cards + count chip).
+   Colocated events at one venue collapse to ONE marker; the representative
+   poster sits on a stacked-card silhouette with a neutral count chip and a
+   "Venue . N events" label. These elements only exist in the stack divIcon
+   (className 'rpinwrap rpinloc'); the chip stays unmistakable from the round
+   red geographic cluster bubble (.rclbubble). */
+.home-map .rpin-stack { position: relative; width: 46px; height: 46px; }
+.home-map .rpin-stack::before, .home-map .rpin-stack::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 13px;
+  border: 3px solid var(--pc, #E2415C); background: #150c12; }
+.home-map .rpin-stack::before { transform: translate(5px, -5px); opacity: .55; }
+.home-map .rpin-stack::after { transform: translate(9px, -9px); opacity: .3; }
+.home-map .rpin-count {
+  position: absolute; top: -7px; right: -7px; z-index: 4; min-width: 20px; height: 20px;
+  padding: 0 5px; display: grid; place-items: center; border-radius: 7px;
+  background: rgba(12,11,18,.96); border: 1.5px solid rgba(255,255,255,.92);
+  color: #fff; font-weight: 800; font-size: 12px; line-height: 1;
+  box-shadow: 0 3px 8px -2px rgba(0,0,0,.7); }
+.home-map .plabel .pcount { flex: 0 0 auto; margin-left: 1px; font-weight: 800; color: #cfc7d6; }
+
+/* compact inset (36px pin) */
+.home-map--compact .rpin-stack { width: 36px; height: 36px; }
+.home-map--compact .rpin-stack::before, .home-map--compact .rpin-stack::after {
+  border-radius: 10px; border-width: 2.5px; }
+.home-map--compact .rpin-stack::before { transform: translate(4px, -4px); }
+.home-map--compact .rpin-stack::after { transform: translate(7px, -7px); }
+.home-map--compact .rpin-count {
+  top: -6px; right: -6px; min-width: 17px; height: 17px; font-size: 10.5px; border-width: 1.25px; }
