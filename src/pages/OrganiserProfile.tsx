@@ -707,7 +707,7 @@ const OrganiserProfile = () => {
   const yearsActive = estYear !== null ? new Date().getFullYear() - estYear : null;
 
   const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive ?? '--');
-  const thirdStatLabel = orderedTeam.length > 0 ? 'Team' : yearsActive ? 'Yrs active' : 'Since';
+  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive ? 'Yrs active' : 'Since';
 
   // --- Render ---
   return (
@@ -789,8 +789,8 @@ const OrganiserProfile = () => {
         {/* Stats strip */}
         <div className="flex justify-around py-4 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
-            { value: upcomingEvents.length, label: 'Upcoming', gold: false },
-            { value: pastEvents.length,     label: 'Past',     gold: false },
+            { value: upcomingEvents.length, label: 'Upcoming events', gold: false },
+            { value: pastEvents.length,     label: 'Past events',     gold: false },
             { value: thirdStatValue,         label: thirdStatLabel, gold: true },
           ].map((s) => (
             <div key={s.label} style={{ textAlign: 'center' }}>
