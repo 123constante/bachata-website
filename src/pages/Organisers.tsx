@@ -239,6 +239,14 @@ function DesktopOrgPill({
   );
 }
 
+const formatLastSeen = (dateStr: string | undefined): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days < 60) return days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  return d.toLocaleDateString('en-GB', { month: 'long' });
+};
+
 const Organisers = () => {
   useSeo(buildSeoForRoute('organisers'));
   const [searchParams, setSearchParams] = useSearchParams();
@@ -316,7 +324,7 @@ const Organisers = () => {
       const today = new Date().toISOString().slice(0, 10);
       const [entitiesRes, occRes] = await Promise.all([
         supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser'),
-        supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today),
+        supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today).order('instance_start', { ascending: false }).limit(2000),
       ]);
       if (entitiesRes.error || occRes.error) return {} as Record<string, string>;
       const eventToEntity: Record<string, string> = {};
@@ -330,14 +338,6 @@ const Organisers = () => {
     },
     staleTime: 30 * 60 * 1000,
   });
-
-  const formatLastSeen = (dateStr: string | undefined): string => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-    if (days < 60) return days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
-    return d.toLocaleDateString('en-GB', { month: 'long' });
-  };
 
   const catCounts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -803,7 +803,7 @@ const Organisers = () => {
                     <SectionLabel>Quiet for now</SectionLabel>
                     <div className="grid grid-cols-2 gap-2">
                       {dormant.map((org) => (
-                        <OrgPill key={org.id} org={org} statusLabel="No events yet" />
+                        <OrgPill key={org.id} org={org} statusLabel={lastEventDates[org.id] ? `Last seen ${formatLastSeen(lastEventDates[org.id])}` : 'No events yet'} />
                       ))}
                     </div>
                   </div>
