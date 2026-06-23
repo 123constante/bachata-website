@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from 'react';
+﻿import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -42,9 +42,10 @@ export interface GlobalLayoutProps {
   // "Velvet Grain" wash (plum fade + top-light + vignette + film grain).
   // 'brass' is the venues directory's warm raffle-surface wash (matching
   // /raffles backdrop exactly); floating icons are suppressed so the
-  // clean cabinet look is preserved. Always defaults to 'default' so
-  // existing consumers are unaffected.
-  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass';
+  // clean cabinet look is preserved. 'organiser' mirrors the organiser
+  // profile surface: warm purple-brown base with amber/orange radial
+  // accents. Always defaults to 'default' so existing consumers are unaffected.
+  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass' | 'organiser';
   floatingCount?: number;
   heroAfter?: ReactNode;
   children: ReactNode;
@@ -74,6 +75,18 @@ const VELVET_BG: CSSProperties = {
 const BRASS_BG: CSSProperties = {
   backgroundColor: '#0a0a0b',
   background: 'radial-gradient(120% 60% at 50% 0%, #241a06 0%, #0a0a0b 58%), #0a0a0b',
+};
+
+// Organiser directory wash: mirrors the organiser profile hero exactly --
+// warm purple-brown base (#2a1622 -> #0c0a0d) with three amber/orange
+// radial accents. No film grain, no floating icons.
+const ORGANISER_BG: CSSProperties = {
+  backgroundColor: '#0c0a0d',
+  background:
+    'radial-gradient(circle at 24% 22%, rgba(255,140,60,0.42), transparent 38%), ' +
+    'radial-gradient(circle at 80% 30%, rgba(231,190,110,0.40), transparent 44%), ' +
+    'radial-gradient(circle at 62% 88%, rgba(255,106,44,0.30), transparent 52%), ' +
+    'linear-gradient(155deg, #2a1622, #0c0a0d 72%)',
 };
 
 // Sub-header row positioning differs by mode:
@@ -159,6 +172,11 @@ const GlobalLayout = ({
     </div>
   );
 
+  const suppressFloatingIcons =
+    gradientPalette === 'velvet' ||
+    gradientPalette === 'brass' ||
+    gradientPalette === 'organiser';
+
   return (
     <div className="min-h-screen text-foreground overflow-x-clip relative">
       {showProgressBar && (
@@ -174,6 +192,8 @@ const GlobalLayout = ({
             <div className="fixed inset-0 -z-10 pointer-events-none" style={VELVET_BG} />
           ) : gradientPalette === 'brass' ? (
             <div className="fixed inset-0 -z-10 pointer-events-none" style={BRASS_BG} />
+          ) : gradientPalette === 'organiser' ? (
+            <div className="fixed inset-0 -z-10 pointer-events-none" style={ORGANISER_BG} />
           ) : (
             <motion.div
               className={
@@ -186,7 +206,7 @@ const GlobalLayout = ({
               style={{ backgroundSize: '200% 200%' }}
             />
           )}
-          {gradientPalette !== 'velvet' && gradientPalette !== 'brass' && (
+          {!suppressFloatingIcons && (
             <div
               className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden`}
             >

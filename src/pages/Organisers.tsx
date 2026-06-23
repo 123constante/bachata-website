@@ -268,7 +268,7 @@ const Organisers = () => {
   return (
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('organisers')}
-      gradientPalette="brass"
+      gradientPalette="organiser"
       hero={{
         emoji: '\u{1F4CB}',
         titleWhite: 'Meet the',
