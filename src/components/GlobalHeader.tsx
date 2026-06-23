@@ -59,6 +59,7 @@ export const GlobalHeader = () => {
 
   return (
     <motion.header
+      id="app-header"
       className="fixed top-0 left-0 right-0 z-[60] border-b border-primary/10 h-[60px]"
       animate={{
         backgroundColor: scrolled ? 'hsl(var(--background) / 0.98)' : 'hsl(var(--background) / 0.85)',

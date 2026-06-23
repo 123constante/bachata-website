@@ -37,6 +37,7 @@ import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActi
 import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventActions';
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { EventPausedBanner } from '@/modules/event-page/bento/EventPausedBanner';
+import { selectLifecycleBanner } from '@/modules/event-page/bento/lifecycleBanner';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -196,6 +197,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // COALESCE: eventFormat is null for legacy-only events; fall back to eventType.
     if (!snapshot || snapshot.occurrences.length <= 1 || !isMultiDateType) hidden.add('dates');
 
+    // A paused series renders the on-hiatus banner ("no upcoming dates"); the
+    // dates ladder must not contradict it by enumerating future occurrences.
+    if (pageModel.page.isPaused) hidden.add('dates');
+
     // Video tile hides when there's no playable video URL on the series.
     if (!eventVideo) hidden.add('video');
 
@@ -353,6 +358,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     }
   };
 
+  // Which lifecycle banner to show (cancelled outranks paused -- see
+  // selectLifecycleBanner). Null until the snapshot is ready.
+  const lifecycleBanner =
+    state === 'ready' ? selectLifecycleBanner(pageModel.page) : null;
+
   return (
     <GlobalLayout
       breadcrumbs={buildBreadcrumbs('event.detail', {
@@ -381,12 +391,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         aria-hidden="true"
       />
 
-      {state === 'ready' && pageModel.page.isCancelled && (
+      {lifecycleBanner === 'cancelled' && (
         <EventCancelledBanner reasonLabel={pageModel.page.cancellationReasonLabel} />
       )}
-      {state === 'ready' && pageModel.page.isPaused && (
-        <EventPausedBanner />
-      )}
+      {lifecycleBanner === 'paused' && <EventPausedBanner />}
 
       <div
         className="mx-auto w-full max-w-[430px] px-2 pb-32 pt-4"
@@ -443,7 +451,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       <EventStickyActionBar
         eventId={eventId}
         directionsUrl={buildDirectionsUrl(pageModel.location)}
-        ticketUrl={past || !!occurrence?.isCancelled ? null : pageModel.actions.ticketUrl}
+        ticketUrl={past || !!occurrence?.isCancelled || pageModel.page.isPaused ? null : pageModel.actions.ticketUrl}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]
