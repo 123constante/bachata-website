@@ -1,9 +1,10 @@
 // Festival Map mobile -- inline pin/cluster preview card. Replaces the Leaflet
 // popup on mobile (EventMap popupMode='none'): a pin tap shows a single event,
-// a cluster tap lists its 2-4 events. Docks flush to the map card edge and flips
-// top/bottom so it never covers the tapped pin (MobileMapHome passes `dock`,
-// captured from EventMap.pinHalf at tap time). Must render inside a `.home-map`
-// ancestor so CoverThumb's scoped cover-scene CSS applies.
+// a cluster tap lists all its events (a colocated "venue stack" -- zooming can't
+// separate them, so the full list is the only way in). Docks flush to the map
+// card edge and flips top/bottom so it never covers the tapped pin (MobileMapHome
+// passes `dock`, captured from EventMap.pinHalf at tap time). Must render inside a
+// `.home-map` ancestor so CoverThumb's scoped cover-scene CSS applies.
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
 import { X, ArrowRight, MapPin } from 'lucide-react';
@@ -12,7 +13,6 @@ import type { MapEvent } from '../mapTypes';
 import { CoverThumb, TimePills } from '../cards/cards';
 import { focusRing } from '../cards/controls';
 
-const MAX_CLUSTER_ROWS = 4;
 // Past this drag distance (px) in the dismiss direction, a swipe closes the card.
 const SWIPE_DISMISS_PX = 56;
 
@@ -23,7 +23,7 @@ export function MapPreviewCard({
   onOpen,
   className,
 }: {
-  /** length 1 = single pin; >1 = cluster. */
+  /** length 1 = single pin; >1 = colocated venue stack (all at one coord). */
   events: MapEvent[];
   dock: 'top' | 'bottom';
   onClose: () => void;
@@ -79,8 +79,7 @@ export function MapPreviewCard({
   };
 
   const isCluster = events.length > 1;
-  const rows = events.slice(0, MAX_CLUSTER_ROWS);
-  const extra = events.length - rows.length;
+  const venue = events[0]?.venue_name;
   const label = isCluster
     ? `${events.length} events at this location`
     : `Preview: ${events[0]?.name ?? 'event'}`;
@@ -116,11 +115,20 @@ export function MapPreviewCard({
 
       {isCluster ? (
         <div className="flex max-h-[60vh] flex-col p-3 pr-12">
-          <p className="mb-2 shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            {events.length} events here
-          </p>
+          <div className="mb-2 shrink-0">
+            <p className="text-sm font-extrabold leading-tight">{events.length} events here</p>
+            {venue && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {venue}
+                  {events[0]?.area ? `, ${events[0].area}` : ''}
+                </span>
+              </p>
+            )}
+          </div>
           <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-            {rows.map((e) => (
+            {events.map((e) => (
               <li key={e.occurrence_id}>
                 <button
                   type="button"
@@ -141,9 +149,6 @@ export function MapPreviewCard({
               </li>
             ))}
           </ul>
-          {extra > 0 && (
-            <p className="mt-2 shrink-0 px-2 text-xs text-muted-foreground">+{extra} more &middot; zoom in to see all</p>
-          )}
         </div>
       ) : (
         <button

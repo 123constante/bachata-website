@@ -106,18 +106,15 @@ export default function MobileMapHome({
     setPreview(null);
   }, [state.tab, state.filter, state.day]);
 
-  const pinsByOcc = useMemo(() => {
-    const m = new Map<string, MapEvent>();
-    for (const e of state.pins) m.set(e.occurrence_id, e);
-    return m;
-  }, [state.pins]);
-
+  // Resolve preview ids from the FULL event map (state.eventsByOcc), not just
+  // pins: a collapsed venue stack's non-representative members aren't in
+  // state.pins, so a cluster preview must look them up here to list all N.
   const previewEvents = useMemo(() => {
     if (!preview) return [] as MapEvent[];
     return preview.ids
-      .map((id) => pinsByOcc.get(id))
+      .map((id) => state.eventsByOcc.get(id))
       .filter((e): e is MapEvent => Boolean(e));
-  }, [preview, pinsByOcc]);
+  }, [preview, state.eventsByOcc]);
 
   const previewOpen = previewEvents.length > 0;
   // dock is captured at tap time (below) and read from state -- a pure render,
@@ -143,6 +140,16 @@ export default function MobileMapHome({
       setPreview(occId ? { kind: 'single', ids: [occId], dock: dockFor(occId) } : null);
     },
     [fromPin, dockFor],
+  );
+  // A colocated "venue stack" cluster (EventMap only fires this for one-coord
+  // clusters) -- list every event in the preview card. Docks bottom: a cluster
+  // has no single pin to dodge, and the list can be tall.
+  const handleClusterSelect = useCallback(
+    (occIds: string[]) => {
+      fromPin(null);
+      setPreview(occIds.length ? { kind: 'cluster', ids: occIds, dock: 'bottom' } : null);
+    },
+    [fromPin],
   );
   const closePreview = useCallback(() => {
     fromPin(null);
@@ -199,6 +206,7 @@ export default function MobileMapHome({
             selected={state.mapSelected}
             hovered={state.mapHovered}
             onSelect={handlePinSelect}
+            onClusterSelect={handleClusterSelect}
             onHover={state.setHovered}
             onReady={state.onMapReady}
             onOpenEvent={state.openEvent}
@@ -213,7 +221,7 @@ export default function MobileMapHome({
         {/* Control stack -- hidden while a preview is open (it would collide with
             a top-docked card and is redundant mid-preview). */}
         {!previewOpen && (
-          <div className="absolute right-2 top-2 z-[500] flex flex-row gap-1.5">
+          <div className="absolute left-2 top-2 z-[500] flex flex-col gap-1.5">
             <button
               type="button"
               onClick={() => setFullscreen((v) => !v)}

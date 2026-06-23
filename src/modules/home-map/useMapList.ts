@@ -37,6 +37,7 @@ export interface UseMapListResult {
   mapSelected: string | null;
   mapHovered: string | null;
   pins: MapEvent[];
+  eventsByOcc: Map<string, MapEvent>;
   listEvents: MapEvent[];
   mapVisible: string[];
   glow: string[];
@@ -226,6 +227,7 @@ export function useMapList(
     mapSelected,
     mapHovered,
     pins,
+    eventsByOcc: byOcc,
     listEvents,
     mapVisible,
     glow,
