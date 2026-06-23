@@ -629,13 +629,7 @@ const OrganiserProfile = () => {
   const moreEvents = upcomingEvents.slice(1);
 
   const { groupedRows, totalHidden } = useMemo(() => {
-    const countPerEvent = new Map<string, number>();
-    const rows: OrgEvent[] = [];
-    for (const e of moreEvents) {
-      const seen = countPerEvent.get(e.id) ?? 0;
-      countPerEvent.set(e.id, seen + 1);
-      if (seen < 3) rows.push(e);
-    }
+    const rows = moreEvents.slice(0, 3);
     return { groupedRows: rows, totalHidden: moreEvents.length - rows.length };
   }, [moreEvents]);
 
