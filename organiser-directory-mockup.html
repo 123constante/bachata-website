@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organisers Directory &mdash; Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#141218;min-height:100vh;display:flex;justify-content:center;padding:40px 20px;font-family:'Inter',-apple-system,sans-serif;}
+
+.frame{
+  width:390px;
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255,140,60,0.42), transparent 38%),
+    radial-gradient(circle at 80% 30%, rgba(231,190,110,0.40), transparent 44%),
+    radial-gradient(circle at 62% 88%, rgba(255,106,44,0.30), transparent 52%),
+    linear-gradient(155deg, #2a1622, #0c0a0d 72%);
+  border-radius:44px;
+  overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,0.8),inset 0 0 0 1px rgba(255,255,255,0.07);
+  position:relative;
+}
+.scroll{overflow-y:auto;max-height:860px;}
+
+/* Site header */
+.site-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  background:rgba(12,10,13,0.78);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  position:sticky;top:0;z-index:50;
+}
+.logo{font:700 14px 'Inter';color:#f4f2ee;letter-spacing:-0.3px;}
+.logo span{color:#d3a84c;}
+.hdr-icons{display:flex;gap:14px;}
+.hdr-icons svg{width:19px;height:19px;opacity:0.55;stroke:#f4f2ee;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+/* Hero */
+.hero{
+  position:relative;
+  padding:0 20px 24px;
+  text-align:center;
+  overflow:hidden;
+}
+.hero-float{
+  position:absolute;inset:0;pointer-events:none;overflow:hidden;
+}
+.hero-float svg{
+  position:absolute;
+  opacity:0.07;
+  fill:none;stroke:#d3a84c;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+}
+
+/* Breadcrumb row — absolute, sits over hero */
+.breadcrumb{
+  position:relative;z-index:10;
+  display:flex;align-items:center;gap:6px;
+  padding:10px 0 0;
+  font:500 11px 'Inter';color:rgba(255,255,255,0.45);
+}
+.breadcrumb a{color:rgba(255,255,255,0.55);text-decoration:none;}
+.bc-sep{opacity:0.5;}
+
+.hero-emoji{
+  font-size:60px;line-height:1;
+  margin:14px 0 10px;
+  position:relative;z-index:1;
+  display:inline-block;
+  animation:emojiFloat 2s ease-in-out infinite;
+  filter:drop-shadow(0 0 24px rgba(211,168,76,0.35));
+}
+@keyframes emojiFloat{
+  0%,100%{transform:scale(1) rotate(-5deg) translateY(0);}
+  50%{transform:scale(1.12) rotate(5deg) translateY(-7px);}
+}
+
+.hero-title{
+  font:900 40px/1.12 'Inter';
+  letter-spacing:-1px;
+  position:relative;z-index:1;
+  margin-bottom:8px;
+}
+.hero-title .white{color:#f4f2ee;}
+.hero-title .amber{
+  color:#d3a84c;
+  display:inline-block;
+  animation:amberPulse 3s ease-in-out infinite;
+}
+@keyframes amberPulse{
+  0%,100%{transform:scale(1);}
+  50%{transform:scale(1.015);}
+}
+
+.hero-sub{
+  font:400 12px/1.5 'Inter';
+  color:rgba(255,255,255,0.72);
+  max-width:230px;
+  margin:0 auto;
+  position:relative;z-index:1;
+}
+
+/* Progress bar */
+.progress{height:2px;background:linear-gradient(90deg,#d3a84c,#f0c060,#b38a4e);width:35%;opacity:0.7;position:absolute;top:0;left:0;}
+
+/* Search */
+.search-wrap{padding:8px 16px 4px;display:flex;justify-content:center;}
+.search-box{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(12,10,13,0.55);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:12px;
+  padding:9px 12px;
+  max-width:210px;
+}
+.search-box svg{width:14px;height:14px;opacity:0.35;stroke:#f4f2ee;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+.search-box input{
+  flex:1;background:none;border:none;outline:none;
+  color:#f4f2ee;font:400 13px 'Inter';
+}
+.search-box input::placeholder{color:rgba(255,255,255,0.45);}
+
+/* Content */
+.content{padding:10px 16px 24px;}
+
+/* Section labels — sentence case, no tracking, horizontal rule integrated */
+.sec-label{
+  display:flex;align-items:center;gap:10px;
+  font:600 11px/1 'Inter';
+  color:#d3a84c;
+  margin-bottom:10px;
+  white-space:nowrap;
+}
+.sec-label::after{
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,rgba(211,168,76,0.3),transparent);
+}
+.sec-label:not(:first-child){margin-top:20px;}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
+
+/* Pill card base */
+.pill{
+  display:flex;align-items:center;gap:7px;
+  border-radius:999px;
+  padding:6px 9px 6px 5px;
+  border:1.5px solid;
+  cursor:pointer;
+  transition:transform 0.15s,border-color 0.15s,background 0.15s;
+  text-decoration:none;
+  min-width:0;
+  animation:riseIn 0.4s both;
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.pill:hover{transform:translateY(-2px);}
+
+.pill-up{background:rgba(42,22,34,0.7);border-color:rgba(211,168,76,0.32);}
+.pill-up:hover{border-color:rgba(211,168,76,0.65);background:rgba(55,28,42,0.85);}
+
+.pill-re{background:rgba(42,22,34,0.7);border-color:rgba(211,168,76,0.32);}
+.pill-re:hover{border-color:rgba(211,168,76,0.65);background:rgba(55,28,42,0.85);}
+
+.pill-do{background:rgba(42,22,34,0.7);border-color:rgba(211,168,76,0.32);}
+.pill-do:hover{border-color:rgba(211,168,76,0.65);background:rgba(55,28,42,0.85);}
+
+/* Avatar */
+.av{
+  position:relative;flex:none;
+  width:33px;height:33px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font:800 10.5px 'Inter';
+  overflow:visible;
+}
+.av-up{border:1.5px solid #d3a84c;background:rgba(211,168,76,0.1);color:#d3a84c;}
+.av-re{border:1.5px solid #d3a84c;background:rgba(211,168,76,0.1);color:#d3a84c;}
+.av-do{border:1.5px solid #d3a84c;background:rgba(211,168,76,0.1);color:#d3a84c;}
+
+/* Avatar image (for real logos) */
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+
+/* Pulse dot */
+.dot{
+  position:absolute;bottom:-1px;right:-1px;
+  width:8px;height:8px;border-radius:50%;
+  background:#d3a84c;
+  border:2px solid #2a1622;
+  animation:livePulse 2.5s infinite;
+}
+@keyframes livePulse{
+  0%{box-shadow:0 0 0 0 rgba(211,168,76,0.6);}
+  70%{box-shadow:0 0 0 5px rgba(211,168,76,0);}
+  100%{box-shadow:0 0 0 0 rgba(211,168,76,0);}
+}
+
+/* Pill text */
+.pt{flex:1;min-width:0;}
+.pn{font:700 12px/1.2 'Inter';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#f4f2ee;}
+.pc{font:500 10px/1.2 'Inter';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c4b89a;margin-top:1px;}
+.ps{font:600 10px/1 'JetBrains Mono';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.ps-up{color:#d3a84c;}
+.ps-re{color:#d3a84c;}
+.ps-do{color:#d3a84c;}
+
+/* CTA */
+.cta{
+  margin-top:18px;
+  display:flex;align-items:center;gap:12px;
+  background:rgba(42,22,34,0.7);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:14px;
+  padding:12px 12px 12px 14px;
+}
+.cta-ico{font-size:17px;flex:none;}
+.cta-txt{flex:1;min-width:0;}
+.cta-h{font:700 12.5px 'Inter';color:#f4f2ee;}
+.cta-s{font:400 11px 'Inter';color:#b8aa92;margin-top:1px;}
+.cta-btn{
+  flex:none;
+  font:700 12px 'Inter';color:#1a1408;
+  background:#d3a84c;
+  padding:9px 14px;border-radius:10px;
+  cursor:pointer;border:none;
+  transition:background 0.15s;
+  white-space:nowrap;
+}
+.cta-btn:hover{background:#e4ba5e;}
+
+/* Focus & active states */
+.pill:focus-visible{outline:2px solid #d3a84c;outline-offset:2px;}
+.pill:active{transform:scale(0.97);}
+.cta-btn:focus-visible{outline:2px solid #d3a84c;outline-offset:2px;}
+.search-box:focus-within{border-color:rgba(211,168,76,0.45);}
+
+/* Reduced motion */
+@media(prefers-reduced-motion:reduce){
+  .hero-emoji,.hero-title .amber,.dot{animation:none;}
+  .pill,.cta-btn{transition:none;}
+  @keyframes riseIn{from{opacity:1;transform:none;}to{opacity:1;transform:none;}}
+}
+
+/* Bottom nav */
+.bot-nav{
+  display:flex;justify-content:space-around;
+  padding:10px 0 22px;
+  background:rgba(12,10,13,0.92);
+  backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,0.06);
+}
+.nav-i{display:flex;flex-direction:column;align-items:center;gap:3px;font:500 9px 'Inter';color:rgba(255,255,255,0.32);text-decoration:none;transition:color 0.15s;}
+.nav-i.on{color:#d3a84c;}
+.nav-i:hover{color:rgba(255,255,255,0.6);}
+.nav-i svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+</style>
+</head>
+<body>
+<div class="frame">
+<div class="progress"></div>
+<div class="scroll">
+
+<!-- Global header -->
+<header class="site-hdr">
+  <div class="logo">bachata<span>.community.uk</span></div>
+  <div class="hdr-icons">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+  </div>
+</header>
+
+<!-- Hero -->
+<div class="hero">
+  <!-- Floating lucide icons (decorative) -->
+  <div class="hero-float">
+    <svg style="width:46px;top:14%;left:6%;transform:rotate(-14deg)" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <svg style="width:34px;top:22%;right:9%;transform:rotate(11deg)" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <svg style="width:28px;bottom:22%;left:12%;transform:rotate(-7deg)" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    <svg style="width:36px;bottom:18%;right:7%;transform:rotate(9deg)" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <svg style="width:26px;top:52%;left:4%;transform:rotate(6deg)" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    <svg style="width:32px;top:60%;right:4%;transform:rotate(-10deg)" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+  </div>
+
+  <!-- Breadcrumb (absolute over hero) -->
+  <div class="breadcrumb">
+    <a href="#">Home</a>
+    <span class="bc-sep">&#8250;</span>
+    <span style="color:#9a9790;">Organisers</span>
+  </div>
+
+  <div class="hero-emoji">&#x1F4CB;</div>
+  <div class="hero-title">
+    <span class="white">Meet the</span> <span class="amber">Organisers</span>
+  </div>
+  <div class="hero-sub">Find out who runs bachata near you.</div>
+</div>
+
+<!-- Search -->
+<div class="search-wrap">
+  <div class="search-box">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input placeholder="Search by name&hellip;" readonly>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Tier 1 -->
+  <div class="sec-label">Happening soon &middot; 6</div>
+  <div class="grid">
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.05s">
+      <div class="av av-up">MC<span class="dot" style="animation-delay:0s"></span></div>
+      <div class="pt"><div class="pn">Mojito Club</div><div class="pc">Promoter</div><div class="ps ps-up">Tomorrow</div></div>
+    </a>
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.1s">
+      <div class="av av-up">OB<span class="dot" style="animation-delay:0.4s"></span></div>
+      <div class="pt"><div class="pn">Outdoor Bachata</div><div class="pc">Community</div><div class="ps ps-up">Tomorrow</div></div>
+    </a>
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.15s">
+      <div class="av av-up" style="border-color:#f97316;color:#f97316;background:rgba(249,115,22,0.1)">WB<span class="dot" style="background:#f97316;animation-delay:0.8s;border-color:#171710"></span></div>
+      <div class="pt"><div class="pn">Wild Bachata</div><div class="pc">Event Brand</div><div class="ps ps-up">in 7 days</div></div>
+    </a>
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.2s">
+      <div class="av av-up" style="border-color:#d4a017;color:#d4a017;background:rgba(212,160,23,0.1)">LS<span class="dot" style="background:#d4a017;animation-delay:0.2s;border-color:#171710"></span></div>
+      <div class="pt"><div class="pn">Latino Sway</div><div class="pc">Venue</div><div class="ps ps-up">in 11 days</div></div>
+    </a>
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.25s">
+      <div class="av av-up" style="border-color:#a855f7;color:#a855f7;background:rgba(168,85,247,0.1)">PN<span class="dot" style="background:#a855f7;animation-delay:0.6s;border-color:#171710"></span></div>
+      <div class="pt"><div class="pn">Pura Nights</div><div class="pc">Promoter</div><div class="ps ps-up">in 11 days</div></div>
+    </a>
+
+    <a class="pill pill-up" href="#" style="animation-delay:0.3s">
+      <div class="av av-up" style="border-color:#ec4899;color:#ec4899;background:rgba(236,72,153,0.1)">RB<span class="dot" style="background:#ec4899;animation-delay:1s;border-color:#171710"></span></div>
+      <div class="pt"><div class="pn">Rogue Bachata</div><div class="pc">Event Brand</div><div class="ps ps-up">in 12 days</div></div>
+    </a>
+
+  </div>
+
+  <!-- Tier 2 -->
+  <div class="sec-label">Recently active</div>
+  <div class="grid">
+
+    <a class="pill pill-re" href="#" style="animation-delay:0.35s">
+      <div class="av av-re">MK</div>
+      <div class="pt"><div class="pn">Makondo</div><div class="pc">Dance School</div><div class="ps ps-re">5 days ago</div></div>
+    </a>
+
+    <a class="pill pill-re" href="#" style="animation-delay:0.4s">
+      <div class="av av-re">BA</div>
+      <div class="pt"><div class="pn">Bachateame</div><div class="pc">Dance School</div><div class="ps ps-re">12 days ago</div></div>
+    </a>
+
+    <a class="pill pill-re" href="#" style="animation-delay:0.45s">
+      <div class="av av-re">MC</div>
+      <div class="pt"><div class="pn">Mambo City</div><div class="pc">Festival Brand</div><div class="ps ps-re">17 days ago</div></div>
+    </a>
+
+  </div>
+
+  <!-- Tier 3 -->
+  <div class="sec-label">Quiet for now</div>
+  <div class="grid">
+
+    <a class="pill pill-do" href="#" style="animation-delay:0.5s">
+      <div class="av av-do">AL</div>
+      <div class="pt"><div class="pn">Aire Latino</div><div class="pc">Dance School</div><div class="ps ps-do">Last Feb</div></div>
+    </a>
+
+    <a class="pill pill-do" href="#" style="animation-delay:0.55s">
+      <div class="av av-do">SB</div>
+      <div class="pt"><div class="pn">Son del Barrio</div><div class="pc">Community</div><div class="ps ps-do">Last Jan</div></div>
+    </a>
+
+    <a class="pill pill-do" href="#" style="animation-delay:0.6s">
+      <div class="av av-do">ZC</div>
+      <div class="pt"><div class="pn">Zona Caliente</div><div class="pc">Venue</div><div class="ps ps-do">Last Dec</div></div>
+    </a>
+
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <span class="cta-ico">&#x1F3AA;</span>
+    <div class="cta-txt">
+      <div class="cta-h">Are you an organiser?</div>
+      <div class="cta-s">Add your events in minutes</div>
+    </div>
+    <button class="cta-btn">Join</button>
+  </div>
+
+</div><!-- /content -->
+
+<!-- Bottom nav -->
+<nav class="bot-nav">
+  <a class="nav-i" href="#">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Home
+  </a>
+  <a class="nav-i" href="#">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    Search
+  </a>
+  <a class="nav-i on" href="#">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Organisers
+  </a>
+  <a class="nav-i" href="#">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Calendar
+  </a>
+  <a class="nav-i" href="#">
+    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    Profile
+  </a>
+</nav>
+
+</div><!-- /scroll -->
+</div><!-- /frame -->
+</body>
+</html>
