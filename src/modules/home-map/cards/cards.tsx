@@ -21,6 +21,7 @@ import {
   freshnessDisplay,
   relativeShort,
   isFreshNew,
+  isRecentlyChanged,
   distanceMiles,
   todayLiveStatus,
   freshnessHeat,
@@ -251,22 +252,6 @@ const rowBase = cn(
 const rowState = (selected: boolean) =>
   selected ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-muted/40';
 
-/** Days an "Added" listing keeps a quiet "New" pill on the events list. Short
- *  so the badge means genuinely new, not "edited this fortnight". */
-const NEW_ON_LIST_DAYS = 7;
-
-/** Quiet "New" pill for a just-added listing. Replaces the loud per-row heat
- *  stamp: one small green tag on genuinely-new rows only, so the right edge
- *  stays free for the decision-driving distance. The heat-colour storytelling
- *  now lives only on the What's New tab (FreshnessClock). */
-function NewBadge() {
-  return (
-    <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0c1a12]">
-      New
-    </span>
-  );
-}
-
 /** Real-time "On now" / "Soon" badge for a today row. Renders nothing for past,
  *  future-day, or cancelled events, so the bulk of the list stays quiet. */
 function LiveBadge({ event }: { event: MapEvent }) {
@@ -293,10 +278,10 @@ function DistanceChip({ mi }: { mi: number }) {
   );
 }
 
-/** Grouped-list / day-detail row (cover + title + times + venue). `showFreshness`
- *  flags a genuinely-new listing with a quiet "New" pill (not the loud heat
- *  stamp). When `user` coords are passed, the right edge shows distance -- the
- *  signal that actually drives the "where do I dance tonight" decision. */
+/** Grouped-list / day-detail row (cover + title + times + venue). When
+ *  `showFreshness` is set, a recently added/updated row carries the "Added/Updated
+ *  Xm ago" stamp (gated by isRecentlyChanged). When `user` coords are passed and
+ *  the row has no stamp, the right edge falls back to distance. */
 export function EventRow({
   event,
   selected,
@@ -308,7 +293,6 @@ export function EventRow({
 }: RowProps & { showFreshness?: boolean; user?: Coords }) {
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
-  const isNew = showFreshness && !cancelled && isFreshNew(event, NEW_ON_LIST_DAYS);
   const mi = user ? distanceMiles(event, user) : null;
   return (
     <a
@@ -327,7 +311,6 @@ export function EventRow({
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
           <LiveBadge event={event} />
-          {isNew && <NewBadge />}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
@@ -345,7 +328,13 @@ export function EventRow({
           </span>
         )}
       </span>
-      {cancelled ? <CancelPill /> : mi != null ? <DistanceChip mi={mi} /> : null}
+      {cancelled ? (
+        <CancelPill />
+      ) : showFreshness && isRecentlyChanged(event) ? (
+        <FreshnessClock event={event} />
+      ) : mi != null ? (
+        <DistanceChip mi={mi} />
+      ) : null}
     </a>
   );
 }
