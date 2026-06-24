@@ -1231,6 +1231,11 @@
 /* Inset map card: a responsive clamp so it never dominates a short viewport nor
    shrinks to a sliver. Fullscreen lets it fill the shell (head + feed unmount). */
 .home-map-fill .hm-mapcard { flex: 0 0 clamp(148px, 32%, 236px); }
+/* Calendar tab: lift the month grid above the fold by ordering the rail above
+   the map. The map keeps its clamped size (a flex `order` change, not a resize),
+   so Leaflet needs no re-measure. pagehead stays first (default order 0). */
+.home-map-fill.is-cal:not(.is-fullscreen) .hm-side { order: 1; }
+.home-map-fill.is-cal:not(.is-fullscreen) .hm-mapcard { order: 2; }
 /* Fullscreen "explore the map": the card becomes a true edge-to-edge overlay
    ABOVE the global header (z-60) + bottom nav, so the expanded map is genuinely
    immersive. The feed stays mounted underneath (covered) so exit restores the

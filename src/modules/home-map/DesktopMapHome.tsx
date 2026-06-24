@@ -9,16 +9,14 @@ import { Suspense, useEffect, useRef } from 'react';
 import { Plus, Minus, Focus } from 'lucide-react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
-import { groupByDate, collapseFestivals } from './mapListDerivations';
 import {
-  EventRow,
   TonightCard,
   NewsRow,
   EmptyState,
   ListSkeleton,
   RetryNotice,
-  RemoteFestivalRow,
 } from './cards/cards';
+import { AllEventsList } from './cards/AllEventsList';
 import { LocateControl, MapLocateButton } from './cards/LocateControl';
 import {
   TabBar,
@@ -37,50 +35,14 @@ const EventMap = lazyWithRetry(() => import('./EventMap'));
 const zoomBtn =
   'grid h-11 w-11 place-items-center bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary';
 
-/** All-tab body: search + chips (scroll with the list) then date-grouped rows.
- *  Rows carry the freshness stamp so just-added events stand out on the default
- *  view. Remote festivals (merged upstream) render with a pin icon via
- *  RemoteFestivalRow so users can see they'd be travelling. */
+/** All-tab body: search field then the shared AllEventsList (today's local
+ *  group highlighted, festivals abroad collapsed into a "further afield"
+ *  section). */
 function AllBody({ state }: { state: UseMapListResult }) {
-  const groups = groupByDate(collapseFestivals(state.listEvents));
   return (
     <div className="space-y-3">
-      <SearchField value={state.q} onChange={state.setQ} />
-      {groups.length === 0 ? (
-        <EmptyState>
-          {state.q
-            ? 'No events match your search.'
-            : state.filter !== 'all'
-              ? 'No events match this filter.'
-              : 'Nothing on right now.'}
-        </EmptyState>
-      ) : (
-        groups.map((g) => (
-          <section key={g.key}>
-            <header className="flex items-center gap-2 px-1 pb-1.5 pt-1">
-              <span className="text-xs font-bold text-primary">{g.label}</span>
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] font-bold text-muted-foreground">{g.items.length}</span>
-            </header>
-            <div className="space-y-1">
-              {g.items.map((e) =>
-                e.occurrence_id.startsWith('remote-') ? (
-                  <RemoteFestivalRow key={e.occurrence_id} event={e} />
-                ) : (
-                  <EventRow
-                    key={e.occurrence_id}
-                    event={e}
-                    selected={state.selected === e.occurrence_id}
-                    onSelect={state.fromCard}
-                    onHover={state.setHovered}
-                    showFreshness
-                  />
-                )
-              )}
-            </div>
-          </section>
-        ))
-      )}
+      <SearchField value={state.q} onChange={state.setQ} filter placeholder="Filter by name or venue" ariaLabel="Filter events" matchCount={state.q ? state.listEvents.length : null} />
+      <AllEventsList state={state} showSearchEmpty />
     </div>
   );
 }

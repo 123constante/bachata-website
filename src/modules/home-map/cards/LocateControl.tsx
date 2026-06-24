@@ -5,7 +5,7 @@
 // control never silently vanishes on tap. Denial copy + retry visibility come
 // from the shared @/lib/geo/denialCopy module (parity with /tonight NearMeCta).
 
-import { Loader2, Navigation, Check } from 'lucide-react';
+import { Loader2, Navigation, NavigationOff, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { useGeolocation } from '@/hooks/useGeolocation';
 import { denialCopy, isIOSUserAgent, showRetry } from '@/lib/geo/denialCopy';
@@ -137,12 +137,18 @@ export function MapLocateButton({
       disabled={loading}
       aria-busy={loading}
       aria-label={label}
+      title={label}
       style={granted ? { background: LOC, color: '#0b1220' } : { color: denied ? '#E2415C' : LOC_LT }}
       className={cn(baseClassName)}
     >
       {loading ? (
         <Loader2 className={cn(iconClassName, 'animate-spin')} aria-hidden="true" />
+      ) : denied ? (
+        // Distinct slashed-compass shape so "off/denied" reads without relying
+        // on the rose colour alone (WCAG 1.4.1).
+        <NavigationOff className={iconClassName} aria-hidden="true" />
       ) : (
+        // Outline (idle) vs filled (granted) compass: a non-colour shape cue.
         <Navigation
           className={iconClassName}
           fill={granted ? 'currentColor' : 'none'}

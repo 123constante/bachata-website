@@ -53,7 +53,7 @@ export const CATEGORY_COLORS: Record<MapCategory, string> = {
   class: '#46B7C9',
   party: '#E2415C',
   mix: '#B06CE0',
-  fest: '#E8B450',
+  fest: '#C57B2C',
   social: '#5FBF7F',
 };
 
@@ -266,4 +266,56 @@ export function todayStr(d = new Date()): string {
   const mo = (d.getMonth() + 1).toString().padStart(2, '0');
   const day = d.getDate().toString().padStart(2, '0');
   return `${y}-${mo}-${day}`;
+}
+
+
+// ---- time-of-day + live status -------------------------------------------
+
+/** Parse a time-bearing string to minutes-from-midnight. Accepts 'HH:MM',
+ *  'HH:MM:SS', or a full 'YYYY-MM-DD HH:MM:SS+00' wall-clock string. Null if it
+ *  has no parseable time. Regex-free to keep this hot path cheap. */
+function hhmmToMinutes(s) {
+  if (!s) return null;
+  const timePart = s.includes(' ') ? s.slice(s.indexOf(' ') + 1) : s;
+  const parts = timePart.split(':');
+  const hh = Number(parts[0]);
+  const mm = Number(parts[1]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+/** Earliest start of an event in minutes-from-midnight: the split class/party
+ *  starts when present, else the wall-clock time in start_time. Null if unknown.
+ *  Orders a day's rows chronologically. */
+export function startMinutes(e: MapEvent): number | null {
+  const split = [hhmmToMinutes(e.class_start), hhmmToMinutes(e.party_start)].filter(
+    (n): n is number => n != null,
+  );
+  return split.length ? Math.min(...split) : hhmmToMinutes(e.start_time);
+}
+
+/** Latest end of an event in minutes-from-midnight (split ends, else end_time). */
+export function endMinutes(e: MapEvent): number | null {
+  const split = [hhmmToMinutes(e.class_end), hhmmToMinutes(e.party_end)].filter(
+    (n): n is number => n != null,
+  );
+  return split.length ? Math.max(...split) : hhmmToMinutes(e.end_time);
+}
+
+export type LiveStatus = 'on-now' | 'soon' | null;
+
+/** Real-time status for a TODAY row: 'on-now' while inside the window, 'soon'
+ *  when it starts within 90 min, else null. Cancelled / non-today rows return
+ *  null. A crossing-midnight end is wrapped so a 9pm-2am party still reads
+ *  'on-now' at 11pm. */
+export function todayLiveStatus(e: MapEvent, now = new Date()): LiveStatus {
+  if (e.is_cancelled || e.instance_date !== todayStr(now)) return null;
+  const start = startMinutes(e);
+  if (start == null) return null;
+  let end = endMinutes(e);
+  if (end != null && end < start) end += 1440;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (nowMin >= start && (end == null || nowMin <= end)) return 'on-now';
+  if (start > nowMin && start - nowMin <= 90) return 'soon';
+  return null;
 }

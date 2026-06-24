@@ -19,11 +19,11 @@
 .home-map__canvas { position: absolute; inset: 0; }
 .home-map .leaflet-container { background: #11121a; font-family: inherit; }
 .home-map .leaflet-control-attribution {
-  background: rgba(12,10,16,.55); color: #b9b1c2;
+  background: rgba(12,10,16,.85); color: #cfcad6;
   font-size: 9px; line-height: 1.4; font-weight: 500;
   padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
 }
-.home-map .leaflet-control-attribution a { color: #d8d2e2; }
+.home-map .leaflet-control-attribution a { color: #e6e1ef; }
 
 /* ---- cover scenes (moody gradient placeholders + real flyer support) ---- */
 .home-map .cv { position: relative; overflow: hidden; background: #0c0d10; isolation: isolate; }
