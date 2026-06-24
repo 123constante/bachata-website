@@ -308,24 +308,27 @@ export const DayDetailModal = ({
                       </div>
                     </div>
 
-                    {/* Time chips */}
-                    <div className="flex flex-wrap gap-1.5">
+                    {/* Times -- dot + coloured label + muted range, matching the map list style */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                       {showClasses && classTime && (
-                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-festival-blue/10 text-festival-blue px-2 py-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-festival-blue shrink-0" aria-hidden="true" />
-                          Classes &middot; {classTime}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-festival-blue" aria-hidden="true" />
+                          <span className="font-bold text-festival-blue">Class</span>
+                          <span>{classTime}</span>
                         </span>
                       )}
                       {showParty && partyTime && (
-                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-festival-pink/10 text-festival-pink px-2 py-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-festival-pink shrink-0" aria-hidden="true" />
-                          Party &middot; {partyTime}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-festival-pink" aria-hidden="true" />
+                          <span className="font-bold text-festival-pink">Party</span>
+                          <span>{partyTime}</span>
                         </span>
                       )}
                       {showFallback && (
-                        <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary px-2 py-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
-                          Event &middot; {event.startTime} - {event.endTime}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                          <span className="font-bold text-primary">Event</span>
+                          <span>{event.startTime} &ndash; {event.endTime}</span>
                         </span>
                       )}
                     </div>
