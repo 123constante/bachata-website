@@ -36,7 +36,10 @@ function GroupHeader({
   // over the same bg, so nothing bleeds through while it's stuck.
   const base = cn(
     'flex items-center gap-2 px-1 pb-1.5 pt-1',
-    sticky && 'sticky top-0 z-10 bg-background',
+    // Opaque bg + a pseudo strip directly above it so the sticky header covers
+    // the feed's top padding / inter-group gap (no previous row peeks through).
+    sticky &&
+      "sticky top-0 z-10 bg-background before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-background before:content-['']",
   );
   if (isToday) {
     return (

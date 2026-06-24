@@ -294,16 +294,14 @@ export default function MobileMapHome({
           </h1>
           <p className="text-xs font-semibold text-muted-foreground">
             {state.stats.tonight > 0 ? (
+              // Busy day: lead with the live, decision-relevant count.
               <>
                 <b className="text-primary">{state.stats.tonight}</b> on tonight
                 {state.stats.thisWeek > 0 && <> &middot; {state.stats.thisWeek} this week</>}
               </>
-            ) : state.stats.thisWeek > 0 ? (
-              <>
-                <b className="text-primary">{state.stats.thisWeek}</b> bachata{' '}
-                {state.stats.thisWeek === 1 ? 'event' : 'events'} this week
-              </>
             ) : (
+              // Quiet day (nothing on tonight): fall back to the brand tagline,
+              // whose coloured keywords double as the category-colour legend.
               <>
                 Every <b style={{ color: KW.class }}>class</b>,{' '}
                 <b style={{ color: KW.party }}>party</b> &amp;{' '}
