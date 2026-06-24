@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { focusRing } from './controls';
 import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
 import { todayStr } from '../mapTypes';
@@ -97,7 +98,7 @@ export function CalendarPanel({
           type="button"
           onClick={() => step(-1)}
           aria-label="Previous month"
-          className="rounded-lg p-1 text-muted-foreground hover:text-foreground"
+          className={cn('rounded-lg p-2 text-muted-foreground hover:text-foreground', focusRing)}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -106,7 +107,7 @@ export function CalendarPanel({
           type="button"
           onClick={() => step(1)}
           aria-label="Next month"
-          className="rounded-lg p-1 text-muted-foreground hover:text-foreground"
+          className={cn('rounded-lg p-2 text-muted-foreground hover:text-foreground', focusRing)}
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -138,6 +139,7 @@ export function CalendarPanel({
               aria-pressed={cell.isSelected}
               className={cn(
                 'relative flex aspect-square flex-col items-center justify-center rounded-lg text-xs',
+                focusRing,
                 cell.isSelected
                   ? 'bg-primary text-white'
                   : cell.cats.length
@@ -191,7 +193,7 @@ export function CalendarPanel({
         </div>
       ) : !state.day ? (
         <p className="px-1 pt-1 text-center text-sm text-primary">
-          Tap a date to see what&rsquo;s on &mdash; the map updates too.
+          Tap a date to see what&rsquo;s on &middot; the map updates too.
         </p>
       ) : null}
 

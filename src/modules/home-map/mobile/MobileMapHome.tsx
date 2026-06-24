@@ -58,7 +58,10 @@ const FILTER_NOUN: Partial<Record<MapFilter, string>> = {
 const KW = { class: CATEGORY_COLORS.class, party: CATEGORY_COLORS.party, fest: CATEGORY_COLORS.fest } as const;
 
 const ctrlBtn = cn(
-  'grid h-9 w-9 place-items-center rounded-full bg-background/80 text-foreground shadow-md backdrop-blur transition-colors hover:bg-muted',
+  // 36px visual circle; a transparent pseudo extends the tap target to 44px
+  // (WCAG 2.5.5) without growing the layout box, so the vertical stack still
+  // fits the clamped map card. gap-2 keeps adjacent 44px hit areas from overlapping.
+  "relative grid h-9 w-9 place-items-center rounded-full bg-background/80 text-foreground shadow-md backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-muted",
   focusRing,
 );
 
@@ -272,6 +275,7 @@ export default function MobileMapHome({
       className={cn(
         'home-map-fill home-map relative isolate flex w-full flex-col overflow-hidden',
         fullscreen && 'is-fullscreen',
+        state.tab === 'cal' && 'is-cal',
       )}
     >
       {!fullscreen && (
@@ -289,8 +293,23 @@ export default function MobileMapHome({
             What&rsquo;s on in {cityName}
           </h1>
           <p className="text-xs font-semibold text-muted-foreground">
-            Every <b style={{ color: KW.class }}>class</b>, <b style={{ color: KW.party }}>party</b> &amp;{' '}
-            <b style={{ color: KW.fest }}>festival</b> in one place.
+            {state.stats.tonight > 0 ? (
+              <>
+                <b className="text-primary">{state.stats.tonight}</b> on tonight
+                {state.stats.thisWeek > 0 && <> &middot; {state.stats.thisWeek} this week</>}
+              </>
+            ) : state.stats.thisWeek > 0 ? (
+              <>
+                <b className="text-primary">{state.stats.thisWeek}</b> bachata{' '}
+                {state.stats.thisWeek === 1 ? 'event' : 'events'} this week
+              </>
+            ) : (
+              <>
+                Every <b style={{ color: KW.class }}>class</b>,{' '}
+                <b style={{ color: KW.party }}>party</b> &amp;{' '}
+                <b style={{ color: KW.fest }}>festival</b> in one place.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -355,6 +374,10 @@ export default function MobileMapHome({
               <SearchField
                 value={state.q}
                 onChange={state.setQ}
+                filter
+                placeholder="Filter by name or venue"
+                ariaLabel="Filter events on the map"
+                matchCount={state.q ? state.mapVisible.length : null}
                 className="pointer-events-auto min-w-0 flex-1 bg-background/90 shadow-lg backdrop-blur"
               />
             </div>
@@ -371,7 +394,7 @@ export default function MobileMapHome({
         {!previewOpen && (
           <div
             className={cn(
-              'absolute left-2 z-[500] flex flex-col gap-1.5',
+              'absolute left-2 z-[500] flex flex-col gap-2',
               fullscreen ? 'top-[calc(env(safe-area-inset-top)_+_6rem)]' : 'top-2',
             )}
           >

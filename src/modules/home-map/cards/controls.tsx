@@ -3,7 +3,7 @@
 // one implementation.
 
 import { useRef, type CSSProperties, type KeyboardEvent } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MapTab, MapFilter } from '../mapTypes';
 import { CATEGORY_COLORS } from '../mapTypes';
@@ -21,7 +21,7 @@ export const focusRing =
 // shared by mobile + desktop; the /city/:slug/calendar deep-link still opens Cal.
 const TABS: { id: MapTab; label: string }[] = [
   { id: 'all', label: 'All Events' },
-  { id: 'tonight', label: 'Today' },
+  { id: 'tonight', label: 'Tonight' },
   { id: 'news', label: "What's New" },
   { id: 'cal', label: 'Calendar' },
 ];
@@ -141,7 +141,7 @@ const CHIPS: {
   { id: 'all',       label: 'All',       icon: '\u2605',  borderColor: 'hsl(var(--primary))', activeTint: 'rgba(183,154,255,.12)', activeText: 'hsl(var(--primary))', glow: 'rgba(183,154,255,.45)' },
   { id: 'parties',   label: 'Parties',   icon: '\u{1F389}', borderColor: CATEGORY_COLORS.party, activeTint: 'rgba(226,65,92,.12)',   activeText: CATEGORY_COLORS.party, glow: 'rgba(226,65,92,.45)'   },
   { id: 'classes',   label: 'Classes',   icon: '\u{1F3B5}', borderColor: CATEGORY_COLORS.class, activeTint: 'rgba(70,183,201,.12)',  activeText: CATEGORY_COLORS.class, glow: 'rgba(70,183,201,.45)'  },
-  { id: 'festivals', label: 'Festivals', icon: '\u{1F3AA}',  borderColor: CATEGORY_COLORS.fest,  activeTint: 'rgba(232,180,80,.12)',  activeText: CATEGORY_COLORS.fest,  glow: 'rgba(232,180,80,.45)'  },
+  { id: 'festivals', label: 'Festivals', icon: '\u{1F3AA}',  borderColor: CATEGORY_COLORS.fest,  activeTint: 'rgba(197,123,44,.12)',  activeText: CATEGORY_COLORS.fest,  glow: 'rgba(197,123,44,.45)'  },
 ];
 
 /** Category filter chips (All / Parties / Classes / Festivals). Folder-tab style:
@@ -213,38 +213,60 @@ export function CategoryFilterBar({
   );
 }
 
-/** Free-text search over title + venue + area. */
+/** Free-text matcher over title + venue + area. Two visual modes so it never
+ *  reads like the navigating header search: default `search`, or `filter` (a
+ *  funnel glyph + amber tint) for the in-place rail/map filter. */
 export function SearchField({
   value,
   onChange,
   className,
+  filter = false,
+  placeholder,
+  ariaLabel,
+  matchCount,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
+  filter?: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
+  /** When set + a value is typed, shows a live "N matches" count so it's clear
+   *  the field narrowed the current list/map in place (vs the navigating search). */
+  matchCount?: number | null;
 }) {
+  const Icon = filter ? Filter : Search;
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-xl border border-border px-3 focus-within:ring-2 focus-within:ring-primary',
+        'flex items-center gap-2 rounded-xl border px-3 focus-within:ring-2 focus-within:ring-primary',
+        filter ? 'border-primary/35' : 'border-border',
         className,
       )}
-      style={{ background: 'hsl(var(--muted) / 0.3)' }}
+      style={{ background: filter ? 'hsl(var(--primary) / 0.06)' : 'hsl(var(--muted) / 0.3)' }}
     >
-      <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <Icon
+        className={cn('h-4 w-4 shrink-0', filter ? 'text-primary/80' : 'text-muted-foreground')}
+        aria-hidden="true"
+      />
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search events, venues..."
-        aria-label="Search events"
+        placeholder={placeholder ?? 'Search events, venues...'}
+        aria-label={ariaLabel ?? 'Search events'}
         className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
       />
+      {value && matchCount != null && (
+        <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+          {matchCount} {matchCount === 1 ? 'match' : 'matches'}
+        </span>
+      )}
       {value && (
         <button
           type="button"
           onClick={() => onChange('')}
-          aria-label="Clear search"
+          aria-label={filter ? 'Clear filter' : 'Clear search'}
           className={cn('shrink-0 rounded text-muted-foreground hover:text-foreground', focusRing)}
         >
           <X className="h-4 w-4" />

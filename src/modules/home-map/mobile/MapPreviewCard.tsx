@@ -106,7 +106,7 @@ export function MapPreviewCard({
         onClick={onClose}
         aria-label="Close preview"
         className={cn(
-          'absolute right-1 top-1 z-10 grid h-10 w-10 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground',
+          'absolute right-1 top-1 z-10 grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground',
           focusRing,
         )}
       >

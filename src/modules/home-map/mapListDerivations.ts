@@ -8,6 +8,7 @@ import {
   matchesFilter,
   matchesQuery,
   distanceMiles,
+  startMinutes,
   isFreshNew,
   freshnessDisplay,
   isFestivalFormat,
@@ -151,7 +152,16 @@ export function groupByDate(events: MapEvent[]): DateGroup[] {
     .map((key) => ({
       key,
       label: key ? formatDayLabel(key) : 'Date TBC',
-      items: map.get(key)!,
+      // Within a day, order chronologically so a group reads as a timeline;
+      // rows with no parseable start sink to the end (stable).
+      items: [...map.get(key)!].sort((a, b) => {
+        const sa = startMinutes(a);
+        const sb = startMinutes(b);
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sa - sb;
+      }),
     }));
 }
 
@@ -318,6 +328,8 @@ export function buildMonthCells(
 // ---- homepage stat strip --------------------------------------------------
 
 export interface HomeStats {
+  /** distinct events with an instance today */
+  tonight: number;
   /** distinct events with an instance in the next 7 days */
   thisWeek: number;
   /** distinct venues with an upcoming listing */
@@ -338,13 +350,15 @@ function shiftDate(dateStr: string, n: number): string {
  */
 export function homeStats(events: MapEvent[], today = todayStr()): HomeStats {
   const weekEnd = shiftDate(today, 7);
+  const tonight = new Set<string>();
   const week = new Set<string>();
   const venues = new Set<string>();
   for (const e of events) {
     if (e.venue_name) venues.add(e.venue_name);
+    if (e.instance_date === today) tonight.add(e.event_id);
     if (e.instance_date && e.instance_date >= today && e.instance_date < weekEnd) week.add(e.event_id);
   }
-  return { thisWeek: week.size, venues: venues.size };
+  return { tonight: tonight.size, thisWeek: week.size, venues: venues.size };
 }
 /** Parse 'YYYY-MM-DD' into numeric calendar parts (no tz). */
 function parseYMD(s: string): { y: number; mo: number; d: number } | null {
@@ -501,4 +515,24 @@ export function groupPinsByLocation(pins: MapEvent[]): LocationGroup[] {
     });
   }
   return groups;
+}
+
+/**
+ * Split the flat list into local rows and remote (other-city) festival rows.
+ * Remote rows carry a 'remote-' occurrence_id sentinel (Index merges the global
+ * upcoming-festivals query). Keeping them out of the default chronological
+ * London stream stops a far-future festival abroad sitting under the
+ * "What's on in London" h1; surfaces render them in a separate "Festivals
+ * further afield" section instead. Sentinel-based, NOT date/coord based, so a
+ * far-future LONDON festival stays local and a coordless local row is not
+ * mistaken for "abroad".
+ */
+export function partitionRemote(events: MapEvent[]): { local: MapEvent[]; remote: MapEvent[] } {
+  const local: MapEvent[] = [];
+  const remote: MapEvent[] = [];
+  for (const e of events) {
+    if (e.occurrence_id.startsWith('remote-')) remote.push(e);
+    else local.push(e);
+  }
+  return { local, remote };
 }
