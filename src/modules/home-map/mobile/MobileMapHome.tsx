@@ -418,14 +418,16 @@ export default function MobileMapHome({
               baseClassName={ctrlBtn}
               onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
             />
-            <button
-              type="button"
-              onClick={() => apiRef.current?.reset?.()}
-              aria-label="Fit map to all events"
-              className={cn(ctrlBtn, '!text-primary')}
-            >
-              <Focus className="h-[18px] w-[18px]" />
-            </button>
+            {fullscreen && (
+              <button
+                type="button"
+                onClick={() => apiRef.current?.reset?.()}
+                aria-label="Fit map to all events"
+                className={cn(ctrlBtn, '!text-primary')}
+              >
+                <Focus className="h-[18px] w-[18px]" />
+              </button>
+            )}
           </div>
         )}
 

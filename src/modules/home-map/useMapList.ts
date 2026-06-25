@@ -87,7 +87,7 @@ export function useMapList(
   // resets the feed scroll to the top so each tab opens at its head.
   const setTab = useCallback((t: MapTab) => {
     setTabState(t);
-    if (t !== 'cal') setDayState(null);
+    setDayState(null);
     setSelected(null);
     listRef.current?.scrollTo({ top: 0 });
   }, []);

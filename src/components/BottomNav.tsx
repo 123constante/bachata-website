@@ -19,7 +19,6 @@ const BASE_NAV_LINKS: Array<{
   emoji: string;
   fixedPath?: string;
 }> = [
-  { segment: 'tonight',    label: 'Tonight',    emoji: '\u{1F319}' },
   { segment: 'organisers', label: 'Organisers', emoji: '\u{1F3AA}', fixedPath: '/organisers' },
   { segment: 'venues',     label: 'Venues',     emoji: '\u{1F3DB}\u{FE0F}' },
   // /raffles is NOT city-scoped (no /city/:slug/raffles route), so fixedPath
@@ -31,10 +30,6 @@ const BASE_NAV_LINKS: Array<{
 ];
 
 const emojiAnimations = {
-  '\u{1F319}': {
-    animate: { y: [0, -8, 0] },
-    transition: { repeat: Infinity, duration: 1.4, ease: 'easeInOut' as const },
-  },
   '\u{1F3AA}': {
     animate: { y: [0, -8, 0] },
     transition: { repeat: Infinity, duration: 1.6, ease: 'easeInOut' as const },

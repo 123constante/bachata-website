@@ -45,7 +45,9 @@
       "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.status == \"completed\"\\) | {name: .name, conclusion: .conclusion}')",
       "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.name == \"Smoke live production\"\\) | .status')",
       "Bash(xargs -I {} sh -c 'gh api repos/123constante/bachata-website/actions/runs/{} --jq \".name, .status, .conclusion, .html_url\"')",
-      "Bash(python3 scripts/safe-write.py src/modules/home-map/EventMap.tsx)"
+      "Bash(python3 scripts/safe-write.py src/modules/home-map/EventMap.tsx)",
+      "Bash(python3 scripts/safe-write.py /c/dev/Website/src/modules/home-map/useMapList.ts)",
+      "Bash(PYTHONUTF8=1 python3 -)"
     ],
     "additionalDirectories": [
       "\\tmp",
