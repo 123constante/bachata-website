@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isInjectedThirdPartyEvent } from '@/lib/sentry';
+import { isInjectedThirdPartyEvent, isStaleChunkEvent } from '@/lib/sentry';
 
 // The discriminator is keyed off the verified shapes of real production events
 // (fetched from the Sentry API): injected Chrome-iOS scripts carry frames whose
@@ -74,5 +74,44 @@ describe('isInjectedThirdPartyEvent', () => {
       },
     };
     expect(isInjectedThirdPartyEvent(event)).toBe(true);
+  });
+});
+
+// Stale-deploy chunk-load failures (BACHATA-WEBSITE-7/-2J/-11/-3). These are
+// handled by lazyWithRetry + ErrorBoundary (0 users impacted); the residual
+// events are post-reload stragglers and global-handler captures. The classifier
+// reuses STALE_CHUNK_RE from staleChunk.ts, matched against the originalException
+// hint, the serialized exception value, or the event message.
+describe('isStaleChunkEvent', () => {
+  it('drops a stale-deploy module-script failure (BACHATA-WEBSITE-7)', () => {
+    const event = {
+      exception: { values: [{ type: 'TypeError', value: 'Importing a module script failed.' }] },
+    };
+    expect(isStaleChunkEvent(event)).toBe(true);
+  });
+
+  it('drops a CSS-preload failure via the originalException hint (BACHATA-WEBSITE-2J)', () => {
+    const event = { exception: { values: [{ type: 'Error', value: 'opaque minified message' }] } };
+    const hint = { originalException: new Error('Unable to preload CSS for /assets/EventPage-DWjty1L2.css') };
+    expect(isStaleChunkEvent(event, hint)).toBe(true);
+  });
+
+  it('drops a "Failed to fetch dynamically imported module" event (BACHATA-WEBSITE-3)', () => {
+    const event = {
+      message: 'Failed to fetch dynamically imported module: https://www.bachatacalendar.co.uk/assets/MobileMapHome-x.js',
+    };
+    expect(isStaleChunkEvent(event)).toBe(true);
+  });
+
+  it('keeps a real application error', () => {
+    const event = {
+      exception: { values: [{ type: 'TypeError', value: "Cannot read properties of null (reading 'target')" }] },
+    };
+    expect(isStaleChunkEvent(event)).toBe(false);
+  });
+
+  it('does NOT drop a frameless / empty event', () => {
+    expect(isStaleChunkEvent({})).toBe(false);
+    expect(isStaleChunkEvent({ exception: { values: [] } })).toBe(false);
   });
 });
