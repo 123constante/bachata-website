@@ -302,10 +302,23 @@ const UpcomingRow = ({ event }: { event: OrgEvent }) => {
 
 // --- Colour extraction ---
 
+// R2 public buckets (*.r2.dev) serve no Access-Control-Allow-Origin header, so a
+// crossOrigin canvas read throws a CORS console error and the extraction fails
+// anyway (we fall back to the default accent below). Skip the attempt for those
+// hosts to keep the console clean. Remove the r2.dev check to re-enable the accent
+// once the bucket CORS policy is set (Access-Control-Allow-Origin for the site).
+function canCorsCanvasRead(rawUrl: string): boolean {
+  try {
+    return !new URL(rawUrl, window.location.href).host.endsWith('r2.dev');
+  } catch {
+    return false;
+  }
+}
+
 function useAverageColor(url: string | null): [number, number, number] {
   const [rgb, setRgb] = React.useState<[number, number, number]>([255, 106, 44]);
   React.useEffect(() => {
-    if (!url) return;
+    if (!url || !canCorsCanvasRead(url)) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
