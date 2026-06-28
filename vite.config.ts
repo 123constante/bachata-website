@@ -58,7 +58,18 @@ export default defineConfig(({ mode }) => ({
         project: sentryProject,
         // Pin the release so uploaded sourcemaps associate with the exact
         // release the client reports at runtime (see comment above).
-        release: sentryRelease ? { name: sentryRelease } : undefined,
+        release: sentryRelease
+          ? {
+              name: sentryRelease,
+              // Associate the release with its commits so Sentry maps errors
+              // to suspect commits AND auto-resolves issues referenced by
+              // "Fixes BACHATA-WEBSITE-N" in commit messages. auto derives the
+              // commit range from git in the build env; ignoreMissing tolerates
+              // Vercel's shallow clone / first run. Requires the Sentry GitHub
+              // integration + this repo added in org settings (one-time).
+              setCommits: { auto: true, ignoreMissing: true },
+            }
+          : undefined,
         sourcemaps: { assets: "./dist/**" },
         telemetry: false,
       }),
