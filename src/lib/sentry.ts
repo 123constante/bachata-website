@@ -4,6 +4,7 @@
 // uncaught render errors and surfaces the resulting event ID).
 
 import * as Sentry from '@sentry/react';
+import { isStaleChunkError } from './staleChunk';
 
 const viteEnv =
   (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
@@ -32,14 +33,15 @@ export function isSentryEnabled(): boolean {
 // --- Injected / third-party-script noise classifier -----------------------
 // A recurring class of events (BACHATA-WEBSITE-N "Maximum call stack",
 // BACHATA-WEBSITE-2A "Error: he") comes entirely from scripts injected by the
-// client — in-app browsers (WhatsApp/Instagram), content blockers, Chrome-iOS
-// injected JS — never from our bundle. They share one verified signature: every
-// stack frame's file location is junk ("undefined" / "<anonymous>" / empty).
+// client &mdash; in-app browsers (WhatsApp/Instagram), content blockers,
+// Chrome-iOS injected JS &mdash; never from our bundle. They share one verified
+// signature: every stack frame's file location is junk ("undefined" /
+// "<anonymous>" / empty).
 //
-// NOTE: `in_app` is NOT a usable discriminator — Sentry marks these frames
+// NOTE: `in_app` is NOT a usable discriminator &mdash; Sentry marks these frames
 // in_app:true, identical to our own (verified on the live BACHATA-WEBSITE-N
 // event). We key off the file location instead: a genuine error in our code
-// always has ≥1 frame pointing at an `/assets/*.js` chunk (or, once sourcemaps
+// always has >=1 frame pointing at an `/assets/*.js` chunk (or, once sourcemaps
 // resolve, a `.tsx` source path), so this never drops a real bug.
 const JUNK_FRAME_LOCATIONS = new Set([
   '',
@@ -52,7 +54,8 @@ const JUNK_FRAME_LOCATIONS = new Set([
 
 type MinimalFrame = { filename?: string; abs_path?: string };
 type MinimalEvent = {
-  exception?: { values?: Array<{ stacktrace?: { frames?: MinimalFrame[] } }> };
+  exception?: { values?: Array<{ value?: string; stacktrace?: { frames?: MinimalFrame[] } }> };
+  message?: string;
 };
 
 function frameHasRealSource(frame: MinimalFrame): boolean {
@@ -62,7 +65,7 @@ function frameHasRealSource(frame: MinimalFrame): boolean {
 }
 
 // True when the event HAS stack frames but EVERY one lacks a usable source
-// location → it originated entirely in injected/third-party code.
+// location -> it originated entirely in injected/third-party code.
 export function isInjectedThirdPartyEvent(event: MinimalEvent): boolean {
   const values = event.exception?.values;
   if (!values?.length) return false;
@@ -74,6 +77,32 @@ export function isInjectedThirdPartyEvent(event: MinimalEvent): boolean {
     }
   }
   return sawFrame;
+}
+
+// --- Stale-deploy chunk-load noise ----------------------------------------
+// After a Vercel deploy, cached HTML references hashed chunk URLs that no longer
+// exist, producing a family of handled errors (BACHATA-WEBSITE-7/-2J/-11/-3:
+// "Importing a module script failed", "Failed to fetch dynamically imported
+// module", "Unable to preload CSS", ...). These are fully recovered:
+// lazyWithRetry reloads once and ErrorBoundary skips the pre-reload capture, so
+// 0 users are impacted. The events that still reach Sentry are post-reload
+// stragglers plus captures from Sentry's global onerror / unhandledrejection
+// handlers that bypass the boundary skip. We drop the whole family here.
+//
+// Tradeoff: this also discards the "reload didn't fix it" tail. Acceptable
+// &mdash; it is handled and zero-impact, and a genuinely broken deploy surfaces
+// via Vercel build status, not these issues. Reuses STALE_CHUNK_RE
+// (staleChunk.ts) so the pattern stays in ONE place.
+export function isStaleChunkEvent(
+  event: MinimalEvent,
+  hint?: { originalException?: unknown },
+): boolean {
+  const orig = hint?.originalException;
+  if (orig != null && isStaleChunkError(orig)) return true;
+  for (const v of event.exception?.values ?? []) {
+    if (v.value && isStaleChunkError(v.value)) return true;
+  }
+  return Boolean(event.message && isStaleChunkError(event.message));
 }
 
 // Coerces anything thrown/captured into a real Error. Supabase PostgREST errors
@@ -101,7 +130,7 @@ export function initSentry(): void {
     if (typeof console !== 'undefined' && ENVIRONMENT !== 'production') {
       // eslint-disable-next-line no-console
       console.info(
-        '[sentry] VITE_SENTRY_DSN not set — Sentry disabled. Add the DSN to ' +
+        '[sentry] VITE_SENTRY_DSN not set &mdash; Sentry disabled. Add the DSN to ' +
           'Vercel project env (production scope) to enable.',
       );
     }
@@ -117,7 +146,7 @@ export function initSentry(): void {
     sendDefaultPii: false,
     // Browser network-layer fetch failures (Safari "Load failed", Chrome
     // "Failed to fetch") are users losing signal or navigating away mid-fetch
-    // — the affected queries already retry once and surface RetryNotice.
+    // &mdash; the affected queries already retry once and surface RetryNotice.
     // Genuine PostgREST errors carry a code/details message and still report.
     ignoreErrors: [
       'Load failed',
@@ -133,10 +162,13 @@ export function initSentry(): void {
       // own bundle errors never do.
       if (isInjectedThirdPartyEvent(event)) return null;
 
+      // Drop handled stale-deploy chunk-load failures (see isStaleChunkEvent).
+      if (isStaleChunkEvent(event, hint)) return null;
+
       const orig = hint?.originalException;
       if (orig && !(orig instanceof Error) && typeof orig === 'object') {
         const e = toError(orig);
-        // Override only the message — replacing event.exception wholesale
+        // Override only the message &mdash; replacing event.exception wholesale
         // discards the stacktrace and mechanism Sentry already attached.
         const first = event.exception?.values?.[0];
         if (first) {
