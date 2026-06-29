@@ -5,12 +5,16 @@
  * Calls public.check_venue_publish_gate_contract_v1() and exits non-zero if any
  * venue-as-destination read path (get_public_venues_list_v3,
  * get_public_venue_by_venues_id, get_venue_detail, search_public_v5) has drifted
- * off the canonical predicate public.venue_is_public(publish_state) — e.g. by
- * re-introducing a hard-coded `publish_state = 'dancer_ready'` literal, which is
- * exactly the bug that once hid `published` venues from the /venues directory.
+ * off the canonical predicate public.venue_is_public(publish_state) — statically
+ * (incl. did_you_mean gate, IN/ANY/reversed/IS-DISTINCT literal forms) and
+ * behaviourally (executes each read path and asserts the gate holds).
+ *
+ * The guard's behavioural leg executes search_public_v5 + the directory RPC; a
+ * cold backend could transiently hit the anon 3s statement_timeout (57014). That
+ * is infra flakiness, not gate drift, so we retry once before failing.
  *
  * Local:  node scripts/check-venue-publish-gate.mjs      (reads .env)
- * CI:     same script, env vars supplied as repo secrets:
+ * CI:     env vars supplied as repo secrets:
  *           VITE_SUPABASE_URL
  *           VITE_SUPABASE_PUBLISHABLE_KEY
  *
@@ -53,7 +57,31 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const { data, error } = await sb.rpc('check_venue_publish_gate_contract_v1');
+// A transient/timeout failure (e.g. the anon 3s statement_timeout, code 57014,
+// or a network blip) is infra noise, not gate drift — retry once.
+function isTransient(err) {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    code === '57014' ||
+    msg.includes('statement timeout') ||
+    msg.includes('canceling statement') ||
+    msg.includes('timeout') ||
+    msg.includes('fetch failed') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout')
+  );
+}
+
+const callGuard = () => sb.rpc('check_venue_publish_gate_contract_v1');
+
+let { data, error } = await callGuard();
+if (error && isTransient(error)) {
+  console.error(`Transient error (${error.code || '?'}: ${error.message}); retrying once in 2s...`);
+  await new Promise((r) => setTimeout(r, 2000));
+  ({ data, error } = await callGuard());
+}
 
 if (error) {
   console.error('RPC failed:', error.message);
@@ -61,6 +89,10 @@ if (error) {
 }
 
 console.log(JSON.stringify(data, null, 2));
+
+if (Array.isArray(data?.notes)) {
+  for (const n of data.notes) console.warn(`  note: ${n}`);
+}
 
 if (!data?.ok) {
   const errs = Array.isArray(data?.errors) ? data.errors : [];
