@@ -6,12 +6,16 @@
  * venue-as-destination read path (get_public_venues_list_v3,
  * get_public_venue_by_venues_id, get_venue_detail, search_public_v5) has drifted
  * off the canonical predicate public.venue_is_public(publish_state) — statically
- * (incl. did_you_mean gate, IN/ANY/reversed/IS-DISTINCT literal forms) and
+ * (incl. both search gates, IN/ANY/reversed/IS-DISTINCT literal forms) and
  * behaviourally (executes each read path and asserts the gate holds).
  *
  * The guard's behavioural leg executes search_public_v5 + the directory RPC; a
  * cold backend could transiently hit the anon 3s statement_timeout (57014). That
  * is infra flakiness, not gate drift, so we retry once before failing.
+ *
+ * The guard may also return `notes` describing reduced behavioural coverage
+ * (no draft to test, blank/unmatchable draft name, admin caller). Those are
+ * surfaced prominently but do not fail the check.
  *
  * Local:  node scripts/check-venue-publish-gate.mjs      (reads .env)
  * CI:     env vars supplied as repo secrets:
@@ -57,8 +61,10 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-// A transient/timeout failure (e.g. the anon 3s statement_timeout, code 57014,
-// or a network blip) is infra noise, not gate drift — retry once.
+// A transient/timeout failure (the anon 3s statement_timeout, surfaced as code
+// 57014 / "canceling statement due to statement timeout", or a network blip) is
+// infra noise, not gate drift — retry once. Kept narrow on purpose: a bare
+// "timeout" substring would over-match genuine errors.
 function isTransient(err) {
   if (!err) return false;
   const code = String(err.code || '');
@@ -67,10 +73,10 @@ function isTransient(err) {
     code === '57014' ||
     msg.includes('statement timeout') ||
     msg.includes('canceling statement') ||
-    msg.includes('timeout') ||
     msg.includes('fetch failed') ||
     msg.includes('econnreset') ||
-    msg.includes('etimedout')
+    msg.includes('etimedout') ||
+    msg.includes('network')
   );
 }
 
@@ -90,10 +96,6 @@ if (error) {
 
 console.log(JSON.stringify(data, null, 2));
 
-if (Array.isArray(data?.notes)) {
-  for (const n of data.notes) console.warn(`  note: ${n}`);
-}
-
 if (!data?.ok) {
   const errs = Array.isArray(data?.errors) ? data.errors : [];
   console.error(`\nFAIL: venue publish-gate drift detected (${errs.length} issue(s)).`);
@@ -101,5 +103,12 @@ if (!data?.ok) {
   process.exit(1);
 }
 
-console.log('\nOK: every venue-as-destination read path gates via venue_is_public().');
+const notes = Array.isArray(data?.notes) ? data.notes : [];
+if (notes.length) {
+  console.warn(`\nCoverage notes (${notes.length}) — gate verified statically; some behavioural checks were not exercised:`);
+  for (const n of notes) console.warn(`  - ${n}`);
+  console.log('\nOK: every venue-as-destination read path gates via venue_is_public() (see coverage notes above).');
+} else {
+  console.log('\nOK: every venue-as-destination read path gates via venue_is_public().');
+}
 process.exit(0);
