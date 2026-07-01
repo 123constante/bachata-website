@@ -31,7 +31,7 @@ src/
     programDayRollover.ts  Day-rollover logic (must mirror admin lib)
   hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
   contexts/            CityContext
-scripts/               CI contract check scripts (40 checks in db-contract-check.yml)
+scripts/               CI contract check scripts (48 checks in db-contract-check.yml)
 tests/                 Vitest unit tests + Playwright e2e specs
 bin/                   Integrity and session-lock tools
 .github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
@@ -179,7 +179,7 @@ applied via `supabase db push` from there (CLI-only).
 - Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
 **What this repo owns:**
-- Contract-check scripts (`scripts/check-*.mjs`) — 40 checks in db-contract-check.yml
+- Contract-check scripts (`scripts/check-*.mjs`) — 48 checks in db-contract-check.yml
 - `supabase/config.toml` project_id pin
 
 CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
@@ -249,7 +249,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 40 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 48 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `e2e-nightly.yml` | daily | Full Playwright suite |
@@ -291,6 +291,12 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 - Organiser-link contract / P5 organiser_ids vs event_entities (#34)
 - Search telemetry param-contract (#35)
 - Festival multi-day span / program-day-canonical (#40)
+- Organiser past-events inclusion (#41)
+- Occurrence time-stamping convention guardrail (#42)
+- P5 occurrence materialised canonical (#43)
+- Per-occurrence override identity sync (#44)
+- Reverse-orphan occurrence guard (#45)
+- Venue publish-state visibility gate / venue_is_public consistency (#46)
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
@@ -379,7 +385,16 @@ fixture parity between repos.
 
 ## Recent changes
 
-- **2026-05-16 (latest)** — Vendor team public display fixes (avatar, roles,
+- **2026-06-27 (latest)** Venue directory fix + durable visibility gate.
+  `published` venues were hidden from `/venues` (stale `= 'dancer_ready'`
+  literal in `get_public_venues_list_v3`). Added the canonical
+  `venue_is_public(publish_state)` predicate (non-draft) and adopted it across
+  the directory, detail (`get_public_venue_by_venues_id`, `get_venue_detail`),
+  and search venue-section read paths; sitemap now gates on `!= draft`. New
+  anon CI guard `scripts/check-venue-publish-gate.mjs` /
+  `check_venue_publish_gate_contract_v1()` (#46). Admin migration
+  `20260627120000_venue_is_public_predicate_and_gate_v1`.
+- **2026-05-16** — Vendor team public display fixes (avatar, roles,
   broken link). About page stacked reveal layout (Approach D).
 - **2026-05-14** — Raffle UI: Unicode mojibake fixed, tile layout fixes.
   Bento section titles moved outside cards.

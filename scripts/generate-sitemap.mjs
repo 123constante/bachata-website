@@ -139,14 +139,14 @@ async function fetchEvents() {
   }));
 }
 
-// venues: publish_state = 'published'. Emits slug URLs (post-2026-05-28
+// venues: any non-draft venue (matches public.venue_is_public). Emits slug URLs (post-2026-05-28
 // slug migration). The route is /venue-entity/:slugOrId so older entity_id
 // URLs still work; the sitemap prefers the slug for new indexing.
 async function fetchVenues() {
   const { data, error } = await supabase
     .from('venues')
     .select('id, slug, created_at')
-    .in("publish_state", ["published","dancer_ready"])
+    .neq("publish_state", "draft")  // = public.venue_is_public(): any non-draft (dancer_ready | published)
     .limit(500);
   if (error) { console.warn('  venues fetch error:', error.message); return []; }
   return (data || []).map(v => ({
