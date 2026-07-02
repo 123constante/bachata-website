@@ -448,7 +448,11 @@ const Venues = () => {
   // todayKey re-derives the "Tonight"/"Tomorrow" labels when the London day
   // flips — without it a tab open past midnight kept yesterday's labels
   // (buildVm reads the current date internally, so the dep is the trigger).
+  // eslint's exhaustive-deps can't see buildVm's internal new Date(), so it
+  // flags todayKey as "unnecessary" — it is NOT; removing it reintroduces the
+  // stale-label bug. Keep the dep.
   const todayKey = useLondonToday();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const vms = useMemo(() => venues.map(buildVm), [venues, todayKey]);
   const tonight = useMemo(() => vms.filter((x) => x.isTonight).sort(byNextThenActivity), [vms]);
 
