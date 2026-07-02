@@ -127,13 +127,14 @@ export const transformCalendarEvents = (
   venueCoords?: VenueCoordMap,
 ): CalendarEventItem[] =>
   raw.map((event) => {
-    const instanceDate = new Date(event.instance_date);
-
-    const normalizedStart = new Date(instanceDate);
-    normalizedStart.setHours(0, 0, 0, 0);
-
-    const normalizedEnd = new Date(instanceDate);
-    normalizedEnd.setHours(23, 59, 59, 999);
+    // instance_date is a 'YYYY-MM-DD' calendar day. Build the Date from its
+    // parts (local-calendar construction) — `new Date('YYYY-MM-DD')` parses
+    // as UTC midnight, so local getters put the event on the previous day's
+    // cell for any visitor west of UTC.
+    const [iy, im, id] = (event.instance_date ?? '').slice(0, 10).split('-').map(Number);
+    const instanceDate = new Date(iy, im - 1, id);
+    const normalizedStart = new Date(iy, im - 1, id, 0, 0, 0, 0);
+    const normalizedEnd = new Date(iy, im - 1, id, 23, 59, 59, 999);
 
     // Parse key_times (root-level then meta_data fallback)
     const meta = parseJson(event.meta_data);

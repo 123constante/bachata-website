@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { londonTodayKey } from '@/lib/londonDate';
 
 export type FestivalPreview = {
   id: string;
@@ -14,7 +15,9 @@ export function useUpcomingFestivalsGlobal() {
   return useQuery({
     queryKey: ['upcoming-festivals-global'],
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10);
+      // events.date is a London calendar date — bound it with the London
+      // today key, not the browser/UTC one.
+      const today = londonTodayKey();
       const { data, error } = await supabase
         .from('events')
         .select('id, name, city, date, start_time, poster_url')

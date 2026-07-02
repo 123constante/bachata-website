@@ -16,6 +16,8 @@ import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { londonDayRangeUtc } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 export interface LiveEventsSectionProps {
   /** Section heading rendered as an <h2>. */
@@ -64,16 +66,13 @@ const LiveEventsSection = ({
   // crawlers and cold visitors alike.
   const effectiveCitySlug = citySlug ?? 'london-gb';
 
-  const rangeStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const rangeEnd = useMemo(() => {
-    const d = new Date(rangeStart);
-    d.setDate(d.getDate() + windowDays);
-    return d;
-  }, [rangeStart, windowDays]);
+  // London-day range instants (not browser-local midnight), reactive so a
+  // long-lived tab rolls the window over at midnight.
+  const todayKey = useLondonToday();
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    const { start, end } = londonDayRangeUtc(todayKey, windowDays);
+    return { rangeStart: start, rangeEnd: end };
+  }, [todayKey, windowDays]);
 
   const { data: events = [] } = useCalendarEvents({
     rangeStart,

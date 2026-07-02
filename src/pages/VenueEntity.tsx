@@ -22,7 +22,7 @@ import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { splitLineNames } from '@/lib/tubeLineColour';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { londonDateKey, parseUtcIso } from '@/lib/londonDate';
+import { londonDateKey, parseUtcIso, weekdayOfKey } from '@/lib/londonDate';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -126,7 +126,8 @@ function extractHoursRows(venue: PublicVenue): VenueHoursRow[] {
       ? (venue.opening_hours as Record<string, unknown>)
       : null;
   if (!openingHours) return [];
-  const todayKey = DAY_ORDER[JS_DAY_TO_ORDER[new Date().getDay()]];
+  // "Today" on the LONDON calendar (the venue's), not the browser's weekday.
+  const todayKey = DAY_ORDER[JS_DAY_TO_ORDER[weekdayOfKey(londonDateKey(new Date()))]];
   const rows: VenueHoursRow[] = [];
   for (let i = 0; i < 7; i++) {
     const dayKey = DAY_ORDER[i];

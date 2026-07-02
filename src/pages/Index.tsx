@@ -8,8 +8,9 @@ import { useMapEvents } from '@/hooks/useMapEvents';
 import { useMapList } from '@/modules/home-map/useMapList';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
-import { todayStr } from '@/modules/home-map/mapTypes';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
+import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
@@ -47,18 +48,17 @@ const Index = () => {
     return parts.map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
   }, [citySlug]);
 
+  // Reactive London-calendar "today": both windows below were previously
+  // frozen at mount ([] memos), so a tab left open overnight kept querying
+  // yesterday's ranges forever. Keying them by the London day rolls them over.
+  const todayKey = useLondonToday();
+
   // SEO-only: this week's events drive the JSON-LD ItemList. Kept separate from
   // the map query (different shape + horizon) so search-engine output is stable.
-  const weekStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const weekEnd = useMemo(() => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    return d;
-  }, [weekStart]);
+  const { weekStart, weekEnd } = useMemo(() => {
+    const { start, end } = londonDayRangeUtc(todayKey, 7);
+    return { weekStart: start, weekEnd: end };
+  }, [todayKey]);
   const { data: weekEvents } = useCalendarEvents({
     rangeStart: weekStart,
     rangeEnd: weekEnd,
@@ -71,12 +71,8 @@ const Index = () => {
   }, [weekEvents]);
 
   // Map data: a 90-day window of occurrences (coords, cover, times, freshness).
-  const rangeStart = useMemo(() => todayStr(), []);
-  const rangeEnd = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 90);
-    return todayStr(d);
-  }, []);
+  const rangeStart = todayKey;
+  const rangeEnd = useMemo(() => addDaysToKey(todayKey, 90), [todayKey]);
   const { data: mapEvents, isLoading, isError, refetch } = useMapEvents({
     citySlug,
     rangeStart,

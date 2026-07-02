@@ -15,6 +15,8 @@ import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
+import { londonDayRangeUtc, londonWallClockToInstant } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 type TonightEvent = {
   id: string;
@@ -61,9 +63,11 @@ const computeCountdown = (
   now: Date,
 ): CountdownState => {
   if (!startsAt) return null;
-  const start = new Date(startsAt);
-  if (Number.isNaN(start.getTime())) return null;
-  const end = endsAt ? new Date(endsAt) : null;
+  // occurrence_starts_at/_ends_at are London wall-clock stored as-if-UTC;
+  // parsing them as plain instants runs the countdown an hour late all BST.
+  const start = londonWallClockToInstant(startsAt);
+  if (!start || Number.isNaN(start.getTime())) return null;
+  const end = endsAt ? londonWallClockToInstant(endsAt) : null;
   const nowMs = now.getTime();
   if (nowMs < start.getTime()) {
     const diffMin = Math.max(0, Math.round((start.getTime() - nowMs) / 60000));
@@ -94,14 +98,26 @@ const Tonight = () => {
     clear,
   } = useGeolocation();
   const [now, setNow] = useState(() => new Date());
+  const todayKey = useLondonToday();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(timer);
+    // A restored tab resumes with `now` hours stale — countdowns would read
+    // "Starts in 50 hours" until the next 30s tick. Re-anchor immediately.
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setNow(new Date());
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const { data: rawEvents = [] } = useQuery({
-    queryKey: ['tonight-events', citySlug],
+    // Keyed by London-day so a tab open across midnight refetches tomorrow's
+    // "tonight" instead of serving yesterday's.
+    queryKey: ['tonight-events', citySlug, todayKey],
     queryFn: async (): Promise<TonightEvent[]> => {
       if (!citySlug) return [];
 
@@ -110,15 +126,14 @@ const Tonight = () => {
       // before taking ::date. An inclusive 23:59:59.999 same-day end collapses
       // to the same local date as start once re-projected, producing an empty
       // window.
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 1);
-      endDate.setHours(0, 0, 0, 0);
+      //
+      // The bounds are LONDON-day instants, not browser-local midnight: a
+      // visitor in Sydney or New York must query the same London "tonight".
+      const { start, end } = londonDayRangeUtc(todayKey);
 
       const { data, error } = await supabase.rpc('get_calendar_events_v2' as any, {
-        range_start: startDate.toISOString(),
-        range_end: endDate.toISOString(),
+        range_start: start.toISOString(),
+        range_end: end.toISOString(),
         city_slug_param: citySlug,
       });
 

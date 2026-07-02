@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
+import { londonTodayKey } from '@/lib/londonDate';
 
 // Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the
 // existing `import { SearchKind } from '@/lib/searchRpc'` call sites keep working.
@@ -130,7 +131,8 @@ export async function searchPublicV3(
   const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
   // Global festivals still come from the legacy events table so a festival in
   // another city surfaces in search (mirrors prior v3/v4 behaviour).
-  const today = new Date().toISOString().slice(0, 10);
+  // events.date is a London calendar date — bound it with the London today key.
+  const today = londonTodayKey();
   let festQuery = supabase
     .from('events')
     .select('id, name, city, poster_url, date')

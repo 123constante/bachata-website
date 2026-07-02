@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import { londonDayRangeUtc } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 // --- Types ---
 
@@ -477,7 +479,10 @@ const OrganiserProfile = () => {
     [teamMembers, leader],
   );
 
-  const todayMs = useMemo(() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t.getTime(); }, []);
+  // Start of London-today as a true-UTC instant; reactive so a long-lived tab
+  // rolls the upcoming/past split over at midnight (was frozen at mount).
+  const todayKey = useLondonToday();
+  const todayMs = useMemo(() => londonDayRangeUtc(todayKey).start.getTime(), [todayKey]);
 
   const { upcomingEvents, pastEvents } = useMemo(() => {
     const eventById = new Map(allEvents.map((e) => [e.id, e]));

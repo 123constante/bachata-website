@@ -7,6 +7,8 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { londonDaysBetweenKeys, londonTodayKey } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -257,6 +259,10 @@ const Organisers = () => {
   const searchFilter = searchParams.get('search')?.trim() || null;
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
+  // Reactive London-calendar "today": rolls the countdown labels (and the
+  // day-anchored queries below) over at midnight instead of freezing at mount.
+  const todayKey = useLondonToday();
+
   const { data: organisers = [], isLoading } = useQuery({
     queryKey: ['entities-organisers'],
     queryFn: async () => {
@@ -306,7 +312,9 @@ const Organisers = () => {
   });
 
   const { data: nextEventDates = {} } = useQuery({
-    queryKey: ['organiser-next-event-dates'],
+    // Keyed by London-day so a tab open across midnight refetches: the RPC's
+    // "next event" answer changes when the calendar day does.
+    queryKey: ['organiser-next-event-dates', todayKey],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_organiser_next_event_dates' as any);
       if (error) return {} as Record<string, string>;
@@ -322,9 +330,11 @@ const Organisers = () => {
   });
 
   const { data: lastEventDates = {} } = useQuery({
-    queryKey: ['organiser-last-event-dates'],
+    queryKey: ['organiser-last-event-dates', todayKey],
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10);
+      // instance_start is London wall-clock stored as-if-UTC, so the London
+      // date key is the correct "past" boundary (not the browser/UTC date).
+      const today = londonTodayKey();
       const [entitiesRes, occRes] = await Promise.all([
         supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser').limit(5000),
         supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today).order('instance_start', { ascending: false }).limit(2000),
@@ -368,20 +378,18 @@ const Organisers = () => {
   }, [organisers, searchFilter, selectedCats]);
 
   const { upcoming, recentlyActive, dormant } = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayMs = today.getTime();
-
     const upcoming: UpcomingOrg[] = [];
     const recentlyActive: OrgRow[] = [];
     const dormant: OrgRow[] = [];
 
     filteredOrganisers.forEach((org) => {
       const nextDate = nextEventDates[org.id];
-      if (nextDate) {
-        const d = new Date(nextDate);
-        d.setHours(0, 0, 0, 0);
-        const days = Math.round((d.getTime() - todayMs) / 86_400_000);
+      // next_event_date is a London calendar date key; days < 0 only happens
+      // when the cached RPC data has aged past midnight — that event already
+      // ran, so the organiser degrades to "recently active" rather than
+      // rendering an "in -1 days" pill at the top of the list.
+      const days = nextDate ? londonDaysBetweenKeys(todayKey, nextDate) : null;
+      if (days !== null && days >= 0) {
         const nextLabel =
           days === 0 ? 'Tonight' : days === 1 ? 'Tomorrow' : `in ${days} days`;
         upcoming.push({ ...org, daysUntil: days, nextLabel });
@@ -397,7 +405,7 @@ const Organisers = () => {
     dormant.sort((a, b) => a.name.localeCompare(b.name));
 
     return { upcoming, recentlyActive, dormant };
-  }, [filteredOrganisers, nextEventDates, eventCounts]);
+  }, [filteredOrganisers, nextEventDates, eventCounts, todayKey]);
 
   const toggleCat = (cat: string) =>
     setSelectedCats((prev) => {

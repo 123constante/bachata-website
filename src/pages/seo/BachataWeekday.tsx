@@ -22,6 +22,8 @@ import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { londonDayRangeUtc, weekdayOfKey } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 interface WeekdayMeta {
   slug: string;
@@ -70,13 +72,13 @@ const WEEKDAYS: Record<string, WeekdayMeta> = {
 };
 
 function isSameWeekday(e: CalendarEventRow, dow: number): boolean {
-  // instance_date is 'YYYY-MM-DD' (calendar day); start_time is ISO8601.
-  // Both stored naive as UTC, so getDay() returns the correct calendar day.
+  // instance_date is 'YYYY-MM-DD' (London calendar day); start_time is a
+  // wall-clock-as-UTC string whose leading date part is the same calendar day.
+  // Compare via weekdayOfKey — `new Date(str).getDay()` reads the BROWSER's
+  // weekday of UTC midnight, which is off by one west of UTC.
   const iso = e.instance_date ?? e.start_time;
   if (!iso) return false;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return false;
-  return d.getDay() === dow;
+  return weekdayOfKey(iso.slice(0, 10)) === dow;
 }
 
 const fmt = (iso: string): string =>
@@ -126,16 +128,13 @@ const BachataWeekday = () => {
   // null slug and 0 live events. Defaulting to london-gb fixes both.
   const effectiveCitySlug = citySlug ?? 'london-gb';
 
-  const rangeStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const rangeEnd = useMemo(() => {
-    const d = new Date(rangeStart);
-    d.setDate(d.getDate() + 28);
-    return d;
-  }, [rangeStart]);
+  // London-day range instants (not browser-local midnight), reactive so a
+  // long-lived tab rolls the 4-week window over at midnight.
+  const todayKey = useLondonToday();
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    const { start, end } = londonDayRangeUtc(todayKey, 28);
+    return { rangeStart: start, rangeEnd: end };
+  }, [todayKey]);
 
   const { data: events = [] } = useCalendarEvents({
     rangeStart,

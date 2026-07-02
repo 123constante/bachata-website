@@ -12,6 +12,33 @@ const EXCLUDED_FILES = new Set([
 ]);
 
 const RULES = [
+  // ---- calendar-time authority (src/lib/londonDate.ts) ----------------------
+  // Events live on the LONDON calendar; these patterns compute on the
+  // BROWSER's calendar and produced the "in -1 days" / wrong-day-of-events
+  // family of bugs. Derive today/day-diffs/weekdays/day-ranges from
+  // src/lib/londonDate.ts (reactive "today": src/hooks/useLondonToday.ts).
+  {
+    id: 'no-browser-local-midnight',
+    message:
+      'Browser-local setHours(0,0,0,0) — use londonDayRangeUtc / londonDaysFromTodayForKey from @/lib/londonDate',
+    pattern: /\.setHours\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/,
+    allowFiles: new Set(['src/lib/londonDate.ts']),
+  },
+  {
+    id: 'no-browser-now-weekday',
+    message:
+      "Browser-local new Date().getDay() — use weekdayOfKey(londonTodayKey()) from @/lib/londonDate",
+    pattern: /new Date\(\)\s*\.getDay\(\)/,
+    allowFiles: new Set(['src/lib/londonDate.ts']),
+  },
+  {
+    id: 'no-browser-now-date-key',
+    message:
+      "Browser-now date key via new Date().toISOString().slice(0, 10) — use londonTodayKey() from @/lib/londonDate",
+    pattern: /new Date\(\)\s*\.toISOString\(\)\.slice\(\s*0\s*,\s*10\s*\)/,
+    allowFiles: new Set(['src/lib/londonDate.ts']),
+  },
+  // ---- legacy organiser access ----------------------------------------------
   {
     id: 'no-organisers-table',
     message: "Forbidden runtime access: .from('organisers')",
@@ -70,6 +97,7 @@ const run = async () => {
 
     lines.forEach((line, index) => {
       RULES.forEach((rule) => {
+        if (rule.allowFiles?.has(relativePath)) return;
         if (rule.pattern.test(line)) {
           violations.push({
             file: relativePath,

@@ -11,9 +11,15 @@ import { AppChrome } from "@/components/AppChrome";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { Analytics } from "@vercel/analytics/react";
 
-// Global query defaults: 60s staleTime, single retry, no window-focus refetches.
-// Per-query staleTimes (2--5 min) still override where set. Events data changes on
-// the scale of days, not minutes -- focus-refetch adds cost without user benefit.
+// Global query defaults: 60s staleTime, single retry, refetch on window focus.
+// Per-query staleTimes (2--5 min) still override where set.
+//
+// refetchOnWindowFocus was false for a while ("events change on the scale of
+// days") -- but that premise is exactly why it must be true: a phone tab
+// restored the next morning kept rendering yesterday's cached data ("in -1
+// days" on /organisers, yesterday's events as "tonight"). Focus-refetch only
+// refires queries older than their staleTime, so the cost is one request per
+// stale query per tab-restore, not a storm.
 //
 // Phase 2: QueryCache/MutationCache route every silently-swallowed query and
 // mutation error to Sentry so consumers that read .data without checking .error
@@ -31,7 +37,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 60_000,
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
     },
   },
 });

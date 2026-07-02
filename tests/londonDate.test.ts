@@ -1,0 +1,137 @@
+import { describe, expect, it } from 'vitest';
+import {
+  londonDateKey,
+  londonTodayKey,
+  londonDaysFromToday,
+  londonDaysFromTodayForKey,
+  londonDaysBetweenKeys,
+  weekdayOfKey,
+  addDaysToKey,
+  londonDayRangeUtc,
+  londonWallClockToInstant,
+} from '@/lib/londonDate';
+
+// All helpers must be independent of the machine timezone (they compute on
+// the London calendar via Intl/UTC only). CI runs this file under a TZ
+// matrix (Europe/London, America/New_York, Australia/Sydney) to prove it —
+// every expectation below is an absolute value, not a relative one.
+
+// 2026-07-02 is a Thursday. BST (UTC+1) runs 29 Mar – 25 Oct 2026.
+const BST_MORNING = new Date('2026-07-02T06:27:00Z'); // 07:27 London
+const BST_AFTER_LONDON_MIDNIGHT = new Date('2026-07-01T23:30:00Z'); // 00:30 London, 2 Jul
+const GMT_EVENING = new Date('2026-01-15T23:30:00Z'); // 23:30 London, 15 Jan
+
+describe('londonDateKey / londonTodayKey', () => {
+  it('uses the London calendar, not UTC, during BST', () => {
+    expect(londonDateKey(BST_AFTER_LONDON_MIDNIGHT)).toBe('2026-07-02');
+    expect(londonTodayKey(BST_AFTER_LONDON_MIDNIGHT)).toBe('2026-07-02');
+  });
+
+  it('matches UTC during GMT', () => {
+    expect(londonDateKey(GMT_EVENING)).toBe('2026-01-15');
+  });
+});
+
+describe('londonDaysFromTodayForKey', () => {
+  it('is 0 for today, 1 for tomorrow, negative for the past', () => {
+    expect(londonDaysFromTodayForKey('2026-07-02', BST_MORNING)).toBe(0);
+    expect(londonDaysFromTodayForKey('2026-07-03', BST_MORNING)).toBe(1);
+    expect(londonDaysFromTodayForKey('2026-07-01', BST_MORNING)).toBe(-1);
+    expect(londonDaysFromTodayForKey('2026-07-09', BST_MORNING)).toBe(7);
+  });
+
+  it('treats the 00:00–01:00 London BST window as the new day (UTC date is still yesterday)', () => {
+    // The regression that produced "in -1 days": a UTC-date-based diff says 1 here.
+    expect(londonDaysFromTodayForKey('2026-07-02', BST_AFTER_LONDON_MIDNIGHT)).toBe(0);
+    expect(londonDaysFromTodayForKey('2026-07-01', BST_AFTER_LONDON_MIDNIGHT)).toBe(-1);
+  });
+
+  it('crosses the GMT/BST transition without drift', () => {
+    const beforeTransition = new Date('2026-03-28T12:00:00Z'); // GMT Saturday
+    expect(londonDaysFromTodayForKey('2026-03-29', beforeTransition)).toBe(1); // 23h day
+    expect(londonDaysFromTodayForKey('2026-04-04', beforeTransition)).toBe(7);
+  });
+});
+
+describe('londonDaysFromToday (instant variant)', () => {
+  it('measures both instants on the London calendar', () => {
+    // 23:30 UTC on 1 Jul is already 2 Jul in London — same London day as BST_MORNING.
+    expect(londonDaysFromToday(BST_AFTER_LONDON_MIDNIGHT, BST_MORNING)).toBe(0);
+  });
+});
+
+describe('weekdayOfKey', () => {
+  it('returns the calendar weekday regardless of machine timezone', () => {
+    expect(weekdayOfKey('2026-07-02')).toBe(4); // Thursday
+    expect(weekdayOfKey('2026-07-03')).toBe(5); // Friday
+    expect(weekdayOfKey('2026-07-05')).toBe(0); // Sunday
+  });
+});
+
+describe('addDaysToKey', () => {
+  it('handles month, year and DST boundaries', () => {
+    expect(addDaysToKey('2026-07-31', 1)).toBe('2026-08-01');
+    expect(addDaysToKey('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDaysToKey('2026-03-28', 1)).toBe('2026-03-29'); // into the 23h spring-forward day
+    expect(addDaysToKey('2026-07-02', 28)).toBe('2026-07-30');
+    expect(addDaysToKey('2026-07-02', -1)).toBe('2026-07-01');
+  });
+});
+
+describe('londonDayRangeUtc', () => {
+  it('maps a BST London day to a UTC range starting at 23:00Z the day before', () => {
+    const { start, end } = londonDayRangeUtc('2026-07-02');
+    expect(start.toISOString()).toBe('2026-07-01T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-07-02T23:00:00.000Z');
+  });
+
+  it('maps a GMT London day to plain UTC midnights', () => {
+    const { start, end } = londonDayRangeUtc('2026-01-15');
+    expect(start.toISOString()).toBe('2026-01-15T00:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-01-16T00:00:00.000Z');
+  });
+
+  it('gives the spring-forward day 23 hours and the fall-back day 25', () => {
+    const spring = londonDayRangeUtc('2026-03-29');
+    expect(spring.start.toISOString()).toBe('2026-03-29T00:00:00.000Z');
+    expect(spring.end.toISOString()).toBe('2026-03-29T23:00:00.000Z');
+
+    const fall = londonDayRangeUtc('2026-10-25');
+    expect(fall.start.toISOString()).toBe('2026-10-24T23:00:00.000Z');
+    expect(fall.end.toISOString()).toBe('2026-10-26T00:00:00.000Z');
+  });
+
+  it('spans multi-day windows half-open', () => {
+    const { start, end } = londonDayRangeUtc('2026-07-02', 28);
+    expect(start.toISOString()).toBe('2026-07-01T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-07-29T23:00:00.000Z'); // start of 30 Jul, London
+  });
+});
+
+describe('londonDaysBetweenKeys', () => {
+  it('diffs two calendar keys', () => {
+    expect(londonDaysBetweenKeys('2026-07-02', '2026-07-02')).toBe(0);
+    expect(londonDaysBetweenKeys('2026-07-02', '2026-07-01')).toBe(-1);
+    expect(londonDaysBetweenKeys('2026-07-02', '2026-08-01')).toBe(30);
+  });
+});
+
+describe('londonWallClockToInstant', () => {
+  it('shifts a BST wall-clock-as-Z string back to the true instant', () => {
+    // 20:00 on the London clock during BST actually happens at 19:00Z.
+    expect(londonWallClockToInstant('2026-07-02 20:00:00+00')?.toISOString()).toBe(
+      '2026-07-02T19:00:00.000Z',
+    );
+  });
+
+  it('is identity during GMT', () => {
+    expect(londonWallClockToInstant('2026-01-15 20:00:00')?.toISOString()).toBe(
+      '2026-01-15T20:00:00.000Z',
+    );
+  });
+
+  it('returns null for empty/invalid input', () => {
+    expect(londonWallClockToInstant(null)).toBeNull();
+    expect(londonWallClockToInstant('not a date')).toBeNull();
+  });
+});

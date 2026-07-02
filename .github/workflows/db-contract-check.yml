@@ -700,3 +700,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-reverse-orphan-occurrence.mjs
+
+      # 46. Public time-pairing guard (the "in -1 days" family, 2026-07-02).
+      #     Occurrence times are London wall-clock stored as-if-UTC, so public
+      #     "upcoming" RPCs must measure "today/now" on the LONDON calendar —
+      #     never bare CURRENT_DATE/now() (UTC). get_organiser_next_event_dates
+      #     compared the London wall date against the UTC date, so for the hour
+      #     after London midnight during BST it returned YESTERDAY's events,
+      #     which the Organisers page rendered as "in -1 days" (and cached
+      #     overnight tabs re-showed all morning). Fixed + guarded by admin
+      #     migrations 20260702160000-20260702160300; the client side is fenced
+      #     by src/lib/londonDate.ts + lint-runtime-architecture rules.
+      #     Health-check RPC: check_public_time_pairing_contract_v1.
+      - name: Run public time-pairing guard check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-time-pairing.mjs

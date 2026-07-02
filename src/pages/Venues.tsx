@@ -10,6 +10,7 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { parseUtcIso, londonDaysFromToday } from '@/lib/londonDate';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 // ---------------------------------------------------------------------------
 // "Tonight First" venues directory (approved mockup 4, 2026-06-12).
@@ -444,7 +445,11 @@ const Venues = () => {
   const [openArea, setOpenArea] = useState<string | null>(null);
   const didInitOpen = useRef(false);
 
-  const vms = useMemo(() => venues.map(buildVm), [venues]);
+  // todayKey re-derives the "Tonight"/"Tomorrow" labels when the London day
+  // flips — without it a tab open past midnight kept yesterday's labels
+  // (buildVm reads the current date internally, so the dep is the trigger).
+  const todayKey = useLondonToday();
+  const vms = useMemo(() => venues.map(buildVm), [venues, todayKey]);
   const tonight = useMemo(() => vms.filter((x) => x.isTonight).sort(byNextThenActivity), [vms]);
 
   // Day chips run today-first on London's calendar.

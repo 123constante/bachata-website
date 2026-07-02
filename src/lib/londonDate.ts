@@ -1,12 +1,23 @@
-// Date helpers for the public venue directory.
+// The site's calendar-time authority. Every "today / tonight / tomorrow /
+// weekday / day range" derivation in src/ MUST come from here — never from
+// browser-local Date math. The architecture guard
+// (scripts/lint-runtime-architecture.mjs) bans `setHours(0,0,0,0)`,
+// `new Date().getDay()` and `new Date().toISOString().slice(0,10)` outside
+// this file, because each of those computes on the *browser's* calendar:
+// events live on the LONDON calendar, so a visitor west of UTC saw "in -1
+// days" and a visitor east of UTC saw yesterday's events as "tonight".
 //
-// The public venue RPC (get_public_venues_list_v3) returns `next_event_iso` as
-// `(first_start AT TIME ZONE 'UTC')::text` — a timezone-LESS UTC wall-clock
-// string like "2026-05-22 19:00:00" (space separator, no Z/offset). Parsing
-// that with `new Date(str)` reads it in the browser's local zone, which is
-// wrong. And "tonight" / "this weekend" must be measured on the city's calendar
-// (London), matching the rest of the app (see src/pages/Tonight.tsx), not the
-// browser's. These helpers fix both.
+// Semantics reminders:
+// - DB date-only values (next_event_date, instance_date) are London calendar
+//   dates. Compare them with londonDaysFromTodayForKey / weekdayOfKey —
+//   `new Date('YYYY-MM-DD')` parses as UTC midnight and shifts a day in
+//   western timezones.
+// - The public venue RPC (get_public_venues_list_v3) returns `next_event_iso`
+//   as `(first_start AT TIME ZONE 'UTC')::text` — a timezone-LESS UTC
+//   wall-clock string like "2026-05-22 19:00:00". Parse it with parseUtcIso.
+// - RPC range params must be built with londonDayRangeUtc, not local midnight.
+// - For a reactive "today" that survives long-lived tabs crossing midnight,
+//   use the useLondonToday() hook (src/hooks/useLondonToday.ts).
 
 const LONDON_TZ = 'Europe/London';
 
@@ -28,7 +39,10 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
   const trimmed = iso.trim();
   if (!trimmed) return null;
   const hasZone = /([zZ]|[+-]\d{2}(:?\d{2})?)$/.test(trimmed);
-  const normalised = trimmed.replace(' ', 'T') + (hasZone ? '' : 'Z');
+  // PostgREST emits 2-digit offsets ('+00'), which Date.parse rejects — pad
+  // to '+00:00' (same normalisation as parseInstant in home-map/mapTypes).
+  const normalised =
+    (trimmed.replace(' ', 'T') + (hasZone ? '' : 'Z')).replace(/([+-]\d{2})$/, '$1:00');
   const d = new Date(normalised);
   return Number.isNaN(d.getTime()) ? null : d;
 };
@@ -67,6 +81,98 @@ export const londonDaysFromToday = (d: Date, now: Date = new Date()): number => 
   const from = keyToUtcNoon(londonDateKey(now));
   const to = keyToUtcNoon(londonDateKey(d));
   return Math.round((to - from) / 86_400_000);
+};
+
+/** "Today" as a YYYY-MM-DD key on the London calendar. */
+export const londonTodayKey = (now: Date = new Date()): string => londonDateKey(now);
+
+/**
+ * Whole-day offset of a YYYY-MM-DD London-calendar key from London-today.
+ * For date-only values from the DB (e.g. next_event_date, instance_date),
+ * which are London calendar dates — never parse those with `new Date(str)`,
+ * which reads them as UTC midnight and shifts a day in western timezones.
+ * 0 = today (tonight), 1 = tomorrow, negative = in the past.
+ */
+export const londonDaysFromTodayForKey = (key: string, now: Date = new Date()): number =>
+  londonDaysBetweenKeys(londonDateKey(now), key);
+
+/**
+ * Whole-day offset from one YYYY-MM-DD key to another. Use with
+ * useLondonToday() as `fromKey` so memoised labels recompute on day rollover.
+ */
+export const londonDaysBetweenKeys = (fromKey: string, toKey: string): number =>
+  Math.round((keyToUtcNoon(toKey) - keyToUtcNoon(fromKey)) / 86_400_000);
+
+/** Weekday (0=Sun … 6=Sat) of a YYYY-MM-DD calendar key, timezone-independent. */
+export const weekdayOfKey = (key: string): number => new Date(keyToUtcNoon(key)).getUTCDay();
+
+/** The YYYY-MM-DD key `days` calendar days after `key`. */
+export const addDaysToKey = (key: string, days: number): string =>
+  new Date(keyToUtcNoon(key) + days * 86_400_000).toISOString().slice(0, 10);
+
+const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
+const wallClockMsInTz = (d: Date, timeZone: string): number => {
+  let fmt = wallClockFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    });
+    wallClockFormatters.set(timeZone, fmt);
+  }
+  const parts = fmt.formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+};
+
+/**
+ * The true-UTC instant of local midnight of `key` in `timeZone` (DST-safe:
+ * two fixed-point passes absorb the offset, including across a DST jump).
+ */
+const zonedMidnightUtc = (key: string, timeZone: string): Date => {
+  const [y, m, d] = key.split('-').map(Number);
+  const target = Date.UTC(y, m - 1, d, 0, 0, 0);
+  let ts = target;
+  for (let i = 0; i < 2; i++) {
+    ts += target - wallClockMsInTz(new Date(ts), timeZone);
+  }
+  return new Date(ts);
+};
+
+/**
+ * Half-open true-UTC instant range [start, end) covering `days` London
+ * calendar days from `key`. This — not browser-local `setHours(0,0,0,0)` —
+ * is what RPC range params (get_calendar_events_v2 etc.) must be built from,
+ * so a visitor in any timezone queries the same London day.
+ */
+export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Date } => ({
+  start: zonedMidnightUtc(key, LONDON_TZ),
+  end: zonedMidnightUtc(addDaysToKey(key, days), LONDON_TZ),
+});
+
+/**
+ * Parse a London wall-clock timestamp stored as-if-UTC (the occurrence/program
+ * convention: 'YYYY-MM-DD HH:mm:ss+00' whose digits are London local time)
+ * into the TRUE instant — the moment London's clock actually shows that wall
+ * time. `new Date(str)` alone reads it as UTC, which runs one hour late for
+ * the whole BST season (countdowns, "On now" badges).
+ */
+export const londonWallClockToInstant = (iso: string | null | undefined): Date | null => {
+  const asUtc = parseUtcIso(iso);
+  if (!asUtc) return null;
+  const wallMs = asUtc.getTime();
+  let ts = wallMs;
+  for (let i = 0; i < 2; i++) {
+    ts += wallMs - wallClockMsInTz(new Date(ts), LONDON_TZ);
+  }
+  return new Date(ts);
 };
 
 /**
