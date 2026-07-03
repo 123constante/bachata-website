@@ -204,6 +204,11 @@ export const PersonChip = ({
     layout ?? ((size === 'lg' && showRole) || size === 'xl' ? 'stacked' : 'row');
 
   const stacked = effectiveLayout === 'stacked';
+  const chipName = toChipDisplayName(person.name);
+  // Hide the role tag when the name already starts with that role word, e.g.
+  // name "DJ Tony Spark" + role "DJ" would otherwise render "DJ" twice.
+  const roleLeadsName =
+    !!role && chipName.trim().toLowerCase().startsWith(role.trim().toLowerCase() + ' ');
   const inner = stacked ? (
     <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
       <AvatarCircle person={person} size={size} dimmed={isDimmed} />
@@ -228,10 +233,10 @@ export const PersonChip = ({
           } as React.CSSProperties}
           title={person.name}
         >
-          {toChipDisplayName(person.name)}
+          {chipName}
         </div>
       )}
-      {showRole && role && (
+      {showRole && role && !roleLeadsName && (
         <div
           className="text-[9px] font-semibold uppercase tracking-[0.10em] leading-tight"
           style={{ color: 'hsl(var(--bento-accent))', opacity: isDimmed ? 0.6 : 1, marginTop: 3 }}
