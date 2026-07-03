@@ -64,9 +64,13 @@ const NAME_GROUP_KEYWORDS = [
   'team', 'crew', 'company', 'academy', 'project', 'collective', 'studio', 'school',
 ];
 
-const toChipDisplayName = (full: string): string => {
+const toChipDisplayName = (full: string, profileType?: string | null): string => {
   const name = (full || '').trim();
   if (!name) return name;
+  // DJ names are stage / brand names ("Tony Spark", "El Rugido"), not first+last
+  // names — never first-word-truncate them. The DJ role tag already labels the
+  // role, so the full stage name shows with no repetition.
+  if ((profileType ?? '').toLowerCase() === 'dj') return name;
   const parts = name.split(/\s+/);
   if (parts.length === 1) return name;
   const firstLower = parts[0].toLowerCase().replace(/\.+$/, '');
@@ -204,7 +208,7 @@ export const PersonChip = ({
     layout ?? ((size === 'lg' && showRole) || size === 'xl' ? 'stacked' : 'row');
 
   const stacked = effectiveLayout === 'stacked';
-  const chipName = toChipDisplayName(person.name);
+  const chipName = toChipDisplayName(person.name, person.profileType);
   // Hide the role tag when the name already starts with that role word, e.g.
   // name "DJ Tony Spark" + role "DJ" would otherwise render "DJ" twice.
   const roleLeadsName =
