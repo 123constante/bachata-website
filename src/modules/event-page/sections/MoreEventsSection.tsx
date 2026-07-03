@@ -3,15 +3,20 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { londonWallClockNowIso, weekdayOfKey } from '@/lib/londonDate';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// instance_start is London wall-clock text — its leading date part IS the
+// calendar day to label. new Date(iso) read it as an instant (wrong weekday
+// west of UTC) and iOS Safari rejects the space-separated form outright.
 const formatDate = (iso: string | null): string => {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const key = iso.slice(0, 10);
+  const [, m, d] = key.split('-').map(Number);
+  if (!m || !d) return '';
+  return `${WEEKDAYS[weekdayOfKey(key)]} ${d} ${MONTHS[m - 1]}`;
 };
 
 type MoreEvent = {
@@ -67,7 +72,9 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
         .from('calendar_occurrences')
         .select('id, event_id, instance_start')
         .in('event_id', eventIds)
-        .gte('instance_start', new Date().toISOString())
+        // instance_start is London wall-clock as-Z; compare against the
+        // London wall clock, not true-UTC now (1h behind during BST).
+        .gte('instance_start', londonWallClockNowIso())
         .order('instance_start', { ascending: true });
 
       const nextByEvent: Record<string, { id: string; start: string }> = {};

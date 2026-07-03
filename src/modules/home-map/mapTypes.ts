@@ -4,6 +4,7 @@
 
 import { haversineKm } from '@/lib/geo/haversineKm';
 import { isFestivalByFormat } from '@/lib/eventFormat';
+import { londonDateKey, londonMinutesOfDay, normalisePostgrestTimestamp } from '@/lib/londonDate';
 
 export type MapCategory = 'class' | 'party' | 'mix' | 'fest' | 'social';
 export type MapFilter = 'all' | 'parties' | 'classes' | 'festivals';
@@ -190,12 +191,10 @@ export function formatSplitTimes(e: MapEvent): TimeSegment[] | null {
 /** Parse a PostgREST timestamptz instant ('YYYY-MM-DD HH:MM:SS.sss+00' --
  *  space-separated, 2-digit zone offset) into epoch ms. iOS Safari rejects
  *  that form while Chromium tolerates it, so normalise to strict ISO first
- *  (audit #6): swap the date/time space for 'T' and pad a 2-digit offset to
- *  '+00:00'. Already-ISO inputs (with 'T'/'Z') pass through unchanged. */
+ *  (audit #6) via the shared normaliser in lib/londonDate. */
 export function parseInstant(iso: string | null): number {
   if (!iso) return NaN;
-  const s = iso.trim().replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00');
-  return new Date(s).getTime();
+  return new Date(normalisePostgrestTimestamp(iso)).getTime();
 }
 
 /** Compact "5m", "3h 12m", "2d" from a past instant relative to `now`. */
@@ -260,12 +259,12 @@ export function distanceMiles(e: MapEvent, user: { lat: number; lng: number } | 
   return haversineKm(user.lat, user.lng, e.lat, e.lng) * 0.621371;
 }
 
-/** Local-today as 'YYYY-MM-DD' (city is the user's tz for the 95% London case). */
+/** LONDON-calendar date key of an instant, 'YYYY-MM-DD'. instance_date is a
+ *  London calendar day, so "today/tonight" membership must be measured on the
+ *  London clock — the old browser-local version emptied the Tonight tab for
+ *  non-London visitors once London crossed midnight. */
 export function todayStr(d = new Date()): string {
-  const y = d.getFullYear();
-  const mo = (d.getMonth() + 1).toString().padStart(2, '0');
-  const day = d.getDate().toString().padStart(2, '0');
-  return `${y}-${mo}-${day}`;
+  return londonDateKey(d);
 }
 
 
@@ -314,7 +313,9 @@ export function todayLiveStatus(e: MapEvent, now = new Date()): LiveStatus {
   if (start == null) return null;
   let end = endMinutes(e);
   if (end != null && end < start) end += 1440;
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // Event minutes are London wall-clock, so "now" must be too — browser-local
+  // minutes shift the on-now/soon window by the visitor's offset.
+  const nowMin = londonMinutesOfDay(now);
   if (nowMin >= start && (end == null || nowMin <= end)) return 'on-now';
   if (start > nowMin && start - nowMin <= 90) return 'soon';
   return null;

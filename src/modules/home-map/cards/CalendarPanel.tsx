@@ -87,7 +87,12 @@ export function CalendarPanel({
 
   // Keep view month in sync when modal's prev/next nav crosses a month boundary.
   const handleChangeDate = (newDate: Date) => {
-    state.setDay(newDate.toISOString().slice(0, 10));
+    // newDate is a LOCAL-calendar Date (new Date(y, m, d) from DayDetailModal);
+    // key it from its local parts. toISOString() reads the UTC calendar, which
+    // is the PREVIOUS day for local-midnight Dates during BST — "next day"
+    // used to re-select the same day all summer.
+    const key = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
+    state.setDay(key);
     setView({ y: newDate.getFullYear(), m: newDate.getMonth() });
   };
 

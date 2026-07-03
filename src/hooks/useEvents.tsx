@@ -24,7 +24,6 @@ export const useUpcomingEvents = () => {
 
       if (error) throw error;
 
-      // Map RPC result to the expected format for ComingUpSection.
       // occurrenceId surfaces for ADR-007 Phase 4.2c — cards link to the
       // specific date so the public event page shows that date's program,
       // not a fallback / next-upcoming heuristic.
@@ -44,6 +43,9 @@ export const useUpcomingEvents = () => {
         .slice(0, 10);
     },
     enabled: !!citySlug,
+    // Events move on the scale of days; the 60s default made this refire on
+    // every homepage tab focus now that refetchOnWindowFocus is on.
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -81,5 +83,6 @@ export const useEvents = () => {
       }));
     },
     enabled: !!citySlug,
+    staleTime: 5 * 60 * 1000,
   });
 };

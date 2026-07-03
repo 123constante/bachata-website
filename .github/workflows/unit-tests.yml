@@ -23,11 +23,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
-      # Calendar-time helpers (src/lib/londonDate.ts) must be independent of
-      # the machine timezone — the "in -1 days" bug family was browser-local
-      # date math. Running the whole suite under three zones proves it.
+      # Calendar-time code must be independent of the machine timezone — the
+      # "in -1 days" bug family was browser-local date math. Full suite runs
+      # once (London); the other two zones re-run only the tz-sensitive files,
+      # so the matrix doesn't triple npm ci or the live-DB contract tests.
       matrix:
-        tz: [Europe/London, America/New_York, Australia/Sydney]
+        include:
+          - tz: Europe/London
+            scope: full
+          - tz: America/New_York
+            scope: tz-sensitive
+          - tz: Australia/Sydney
+            scope: tz-sensitive
     env:
       TZ: ${{ matrix.tz }}
     steps:
@@ -50,4 +57,12 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: npm run test:unit
+        # tz-sensitive scope: the calendar-time helpers and the calendar-day
+        # transforms that construct/compare local Dates. Everything else is
+        # timezone-inert and runs once under Europe/London.
+        run: |
+          if [ "${{ matrix.scope }}" = "full" ]; then
+            npm run test:unit
+          else
+            npx vitest run tests/londonDate.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts
+          fi

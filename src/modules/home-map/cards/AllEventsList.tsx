@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
 import { groupByDate, collapseFestivals, partitionRemote } from '../mapListDerivations';
 import { todayStr, distanceMiles } from '../mapTypes';
+import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { focusRing } from './controls';
 
@@ -150,9 +151,7 @@ export function AllEventsList({
   const today = todayStr();
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = todayStr(tomorrowDate);
+  const tomorrow = addDaysToKey(today, 1);
   const { local, remote } = partitionRemote(state.listEvents);
   const groups = groupByDate(collapseFestivals(local));
   // When located, optionally re-order each day's rows nearest-first -- kept

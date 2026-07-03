@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useLondonToday } from '@/hooks/useLondonToday';
 import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
-import { matchesFilter, todayStr } from './mapTypes';
+import { matchesFilter } from './mapTypes';
 import {
   dedupePins,
   listFor,
@@ -107,21 +108,11 @@ export function useMapList(
     setSelected(null);
   }, []);
 
-  // Recompute "today" across midnight / tab-refocus so a long-lived session
-  // doesn't freeze Tonight/Calendar filters at the mount day (audit #20).
-  const [today, setToday] = useState(() => todayStr());
-  useEffect(() => {
-    const tick = () => setToday((prev) => (prev === todayStr() ? prev : todayStr()));
-    const id = window.setInterval(tick, 60_000);
-    const onVis = () => {
-      if (document.visibilityState === 'visible') tick();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, []);
+  // Reactive LONDON-calendar "today" (rolls across midnight / tab-refocus so a
+  // long-lived session doesn't freeze Tonight/Calendar filters at the mount
+  // day — audit #20). Must match the London-anchored map query window in
+  // Index.tsx, or the Tonight tab filters for a day the query didn't fetch.
+  const today = useLondonToday();
 
   const geo = useGeolocation();
   const user = geo.coords;

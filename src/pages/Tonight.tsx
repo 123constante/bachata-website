@@ -116,7 +116,10 @@ const Tonight = () => {
 
   const { data: rawEvents = [] } = useQuery({
     // Keyed by London-day so a tab open across midnight refetches tomorrow's
-    // "tonight" instead of serving yesterday's.
+    // "tonight" instead of serving yesterday's. 5-min staleTime keeps the
+    // focus-refetch from refiring on every tab switch; the day-key rollover
+    // still forces a fresh fetch at midnight.
+    staleTime: 5 * 60 * 1000,
     queryKey: ['tonight-events', citySlug, todayKey],
     queryFn: async (): Promise<TonightEvent[]> => {
       if (!citySlug) return [];

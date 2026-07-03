@@ -22,7 +22,7 @@ import { buildVenueJsonLd } from '@/lib/buildVenueJsonLd';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { splitLineNames } from '@/lib/tubeLineColour';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { londonDateKey, parseUtcIso, weekdayOfKey } from '@/lib/londonDate';
+import { londonDateKey, weekdayOfKey } from '@/lib/londonDate';
 
 import VenueHeroMosaic from '@/components/venue/VenueHeroMosaic';
 import VenueSectionTitle from '@/components/venue/VenueSectionTitle';
@@ -451,10 +451,10 @@ const VenueEntity = () => {
       : null;
   const tonightEvent = useMemo(() => {
     const todayKey = londonDateKey(new Date());
-    return (events ?? []).find((e) => {
-      const d = parseUtcIso(e.instance_start);
-      return d ? londonDateKey(d) === todayKey : false;
-    });
+    // instance_start is London wall-clock text — its leading date part IS the
+    // London calendar day. Parsing it as UTC rolled 23:00–23:59 starts onto
+    // the next day during BST.
+    return (events ?? []).find((e) => (e.instance_start ?? '').slice(0, 10) === todayKey);
   }, [events]);
 
   // ----------------------------------------------------------

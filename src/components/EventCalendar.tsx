@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rss, Check, Copy, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
@@ -106,8 +107,20 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const now = new Date();
   const isAtCurrentMonth = currentMonth === now.getMonth() && currentYear === now.getFullYear();
 
-  const queryStart = useMemo(() => new Date(currentYear, currentMonth, 1), [currentYear, currentMonth]);
-  const queryEnd = useMemo(() => new Date(currentYear, currentMonth + 1, 1), [currentYear, currentMonth]);
+  // London-calendar month window. Browser-local month-midnight Dates shifted
+  // the RPC's half-open bound by the visitor's offset — east-of-London month
+  // grids silently dropped the last day of the month.
+  const { queryStart, queryEnd, monthFromKey, monthToKey } = useMemo(() => {
+    const firstKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const { start, end } = londonDayRangeUtc(firstKey, daysInMonth);
+    return {
+      queryStart: start,
+      queryEnd: end,
+      monthFromKey: firstKey,
+      monthToKey: addDaysToKey(firstKey, daysInMonth - 1),
+    };
+  }, [currentYear, currentMonth]);
 
   const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
 
@@ -125,8 +138,8 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
       const { data, error } = await (supabase.rpc as any)(
         'get_event_attendance_counts_by_range',
         {
-          p_from: queryStart.toISOString().split('T')[0],
-          p_to: queryEnd.toISOString().split('T')[0],
+          p_from: monthFromKey,
+          p_to: monthToKey,
           p_city_slug: citySlug ?? null,
         },
       );

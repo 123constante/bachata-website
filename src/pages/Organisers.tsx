@@ -7,7 +7,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { londonDaysBetweenKeys, londonTodayKey } from '@/lib/londonDate';
+import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -334,7 +334,10 @@ const Organisers = () => {
     queryFn: async () => {
       // instance_start is London wall-clock stored as-if-UTC, so the London
       // date key is the correct "past" boundary (not the browser/UTC date).
-      const today = londonTodayKey();
+      // Use the closured todayKey (the queryKey's value) — recomputing "now"
+      // here can diverge from the key when a fetch straddles London midnight,
+      // caching next-day data under the old key.
+      const today = todayKey;
       const [entitiesRes, occRes] = await Promise.all([
         supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser').limit(5000),
         supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today).order('instance_start', { ascending: false }).limit(2000),

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useUpcomingEvents } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { londonTodayKey } from "@/lib/londonDate";
 
 export const TonightSavingsAlert = () => {
   const { data: events, isLoading } = useUpcomingEvents();
@@ -12,16 +13,12 @@ export const TonightSavingsAlert = () => {
 
   if (isLoading || !events) return null;
 
-  // Filter for events strictly happening today
-  const today = new Date();
-  const todaysEvents = events.filter(event => {
-    const eventDate = new Date(event.date);
-    return (
-      eventDate.getDate() === today.getDate() &&
-      eventDate.getMonth() === today.getMonth() &&
-      eventDate.getFullYear() === today.getFullYear()
-    );
-  });
+  // Filter for events strictly happening today. event.date is a London
+  // calendar key ('YYYY-MM-DD') — compare it to London-today directly;
+  // parsing it into a Date and matching browser-local parts flagged the
+  // wrong day for any visitor whose calendar differs from London's.
+  const today = londonTodayKey();
+  const todaysEvents = events.filter(event => (event.date ?? '').slice(0, 10) === today);
 
   if (todaysEvents.length === 0) return null;
 

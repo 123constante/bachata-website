@@ -34,15 +34,21 @@ const londonKeyFormatter = new Intl.DateTimeFormat('en-CA', {
  * the RPC emits; strings already carrying Z or a ±hh:mm offset pass through.
  * Returns null for empty/invalid input.
  */
+/**
+ * Normalise PostgREST timestamp text to a Date.parse-safe ISO form: swap the
+ * date/time space for 'T' and pad a 2-digit zone offset ('+00') to '+00:00'
+ * (Date.parse rejects both; iOS Safari is strictest). Shared by parseUtcIso
+ * here and parseInstant in home-map/mapTypes — keep ONE normaliser.
+ */
+export const normalisePostgrestTimestamp = (iso: string): string =>
+  iso.trim().replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00');
+
 export const parseUtcIso = (iso: string | null | undefined): Date | null => {
   if (!iso) return null;
   const trimmed = iso.trim();
   if (!trimmed) return null;
   const hasZone = /([zZ]|[+-]\d{2}(:?\d{2})?)$/.test(trimmed);
-  // PostgREST emits 2-digit offsets ('+00'), which Date.parse rejects — pad
-  // to '+00:00' (same normalisation as parseInstant in home-map/mapTypes).
-  const normalised =
-    (trimmed.replace(' ', 'T') + (hasZone ? '' : 'Z')).replace(/([+-]\d{2})$/, '$1:00');
+  const normalised = normalisePostgrestTimestamp(trimmed + (hasZone ? '' : 'Z'));
   const d = new Date(normalised);
   return Number.isNaN(d.getTime()) ? null : d;
 };
@@ -156,6 +162,19 @@ export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Da
   start: zonedMidnightUtc(key, LONDON_TZ),
   end: zonedMidnightUtc(addDaysToKey(key, days), LONDON_TZ),
 });
+
+/** Minutes since midnight on the London wall clock (0–1439). Pairs with the
+ *  wall-clock HH:MM stored in occurrence/program times — browser-local
+ *  getHours()/getMinutes() runs an hour off for non-London visitors. */
+export const londonMinutesOfDay = (d: Date = new Date()): number =>
+  Math.floor((wallClockMsInTz(d, LONDON_TZ) % 86_400_000) / 60_000);
+
+/** London wall-clock "now" as 'YYYY-MM-DDTHH:mm:ss' text — the value to
+ *  compare against local-as-Z occurrence columns (instance_start/_end) in
+ *  PostgREST filters. Bare new Date().toISOString() is true-UTC and runs an
+ *  hour behind the stored wall clock all BST season. */
+export const londonWallClockNowIso = (now: Date = new Date()): string =>
+  new Date(wallClockMsInTz(now, LONDON_TZ)).toISOString().slice(0, 19);
 
 /**
  * Parse a London wall-clock timestamp stored as-if-UTC (the occurrence/program

@@ -9,7 +9,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
-import { parseUtcIso, londonDaysFromToday } from '@/lib/londonDate';
+import { londonDateKey, londonDaysBetweenKeys, londonWallClockToInstant } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 // ---------------------------------------------------------------------------
@@ -89,13 +89,16 @@ interface VenueVm {
   sortKey: number;
 }
 
-const buildVm = (v: PublicVenueListItem): VenueVm => {
-  const dt = parseUtcIso(v.next_event_iso);
+const buildVm = (v: PublicVenueListItem, todayKey: string): VenueVm => {
+  // next_event_iso is LONDON WALL-CLOCK text; convert to the true instant.
+  // Reading it as UTC (parseUtcIso alone) rolled 23:00–23:59 starts onto the
+  // next London day during BST — "Tomorrow" for an event that's tonight.
+  const dt = londonWallClockToInstant(v.next_event_iso);
   let nextLabel: string | null = null;
   let isTonight = false;
   let nextWeekday: string | null = null;
   if (dt) {
-    const diff = londonDaysFromToday(dt);
+    const diff = londonDaysBetweenKeys(todayKey, londonDateKey(dt));
     nextWeekday = weekdayFmt.format(dt);
     if (diff <= 0) {
       nextLabel = 'Tonight';
@@ -446,14 +449,9 @@ const Venues = () => {
   const didInitOpen = useRef(false);
 
   // todayKey re-derives the "Tonight"/"Tomorrow" labels when the London day
-  // flips — without it a tab open past midnight kept yesterday's labels
-  // (buildVm reads the current date internally, so the dep is the trigger).
-  // eslint's exhaustive-deps can't see buildVm's internal new Date(), so it
-  // flags todayKey as "unnecessary" — it is NOT; removing it reintroduces the
-  // stale-label bug. Keep the dep.
+  // flips — without it a tab open past midnight kept yesterday's labels.
   const todayKey = useLondonToday();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const vms = useMemo(() => venues.map(buildVm), [venues, todayKey]);
+  const vms = useMemo(() => venues.map((v) => buildVm(v, todayKey)), [venues, todayKey]);
   const tonight = useMemo(() => vms.filter((x) => x.isTonight).sort(byNextThenActivity), [vms]);
 
   // Day chips run today-first on London's calendar.
