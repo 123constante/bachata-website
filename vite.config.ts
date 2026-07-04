@@ -1,8 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { reactRouter } from "@react-router/dev/vite";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
+// SPIKE (spike/rr7-framework-mode): componentTagger + sentryVitePlugin are
+// dropped from the plugin list below to isolate framework-mode variables.
+// Imports kept so the diff is minimal / easy to restore in Phase 3.
+// import { componentTagger } from "lovable-tagger";
+// import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // Source-map upload to Sentry only runs when SENTRY_AUTH_TOKEN is set
 // (Vercel build-time secret). Local builds without the token still produce
@@ -49,30 +53,10 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-    sentryAuthToken && sentryOrg && sentryProject &&
-      sentryVitePlugin({
-        authToken: sentryAuthToken,
-        org: sentryOrg,
-        project: sentryProject,
-        // Pin the release so uploaded sourcemaps associate with the exact
-        // release the client reports at runtime (see comment above).
-        release: sentryRelease
-          ? {
-              name: sentryRelease,
-              // Associate the release with its commits so Sentry maps errors
-              // to suspect commits AND auto-resolves issues referenced by
-              // "Fixes BACHATA-WEBSITE-N" in commit messages. auto derives the
-              // commit range from git in the build env; ignoreMissing tolerates
-              // Vercel's shallow clone / first run. Requires the Sentry GitHub
-              // integration + this repo added in org settings (one-time).
-              setCommits: { auto: true, ignoreMissing: true },
-            }
-          : undefined,
-        sourcemaps: { assets: "./dist/**" },
-        telemetry: false,
-      }),
+    // SPIKE: reactRouter() owns the React transform in framework mode. vitest
+    // cannot load the RR plugin, so fall back to plugin-react-swc under VITEST.
+    process.env.VITEST ? react() : reactRouter(),
+    // componentTagger + sentryVitePlugin removed for the spike (see import note).
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -81,23 +65,8 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: "hidden",
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-motion': ['framer-motion'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-map': ['leaflet', 'leaflet.markercluster'],
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-slot',
-          ],
-        },
-      },
-    },
+    // SPIKE: manualChunks removed — object-form manualChunks that lists external
+    // deps (react / react-router-dom) conflicts with the RR7 server build
+    // (inlineDynamicImports). Phase 3 re-adds it as function-form guarded on !ssr.
   },
 }));

@@ -113,7 +113,11 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
 // Top-level snapshot normalizer
 // ---------------------------------------------------------------------------
 
-const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
+// Exported for the RR7 framework-mode loader (app/routes/event.tsx) so the
+// server prefetch parses identically to the client hook — the dehydrated cache
+// entry must be byte-equal to what useEventPageQuery would produce, or hydration
+// refetches. (spike/rr7-framework-mode)
+export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null => {
   if (value === null) return null;
   const payload = requireObject(value, 'snapshot');
   const eventId = requireString(payload.event_id, 'snapshot.event_id');

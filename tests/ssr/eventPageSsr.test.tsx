@@ -24,7 +24,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import type { QueryClient } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
-import { StaticRouter } from 'react-router-dom/server';
+// v7: StaticRouter moved from the removed 'react-router-dom/server' subpath into
+// the 'react-router' core package (spike branch — RR7 framework-mode migration).
+import { StaticRouter } from 'react-router';
 
 const EVENT_UUID = '00000000-0000-4000-8000-000000000000';
 // Shared by the AppChrome + AnimatedRoutes Suspense fallbacks (Skeleton). Its

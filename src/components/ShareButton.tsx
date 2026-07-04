@@ -29,7 +29,13 @@ export const ShareButton = ({
   fallback = 'whatsapp',
   variant = 'default',
 }: ShareButtonProps) => {
-  const pageUrl = window.location.href;
+  // SSR-safety: only read at render time behind a guard. pageUrl feeds
+  // shareText / whatsappUrl, which are used exclusively inside the click
+  // handlers (never rendered), so the '' server value causes no hydration
+  // mismatch. (spike/rr7-framework-mode — surfaced by SSR'ing the data-loaded
+  // BentoPage; the Phase-1 renderToString gate blocks fetch so never reached
+  // ShareButton.)
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   const shareText = [
     eventName,

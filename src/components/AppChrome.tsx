@@ -32,8 +32,13 @@ const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
 /**
  * Route-aware global chrome. Lives inside BrowserRouter + CityProvider so it can
  * read the location and adapt the footer / bottom-nav for the Festival Map home.
+ *
+ * `children` is optional for the RR7 framework-mode spike: root.tsx passes the
+ * route <Outlet/> in place of the hardwired lazy <AnimatedRoutes/>. The legacy
+ * SPA path (App.tsx) passes no children and keeps rendering AnimatedRoutes, so
+ * this edit is backwards-compatible.
  */
-export function AppChrome() {
+export function AppChrome({ children }: { children?: React.ReactNode }) {
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
   const isHome = HOME_RE.test(pathname);
@@ -48,7 +53,7 @@ export function AppChrome() {
       <main id="main-content">
         <ErrorBoundary>
           <Suspense fallback={<AnimatedRoutesFallback />}>
-            <AnimatedRoutes />
+            {children ?? <AnimatedRoutes />}
           </Suspense>
         </ErrorBoundary>
       </main>
