@@ -11,7 +11,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 
-import { useSeo, buildSeoForRoute, useEntitySlugOrId } from "@/lib/seo";
+import { useSeo, buildSeoForRoute, useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
 
 import { VideoEmbed } from "@/components/VideoEmbed";
 
@@ -2212,8 +2212,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
               name: festivalDetail?.identity.name ?? festival.name,
               url:
                 typeof window !== "undefined"
-                  ? window.location.href
-                  : `https://bachatacalendar.co.uk/event/${festival.id}`,
+                  ? `${SITE_ORIGIN}${window.location.pathname}`
+                  : `${SITE_ORIGIN}/festival/${festival.id}`,
               startDate: startDateRaw ?? "",
               endDate: endDateRaw,
               description:

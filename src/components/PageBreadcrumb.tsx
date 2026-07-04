@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs';
+import { SITE_ORIGIN } from '@/lib/seo';
 
 export interface BreadcrumbItemType {
   label: string;
@@ -28,10 +29,10 @@ const PageBreadcrumb = ({ items, tone = 'default' }: PageBreadcrumbProps) => {
   // hosting environments resolve correctly. The current URL is used for the
   // last crumb's `item` field (the visible breadcrumb omits path on the
   // current page, but search engines still want an absolute URL there).
-  const origin =
-    typeof window !== 'undefined' && window.location
-      ? window.location.origin
-      : '';
+  // Canonical production origin — never the localhost prerender host. This JSON-LD
+  // is baked into build-time snapshots, so window.location.origin would ship
+  // "http://localhost:4173" to Google (see R3). SITE_ORIGIN is the www host.
+  const origin = SITE_ORIGIN;
   const currentUrl = origin + location.pathname + (location.search || '');
   const jsonLd = renderBreadcrumbListJsonLd({
     crumbs: items,
