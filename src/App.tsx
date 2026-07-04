@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,26 +43,41 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <CityProvider>
-              <SearchProvider>
-                <AppChrome />
-              </SearchProvider>
-            </CityProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-      <Analytics />
-    </QueryClientProvider>
-  );
-};
+// Everything OUTSIDE the router. Exported so the SSR-safety gate test
+// (tests/ssr/eventPageSsr.test.tsx) can wrap the real provider stack around a
+// StaticRouter instead of BrowserRouter. <Analytics /> keeps its exact position
+// inside QueryClientProvider; it is effect-injected and SSR-safe.
+export const AppProviders = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        {children}
+      </TooltipProvider>
+    </AuthProvider>
+    <Analytics />
+  </QueryClientProvider>
+);
+
+// Everything INSIDE the router (requires a Router context above it).
+export const AppShell = () => (
+  <>
+    <ScrollToTop />
+    <CityProvider>
+      <SearchProvider>
+        <AppChrome />
+      </SearchProvider>
+    </CityProvider>
+  </>
+);
+
+const App = () => (
+  <AppProviders>
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
+  </AppProviders>
+);
 
 export default App;
