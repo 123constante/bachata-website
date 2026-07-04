@@ -1,11 +1,14 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
 import "./index.css";
 import "@fontsource-variable/inter";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { initSentry } from "@/lib/sentry";
 import { attemptChunkReloadOnce } from "@/lib/staleChunk";
+import { AppRoot } from "./entry-client";
 
+// Browser-only entry: all DOM-touching bootstrapping lives here (createRoot,
+// initSentry, the top-level window listeners and non-blocking font loader). The
+// renderable tree itself is AppRoot, imported from ./entry-client so a future
+// server entry can render it without executing any of this. SSR/ISR Phase 2.
 initSentry();
 
 if (typeof window !== 'undefined') {
@@ -37,8 +40,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-);
+createRoot(document.getElementById("root")!).render(<AppRoot />);

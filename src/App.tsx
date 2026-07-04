@@ -25,30 +25,61 @@ import { Analytics } from "@vercel/analytics/react";
 // Phase 2: QueryCache/MutationCache route every silently-swallowed query and
 // mutation error to Sentry so consumers that read .data without checking .error
 // no longer hide failures from ops.
-const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (err, query) =>
-      captureException(err, { queryKey: query.queryKey }),
-  }),
-  mutationCache: new MutationCache({
-    onError: (err, _vars, _ctx, mutation) =>
-      captureException(err, { mutationKey: mutation.options.mutationKey }),
-  }),
-  defaultOptions: {
-    queries: {
-      staleTime: 60_000,
-      retry: 1,
-      refetchOnWindowFocus: true,
+//
+// SSR/ISR migration Phase 2: this construction is a FACTORY, not a module-level
+// singleton, so a server render can mint a fresh client per request (React Query
+// cache must not leak across requests). The browser keeps ONE shared instance
+// via getBrowserQueryClient() below.
+export function createQueryClient(): QueryClient {
+  return new QueryClient({
+    queryCache: new QueryCache({
+      onError: (err, query) =>
+        captureException(err, { queryKey: query.queryKey }),
+    }),
+    mutationCache: new MutationCache({
+      onError: (err, _vars, _ctx, mutation) =>
+        captureException(err, { mutationKey: mutation.options.mutationKey }),
+    }),
+    defaultOptions: {
+      queries: {
+        staleTime: 60_000,
+        retry: 1,
+        refetchOnWindowFocus: true,
+      },
     },
-  },
-});
+  });
+}
+
+// The browser's single shared client, built lazily on first access. Lazy (not a
+// module-level const) so importing this module on the server never constructs a
+// client at module-eval — a per-request server render calls createQueryClient()
+// directly for its own fresh instance.
+let browserQueryClient: QueryClient | undefined;
+export function getBrowserQueryClient(): QueryClient {
+  // Self-enforcing SSR invariant: a server render MUST pass a per-request client
+  // to AppProviders. If it omits it, the `client ?? getBrowserQueryClient()`
+  // fallback would otherwise share one module-scoped cache across every request
+  // in the Node process (request B reads request A's cached, city-specific
+  // data). Fail loudly here instead of leaking silently in prod.
+  if (typeof window === 'undefined') {
+    throw new Error(
+      'getBrowserQueryClient() called on the server — pass a per-request createQueryClient() to AppProviders instead.',
+    );
+  }
+  browserQueryClient ??= createQueryClient();
+  return browserQueryClient;
+}
 
 // Everything OUTSIDE the router. Exported so the SSR-safety gate test
 // (tests/ssr/eventPageSsr.test.tsx) can wrap the real provider stack around a
 // StaticRouter instead of BrowserRouter. <Analytics /> keeps its exact position
 // inside QueryClientProvider; it is effect-injected and SSR-safe.
-export const AppProviders = ({ children }: { children: ReactNode }) => (
-  <QueryClientProvider client={queryClient}>
+//
+// `client` is optional: the browser omits it (shared getBrowserQueryClient());
+// a server render (or the gate test) passes a fresh createQueryClient() so no
+// query cache is shared across requests.
+export const AppProviders = ({ children, client }: { children: ReactNode; client?: QueryClient }) => (
+  <QueryClientProvider client={client ?? getBrowserQueryClient()}>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />

@@ -22,6 +22,7 @@
  * module-load ReferenceError fails a test instead of crashing collection.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import type { QueryClient } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server';
 
@@ -108,10 +109,15 @@ function expectCleanRender(html: string) {
  * import, so re-render after each import settles until the output stabilises.
  * Capped so a genuine failure can't spin forever.
  */
-async function renderRouteDeep(location: string): Promise<string> {
-  const { AppProviders, AppShell } = await import('@/App');
+async function renderRouteDeep(location: string, opts?: { client?: QueryClient }): Promise<string> {
+  const { AppProviders, AppShell, createQueryClient } = await import('@/App');
+  // Always render with a fresh per-request client — this is a node env with no
+  // window, so the browser-singleton fallback (getBrowserQueryClient()) throws
+  // by design. Modelling real SSR (a client per render) also means no query
+  // cache is shared between the renders in this suite.
+  const client = opts?.client ?? createQueryClient();
   const tree = (
-    <AppProviders>
+    <AppProviders client={client}>
       <StaticRouter location={location}>
         <AppShell />
       </StaticRouter>
@@ -157,6 +163,27 @@ describe('SSR safety: /event/:id render path (node, renderToString)', () => {
     expect(html).toContain('origin-left');
     expect(html).toContain('data-ssr-child');
     expectNoReferenceError();
+  });
+
+  it('getBrowserQueryClient() throws on the server (no window) instead of sharing a cache', async () => {
+    // The browser-singleton fallback must never run server-side: reusing one
+    // module-scoped client across requests would leak request A's cached,
+    // city-specific query data into request B. In this node env window is
+    // undefined, so the guard must throw rather than mint a shared singleton.
+    const { getBrowserQueryClient } = await import('@/App');
+    expect(() => getBrowserQueryClient()).toThrow(/on the server/);
+  });
+
+  it('renders /event/:id with a FRESH createQueryClient() (SSR factory) cleanly', async () => {
+    // Phase 2 seam: a server render mints a per-request client via the factory
+    // instead of the browser's shared singleton. Prove a fresh client renders
+    // the same path cleanly in node (no module-eval throw, no swallowed error),
+    // exercising the createQueryClient() export and AppProviders' client prop.
+    const { createQueryClient } = await import('@/App');
+    const client = createQueryClient();
+    const html = await renderRouteDeep(`/event/${EVENT_UUID}`, { client });
+    expectCleanRender(html);
+    expect(html.length).toBeGreaterThan(500);
   });
 
   it('renders route "/" (CityRedirect render-time localStorage) without a swallowed error', async () => {
