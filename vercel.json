@@ -143,13 +143,6 @@
     }
   ],
   "framework": "react-router",
-  "buildCommand": "npm run build",
-  "functions": {
-    "api/og/card.ts": {
-      "includeFiles": "api/og/_fonts/**"
-    },
-    "api/og/bake.ts": {
-      "includeFiles": "api/og/_fonts/**"
-    }
-  }
+  "buildCommand": "npm run build"
 }
+
