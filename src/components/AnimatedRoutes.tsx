@@ -73,7 +73,7 @@ const RouteFallback = () => (
 
 /** Redirect bare slash to /city/<slug> so the city is always visible in the URL. */
 const CityRedirect = () => {
-  const stored = localStorage.getItem('activeCitySlug');
+  const stored = typeof window !== 'undefined' ? localStorage.getItem('activeCitySlug') : null;
   const slug = stored || 'london-gb';
   return <Navigate to={buildCityPath(slug)} replace />;
 };

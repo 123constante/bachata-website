@@ -30,8 +30,10 @@ const getCityFromPath = (pathname: string): string | null => {
 
 export const CityProvider = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const [citySlug, setCitySlugState] = useState<string | null>(
-    () => localStorage.getItem(STORAGE_KEY) || null
+  const [citySlug, setCitySlugState] = useState<string | null>(() =>
+    // SSR-safe: still a synchronous first-render read on the client (identical
+    // behavior, preserving '' -> null); returns null when window is absent.
+    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) || null : null
   );
   const isAuthRoute =
     location.pathname === "/auth" || location.pathname.startsWith("/auth/");
