@@ -52,6 +52,10 @@ export function emitProfileView(args: EmitProfileViewArgs): void {
   // SSR / non-browser contexts have no session; nothing to emit.
   if (typeof window === 'undefined') return;
 
+  // Skip automated/headless agents (build-time prerender sets navigator.webdriver)
+  // so nightly snapshots of the 100+ profile pages don't log fake profile views.
+  if (typeof navigator !== 'undefined' && navigator.webdriver) return;
+
   const sessionId = getViewerSession();
   if (!sessionId) return;
 

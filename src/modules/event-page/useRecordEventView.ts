@@ -10,6 +10,11 @@ export function useRecordEventView(
   useEffect(() => {
     if (!eventId) return;
 
+    // Skip automated/headless agents. The build-time prerenderer (Playwright /
+    // Puppeteer set navigator.webdriver) holds event pages open well past the 3s
+    // timer, which would otherwise log ~one fake view per prerendered page nightly.
+    if (typeof navigator !== 'undefined' && navigator.webdriver) return;
+
     const sessionId = getViewerSession();
     if (!sessionId) return;
 

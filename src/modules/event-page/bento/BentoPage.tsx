@@ -1,7 +1,7 @@
 ﻿import { useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
@@ -471,8 +471,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                 name: pageModel.identity.title,
                 url:
                   typeof window !== 'undefined'
-                    ? window.location.href
-                    : `https://bachatacalendar.co.uk/event/${eventId}`,
+                    ? `${SITE_ORIGIN}${window.location.pathname}`
+                    : `${SITE_ORIGIN}/event/${eventId}`,
                 startDate: occurrence?.startsAt ?? snapshot.event.date ?? '',
                 endDate: occurrence?.endsAt ?? null,
                 description: pageModel.description.body,

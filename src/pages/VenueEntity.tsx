@@ -13,6 +13,7 @@ import {
   buildSeoForRoute,
   useEntitySlugOrId,
   useCanonicalReplaceState,
+  SITE_ORIGIN,
 } from '@/lib/seo';
 import {
   fetchPublicVenue,
@@ -552,7 +553,7 @@ const VenueEntity = () => {
     city_name: venue.city_name ?? null,
     country: venue.country ?? null,
     telephone: venue.phone ?? null,
-    url: typeof window !== "undefined" ? window.location.href : "",
+    url: typeof window !== "undefined" ? `${SITE_ORIGIN}${window.location.pathname}` : "",
     opening_hours: (venue.opening_hours ?? null) as Parameters<
       typeof buildVenueJsonLd
     >[0]["opening_hours"],
