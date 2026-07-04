@@ -205,7 +205,10 @@ const VendorDetail = () => {
   };
   useSeo(
     buildSeoForRoute('vendor.detail', {
-      entityName: vendor?.business_name,
+      // Fallback so a live vendor with a blank business_name stays indexable
+      // (the broadened noindex rule keys off entityName being falsy). Mirrors the
+      // 'Vendor' fallback the SPEC title/description already use.
+      entityName: vendor?.business_name || 'Vendor',
       entitySlug: id ?? undefined,
       ogImage: vendor?.avatar_url ?? undefined,
       isLoading: loading,
