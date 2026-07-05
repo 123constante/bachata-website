@@ -556,7 +556,9 @@ const VenueEntity = () => {
     city_name: venue.city_name ?? null,
     country: venue.country ?? null,
     telephone: venue.phone ?? null,
-    url: typeof window !== "undefined" ? `${SITE_ORIGIN}${window.location.pathname}` : "",
+    // Stable canonical URL (was window.location.pathname → server "" vs client
+    // path → JSON-LD text mismatch / #418 hydration error under SSR).
+    url: `${SITE_ORIGIN}/venue-entity/${resolved.slug ?? id ?? ""}`,
     opening_hours: (venue.opening_hours ?? null) as Parameters<
       typeof buildVenueJsonLd
     >[0]["opening_hours"],
