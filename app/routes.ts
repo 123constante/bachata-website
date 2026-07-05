@@ -21,7 +21,9 @@ export default [
   route("djs/:id", "routes/djs.tsx"),
   route("teachers/:id", "routes/teachers.tsx"),
   route("festival/:id", "routes/festival.tsx"),
-  route("vendors/:id", "routes/vendors.tsx"),
+  // /vendors/:id stays on the catchall (client-only) until a public vendor exists
+  // to verify the SSR happy path — the public RPC returns 0 rows for every current
+  // vendor, so a framework loader would 404 them all.
   route("venue-entity/:id", "routes/venue-entity.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

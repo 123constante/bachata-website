@@ -38,6 +38,7 @@ const CreateOrganiserProfile = lazyWithRetry(() => import("../pages/CreateOrgani
 const CreateVideographerProfile = lazyWithRetry(() => import("../pages/CreateVideographerProfile"));
 const VendorDashboardPage = lazyWithRetry(() => import("../pages/VendorDashboardPage"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
+const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
@@ -113,7 +114,7 @@ export const AnimatedRoutes = () => {
             <Route path="/bachata-london-dominican-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
             {/* /festival/:id is a framework route (app/routes/festival.tsx). */}
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
-            {/* /vendors/:id is a framework route (app/routes/vendors.tsx). */}
+            <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
             {/* Standalone raffles landing page. Flag-gated (rafflesPage): default
                 true in dev, false in prod. When off, redirect home rather than
                 render a ComingSoonGate placeholder (this is a marketing page,
