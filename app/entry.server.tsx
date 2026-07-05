@@ -1,4 +1,4 @@
-import { PassThrough } from "node:stream";
+import { PassThrough, Transform } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { createElement } from "react";
 import { createReadableStreamFromReadable } from "@react-router/node";
@@ -16,6 +16,27 @@ import { contentSecurityPolicy } from "./csp";
 // Content-Security-Policy header. The Vercel preset's build output is unaffected
 // by replacing this render entry.
 export const streamTimeout = 5_000;
+
+// Streams `source` through, injecting a CSP <meta> immediately before the first
+// </head>. The head is flushed whole in the shell chunk, so the marker is intact
+// in a single chunk; once injected we pass everything else through untouched. The
+// CSP contains only single quotes, safe inside the double-quoted content attr.
+function injectCspMeta(source: PassThrough, csp: string): Transform {
+  let done = false;
+  const transform = new Transform({
+    transform(chunk, _enc, cb) {
+      if (done) return cb(null, chunk);
+      const s = chunk.toString("utf8");
+      const idx = s.indexOf("</head>");
+      if (idx === -1) return cb(null, chunk);
+      done = true;
+      const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+      cb(null, s.slice(0, idx) + meta + s.slice(idx));
+    },
+  });
+  source.pipe(transform);
+  return transform;
+}
 
 const vercelDeploymentId = process.env.VERCEL_DEPLOYMENT_ID;
 const vercelSkewProtectionEnabled = process.env.VERCEL_SKEW_PROTECTION_ENABLED === "1";
@@ -50,16 +71,29 @@ export default function handleRequest(
         nonce,
         [readyOption]() {
           shellRendered = true;
+          const csp = contentSecurityPolicy(nonce);
           const body = new PassThrough();
-          const stream = createReadableStreamFromReadable(body);
+          // The response reads from the CSP-injecting transform (fed by `body`),
+          // NOT from `body` directly — see injectCspMeta.
+          const cspStream = injectCspMeta(body, csp);
+          const stream = createReadableStreamFromReadable(cspStream);
 
           responseHeaders.set("Content-Type", "text/html");
-          responseHeaders.set("Content-Security-Policy", contentSecurityPolicy(nonce));
+          // Per-request CSP header for LIVE SSR responses.
+          responseHeaders.set("Content-Security-Policy", csp);
           if (vercelSkewProtectionEnabled && vercelDeploymentId) {
             responseHeaders.append("Set-Cookie", `__vdpl=${vercelDeploymentId}; HttpOnly`);
           }
 
           resolve(new Response(stream, { headers: responseHeaders, status: responseStatusCode }));
+          // Also bake the SAME policy into the HTML as a <meta http-equiv> so it
+          // survives PRERENDER-to-static: a prerendered route is served straight
+          // from the CDN, so the response header above never runs, but the meta
+          // travels inside the document and carries the same build-time nonce the
+          // scripts were stamped with. Injected into the raw stream (before
+          // </head>, after all React-rendered head nodes) — NOT the React tree —
+          // so client hydration never reconciles it (useNonce() is undefined
+          // client-side, which would mismatch a nonce-bearing meta in the tree).
           pipe(body);
         },
         onShellError(error: unknown) {
