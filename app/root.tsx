@@ -5,6 +5,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
+import { useNonce } from "./nonce";
 import "@/index.css";
 import "@fontsource-variable/inter";
 
@@ -32,6 +33,8 @@ export const meta: MetaFunction = () => [
 // favicons/manifest/theme-color/preconnects). <Meta/> + <Links/> render the
 // route-managed tags after these defaults.
 export function Layout({ children }: { children: React.ReactNode }) {
+  // Per-request CSP nonce (server); undefined on the client (see app/nonce.ts).
+  const nonce = useNonce();
   return (
     <html lang="en">
       <head>
@@ -56,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <Scripts />
+        <Scripts nonce={nonce} />
         {/* Deliberately NO <ScrollRestoration/>: the app keeps its existing
             ScrollToTop + history.scrollRestoration='manual' regime (set in
             entry.client). Two scroll managers fight. */}

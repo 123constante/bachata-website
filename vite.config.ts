@@ -1,12 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { reactRouter } from "@react-router/dev/vite";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "path";
-// SPIKE (spike/rr7-framework-mode): componentTagger + sentryVitePlugin are
-// dropped from the plugin list below to isolate framework-mode variables.
-// Imports kept so the diff is minimal / easy to restore in Phase 3.
-// import { componentTagger } from "lovable-tagger";
-// import { sentryVitePlugin } from "@sentry/vite-plugin";
+// lovable-tagger (componentTagger) is intentionally NOT restored under framework
+// mode: it's a dev-only Lovable annotation, non-essential, and untested against
+// the reactRouter() dev plugin. Re-add later behind a dev guard if wanted.
 
 // Source-map upload to Sentry only runs when SENTRY_AUTH_TOKEN is set
 // (Vercel build-time secret). Local builds without the token still produce
@@ -47,16 +46,34 @@ if (process.env.VERCEL_ENV === "production") {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [
-    // SPIKE: reactRouter() owns the React transform in framework mode. vitest
-    // cannot load the RR plugin, so fall back to plugin-react-swc under VITEST.
+    // reactRouter() owns the React transform in framework mode. vitest cannot
+    // load the RR plugin, so fall back to plugin-react-swc under VITEST.
     process.env.VITEST ? react() : reactRouter(),
-    // componentTagger + sentryVitePlugin removed for the spike (see import note).
+    // Sentry sourcemap upload. Framework mode emits to build/client + build/server
+    // (was dist/** under the SPA). Runtime Sentry is browser-only, so the client
+    // bundle's maps are the ones that resolve prod errors; server maps included so
+    // loader/SSR stack frames also symbolicate. Only active with SENTRY_AUTH_TOKEN
+    // (Vercel prod scope) — dormant on local + preview builds.
+    sentryAuthToken && sentryOrg && sentryProject &&
+      sentryVitePlugin({
+        authToken: sentryAuthToken,
+        org: sentryOrg,
+        project: sentryProject,
+        release: sentryRelease
+          ? {
+              name: sentryRelease,
+              setCommits: { auto: true, ignoreMissing: true },
+            }
+          : undefined,
+        sourcemaps: { assets: ["./build/client/**", "./build/server/**"] },
+        telemetry: false,
+      }),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -65,8 +82,10 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: "hidden",
-    // SPIKE: manualChunks removed — object-form manualChunks that lists external
-    // deps (react / react-router-dom) conflicts with the RR7 server build
-    // (inlineDynamicImports). Phase 3 re-adds it as function-form guarded on !ssr.
+    // manualChunks intentionally NOT restored: framework mode already does
+    // automatic per-route code-splitting, and the old object-form manualChunks
+    // (listing external react/react-router-dom) conflicts with the RR7 server
+    // build (inlineDynamicImports). Revisit with a function-form guarded on !ssr
+    // only if bundle analysis shows a regression vs the SPA's vendor chunks.
   },
 }));
