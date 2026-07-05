@@ -6,7 +6,12 @@
 // 'nonce-…' instead of 'unsafe-inline', so RR7's inline hydration script runs
 // under a strict policy. style-src keeps 'unsafe-inline' (framer-motion / inline
 // styles; per-style nonces are impractical).
-export function contentSecurityPolicy(nonce: string): string {
+// `forMeta`: when the policy is delivered via <meta http-equiv> (prerendered
+// static routes — see entry.server's injectCspMeta) the browser IGNORES
+// `frame-ancestors` and logs a console error for it, so we omit it there.
+// Clickjacking is still covered by X-Frame-Options: DENY (vercel.json /(.*)).
+// The HTTP header form (live SSR responses) keeps frame-ancestors.
+export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean }): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
@@ -16,7 +21,7 @@ export function contentSecurityPolicy(nonce: string): string {
     "media-src 'self' blob: https://*.r2.dev https://*.supabase.co",
     "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
     "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
-    "frame-ancestors 'none'",
+    ...(opts?.forMeta ? [] : ["frame-ancestors 'none'"]),
     "base-uri 'self'",
     "form-action 'self'",
   ].join("; ");

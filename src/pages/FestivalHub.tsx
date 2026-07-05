@@ -70,9 +70,16 @@ const FestivalHubInner = () => {
   const [pendingByEvent, setPendingByEvent] = useState<Record<string, AttendanceStatus | null>>({});
   const [optimisticStatusByEvent, setOptimisticStatusByEvent] = useState<Record<string, AttendanceStatus | null>>({});
   const [, setTick] = useState(0);
+  // The countdown is time-derived (getCountdown reads `now`), so its text differs
+  // between the build-time prerender and the client's first render → React #425
+  // hydration mismatch. (suppressHydrationWarning doesn't help: framer-motion's
+  // motion.div drops that React-special prop.) Gate the pill on mount so server +
+  // client-first-render agree (pill absent), then it appears + ticks client-side.
+  const [mounted, setMounted] = useState(false);
 
   // Update countdown every second
   useEffect(() => {
+    setMounted(true);
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
@@ -366,18 +373,15 @@ const FestivalHubInner = () => {
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">{dateLabel} · {locationLabel}</p>
                       </div>
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ repeat: Infinity, duration: 2 }}
-                        className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full"
-                        // Live countdown ticks every second (setTick). Under SSR/prerender
-                        // the build-time value differs from the client's first-render value;
-                        // suppress the text-diff hydration warning — the interval corrects it
-                        // within 1s. Without this the whole festivals doc logs React #418.
-                        suppressHydrationWarning
-                      >
-                        {startDate ? getCountdown(startDate) : 'TBA'}
-                      </motion.div>
+                      {mounted && (
+                        <motion.div
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                          className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full"
+                        >
+                          {startDate ? getCountdown(startDate) : 'TBA'}
+                        </motion.div>
+                      )}
                     </div>
 
                     {/* Dance Styles */}

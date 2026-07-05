@@ -74,8 +74,10 @@ export default function handleRequest(
           const csp = contentSecurityPolicy(nonce);
           const body = new PassThrough();
           // The response reads from the CSP-injecting transform (fed by `body`),
-          // NOT from `body` directly — see injectCspMeta.
-          const cspStream = injectCspMeta(body, csp);
+          // NOT from `body` directly — see injectCspMeta. The meta form omits
+          // frame-ancestors (ignored + console-warned in meta; covered by
+          // X-Frame-Options), while the header above keeps it.
+          const cspStream = injectCspMeta(body, contentSecurityPolicy(nonce, { forMeta: true }));
           const stream = createReadableStreamFromReadable(cspStream);
 
           responseHeaders.set("Content-Type", "text/html");
