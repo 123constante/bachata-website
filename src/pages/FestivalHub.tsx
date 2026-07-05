@@ -305,12 +305,19 @@ const FestivalHubInner = () => {
         largeTitle: true,
       }}
     >
-      {/* Animated Confetti Background — preserved as custom page background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {Array.from({ length: 15 }).map((_, i) => (
-          <ConfettiParticle key={i} delay={i * 0.3} startX={Math.random() * 100} />
-        ))}
-      </div>
+      {/* Animated Confetti Background — preserved as custom page background.
+          Mount-gated: each particle rolls Math.random() for its emoji, position
+          and motion props, so a server/prerender render never matches the client
+          render → hydration text/structure mismatch (React #425/#418) on every
+          particle. It's purely decorative (no SEO value), so render nothing on the
+          server + first client render, then let it appear post-hydration. */}
+      {mounted && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          {Array.from({ length: 15 }).map((_, i) => (
+            <ConfettiParticle key={i} delay={i * 0.3} startX={Math.random() * 100} />
+          ))}
+        </div>
+      )}
 
       {/* Carnival Gradient Background — preserved as custom page background */}
       <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-orange-500/10 pointer-events-none z-0" />
