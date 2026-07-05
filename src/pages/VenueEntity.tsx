@@ -377,6 +377,15 @@ const VenueEntity = () => {
     buildPath: (s) => '/venue-entity/' + s,
   });
 
+  // Defer the secondary "what's on" query until AFTER hydration. It isn't
+  // dehydrated by the loader, so firing it during hydration produces a setState
+  // mid-hydration (React #422 "received an update before it finished hydrating")
+  // that cascades to #418 on /venue-entity/:id under SSR. Gating on `mounted`
+  // keeps the server + first client render identical (events undefined), then it
+  // fetches client-side. Primary venue content is already dehydrated + SSR'd.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { data: events } = useQuery({
     queryKey: ['venue-upcoming-events', id, fromEventId, fromOccurrenceId],
     queryFn: async () => {
@@ -398,7 +407,7 @@ const VenueEntity = () => {
         : rows;
       return filtered.slice(0, 12);
     },
-    enabled: !!id && !!venue,
+    enabled: mounted && !!id && !!venue,
   });
 
   useSeo(
