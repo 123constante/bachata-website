@@ -24,11 +24,10 @@ const Experience = lazyWithRetry(() => import("../pages/Experience"));
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
-const DancerProfile = lazyWithRetry(() => import("../pages/DancerProfile"));
 const Teachers = lazyWithRetry(() => import("../pages/Teachers"));
-const TeacherProfile = lazyWithRetry(() => import("../pages/TeacherProfile"));
 const DJs = lazyWithRetry(() => import("../pages/DJs"));
-const DJProfile = lazyWithRetry(() => import("../pages/DJProfile"));
+// DancerProfile, TeacherProfile, DJProfile are framework routes now
+// (app/routes/{dancers,teachers,djs}.tsx).
 const Venues = lazyWithRetry(() => import("../pages/Venues"));
 const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
 // OrganiserProfile is a framework route now (app/routes/organiser.tsx).
@@ -131,7 +130,7 @@ export const AnimatedRoutes = () => {
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
-            <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
+            {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
             {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true
                 in dev (.env.development) and false in prod (.env.production /
                 Vercel project env). When gated, page component never mounts --
@@ -146,18 +145,11 @@ export const AnimatedRoutes = () => {
                 <PageTransition><Teachers /></PageTransition>
               </ComingSoonGate>
             } />
-            <Route path="/teachers/:id" element={
-              <ComingSoonGate
-                enabled={flags.teacherDetail}
-                title="Teacher"
-                section="teacher_detail"
-              >
-                <PageTransition><TeacherProfile /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* /teachers/:id is a framework route (app/routes/teachers.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
             <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
-            <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
+            {/* /djs/:id is a framework route (app/routes/djs.tsx). */}
             <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/organisers" element={

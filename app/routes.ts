@@ -16,5 +16,9 @@ export default [
   route("parties", "routes/parties.tsx"),
   route("classes", "routes/classes.tsx"),
   route("city/:slug", "routes/home.tsx"),
+  // Detail routes — on-demand SSR loaders (not prerendered; dynamic entities).
+  route("dancers/:id", "routes/dancers.tsx"),
+  route("djs/:id", "routes/djs.tsx"),
+  route("teachers/:id", "routes/teachers.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;
