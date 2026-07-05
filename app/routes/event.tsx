@@ -1,4 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { data } from "react-router";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
@@ -103,12 +104,39 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const snap = qc.getQueryData(eventPageQueryKey(eventId, occurrenceId)) as EventPageSnapshot | null;
 
+  return data(
+    {
+      dehydratedState: dehydrate(qc),
+      title: snap?.event?.name ?? null,
+      description: snap?.event?.description ?? null,
+      ogImage: snap?.event?.imageUrl ?? null,
+      slug,
+    },
+    // Phase 4a ISR: tag this response so a content edit can purge it by tag.
+    // The tag id is the public URL id (events.id for bridged events, the series
+    // id for P5-native events) — see the DB emit's COALESCE(legacy_event_id, id).
+    { headers: { "Vercel-Cache-Tag": `event-${eventId},events` } },
+  );
+}
+
+// Phase 4a ISR — edge-cache the SSR response so repeat loads serve from Vercel's
+// CDN, revalidated on demand by tag (see api/revalidate.ts + the DB webhook).
+// headers() does NOT receive loader data, so the per-entity tag is attached in
+// the loader via data(); here we forward it and set the cache layers. Only the
+// happy path (loader returned a tag) is edge-cached — a thrown 404/500 has no
+// loader tag and must not be cached under a content tag.
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  const tag = loaderHeaders.get("Vercel-Cache-Tag");
+  if (!tag) {
+    return { "Cache-Control": "public, max-age=0, must-revalidate" };
+  }
   return {
-    dehydratedState: dehydrate(qc),
-    title: snap?.event?.name ?? null,
-    description: snap?.event?.description ?? null,
-    ogImage: snap?.event?.imageUrl ?? null,
-    slug,
+    // Browser: never pin a stale copy the CDN purge can't reach.
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    // Vercel edge: 1h hard TTL as the time-based safety net; serve stale
+    // instantly while revalidating for a day (no latency cliff, no stampede).
+    "Vercel-CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+    "Vercel-Cache-Tag": tag,
   };
 }
 
