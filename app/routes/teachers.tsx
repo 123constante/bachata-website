@@ -1,3 +1,4 @@
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,11 @@ export async function loader({ params }: Route.LoaderArgs) {
 
   return {
     locked: false as const,
+    // Dehydrate the slug→uuid resolve (done by resolveEntityInLoader) so the
+    // client has the id immediately — otherwise TeacherProfile renders with
+    // id=undefined during the client-side resolve window and error-logs to
+    // Sentry. The teacher-profile data itself still client-fetches (meta-only).
+    dehydratedState: dehydrate(qc),
     entityName: getPublicName(
       { first_name: row.first_name, surname: row.surname, hide_surname: false } as never,
       "Teacher",
@@ -57,12 +63,18 @@ export const meta: Route.MetaFunction = ({ data }) => {
   );
 };
 
-export default function TeacherRoute({ params }: Route.ComponentProps) {
-  return (
+export default function TeacherRoute({ loaderData, params }: Route.ComponentProps) {
+  const gate = (
     <ComingSoonGate enabled={flags.teacherDetail} title="Teacher" section="teacher_detail">
       <InitialVisiblePageTransition key={params.id}>
         <TeacherProfile />
       </InitialVisiblePageTransition>
     </ComingSoonGate>
+  );
+  // When locked there's no dehydrated state; render the gate directly.
+  return loaderData?.locked ? (
+    gate
+  ) : (
+    <HydrationBoundary state={loaderData.dehydratedState}>{gate}</HydrationBoundary>
   );
 }
