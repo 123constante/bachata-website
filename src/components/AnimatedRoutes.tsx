@@ -19,7 +19,6 @@ const Tonight = lazyWithRetry(() => import("../pages/Tonight"));
 const PracticePartners = lazyWithRetry(() => import("../pages/PracticePartners"));
 // EventPage + FestivalHub are framework routes now (app/routes/event.tsx,
 // festivals.tsx) — no longer referenced from the catchall tree.
-const FestivalDetail = lazyWithRetry(() => import("../pages/FestivalDetail"));
 const Experience = lazyWithRetry(() => import("../pages/Experience"));
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
@@ -33,14 +32,12 @@ const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
 // OrganiserProfile is a framework route now (app/routes/organiser.tsx).
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
-const VenueEntity = lazyWithRetry(() => import("../pages/VenueEntity"));
 const Cities = lazyWithRetry(() => import("../pages/Cities"));
 const CreateProfile = lazyWithRetry(() => import("../pages/CreateProfile"));
 const CreateOrganiserProfile = lazyWithRetry(() => import("../pages/CreateOrganiserProfile"));
 const CreateVideographerProfile = lazyWithRetry(() => import("../pages/CreateVideographerProfile"));
 const VendorDashboardPage = lazyWithRetry(() => import("../pages/VendorDashboardPage"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
-const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
@@ -114,9 +111,9 @@ export const AnimatedRoutes = () => {
             <Route path="/bachata-parties-london" element={<PageTransition><BachataPartiesLondon /></PageTransition>} />
             <Route path="/bachata-london-sensual-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
             <Route path="/bachata-london-dominican-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
-            <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
+            {/* /festival/:id is a framework route (app/routes/festival.tsx). */}
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
-            <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
+            {/* /vendors/:id is a framework route (app/routes/vendors.tsx). */}
             {/* Standalone raffles landing page. Flag-gated (rafflesPage): default
                 true in dev, false in prod. When off, redirect home rather than
                 render a ComingSoonGate placeholder (this is a marketing page,
@@ -163,15 +160,8 @@ export const AnimatedRoutes = () => {
             } />
             {/* /organisers/:id is a framework route (app/routes/organiser.tsx),
                 which owns the ComingSoonGate + noindex-when-locked meta. */}
-            <Route path="/venue-entity/:id" element={
-              <ComingSoonGate
-                enabled={flags.venueDetail}
-                title="Venue"
-                section="venue_detail"
-              >
-                <PageTransition><VenueEntity /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* /venue-entity/:id is a framework route (app/routes/venue-entity.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
 
             {/* Phase 8 preview routes removed -- winning variants (bento palette

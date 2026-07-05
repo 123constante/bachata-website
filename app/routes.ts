@@ -20,5 +20,8 @@ export default [
   route("dancers/:id", "routes/dancers.tsx"),
   route("djs/:id", "routes/djs.tsx"),
   route("teachers/:id", "routes/teachers.tsx"),
+  route("festival/:id", "routes/festival.tsx"),
+  route("vendors/:id", "routes/vendors.tsx"),
+  route("venue-entity/:id", "routes/venue-entity.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

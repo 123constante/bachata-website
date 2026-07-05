@@ -1647,9 +1647,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Tick the countdown every second
+  // Tick the countdown every second. `mounted` gates the countdown display so it
+  // is absent on the server + first client render (the countdown reads Date.now(),
+  // which differs build-vs-client → React #418 hydration mismatch on /festival/:id
+  // under SSR); it appears + ticks only after mount.
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+
+    setMounted(true);
 
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
 
@@ -2409,8 +2415,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />
 
-        {/* Inline hero countdown (P5) */}
-        {(countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
+        {/* Inline hero countdown (P5) — mount-gated (Date.now hydration safety) */}
+        {mounted && (countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
           <div className="hero-countdown">
             <div className="cd-cell"><div className="cd-num">{countdown.days}</div><div className="cd-lbl">Days</div></div>
             <div className="cd-sep">:</div>

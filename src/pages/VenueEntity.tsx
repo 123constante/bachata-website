@@ -247,7 +247,10 @@ function VenueLightbox({ photos, index, onClose, onStep }: VenueLightboxProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [index, onClose, onStep]);
 
-  if (index === null || photos.length === 0) return null;
+  // typeof document guard: this portal targets document.body; the index===null
+  // check already keeps it closed under SSR, but guard explicitly so a future
+  // caller can't trip createPortal on the server.
+  if (index === null || photos.length === 0 || typeof document === 'undefined') return null;
   const src = photos[index];
   return createPortal((
     <div
