@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { data, redirect } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import type { EntityTable } from "@/lib/seo";
 
@@ -59,4 +60,48 @@ export function throwDetailNotFound(label: string): never {
     status: 404,
     headers: { "X-Robots-Tag": "noindex" },
   });
+}
+
+// ── Phase 4a ISR — edge caching ─────────────────────────────────────────────
+// Vercel STRIPS Vercel-CDN-Cache-Control + Vercel-Cache-Tag from the client
+// response (they're internal edge directives); the edge caches on s-maxage and
+// reports X-Vercel-Cache: HIT/MISS. A content edit purges by tag on demand
+// (see api/revalidate.ts + the Supabase webhook). headers() can't see loader
+// data, so the per-entity tag is attached in the loader via taggedData() and
+// forwarded here. The tag id is the entity's public URL id (per
+// useEntitySlugOrId) — the same id the DB emit resolves.
+const EDGE_CACHE = "public, s-maxage=3600, stale-while-revalidate=86400";
+// Browsers never pin a private stale copy the CDN purge can't reach; they
+// revalidate against the (fast, edge-cached) response every time.
+const BROWSER_NO_STORE = "public, max-age=0, must-revalidate";
+
+/** Route `headers()` body: forward the loader's Vercel-Cache-Tag and set the
+ *  cache layers. A response with no tag (a thrown 404/500) is NOT edge-cached. */
+export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
+  const tag = loaderHeaders.get("Vercel-Cache-Tag");
+  if (!tag) return { "Cache-Control": BROWSER_NO_STORE };
+  return {
+    "Cache-Control": BROWSER_NO_STORE,
+    "Vercel-CDN-Cache-Control": EDGE_CACHE,
+    "Vercel-Cache-Tag": tag,
+  };
+}
+
+/** Wrap a loader payload so the SSR document AND the client-nav `.data` response
+ *  carry a Vercel-Cache-Tag (comma-separated tags). The component and meta()
+ *  still receive the unwrapped payload. */
+export function taggedData<T>(payload: T, tag: string) {
+  return data(payload, { headers: { "Vercel-Cache-Tag": tag } });
+}
+
+/** If the URL arrived as a UUID but the entity has a canonical slug, 301 to the
+ *  slug URL (query string preserved). Collapses the two cache entries
+ *  (/kind/<uuid> and /kind/<slug>) into one and consolidates SEO onto the slug.
+ *  Call in the loader after resolving + the not-found check, before the content
+ *  fetch. `resolveEntityInLoader` only returns a slug when the row was found, so
+ *  a non-null ref.slug means the entity exists. */
+export function redirectUuidToSlug(ref: ResolvedRef, request: Request, basePath: string): void {
+  if (ref.arrivedViaUuid && ref.slug) {
+    throw redirect(`${basePath}/${ref.slug}${new URL(request.url).search}`, 301);
+  }
 }

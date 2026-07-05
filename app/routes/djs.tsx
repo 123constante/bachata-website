@@ -4,14 +4,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute } from "@/lib/seo";
 import DJProfile from "@/pages/DJProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
-import { resolveEntityInLoader, throwDetailNotFound } from "../detailLoader";
+import {
+  resolveEntityInLoader,
+  throwDetailNotFound,
+  cacheHeaders,
+  taggedData,
+  redirectUuidToSlug,
+} from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/djs";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("DJ");
+  redirectUuidToSlug(ref, request, "/djs");
 
   // Mirrors DJProfile's ['dj-profile', id] query (get_public_dj_v1 → raw cast).
   // null = genuine miss (→ 404); a transient error propagates (→ retryable 500,
@@ -28,12 +35,20 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!dj) throwDetailNotFound("DJ");
 
   const photo = dj.photo_url;
-  return {
-    dehydratedState: dehydrate(qc),
-    entityName: (dj.display_name as string | null) ?? (dj.dj_name as string | null) ?? undefined,
-    entitySlug: ref.slug ?? params.id,
-    ogImage: (Array.isArray(photo) ? photo[0] : photo) as string | undefined,
-  };
+  return taggedData(
+    {
+      dehydratedState: dehydrate(qc),
+      entityName: (dj.display_name as string | null) ?? (dj.dj_name as string | null) ?? undefined,
+      entitySlug: ref.slug ?? params.id,
+      ogImage: (Array.isArray(photo) ? photo[0] : photo) as string | undefined,
+    },
+    `dj-${ref.id},djs`,
+  );
+}
+
+// Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return cacheHeaders(loaderHeaders);
 }
 
 export const meta: Route.MetaFunction = ({ data }) =>

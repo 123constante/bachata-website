@@ -1,4 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { redirect } from "react-router";
+import { cacheHeaders, taggedData } from "../detailLoader";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
@@ -66,6 +68,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const rawOcc = url.searchParams.get("occurrenceId");
   const occurrenceId = rawOcc && UUID_RE.test(rawOcc) ? rawOcc : null;
 
+  // UUID→slug 301 (query preserved, incl. ?occurrenceId): collapse the
+  // /event/<uuid> and /event/<slug> cache entries into one canonical slug URL.
+  if (isUuid && slug) {
+    throw redirect(`/event/${slug}${url.search}`, 301);
+  }
+
   // 2. Prefetch BOTH RPCs the page mounts — in parallel, since each depends only
   //    on eventId. (a) the snapshot (mirrors useEventPageQuery); (b) festival
   //    detail (mirrors useFestivalDetailQuery) — useEventPage fires it for EVERY
@@ -103,13 +111,24 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const snap = qc.getQueryData(eventPageQueryKey(eventId, occurrenceId)) as EventPageSnapshot | null;
 
-  return {
-    dehydratedState: dehydrate(qc),
-    title: snap?.event?.name ?? null,
-    description: snap?.event?.description ?? null,
-    ogImage: snap?.event?.imageUrl ?? null,
-    slug,
-  };
+  return taggedData(
+    {
+      dehydratedState: dehydrate(qc),
+      title: snap?.event?.name ?? null,
+      description: snap?.event?.description ?? null,
+      ogImage: snap?.event?.imageUrl ?? null,
+      slug,
+    },
+    // The tag id is the public URL id — events.id for bridged events, the series
+    // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
+    `event-${eventId},events`,
+  );
+}
+
+// Phase 4a ISR — edge-cache the SSR response + forward the loader's cache tag
+// (see ../detailLoader). A thrown 404/500 carries no tag and stays uncached.
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return cacheHeaders(loaderHeaders);
 }
 
 // Route-level SEO for the SSR document (humans + non-bot crawlers). Social/search

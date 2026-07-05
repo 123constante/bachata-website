@@ -5,7 +5,13 @@ import { buildSeoForRoute } from "@/lib/seo";
 import { mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
-import { resolveEntityInLoader, throwDetailNotFound } from "../detailLoader";
+import {
+  resolveEntityInLoader,
+  throwDetailNotFound,
+  cacheHeaders,
+  taggedData,
+  redirectUuidToSlug,
+} from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
 
@@ -14,10 +20,11 @@ import type { Route } from "./+types/dancers";
 const DANCER_COLS =
   "id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Dancer");
+  redirectUuidToSlug(ref, request, "/dancers");
 
   // Return null on a genuine miss (→ 404 below) but let a TRANSIENT supabase
   // error propagate — a swallowing catch would 404+noindex a valid dancer on a
@@ -38,12 +45,20 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!dancer) throwDetailNotFound("Dancer");
 
   const view = mapDancerPublicProfile(dancer as never);
-  return {
-    dehydratedState: dehydrate(qc),
-    entityName: view.displayName,
-    entitySlug: ref.slug ?? params.id,
-    ogImage: (dancer.avatar_url as string | null) ?? undefined,
-  };
+  return taggedData(
+    {
+      dehydratedState: dehydrate(qc),
+      entityName: view.displayName,
+      entitySlug: ref.slug ?? params.id,
+      ogImage: (dancer.avatar_url as string | null) ?? undefined,
+    },
+    `dancer-${ref.id},dancers`,
+  );
+}
+
+// Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return cacheHeaders(loaderHeaders);
 }
 
 export const meta: Route.MetaFunction = ({ data }) =>
