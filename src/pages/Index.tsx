@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -36,6 +36,15 @@ const Index = () => {
   const { citySlug } = useCity();
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
+
+  // The map surfaces are lazy and pull in Leaflet, which touches `window` at
+  // module load — so they must NEVER be imported on the server (a prerender that
+  // resolved the lazy import would crash). Gate them behind a mount flag: the
+  // server + client-first-render emit only the placeholder (no lazy import), then
+  // the map mounts client-side. The SEO payload below (sr-only <h1> + JSON-LD)
+  // still server-renders, which is the whole point of prerendering this route.
+  const [mapMounted, setMapMounted] = useState(false);
+  useEffect(() => setMapMounted(true), []);
 
   // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
   // 'london-gb'); drop a trailing 2-letter country code and title-case every
@@ -158,27 +167,31 @@ const Index = () => {
         dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
       />
       <h1 className="sr-only">Bachata classes, parties &amp; festivals in {cityDisplayName}</h1>
-      <Suspense
-        fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
-      >
-        {isMobile ? (
-          <MobileMapHome
-            state={state}
-            cityName={cityDisplayName}
-            loading={isLoading}
-            error={isError}
-            onRetry={onRetry}
-          />
-        ) : (
-          <DesktopMapHome
-            state={state}
-            cityName={cityDisplayName}
-            loading={isLoading}
-            error={isError}
-            onRetry={onRetry}
-          />
-        )}
-      </Suspense>
+      {mapMounted ? (
+        <Suspense
+          fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
+        >
+          {isMobile ? (
+            <MobileMapHome
+              state={state}
+              cityName={cityDisplayName}
+              loading={isLoading}
+              error={isError}
+              onRetry={onRetry}
+            />
+          ) : (
+            <DesktopMapHome
+              state={state}
+              cityName={cityDisplayName}
+              loading={isLoading}
+              error={isError}
+              onRetry={onRetry}
+            />
+          )}
+        </Suspense>
+      ) : (
+        <div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />
+      )}
     </PageErrorBoundary>
   );
 };

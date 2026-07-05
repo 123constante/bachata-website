@@ -17,6 +17,8 @@ export default {
   // produce). Detail routes + the catchall stay on-demand SSR. Dynamic-param
   // routes (e.g. /city/:slug) are enumerated explicitly.
   async prerender() {
-    return ["/festivals"];
+    // /city/london-gb is the homepage (bare '/' and '/london-gb' redirect here
+    // via vercel.json). More cities can be added as they warrant static SEO.
+    return ["/festivals", "/city/london-gb"];
   },
 } satisfies Config;

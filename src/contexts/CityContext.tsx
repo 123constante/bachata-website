@@ -30,11 +30,18 @@ const getCityFromPath = (pathname: string): string | null => {
 
 export const CityProvider = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const [citySlug, setCitySlugState] = useState<string | null>(() =>
-    // SSR-safe: still a synchronous first-render read on the client (identical
-    // behavior, preserving '' -> null); returns null when window is absent.
-    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) || null : null
-  );
+  const [citySlug, setCitySlugState] = useState<string | null>(() => {
+    // On a /city/:slug URL the path IS the source of truth — derive it
+    // synchronously so the FIRST render (server AND client) already has the slug.
+    // This is what lets the home route prefetch + dehydrate its city-scoped
+    // queries on the server: the effect below only re-anchors it post-mount, so
+    // without this the server render sees citySlug=null, the city queries stay
+    // disabled, and the prerendered HTML is empty. Non-/city routes are
+    // unchanged: localStorage on the client, null on the server (as before).
+    const fromPath = getCityFromPath(location.pathname);
+    if (fromPath) return fromPath.toLowerCase();
+    return typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) || null : null;
+  });
   const isAuthRoute =
     location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
