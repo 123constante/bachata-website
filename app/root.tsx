@@ -40,7 +40,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="canonical" href="https://www.bachatacalendar.co.uk" />
+        {/* No hardcoded canonical here: it would self-canonicalize every route to
+            the homepage AND duplicate the per-page canonical that detail routes
+            emit via meta(). Routes own their canonical; the client useSeo effect
+            still sets one for catchall pages, and bots get theirs from middleware. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co" />
