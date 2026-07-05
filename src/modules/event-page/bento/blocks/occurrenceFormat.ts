@@ -1,4 +1,5 @@
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { londonTodayKey } from '@/lib/londonDate';
 
 // Shared occurrence date/time formatting helpers, used by the flat DatesBlock
 // and the course Weeks Ladder.
@@ -66,7 +67,11 @@ export function isOccurrenceToday(occ: EventPageSnapshotOccurrence): boolean {
   const src = occ.localDate ?? occ.startsAt;
   if (!src) return false;
   const ymd = src.slice(0, 10);
-  const now = new Date();
-  const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return ymd === todayYmd;
+  // "Today" must be the LONDON calendar day, not the browser-local one: the
+  // occurrence date key (ymd) is a London wall-clock date, and the app's clock
+  // authority is Europe/London (londonDate.ts). Browser-local getDate() was both
+  // wrong for non-London visitors AND a server-vs-client SSR hydration mismatch
+  // (a UTC server and a London client disagreed on "today", so DatesBlock /
+  // WeeksLadderBlock's today-gated elements structurally mismatched → React #418).
+  return ymd === londonTodayKey();
 }
