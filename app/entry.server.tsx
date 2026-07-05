@@ -83,6 +83,14 @@ export default function handleRequest(
           responseHeaders.set("Content-Type", "text/html");
           // Per-request CSP header for LIVE SSR responses.
           responseHeaders.set("Content-Security-Policy", csp);
+          // Keep error responses out of the index. A loader throwing a 404 (e.g.
+          // throwDetailNotFound for an unresolvable slug) renders the ErrorBoundary
+          // here, but RR drops the thrown Response's own headers, so set noindex
+          // centrally on any >= 400. Prerendered routes are always 200, so this
+          // only ever tags genuine live-SSR error responses.
+          if (responseStatusCode >= 400) {
+            responseHeaders.set("X-Robots-Tag", "noindex");
+          }
           if (vercelSkewProtectionEnabled && vercelDeploymentId) {
             responseHeaders.append("Set-Cookie", `__vdpl=${vercelDeploymentId}; HttpOnly`);
           }
