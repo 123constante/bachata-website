@@ -338,7 +338,7 @@ const FestivalHubInner = () => {
             const startDateRaw = festival.date || festival.start_time;
             const startDate = startDateRaw ? new Date(startDateRaw) : null;
             const dateLabel = startDate
-              ? startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              ? startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
               : 'Date TBA';
             const locationLabel = festival.city || 'Location TBA';
             const isPending = Boolean(pendingByEvent[festival.id]);
@@ -370,6 +370,11 @@ const FestivalHubInner = () => {
                         animate={{ scale: [1, 1.1, 1] }}
                         transition={{ repeat: Infinity, duration: 2 }}
                         className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full"
+                        // Live countdown ticks every second (setTick). Under SSR/prerender
+                        // the build-time value differs from the client's first-render value;
+                        // suppress the text-diff hydration warning — the interval corrects it
+                        // within 1s. Without this the whole festivals doc logs React #418.
+                        suppressHydrationWarning
                       >
                         {startDate ? getCountdown(startDate) : 'TBA'}
                       </motion.div>

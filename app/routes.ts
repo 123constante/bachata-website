@@ -9,5 +9,9 @@ import { type RouteConfig, route } from "@react-router/dev/routes";
 export default [
   route("event/:id", "routes/event.tsx"),
   route("organisers/:id", "routes/organiser.tsx"),
+  // Static listing routes — real framework routes (outrank the catchall's
+  // duplicate declarative entries) so they can be prerendered to static HTML
+  // with real content. See react-router.config.ts `prerender`.
+  route("festivals", "routes/festivals.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rss, Check, Copy, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
+import { SITE_ORIGIN } from '@/lib/seo';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
@@ -84,7 +85,11 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const { citySlug } = useCity();
 
   const feedUrl = (() => {
-    const base = `${window.location.origin}/api/ics/calendar`;
+    // Render-time: guard for SSR/prerender (no window). The canonical origin is
+    // the correct feed host anyway; on the client we keep the live origin so a
+    // preview domain's copy button still points at itself.
+    const origin = typeof window !== 'undefined' ? window.location.origin : SITE_ORIGIN;
+    const base = `${origin}/api/ics/calendar`;
     return citySlug ? `${base}?city_slug=${citySlug}` : base;
   })();
   const webcalUrl = feedUrl.replace(/^https?:\/\//, 'webcal://');

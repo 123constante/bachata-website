@@ -10,4 +10,13 @@ export default {
   appDirectory: "app",
   ssr: true,
   presets: [vercelPreset()],
+  // Prerender the static listing/home routes to HTML at build time (Q3 — Ricky
+  // chose "keep prerender for home/listings"). These routes have real framework
+  // modules with loaders that dehydrate their content queries, so the emitted
+  // HTML is content-rich (not the empty shell the client-gated catchall would
+  // produce). Detail routes + the catchall stay on-demand SSR. Dynamic-param
+  // routes (e.g. /city/:slug) are enumerated explicitly.
+  async prerender() {
+    return ["/festivals"];
+  },
 } satisfies Config;
