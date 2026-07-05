@@ -73,6 +73,16 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
+
+  // EventCalendar is client-only under SSR (Parties/Classes are prerendered).
+  // Its grid is date-sensitive per cell (isPast/isToday from today.getDate()),
+  // its view is localStorage-seeded, and its data depends on the localStorage
+  // citySlug — all of which diverge between a build-time prerender and the
+  // client's first render (React #418/#425). So render a stable, date-independent
+  // placeholder until mounted; the real calendar renders client-side. The static
+  // hero + intro prose + breadcrumbs around it still server-render for SEO.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
@@ -209,6 +219,19 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   //     { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
   //   );
   // }, [locationStatus, userLocation]);
+
+  // Client-only gate (see the mounted flag above). Fixed 'list' skeleton — it
+  // ignores month/year so it is identical on the server and the first client
+  // render (a date-derived skeleton would itself mismatch).
+  if (!mounted) {
+    return (
+      <section className="py-6 sm:py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <CalendarSkeleton view="list" month={0} year={2000} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-6 sm:py-12 px-4">

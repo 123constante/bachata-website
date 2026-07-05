@@ -19,6 +19,6 @@ export default {
   async prerender() {
     // /city/london-gb is the homepage (bare '/' and '/london-gb' redirect here
     // via vercel.json). More cities can be added as they warrant static SEO.
-    return ["/festivals", "/city/london-gb"];
+    return ["/festivals", "/parties", "/classes", "/city/london-gb"];
   },
 } satisfies Config;

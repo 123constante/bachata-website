@@ -13,6 +13,8 @@ export default [
   // duplicate declarative entries) so they can be prerendered to static HTML
   // with real content. See react-router.config.ts `prerender`.
   route("festivals", "routes/festivals.tsx"),
+  route("parties", "routes/parties.tsx"),
+  route("classes", "routes/classes.tsx"),
   route("city/:slug", "routes/home.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;
