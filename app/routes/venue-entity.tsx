@@ -6,18 +6,27 @@ import { buildSeoForRoute } from "@/lib/seo";
 import { fetchPublicVenue } from "@/services/venuePublicService";
 import VenueEntity from "@/pages/VenueEntity";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
-import { resolveEntityInLoader, throwDetailNotFound } from "../detailLoader";
+import {
+  resolveEntityInLoader,
+  throwDetailNotFound,
+  cacheHeaders,
+  taggedData,
+  redirectUuidToSlug,
+} from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/venue-entity";
 
 // Gated detail route (flags.venueDetail — off in prod). Mirrors VenueEntity's
 // ['public-venue', id] query (fetchPublicVenue) + dehydrates → content SSRs.
-export async function loader({ params }: Route.LoaderArgs) {
-  if (!flags.venueDetail) return { locked: true as const };
+export async function loader({ params, request }: Route.LoaderArgs) {
+  // Locked: flag-derived, identical for every id, busts on the next deploy.
+  // Cache it with a coarse group tag only.
+  if (!flags.venueDetail) return taggedData({ locked: true as const }, "venues");
 
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "venues", params.id);
   if (!ref.id) throwDetailNotFound("Venue");
+  redirectUuidToSlug(ref, request, "/venue-entity");
 
   // null = genuine miss (→ 404); a transient error propagates (→ retryable 500,
   // not a 404+noindex of a valid venue). See app/routes/event.tsx.
@@ -28,14 +37,24 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!venue) throwDetailNotFound("Venue");
 
   const img = venue.image_url;
-  return {
-    locked: false as const,
-    dehydratedState: dehydrate(qc),
-    entityName: venue.name,
-    entitySlug: ref.slug ?? params.id,
-    cityDisplay: venue.city_name ?? undefined,
-    ogImage: (Array.isArray(img) ? img[0] : img) ?? undefined,
-  };
+  return taggedData(
+    {
+      locked: false as const,
+      dehydratedState: dehydrate(qc),
+      entityName: venue.name,
+      entitySlug: ref.slug ?? params.id,
+      cityDisplay: venue.city_name ?? undefined,
+      ogImage: (Array.isArray(img) ? img[0] : img) ?? undefined,
+    },
+    // NOTE: ref.id = venues.id (this route resolves by PK). The Phase-2 DB emit
+    // must match this id (see the plan's venue entity_id-vs-id open item).
+    `venue-${ref.id},venues`,
+  );
+}
+
+// Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return cacheHeaders(loaderHeaders);
 }
 
 export const meta: Route.MetaFunction = ({ data }) => {

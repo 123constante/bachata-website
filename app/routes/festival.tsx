@@ -5,7 +5,13 @@ import { buildSeoForRoute } from "@/lib/seo";
 import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import FestivalDetail from "@/pages/FestivalDetail";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
-import { resolveEntityInLoader, throwDetailNotFound } from "../detailLoader";
+import {
+  resolveEntityInLoader,
+  throwDetailNotFound,
+  cacheHeaders,
+  taggedData,
+  redirectUuidToSlug,
+} from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/festival";
 
@@ -13,10 +19,11 @@ import type { Route } from "./+types/festival";
 // FestivalDetail mounts (festival-event basic row, festival-snapshot event_view_p5,
 // and the parsed festival-detail via the shared exported key + parser), so the
 // cinematic page SSRs with content. 404+noindex when the id isn't a live festival.
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "events", params.id);
   if (!ref.id) throwDetailNotFound("Festival");
+  redirectUuidToSlug(ref, request, "/festival");
   const eventId = ref.id as string;
 
   // festival-event is the GATING query (drives the 404). Use fetchQuery (not
@@ -61,13 +68,23 @@ export async function loader({ params }: Route.LoaderArgs) {
 
   if (!festival) throwDetailNotFound("Festival");
 
-  return {
-    dehydratedState: dehydrate(qc),
-    entityName: (festival.name as string | null) ?? undefined,
-    entitySlug: ref.slug ?? params.id,
-    cityDisplay: (festival.city as string | null) ?? undefined,
-    ogImage: (festival.poster_url as string | null) ?? undefined,
-  };
+  return taggedData(
+    {
+      dehydratedState: dehydrate(qc),
+      entityName: (festival.name as string | null) ?? undefined,
+      entitySlug: ref.slug ?? params.id,
+      cityDisplay: (festival.city as string | null) ?? undefined,
+      ogImage: (festival.poster_url as string | null) ?? undefined,
+    },
+    // The same events.id is reachable at /event/:id AND /festival/:id, so tag
+    // both surfaces — a single edit to that row purges both pages.
+    `festival-${eventId},event-${eventId},festivals,events`,
+  );
+}
+
+// Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return cacheHeaders(loaderHeaders);
 }
 
 export const meta: Route.MetaFunction = ({ data }) =>

@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { data } from "react-router";
+import { redirect } from "react-router";
+import { cacheHeaders, taggedData } from "../detailLoader";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
@@ -67,6 +68,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const rawOcc = url.searchParams.get("occurrenceId");
   const occurrenceId = rawOcc && UUID_RE.test(rawOcc) ? rawOcc : null;
 
+  // UUID→slug 301 (query preserved, incl. ?occurrenceId): collapse the
+  // /event/<uuid> and /event/<slug> cache entries into one canonical slug URL.
+  if (isUuid && slug) {
+    throw redirect(`/event/${slug}${url.search}`, 301);
+  }
+
   // 2. Prefetch BOTH RPCs the page mounts — in parallel, since each depends only
   //    on eventId. (a) the snapshot (mirrors useEventPageQuery); (b) festival
   //    detail (mirrors useFestivalDetailQuery) — useEventPage fires it for EVERY
@@ -104,7 +111,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const snap = qc.getQueryData(eventPageQueryKey(eventId, occurrenceId)) as EventPageSnapshot | null;
 
-  return data(
+  return taggedData(
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
@@ -112,32 +119,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       ogImage: snap?.event?.imageUrl ?? null,
       slug,
     },
-    // Phase 4a ISR: tag this response so a content edit can purge it by tag.
-    // The tag id is the public URL id (events.id for bridged events, the series
-    // id for P5-native events) — see the DB emit's COALESCE(legacy_event_id, id).
-    { headers: { "Vercel-Cache-Tag": `event-${eventId},events` } },
+    // The tag id is the public URL id — events.id for bridged events, the series
+    // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
+    `event-${eventId},events`,
   );
 }
 
-// Phase 4a ISR — edge-cache the SSR response so repeat loads serve from Vercel's
-// CDN, revalidated on demand by tag (see api/revalidate.ts + the DB webhook).
-// headers() does NOT receive loader data, so the per-entity tag is attached in
-// the loader via data(); here we forward it and set the cache layers. Only the
-// happy path (loader returned a tag) is edge-cached — a thrown 404/500 has no
-// loader tag and must not be cached under a content tag.
+// Phase 4a ISR — edge-cache the SSR response + forward the loader's cache tag
+// (see ../detailLoader). A thrown 404/500 carries no tag and stays uncached.
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
-  const tag = loaderHeaders.get("Vercel-Cache-Tag");
-  if (!tag) {
-    return { "Cache-Control": "public, max-age=0, must-revalidate" };
-  }
-  return {
-    // Browser: never pin a stale copy the CDN purge can't reach.
-    "Cache-Control": "public, max-age=0, must-revalidate",
-    // Vercel edge: 1h hard TTL as the time-based safety net; serve stale
-    // instantly while revalidating for a day (no latency cliff, no stampede).
-    "Vercel-CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-    "Vercel-Cache-Tag": tag,
-  };
+  return cacheHeaders(loaderHeaders);
 }
 
 // Route-level SEO for the SSR document (humans + non-bot crawlers). Social/search
