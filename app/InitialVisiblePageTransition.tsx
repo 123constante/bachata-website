@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { PageTransition } from "@/components/PageTransition";
+import { RouteOwnsHeadContext } from "@/lib/seo";
 
 // Module-scoped: true once the app has performed at least one client-side
 // navigation (any framework route mount after the first flips it). SSR and the
@@ -18,8 +19,16 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
   useEffect(() => {
     clientNavigated = true;
   }, []);
-  if (!animate) {
-    return <div style={{ width: "100%", minHeight: "100vh" }}>{children}</div>;
-  }
-  return <PageTransition>{children}</PageTransition>;
+  // Every framework route funnels through here, and every framework route emits
+  // its head via meta() — so signal useSeo() to stand down (no double head
+  // management / title marquee) for the whole subtree.
+  return (
+    <RouteOwnsHeadContext.Provider value={true}>
+      {animate ? (
+        <PageTransition>{children}</PageTransition>
+      ) : (
+        <div style={{ width: "100%", minHeight: "100vh" }}>{children}</div>
+      )}
+    </RouteOwnsHeadContext.Provider>
+  );
 }

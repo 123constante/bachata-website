@@ -14,3 +14,4 @@ export { useSeo, SITE_NAME, SITE_ORIGIN, DEFAULT_OG_IMAGE, type SeoInput } from 
 export { buildSeoForRoute, type SeoContext } from './buildSeoForRoute';
 export { useEntitySlugOrId, type EntityTable, type ResolvedEntity } from './useEntitySlugOrId';
 export { useCanonicalReplaceState } from './useCanonicalReplaceState';
+export { RouteOwnsHeadContext, useRouteOwnsHead } from './routeOwnsHead';

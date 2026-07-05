@@ -16,9 +16,9 @@ const Parties = lazyWithRetry(() => import("../pages/Parties"));
 const Classes = lazyWithRetry(() => import("../pages/Classes"));
 const Discounts = lazyWithRetry(() => import("../pages/Discounts"));
 const Tonight = lazyWithRetry(() => import("../pages/Tonight"));
-const EventPage = lazyWithRetry(() => import("../pages/EventPage"));
 const PracticePartners = lazyWithRetry(() => import("../pages/PracticePartners"));
-const FestivalHub = lazyWithRetry(() => import("../pages/FestivalHub"));
+// EventPage + FestivalHub are framework routes now (app/routes/event.tsx,
+// festivals.tsx) — no longer referenced from the catchall tree.
 const FestivalDetail = lazyWithRetry(() => import("../pages/FestivalDetail"));
 const Experience = lazyWithRetry(() => import("../pages/Experience"));
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
@@ -31,7 +31,7 @@ const DJs = lazyWithRetry(() => import("../pages/DJs"));
 const DJProfile = lazyWithRetry(() => import("../pages/DJProfile"));
 const Venues = lazyWithRetry(() => import("../pages/Venues"));
 const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
-const OrganiserProfile = lazyWithRetry(() => import("../pages/OrganiserProfile"));
+// OrganiserProfile is a framework route now (app/routes/organiser.tsx).
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
 const VenueEntity = lazyWithRetry(() => import("../pages/VenueEntity"));
@@ -87,21 +87,21 @@ export const AnimatedRoutes = () => {
         <Suspense fallback={<RouteFallback />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<CityRedirect />} />
-            <Route path="/city/:slug" element={<Index />} />
+            {/* /city/:slug, /parties, /classes are now framework routes
+                (app/routes.ts) — prerendered, so their catchall duplicates were
+                removed. The /city/:slug/* variants below stay client-rendered. */}
             <Route path="/city/:slug/calendar" element={<Index />} />
-            <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
             <Route path="/city/:slug/parties" element={<PageTransition><Parties /></PageTransition>} />
-            <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
             <Route path="/city/:slug/classes" element={<PageTransition><Classes /></PageTransition>} />
             <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
             <Route path="/city/:slug/discounts" element={<PageTransition><Discounts /></PageTransition>} />
 
             <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
             <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-            <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
+            {/* /event/:id is a framework route (app/routes/event.tsx). */}
             <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
             <Route path="/city/:slug/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-            <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
+            {/* /festivals is a framework route (app/routes/festivals.tsx). */}
             <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
             <Route path="/london-bachata-guide" element={<PageTransition><BachataInLondon /></PageTransition>} />
             <Route path="/learn-bachata-london" element={<PageTransition><LearnBachataLondon /></PageTransition>} />
@@ -169,15 +169,8 @@ export const AnimatedRoutes = () => {
                 <PageTransition><Organisers /></PageTransition>
               </ComingSoonGate>
             } />
-            <Route path="/organisers/:id" element={
-              <ComingSoonGate
-                enabled={flags.organiserDetail}
-                title="Organiser"
-                section="organiser_detail"
-              >
-                <PageTransition><OrganiserProfile /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* /organisers/:id is a framework route (app/routes/organiser.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/venue-entity/:id" element={
               <ComingSoonGate
                 enabled={flags.venueDetail}
