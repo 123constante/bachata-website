@@ -34,7 +34,11 @@ export async function resolveEntityInLoader(
         .select(`${idColumn}, slug`)
         .eq(whereCol, param)
         .maybeSingle();
-      if (error || !row) return null;
+      // Distinguish a TRANSIENT error from a genuine miss: rethrow so the loader
+      // surfaces a retryable 500 rather than 404+noindex-ing a valid entity on a
+      // DB blip (mirrors app/routes/event.tsx). `null` = genuine not-found.
+      if (error) throw error;
+      if (!row) return null;
       const r = row as Record<string, unknown>;
       return { id: (r[idColumn] as string | null) ?? null, slug: (r.slug as string | null) ?? null };
     },

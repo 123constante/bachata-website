@@ -19,8 +19,12 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!ref.id) throwDetailNotFound("Festival");
   const eventId = ref.id as string;
 
-  await Promise.all([
-    qc.prefetchQuery({
+  // festival-event is the GATING query (drives the 404). Use fetchQuery (not
+  // prefetchQuery, which swallows errors) so a TRANSIENT supabase error
+  // propagates → retryable 500, not a 404+noindex of a live festival. null =
+  // genuine miss / not-a-festival → 404. See app/routes/event.tsx.
+  const [festival] = await Promise.all([
+    qc.fetchQuery({
       queryKey: ["festival-event", eventId],
       queryFn: async () => {
         const { data, error } = await supabase
@@ -30,7 +34,7 @@ export async function loader({ params }: Route.LoaderArgs) {
           .eq("type", "festival")
           .maybeSingle();
         if (error) throw error;
-        return data;
+        return (data as Record<string, unknown> | null) ?? null;
       },
     }),
     qc.prefetchQuery({
@@ -55,7 +59,6 @@ export async function loader({ params }: Route.LoaderArgs) {
     }),
   ]);
 
-  const festival = qc.getQueryData(["festival-event", eventId]) as Record<string, unknown> | null;
   if (!festival) throwDetailNotFound("Festival");
 
   return {

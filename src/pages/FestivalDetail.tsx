@@ -2216,10 +2216,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
           __html: JSON.stringify(
             buildEventJsonLd({
               name: festivalDetail?.identity.name ?? festival.name,
-              url:
-                typeof window !== "undefined"
-                  ? `${SITE_ORIGIN}${window.location.pathname}`
-                  : `${SITE_ORIGIN}/festival/${festival.id}`,
+              // Stable canonical URL on both sides (was window.location.pathname
+              // → server emits the uuid path, client the slug path → JSON-LD text
+              // mismatch / #418). Prefer the resolved slug, fall back to the id.
+              url: `${SITE_ORIGIN}/festival/${resolvedSlug ?? festival.id}`,
               startDate: startDateRaw ?? "",
               endDate: endDateRaw,
               description:

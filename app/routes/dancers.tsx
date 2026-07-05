@@ -19,25 +19,23 @@ export async function loader({ params }: Route.LoaderArgs) {
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Dancer");
 
-  let dancer: Record<string, unknown>;
-  try {
-    dancer = await qc.fetchQuery({
-      queryKey: ["dancer-profile", ref.id],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from("dancer_profiles")
-          .select(DANCER_COLS)
-          .eq("id", ref.id as string)
-          .maybeSingle();
-        if (error) throw error;
-        if (!data) throw new Error("Dancer not found.");
-        return data as Record<string, unknown>;
-      },
-      staleTime: 1000 * 60 * 5,
-    });
-  } catch {
-    throwDetailNotFound("Dancer");
-  }
+  // Return null on a genuine miss (→ 404 below) but let a TRANSIENT supabase
+  // error propagate — a swallowing catch would 404+noindex a valid dancer on a
+  // DB blip (mirrors app/routes/event.tsx).
+  const dancer = await qc.fetchQuery({
+    queryKey: ["dancer-profile", ref.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dancer_profiles")
+        .select(DANCER_COLS)
+        .eq("id", ref.id as string)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Record<string, unknown> | null) ?? null;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+  if (!dancer) throwDetailNotFound("Dancer");
 
   const view = mapDancerPublicProfile(dancer as never);
   return {

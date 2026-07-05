@@ -14,21 +14,18 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!ref.id) throwDetailNotFound("DJ");
 
   // Mirrors DJProfile's ['dj-profile', id] query (get_public_dj_v1 → raw cast).
-  let dj: Record<string, unknown>;
-  try {
-    dj = await qc.fetchQuery({
-      queryKey: ["dj-profile", ref.id],
-      queryFn: async () => {
-        const { data, error } = await supabase.rpc("get_public_dj_v1", { p_dj_id: ref.id as string });
-        if (error) throw error;
-        if (!data) throw new Error("DJ not found");
-        return data as unknown as Record<string, unknown>;
-      },
-      staleTime: 5 * 60 * 1000,
-    });
-  } catch {
-    throwDetailNotFound("DJ");
-  }
+  // null = genuine miss (→ 404); a transient error propagates (→ retryable 500,
+  // not a 404+noindex of a valid DJ). See app/routes/event.tsx.
+  const dj = await qc.fetchQuery({
+    queryKey: ["dj-profile", ref.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_public_dj_v1", { p_dj_id: ref.id as string });
+      if (error) throw error;
+      return (data as unknown as Record<string, unknown> | null) ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!dj) throwDetailNotFound("DJ");
 
   const photo = dj.photo_url;
   return {

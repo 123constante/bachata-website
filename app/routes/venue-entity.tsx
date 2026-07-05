@@ -19,15 +19,12 @@ export async function loader({ params }: Route.LoaderArgs) {
   const ref = await resolveEntityInLoader(qc, "venues", params.id);
   if (!ref.id) throwDetailNotFound("Venue");
 
-  let venue: Awaited<ReturnType<typeof fetchPublicVenue>>;
-  try {
-    venue = await qc.fetchQuery({
-      queryKey: ["public-venue", ref.id],
-      queryFn: () => fetchPublicVenue(ref.id as string),
-    });
-  } catch {
-    throwDetailNotFound("Venue");
-  }
+  // null = genuine miss (→ 404); a transient error propagates (→ retryable 500,
+  // not a 404+noindex of a valid venue). See app/routes/event.tsx.
+  const venue = await qc.fetchQuery({
+    queryKey: ["public-venue", ref.id],
+    queryFn: () => fetchPublicVenue(ref.id as string),
+  });
   if (!venue) throwDetailNotFound("Venue");
 
   const img = venue.image_url;
