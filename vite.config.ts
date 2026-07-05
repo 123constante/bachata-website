@@ -17,10 +17,23 @@ const sentryProject = process.env.SENTRY_PROJECT;
 // Pin the uploaded-artifact release to the EXACT value the runtime client reports
 // (src/lib/sentry.ts: RELEASE_ID = VITE_VERCEL_GIT_COMMIT_SHA || VITE_RELEASE).
 // Both sides read the same VITE_-prefixed vars in the same order, so the upload
-// release == runtime release by construction. We must NOT fall back to the
-// un-prefixed VERCEL_GIT_COMMIT_SHA: Vite never inlines it into the client bundle,
-// so the runtime can't report it — pinning to it would guarantee the very
-// release-name mismatch this is meant to prevent.
+// release == runtime release by construction.
+//
+// Vercel always exposes the un-prefixed VERCEL_GIT_COMMIT_SHA at build time, but
+// Vite never inlines an un-prefixed var into the client bundle — so on its own the
+// runtime couldn't report it. Promote it into the VITE_ namespace here (before Vite
+// snapshots env for inlining) when no explicit release var is set: now Vite DOES
+// inline it AND the upload below reads the same value, so upload release == runtime
+// release with zero dashboard env config. An explicit VITE_VERCEL_GIT_COMMIT_SHA /
+// VITE_RELEASE still wins.
+if (
+  !process.env.VITE_VERCEL_GIT_COMMIT_SHA &&
+  !process.env.VITE_RELEASE &&
+  process.env.VERCEL_GIT_COMMIT_SHA
+) {
+  process.env.VITE_VERCEL_GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA;
+}
+
 const sentryRelease =
   process.env.VITE_VERCEL_GIT_COMMIT_SHA || process.env.VITE_RELEASE;
 
