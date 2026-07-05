@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Copy as CopyIcon,
@@ -70,7 +71,12 @@ export default function VenueDirectionsSheet({
   onClose,
   onCopy,
 }: VenueDirectionsSheetProps) {
-  if (typeof document === 'undefined') return null;
+  // Body portal → null on server / portal on first client render = hydration
+  // mismatch (#418). Mount-gate so both agree (null) until hydrated. Same pattern
+  // as VenueStickyBar / EventStickyActionBar.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || typeof document === 'undefined') return null;
   const apps = buildApps(fullAddress, venueName);
 
   const node = (
