@@ -4,18 +4,18 @@ import { next } from '@vercel/edge';
 
 export const config = {
   matcher: [
-    // SPIKE (spike/rr7-framework-mode): /event and /organisers are now handled
-    // by the RR7 framework SSR loaders, which emit real HTML + meta for bots too.
-    // Excluding them from this edge middleware lets bot-UA requests fall through
-    // to the SSR function (and previews Phase 5's demotion of this middleware to
-    // OG-only). Re-add if the framework routes are reverted.
-    // '/event/:path*',
+    // Bots keep hitting this edge middleware for the branded OG card + DanceEvent
+    // JSON-LD + noindex-404. /event + /organisers stay matched: the RR7 framework
+    // loaders serve HUMANS, but the route meta() is only a fallback head — the
+    // rich per-event card (WebP→JPEG normalization, pre-baked R2 images, offers/
+    // performers) still comes from here until Phase 5 folds it into the loaders.
+    '/event/:path*',
     '/festival/:path*',
     '/venue-entity/:path*',
     '/teachers/:path*',
     '/djs/:path*',
     '/dancers/:path*',
-    // '/organisers/:path*',
+    '/organisers/:path*',
     '/city/:path*',
   ],
 };

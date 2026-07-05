@@ -194,7 +194,10 @@ const parsePromoCodes = (raw: unknown): FestivalPromoCode[] =>
 // Top-level parser
 // ---------------------------------------------------------------------------
 
-const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
+// Exported for the RR7 event-route loader so its server-side prefetch parses
+// identically to the client hook (the dehydrated cache entry must be byte-equal
+// or the client refetches / the server-computed isFestival diverges). (Phase 3)
+export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
   const payload = asObject(value);
   if (!payload) return null;
 

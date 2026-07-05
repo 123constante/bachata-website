@@ -480,10 +480,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             __html: JSON.stringify(
               buildEventJsonLd({
                 name: pageModel.identity.title,
-                url:
-                  typeof window !== 'undefined'
-                    ? `${SITE_ORIGIN}${window.location.pathname}`
-                    : `${SITE_ORIGIN}/event/${eventId}`,
+                // Stable canonical slug URL, identical on server and client (the
+                // slug rides in via props from the dehydrated snapshot). Reading
+                // window.location.pathname on the client but the UUID on the
+                // server made this serialized JSON-LD differ across hydration.
+                url: `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
                 startDate: occurrence?.startsAt ?? snapshot.event.date ?? '',
                 endDate: occurrence?.endsAt ?? null,
                 description: pageModel.description.body,

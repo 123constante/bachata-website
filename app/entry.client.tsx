@@ -39,5 +39,13 @@ if (typeof window !== "undefined") {
 }
 
 startTransition(() => {
-  hydrateRoot(document, <HydratedRouter />);
+  hydrateRoot(document, <HydratedRouter />, {
+    // Surface hydration mismatches with their component stack instead of the
+    // opaque "Switched to client rendering" — routed to the console (and Sentry
+    // captures console.error in prod) so SSR-safety regressions are diagnosable.
+    onRecoverableError(error, errorInfo) {
+      // eslint-disable-next-line no-console
+      console.error("[hydration]", (error as Error)?.message, errorInfo?.componentStack);
+    },
+  });
 });
