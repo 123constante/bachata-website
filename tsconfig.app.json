@@ -24,7 +24,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "rootDirs": [".", "./.react-router/types"],
+    "types": ["@react-router/node", "vite/client"]
   },
-  "include": ["src"]
+  "include": ["src", "app", ".react-router/types/**/*"]
 }

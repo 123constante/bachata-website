@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
@@ -106,7 +106,18 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   const isLoading = state === 'loading';
   // Past-event logic runs only on ready pages. Not-found / error / unavailable
   // short-circuit above; loading would race since occurrence is null then.
-  const past = state === 'ready' ? isPast(occurrence) : false;
+  //
+  // SSR hydration-safety: the client isPast() uses Date.now() (6h grace), so a
+  // server render and a later client hydration can disagree and mismatch. The
+  // FIRST render uses the snapshot's server-computed occurrence.isPast (identical
+  // on both sides via the dehydrated cache); after mount, refine with the
+  // grace-period clock — usually a no-op, only differs inside the 6h window.
+  const [past, setPast] = useState<boolean>(() =>
+    state === 'ready' ? Boolean(occurrence?.isPast) : false,
+  );
+  useEffect(() => {
+    setPast(state === 'ready' ? isPast(occurrence) : false);
+  }, [state, occurrence]);
 
   useSeo(
     buildSeoForRoute('event.detail', {
@@ -469,10 +480,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             __html: JSON.stringify(
               buildEventJsonLd({
                 name: pageModel.identity.title,
-                url:
-                  typeof window !== 'undefined'
-                    ? `${SITE_ORIGIN}${window.location.pathname}`
-                    : `${SITE_ORIGIN}/event/${eventId}`,
+                // Stable canonical slug URL, identical on server and client (the
+                // slug rides in via props from the dehydrated snapshot). Reading
+                // window.location.pathname on the client but the UUID on the
+                // server made this serialized JSON-LD differ across hydration.
+                url: `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
                 startDate: occurrence?.startsAt ?? snapshot.event.date ?? '',
                 endDate: occurrence?.endsAt ?? null,
                 description: pageModel.description.body,

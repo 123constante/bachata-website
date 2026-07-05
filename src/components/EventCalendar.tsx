@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rss, Check, Copy, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
+import { SITE_ORIGIN } from '@/lib/seo';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCity } from '@/contexts/CityContext';
@@ -72,6 +73,16 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
+
+  // EventCalendar is client-only under SSR (Parties/Classes are prerendered).
+  // Its grid is date-sensitive per cell (isPast/isToday from today.getDate()),
+  // its view is localStorage-seeded, and its data depends on the localStorage
+  // citySlug — all of which diverge between a build-time prerender and the
+  // client's first render (React #418/#425). So render a stable, date-independent
+  // placeholder until mounted; the real calendar renders client-side. The static
+  // hero + intro prose + breadcrumbs around it still server-render for SEO.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
@@ -84,7 +95,11 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   const { citySlug } = useCity();
 
   const feedUrl = (() => {
-    const base = `${window.location.origin}/api/ics/calendar`;
+    // Render-time: guard for SSR/prerender (no window). The canonical origin is
+    // the correct feed host anyway; on the client we keep the live origin so a
+    // preview domain's copy button still points at itself.
+    const origin = typeof window !== 'undefined' ? window.location.origin : SITE_ORIGIN;
+    const base = `${origin}/api/ics/calendar`;
     return citySlug ? `${base}?city_slug=${citySlug}` : base;
   })();
   const webcalUrl = feedUrl.replace(/^https?:\/\//, 'webcal://');
@@ -204,6 +219,19 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   //     { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
   //   );
   // }, [locationStatus, userLocation]);
+
+  // Client-only gate (see the mounted flag above). Fixed 'list' skeleton — it
+  // ignores month/year so it is identical on the server and the first client
+  // render (a date-derived skeleton would itself mismatch).
+  if (!mounted) {
+    return (
+      <section className="py-6 sm:py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <CalendarSkeleton view="list" month={0} year={2000} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-6 sm:py-12 px-4">

@@ -1,0 +1,56 @@
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { createQueryClient } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
+import { buildSeoForRoute } from "@/lib/seo";
+import DJProfile from "@/pages/DJProfile";
+import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { resolveEntityInLoader, throwDetailNotFound } from "../detailLoader";
+import { seoInputToMeta } from "../seoMeta";
+import type { Route } from "./+types/djs";
+
+export async function loader({ params }: Route.LoaderArgs) {
+  const qc = createQueryClient();
+  const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
+  if (!ref.id) throwDetailNotFound("DJ");
+
+  // Mirrors DJProfile's ['dj-profile', id] query (get_public_dj_v1 → raw cast).
+  // null = genuine miss (→ 404); a transient error propagates (→ retryable 500,
+  // not a 404+noindex of a valid DJ). See app/routes/event.tsx.
+  const dj = await qc.fetchQuery({
+    queryKey: ["dj-profile", ref.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_public_dj_v1", { p_dj_id: ref.id as string });
+      if (error) throw error;
+      return (data as unknown as Record<string, unknown> | null) ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!dj) throwDetailNotFound("DJ");
+
+  const photo = dj.photo_url;
+  return {
+    dehydratedState: dehydrate(qc),
+    entityName: (dj.display_name as string | null) ?? (dj.dj_name as string | null) ?? undefined,
+    entitySlug: ref.slug ?? params.id,
+    ogImage: (Array.isArray(photo) ? photo[0] : photo) as string | undefined,
+  };
+}
+
+export const meta: Route.MetaFunction = ({ data }) =>
+  seoInputToMeta(
+    buildSeoForRoute("dj.detail", {
+      entityName: data?.entityName,
+      entitySlug: data?.entitySlug,
+      ogImage: data?.ogImage,
+    }),
+  );
+
+export default function DJRoute({ loaderData, params }: Route.ComponentProps) {
+  return (
+    <HydrationBoundary state={loaderData.dehydratedState}>
+      <InitialVisiblePageTransition key={params.id}>
+        <DJProfile />
+      </InitialVisiblePageTransition>
+    </HydrationBoundary>
+  );
+}

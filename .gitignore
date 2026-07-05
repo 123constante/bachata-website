@@ -39,6 +39,10 @@ storybook-static
 
 .vercel
 
+# React Router framework-mode generated types + build output (spike/rr7-framework-mode)
+.react-router
+build
+
 # Playwright output and dev screenshots
 .playwright-mcp/
 stress-*.png

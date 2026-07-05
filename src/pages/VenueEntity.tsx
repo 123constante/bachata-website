@@ -247,7 +247,10 @@ function VenueLightbox({ photos, index, onClose, onStep }: VenueLightboxProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [index, onClose, onStep]);
 
-  if (index === null || photos.length === 0) return null;
+  // typeof document guard: this portal targets document.body; the index===null
+  // check already keeps it closed under SSR, but guard explicitly so a future
+  // caller can't trip createPortal on the server.
+  if (index === null || photos.length === 0 || typeof document === 'undefined') return null;
   const src = photos[index];
   return createPortal((
     <div
@@ -374,6 +377,15 @@ const VenueEntity = () => {
     buildPath: (s) => '/venue-entity/' + s,
   });
 
+  // Defer the secondary "what's on" query until AFTER hydration. It isn't
+  // dehydrated by the loader, so firing it during hydration produces a setState
+  // mid-hydration (React #422 "received an update before it finished hydrating")
+  // that cascades to #418 on /venue-entity/:id under SSR. Gating on `mounted`
+  // keeps the server + first client render identical (events undefined), then it
+  // fetches client-side. Primary venue content is already dehydrated + SSR'd.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { data: events } = useQuery({
     queryKey: ['venue-upcoming-events', id, fromEventId, fromOccurrenceId],
     queryFn: async () => {
@@ -395,7 +407,7 @@ const VenueEntity = () => {
         : rows;
       return filtered.slice(0, 12);
     },
-    enabled: !!id && !!venue,
+    enabled: mounted && !!id && !!venue,
   });
 
   useSeo(
@@ -553,7 +565,9 @@ const VenueEntity = () => {
     city_name: venue.city_name ?? null,
     country: venue.country ?? null,
     telephone: venue.phone ?? null,
-    url: typeof window !== "undefined" ? `${SITE_ORIGIN}${window.location.pathname}` : "",
+    // Stable canonical URL (was window.location.pathname → server "" vs client
+    // path → JSON-LD text mismatch / #418 hydration error under SSR).
+    url: `${SITE_ORIGIN}/venue-entity/${resolved.slug ?? id ?? ""}`,
     opening_hours: (venue.opening_hours ?? null) as Parameters<
       typeof buildVenueJsonLd
     >[0]["opening_hours"],

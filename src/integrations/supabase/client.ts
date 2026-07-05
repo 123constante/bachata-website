@@ -10,7 +10,13 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    // SSR-safe: in the browser this is the exact same object as the old bare
+    // `localStorage`; when window is absent (node/SSR) it is omitted and
+    // auth-js falls back to its in-memory adapter (GoTrueClient: `if
+    // (settings.storage)`). Keeps this file safe to import server-side. NOTE:
+    // this file is auto-generated -- tests/ssr/eventPageSsr.test.tsx guards
+    // against a regeneration reintroducing the bare `localStorage`.
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,

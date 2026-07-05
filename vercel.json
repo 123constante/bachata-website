@@ -106,22 +106,7 @@
       "permanent": true
     }
   ],
-  "rewrites": [
-    {
-      "source": "/((?!assets/).*)",
-      "destination": "/index.html"
-    }
-  ],
   "headers": [
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
     {
       "source": "/assets/(.*)",
       "headers": [
@@ -149,21 +134,11 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://pub-07f606224cac4f2596903c44df723644.r2.dev https://*.r2.dev https://*.supabase.co https://flagcdn.com https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://*.basemaps.cartocdn.com; media-src 'self' blob: https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         }
       ]
     }
   ],
-  "buildCommand": "npm run build",
-  "functions": {
-    "api/og/card.ts": {
-      "includeFiles": "api/og/_fonts/**"
-    },
-    "api/og/bake.ts": {
-      "includeFiles": "api/og/_fonts/**"
-    }
-  }
+  "framework": "react-router",
+  "buildCommand": "npm run build"
 }
+

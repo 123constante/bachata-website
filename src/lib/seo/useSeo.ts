@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useRouteOwnsHead } from './routeOwnsHead';
 
 const SITE_NAME = 'Bachata Calendar';
 const SITE_ORIGIN = 'https://www.bachatacalendar.co.uk';
@@ -86,9 +87,12 @@ function prefersReducedMotion(): boolean {
 
 export function useSeo(input: SeoInput | null | undefined) {
   const baseline = useRef<{ title: string; description: string; canonical: string } | null>(null);
+  // On a framework route, meta() already owns the head — skip entirely (no head
+  // mutation, no title marquee). See routeOwnsHead.ts.
+  const routeOwnsHead = useRouteOwnsHead();
 
   useEffect(() => {
-    if (!input || typeof document === 'undefined') return;
+    if (routeOwnsHead || !input || typeof document === 'undefined') return;
 
     if (!baseline.current) {
       const d = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
@@ -147,7 +151,7 @@ export function useSeo(input: SeoInput | null | undefined) {
       document.head.querySelector('meta[name="robots"]')?.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-running on every new `input` object reference (most pages pass a fresh literal) would thrash document.head on every render. The field-level deps below are the actual change drivers.
-  }, [input?.title, input?.description, input?.canonical, input?.ogImage, input?.ogType, input?.noindex]);
+  }, [routeOwnsHead, input?.title, input?.description, input?.canonical, input?.ogImage, input?.ogType, input?.noindex]);
 }
 
 export { SITE_NAME, SITE_ORIGIN, DEFAULT_OG_IMAGE };

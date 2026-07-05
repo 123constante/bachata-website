@@ -1,8 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
+import { reactRouter } from "@react-router/dev/vite";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import path from "path";
+// lovable-tagger (componentTagger) is intentionally NOT restored under framework
+// mode: it's a dev-only Lovable annotation, non-essential, and untested against
+// the reactRouter() dev plugin. Re-add later behind a dev guard if wanted.
 
 // Source-map upload to Sentry only runs when SENTRY_AUTH_TOKEN is set
 // (Vercel build-time secret). Local builds without the token still produce
@@ -43,34 +46,32 @@ if (process.env.VERCEL_ENV === "production") {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [
-    react(),
-    mode === "development" && componentTagger(),
+    // reactRouter() owns the React transform in framework mode. vitest cannot
+    // load the RR plugin, so fall back to plugin-react-swc under VITEST.
+    process.env.VITEST ? react() : reactRouter(),
+    // Sentry sourcemap upload. Framework mode emits to build/client + build/server
+    // (was dist/** under the SPA). Runtime Sentry is browser-only, so the client
+    // bundle's maps are the ones that resolve prod errors; server maps included so
+    // loader/SSR stack frames also symbolicate. Only active with SENTRY_AUTH_TOKEN
+    // (Vercel prod scope) — dormant on local + preview builds.
     sentryAuthToken && sentryOrg && sentryProject &&
       sentryVitePlugin({
         authToken: sentryAuthToken,
         org: sentryOrg,
         project: sentryProject,
-        // Pin the release so uploaded sourcemaps associate with the exact
-        // release the client reports at runtime (see comment above).
         release: sentryRelease
           ? {
               name: sentryRelease,
-              // Associate the release with its commits so Sentry maps errors
-              // to suspect commits AND auto-resolves issues referenced by
-              // "Fixes BACHATA-WEBSITE-N" in commit messages. auto derives the
-              // commit range from git in the build env; ignoreMissing tolerates
-              // Vercel's shallow clone / first run. Requires the Sentry GitHub
-              // integration + this repo added in org settings (one-time).
               setCommits: { auto: true, ignoreMissing: true },
             }
           : undefined,
-        sourcemaps: { assets: "./dist/**" },
+        sourcemaps: { assets: ["./build/client/**", "./build/server/**"] },
         telemetry: false,
       }),
   ].filter(Boolean),
@@ -81,23 +82,10 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: "hidden",
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-motion': ['framer-motion'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-map': ['leaflet', 'leaflet.markercluster'],
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-slot',
-          ],
-        },
-      },
-    },
+    // manualChunks intentionally NOT restored: framework mode already does
+    // automatic per-route code-splitting, and the old object-form manualChunks
+    // (listing external react/react-router-dom) conflicts with the RR7 server
+    // build (inlineDynamicImports). Revisit with a function-form guarded on !ssr
+    // only if bundle analysis shows a regression vs the SPA's vendor chunks.
   },
 }));

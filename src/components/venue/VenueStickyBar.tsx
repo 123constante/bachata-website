@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation, Phone } from 'lucide-react';
 import { venueGoldInvertTheme } from './venuePageTheme';
@@ -15,7 +16,14 @@ export default function VenueStickyBar({
   phone,
   onDirections,
 }: VenueStickyBarProps) {
-  if (typeof document === 'undefined') return null;
+  // Body portal, shown unconditionally: it returns null on the server but the
+  // portal on the first client render, which structurally disagrees and blows up
+  // hydration for the whole venue page (React #418). Mount-gate so server + first
+  // client render both emit nothing; the portal mounts only after hydration.
+  // (Same pattern + reason as EventStickyActionBar on the event page.)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || typeof document === 'undefined') return null;
   const node = (
     <div
       className="fixed inset-x-0 z-40 px-4 pb-3 pt-2.5 md:hidden"

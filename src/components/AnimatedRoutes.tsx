@@ -16,25 +16,22 @@ const Parties = lazyWithRetry(() => import("../pages/Parties"));
 const Classes = lazyWithRetry(() => import("../pages/Classes"));
 const Discounts = lazyWithRetry(() => import("../pages/Discounts"));
 const Tonight = lazyWithRetry(() => import("../pages/Tonight"));
-const EventPage = lazyWithRetry(() => import("../pages/EventPage"));
 const PracticePartners = lazyWithRetry(() => import("../pages/PracticePartners"));
-const FestivalHub = lazyWithRetry(() => import("../pages/FestivalHub"));
-const FestivalDetail = lazyWithRetry(() => import("../pages/FestivalDetail"));
+// EventPage + FestivalHub are framework routes now (app/routes/event.tsx,
+// festivals.tsx) — no longer referenced from the catchall tree.
 const Experience = lazyWithRetry(() => import("../pages/Experience"));
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
-const DancerProfile = lazyWithRetry(() => import("../pages/DancerProfile"));
 const Teachers = lazyWithRetry(() => import("../pages/Teachers"));
-const TeacherProfile = lazyWithRetry(() => import("../pages/TeacherProfile"));
 const DJs = lazyWithRetry(() => import("../pages/DJs"));
-const DJProfile = lazyWithRetry(() => import("../pages/DJProfile"));
+// DancerProfile, TeacherProfile, DJProfile are framework routes now
+// (app/routes/{dancers,teachers,djs}.tsx).
 const Venues = lazyWithRetry(() => import("../pages/Venues"));
 const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
-const OrganiserProfile = lazyWithRetry(() => import("../pages/OrganiserProfile"));
+// OrganiserProfile is a framework route now (app/routes/organiser.tsx).
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
-const VenueEntity = lazyWithRetry(() => import("../pages/VenueEntity"));
 const Cities = lazyWithRetry(() => import("../pages/Cities"));
 const CreateProfile = lazyWithRetry(() => import("../pages/CreateProfile"));
 const CreateOrganiserProfile = lazyWithRetry(() => import("../pages/CreateOrganiserProfile"));
@@ -73,7 +70,7 @@ const RouteFallback = () => (
 
 /** Redirect bare slash to /city/<slug> so the city is always visible in the URL. */
 const CityRedirect = () => {
-  const stored = localStorage.getItem('activeCitySlug');
+  const stored = typeof window !== 'undefined' ? localStorage.getItem('activeCitySlug') : null;
   const slug = stored || 'london-gb';
   return <Navigate to={buildCityPath(slug)} replace />;
 };
@@ -87,21 +84,21 @@ export const AnimatedRoutes = () => {
         <Suspense fallback={<RouteFallback />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<CityRedirect />} />
-            <Route path="/city/:slug" element={<Index />} />
+            {/* /city/:slug, /parties, /classes are now framework routes
+                (app/routes.ts) — prerendered, so their catchall duplicates were
+                removed. The /city/:slug/* variants below stay client-rendered. */}
             <Route path="/city/:slug/calendar" element={<Index />} />
-            <Route path="/parties" element={<PageTransition><Parties /></PageTransition>} />
             <Route path="/city/:slug/parties" element={<PageTransition><Parties /></PageTransition>} />
-            <Route path="/classes" element={<PageTransition><Classes /></PageTransition>} />
             <Route path="/city/:slug/classes" element={<PageTransition><Classes /></PageTransition>} />
             <Route path="/discounts" element={<PageTransition><Discounts /></PageTransition>} />
             <Route path="/city/:slug/discounts" element={<PageTransition><Discounts /></PageTransition>} />
 
             <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
             <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
-            <Route path="/event/:id" element={<PageTransition><EventPage /></PageTransition>} />
+            {/* /event/:id is a framework route (app/routes/event.tsx). */}
             <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
             <Route path="/city/:slug/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-            <Route path="/festivals" element={<PageTransition><FestivalHub /></PageTransition>} />
+            {/* /festivals is a framework route (app/routes/festivals.tsx). */}
             <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
             <Route path="/london-bachata-guide" element={<PageTransition><BachataInLondon /></PageTransition>} />
             <Route path="/learn-bachata-london" element={<PageTransition><LearnBachataLondon /></PageTransition>} />
@@ -115,7 +112,7 @@ export const AnimatedRoutes = () => {
             <Route path="/bachata-parties-london" element={<PageTransition><BachataPartiesLondon /></PageTransition>} />
             <Route path="/bachata-london-sensual-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
             <Route path="/bachata-london-dominican-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
-            <Route path="/festival/:id" element={<PageTransition><FestivalDetail /></PageTransition>} />
+            {/* /festival/:id is a framework route (app/routes/festival.tsx). */}
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
             <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
             {/* Standalone raffles landing page. Flag-gated (rafflesPage): default
@@ -131,7 +128,7 @@ export const AnimatedRoutes = () => {
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
-            <Route path="/dancers/:id" element={<PageTransition><DancerProfile /></PageTransition>} />
+            {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
             {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true
                 in dev (.env.development) and false in prod (.env.production /
                 Vercel project env). When gated, page component never mounts --
@@ -146,18 +143,11 @@ export const AnimatedRoutes = () => {
                 <PageTransition><Teachers /></PageTransition>
               </ComingSoonGate>
             } />
-            <Route path="/teachers/:id" element={
-              <ComingSoonGate
-                enabled={flags.teacherDetail}
-                title="Teacher"
-                section="teacher_detail"
-              >
-                <PageTransition><TeacherProfile /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* /teachers/:id is a framework route (app/routes/teachers.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
             <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
-            <Route path="/djs/:id" element={<PageTransition><DJProfile /></PageTransition>} />
+            {/* /djs/:id is a framework route (app/routes/djs.tsx). */}
             <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/organisers" element={
@@ -169,24 +159,10 @@ export const AnimatedRoutes = () => {
                 <PageTransition><Organisers /></PageTransition>
               </ComingSoonGate>
             } />
-            <Route path="/organisers/:id" element={
-              <ComingSoonGate
-                enabled={flags.organiserDetail}
-                title="Organiser"
-                section="organiser_detail"
-              >
-                <PageTransition><OrganiserProfile /></PageTransition>
-              </ComingSoonGate>
-            } />
-            <Route path="/venue-entity/:id" element={
-              <ComingSoonGate
-                enabled={flags.venueDetail}
-                title="Venue"
-                section="venue_detail"
-              >
-                <PageTransition><VenueEntity /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* /organisers/:id is a framework route (app/routes/organiser.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
+            {/* /venue-entity/:id is a framework route (app/routes/venue-entity.tsx),
+                which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
 
             {/* Phase 8 preview routes removed -- winning variants (bento palette

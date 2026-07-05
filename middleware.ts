@@ -4,6 +4,11 @@ import { next } from '@vercel/edge';
 
 export const config = {
   matcher: [
+    // Bots keep hitting this edge middleware for the branded OG card + DanceEvent
+    // JSON-LD + noindex-404. /event + /organisers stay matched: the RR7 framework
+    // loaders serve HUMANS, but the route meta() is only a fallback head — the
+    // rich per-event card (WebP→JPEG normalization, pre-baked R2 images, offers/
+    // performers) still comes from here until Phase 5 folds it into the loaders.
     '/event/:path*',
     '/festival/:path*',
     '/venue-entity/:path*',

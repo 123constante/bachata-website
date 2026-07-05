@@ -5,6 +5,23 @@ const EMOJI_OPTIONS = ['', '', '', '', '', '', '', ''];
 
 const icons = [Sparkles, Star, Heart, Music, Zap, PartyPopper];
 
+// SSR-safety: these decorative blobs previously used Math.random() at render,
+// which produces different values on the server vs the client and breaks
+// hydration (React discards the SSR subtree). Seed a deterministic pseudo-random
+// by (index, salt) so both renders agree. Purely decorative — only determinism
+// matters, not true randomness.
+//
+// INTEGER hash only (no Math.sin): transcendental functions are NOT required to
+// be bit-identical across JS engines, so a Math.sin-based seed still diverges by
+// a sub-pixel ULP between Node (server) and V8 (browser) and re-breaks hydration.
+// +,-,*,^,>>> are IEEE-754-exact everywhere. (spike/rr7-framework-mode)
+const seeded = (i: number, salt: number): number => {
+  let h = (i * 374761393 + salt * 668265263) | 0;
+  h = (Math.imul(h ^ (h >>> 13), 1274126177)) | 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h / 4294967296;
+};
+
 interface FloatingElementsProps {
   emoji?: string | boolean | null;
   count?: number;
@@ -18,11 +35,11 @@ export const FloatingElements = ({ count = 10, className = '', emoji = null }: F
         const Icon = icons[i % icons.length];
         const isEmojiMode = emoji !== null && emoji !== undefined && emoji !== false;
         const emojiChar = typeof emoji === 'string' ? emoji : EMOJI_OPTIONS[i % EMOJI_OPTIONS.length];
-        const size = Math.random() * 50 + 30;
-        const delay = Math.random() * 5;
-        const duration = 4 + Math.random() * 8;
-        const startX = Math.random() * 100;
-        const startY = Math.random() * 100;
+        const size = seeded(i, 1) * 50 + 30;
+        const delay = seeded(i, 2) * 5;
+        const duration = 4 + seeded(i, 3) * 8;
+        const startX = seeded(i, 4) * 100;
+        const startY = seeded(i, 5) * 100;
 
         return (
           <motion.div
@@ -60,13 +77,13 @@ export const FloatingElements = ({ count = 10, className = '', emoji = null }: F
           key={`orb-${i}`}
           className="absolute rounded-full"
           style={{
-            width: Math.random() * 80 + 40,
-            height: Math.random() * 80 + 40,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            width: seeded(i, 6) * 80 + 40,
+            height: seeded(i, 7) * 80 + 40,
+            left: `${seeded(i, 8) * 100}%`,
+            top: `${seeded(i, 9) * 100}%`,
             background: `radial-gradient(circle, ${
-              i % 3 === 0 ? 'hsl(var(--primary) / 0.08)' : 
-              i % 3 === 1 ? 'hsl(var(--festival-pink) / 0.06)' : 
+              i % 3 === 0 ? 'hsl(var(--primary) / 0.08)' :
+              i % 3 === 1 ? 'hsl(var(--festival-pink) / 0.06)' :
               'hsl(var(--festival-purple) / 0.06)'
             }, transparent)`,
             filter: 'blur(30px)',
@@ -76,8 +93,8 @@ export const FloatingElements = ({ count = 10, className = '', emoji = null }: F
             opacity: [0.2, 0.4, 0.2],
           }}
           transition={{
-            duration: 8 + Math.random() * 4,
-            delay: Math.random() * 3,
+            duration: 8 + seeded(i, 10) * 4,
+            delay: seeded(i, 11) * 3,
             repeat: Infinity,
             ease: 'easeInOut',
           }}

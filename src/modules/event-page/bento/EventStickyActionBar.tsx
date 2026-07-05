@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
@@ -83,7 +84,14 @@ export const EventStickyActionBar = ({
   onAddToCalendar,
   accentColor,
 }: EventStickyActionBarProps) => {
-  if (typeof document === 'undefined') return null;
+  // This bar renders via a body portal (client-only) and, unlike the modals, is
+  // shown unconditionally — so under SSR it must render nothing until mounted, or
+  // the server (null) and the first client render (the portal) structurally
+  // disagree and blow up hydration for the whole event page (React #418). Mount
+  // the portal only after hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
