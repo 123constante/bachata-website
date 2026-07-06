@@ -2,7 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { supabase } from "@/integrations/supabase/client";
-import { buildSeoForRoute } from "@/lib/seo";
+import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { getPublicName } from "@/lib/name-utils";
 import TeacherProfile from "@/pages/TeacherProfile";
 import { createQueryClient } from "@/App";
@@ -13,6 +13,7 @@ import {
   cacheHeaders,
   taggedData,
   redirectUuidToSlug,
+  normalizeOgImage,
 } from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/teachers";
@@ -40,6 +41,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const row = ((data ?? []) as Array<Record<string, unknown>>)[0];
   if (!row) throwDetailNotFound("Teacher");
 
+  const photo = row.photo_url;
+  const rawPhoto = (Array.isArray(photo) ? photo[0] : photo) as string | null | undefined;
   return taggedData(
     {
       locked: false as const,
@@ -53,7 +56,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         "Teacher",
       ),
       entitySlug: ref.slug ?? params.id,
-      ogImage: (row.photo_url as string | null) ?? undefined,
+      // Phase 5 prep — normalize og:image through /api/og/card?kind=image so
+      // WebP/oversized teacher photos render as social cards. Mirrors
+      // middleware.ts's fetchTeacherMeta ogNormalizedImage. NOTE: /teachers is
+      // STILL on middleware's matcher and VITE_ENABLE_TEACHER_DETAIL is off in
+      // prod (this branch reached only when the flag is on), so bots keep getting
+      // the middleware card for now; this makes the SSR route ready to drop off
+      // the matcher the moment the teacher-detail flag ships.
+      ogImage: normalizeOgImage({ rawUrl: rawPhoto, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     `teacher-${ref.id},teachers`,
   );
