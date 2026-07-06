@@ -5,11 +5,15 @@ import { next } from '@vercel/edge';
 export const config = {
   matcher: [
     // Bots keep hitting this edge middleware for the branded OG card + DanceEvent
-    // JSON-LD + noindex-404. /event + /organisers stay matched: the RR7 framework
-    // loaders serve HUMANS, but the route meta() is only a fallback head — the
-    // rich per-event card (WebP→JPEG normalization, pre-baked R2 images, offers/
-    // performers) still comes from here until Phase 5 folds it into the loaders.
-    '/event/:path*',
+    // JSON-LD + noindex-404. /organisers stays matched: the RR7 framework loader
+    // serves HUMANS, but the route meta() is only a fallback head (no loader —
+    // still flag-gated) — the rich card still comes from here until that flag
+    // ships. /event was retired from this list (Phase 5, 2026-07-06): its route
+    // now emits equivalent-or-better JSON-LD (BentoPage's buildEventJsonLd) and
+    // og:image normalization (resolveOgCardImage in app/detailLoader.ts) itself,
+    // verified byte-for-byte identical to this file's own output for a real
+    // event before removal. /festival, /venue-entity, /teachers, /djs, /dancers
+    // still need the same port before they can drop off this list too.
     '/festival/:path*',
     '/venue-entity/:path*',
     '/teachers/:path*',
