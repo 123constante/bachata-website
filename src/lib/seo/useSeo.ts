@@ -64,13 +64,13 @@ function startTitleScroll(title: string): () => void {
   return () => clearInterval(id);
 }
 
-// The prerender step (scripts/prerender.mjs) and search crawlers snapshot the
-// DOM; if the animated scroll is running, the snapshot captures a scrambled
+// Search crawlers that render with a headless browser (e.g. Googlebot) snapshot
+// the DOM; if the animated scroll is running, the snapshot captures a scrambled
 // mid-scroll <title>. Skip the animation for headless/bot contexts so the
 // clean title (set above) is what gets indexed. Live human tabs still scroll.
 function isHeadlessOrPrerender(): boolean {
   if (typeof navigator === 'undefined') return true;
-  if (navigator.webdriver) return true; // Playwright / Puppeteer prerender
+  if (navigator.webdriver) return true; // headless-browser crawlers
   return /prerender|headless|bot|crawler|spider/i.test(navigator.userAgent || '');
 }
 

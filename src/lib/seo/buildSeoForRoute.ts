@@ -173,9 +173,8 @@ export function buildSeoForRoute(routeId: string, ctx: SeoContext = {}): SeoInpu
   }
   // noindex a detail route whenever there is no resolved entity — covers BOTH the
   // still-loading state AND the settled "not found" state (isLoading === false,
-  // entityName == null). Keeps not-found pages out of the index, and lets the
-  // build-time prerenderer (scripts/prerender.mjs) treat "robots meta absent" as a
-  // safe readiness signal: a hollow / not-found page can never be snapshotted.
+  // entityName == null). Keeps not-found pages out of the index: a hollow /
+  // not-found page never emits a readiness signal for crawlers to snapshot.
   const noindex = (!!ctx.isLoading || !ctx.entityName) && routeId.endsWith('.detail');
   return {
     title: spec.title(ctx),
