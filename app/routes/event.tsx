@@ -1,6 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "react-router";
-import { cacheHeaders, taggedData } from "../detailLoader";
+import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
@@ -111,12 +111,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const snap = qc.getQueryData(eventPageQueryKey(eventId, occurrenceId)) as EventPageSnapshot | null;
 
+  // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked card, else
+  // a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
+  // get a renderable JPEG instead of a raw (often WebP) cover URL. The
+  // schema.org JSON-LD `image` field (buildEventJsonLd, rendered by BentoPage)
+  // is unaffected — Google's structured-data parser handles WebP fine.
+  const ogImage = await resolveOgCardImage({
+    entityType: "event",
+    entityId: eventId,
+    occId: occurrenceId,
+    coverUrl: snap?.event?.imageUrl,
+    request,
+    fallbackImage: OG_FALLBACK,
+  });
+
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
       description: snap?.event?.description ?? null,
-      ogImage: snap?.event?.imageUrl ?? null,
+      ogImage,
       slug,
     },
     // The tag id is the public URL id — events.id for bridged events, the series
@@ -134,9 +148,12 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 // Route-level SEO for the SSR document (humans + non-bot crawlers). Social/search
 // BOT UAs are still served the branded OG card + DanceEvent JSON-LD by
 // middleware.ts (its /event matcher is restored), so this is the fallback head,
-// not the primary bot payload. Emits a PER-PAGE canonical (root.tsx's static
-// homepage canonical would otherwise self-canonicalize every event to "/") plus
-// og:image so link unfurls that reach the SSR doc still get a cover.
+// not the primary bot payload — though og:image is now the SAME normalized,
+// R2-baked-or-/api/og/card URL middleware itself would serve (see
+// resolveOgCardImage in ../detailLoader), so a crawler that reaches this
+// document directly still gets a renderable preview. Emits a PER-PAGE
+// canonical (root.tsx's static homepage canonical would otherwise
+// self-canonicalize every event to "/").
 export const meta: Route.MetaFunction = ({ data }) => {
   const canonical = data?.slug ? `${SITE_ORIGIN}/event/${data.slug}` : SITE_ORIGIN;
   const name = data?.title;
