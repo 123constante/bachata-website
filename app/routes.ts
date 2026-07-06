@@ -1,4 +1,4 @@
-import { type RouteConfig, route } from "@react-router/dev/routes";
+import { type RouteConfig, route, index } from "@react-router/dev/routes";
 
 // SPIKE routes. Hour-1 shape = catchall only (hosts the legacy declarative
 // AnimatedRoutes tree). event/:id + organisers/:id framework routes get added
@@ -7,6 +7,8 @@ import { type RouteConfig, route } from "@react-router/dev/routes";
 // while the duplicate entries still inside AnimatedRoutes become unreachable
 // (fine for the spike; Phase 3 deletes them).
 export default [
+  // Bare "/" -> server redirect to the city homepage (see routes/index.tsx).
+  index("routes/index.tsx"),
   route("event/:id", "routes/event.tsx"),
   route("organisers/:id", "routes/organiser.tsx"),
   // Static listing routes — real framework routes (outrank the catchall's
