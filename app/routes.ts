@@ -31,5 +31,7 @@ export default [
   route("api/revalidate", "routes/api.revalidate.tsx"),
   route("api/ics/calendar", "routes/api.ics.calendar.tsx"),
   route("api/embed/calendar", "routes/api.embed.calendar.tsx"),
+  route("api/og/card", "routes/api.og.card.tsx"),
+  route("api/og/bake", "routes/api.og.bake.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;
