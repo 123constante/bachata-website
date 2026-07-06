@@ -22,7 +22,9 @@ const Debug = () => {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 30);
 
-        const { data: events, error } = await supabase.rpc('get_calendar_events' as any, {
+        // M2b: repointed off the legacy v1 get_calendar_events (reads
+        // calendar_occurrences) to the P5-native v2 — identical args + shape.
+        const { data: events, error } = await supabase.rpc('get_calendar_events_v2' as any, {
           range_start: startDate.toISOString(),
           range_end: endDate.toISOString(),
           city_slug_param: citySlug,
