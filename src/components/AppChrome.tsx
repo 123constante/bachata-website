@@ -6,8 +6,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { GlobalFooter } from '@/components/layout/GlobalFooter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { cn } from '@/lib/utils';
 
 // Lazy-load AnimatedRoutes to defer framer-motion out of the initial bundle.
 const AnimatedRoutes = lazyWithRetry(() =>
@@ -40,9 +40,7 @@ const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
  */
 export function AppChrome({ children }: { children?: React.ReactNode }) {
   const { pathname } = useLocation();
-  const isMobile = useIsMobile();
   const isHome = HOME_RE.test(pathname);
-  const isHomeDesktop = isHome && !isMobile;
 
   return (
     <>
@@ -59,10 +57,15 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
       </main>
       {/* Footer is suppressed on the full-bleed map home (both breakpoints). */}
       {!isHome && <GlobalFooter />}
-      {/* Bottom-nav spacer: kept on mobile home (nav still shows), dropped on desktop home. */}
-      {!isHomeDesktop && (
-        <div className="h-[calc(64px+env(safe-area-inset-bottom))] shrink-0" aria-hidden="true" />
-      )}
+      {/* Bottom-nav spacer: always on non-home; on home shown only < md (mobile),
+          matching the md:hidden BottomNav so desktop home drops both together. CSS-
+          driven (not useIsMobile) so AppChrome renders identically on server and
+          client -- a viewport-driven re-render here bailed the route Suspense out of
+          hydration (React #421) on mobile, downgrading every page to client render. */}
+      <div
+        className={cn('h-[calc(64px+env(safe-area-inset-bottom))] shrink-0', isHome && 'md:hidden')}
+        aria-hidden="true"
+      />
       <BottomNav className={isHome ? 'md:hidden' : undefined} />
     </>
   );
