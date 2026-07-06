@@ -76,17 +76,6 @@ interface OgMeta {
   type: string;
   url: string;
   canonicalHref?: string;
-  eventExtras?: {
-    startDate: string | null;
-    endDate: string | null;
-    venueName: string | null;
-    venueAddress: string | null;
-    cityName: string | null;
-    organiser: string | null;
-    organiserUrl: string | null;
-    performers: string[];
-    offers: Array<{ url: string | null; name: string | null; price: string | null }>;
-  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,33 +102,14 @@ function absoluteUrl(maybeUrl: string | null | undefined): string | null {
   return `${SITE_URL.replace(/\/$/, '')}/${v.replace(/^\//, '')}`;
 }
 
-// ─── Branded OG image seam ──────────────────────────────────────────────────
-// ~60% of event covers are WebP, which WhatsApp/Facebook/LinkedIn refuse to
-// render as link previews (so no card appears), and some are >300KB. Route
-// every OG image through /api/og/card, which returns a normalized 1200x630
-// JPEG: a branded card for events/festivals, a letterboxed normalize for other
-// entities. See api/og/card.ts. Falls back to the static branded og-image.jpg.
-// A stable per-cover token: the cover's filename (R2 names are unique per upload).
-// When the cover changes this changes, so the og:image URL changes and BOTH the CDN
-// edge cache and WhatsApp's URL-keyed preview cache are busted. Previously the intended
-// `&v=` was always empty (event_view_p5's snapshot_compat omits updated_at), so cards
-// froze for the full 1-year s-maxage on whatever cover existed at first scrape.
-function coverVersionToken(coverUrl: string | null | undefined): string | null {
-  if (!coverUrl) return null;
-  const seg = String(coverUrl).split('?')[0].split('/').pop() ?? '';
-  return seg ? seg.slice(0, 64) : null;
-}
-function ogCardUrl(
-  kind: 'event' | 'festival',
-  id: string,
-  opts?: { occ?: string | null; version?: string | null },
-): string {
-  const base = SITE_URL.replace(/\/$/, '');
-  const params = new URLSearchParams({ kind, id });
-  if (opts?.occ) params.set('occ', opts.occ);
-  if (opts?.version) params.set('v', opts.version);
-  return `${base}/api/og/card?${params.toString()}`;
-}
+// ─── OG image normalize ──────────────────────────────────────────────────────
+// Many entity covers are WebP, which WhatsApp/Facebook/LinkedIn refuse to render
+// as link previews (so no card appears), and some are >300KB. Route the OG image
+// through /api/og/card?kind=image, which returns a letterboxed 1200x630 JPEG.
+// Falls back to the static branded og-image.jpg. (The branded event/festival
+// card path — ogCardUrl/coverVersionToken/fetchBakedOgImage — was removed once
+// those routes moved their OG generation into the SSR loaders; the remaining
+// bot-served kinds — teachers, organisers, city — only ever used this normalize.)
 function ogNormalizedImage(rawUrl: string | null | undefined): string {
   const abs = absoluteUrl(rawUrl);
   if (!abs) return FALLBACK_OG_IMAGE; // already a 1200x630 JPEG
@@ -173,13 +143,6 @@ function sameHostImage(imageUrl: string, requestOrigin: string): string {
   return imageUrl;
 }
 
-function capitalize(s: string | null | undefined): string {
-  if (!s) return '';
-  const t = String(s).trim().toLowerCase();
-  if (!t) return '';
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}
-
 function firstString(val: unknown): string | null {
   if (Array.isArray(val)) {
     const first = val.find((v) => typeof v === 'string' && v.trim());
@@ -187,21 +150,6 @@ function firstString(val: unknown): string | null {
   }
   if (typeof val === 'string' && val.trim()) return val;
   return null;
-}
-
-function formatDate(iso: string | null, timezone?: string): string {
-  if (!iso) return '';
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: timezone ?? 'Europe/London',
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 10);
-  }
 }
 
 async function supabaseFetch(path: string, init?: RequestInit): Promise<Response | null> {
@@ -221,27 +169,6 @@ async function supabaseFetch(path: string, init?: RequestInit): Promise<Response
   }
 }
 
-// Prefer a pre-baked, immutable R2 OG image (rendered once on cover change, stored
-// in R2) over a live /api/og/card render. get_og_image_v1 matches on the cover
-// token, so a stale/not-yet-baked entry returns NULL and the caller falls back to
-// the (always-current) live card — previews are never broken or stale.
-async function fetchBakedOgImage(
-  entityType: string, entityId: string, occ: string | null, coverToken: string | null,
-): Promise<string | null> {
-  const res = await supabaseFetch('/rest/v1/rpc/get_og_image_v1', {
-    method: 'POST',
-    body: JSON.stringify({
-      p_entity_type: entityType, p_entity_id: entityId,
-      p_occurrence_id: occ, p_cover_token: coverToken,
-    }),
-  });
-  if (!res || !res.ok) return null;
-  try {
-    const url = await res.json();
-    return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null;
-  } catch { return null; }
-}
-
 // Resolve a param (slug OR uuid) to BOTH its uuid and canonical slug in one round
 // trip, so bot HTML can emit a slug-based <link rel=canonical> that consolidates the
 // legacy /{kind}/{uuid} URLs onto the slug. `table` must expose `id` + `slug`
@@ -259,199 +186,6 @@ async function resolveRef(table: string, param: string): Promise<{ id: string; s
 }
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
-
-async function fetchEventMeta(id: string, occId: string | null, url: string): Promise<OgMeta | null> {
-  const target: Record<string, string> = { series_id: id };
-  if (occId) target.occurrence_id = occId;
-  const res = await supabaseFetch('/rest/v1/rpc/event_view_p5', {
-    method: 'POST',
-    body: JSON.stringify({ p_target: target, p_viewer: { role: 'anon', shape: 'snapshot_compat' } }),
-  });
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snapshot: any = await res.json();
-  if (!snapshot || !snapshot.event) return null;
-
-  const event = snapshot.event;
-  const location = snapshot.location_default;
-  const occ = snapshot.occurrence_effective;
-  const venue = location?.venue;
-  const city = location?.city;
-
-  const title = truncate(event.name ?? 'Bachata Event', 90);
-  const coverToken = coverVersionToken(event.cover_image_url);
-  const image = (await fetchBakedOgImage('event', id, occId, coverToken))
-    ?? ogCardUrl('event', id, { occ: occId, version: coverToken });
-
-  const startDate = occ?.starts_at ?? event.date ?? null;
-  const formattedDate = formatDate(startDate);
-  const descParts: string[] = [];
-  if (formattedDate) descParts.push(formattedDate);
-  if (venue?.name) descParts.push(`at ${venue.name}`);
-  const locationLine = descParts.join(' ');
-  const rawDescription = event.description ? truncate(event.description, 150) : '';
-  const composedDesc = locationLine
-    ? rawDescription
-      ? `${locationLine}. ${rawDescription}`
-      : locationLine
-    : rawDescription;
-  const description = truncate(composedDesc || title, 160);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teachers: any[] = Array.isArray(occ?.lineup?.teachers) ? occ.lineup.teachers : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const djs: any[] = Array.isArray(occ?.lineup?.djs) ? occ.lineup.djs : [];
-  const performers: string[] = [
-    ...teachers.map((p) => (typeof p?.display_name === 'string' ? p.display_name : '')),
-    ...djs.map((p) => (typeof p?.display_name === 'string' ? p.display_name : '')),
-  ].filter((s) => s && s.trim());
-
-  const metaPub = (event && typeof event.meta_data_public === 'object' && event.meta_data_public) || {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ticketRows: any[] = Array.isArray(metaPub.tickets) ? metaPub.tickets : [];
-  const ticketUrl = event?.actions?.ticket_url ?? null;
-  const offers: Array<{ url: string | null; name: string | null; price: string | null }> =
-    ticketRows.length > 0
-      ? ticketRows.map((t) => ({
-          url: ticketUrl,
-          name: typeof t?.name === 'string' ? t.name : null,
-          price: t?.price != null ? String(t.price) : null,
-        }))
-      : ticketUrl
-        ? [{ url: ticketUrl, name: null, price: null }]
-        : [{ url, name: null, price: null }];
-
-  return {
-    title,
-    description,
-    image,
-    // og:type 'website' (not 'event'): the OG "event" structured type requires
-    // event:start_time/end_time, which we don't emit — so Meta's Graph scrape
-    // rejects the URL (400) and never refreshes the preview cache. The schema.org
-    // DanceEvent JSON-LD (for Google rich results) is separate and unaffected.
-    type: 'website',
-    url,
-    eventExtras: {
-      startDate,
-      endDate: occ?.ends_at ?? null,
-      venueName: venue?.name ?? null,
-      venueAddress: venue?.address_line ?? null,
-      cityName: city?.name ?? null,
-      organiser: snapshot.organisers?.[0]?.display_name ?? null,
-      organiserUrl: snapshot.organisers?.[0]?.website ?? null,
-      performers,
-      offers,
-    },
-  };
-}
-
-async function fetchFestivalMeta(id: string, url: string): Promise<OgMeta | null> {
-  const res = await supabaseFetch('/rest/v1/rpc/get_public_festival_detail', {
-    method: 'POST',
-    body: JSON.stringify({ p_event_id: id }),
-  });
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const festival: any = await res.json();
-  if (!festival || !festival.identity) return null;
-
-  const identity = festival.identity;
-  const dates = festival.dates;
-  const location = festival.location;
-  const venue = location?.primaryVenue;
-  const city = location?.city;
-
-  const title = truncate(identity.name ?? 'Bachata Festival', 90);
-  const coverToken = coverVersionToken(identity.posterUrl);
-  const image = (await fetchBakedOgImage('festival', id, null, coverToken))
-    ?? ogCardUrl('festival', id, { version: coverToken ?? identity.updatedAt ?? null });
-
-  const startDate = dates?.startsAt ?? null;
-  const formattedDate = formatDate(startDate);
-  const descParts: string[] = [];
-  if (formattedDate) descParts.push(formattedDate);
-  if (venue?.name) descParts.push(`at ${venue.name}`);
-  const locationLine = descParts.join(' ');
-  const rawDescription = identity.description ? truncate(identity.description, 150) : '';
-  const composedDesc = locationLine
-    ? rawDescription
-      ? `${locationLine}. ${rawDescription}`
-      : locationLine
-    : rawDescription;
-  const description = truncate(composedDesc || title, 160);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teachers: any[] = Array.isArray(festival?.lineup?.teachers) ? festival.lineup.teachers : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const djs: any[] = Array.isArray(festival?.lineup?.djs) ? festival.lineup.djs : [];
-  const performers: string[] = [
-    ...teachers.map((p) => (typeof p?.displayName === 'string' ? p.displayName : '')),
-    ...djs.map((p) => (typeof p?.displayName === 'string' ? p.displayName : '')),
-  ].filter((s) => s && s.trim());
-
-  const ticketUrl = festival?.links?.ticketUrl ?? null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const passes: any[] = Array.isArray(festival?.passes) ? festival.passes : [];
-  const offers: Array<{ url: string | null; name: string | null; price: string | null }> =
-    passes.length > 0
-      ? passes.map((p) => ({
-          url: ticketUrl,
-          name: typeof p?.name === 'string' ? p.name : null,
-          price: p?.price != null ? String(p.price) : null,
-        }))
-      : [{ url: ticketUrl ?? url, name: null, price: null }];
-
-  return {
-    title,
-    description,
-    image,
-    // og:type 'website' (not 'event'): the OG "event" structured type requires
-    // event:start_time/end_time, which we don't emit — so Meta's Graph scrape
-    // rejects the URL (400) and never refreshes the preview cache. The schema.org
-    // DanceEvent JSON-LD (for Google rich results) is separate and unaffected.
-    type: 'website',
-    url,
-    eventExtras: {
-      startDate,
-      endDate: dates?.endsAt ?? null,
-      venueName: venue?.name ?? null,
-      venueAddress: venue?.address ?? null,
-      cityName: city?.name ?? null,
-      organiser: festival?.organiser?.displayName ?? null,
-      organiserUrl: festival?.organiser?.href ?? null,
-      performers,
-      offers,
-    },
-  };
-}
-
-async function fetchVenueMeta(id: string, url: string): Promise<OgMeta | null> {
-  const res = await supabaseFetch('/rest/v1/rpc/get_public_venue_by_venues_id', {
-    method: 'POST',
-    body: JSON.stringify({ p_venue_id: id }),
-  });
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const venue: any = await res.json();
-  if (!venue || !venue.name) return null;
-
-  const title = truncate(venue.name, 90);
-  const image = ogNormalizedImage(firstString(venue.photo_url));
-
-  let description: string;
-  if (venue.description && String(venue.description).trim()) {
-    description = truncate(venue.description, 160);
-  } else if (venue.address) {
-    description = truncate(`Bachata venue \u2014 ${venue.address}`, 160);
-  } else {
-    description = 'Bachata venue in London';
-  }
-
-  return { title, description, image, type: 'business.business', url };
-}
 
 async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null> {
   const res = await supabaseFetch('/rest/v1/rpc/get_public_teacher_preview_v1', {
@@ -482,66 +216,6 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
   const description = truncate(base, 160);
 
   const image = ogNormalizedImage(firstString(t.photo_url));
-
-  return { title, description, image, type: 'profile', url };
-}
-
-async function fetchDjMeta(id: string, url: string): Promise<OgMeta | null> {
-  const res = await supabaseFetch('/rest/v1/rpc/get_public_dj_v1', {
-    method: 'POST',
-    body: JSON.stringify({ p_dj_id: id }),
-  });
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d: any = await res.json();
-  if (!d) return null;
-
-  const realName = `${d.first_name ?? ''} ${d.surname ?? ''}`.replace(/\s+/g, ' ').trim();
-  const titleRaw = (d.display_name && String(d.display_name).trim())
-    || (d.dj_name && String(d.dj_name).trim())
-    || realName
-    || 'Bachata DJ';
-  const title = truncate(titleRaw, 90);
-
-  let description: string;
-  if (d.bio && String(d.bio).trim()) {
-    description = truncate(d.bio, 160);
-  } else {
-    let base = 'Bachata DJ';
-    if (d.city_name) base += ` in ${d.city_name}`;
-    if (Array.isArray(d.genres) && d.genres.length > 0) {
-      base += ' \u2014 ' + d.genres.slice(0, 3).join(', ');
-    }
-    description = truncate(base, 160);
-  }
-
-  const image = ogNormalizedImage(firstString(d.photo_url));
-
-  return { title, description, image, type: 'profile', url };
-}
-
-async function fetchDancerMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&select=first_name,surname,avatar_url,favorite_styles,dance_role,nationality,cities!based_city_id(name)`;
-  const res = await supabaseFetch(`/rest/v1/dancer_profiles?${query}`);
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: any = await res.json();
-  const d = Array.isArray(rows) ? rows[0] : null;
-  if (!d) return null;
-
-  const nameRaw = `${d.first_name ?? ''} ${d.surname ?? ''}`.replace(/\s+/g, ' ').trim();
-  const title = truncate(nameRaw || 'Bachata Dancer', 90);
-
-  let base = d.dance_role ? `${capitalize(d.dance_role)} in ` : 'Dancer in ';
-  base += d.cities?.name ?? 'London';
-  if (Array.isArray(d.favorite_styles) && d.favorite_styles.length > 0) {
-    base += ' \u2014 ' + d.favorite_styles.slice(0, 3).join(', ');
-  }
-  const description = truncate(base, 160);
-
-  const image = ogNormalizedImage(firstString(d.avatar_url));
 
   return { title, description, image, type: 'profile', url };
 }
@@ -597,83 +271,7 @@ async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | nul
 // ─── HTML renderer ────────────────────────────────────────────────────────────
 
 function buildMetaHtml(meta: OgMeta): string {
-  const { title, description, image, type, url, eventExtras, canonicalHref } = meta;
-
-  let pageTitle = title;
-  let bodyLine = title;
-
-  if (eventExtras) {
-    const formattedDate = formatDate(eventExtras.startDate);
-    const titleParts = [title];
-    if (eventExtras.venueName) titleParts.push(eventExtras.venueName);
-    if (eventExtras.cityName) titleParts.push(eventExtras.cityName);
-    if (formattedDate) titleParts.push(formattedDate);
-    pageTitle = titleParts.join(' \u2014 ');
-    bodyLine = `${title}${formattedDate ? ` \u2014 ${formattedDate}` : ''}${
-      eventExtras.venueName ? ` at ${eventExtras.venueName}` : ''
-    }${eventExtras.cityName ? `, ${eventExtras.cityName}` : ''}`;
-  }
-
-  let jsonLdTag = '';
-  if (eventExtras) {
-    const ld: Record<string, unknown> = {
-      '@context': 'https://schema.org',
-      '@type': 'DanceEvent',
-      name: title,
-      url,
-      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-      eventStatus: 'https://schema.org/EventScheduled',
-    };
-    if (eventExtras.startDate) ld.startDate = eventExtras.startDate;
-    if (eventExtras.endDate) ld.endDate = eventExtras.endDate;
-    if (image) ld.image = image;
-    if (description) ld.description = truncate(description, 500);
-    // Always emit a Place + PostalAddress so the address field isn't missing,
-    // even when we don't have a venue. Falls back to country-only.
-    ld.location = {
-      '@type': 'Place',
-      name: eventExtras.venueName ?? eventExtras.cityName ?? 'United Kingdom',
-      address: {
-        '@type': 'PostalAddress',
-        ...(eventExtras.venueAddress ? { streetAddress: eventExtras.venueAddress } : {}),
-        ...(eventExtras.cityName ? { addressLocality: eventExtras.cityName } : {}),
-        addressCountry: 'GB',
-      },
-    };
-    // Always emit organizer with url so the recommended fields aren't missing.
-    ld.organizer = {
-      '@type': 'Organization',
-      name: eventExtras.organiser ?? 'Bachata Calendar',
-      url: eventExtras.organiserUrl ?? SITE_URL,
-    };
-    // Always emit performer; fall back to generic PerformingGroup when no
-    // lineup is on the snapshot.
-    if (eventExtras.performers.length > 0) {
-      ld.performer = eventExtras.performers.map((name) => ({ '@type': 'Person', name }));
-    } else {
-      ld.performer = { '@type': 'PerformingGroup', name: 'Bachata Artists' };
-    }
-    // Always emit at least one Offer pointing at the event URL.
-    if (eventExtras.offers.length > 0) {
-      ld.offers = eventExtras.offers.map((o) => {
-        const offer: Record<string, unknown> = {
-          '@type': 'Offer',
-          url: o.url ?? url,
-          availability: 'https://schema.org/InStock',
-        };
-        if (o.name) offer.name = o.name;
-        if (o.price != null) offer.price = o.price;
-        return offer;
-      });
-    } else {
-      ld.offers = {
-        '@type': 'Offer',
-        url,
-        availability: 'https://schema.org/InStock',
-      };
-    }
-    jsonLdTag = `<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
-  }
+  const { title, description, image, type, url, canonicalHref } = meta;
 
   const descForMeta = description || title;
   const canonicalTag = canonicalHref
@@ -685,7 +283,7 @@ function buildMetaHtml(meta: OgMeta): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(pageTitle)}</title>
+  <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(descForMeta)}" />
   ${canonicalTag}
   <meta property="og:site_name" content="Bachata Calendar" />
@@ -702,10 +300,9 @@ function buildMetaHtml(meta: OgMeta): string {
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(descForMeta)}" />
   <meta name="twitter:image" content="${escapeHtml(image)}" />
-  ${jsonLdTag}
 </head>
 <body>
-  <p>${escapeHtml(bodyLine)}</p>
+  <p>${escapeHtml(title)}</p>
 </body>
 </html>`;
 }
@@ -729,41 +326,10 @@ export default async function middleware(request: Request): Promise<Response> {
 
   let meta: OgMeta | null = null;
   switch (kind) {
-    case 'event': {
-      const ref = await resolveRef('events', id);
-      const occ = url.searchParams.get('occurrenceId');
-      meta = ref ? await fetchEventMeta(ref.id, occ, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/event/${ref.slug || ref.id}`;
-      break;
-    }
-    case 'festival': {
-      const ref = await resolveRef('events', id);
-      meta = ref ? await fetchFestivalMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/festival/${ref.slug || ref.id}`;
-      break;
-    }
-    case 'venue-entity': {
-      const ref = await resolveRef('venues', id);
-      meta = ref ? await fetchVenueMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/venue-entity/${ref.slug || ref.id}`;
-      break;
-    }
     case 'teachers': {
       const ref = await resolveRef('dancer_profiles', id);
       meta = ref ? await fetchTeacherMeta(ref.id, canonicalUrl) : null;
       if (meta && ref) meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
-      break;
-    }
-    case 'djs': {
-      const ref = await resolveRef('dancer_profiles', id);
-      meta = ref ? await fetchDjMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/djs/${ref.slug || ref.id}`;
-      break;
-    }
-    case 'dancers': {
-      const ref = await resolveRef('dancer_profiles', id);
-      meta = ref ? await fetchDancerMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/dancers/${ref.slug || ref.id}`;
       break;
     }
     case 'organisers': {
@@ -800,7 +366,7 @@ export default async function middleware(request: Request): Promise<Response> {
     // dead URL, so return 404 + noindex and let Google drop it. Slug params for
     // these kinds already returned next() above, so reaching here is a genuine
     // miss. City misses fall through to next() (the SPA still renders a city).
-    const NOINDEX_404_KINDS = ['event', 'festival', 'venue-entity', 'teachers', 'djs', 'dancers', 'organisers'];
+    const NOINDEX_404_KINDS = ['teachers', 'organisers'];
     if (NOINDEX_404_KINDS.includes(kind)) {
       return new Response(
         `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Not found</title><meta name="robots" content="noindex"></head><body><p>Not found.</p></body></html>`,
