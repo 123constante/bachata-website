@@ -16,10 +16,15 @@ export const config = {
     // 2026-07-06): FestivalDetail's buildEventJsonLd is equivalent-or-better
     // (real venue address + performers vs middleware's generic fallbacks) and
     // the SSR loader's resolveOgCardImage renders a byte-identical og:image
-    // (verified against a live festival before removal). /venue-entity,
+    // (verified against a live festival before removal). /venue-entity was
+    // retired next (Phase 5, 2026-07-06): its SSR route is strictly better —
+    // buildVenueJsonLd (LocalBusiness + BreadcrumbList) where middleware emitted
+    // NO JSON-LD, and normalizeOgImage (the /api/og/card?kind=image letterbox)
+    // renders the real venue photo where middleware's fetchVenueMeta fell back to
+    // the generic og-image.jpg. VITE_ENABLE_VENUE_DETAIL is on in prod, so the
+    // route serves real content, not the coming-soon gate (verified on preview).
     // /teachers, /djs, /dancers still need the same port before they can drop
     // off this list too.
-    '/venue-entity/:path*',
     '/teachers/:path*',
     '/djs/:path*',
     '/dancers/:path*',

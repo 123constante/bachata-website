@@ -2,7 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { createQueryClient } from "@/App";
-import { buildSeoForRoute } from "@/lib/seo";
+import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { fetchPublicVenue } from "@/services/venuePublicService";
 import VenueEntity from "@/pages/VenueEntity";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -12,6 +12,7 @@ import {
   cacheHeaders,
   taggedData,
   redirectUuidToSlug,
+  normalizeOgImage,
 } from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/venue-entity";
@@ -37,6 +38,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (!venue) throwDetailNotFound("Venue");
 
   const img = venue.image_url;
+  const rawCover = (Array.isArray(img) ? img[0] : img) ?? null;
+  // Phase 5 — normalize og:image/twitter:image through /api/og/card?kind=image
+  // (a letterboxed JPEG) so WebP/oversized venue photos still render as social
+  // link-preview cards. Mirrors middleware.ts's ogNormalizedImage (venues get the
+  // simple normalize, not the branded event/festival R2-bake), and lets the
+  // /venue-entity matcher be retired. The buildVenueJsonLd structured data
+  // (rendered by VenueEntity) is unaffected — it isn't a social-card image.
   return taggedData(
     {
       locked: false as const,
@@ -44,7 +52,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       entityName: venue.name,
       entitySlug: ref.slug ?? params.id,
       cityDisplay: venue.city_name ?? undefined,
-      ogImage: (Array.isArray(img) ? img[0] : img) ?? undefined,
+      ogImage: normalizeOgImage({ rawUrl: rawCover, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     // NOTE: ref.id = venues.id (this route resolves by PK). The Phase-2 DB emit
     // must match this id (see the plan's venue entity_id-vs-id open item).
