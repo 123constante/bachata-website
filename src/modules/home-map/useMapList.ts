@@ -11,6 +11,7 @@ import {
   glowFor,
   calendarDays as buildCalendarDays,
   homeStats,
+  isOnCityMap,
 } from './mapListDerivations';
 import type { HomeStats } from './mapListDerivations';
 import type { MapApi } from './EventMap';
@@ -19,6 +20,10 @@ export interface UseMapListOptions {
   /** When true (desktop), a pin tap scrolls the list to the matching card. On
    *  mobile the inline preview card replaces that scroll, so pass false. */
   scrollOnPinSelect?: boolean;
+  /** The page's city slug. Pins are scoped to it so a feed-wide festival in
+   *  another city (real foreign coords) stays listable but never pins on the map
+   *  and drags fitBounds abroad. Null/undefined = no scoping (pin everything). */
+  citySlug?: string | null;
 }
 
 export interface UseMapListResult {
@@ -121,7 +126,15 @@ export function useMapList(
     apiRef.current = api;
   }, []);
 
-  const { pins, pinKeyForOcc } = useMemo(() => dedupePins(events), [events]);
+  // Pins are scoped to the page city: dropping out-of-city rows here keeps them
+  // out of BOTH the pin set and mapVisible (which resolves through pinKeyForOcc),
+  // while listEvents/calendarDays/stats below still see every row, so a far-flung
+  // festival stays in the list ("further afield") but never on the map.
+  const citySlug = opts?.citySlug ?? null;
+  const { pins, pinKeyForOcc } = useMemo(
+    () => dedupePins(events.filter((e) => isOnCityMap(e, citySlug))),
+    [events, citySlug],
+  );
   const calendarDays = useMemo(
     () => buildCalendarDays(events.filter((e) => matchesFilter(e, filter))),
     [events, filter],

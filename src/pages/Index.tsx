@@ -124,7 +124,7 @@ const Index = () => {
     return remote.length ? [...base, ...remote] : base;
   }, [mapEvents, globalFestivals]);
 
-  const state = useMapList(allMapEvents, { scrollOnPinSelect: !isMobile });
+  const state = useMapList(allMapEvents, { scrollOnPinSelect: !isMobile, citySlug });
 
   // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
   const { setTab } = state;

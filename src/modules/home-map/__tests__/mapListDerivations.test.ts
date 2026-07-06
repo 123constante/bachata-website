@@ -16,6 +16,7 @@ import {
   collapseFestivals,
   festivalRangeLabel,
   groupPinsByLocation,
+  isOnCityMap,
 } from '../mapListDerivations';
 
 const base: MapEvent = {
@@ -63,6 +64,31 @@ describe('dedupePins', () => {
   it('drops coordless events from the pin set', () => {
     const { pins } = dedupePins([ev({ occurrence_id: 'x', lat: null, lng: null })]);
     expect(pins).toHaveLength(0);
+  });
+});
+
+describe('isOnCityMap', () => {
+  it('keeps rows whose city_slug matches the page city', () => {
+    expect(isOnCityMap(ev({ city_slug: 'london-gb' }), 'london-gb')).toBe(true);
+  });
+  it('keeps rows with no city_slug (local/legacy) regardless of page city', () => {
+    expect(isOnCityMap(ev({ city_slug: null }), 'london-gb')).toBe(true);
+  });
+  it('drops a feed-wide festival physically in another city', () => {
+    // Tunisia festival surfaced in London's feed (real foreign coords) -> off map.
+    expect(isOnCityMap(ev({ city_slug: 'gammarth-tn' }), 'london-gb')).toBe(false);
+  });
+  it('scopes nothing when the page city is null (pin everything)', () => {
+    expect(isOnCityMap(ev({ city_slug: 'gammarth-tn' }), null)).toBe(true);
+  });
+
+  it('excludes the out-of-city pin from a city-scoped pin set but keeps London', () => {
+    const events = [
+      ev({ occurrence_id: 'lon', event_id: 'e1', city_slug: 'london-gb', lat: 51.5, lng: -0.1 }),
+      ev({ occurrence_id: 'tun', event_id: 'e2', city_slug: 'gammarth-tn', lat: 36.93, lng: 10.28 }),
+    ];
+    const { pins } = dedupePins(events.filter((e) => isOnCityMap(e, 'london-gb')));
+    expect(pins.map((p) => p.occurrence_id)).toEqual(['lon']);
   });
 });
 

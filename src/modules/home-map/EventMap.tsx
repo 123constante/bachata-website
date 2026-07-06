@@ -366,7 +366,21 @@ export default function EventMap({
         m.setView(center, zoom, { animate });
         return;
       }
-      const b = L.latLngBounds(layers.map((mk) => mk.getLatLng()));
+      // Robust framing: a lone stray pin (e.g. a festival surfaced feed-wide but
+      // physically in another country) must not drag the auto-frame abroad. Keep
+      // only pins within ~1.5deg (~160km) of the median coordinate before
+      // fitting; the outlier pin still renders, only the initial fit ignores it.
+      // A genuine single-pin city still frames on its one pin (core == pts).
+      const pts = layers.map((mk) => mk.getLatLng());
+      const med = (xs: number[]) =>
+        [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+      const mLat = med(pts.map((p) => p.lat));
+      const mLng = med(pts.map((p) => p.lng));
+      const OUTLIER_DEG = 1.5;
+      const core = pts.filter(
+        (p) => Math.abs(p.lat - mLat) <= OUTLIER_DEG && Math.abs(p.lng - mLng) <= OUTLIER_DEG,
+      );
+      const b = L.latLngBounds(core.length ? core : pts);
       m.fitBounds(b, { padding: [24, 24], maxZoom: 13, animate });
     };
     fitRef.current = doFitVisible;
@@ -470,7 +484,26 @@ export default function EventMap({
 
     disposer.safeTimeout((map) => map.invalidateSize(), 60);
     disposer.safeTimeout((map) => map.invalidateSize(), 400);
+
+    // Black-map guard: both fixed timeouts above can fire before hydration gives
+    // the pane a size (SSR-prerendered home route), so tiles never paint until an
+    // interaction and the container's near-black background shows through. A
+    // one-shot observer re-measures the moment the container first reports a
+    // non-zero size, painting tiles as soon as it is actually laid out.
+    let sizeObs: ResizeObserver | null = null;
+    if (elRef.current && typeof ResizeObserver !== 'undefined') {
+      sizeObs = new ResizeObserver((entries) => {
+        const r = entries[0]?.contentRect;
+        if (r && r.width > 0 && r.height > 0) {
+          sizeObs?.disconnect();
+          sizeObs = null;
+          disposer.safeCall((map) => map.invalidateSize());
+        }
+      });
+      sizeObs.observe(elRef.current);
+    }
     return () => {
+      sizeObs?.disconnect();
       // dispose() cancels any pending timeouts AND marks the map dead, so a
       // deferred call (e.g. flyTo's openPopup) scheduled just before unmount
       // can't fire against the removed map.
