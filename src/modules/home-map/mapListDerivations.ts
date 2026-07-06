@@ -32,6 +32,17 @@ const pinKey = (e: MapEvent) =>
   `${e.event_id}|${e.lat?.toFixed(4) ?? ''},${e.lng?.toFixed(4) ?? ''}`;
 const hasCoords = (e: MapEvent) => e.lat != null && e.lng != null;
 
+/**
+ * A row belongs on the CITY map when it has no city_slug (local/legacy rows) or
+ * its city_slug matches the page city. Festivals are surfaced feed-wide by
+ * design (get_calendar_events_v2 lets any festival bypass the city filter), so a
+ * London-tab festival physically in another city carries real foreign coords --
+ * pinning it drags fitBounds abroad (audit: Tunisia festival -> France centre).
+ * Keeping such rows OFF the map (still listable, "further afield") is the fix.
+ */
+export const isOnCityMap = (e: MapEvent, citySlug: string | null | undefined) =>
+  e.city_slug == null || citySlug == null || e.city_slug === citySlug;
+
 export interface DedupedPins {
   pins: MapEvent[];
   /** every coord-bearing occurrence_id -> the occurrence_id of its pin */
