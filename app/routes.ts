@@ -25,9 +25,11 @@ export default [
   // to verify the SSR happy path — the public RPC returns 0 rows for every current
   // vendor, so a framework loader would 404 them all.
   route("venue-entity/:id", "routes/venue-entity.tsx"),
-  // Resource route (action-only, no component) — the cache-revalidation webhook
-  // target. A framework route rather than a /api/*.ts function because the
-  // preset + Build Output API doesn't route the top-level /api functions.
+  // Resource routes (loader/action-only, no component). Framework routes
+  // rather than /api/*.ts functions because the preset + Build Output API
+  // doesn't route the top-level /api functions.
   route("api/revalidate", "routes/api.revalidate.tsx"),
+  route("api/ics/calendar", "routes/api.ics.calendar.tsx"),
+  route("api/embed/calendar", "routes/api.embed.calendar.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

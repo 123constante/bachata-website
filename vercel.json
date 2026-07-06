@@ -136,6 +136,15 @@
           "value": "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
         }
       ]
+    },
+    {
+      "source": "/api/embed/calendar",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": ""
+        }
+      ]
     }
   ],
   "framework": "react-router",
