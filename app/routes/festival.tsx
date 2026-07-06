@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
-import { buildSeoForRoute } from "@/lib/seo";
+import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import FestivalDetail from "@/pages/FestivalDetail";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -11,6 +11,7 @@ import {
   cacheHeaders,
   taggedData,
   redirectUuidToSlug,
+  resolveOgCardImage,
 } from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/festival";
@@ -68,13 +69,27 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   if (!festival) throwDetailNotFound("Festival");
 
+  // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked festival card,
+  // else a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
+  // get a renderable JPEG instead of a raw (often WebP) poster URL. The schema.org
+  // JSON-LD `image` (buildEventJsonLd, rendered by FestivalDetail) is unaffected —
+  // Google's structured-data parser handles WebP fine. Mirrors app/routes/event.tsx
+  // and lets middleware.ts's /festival matcher be retired.
+  const ogImage = await resolveOgCardImage({
+    entityType: "festival",
+    entityId: eventId,
+    coverUrl: (festival.poster_url as string | null) ?? undefined,
+    request,
+    fallbackImage: DEFAULT_OG_IMAGE,
+  });
+
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
       entityName: (festival.name as string | null) ?? undefined,
       entitySlug: ref.slug ?? params.id,
       cityDisplay: (festival.city as string | null) ?? undefined,
-      ogImage: (festival.poster_url as string | null) ?? undefined,
+      ogImage,
     },
     // The same events.id is reachable at /event/:id AND /festival/:id, so tag
     // both surfaces — a single edit to that row purges both pages.
