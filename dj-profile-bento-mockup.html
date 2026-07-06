@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DJ Profile - Bento (source design, desktop + mobile)</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&amp;family=Archivo:wght@400;500;600;700;800;900&amp;family=Caveat:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:0.45}50%{opacity:1}}
+  @keyframes eqbar{0%,100%{transform:scaleY(0.9)}50%{transform:scaleY(1.06)}}
+  @keyframes fadeUp{0%{opacity:0;transform:translateY(26px) scale(0.985)}100%{opacity:1;transform:none}}
+  @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+
+<section style="font-family: 'Archivo',sans-serif; background: #E9E6E0; background-image: radial-gradient(circle at 1px 1px,rgba(0,0,0,0.05) 1px,transparent 0); background-size: 26px 26px; padding: 40px 24px 100px; display: flex; flex-direction: column; align-items: flex-start; gap: 22px;">
+
+  <div style="display:flex; gap:44px; align-items:flex-start; flex-wrap:wrap;">
+
+    <!-- ============== DESKTOP 1440 ============== -->
+    <div style="width:1440px; flex-shrink:0; border-radius:28px; overflow:hidden; background:#0A080B; color:#F6F1EA; box-shadow:0 60px 140px -40px rgba(20,8,2,0.6), 0 0 0 1px rgba(246,241,234,0.06);">
+
+      <nav style="display:flex; align-items:center; justify-content:space-between; padding:22px 40px; border-bottom:1px solid rgba(246,241,234,0.07);">
+        <div style="display:flex; align-items:center; gap:40px;">
+          <div style="display:flex; align-items:center; gap:10px; font-weight:800; font-size:19px; letter-spacing:-0.01em;"><span style="width:12px; height:12px; border-radius:50%; background:conic-gradient(from 140deg,#FBEFC4,#E7BE6E,#FF6A2C,#FBEFC4); box-shadow:0 0 14px rgba(231,190,110,0.6);"></span>RITMO</div>
+          <div style="display:flex; gap:30px; font-size:14.5px; font-weight:500; color:rgba(246,241,234,0.6);"><span>Explore</span><span>Events</span><span>Organisers</span><span style="color:#F6F1EA; font-weight:600;">DJs</span></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:18px;">
+          <span style="font-size:14.5px; font-weight:600; color:rgba(246,241,234,0.72);">Log in</span>
+          <span style="font-size:14px; font-weight:700; color:#0C0A0D; padding:11px 20px; border-radius:100px; background:linear-gradient(135deg,#FBEFC4,#E7BE6E 55%,#D2A350); box-shadow:0 8px 24px -8px rgba(231,190,110,0.7);">Sign up</span>
+        </div>
+      </nav>
+
+      <div style="padding:28px; display:grid; grid-template-columns:1.4fr 1fr; gap:16px; perspective:1600px; perspective-origin:50% 30%;">
+
+        <!-- HERO -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.04s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; overflow:hidden; position:relative; background:radial-gradient(circle at 82% 12%,rgba(255,106,44,0.32),transparent 46%),radial-gradient(circle at 6% 92%,rgba(231,190,110,0.16),transparent 46%),linear-gradient(155deg,#2a1622,#0b090c 72%); box-shadow:inset 0 1px 0 rgba(246,241,234,0.08); padding:40px; display:flex; align-items:center; gap:38px;">
+          <div style="position:relative; width:190px; height:190px; flex-shrink:0; animation:floatY 6s ease-in-out infinite;">
+            <div style="position:absolute; inset:0; border-radius:50%; background:repeating-radial-gradient(circle,#17121a 0 2px,#0c0a0f 2px 5px); box-shadow:0 26px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(246,241,234,0.08), inset 0 0 40px rgba(0,0,0,0.6); animation:spin 9s linear infinite;">
+              <div style="position:absolute; inset:33%; border-radius:50%; background:conic-gradient(from 200deg,#FBEFC4,#E7BE6E 40%,#D2A350 70%,#FBEFC4); display:flex; align-items:center; justify-content:center; color:#0C0A0D; font-weight:800; font-size:12px; letter-spacing:0.14em; box-shadow:inset 0 0 12px rgba(0,0,0,0.25);">NR&middot;33</div>
+              <div style="position:absolute; top:50%; left:50%; width:9px; height:9px; margin:-4.5px; border-radius:50%; background:#0A080B; box-shadow:0 0 0 1px rgba(231,190,110,0.4);"></div>
+            </div>
+            <div style="position:absolute; top:6%; left:58%; width:46%; height:5px; border-radius:4px; background:linear-gradient(90deg,rgba(246,241,234,0.55),rgba(246,241,234,0.12)); transform:rotate(36deg); transform-origin:left center;"></div>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:9px; margin-bottom:14px;">
+              <span style="font-size:11.5px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#E7BE6E;">Barcelona &middot; Spanish</span>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px; background:rgba(255,106,44,0.16); border:1px solid rgba(255,106,44,0.4); color:#FF9A6C;"><span style="width:5px; height:5px; border-radius:50%; background:#FF6A2C; animation:pulse 1.8s infinite;"></span>On the decks tonight</span>
+            </div>
+            <h2 style="font-family:'DM Serif Display',serif; font-size:76px; line-height:0.92; margin:0 0 14px; letter-spacing:-0.01em;">DJ Solera</h2>
+            <p style="margin:0 0 22px; font-size:16px; line-height:1.55; color:rgba(246,241,234,0.72); max-width:440px;">Sensual bachata sets that start slow and end at sunrise. I read the floor, not a playlist.</p>
+            <div style="display:flex; gap:26px;">
+              <div><div style="font-family:'DM Serif Display',serif; font-size:30px; line-height:1;">24</div><div style="font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:5px;">Gigs</div></div>
+              <div style="width:1px; background:rgba(246,241,234,0.12);"></div>
+              <div><div style="font-family:'DM Serif Display',serif; font-size:30px; line-height:1;">3</div><div style="font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:5px;">Upcoming</div></div>
+              <div style="width:1px; background:rgba(246,241,234,0.12);"></div>
+              <div><div style="font-family:'DM Serif Display',serif; font-size:30px; line-height:1; color:#E7BE6E;">4</div><div style="font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:5px;">Genres</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTACT -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.10s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:30px; display:flex; flex-direction:column; justify-content:center; gap:12px;">
+          <p style="font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#E7BE6E; margin:0 0 4px;">Book DJ Solera</p>
+          <div style="display:flex; align-items:center; justify-content:center; gap:9px; padding:15px 0; border-radius:14px; font-size:14.5px; font-weight:700; color:#FFF; background:linear-gradient(135deg,#2BE06E,#1FB457); box-shadow:0 12px 28px -10px rgba(37,211,102,0.55);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"></path></svg>Message on WhatsApp</div>
+          <div style="display:flex; align-items:center; gap:10px; padding:13px 16px; border-radius:14px; font-size:13.5px; font-weight:600; background:rgba(246,241,234,0.05); border:1px solid rgba(246,241,234,0.08);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E7BE6E" stroke-width="1.9"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>+34 612 44 87 90</div>
+          <div style="display:flex; align-items:center; gap:10px; padding:13px 16px; border-radius:14px; font-size:13.5px; font-weight:600; background:rgba(246,241,234,0.05); border:1px solid rgba(246,241,234,0.08);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E7BE6E" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>bookings@djsolera.com</div>
+          <div style="display:flex; gap:10px;">
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:12px 0; border-radius:14px; font-size:13px; font-weight:700; color:#FFF; background:#FF5500;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#FFF"><path d="M4 16v-4a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0zm6 1V9a1 1 0 0 1 2 0v8a1 1 0 0 1-2 0zm3 .8V8.5c0-.8.7-1.5 1.5-1.5 3.6 0 6.5 2.5 7.2 5.8h.3a3.6 3.6 0 0 1 0 7.2H14a1 1 0 0 1-1-1z"></path></svg>SoundCloud</div>
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:12px 0; border-radius:14px; font-size:13px; font-weight:700; color:#FFF; background:#5000FF;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2"><path d="M3 15v-5M7 17V7M11 17v-7M15 17V9M19 15v-4"></path></svg>Mixcloud</div>
+          </div>
+        </div>
+
+        <!-- LISTEN -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.16s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:28px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px;">
+            <p style="font-family:'DM Serif Display',serif; font-size:21px; margin:0; color:#F6F1EA;">Latest mixes</p>
+            <span style="font-size:11.5px; font-weight:600; color:rgba(246,241,234,0.5);">SoundCloud &amp; Mixcloud</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="border-radius:16px; border:1px solid rgba(255,85,0,0.35); background:linear-gradient(120deg,rgba(255,85,0,0.12),rgba(10,8,11,0)); padding:16px 18px; display:flex; align-items:center; gap:16px;">
+              <span style="width:42px; height:42px; border-radius:50%; flex-shrink:0; background:#FF5500; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px -6px rgba(255,85,0,0.7);"><svg width="15" height="15" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z"></path></svg></span>
+              <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14.5px;">Medianoche Rooftop Set &middot; Live</div><div style="font-size:11.5px; color:rgba(246,241,234,0.55); margin-top:2px;">SoundCloud &middot; open player</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(246,241,234,0.45)" stroke-width="2" style="flex-shrink:0;"><path d="M7 17 17 7M9 7h8v8"></path></svg>
+            </div>
+            <div style="border-radius:16px; border:1px solid rgba(120,80,255,0.35); background:linear-gradient(120deg,rgba(80,0,255,0.14),rgba(10,8,11,0)); padding:16px 18px; display:flex; align-items:center; gap:16px;">
+              <span style="width:42px; height:42px; border-radius:50%; flex-shrink:0; background:#5000FF; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px -6px rgba(80,0,255,0.7);"><svg width="15" height="15" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z"></path></svg></span>
+              <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14.5px;">Sensual Hour, Vol. 12</div><div style="font-size:11.5px; color:rgba(246,241,234,0.55); margin-top:2px;">Mixcloud &middot; open player</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(246,241,234,0.45)" stroke-width="2" style="flex-shrink:0;"><path d="M7 17 17 7M9 7h8v8"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- EQ -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.22s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:28px; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px;">
+            <p style="font-family:'DM Serif Display',serif; font-size:21px; margin:0;">Favorite Music</p>
+            
+          </div>
+          <div style="flex:1; display:flex; align-items:flex-end; gap:22px; min-height:150px; padding:0 6px; position:relative;">
+            <div style="position:absolute; inset:0 0 26px; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none;"><div style="border-top:1px solid rgba(246,241,234,0.06);"></div><div style="border-top:1px solid rgba(246,241,234,0.06);"></div><div style="border-top:1px solid rgba(246,241,234,0.06);"></div><div style="border-top:1px solid rgba(246,241,234,0.06);"></div></div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:10px; text-align:center; position:relative;"><div style="height:60%; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,#FBEFC4,#E7BE6E 55%,#D2A350); box-shadow:0 0 24px rgba(231,190,110,0.4); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite;"></div><div style="font-size:11px; font-weight:800; letter-spacing:0.04em;">SENSUAL<div style="color:#E7BE6E; font-size:15px; margin-top:2px;">60%</div></div></div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:10px; text-align:center;"><div style="height:25%; border-radius:8px 8px 3px 3px; background:linear-gradient(180deg,#FF9A6C,#FF6A2C); box-shadow:0 0 20px rgba(255,106,44,0.35); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite; animation-delay:.5s;"></div><div style="font-size:11px; font-weight:800; letter-spacing:0.04em;">DOMINICANA<div style="color:#FF9A6C; font-size:15px; margin-top:2px;">25%</div></div></div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:10px; text-align:center;"><div style="height:15%; border-radius:8px 8px 3px 3px; background:rgba(246,241,234,0.42); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite; animation-delay:1s;"></div><div style="font-size:11px; font-weight:800; letter-spacing:0.04em;">URBANA<div style="color:rgba(246,241,234,0.7); font-size:15px; margin-top:2px;">15%</div></div></div>
+          </div>
+        </div>
+
+        <!-- TOUR DATES -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.28s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:28px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px;">
+            <p style="font-family:'DM Serif Display',serif; font-size:21px; margin:0;">Upcoming</p>
+            <span style="font-size:11.5px; font-weight:600; color:#E7BE6E;">See all dates</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:14px; background:radial-gradient(circle at 96% 30%,rgba(255,106,44,0.14),transparent 55%),rgba(231,190,110,0.06); border:1px solid rgba(231,190,110,0.28);">
+              <div style="text-align:center; width:48px; flex-shrink:0;"><div style="font-family:'DM Serif Display',serif; font-size:26px; line-height:1;">11</div><div style="font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#E7BE6E;">Jul</div></div>
+              <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14px;">Medianoche Vol. VIII</div><div style="font-size:11.5px; color:rgba(246,241,234,0.55);">Madrid &middot; closing set</div></div>
+              <span style="font-size:11.5px; font-weight:700; color:#0C0A0D; padding:8px 15px; border-radius:100px; background:linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C);">Tickets</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:14px; background:rgba(246,241,234,0.03);">
+              <div style="text-align:center; width:48px; flex-shrink:0;"><div style="font-family:'DM Serif Display',serif; font-size:26px; line-height:1;">25</div><div style="font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#E7BE6E;">Jul</div></div>
+              <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14px;">BCN Bachata Weekender</div><div style="font-size:11.5px; color:rgba(246,241,234,0.55);">Barcelona &middot; main room</div></div>
+              <span style="font-size:11.5px; font-weight:600; color:rgba(246,241,234,0.7); padding:8px 15px; border-radius:100px; border:1px solid rgba(246,241,234,0.16);">Details</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:14px; background:rgba(246,241,234,0.03);">
+              <div style="text-align:center; width:48px; flex-shrink:0;"><div style="font-family:'DM Serif Display',serif; font-size:26px; line-height:1;">08</div><div style="font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#E7BE6E;">Aug</div></div>
+              <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14px;">Istanbul Int&rsquo;l Bachata Fest</div><div style="font-size:11.5px; color:rgba(246,241,234,0.55);">Istanbul &middot; night socials</div></div>
+              <span style="font-size:11.5px; font-weight:600; color:rgba(246,241,234,0.7); padding:8px 15px; border-radius:100px; border:1px solid rgba(246,241,234,0.16);">Details</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASSPORT -->
+        <div style-hover="transform:translateY(-8px) rotateX(3deg) rotateY(-3deg) scale(1.012); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.34s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); transform-style:preserve-3d; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:radial-gradient(circle at 20% 15%,rgba(231,190,110,0.08),transparent 50%),linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:28px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px;">
+            <p style="font-family:'DM Serif Display',serif; font-size:21px; margin:0;">Played at</p>
+            <span style="font-size:11.5px; font-weight:600; color:rgba(246,241,234,0.5);">24 events played</span>
+          </div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+            <div style-hover="transform:rotate(0deg) scale(1.12); border-color:rgba(231,190,110,0.95);" style="transition:transform .4s cubic-bezier(.2,.8,.2,1),border-color .4s; width:104px; height:104px; border-radius:50%; border:2px dashed rgba(231,190,110,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(-6deg); color:#E7BE6E; padding:10px;"><div style="font-size:8px; font-weight:800; letter-spacing:0.1em;">MEDIANOCHE</div><div style="font-family:'DM Serif Display',serif; font-size:16px; line-height:1; margin:3px 0;">MADRID</div><div style="font-size:8px; font-weight:800;">JUN &rsquo;26</div></div>
+            <div style-hover="transform:rotate(0deg) scale(1.12); border-color:rgba(255,106,44,0.9);" style="transition:transform .4s cubic-bezier(.2,.8,.2,1),border-color .4s; width:104px; height:104px; border-radius:50%; border:2px dashed rgba(255,106,44,0.55); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(4deg); color:#FF9A6C; padding:10px;"><div style="font-size:8px; font-weight:800; letter-spacing:0.1em;">BACHATA FEST</div><div style="font-family:'DM Serif Display',serif; font-size:16px; line-height:1; margin:3px 0;">LONDON</div><div style="font-size:8px; font-weight:800;">MAY &rsquo;26</div></div>
+            <div style-hover="transform:rotate(0deg) scale(1.12); border-color:rgba(246,241,234,0.7);" style="transition:transform .4s cubic-bezier(.2,.8,.2,1),border-color .4s; width:104px; height:104px; border-radius:50%; border:2px dashed rgba(246,241,234,0.4); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(-3deg); color:rgba(246,241,234,0.8); padding:10px;"><div style="font-size:8px; font-weight:800; letter-spacing:0.1em;">SENSUAL NIGHT</div><div style="font-family:'DM Serif Display',serif; font-size:16px; line-height:1; margin:3px 0;">PARIS</div><div style="font-size:8px; font-weight:800;">APR &rsquo;26</div></div>
+            <div style-hover="transform:rotate(0deg) scale(1.12); border-color:rgba(231,190,110,0.95);" style="transition:transform .4s cubic-bezier(.2,.8,.2,1),border-color .4s; width:104px; height:104px; border-radius:50%; border:2px dashed rgba(231,190,110,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(6deg); color:#E7BE6E; padding:10px;"><div style="font-size:8px; font-weight:800; letter-spacing:0.1em;">WEEKENDER</div><div style="font-family:'DM Serif Display',serif; font-size:19px; line-height:1; margin:3px 0;">BCN</div><div style="font-size:8px; font-weight:800;">MAR &rsquo;26</div></div>
+            <div style="flex: 1; min-width: 80px; text-align: center; font-size: 20px; font-weight: 600; color: #FFFEFC">+ 20 more<br>gigs</div>
+          </div>
+        </div>
+
+        <!-- GUESTBOOK full width -->
+        <div style-hover="transform:translateY(-6px) scale(1.006); box-shadow:0 44px 84px -30px rgba(20,8,2,0.9), 0 0 0 1px rgba(231,190,110,0.3);" style="animation:fadeUp .7s cubic-bezier(.2,.75,.25,1) both; animation-delay:.40s; transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s cubic-bezier(.2,.7,.2,1); grid-column:1/3; border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.01)); box-shadow:inset 0 1px 0 rgba(246,241,234,0.05); padding:32px 34px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:22px;">
+            <p style="font-family:'DM Serif Display',serif; font-size:22px; margin:0;">The guestbook</p>
+            <span style="font-size:12.5px; font-weight:600; color:rgba(246,241,234,0.6);"><span style="color:#E7BE6E; font-weight:800;">Coming soon</span></span>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; padding:26px 0; border:1px dashed rgba(246,241,234,0.14); border-radius:16px;">
+            <div style="font-size:22px;">&#11088;</div>
+            <div style="font-family:'DM Serif Display',serif; font-size:22px; color:#F6F1EA;">Be the first to review this DJ</div>
+            <div style="font-size:13px; color:rgba(246,241,234,0.55); max-width:420px;">Dancer reviews &amp; ratings are coming soon &mdash; you&rsquo;ll be able to rate a DJ after a night on their floor.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============== MOBILE 390 ============== -->
+    <div style="width:390px; flex-shrink:0; border-radius:40px; overflow:hidden; background:#0A080B; color:#F6F1EA; box-shadow:0 50px 100px -30px rgba(20,8,2,0.6), 0 0 0 1px rgba(246,241,234,0.06);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid rgba(246,241,234,0.07);">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:16px;"><span style="width:10px; height:10px; border-radius:50%; background:conic-gradient(from 140deg,#FBEFC4,#E7BE6E,#FF6A2C,#FBEFC4);"></span>RITMO</div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F6F1EA" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+      </div>
+      <div style="padding:16px; display:flex; flex-direction:column; gap:12px;">
+
+        <div style="border-radius:22px; position:relative; overflow:hidden; background:radial-gradient(circle at 50% 8%,rgba(255,106,44,0.3),transparent 55%),linear-gradient(160deg,#2a1622,#0b090c 74%); box-shadow:inset 0 1px 0 rgba(246,241,234,0.08); padding:28px 22px; text-align:center;">
+          <div style="position:relative; width:132px; height:132px; margin:0 auto 16px; animation:floatY 6s ease-in-out infinite;"><div style="position:absolute; inset:0; border-radius:50%; background:repeating-radial-gradient(circle,#17121a 0 2px,#0c0a0f 2px 5px); box-shadow:0 18px 44px rgba(0,0,0,0.75), inset 0 0 30px rgba(0,0,0,0.6); animation:spin 9s linear infinite;"><div style="position:absolute; inset:33%; border-radius:50%; background:conic-gradient(from 200deg,#FBEFC4,#E7BE6E 40%,#D2A350 70%,#FBEFC4); display:flex; align-items:center; justify-content:center; color:#0C0A0D; font-weight:800; font-size:10px; letter-spacing:0.12em;">NR&middot;33</div></div></div>
+          <div style="display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:700; padding:4px 10px; border-radius:100px; background:rgba(255,106,44,0.16); border:1px solid rgba(255,106,44,0.4); color:#FF9A6C; margin-bottom:10px;"><span style="width:5px; height:5px; border-radius:50%; background:#FF6A2C; animation:pulse 1.8s infinite;"></span>Barcelona &middot; Spanish</div>
+          <h2 style="font-family:'DM Serif Display',serif; font-size:44px; line-height:0.95; margin:0 0 10px;">DJ Solera</h2>
+          <p style="margin:0 0 18px; font-size:13.5px; color:rgba(246,241,234,0.72); line-height:1.5;">Sensual bachata sets that start slow and end at sunrise.</p>
+          <div style="display:flex; justify-content:center; gap:20px;"><div><div style="font-family:'DM Serif Display',serif; font-size:22px; line-height:1;">24</div><div style="font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:3px;">Gigs</div></div><div><div style="font-family:'DM Serif Display',serif; font-size:22px; line-height:1;">3</div><div style="font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:3px;">Upcoming</div></div><div><div style="font-family:'DM Serif Display',serif; font-size:22px; line-height:1; color:#E7BE6E;">4</div><div style="font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(246,241,234,0.5); margin-top:3px;">Genres</div></div></div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); padding:18px; display:flex; flex-direction:column; gap:9px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:14px 0; border-radius:14px; font-size:13.5px; font-weight:700; color:#FFF; background:linear-gradient(135deg,#2BE06E,#1FB457);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"></path></svg>WhatsApp</div>
+          <div style="display:flex; gap:9px;"><div style="flex:1; text-align:center; padding:12px 0; border-radius:14px; font-size:12.5px; font-weight:600; background:rgba(246,241,234,0.05); border:1px solid rgba(246,241,234,0.08);">Call</div><div style="flex:1; text-align:center; padding:12px 0; border-radius:14px; font-size:12.5px; font-weight:600; background:rgba(246,241,234,0.05); border:1px solid rgba(246,241,234,0.08);">Email</div></div>
+          <div style="display:flex; gap:9px;"><div style="flex:1; text-align:center; padding:12px 0; border-radius:14px; font-size:12.5px; font-weight:700; color:#FFF; background:#FF5500;">SoundCloud</div><div style="flex:1; text-align:center; padding:12px 0; border-radius:14px; font-size:12.5px; font-weight:700; color:#FFF; background:#5000FF;">Mixcloud</div></div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); padding:20px;">
+          <p style="font-family:'DM Serif Display',serif; font-size:18px; margin:0 0 14px;">Latest mixes</p>
+          <div style="border-radius:14px; border:1px solid rgba(255,85,0,0.35); background:rgba(255,85,0,0.1); padding:13px 15px; margin-bottom:9px; display:flex; align-items:center; gap:12px;"><span style="width:34px; height:34px; border-radius:50%; flex-shrink:0; background:#FF5500; display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z"></path></svg></span><div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:13px;">Rooftop Set</div><div style="font-size:11px; color:rgba(246,241,234,0.55);">SoundCloud &middot; open player</div></div></div>
+          <div style="border-radius:14px; border:1px solid rgba(120,80,255,0.35); background:rgba(80,0,255,0.12); padding:13px 15px; display:flex; align-items:center; gap:12px;"><span style="width:34px; height:34px; border-radius:50%; flex-shrink:0; background:#5000FF; display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z"></path></svg></span><div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:13px;">Sensual Hour, Vol. 12</div><div style="font-size:11px; color:rgba(246,241,234,0.55);">Mixcloud &middot; open player</div></div></div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); padding:20px;">
+          <p style="font-family:'DM Serif Display',serif; font-size:18px; margin:0 0 16px;">Set EQ</p>
+          <div style="display:flex; align-items:flex-end; gap:16px; height:100px;">
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:7px; text-align:center;"><div style="height:60%; border-radius:6px 6px 2px 2px; background:linear-gradient(180deg,#FBEFC4,#E7BE6E); box-shadow:0 0 18px rgba(231,190,110,0.4); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite;"></div><div style="font-size:9.5px; font-weight:800;">SENS<div style="color:#E7BE6E; margin-top:1px;">60%</div></div></div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:7px; text-align:center;"><div style="height:25%; border-radius:6px 6px 2px 2px; background:linear-gradient(180deg,#FF9A6C,#FF6A2C); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite; animation-delay:.5s;"></div><div style="font-size:9.5px; font-weight:800;">DOM<div style="color:#FF9A6C; margin-top:1px;">25%</div></div></div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:7px; text-align:center;"><div style="height:15%; border-radius:6px 6px 2px 2px; background:rgba(246,241,234,0.42); transform-origin:bottom; animation:eqbar 2.4s ease-in-out infinite; animation-delay:1s;"></div><div style="font-size:9.5px; font-weight:800;">URB<div style="color:rgba(246,241,234,0.7); margin-top:1px;">15%</div></div></div>
+          </div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); padding:20px;">
+          <p style="font-family:'DM Serif Display',serif; font-size:18px; margin:0 0 14px;">Upcoming</p>
+          <div style="display:flex; flex-direction:column; gap:9px;">
+            <div style="display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:13px; background:rgba(231,190,110,0.06); border:1px solid rgba(231,190,110,0.28);"><div style="text-align:center; width:40px;"><div style="font-family:'DM Serif Display',serif; font-size:22px; line-height:1;">11</div><div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#E7BE6E;">Jul</div></div><div style="flex:1;"><div style="font-weight:700; font-size:13px;">Medianoche VIII</div><div style="font-size:11px; color:rgba(246,241,234,0.55);">Madrid&nbsp;</div></div><span style="font-size:10.5px; font-weight:700; color:#0C0A0D; padding:7px 12px; border-radius:100px; background:linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C);">Tickets</span></div>
+            <div style="display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:13px; background:rgba(246,241,234,0.03);"><div style="text-align:center; width:40px;"><div style="font-family:'DM Serif Display',serif; font-size:22px; line-height:1;">25</div><div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#E7BE6E;">Jul</div></div><div style="flex:1;"><div style="font-weight:700; font-size:13px;">BCN Weekender</div><div style="font-size:11px; color:rgba(246,241,234,0.55);">Barcelona&nbsp;</div></div></div>
+          </div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.015)); padding:20px;">
+          <p style="font-family:'DM Serif Display',serif; font-size:18px; margin:0 0 16px;">Played at</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+            <div style="width:96px; height:96px; border-radius:50%; border:2px dashed rgba(231,190,110,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(-6deg); color:#E7BE6E; padding:8px;"><div style="font-size:7.5px; font-weight:800;">MEDIANOCHE</div><div style="font-family:'DM Serif Display',serif; font-size:14px; line-height:1; margin:2px 0;">MADRID</div><div style="font-size:7.5px; font-weight:800;">JUN &rsquo;26</div></div>
+            <div style="width:96px; height:96px; border-radius:50%; border:2px dashed rgba(255,106,44,0.55); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(4deg); color:#FF9A6C; padding:8px;"><div style="font-size:7.5px; font-weight:800;">BACHATA FEST</div><div style="font-family:'DM Serif Display',serif; font-size:14px; line-height:1; margin:2px 0;">LONDON</div><div style="font-size:7.5px; font-weight:800;">MAY &rsquo;26</div></div>
+            <div style="width:96px; height:96px; border-radius:50%; border:2px dashed rgba(231,190,110,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(-3deg); color:#E7BE6E; padding:8px;"><div style="font-size:7.5px; font-weight:800;">SENSUAL NIGHT</div><div style="font-family:'DM Serif Display',serif; font-size:14px; line-height:1; margin:2px 0;">PARIS</div><div style="font-size:7.5px; font-weight:800;">APR &rsquo;26</div></div>
+          </div>
+        </div>
+
+        <div style="border-radius:22px; border:1px solid rgba(246,241,234,0.09); background:linear-gradient(160deg,rgba(246,241,234,0.05),rgba(246,241,234,0.01)); padding:20px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;"><p style="font-family:'DM Serif Display',serif; font-size:18px; margin:0;">Guestbook</p><span style="font-size:11px; font-weight:600; color:rgba(246,241,234,0.6);"><span style="color:#E7BE6E; font-weight:800;">Coming soon</span></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:18px 0; border:1px dashed rgba(246,241,234,0.14); border-radius:14px;">
+            <div style="font-size:18px;">&#11088;</div>
+            <div style="font-family:'DM Serif Display',serif; font-size:16px; color:#F6F1EA;">Be the first to review</div>
+            <div style="font-size:11.5px; color:rgba(246,241,234,0.55);">Reviews &amp; ratings coming soon.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><div style="display:inline-flex; align-items:center; gap:10px; padding:7px 14px; border-radius:100px; background:#0C0A0D; color:#E7BE6E; font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase;">
+    <span style="width:7px; height:7px; border-radius:50%; background:#FF6A2C; box-shadow:0 0 10px #FF6A2C;"></span>
+    DJ profile &middot; real data only
+  </div>
+
+  
+</section>
+
+
+<script>
+  document.querySelectorAll('[style-hover]').forEach(function (el) {
+    var base = el.getAttribute('style') || '';
+    var hover = el.getAttribute('style-hover') || '';
+    el.addEventListener('mouseenter', function () { el.setAttribute('style', base + ';' + hover); });
+    el.addEventListener('mouseleave', function () { el.setAttribute('style', base); });
+  });
+</script>
+</body>
+</html>
