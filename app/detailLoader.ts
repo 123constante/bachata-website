@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { data, redirect } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
-import type { EntityTable } from "@/lib/seo";
+import { SITE_ORIGIN, type EntityTable } from "@/lib/seo";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
@@ -104,4 +104,92 @@ export function redirectUuidToSlug(ref: ResolvedRef, request: Request, basePath:
   if (ref.arrivedViaUuid && ref.slug) {
     throw redirect(`${basePath}/${ref.slug}${new URL(request.url).search}`, 301);
   }
+}
+
+// ── Phase 5 — social-preview og:image normalization ─────────────────────────
+// ~60% of event/festival covers are WebP, which WhatsApp/Facebook/LinkedIn
+// refuse to render as link-preview cards (no card appears at all) — mirrors
+// middleware.ts's ogCardUrl()/fetchBakedOgImage()/sameHostImage(), the one
+// piece of middleware's bot-only OG generation the SSR routes don't yet
+// replicate (JSON-LD/venue/organizer/performers are already emitted by the
+// page components themselves — see src/lib/buildEventJsonLd.ts). This is
+// ONLY for the og:image/twitter:image meta tags; the schema.org JSON-LD
+// `image` field (parsed by Google, not by social-card unfurlers) is fine with
+// the raw cover URL as-is and is left untouched.
+
+/** A stable per-cover cache-buster: the cover's filename (R2 names are unique
+ *  per upload). Changes when the cover changes, busting both the CDN edge
+ *  cache and WhatsApp's URL-keyed preview cache. */
+export function coverVersionToken(coverUrl: string | null | undefined): string | null {
+  if (!coverUrl) return null;
+  const seg = String(coverUrl).split("?")[0].split("/").pop() ?? "";
+  return seg ? seg.slice(0, 64) : null;
+}
+
+/** Prefer a pre-baked, immutable R2 OG image (rendered once on cover change)
+ *  over a live /api/og/card render. Returns null on any miss/error so the
+ *  caller always has a live fallback — a preview is never broken or stale. */
+async function fetchBakedOgImage(
+  entityType: "event" | "festival",
+  entityId: string,
+  occId: string | null,
+  coverToken: string | null,
+): Promise<string | null> {
+  try {
+    const { data: url, error } = await supabase.rpc("get_og_image_v1" as never, {
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_occurrence_id: occId,
+      p_cover_token: coverToken,
+    } as never);
+    if (error) return null;
+    return typeof url === "string" && /^https?:\/\//i.test(url) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+/** og:image MUST be an absolute URL on the host the crawler actually fetched —
+ *  otherwise WhatsApp/Facebook silently drop the preview card (they don't
+ *  follow redirects on og:image, and a relative URL isn't valid at all). */
+function sameHostImage(imageUrl: string, requestOrigin: string): string {
+  try {
+    const ro = new URL(requestOrigin);
+    const img = new URL(imageUrl, ro);
+    if (img.hostname === ro.hostname || /(^|\.)bachatacalendar\.co\.uk$/i.test(img.hostname)) {
+      img.protocol = ro.protocol;
+      img.host = ro.host;
+      return img.toString();
+    }
+  } catch {
+    /* unparseable even with a base — leave as-is */
+  }
+  return imageUrl;
+}
+
+/** Resolve the og:image/twitter:image URL for an event or festival: prefer the
+ *  R2-baked card, else a live /api/og/card render, normalized to the request's
+ *  host. Call from the route loader (not the component) — needs the raw cover
+ *  URL and the request for its origin. Falls back to `fallbackImage` (the
+ *  static branded og-image.jpg) when there's no cover at all. */
+export async function resolveOgCardImage(opts: {
+  entityType: "event" | "festival";
+  entityId: string;
+  occId?: string | null;
+  coverUrl: string | null | undefined;
+  request: Request;
+  fallbackImage: string;
+}): Promise<string> {
+  const { entityType, entityId, occId = null, coverUrl, request, fallbackImage } = opts;
+  const requestOrigin = new URL(request.url).origin;
+  const coverToken = coverVersionToken(coverUrl);
+  if (!coverToken) return fallbackImage;
+
+  const baked = await fetchBakedOgImage(entityType, entityId, occId, coverToken);
+  const params = new URLSearchParams({ kind: entityType, id: entityId });
+  if (occId) params.set("occ", occId);
+  params.set("v", coverToken);
+  const live = `${SITE_ORIGIN.replace(/\/$/, "")}/api/og/card?${params.toString()}`;
+
+  return sameHostImage(baked ?? live, requestOrigin);
 }
