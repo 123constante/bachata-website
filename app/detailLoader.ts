@@ -193,3 +193,32 @@ export async function resolveOgCardImage(opts: {
 
   return sameHostImage(baked ?? live, requestOrigin);
 }
+
+/** Absolute-ise a possibly-relative image URL against SITE_ORIGIN (mirrors
+ *  middleware.ts's absoluteUrl). */
+function absoluteImageUrl(maybeUrl: string | null | undefined): string | null {
+  if (!maybeUrl) return null;
+  const v = String(maybeUrl).trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return `${SITE_ORIGIN.replace(/\/$/, "")}/${v.replace(/^\//, "")}`;
+}
+
+/** og:image/twitter:image for the non-event/festival entities (venue, teacher,
+ *  dj, dancer): route the raw cover through /api/og/card?kind=image — a
+ *  letterboxed 1200x630 JPEG — so WebP/oversized covers still render as
+ *  link-preview cards, host-normalized to the request origin. Mirrors
+ *  middleware.ts's ogNormalizedImage() + sameHostImage() (these entities get the
+ *  simple normalize, NOT the branded ogCardUrl()/R2-bake path events/festivals
+ *  use). Synchronous — no RPC. Falls back to `fallbackImage` with no cover. */
+export function normalizeOgImage(opts: {
+  rawUrl: string | null | undefined;
+  request: Request;
+  fallbackImage: string;
+}): string {
+  const abs = absoluteImageUrl(opts.rawUrl);
+  if (!abs) return opts.fallbackImage;
+  const requestOrigin = new URL(opts.request.url).origin;
+  const normalized = `${SITE_ORIGIN.replace(/\/$/, "")}/api/og/card?kind=image&src=${encodeURIComponent(abs)}`;
+  return sameHostImage(normalized, requestOrigin);
+}
