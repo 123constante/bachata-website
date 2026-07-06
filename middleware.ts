@@ -23,11 +23,14 @@ export const config = {
     // renders the real venue photo where middleware's fetchVenueMeta fell back to
     // the generic og-image.jpg. VITE_ENABLE_VENUE_DETAIL is on in prod, so the
     // route serves real content, not the coming-soon gate (verified on preview).
-    // /teachers, /djs, /dancers still need the same port before they can drop
-    // off this list too.
+    // /djs + /dancers were retired next (Phase 5, 2026-07-06): both are ungated
+    // and their SSR loaders now normalize og:image via normalizeOgImage (same
+    // /api/og/card?kind=image src as middleware's fetchDjMeta/fetchDancerMeta —
+    // verified identical on preview for a live DJ + dancer). /teachers STAYS: it
+    // is flag-gated and VITE_ENABLE_TEACHER_DETAIL=false in prod, so its SSR
+    // route serves a coming-soon/noindex page — bots must keep getting the rich
+    // card from here until that flag ships (same reason /organisers stays).
     '/teachers/:path*',
-    '/djs/:path*',
-    '/dancers/:path*',
     '/organisers/:path*',
     '/city/:path*',
   ],
