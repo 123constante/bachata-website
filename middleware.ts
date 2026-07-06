@@ -12,9 +12,13 @@ export const config = {
     // now emits equivalent-or-better JSON-LD (BentoPage's buildEventJsonLd) and
     // og:image normalization (resolveOgCardImage in app/detailLoader.ts) itself,
     // verified byte-for-byte identical to this file's own output for a real
-    // event before removal. /festival, /venue-entity, /teachers, /djs, /dancers
-    // still need the same port before they can drop off this list too.
-    '/festival/:path*',
+    // event before removal. /festival was retired the same way (Phase 5,
+    // 2026-07-06): FestivalDetail's buildEventJsonLd is equivalent-or-better
+    // (real venue address + performers vs middleware's generic fallbacks) and
+    // the SSR loader's resolveOgCardImage renders a byte-identical og:image
+    // (verified against a live festival before removal). /venue-entity,
+    // /teachers, /djs, /dancers still need the same port before they can drop
+    // off this list too.
     '/venue-entity/:path*',
     '/teachers/:path*',
     '/djs/:path*',
