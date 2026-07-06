@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
-import { buildSeoForRoute } from "@/lib/seo";
+import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -11,6 +11,7 @@ import {
   cacheHeaders,
   taggedData,
   redirectUuidToSlug,
+  normalizeOgImage,
 } from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
@@ -50,7 +51,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       dehydratedState: dehydrate(qc),
       entityName: view.displayName,
       entitySlug: ref.slug ?? params.id,
-      ogImage: (dancer.avatar_url as string | null) ?? undefined,
+      // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
+      // JPEG) so WebP/oversized avatars still render as social link-preview cards.
+      // Mirrors middleware.ts's ogNormalizedImage; lets the /dancers matcher be retired.
+      ogImage: normalizeOgImage({ rawUrl: dancer.avatar_url as string | null, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     `dancer-${ref.id},dancers`,
   );

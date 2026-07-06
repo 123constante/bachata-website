@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
-import { buildSeoForRoute } from "@/lib/seo";
+import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import DJProfile from "@/pages/DJProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -10,6 +10,7 @@ import {
   cacheHeaders,
   taggedData,
   redirectUuidToSlug,
+  normalizeOgImage,
 } from "../detailLoader";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/djs";
@@ -35,12 +36,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (!dj) throwDetailNotFound("DJ");
 
   const photo = dj.photo_url;
+  const rawPhoto = (Array.isArray(photo) ? photo[0] : photo) as string | null | undefined;
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
       entityName: (dj.display_name as string | null) ?? (dj.dj_name as string | null) ?? undefined,
       entitySlug: ref.slug ?? params.id,
-      ogImage: (Array.isArray(photo) ? photo[0] : photo) as string | undefined,
+      // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
+      // JPEG) so WebP/oversized DJ photos still render as social link-preview
+      // cards. Mirrors middleware.ts's ogNormalizedImage; lets the /djs matcher
+      // be retired.
+      ogImage: normalizeOgImage({ rawUrl: rawPhoto, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     `dj-${ref.id},djs`,
   );
