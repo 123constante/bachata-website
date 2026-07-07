@@ -308,8 +308,15 @@ function useAverageColor(url: string | null): [number, number, number] {
   const [rgb, setRgb] = React.useState<[number, number, number]>([255, 106, 44]);
   React.useEffect(() => {
     if (!url) return;
+    // No crossOrigin: the cover CDN (Cloudflare R2) sends no CORS headers, so a
+    // crossOrigin='anonymous' request fails with net::ERR_FAILED -- a console
+    // error for every organiser page (and the colour sample fell back to default
+    // anyway). Without it the request reuses the already-cached non-CORS <img>
+    // fetch (no second request, no error); the canvas then taints and
+    // getImageData throws below, caught -> same default colour. To actually
+    // enable colour theming, add CORS headers to the R2 bucket and restore
+    // crossOrigin here.
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
