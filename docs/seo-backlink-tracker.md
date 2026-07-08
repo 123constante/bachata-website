@@ -60,12 +60,20 @@ _Excluded: "Bachata Community" (your own .space domain &mdash; handle via the 0.
 
 ## Tier 2 &mdash; Venues with their own website (link after 1.4 unlocks venue pages)
 
+> **Outreach log reconstruction (2026-07-08, from Gmail Sent on
+> bachatacommunityuk@gmail.com):** the only link-request emails on record are the
+> two venue asks below, both sent 2026-06-17 with subject "Bachata Calendar &mdash;
+> a quick link request" (each sent twice; count as one ask). No replies as of
+> 2026-07-08 &mdash; both are due a follow-up. **No organiser outreach emails exist
+> in this mailbox** &mdash; if the ~30 June organiser wave went out via another
+> account or WhatsApp/IG DMs, log those sends here manually.
+
 | Venue | Venue page | Their site | Asked | Live | URL |
 |-------|-----------|-----------|-------|------|-----|
 | Dance Attic Studios | /venue-entity/dance-attic-studios | danceattic.com | | | |
-| Husky Studios | /venue-entity/husky-studios | huskystudios.co.uk | | | |
+| Husky Studios | /venue-entity/husky-studios | huskystudios.co.uk | 2026-06-17 (email, bookings@huskystudios.co.uk) | | |
 | Unit 3.4 | /venue-entity/unit-3-4 | createdestroystudios.com | | | |
-| Colab Tower | /venue-entity/colab-tower | colabtheatre.co.uk | | | |
+| Colab Tower | /venue-entity/colab-tower | colabtheatre.co.uk | 2026-06-17 (email, info@colabtheatre.co.uk) | | |
 | Carthage Thalasso Resort | /venue-entity/carthage-thalasso-resort | carthagethalassoresort.com | | | |
 | Marlborough Primary | /venue-entity/marlborough-primary-school | marlborough.rbkc.sch.uk | | | |
 
