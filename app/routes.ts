@@ -47,6 +47,9 @@ export default [
   // Resource routes (loader/action-only, no component). Framework routes
   // rather than /api/*.ts functions because the preset + Build Output API
   // doesn't route the top-level /api functions.
+  // Live sitemap (loader-only resource route; replaces the dead build-time
+  // generator + committed public/sitemap.xml).
+  route("sitemap.xml", "routes/sitemap.tsx"),
   route("api/revalidate", "routes/api.revalidate.tsx"),
   route("api/ics/calendar", "routes/api.ics.calendar.tsx"),
   route("api/embed/calendar", "routes/api.embed.calendar.tsx"),

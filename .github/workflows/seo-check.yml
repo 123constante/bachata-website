@@ -1,0 +1,39 @@
+name: SEO Guard
+
+# Asserts the crawlable SEO surface on the deployed site: per-page canonical,
+# page-specific title, meta description, h1, Event JSON-LD on event pages, and
+# the homepage's crawlable /event/ links. The h1 assertion alone would have
+# caught the July 2026 festival-skeleton regression; the title/canonical ones
+# the landing-page shell regression. Targets the deployed site (SSR output
+# only exists post-deploy), so this runs post-deploy + daily, not as a PR
+# gate — same reasoning as og-image-check.yml.
+
+on:
+  deployment_status:
+  schedule:
+    - cron: '30 6 * * *'   # daily, offset from the 06:00 db-contract run
+  workflow_dispatch:
+
+jobs:
+  seo-check:
+    # For deployment_status events, only run on a successful production deploy.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run SEO guard
+        env:
+          SEO_CHECK_BASE: https://www.bachatacalendar.co.uk
+        run: npm run check:seo

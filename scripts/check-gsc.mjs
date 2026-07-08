@@ -81,7 +81,7 @@ const CANONICAL_SITEMAP = `${BASE}/sitemap.xml`;
 const WWW_SITEMAP = CANONICAL_SITEMAP.replace('://', '://www.');
 
 // Routes that intentionally client-side redirect to /city/:slug/... - kept in
-// lockstep with the exclusion list in generate-sitemap.mjs:57-59. These serve a
+// lockstep with the flag-gated entries in app/routes/sitemap.tsx. These serve a
 // prerendered 200 then redirect in React, so GSC may report "Page with
 // redirect"; that is expected ONLY for these paths. Any OTHER route reporting a
 // redirect is a regression and fails.

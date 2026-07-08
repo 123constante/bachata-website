@@ -21,6 +21,14 @@ export const meta: Route.MetaFunction = ({ params }) => {
   }
   return [
     { title: "Organiser — Bachata Calendar" },
+    // No loader on this route (the page hydrates client-side), so the
+    // description is canned rather than per-organiser. check:seo asserts a
+    // non-empty description on every sitemapped page — organisers joined the
+    // sitemap when it went live (app/routes/sitemap.tsx).
+    {
+      name: "description",
+      content: "Bachata event organiser profile: upcoming events, past events and how to get in touch, on Bachata Calendar.",
+    },
     { tagName: "link", rel: "canonical", href: canonical },
   ];
 };
