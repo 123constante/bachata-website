@@ -3,6 +3,7 @@ import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute } from "@/lib/seo";
 import FestivalHub from "@/pages/FestivalHub";
+import { stampFestivalsList } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { seoInputToMeta } from "../seoMeta";
@@ -36,7 +37,7 @@ export async function loader() {
     staleTime: 1000 * 60 * 2,
   });
 
-  return taggedData({ dehydratedState: dehydrate(qc) }, "festivals-list");
+  return taggedData({ dehydratedState: dehydrate(qc) }, stampFestivalsList());
 }
 
 export const meta: Route.MetaFunction = () => seoInputToMeta(buildSeoForRoute("festivals"));

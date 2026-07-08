@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "react-router";
+import { stampEvent } from "../cacheTags";
 import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,7 +136,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     // The tag id is the public URL id — events.id for bridged events, the series
     // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
-    `event-${eventId},events`,
+    stampEvent(eventId),
   );
 }
 

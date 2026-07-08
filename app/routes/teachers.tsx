@@ -15,6 +15,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { stampTeacher, TEACHERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/teachers";
 
@@ -27,7 +28,7 @@ import type { Route } from "./+types/teachers";
 export async function loader({ params, request }: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy (the
   // cache key includes the deployment). Cache it with a coarse group tag only.
-  if (!flags.teacherDetail) return taggedData({ locked: true as const }, "teachers");
+  if (!flags.teacherDetail) return taggedData({ locked: true as const }, TEACHERS);
 
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
@@ -65,7 +66,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // the matcher the moment the teacher-detail flag ships.
       ogImage: normalizeOgImage({ rawUrl: rawPhoto, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
-    `teacher-${ref.id},teachers`,
+    stampTeacher(ref.id),
   );
 }
 

@@ -4,6 +4,7 @@ import { getCalendarEvents, getMapEvents } from "@/integrations/supabase/eventRp
 import { addDaysToKey, londonDateKey, londonDayRangeUtc } from "@/lib/londonDate";
 import { buildSeoForRoute } from "@/lib/seo";
 import Index from "@/pages/Index";
+import { stampHome } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { seoInputToMeta } from "../seoMeta";
@@ -64,12 +65,12 @@ export async function loader({ params }: Route.LoaderArgs) {
     }),
   ]);
 
-  // `home-feed` is purged on any event/festival write (api.revalidate tagsFor);
-  // `city-<slug>` is stamped for future per-city precision. taggedData passes the
-  // unwrapped payload through to the component + meta() unchanged.
+  // stampHome = `home-feed,city-<slug>` (see ../cacheTags): `home-feed` is purged
+  // on any event/festival write, `city-<slug>` is reserved for future per-city
+  // precision. taggedData passes the unwrapped payload to the component + meta().
   return taggedData(
     { dehydratedState: dehydrate(qc), cityDisplay: cityDisplayFromSlug(citySlug) },
-    `home-feed,city-${citySlug}`,
+    stampHome(citySlug),
   );
 }
 
