@@ -44,13 +44,21 @@ function json(obj: unknown, status: number): Response {
 
 // entityType → cache tags to invalidate. MUST mirror the tags the routes stamp
 // in ../routes/*.tsx (via detailLoader.taggedData). A festival edit hits both
-// /festival/:id and /event/:id (same events.id), so purge both surfaces.
+// /festival/:id and /event/:id (same events.id), so purge both surfaces. Event
+// and festival writes ALSO purge the listing/home pages — via the DEDICATED
+// `home-feed` (home.tsx) and `festivals-list` (festivals.tsx) tags, NOT the shared
+// `events` collection tag every event-detail page stamps (that would invalidate
+// every event page on a single edit). This closes the listing-freshness gap: the
+// homepage/festivals SSR was build-time-frozen and never purged on content change.
 function tagsFor(entityType: EntityType, id: string): string[] {
   switch (entityType) {
     case "festival":
-      return [`festival-${id}`, `event-${id}`];
+      // Festival detail + its event-detail twin + the festivals listing + the
+      // home feed (a festival is also a pin/row on the city map).
+      return [`festival-${id}`, `event-${id}`, "festivals-list", "home-feed"];
     case "event":
-      return [`event-${id}`];
+      // The event's own detail page + the home feed (city map/listing) it's on.
+      return [`event-${id}`, "home-feed"];
     case "dancer":
       return [`dancer-${id}`];
     case "dj":

@@ -9,8 +9,9 @@ import { redirect } from "react-router";
 // hydration bailed (the site-wide React #421, now fixed) OR the client bundle
 // failed to load (stale chunk after a deploy), that navigate never ran and the
 // root served a blank page. A loader redirect removes that whole failure class:
-// the edge/server answers "/" with a 307 to the prerendered /city/london-gb,
-// with zero reliance on the client.
+// the edge/server answers "/" with a 307 to /city/london-gb (an on-demand SSR +
+// tagged-ISR route, edge-cached and purged via the home-feed tag), with zero
+// reliance on the client.
 //
 // 307 (temporary) so it is not hard-cached by browsers — keeps future geo /
 // last-city root routing possible without fighting a cached permanent redirect.

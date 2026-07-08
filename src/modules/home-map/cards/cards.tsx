@@ -4,7 +4,7 @@
 // inside a `.home-map` ancestor so the scoped cover-scene CSS (.cv/.grain/.sc-*
 // + the --hm-poster font var) from homeMap.css applies.
 
-import type { ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,11 +42,23 @@ export function CoverThumb({
   className?: string;
   monoClassName?: string;
 }) {
-  const scene = event.cover_image_url ? '' : eventScene(event);
+  // A 404/expired cover falls back to the same gradient+monogram as a missing
+  // one, rather than a broken-image icon. Reset when the src changes (this
+  // component is reused across list rows as the event prop changes).
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => setImgError(false), [event.cover_image_url]);
+  const showImg = !!event.cover_image_url && !imgError;
+  const scene = showImg ? '' : eventScene(event);
   return (
     <span className={cn('cv block', scene, className)}>
-      {event.cover_image_url ? (
-        <img className="cv-fill" src={event.cover_image_url} loading="lazy" alt={event.name} />
+      {showImg ? (
+        <img
+          className="cv-fill"
+          src={event.cover_image_url!}
+          loading="lazy"
+          alt={event.name}
+          onError={() => setImgError(true)}
+        />
       ) : (
         <span
           className={cn(

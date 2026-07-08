@@ -10,15 +10,16 @@ export default {
   appDirectory: "app",
   ssr: true,
   presets: [vercelPreset()],
-  // Prerender the static listing/home routes to HTML at build time (Q3 — Ricky
-  // chose "keep prerender for home/listings"). These routes have real framework
-  // modules with loaders that dehydrate their content queries, so the emitted
-  // HTML is content-rich (not the empty shell the client-gated catchall would
-  // produce). Detail routes + the catchall stay on-demand SSR. Dynamic-param
-  // routes (e.g. /city/:slug) are enumerated explicitly.
+  // Prerender only the listing routes that carry NO server-fetched content
+  // (/parties, /classes — their EventCalendar is client-only/mount-gated), so a
+  // static shell + meta() is the whole SEO payload and nothing server-rendered
+  // can go stale. /city/:slug (the homepage) and /festivals DO dehydrate live
+  // content in their loaders, so they moved to on-demand SSR + tagged ISR
+  // (taggedData + headers()=cacheHeaders) — edge-cached and purgeable on content
+  // change via /api/revalidate. Build-time prerender froze them at deploy time
+  // with no revalidation path (stale covers/cancellations until the next deploy);
+  // ISR fixes that. Detail routes + the catchall are on-demand SSR too.
   async prerender() {
-    // /city/london-gb is the homepage (bare '/' and '/london-gb' redirect here
-    // via vercel.json). More cities can be added as they warrant static SEO.
-    return ["/festivals", "/parties", "/classes", "/city/london-gb"];
+    return ["/parties", "/classes"];
   },
 } satisfies Config;
