@@ -17,7 +17,7 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, SITE_ORIGIN } from '@/lib/seo';
+import { useSeo, SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
@@ -115,6 +115,26 @@ const ItemListJsonLd = ({ events, canonicalBase }: ItemListJsonLdProps) => {
   );
 };
 
+// Shared with the framework route (app/routes/bachata-weekday.tsx) so the
+// route's meta() and the client useSeo() derive identical head tags from the
+// pathname -- one source for all seven /bachata-london-{weekday} pages.
+export function weekdaySeoInput(pathname: string): SeoInput {
+  const weekdayMatch = pathname.match(/^\/bachata-london-([a-z]+)\/?$/i);
+  const meta = weekdayMatch ? WEEKDAYS[weekdayMatch[1].toLowerCase()] : undefined;
+  return meta
+    ? {
+        title: `Bachata in London on ${meta.label}s - Classes & Socials`,
+        description: meta.intro,
+        canonical: `${SITE_ORIGIN}/bachata-london-${meta.slug}`,
+        ogType: 'article',
+      }
+    : {
+        title: 'Bachata in London',
+        description: 'Bachata events in London by weekday.',
+        noindex: true,
+      };
+}
+
 const BachataWeekday = () => {
   const location = useLocation();
   // Routes are 7 explicit /bachata-london-{weekday} paths (React Router v6
@@ -164,20 +184,7 @@ const BachataWeekday = () => {
     ? `${SITE_ORIGIN}/bachata-london-${meta.slug}`
     : `${SITE_ORIGIN}/`;
 
-  useSeo(
-    meta
-      ? {
-          title: `Bachata in London on ${meta.label}s - Classes & Socials`,
-          description: meta.intro,
-          canonical,
-          ogType: 'article',
-        }
-      : {
-          title: 'Bachata in London',
-          description: 'Bachata events in London by weekday.',
-          noindex: true,
-        },
-  );
+  useSeo(weekdaySeoInput(location.pathname));
 
   if (!meta) {
     return (

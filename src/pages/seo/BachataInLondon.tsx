@@ -18,7 +18,7 @@
 
 import { Link } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, SITE_ORIGIN } from "@/lib/seo";
+import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import { buildOrganizationJsonLd } from "@/lib/buildOrganizationJsonLd";
 import LiveEventsSection from "@/components/seo/LiveEventsSection";
 
@@ -123,14 +123,18 @@ const ArticleJsonLd = () => {
   );
 };
 
+// Shared with the framework route (app/routes/london-bachata-guide.tsx) so the
+// route's meta() and the client useSeo() emit identical head tags from one source.
+export const SEO_INPUT: SeoInput = {
+  title: "London Bachata Guide - Styles, Venues & Where to Start",
+  description:
+    "Your complete guide to bachata in London: the styles, the best venues by neighbourhood, weekly classes and parties, festivals, top promoters and DJs.",
+  canonical: CANONICAL,
+  ogType: "article",
+};
+
 const BachataInLondon = () => {
-  useSeo({
-    title: "London Bachata Guide - Styles, Venues & Where to Start",
-    description:
-      "Your complete guide to bachata in London: the styles, the best venues by neighbourhood, weekly classes and parties, festivals, top promoters and DJs.",
-    canonical: CANONICAL,
-    ogType: "article",
-  });
+  useSeo(SEO_INPUT);
 
   return (
     <GlobalLayout showSubheader={false}>

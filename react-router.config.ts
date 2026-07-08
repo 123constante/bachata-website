@@ -19,6 +19,26 @@ export default {
   async prerender() {
     // /city/london-gb is the homepage (bare '/' and '/london-gb' redirect here
     // via vercel.json). More cities can be added as they warrant static SEO.
-    return ["/festivals", "/parties", "/classes", "/city/london-gb"];
+    return [
+      "/festivals",
+      "/parties",
+      "/classes",
+      "/city/london-gb",
+      // SEO landing pages (framework routes in app/routes.ts) -- the daily
+      // redeploy cron keeps their prerendered HTML fresh.
+      "/faq",
+      "/london-bachata-guide",
+      "/learn-bachata-london",
+      "/bachata-parties-london",
+      "/bachata-london-sensual-parties",
+      "/bachata-london-dominican-parties",
+      "/bachata-london-monday",
+      "/bachata-london-tuesday",
+      "/bachata-london-wednesday",
+      "/bachata-london-thursday",
+      "/bachata-london-friday",
+      "/bachata-london-saturday",
+      "/bachata-london-sunday",
+    ];
   },
 } satisfies Config;

@@ -12,18 +12,24 @@
 
 import { Link } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo } from "@/lib/seo";
+import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
+// Shared with the framework route (app/routes/bachata-parties-london.tsx) so the
+// route's meta() and the client useSeo() emit identical head tags from one
+// source. Canonical now uses SITE_ORIGIN -- the old hardcoded host was non-www,
+// contradicting the site-wide www canonical.
+export const SEO_INPUT: SeoInput = {
+  title: "Bachata Parties in London - The Complete Guide",
+  description:
+    "A guide to bachata parties and social nights in London: the big club events, the studio socials, the bar nights, sensual vs Dominican, and how to pick your first one.",
+  canonical: `${SITE_ORIGIN}/bachata-parties-london`,
+  ogType: "article",
+};
+
 const BachataPartiesLondon = () => {
-  useSeo({
-    title: "Bachata Parties in London - The Complete Guide",
-    description:
-      "A guide to bachata parties and social nights in London: the big club events, the studio socials, the bar nights, sensual vs Dominican, and how to pick your first one.",
-    canonical: "https://bachatacalendar.co.uk/bachata-parties-london",
-    ogType: "article",
-  });
+  useSeo(SEO_INPUT);
 
   return (
     <GlobalLayout showSubheader={false}>

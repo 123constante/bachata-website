@@ -15,7 +15,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo } from "@/lib/seo";
+import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 
 interface StyleMeta {
   slug: "sensual" | "dominican";
@@ -122,21 +122,29 @@ const STYLES: Record<string, StyleMeta> = {
   },
 };
 
+// Shared with the framework route (app/routes/bachata-style-parties.tsx) so the
+// route's meta() and the client useSeo() derive identical head tags from the
+// pathname. Canonical now uses SITE_ORIGIN -- the old hardcoded host was
+// non-www, contradicting the site-wide www canonical.
+export function styleSeoInput(pathname: string): SeoInput {
+  const styleMatch = pathname.match(/\/bachata-london-(sensual|dominican)-parties/);
+  const meta = styleMatch ? STYLES[styleMatch[1]] : undefined;
+  return meta
+    ? {
+        title: meta.title,
+        description: meta.description,
+        canonical: `${SITE_ORIGIN}/bachata-london-${meta.slug}-parties`,
+        ogType: "article",
+      }
+    : { title: "Bachata Parties in London", description: "Bachata party styles in London.", noindex: true };
+}
+
 const BachataStyleParties = () => {
   const location = useLocation();
   const styleMatch = location.pathname.match(/\/bachata-london-(sensual|dominican)-parties/);
   const meta = styleMatch ? STYLES[styleMatch[1]] : undefined;
 
-  useSeo(
-    meta
-      ? {
-          title: meta.title,
-          description: meta.description,
-          canonical: `https://bachatacalendar.co.uk/bachata-london-${meta.slug}-parties`,
-          ogType: "article",
-        }
-      : { title: "Bachata Parties in London", description: "Bachata party styles in London.", noindex: true },
-  );
+  useSeo(styleSeoInput(location.pathname));
 
   if (!meta) {
     return (

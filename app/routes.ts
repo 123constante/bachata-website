@@ -27,6 +27,23 @@ export default [
   // to verify the SSR happy path — the public RPC returns 0 rows for every current
   // vendor, so a framework loader would 404 them all.
   route("venue-entity/:id", "routes/venue-entity.tsx"),
+  // SEO landing pages -- framework routes so prerender emits real HTML
+  // (canonical/meta/JSON-LD/h1) instead of the catchall's generic shell.
+  // The style/weekday modules are shared across paths, so each registration
+  // needs an explicit unique id.
+  route("faq", "routes/faq.tsx"),
+  route("london-bachata-guide", "routes/london-bachata-guide.tsx"),
+  route("learn-bachata-london", "routes/learn-bachata-london.tsx"),
+  route("bachata-parties-london", "routes/bachata-parties-london.tsx"),
+  route("bachata-london-sensual-parties", "routes/bachata-style-parties.tsx", { id: "style-sensual" }),
+  route("bachata-london-dominican-parties", "routes/bachata-style-parties.tsx", { id: "style-dominican" }),
+  route("bachata-london-monday", "routes/bachata-weekday.tsx", { id: "weekday-monday" }),
+  route("bachata-london-tuesday", "routes/bachata-weekday.tsx", { id: "weekday-tuesday" }),
+  route("bachata-london-wednesday", "routes/bachata-weekday.tsx", { id: "weekday-wednesday" }),
+  route("bachata-london-thursday", "routes/bachata-weekday.tsx", { id: "weekday-thursday" }),
+  route("bachata-london-friday", "routes/bachata-weekday.tsx", { id: "weekday-friday" }),
+  route("bachata-london-saturday", "routes/bachata-weekday.tsx", { id: "weekday-saturday" }),
+  route("bachata-london-sunday", "routes/bachata-weekday.tsx", { id: "weekday-sunday" }),
   // Resource routes (loader/action-only, no component). Framework routes
   // rather than /api/*.ts functions because the preset + Build Output API
   // doesn't route the top-level /api functions.

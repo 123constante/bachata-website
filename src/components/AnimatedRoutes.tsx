@@ -49,12 +49,6 @@ const EditProfile = lazyWithRetry(() => import("../pages/EditProfile"));
 const EditEvent = lazyWithRetry(() => import("../pages/EditEvent"));
 const CreateEvent = lazyWithRetry(() => import("../pages/CreateEvent"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
-const Faq = lazyWithRetry(() => import("../pages/seo/Faq"));
-const BachataInLondon = lazyWithRetry(() => import("../pages/seo/BachataInLondon"));
-const BachataWeekday = lazyWithRetry(() => import("../pages/seo/BachataWeekday"));
-const LearnBachataLondon = lazyWithRetry(() => import("../pages/seo/LearnBachataLondon"));
-const BachataPartiesLondon = lazyWithRetry(() => import("../pages/seo/BachataPartiesLondon"));
-const BachataStyleParties = lazyWithRetry(() => import("../pages/seo/BachataStyleParties"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
 
@@ -99,19 +93,11 @@ export const AnimatedRoutes = () => {
             <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
             <Route path="/city/:slug/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
             {/* /festivals is a framework route (app/routes/festivals.tsx). */}
-            <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
-            <Route path="/london-bachata-guide" element={<PageTransition><BachataInLondon /></PageTransition>} />
-            <Route path="/learn-bachata-london" element={<PageTransition><LearnBachataLondon /></PageTransition>} />
-            <Route path="/bachata-london-monday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-tuesday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-wednesday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-thursday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-friday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-saturday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-london-sunday" element={<PageTransition><BachataWeekday /></PageTransition>} />
-            <Route path="/bachata-parties-london" element={<PageTransition><BachataPartiesLondon /></PageTransition>} />
-            <Route path="/bachata-london-sensual-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
-            <Route path="/bachata-london-dominican-parties" element={<PageTransition><BachataStyleParties /></PageTransition>} />
+            {/* /faq, /london-bachata-guide, /learn-bachata-london,
+                /bachata-parties-london, the two /bachata-london-*-parties style
+                pages and the seven /bachata-london-{weekday} pages are framework
+                routes (app/routes.ts) -- prerendered with real head tags, so
+                their catchall duplicates were removed. */}
             {/* /festival/:id is a framework route (app/routes/festival.tsx). */}
             <Route path="/vendors" element={<PageTransition><Vendors /></PageTransition>} />
             <Route path="/vendors/:id" element={<PageTransition><VendorDetail /></PageTransition>} />
