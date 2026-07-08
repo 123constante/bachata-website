@@ -518,6 +518,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                   url: pageModel.actions.ticketUrl,
                   name: t.name,
                   price: t.price,
+                  // Never a currency without a price (Google flags the pair);
+                  // default GBP when a price exists but the row has none.
+                  currency: t.price ? (t.currency ?? 'GBP') : null,
                 })),
               }),
             ),

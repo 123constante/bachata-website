@@ -6,7 +6,7 @@ import { PageErrorBoundary } from "@/components/ErrorBoundary";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,10 @@ import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 import { EventStickyActionBar } from "@/modules/event-page/bento/EventStickyActionBar";
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
+
+import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
+
+import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledBanner";
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
 
@@ -1450,6 +1454,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const navigate = useNavigate();
 
+  const { pathname } = useLocation();
+
   const [, setTick] = useState(0);
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
@@ -1485,27 +1491,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const { data: festival, isLoading: isFestivalLoading } = useQuery({
 
-    queryKey: ["festival-event", festivalId],
+    queryKey: festivalEventQueryKey(festivalId),
 
-    queryFn: async () => {
-
-      const { data, error } = await supabase
-
-        .from("events")
-
-        .select("id, name, city, date, start_time, poster_url, description, ticket_url, faq, meta_data")
-
-        .eq("id", festivalId)
-
-        .eq("type", "festival")
-
-        .maybeSingle();
-
-      if (error) throw error;
-
-      return data as FestivalEvent | null;
-
-    },
+    queryFn: async () => (await fetchFestivalEventRow(festivalId)) as FestivalEvent | null,
 
     enabled: Boolean(festivalId),
 
@@ -1540,6 +1528,19 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
   const effectiveSnapshot = propSnapshot ?? snapshotPayload;
+
+  // Whole-festival cancelled state -- from the parsed snapshot (camelCase, via
+  // EventPage) or the raw event_view_p5 payload (snake_case, standalone
+  // /festival/:id mount). Drives the visible banner + JSON-LD eventStatus.
+  const isCancelled =
+    propSnapshot?.occurrenceEffective?.isCancelled === true ||
+    snapshotPayload?.occurrence_effective?.is_cancelled === true;
+
+  const cancellationReasonLabel =
+    propSnapshot?.occurrenceEffective?.cancellationReasonLabel ??
+    (typeof snapshotPayload?.occurrence_effective?.cancellation_reason_label === "string"
+      ? (snapshotPayload.occurrence_effective.cancellation_reason_label as string)
+      : null);
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
@@ -2216,11 +2217,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
           __html: JSON.stringify(
             buildEventJsonLd({
               name: festivalDetail?.identity.name ?? festival.name,
-              // Stable canonical URL on both sides (was window.location.pathname
-              // → server emits the uuid path, client the slug path → JSON-LD text
-              // mismatch / #418). Prefer the resolved slug, fall back to the id.
-              url: `${SITE_ORIGIN}/festival/${resolvedSlug ?? festival.id}`,
+              // Surface-aware URL: the same festival serves at /event/<slug>
+              // (its sitemap-canonical URL) AND /festival/<slug>, and JSON-LD
+              // url must agree with each surface's canonical. Only the PREFIX
+              // comes from the router pathname (identical server/client); the
+              // slug stays resolved -- reading the whole pathname emitted the
+              // uuid path on the server and the slug path on the client (#418).
+              url: `${SITE_ORIGIN}${pathname.startsWith("/event/") ? "/event" : "/festival"}/${resolvedSlug ?? festival.id}`,
               startDate: startDateRaw ?? "",
+              isCancelled,
               endDate: endDateRaw,
               description:
                 festivalDetail?.identity.description ?? festival.description ?? null,
@@ -2252,13 +2257,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
                 url: ticketUrl,
                 name: p.name,
                 price: p.price,
-                currency: p.currency,
+                currency: p.currency ?? "GBP",
               })),
             }),
           ),
         }}
       />
 
+
+      {isCancelled && <EventCancelledBanner reasonLabel={cancellationReasonLabel} />}
 
       {/* HERO */}
 

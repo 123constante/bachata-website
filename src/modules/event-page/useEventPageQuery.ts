@@ -184,11 +184,16 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
           const t = asObject(item);
           const id = asString(t?.id);
           if (!id) return acc;
+          // price/quantity arrive as strings from the unified pass editor,
+          // but older admin rows persisted JSON numbers -- asString silently
+          // dropped those, so real prices never reached the page or its
+          // JSON-LD offers. Accept both shapes.
           acc.push({
             id,
             name: asString(t?.name) ?? '',
-            price: asString(t?.price) ?? '',
-            quantity: asString(t?.quantity) ?? '',
+            price: typeof t?.price === 'number' ? String(t.price) : asString(t?.price) ?? '',
+            currency: asString(t?.currency),
+            quantity: typeof t?.quantity === 'number' ? String(t.quantity) : asString(t?.quantity) ?? '',
             description: asString(t?.description) ?? '',
           });
           return acc;
