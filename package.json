@@ -116,7 +116,7 @@
     "@vercel/edge": "^1.2.2",
     "@vercel/node": "^5.7.5",
     "autoprefixer": "^10.4.24",
-    "eslint": "^9.32.0",
+    "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
