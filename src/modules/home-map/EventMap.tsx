@@ -108,11 +108,25 @@ function repOf(list: MapEvent[]): MapEvent {
 /** The poster body of a pin (cover image or monogram on a scene gradient). */
 function posterCore(e: MapEvent): string {
   const color = categoryColor(e);
-  const inner = e.cover_image_url
-    ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" />`
-    : `<span class="rpin-mono">${esc(monogram(e.name))}</span>`;
-  const scene = e.cover_image_url ? '' : eventScene(e);
-  return `<div class="rpin" style="--pc:${color}"><span class="pcv cv ${scene}">${inner}<span class="grain"></span></span></div>`;
+  const scene = eventScene(e); // always compute — used up-front (no cover) or on img error
+  const mono = esc(monogram(e.name));
+  if (e.cover_image_url) {
+    // A 404/expired cover would otherwise render as a broken-image icon (Chrome
+    // ORB-blocks the failed response). The delegated `error` listener on the map
+    // container (see the init effect) reads data-scene, hides the img, promotes
+    // the .cv container to the scene gradient, and reveals the pre-baked monogram
+    // — the exact no-cover fallback DOM. (Can't use inline onerror: the site CSP
+    // blocks inline handlers.) The scene class can't be present up-front: its
+    // ::before (z-index 1) sits ABOVE .cv-fill (z-index 0) and would mask a good
+    // flyer. The monogram is pre-baked with inline display:none because
+    // .rpin-mono{display:grid} outranks the [hidden] UA rule.
+    return `<div class="rpin" style="--pc:${color}"><span class="pcv cv">` +
+      `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />` +
+      `<span class="rpin-mono" style="display:none">${mono}</span>` +
+      `<span class="grain"></span></span></div>`;
+  }
+  return `<div class="rpin" style="--pc:${color}"><span class="pcv cv ${scene}">` +
+    `<span class="rpin-mono">${mono}</span><span class="grain"></span></span></div>`;
 }
 
 /** A single-event location pin: poster + event-name label (revealed at zoom). */
@@ -158,10 +172,13 @@ function locationIcon(
 function popupHtml(e: MapEvent): string {
   const cat = deriveCategory(e);
   const color = CATEGORY_COLORS[cat];
+  const scene = eventScene(e);
   const cover = e.cover_image_url
-    ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" />`
+    ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />`
     : '';
-  const scene = e.cover_image_url ? '' : eventScene(e);
+  // Container carries the scene gradient up-front only when there's no cover; on
+  // an img error the delegated map-container listener adds it (see posterCore).
+  const sceneClass = e.cover_image_url ? '' : scene;
   const time = formatTimeRange(e);
   const line = `<div class="rpop-line"><span class="rpop-dot" style="background:${color}"></span><b style="color:${color}">${esc(
     CATEGORY_LABEL[cat],
@@ -176,7 +193,7 @@ function popupHtml(e: MapEvent): string {
     : '';
   const href = `/event/${esc(e.event_id)}?occurrenceId=${esc(e.occurrence_id)}`;
   return (
-    `<div class="rpop"><div class="rpop-cv cv ${scene}">${cover}<span class="grain"></span></div>` +
+    `<div class="rpop"><div class="rpop-cv cv ${sceneClass}">${cover}<span class="grain"></span></div>` +
     `<div class="rpop-body">${cancelled}<div class="rpop-t">${esc(e.name)}</div>` +
     `<div class="rpop-lines">${line}</div>${venue}` +
     `<a class="rpop-cta" href="${href}">View event ${ARROW_SVG}</a></div></div>`
@@ -199,17 +216,18 @@ function stackPopupHtml(events: MapEvent[]): string {
     .map((e) => {
       const cat = deriveCategory(e);
       const color = CATEGORY_COLORS[cat];
+      const scene = eventScene(e);
       const cover = e.cover_image_url
-        ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" />`
+        ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />`
         : '';
-      const scene = e.cover_image_url ? '' : eventScene(e);
+      const sceneClass = e.cover_image_url ? '' : scene;
       const time = formatTimeRange(e);
       const meta = time ? `${esc(CATEGORY_LABEL[cat])} &middot; ${esc(time)}` : esc(CATEGORY_LABEL[cat]);
       const inner = e.is_cancelled ? `<span class="rstack-x">Cancelled</span>` : meta;
       const href = `/event/${esc(e.event_id)}?occurrenceId=${esc(e.occurrence_id)}`;
       return (
         `<a class="rstack-row" href="${href}">` +
-        `<span class="rstack-cv cv ${scene}">${cover}<span class="grain"></span></span>` +
+        `<span class="rstack-cv cv ${sceneClass}">${cover}<span class="grain"></span></span>` +
         `<span class="rstack-meta"><b class="rstack-name">${esc(e.name)}</b>` +
         `<span class="rstack-line"><span class="rpop-dot" style="background:${color}"></span>${inner}</span></span>` +
         `${ARROW_SVG}</a>`
@@ -271,7 +289,14 @@ export default function EventMap({
   cb.current.onOpenEvent = onOpenEvent;
   cb.current.onClusterSelect = onClusterSelect;
 
-  const eventsKey = events.map((e) => e.occurrence_id).join(',');
+  // Fingerprint occurrence_id AND updated_at so a CONTENT-only change (cover
+  // swap, cancellation, time edit) on an event already on the map re-triggers the
+  // marker/popup rebuild effects below. Keying on occurrence_id alone froze the
+  // Leaflet popup HTML against field changes — a stale/deleted cover URL then
+  // rendered as a broken image (ORB-blocked 404), and a cancelled/rescheduled
+  // event kept showing its old state — even though React Query already had the
+  // fresh row. updated_at is the audit-log curation instant (bumps on any edit).
+  const eventsKey = events.map((e) => `${e.occurrence_id}:${e.updated_at ?? ''}`).join(',');
   const visKey = visible.join(',');
   const glowKey = glow.join(',');
 
@@ -291,6 +316,27 @@ export default function EventMap({
     // All deferred Leaflet calls route through this so they no-op (and their
     // timeouts are cancelled) once the map is torn down on unmount.
     const disposer = new MapDisposer(mapRef);
+
+    // Cover-image error fallback (CSP-safe). The pins/popups are Leaflet
+    // innerHTML strings, so we can't use an inline onerror attribute — the site's
+    // strict CSP (script-src nonce, no 'unsafe-inline') blocks inline event
+    // handlers. Instead delegate one real listener on the map container in the
+    // CAPTURE phase (the `error` event does NOT bubble). A 404/expired cover
+    // (which Chrome ORB-blocks → a broken-image icon) is hidden and its `.cv`
+    // container promoted to the scene gradient (+ monogram for pins) — the exact
+    // no-cover fallback DOM. The scene token rides on the img's data-scene attr.
+    const onCoverError = (ev: Event) => {
+      const img = ev.target as HTMLElement | null;
+      if (!(img instanceof HTMLImageElement) || !img.classList.contains('cv-fill')) return;
+      img.style.display = 'none';
+      const cv = img.closest('.cv');
+      const scene = img.dataset.scene;
+      if (cv && scene) cv.classList.add(scene);
+      const mono = cv?.querySelector<HTMLElement>('.rpin-mono');
+      if (mono) mono.style.display = '';
+    };
+    elRef.current.addEventListener('error', onCoverError, true);
+
     L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -504,6 +550,7 @@ export default function EventMap({
     }
     return () => {
       sizeObs?.disconnect();
+      elRef.current?.removeEventListener('error', onCoverError, true);
       // dispose() cancels any pending timeouts AND marks the map dead, so a
       // deferred call (e.g. flyTo's openPopup) scheduled just before unmount
       // can't fire against the removed map.

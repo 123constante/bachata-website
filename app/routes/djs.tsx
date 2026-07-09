@@ -12,6 +12,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { stampDj } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/djs";
 
@@ -48,7 +49,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // be retired.
       ogImage: normalizeOgImage({ rawUrl: rawPhoto, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
-    `dj-${ref.id},djs`,
+    stampDj(ref.id),
   );
 }
 

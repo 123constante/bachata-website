@@ -19,49 +19,21 @@
 //   - entityType + entityId (a UUID) → the tags are derived (mirrors the routes).
 //   - tags: string[] — explicit tags, overrides the derived list (bulk/manual).
 import { invalidateByTag } from "@vercel/functions";
+import { isEntityType, purgeTagsFor } from "../cacheTags";
 import type { Route } from "./+types/api.revalidate";
 
 const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET ?? "";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type EntityType = "event" | "festival" | "dancer" | "dj" | "teacher" | "venue";
-const VALID_TYPES: ReadonlySet<string> = new Set<EntityType>([
-  "event",
-  "festival",
-  "dancer",
-  "dj",
-  "teacher",
-  "venue",
-]);
-
+// entityType → cache tags to invalidate. The mapping lives in ../cacheTags
+// (purgeTagsFor) alongside the STAMP helpers the routes use, so the two sides
+// can't drift — cacheTags.test.ts asserts every purge tag has a stamping route.
 function json(obj: unknown, status: number): Response {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
-}
-
-// entityType → cache tags to invalidate. MUST mirror the tags the routes stamp
-// in ../routes/*.tsx (via detailLoader.taggedData). A festival edit hits both
-// /festival/:id and /event/:id (same events.id), so purge both surfaces.
-function tagsFor(entityType: EntityType, id: string): string[] {
-  switch (entityType) {
-    case "festival":
-      return [`festival-${id}`, `event-${id}`];
-    case "event":
-      return [`event-${id}`];
-    case "dancer":
-      return [`dancer-${id}`];
-    case "dj":
-      return [`dj-${id}`];
-    case "teacher":
-      return [`teacher-${id}`];
-    case "venue":
-      return [`venue-${id}`];
-    default:
-      return [];
-  }
 }
 
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
@@ -88,13 +60,13 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (explicitTags && explicitTags.length) {
     tags = explicitTags;
   } else {
-    if (!entityType || !VALID_TYPES.has(entityType)) {
+    if (!entityType || !isEntityType(entityType)) {
       return json({ ok: false, reason: "invalid or missing entityType" }, 400);
     }
     if (!entityId || !UUID_RE.test(entityId)) {
       return json({ ok: false, reason: "invalid or missing entityId (expected UUID)" }, 400);
     }
-    tags = tagsFor(entityType as EntityType, entityId);
+    tags = purgeTagsFor(entityType, entityId);
   }
   if (!tags.length) return json({ ok: false, reason: "no tags to invalidate" }, 400);
   tags = tags.slice(0, 128); // Vercel allows up to 128 tags per cached response.
