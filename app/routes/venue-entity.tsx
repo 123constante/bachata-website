@@ -14,6 +14,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { stampVenue, VENUES } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/venue-entity";
 
@@ -22,7 +23,7 @@ import type { Route } from "./+types/venue-entity";
 export async function loader({ params, request }: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy.
   // Cache it with a coarse group tag only.
-  if (!flags.venueDetail) return taggedData({ locked: true as const }, "venues");
+  if (!flags.venueDetail) return taggedData({ locked: true as const }, VENUES);
 
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "venues", params.id);
@@ -56,7 +57,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     // NOTE: ref.id = venues.id (this route resolves by PK). The Phase-2 DB emit
     // must match this id (see the plan's venue entity_id-vs-id open item).
-    `venue-${ref.id},venues`,
+    stampVenue(ref.id),
   );
 }
 

@@ -13,6 +13,7 @@ import {
   redirectUuidToSlug,
   resolveOgCardImage,
 } from "../detailLoader";
+import { stampFestival } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/festival";
 
@@ -93,7 +94,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     // The same events.id is reachable at /event/:id AND /festival/:id, so tag
     // both surfaces — a single edit to that row purges both pages.
-    `festival-${eventId},event-${eventId},festivals,events`,
+    stampFestival(eventId),
   );
 }
 

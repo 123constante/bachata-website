@@ -13,6 +13,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { stampDancer } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
 
@@ -56,7 +57,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // Mirrors middleware.ts's ogNormalizedImage; lets the /dancers matcher be retired.
       ogImage: normalizeOgImage({ rawUrl: dancer.avatar_url as string | null, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
-    `dancer-${ref.id},dancers`,
+    stampDancer(ref.id),
   );
 }
 
