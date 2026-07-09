@@ -1460,11 +1460,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
-  // Default to single-day on mobile (one full-width day via tabs); the all-days
-  // grid is wide and only works well on desktop. Users can still toggle on mobile.
-  const [showAllDays, setShowAllDays] = useState(
-    () => (typeof window !== "undefined" ? window.innerWidth > 900 : true),
-  );
+  // SSR-safe: seed a DETERMINISTIC value so the server and the client's first
+  // render agree. Reading window.innerWidth here rendered `true` on the server
+  // and `false` on a mobile client -> React #418/#425 hydration mismatch once
+  // PR #99 made festivals SSR content at /event/<slug>. Mobile-first default
+  // (single-day tabs, ~95% of traffic); the mount effect below upgrades desktop
+  // (>900px) to the all-days grid. Users can still toggle either way.
+  const [showAllDays, setShowAllDays] = useState(false);
 
   const [isCalSheetOpen, setIsCalSheetOpen] = useState(false);
 
@@ -1657,6 +1659,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   useEffect(() => {
 
     setMounted(true);
+
+    // Post-mount: upgrade desktop viewports to the all-days grid. SSR-safe --
+    // window is only read AFTER hydration (see the showAllDays seed above).
+    if (typeof window !== "undefined" && window.innerWidth > 900) setShowAllDays(true);
 
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
 
@@ -2551,7 +2557,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
 
-                const isToday = day === todayKey;
+                const isToday = mounted && day === todayKey;
 
                 return (
 
@@ -2603,7 +2609,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                   const monthShort = d.toLocaleDateString("en-GB", { month: "short" });
 
-                  const isToday = day === todayKey;
+                  const isToday = mounted && day === todayKey;
 
                   return (
 
