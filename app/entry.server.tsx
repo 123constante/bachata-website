@@ -7,6 +7,7 @@ import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "reac
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
 import { contentSecurityPolicy } from "./csp";
+import { captureServerException } from "./sentry.server";
 
 // Custom streaming server entry. Faithful to @vercel/react-router/entry.server
 // (isbot onAllReady, skew-protection cookie, streamTimeout abort) with the CSP
@@ -40,6 +41,41 @@ function injectCspMeta(source: PassThrough, csp: string): Transform {
 
 const vercelDeploymentId = process.env.VERCEL_DEPLOYMENT_ID;
 const vercelSkewProtectionEnabled = process.env.VERCEL_SKEW_PROTECTION_ENABLED === "1";
+const RELEASE_ID =
+  process.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim() ||
+  process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+  process.env.VITE_RELEASE?.trim() ||
+  "dev";
+
+// RR7 server error hook: fires for every loader/action/render throw during SSR
+// (e.g. the intentional fetchQuery gate in routes/home.tsx). Until now these
+// were invisible — client Sentry only sees the browser, and there is no
+// server-side Sentry. Emitting a single structured line routes them into Vercel
+// function logs, keyed to the route + release, so a bad SSR path is diagnosable.
+// Request-aborted errors (client navigated away / streamTimeout) are not bugs.
+// NOTE: full Sentry ingestion of these is a follow-up — see plan R1b (needs a
+// declared @sentry/node at a major matching @sentry/react, or @sentry/react-router).
+export function handleError(
+  error: unknown,
+  { request }: { request: Request },
+): void {
+  if (request.signal.aborted) return;
+  const err = error instanceof Error ? error : new Error(String(error));
+  // Structured line → Vercel function logs (always, even without a Sentry DSN).
+  console.error(
+    JSON.stringify({
+      tag: "ssr-error",
+      release: RELEASE_ID,
+      url: request.url,
+      method: request.method,
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    }),
+  );
+  // …and into Sentry proper (no-ops without a DSN).
+  captureServerException(err, { url: request.url, method: request.method });
+}
 
 export default function handleRequest(
   request: Request,

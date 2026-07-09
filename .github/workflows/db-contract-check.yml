@@ -718,3 +718,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-time-pairing.mjs
+
+      # 47. Public-RPC latency budget (the /city/london-gb statement-timeout
+      #     family, 2026-07-09). The two hottest anon reads —
+      #     get_calendar_events_v2 (the city feed) and event_view_p5 in
+      #     snapshot_compat mode (the event page) — used to regress silently
+      #     until a real crawler tripped the 3s anon statement_timeout, surfacing
+      #     as user-facing "canceling statement due to statement timeout" errors
+      #     (Sentry BACHATA-WEBSITE-2X/-2P). This probes both from the runner
+      #     (median of N samples, self-selecting a live London event) and fails
+      #     if the median crosses a budget set well under the 3s cliff, so a
+      #     planning/index/loop regression is caught before users hit it.
+      #     Soft-passes when London has no live events to probe. No health-check
+      #     RPC — pure client-observed latency. Script: check-public-rpc-latency.mjs.
+      - name: Run public-RPC latency budget check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-public-rpc-latency.mjs

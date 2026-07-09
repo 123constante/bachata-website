@@ -1,0 +1,57 @@
+name: Synthetic SSR Monitor
+
+# Loads the live production SSR entry points (/city/london-gb + a self-selected
+# event page) in a real headless browser under the conditions that first broke
+# them — a crawler User-Agent and a NON-London timezone (UTC) — and fails on a
+# client-side RangeError, a hydration cascade, a tripped error boundary, or a
+# non-2xx document. All three issues in the 2026-07-09 post-mortem were first
+# reported by real crawlers/visitors; this would have caught them pre-user.
+#
+# Read-only GETs against prod. Separate from the local e2e gate
+# (playwright.synthetic.config.ts, testDir tests/synthetic).
+
+on:
+  schedule:
+    - cron: '15 */6 * * *'  # every 6 hours, offset from the daily contract check
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL (defaults to production)'
+        required: false
+        default: 'https://www.bachatacalendar.co.uk'
+
+concurrency:
+  group: synthetic-ssr-monitor
+  cancel-in-progress: true
+
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run synthetic SSR monitor
+        env:
+          CI: 'true'
+          SYNTHETIC_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+        run: npm run synthetic:ssr
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-ssr-traces
+          path: test-results/
+          retention-days: 7

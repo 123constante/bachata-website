@@ -135,3 +135,38 @@ describe('londonWallClockToInstant', () => {
     expect(londonWallClockToInstant('not a date')).toBeNull();
   });
 });
+
+describe('key-derivation input hardening (regression: BACHATA-WEBSITE-2W)', () => {
+  // A runtime with incomplete Intl/ICU data can feed a malformed key into the
+  // key-based helpers. That used to propagate NaN → `new Date(NaN)` and throw
+  // `RangeError: Invalid time value` during render. The safeKeyParts boundary
+  // must degrade to a valid range instead of ever throwing.
+  const hostile = ['', 'not-a-date', '2026-7-2', '2026-13-40', undefined, null] as unknown as string[];
+
+  it('londonDayRangeUtc never throws and always yields valid Dates', () => {
+    for (const key of hostile) {
+      expect(() => londonDayRangeUtc(key, 7)).not.toThrow();
+      const { start, end } = londonDayRangeUtc(key, 7);
+      expect(Number.isNaN(start.getTime())).toBe(false);
+      expect(Number.isNaN(end.getTime())).toBe(false);
+      // The half-open window still spans the requested number of days.
+      expect(end.getTime()).toBeGreaterThan(start.getTime());
+    }
+  });
+
+  it('addDaysToKey / weekdayOfKey / londonDaysBetweenKeys never emit Invalid Date', () => {
+    for (const key of hostile) {
+      expect(() => addDaysToKey(key, 1)).not.toThrow();
+      expect(addDaysToKey(key, 1)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(() => weekdayOfKey(key)).not.toThrow();
+      expect(Number.isNaN(weekdayOfKey(key))).toBe(false);
+      expect(() => londonDaysBetweenKeys(key, key)).not.toThrow();
+    }
+  });
+
+  it('still computes correctly for well-formed keys (guard is transparent)', () => {
+    const { start } = londonDayRangeUtc('2026-01-15');
+    expect(start.toISOString()).toBe('2026-01-15T00:00:00.000Z');
+    expect(addDaysToKey('2026-07-31', 1)).toBe('2026-08-01');
+  });
+});

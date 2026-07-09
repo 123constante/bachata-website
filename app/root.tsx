@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { Links, Meta, Outlet, Scripts, type MetaFunction } from "react-router";
+import { useEffect, useState } from "react";
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  isRouteErrorResponse,
+  useRouteError,
+  type MetaFunction,
+} from "react-router";
+import { captureException } from "@/lib/sentry";
 import { AppProviders, createQueryClient, getBrowserQueryClient } from "@/App";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { CityProvider } from "@/contexts/CityContext";
@@ -68,6 +77,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
             entry.client). Two scroll managers fight. */}
       </body>
     </html>
+  );
+}
+
+// RR7 root ErrorBoundary. Catches what the class boundaries CANNOT: loader/SSR
+// throws (e.g. the intentional fetchQuery gate in routes/home.tsx) and render
+// errors that escape a page's own boundary. Without this, RR7 renders its
+// unstyled built-in error page. Rendered inside <Layout/> by the framework, so
+// it must NOT depend on AppProviders/loader data — those may be exactly what
+// failed. Server-side capture is handled by entry.server's handleError; this
+// effect covers the client (hydration/navigation) case only.
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // 404-style route responses are expected, not errors worth reporting.
+    if (isRouteErrorResponse(error) && error.status < 500) return;
+    const err = error instanceof Error ? error : new Error(String(error));
+    captureException(err, { boundary: "RootErrorBoundary" });
+  }, [error]);
+
+  const isNotFound = isRouteErrorResponse(error) && error.status === 404;
+  const heading = isNotFound ? "Page not found" : "Something went wrong";
+  const body = isNotFound
+    ? "We couldn't find that page. It may have moved or been removed."
+    : "This page ran into an unexpected error. Try again, or head back to the calendar.";
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 pt-[84px] text-center">
+      <div className="text-5xl">{isNotFound ? "🔍" : "🥲"}</div>
+      <h1 className="text-2xl font-bold text-foreground">{heading}</h1>
+      <p className="max-w-sm text-muted-foreground">{body}</p>
+      <a
+        href="/"
+        className="mt-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-95"
+      >
+        Back to the calendar
+      </a>
+    </div>
   );
 }
 

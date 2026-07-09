@@ -74,8 +74,34 @@ export const dateKeyInTz = (d: Date, timeZone: string): string => {
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */
 export const londonDateKey = (d: Date): string => londonKeyFormatter.format(d);
 
+const KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The single input boundary for every YYYY-MM-DD-key derivation below. Keys
+ * are meant to come from londonDateKey (always well-formed), but a runtime with
+ * incomplete Intl/Europe-London ICU data (old webviews, some crawlers) can
+ * yield a malformed value — which used to propagate as NaN → `new Date(NaN)` →
+ * `RangeError: Invalid time value` thrown during render (Sentry BACHATA-WEBSITE-2W).
+ * Reject anything that isn't a real calendar key and degrade to London-today,
+ * so a bad environment renders stale-but-valid instead of crashing.
+ */
+const safeKeyParts = (key: string): [number, number, number] => {
+  const source = KEY_RE.test(key) ? key : londonKeyFormatter.format(new Date());
+  const [y, m, d] = source.split('-').map(Number);
+  if (
+    !Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d) ||
+    m < 1 || m > 12 || d < 1 || d > 31
+  ) {
+    // Belt-and-braces: even the formatter fallback is unparsable. Use epoch's
+    // London date — impossible to reach in practice, never throws.
+    const [fy, fm, fd] = londonKeyFormatter.format(new Date(0)).split('-').map(Number);
+    return [fy, fm, fd];
+  }
+  return [y, m, d];
+};
+
 const keyToUtcNoon = (key: string): number => {
-  const [y, m, d] = key.split('-').map(Number);
+  const [y, m, d] = safeKeyParts(key);
   return Date.UTC(y, m - 1, d, 12);
 };
 
@@ -143,7 +169,7 @@ const wallClockMsInTz = (d: Date, timeZone: string): number => {
  * two fixed-point passes absorb the offset, including across a DST jump).
  */
 const zonedMidnightUtc = (key: string, timeZone: string): Date => {
-  const [y, m, d] = key.split('-').map(Number);
+  const [y, m, d] = safeKeyParts(key);
   const target = Date.UTC(y, m - 1, d, 0, 0, 0);
   let ts = target;
   for (let i = 0; i < 2; i++) {
