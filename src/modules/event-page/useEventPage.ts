@@ -5,6 +5,7 @@ import { buildEventPageModel } from '@/modules/event-page/buildEventPageModel';
 import { useEventPageQuery } from '@/modules/event-page/useEventPageQuery';
 import { useEventPageRsvpMutation, type RsvpStatus } from '@/modules/event-page/useEventPageRsvpMutation';
 import { useFestivalDetailQuery } from '@/modules/event-page/useFestivalDetailQuery';
+import { sniffIsFestival } from '@/modules/event-page/festivalEventQuery';
 
 export const useEventPage = (eventId?: string | null, occurrenceId?: string | null) => {
   const { user } = useAuth();
@@ -16,31 +17,12 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     userId: user?.id ?? null,
   });
 
-  // Always call get_public_festival_detail — the RPC runs for every published event,
-  // not just festivals. Gate isFestival on:
-  // - format === 'festival' (P5 canonical field, Phase 8 primary signal), OR
-  // - content-sniff fallback: MULTI-DAY schedule (≥2 distinct YYYY-MM-DD day keys),
-  //   OR festival passes (standard events never have passes).
-  // The content-sniff is kept as a COALESCE because legacy-only / null-format
-  // events must not misroute to "Festival not found" (plan Phase 8, critique P0-5).
-  // NB: a single dated day is NOT a festival signal — P5 standard events mirror
-  // their program into legacy event_program_items with a concrete day, so
-  // "any YYYY-MM-DD day" mis-classified them. ≥2 distinct days keeps real
-  // multi-day festivals while letting single-day standard events resolve correctly.
-  // NB: this is INTENTIONALLY not src/lib/eventFormat.ts's isFestivalByFormat — the
-  // event page layers a richer content-sniff (multi-day schedule / passes) on top of
-  // `format === 'festival'` rather than a raw `type` fallback, so a null-format legacy
-  // festival still routes to the festival hub instead of "Festival not found".
+  // Always call get_public_festival_detail -- the RPC runs for every published
+  // event, not just festivals. The isFestival gate lives in sniffIsFestival
+  // (shared with the /event/:id server loader so SSR prefetches exactly what
+  // the client renders -- full rationale in festivalEventQuery.ts).
   const festivalQuery = useFestivalDetailQuery(eventId, Boolean(eventId));
-  const isFestival = (() => {
-    if (query.data?.event.format === 'festival') return true;
-    const fd = festivalQuery.data;
-    if (!fd) return false;
-    const distinctDays = new Set(
-      fd.schedule.map((s) => s.day).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
-    );
-    return distinctDays.size >= 2 || fd.passes.length > 0;
-  })();
+  const isFestival = sniffIsFestival(query.data, festivalQuery.data);
 
   const pageModel = useMemo(() => {
     const model = buildEventPageModel({

@@ -46,6 +46,8 @@ export type EventPageTicket = {
   id: string;
   name: string;
   price: string;
+  /** ISO 4217 code as stored on the ticket row; null when absent (display/JSON-LD default to GBP). */
+  currency: string | null;
   quantity: string;
   description: string;
 };

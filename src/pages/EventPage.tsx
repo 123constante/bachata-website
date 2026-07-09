@@ -10,7 +10,21 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // Festivals hit /event/:slugOrId when linked from calendars that don't know the type.
 // Render the dedicated FestivalDetail page in that case — lazy so standard
 // events don't pay for the festival bundle.
-const FestivalDetail = lazyWithRetry(() => import('@/pages/FestivalDetail'));
+const importFestivalDetail = () => import('@/pages/FestivalDetail');
+const FestivalDetail = lazyWithRetry(importFestivalDetail);
+
+// Pre-hydration chunk warm-up. When the server rendered festival content at
+// /event/<slug> (SSR resolves the lazy import in-process), client hydration
+// suspends on this chunk and the nested Suspense boundary stays dehydrated for
+// a full network round-trip -- any state update landing in that window makes
+// React bail to client rendering (#421: content -> skeleton -> content flash,
+// plus a [hydration] Sentry event per view). Route modules evaluate before
+// hydrateRoot, so sniffing the SSR'd DOM here and firing the import shrinks
+// that window to a microtask. `.cinematic-festival` is FestivalDetail's scoped
+// CSS root -- present iff the server rendered the festival page.
+if (typeof document !== 'undefined' && document.querySelector('.cinematic-festival')) {
+  void importFestivalDetail();
+}
 
 const FestivalFallback = () => (
   <div className="mx-auto w-full max-w-6xl space-y-3 px-3 pt-[84px] pb-24">

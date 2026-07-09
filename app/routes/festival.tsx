@@ -3,6 +3,7 @@ import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
+import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
 import FestivalDetail from "@/pages/FestivalDetail";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -34,17 +35,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // genuine miss / not-a-festival → 404. See app/routes/event.tsx.
   const [festival] = await Promise.all([
     qc.fetchQuery({
-      queryKey: ["festival-event", eventId],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from("events")
-          .select("id, name, city, date, start_time, poster_url, description, ticket_url, faq, meta_data")
-          .eq("id", eventId)
-          .eq("type", "festival")
-          .maybeSingle();
-        if (error) throw error;
-        return (data as Record<string, unknown> | null) ?? null;
-      },
+      queryKey: festivalEventQueryKey(eventId),
+      queryFn: () => fetchFestivalEventRow(eventId),
     }),
     qc.prefetchQuery({
       queryKey: ["festival-snapshot", eventId],

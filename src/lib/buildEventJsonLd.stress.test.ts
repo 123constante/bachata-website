@@ -105,6 +105,18 @@ describe('buildEventJsonLd — stress test', () => {
     expect(o.url).toBe('https://bachatacalendar.co.uk/event/nf');
   });
 
+  it('stringifies numeric offer prices and omits priceCurrency when absent', () => {
+    const out = buildEventJsonLd({
+      name: 'NumericPrice',
+      url: 'https://bachatacalendar.co.uk/event/np',
+      startDate: '2026-06-01T19:00:00+01:00',
+      offers: [{ url: 'https://t.example.com', name: 'Door', price: 40 }],
+    });
+    const offers = out.offers as any[];
+    expect(offers[0].price).toBe('40');
+    expect(offers[0].priceCurrency).toBeUndefined();
+  });
+
   it('filters out blank/whitespace performer names', () => {
     const out = buildEventJsonLd({
       name: 'PartialPerf',

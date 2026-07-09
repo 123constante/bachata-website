@@ -6,7 +6,8 @@ import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
 import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
-import type { EventPageSnapshot } from "@/modules/event-page/types";
+import type { EventPageSnapshot, FestivalDetail } from "@/modules/event-page/types";
+import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@/modules/event-page/festivalEventQuery";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { SITE_ORIGIN } from "@/lib/seo";
 import EventPage from "@/pages/EventPage";
@@ -111,20 +112,37 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   ]);
 
   const snap = qc.getQueryData(eventPageQueryKey(eventId, occurrenceId)) as EventPageSnapshot | null;
+  const festivalDetail = qc.getQueryData(festivalDetailQueryKey(eventId)) as FestivalDetail | null;
+
+  // Festival-format events render FestivalDetail at /event/<slug> too, and it
+  // mounts a third query (["festival-event", id]) the two prefetches above do
+  // not cover. Without it, isFestivalLoading stays true during SSR and the page
+  // early-returns a skeleton -- no h1, no JSON-LD in the crawled HTML at the
+  // festival's sitemap-canonical URL. Sniff with the same helper the client
+  // uses (useEventPage) and prefetch, in parallel with the og:image resolve.
+  const festivalPrefetch = sniffIsFestival(snap, festivalDetail)
+    ? qc.prefetchQuery({
+        queryKey: festivalEventQueryKey(eventId),
+        queryFn: () => fetchFestivalEventRow(eventId),
+      })
+    : Promise.resolve();
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked card, else
   // a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
   // get a renderable JPEG instead of a raw (often WebP) cover URL. The
   // schema.org JSON-LD `image` field (buildEventJsonLd, rendered by BentoPage)
   // is unaffected — Google's structured-data parser handles WebP fine.
-  const ogImage = await resolveOgCardImage({
-    entityType: "event",
-    entityId: eventId,
-    occId: occurrenceId,
-    coverUrl: snap?.event?.imageUrl,
-    request,
-    fallbackImage: OG_FALLBACK,
-  });
+  const [ogImage] = await Promise.all([
+    resolveOgCardImage({
+      entityType: "event",
+      entityId: eventId,
+      occId: occurrenceId,
+      coverUrl: snap?.event?.imageUrl,
+      request,
+      fallbackImage: OG_FALLBACK,
+    }),
+    festivalPrefetch,
+  ]);
 
   return taggedData(
     {
