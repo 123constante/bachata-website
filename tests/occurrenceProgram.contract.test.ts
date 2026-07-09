@@ -66,8 +66,12 @@ async function pickHealthyEventWithOccurrence(): Promise<{
     .filter((c) => c.health === 'ok');
 
   for (const ev of okEvents) {
-    const { data: snap } = await anon.rpc('get_event_page_snapshot_v2', {
-      p_event_id: ev.event_id,
+    // Walk the snapshot via the live anon path (event_view_p5 snapshot_compat).
+    // The old get_event_page_snapshot_v2 delegate is orphaned and no longer
+    // anon-callable (admin migration 20260709080000).
+    const { data: snap } = await anon.rpc('event_view_p5', {
+      p_target: { series_id: ev.event_id },
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
     });
     const occurrences = (snap as { occurrences?: Array<{ occurrence_id: string }> } | null)
       ?.occurrences;
@@ -171,8 +175,9 @@ describe('get_occurrence_program_v1 occurrence-date re-anchoring (ODI arc 2026-0
     const fixture = await pickHealthyEventWithOccurrence();
     if (!fixture) return;
 
-    const { data: snap } = await anon.rpc('get_event_page_snapshot_v2', {
-      p_event_id: fixture.eventId,
+    const { data: snap } = await anon.rpc('event_view_p5', {
+      p_target: { series_id: fixture.eventId },
+      p_viewer: { role: 'anon', shape: 'snapshot_compat' },
     });
     const occ = (
       snap as { occurrences?: Array<{ occurrence_id: string; local_date?: string; starts_at?: string }> } | null
