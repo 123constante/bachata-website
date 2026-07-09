@@ -7,7 +7,7 @@
  */
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, SITE_ORIGIN } from '@/lib/seo';
+import { useSeo, SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 
 interface Faq {
   q: string;
@@ -295,13 +295,17 @@ const FaqJsonLd = () => {
   );
 };
 
+// Shared with the framework route (app/routes/faq.tsx) so the route's meta()
+// and the client useSeo() emit identical head tags from one source.
+export const SEO_INPUT: SeoInput = {
+  title: 'Bachata in London - FAQ',
+  description:
+    "Common questions about bachata in London - where to dance, what to wear, how to start, what to expect. Answers from the city's bachata calendar.",
+  canonical: `${SITE_ORIGIN}/faq`,
+};
+
 const Faq = () => {
-  useSeo({
-    title: 'Bachata in London - FAQ',
-    description:
-      "Common questions about bachata in London - where to dance, what to wear, how to start, what to expect. Answers from the city's bachata calendar.",
-    canonical: `${SITE_ORIGIN}/faq`,
-  });
+  useSeo(SEO_INPUT);
 
   return (
     <GlobalLayout showSubheader={false}>

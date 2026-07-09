@@ -1,6 +1,8 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
-import { getCalendarEvents, getMapEvents } from "@/integrations/supabase/eventRpcs";
+import { getCalendarEvents, getMapEvents, type CalendarEventRow } from "@/integrations/supabase/eventRpcs";
+import type { MapEvent } from "@/modules/home-map/mapTypes";
+import { eventHref } from "@/lib/seo/eventHref";
 import { addDaysToKey, londonDateKey, londonDayRangeUtc } from "@/lib/londonDate";
 import { buildSeoForRoute } from "@/lib/seo";
 import Index from "@/pages/Index";
@@ -65,11 +67,36 @@ export async function loader({ params }: Route.LoaderArgs) {
     }),
   ]);
 
+  // Crawlable event links for the sr-only <nav> below (SEO plan 1.1, restored
+  // after the RR7 migration dropped it -- the server HTML had 0 /event/ links).
+  // Read back the two prefetches, dedupe by event_id, skip cancelled, and link
+  // the canonical slug URL WITHOUT ?occurrenceId so link equity lands on the
+  // page Google indexes.
+  const calendarRows =
+    (qc.getQueryData([
+      "calendar-events",
+      weekStart.toISOString(),
+      weekEnd.toISOString(),
+      citySlug,
+    ]) as CalendarEventRow[] | undefined) ?? [];
+  const mapRows =
+    (qc.getQueryData(["map-events", citySlug, todayKey, rangeEnd90]) as MapEvent[] | undefined) ??
+    [];
+  const seen = new Set<string>();
+  const seoEventLinks: Array<{ href: string; name: string }> = [];
+  for (const e of [...calendarRows, ...mapRows]) {
+    if (!e?.event_id || !e.name || seen.has(e.event_id)) continue;
+    if (e.is_cancelled === true) continue;
+    seen.add(e.event_id);
+    seoEventLinks.push({ href: eventHref(e), name: e.name });
+  }
+
   // stampHome = `home-feed,city-<slug>` (see ../cacheTags): `home-feed` is purged
   // on any event/festival write, `city-<slug>` is reserved for future per-city
-  // precision. taggedData passes the unwrapped payload to the component + meta().
+  // precision. taggedData passes the unwrapped payload to the component + meta();
+  // seoEventLinks rides along for the sr-only <nav>.
   return taggedData(
-    { dehydratedState: dehydrate(qc), cityDisplay: cityDisplayFromSlug(citySlug) },
+    { dehydratedState: dehydrate(qc), cityDisplay: cityDisplayFromSlug(citySlug), seoEventLinks },
     stampHome(citySlug),
   );
 }
@@ -90,6 +117,21 @@ export default function HomeRoute({ loaderData, params }: Route.ComponentProps) 
           location.pathname-keyed <Routes>). */}
       <InitialVisiblePageTransition key={params.slug}>
         <Index />
+        {/* Loader-data-driven so server and client render byte-identically
+            (zero hydration-mismatch surface). sr-only: invisible, but a real
+            <nav> for crawlers (internal-link equity from the highest-authority
+            page) and an honest a11y win for screen-reader users on the
+            map-only homepage. Plain <a> (not <Link>): these exist for the
+            crawler; a full navigation on activation is fine. */}
+        <nav aria-label="Upcoming events in this city" className="sr-only">
+          <ul>
+            {loaderData.seoEventLinks.map((l) => (
+              <li key={l.href}>
+                <a href={l.href}>{l.name}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </InitialVisiblePageTransition>
     </HydrationBoundary>
   );

@@ -20,6 +20,29 @@ export default {
   // with no revalidation path (stale covers/cancellations until the next deploy);
   // ISR fixes that. Detail routes + the catchall are on-demand SSR too.
   async prerender() {
-    return ["/parties", "/classes"];
+    // /parties + /classes carry no server-fetched content (see comment above).
+    // The 13 SEO landing pages are the same shape -- no loaders, static content
+    // + a client-hydrated live-events section -- so a static shell with per-page
+    // meta()/JSON-LD is the whole SEO payload and nothing server-rendered can go
+    // stale; the daily redeploy cron refreshes them. /city/:slug (homepage) and
+    // /festivals stay OFF this list -- they dehydrate live content and moved to
+    // on-demand SSR + tagged ISR (see comment above).
+    return [
+      "/parties",
+      "/classes",
+      "/faq",
+      "/london-bachata-guide",
+      "/learn-bachata-london",
+      "/bachata-parties-london",
+      "/bachata-london-sensual-parties",
+      "/bachata-london-dominican-parties",
+      "/bachata-london-monday",
+      "/bachata-london-tuesday",
+      "/bachata-london-wednesday",
+      "/bachata-london-thursday",
+      "/bachata-london-friday",
+      "/bachata-london-saturday",
+      "/bachata-london-sunday",
+    ];
   },
 } satisfies Config;
