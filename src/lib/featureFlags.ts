@@ -23,6 +23,10 @@ export const flags = {
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
   searchV5:            import.meta.env.VITE_ENABLE_SEARCH_V5 === 'true',
+  // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
+  // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
+  // env enables reporting with no code change.
+  rum:                 import.meta.env.VITE_ENABLE_RUM === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

@@ -36,6 +36,9 @@ export const useCalendarEvents = ({
         city_slug_param: citySlug,
       }),
     enabled: enabled && !!rangeStart && !!rangeEnd,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // Matches the ISR edge window (s-maxage=3600) — the /city/:slug loader
+    // dehydrates this key; see useEventPageQuery for the full rationale.
+    // Window-focus refetch (global default) still refreshes long-lived tabs.
+    staleTime: 1000 * 60 * 60,
   });
 };

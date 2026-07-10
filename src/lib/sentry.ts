@@ -1,30 +1,37 @@
-// Sentry wire-up for the public site. No-ops gracefully when VITE_SENTRY_DSN
-// is unset (so previews and local dev stay quiet). Pairs with src/main.tsx
-// (calls initSentry once) and src/components/ErrorBoundary.tsx (captures
-// uncaught render errors and surfaces the resulting event ID).
+// Sentry wire-up for the public site -- split into a lightweight FACADE (this
+// file: env parsing, noise classifiers, a capture queue; NO @sentry/react
+// import) and the real SDK in ./sentryCore, loaded via dynamic import.
+//
+// Rationale (perf programme, Pillar A): @sentry/react + browserTracing is
+// ~50KB gz and was statically imported by always-loaded modules (root, useAuth,
+// App's QueryCache onError), putting it on the hydration critical path of every
+// page. As a facade the SDK chunk loads on idle (see entry.client); captures
+// that fire before it lands are queued here and replayed after init, so no
+// error is lost -- only its report is delayed by a second or two.
+//
+// No-ops gracefully when VITE_SENTRY_DSN is unset (previews and local dev stay
+// quiet). Server-side captures stay console-only: entry.server has its own
+// sentry.server wiring, and the browser SDK must never init inside node.
 
-import * as Sentry from '@sentry/react';
 import { isStaleChunkError } from './staleChunk';
 
 const viteEnv =
   (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
 
-const SENTRY_DSN =
+export const SENTRY_DSN =
   viteEnv?.VITE_SENTRY_DSN && viteEnv.VITE_SENTRY_DSN.trim()
     ? viteEnv.VITE_SENTRY_DSN.trim()
     : null;
 
-const RELEASE_ID =
+export const RELEASE_ID =
   (viteEnv?.VITE_VERCEL_GIT_COMMIT_SHA && viteEnv.VITE_VERCEL_GIT_COMMIT_SHA.trim()) ||
   (viteEnv?.VITE_RELEASE && viteEnv.VITE_RELEASE.trim()) ||
   'dev';
 
-const ENVIRONMENT =
+export const ENVIRONMENT =
   (viteEnv?.VITE_VERCEL_ENV && viteEnv.VITE_VERCEL_ENV.trim()) ||
   (viteEnv?.MODE && viteEnv.MODE.trim()) ||
   'development';
-
-let _initialized = false;
 
 export function isSentryEnabled(): boolean {
   return Boolean(SENTRY_DSN);
@@ -53,8 +60,8 @@ const JUNK_FRAME_LOCATIONS = new Set([
 ]);
 
 type MinimalFrame = { filename?: string; abs_path?: string };
-type MinimalEvent = {
-  exception?: { values?: Array<{ value?: string; stacktrace?: { frames?: MinimalFrame[] } }> };
+export type MinimalEvent = {
+  exception?: { values?: Array<{ value?: string; type?: string; stacktrace?: { frames?: MinimalFrame[] } }> };
   message?: string;
 };
 
@@ -108,7 +115,7 @@ export function isStaleChunkEvent(
 // Coerces anything thrown/captured into a real Error. Supabase PostgREST errors
 // arrive as plain objects ({ code, message, details, hint }); without this they
 // surface in Sentry as "Object captured as exception with keys: cod...".
-function toError(value: unknown): Error {
+export function toError(value: unknown): Error {
   if (value instanceof Error) return value;
   if (value && typeof value === 'object') {
     const v = value as Record<string, unknown>;
@@ -124,8 +131,57 @@ function toError(value: unknown): Error {
   return new Error(String(value));
 }
 
-export function initSentry(): void {
-  if (_initialized) return;
+// --- Deferred SDK loading + pre-init capture queue -------------------------
+
+type SentryCore = typeof import('./sentryCore');
+
+let core: SentryCore | null = null;
+let coreLoading: Promise<SentryCore | null> | null = null;
+
+type QueuedCapture =
+  | { kind: 'exception'; payload: unknown; context?: Record<string, unknown> }
+  | { kind: 'message'; payload: string; context?: Record<string, unknown> };
+
+// Bounded so a pre-init error loop can't grow memory unchecked.
+const QUEUE_LIMIT = 20;
+const queue: QueuedCapture[] = [];
+
+// Last-write-wins user identity set before the SDK lands (undefined = never
+// set). Applied before the queue replays so pre-init captures carry the user.
+let pendingUser: { id: string } | null | undefined;
+
+function loadCore(): Promise<SentryCore | null> {
+  if (core) return Promise.resolve(core);
+  coreLoading ??= import('./sentryCore')
+    .then((mod) => {
+      mod.initSentryCore();
+      core = mod;
+      if (pendingUser !== undefined) {
+        mod.setUserCore(pendingUser);
+        pendingUser = undefined;
+      }
+      for (const q of queue.splice(0)) {
+        if (q.kind === 'exception') mod.captureExceptionCore(q.payload, q.context);
+        else mod.captureMessageCore(q.payload, q.context);
+      }
+      return mod;
+    })
+    .catch(() => {
+      // SDK chunk failed to load (offline / stale deploy) -- stay silent; the
+      // queued events are lost, which matches the SDK itself failing to boot.
+      return null;
+    });
+  return coreLoading;
+}
+
+// Kicks off the deferred SDK load. Call from entry.client on idle -- calling
+// it eagerly would defeat the whole point of the facade. Returns a promise that
+// resolves once the SDK core has landed (or immediately when disabled / on the
+// server), so the caller can keep its own pre-init error buffer alive until
+// Sentry's global handlers are installed -- otherwise there's a window during
+// the (deliberately un-preloaded) chunk fetch where neither the buffer nor the
+// SDK is catching uncaught errors.
+export function initSentry(): Promise<void> {
   if (!SENTRY_DSN) {
     if (typeof console !== 'undefined' && ENVIRONMENT !== 'production') {
       // eslint-disable-next-line no-console
@@ -134,81 +190,56 @@ export function initSentry(): void {
           'Vercel project env (production scope) to enable.',
       );
     }
-    return;
+    return Promise.resolve();
   }
-
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: ENVIRONMENT,
-    release: RELEASE_ID,
-    integrations: [Sentry.browserTracingIntegration()],
-    tracesSampleRate: 0.1,
-    sendDefaultPii: false,
-    // Browser network-layer fetch failures (Safari "Load failed", Chrome
-    // "Failed to fetch") are users losing signal or navigating away mid-fetch
-    // &mdash; the affected queries already retry once and surface RetryNotice.
-    // Genuine PostgREST errors carry a code/details message and still report.
-    ignoreErrors: [
-      'Load failed',
-      'Failed to fetch',
-      'NetworkError when attempting to fetch resource',
-    ],
-    // Synthesize a stack for thrown non-Errors (strings, plain objects) so
-    // events like "Error: he" are attributable to a frame.
-    attachStacktrace: true,
-    beforeSend(event, hint) {
-      // Drop injected / third-party-script noise (see isInjectedThirdPartyEvent).
-      // Safe: only fires when every frame lacks a real source location, which our
-      // own bundle errors never do.
-      if (isInjectedThirdPartyEvent(event)) return null;
-
-      // Drop handled stale-deploy chunk-load failures (see isStaleChunkEvent).
-      if (isStaleChunkEvent(event, hint)) return null;
-
-      const orig = hint?.originalException;
-      if (orig && !(orig instanceof Error) && typeof orig === 'object') {
-        const e = toError(orig);
-        // Override only the message &mdash; replacing event.exception wholesale
-        // discards the stacktrace and mechanism Sentry already attached.
-        const first = event.exception?.values?.[0];
-        if (first) {
-          first.type = 'Error';
-          first.value = e.message;
-        } else {
-          event.exception = { values: [{ type: 'Error', value: e.message }] };
-        }
-        event.message = e.message;
-      }
-      return event;
-    },
-  });
-  _initialized = true;
+  if (typeof window === 'undefined') return Promise.resolve(); // browser SDK: never init in node
+  return loadCore().then(() => undefined);
 }
 
 export function captureException(
   err: unknown,
   context?: Record<string, unknown>,
 ): string | undefined {
-  if (!isSentryEnabled()) {
+  if (!SENTRY_DSN || typeof window === 'undefined') {
     if (typeof console !== 'undefined') {
       // eslint-disable-next-line no-console
       console.error('[sentry-disabled] captureException', err, context);
     }
     return undefined;
   }
-  return Sentry.captureException(toError(err), context ? { extra: context } : undefined);
+  if (core) return core.captureExceptionCore(err, context);
+  if (queue.length < QUEUE_LIMIT) queue.push({ kind: 'exception', payload: err, context });
+  void loadCore();
+  // Event ID is unknowable until the SDK lands; callers (ErrorBoundary) already
+  // handle undefined via the sentry-disabled path.
+  return undefined;
+}
+
+// Associates captures with the signed-in user (id only; no PII). Does NOT
+// trigger the SDK load by itself -- entry.client's idle init owns that; the
+// identity is stashed and applied when the core lands.
+export function setSentryUser(user: { id: string } | null): void {
+  if (!SENTRY_DSN || typeof window === 'undefined') return;
+  if (core) {
+    core.setUserCore(user);
+    return;
+  }
+  pendingUser = user;
 }
 
 export function captureMessage(
   message: string,
   context?: Record<string, unknown>,
 ): string | undefined {
-  if (!isSentryEnabled()) {
+  if (!SENTRY_DSN || typeof window === 'undefined') {
     if (typeof console !== 'undefined') {
       // eslint-disable-next-line no-console
       console.warn('[sentry-disabled] captureMessage', message, context);
     }
     return undefined;
   }
-  return Sentry.captureMessage(message, context ? { extra: context } : undefined);
+  if (core) return core.captureMessageCore(message, context);
+  if (queue.length < QUEUE_LIMIT) queue.push({ kind: 'message', payload: message, context });
+  void loadCore();
+  return undefined;
 }

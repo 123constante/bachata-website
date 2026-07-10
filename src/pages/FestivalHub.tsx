@@ -107,7 +107,11 @@ const FestivalHubInner = () => {
       if (error) throw error;
       return (data || []) as FestivalEvent[];
     },
-    staleTime: 1000 * 60 * 2,
+    // Matches the ISR edge window (s-maxage=3600) — the /festivals loader
+    // dehydrates this key; see useEventPageQuery for the full rationale. The
+    // attendance/status queries below stay short-lived (they're personalised
+    // and never dehydrated).
+    staleTime: 1000 * 60 * 60,
   });
 
   const festivalIds = useMemo(() => festivals.map((festival) => festival.id), [festivals]);

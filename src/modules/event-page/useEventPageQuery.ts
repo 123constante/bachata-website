@@ -346,6 +346,10 @@ export const useEventPageQuery = (eventId?: string | null, occurrenceId?: string
       return parseEventPageSnapshot(data);
     },
     enabled: Boolean(eventId),
-    staleTime: 1000 * 30,
+    // Matches the ISR edge window (s-maxage=3600, detailLoader cacheHeaders):
+    // the SSR loader dehydrates this exact key, so a shorter staleTime made
+    // every cache-HIT page re-issue the RPC it was just served with on mount.
+    // refetchOnWindowFocus (global default: true) still refreshes stale tabs.
+    staleTime: 1000 * 60 * 60,
   });
 };

@@ -1,9 +1,16 @@
+import { type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+
+// NO framer-motion here (perf, Pillar A): BottomNav mounts on every page, so a
+// `motion.*` import would drag the whole library into the first-load bundle.
+// Emoji bob = .chrome-bob (index.css, reduced-motion gated); hover pop = a CSS
+// transform on a wrapper span (separate element so the two transforms compose);
+// the active-tab bar is a plain div — the framer layoutId slide between tabs
+// was the one visual this intentionally gives up.
 
 const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
 
@@ -29,25 +36,17 @@ const BASE_NAV_LINKS: Array<{
     : []),
 ];
 
-const emojiAnimations = {
-  '\u{1F3AA}': {
-    animate: { y: [0, -8, 0] },
-    transition: { repeat: Infinity, duration: 1.6, ease: 'easeInOut' as const },
-  },
-  '\u{1F3DB}\u{FE0F}': {
-    animate: { y: [0, -8, 0] },
-    transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' as const },
-  },
-  '\u{1F381}': {
-    animate: { y: [0, -8, 0] },
-    transition: { repeat: Infinity, duration: 1.7, ease: 'easeInOut' as const },
-  },
+// Per-emoji bob duration (was the framer transition duration), fed to
+// .chrome-bob via the --bob-dur custom property.
+const EMOJI_BOB_DURATION: Record<string, string> = {
+  '\u{1F3AA}': '1.6s',
+  '\u{1F3DB}\u{FE0F}': '1.8s',
+  '\u{1F381}': '1.7s',
 };
 
 export const BottomNav = ({ className }: { className?: string }) => {
   const location = useLocation();
   const { citySlug } = useCity();
-  const prefersReducedMotion = useReducedMotion();
 
   const navLinks = BASE_NAV_LINKS.map((link) => ({
     ...link,
@@ -74,44 +73,37 @@ export const BottomNav = ({ className }: { className?: string }) => {
       <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
 
       <div className="flex items-center justify-around h-[58px] px-2">
-        {navLinks.map((link) => {
-          const animation = emojiAnimations[link.emoji as keyof typeof emojiAnimations];
-          return (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`relative flex flex-col items-center px-2 py-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center ${isActive(link.path) ? 'bg-primary/15' : ''}`}
-            >
-              <motion.span
-                className="text-base mb-0.5 cursor-pointer"
-                animate={animation.animate}
-                transition={animation.transition}
-                whileHover={{ scale: 1.3 }}
+        {navLinks.map((link) => (
+          <Link
+            key={link.path}
+            to={link.path}
+            className={`relative flex flex-col items-center px-2 py-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center ${isActive(link.path) ? 'bg-primary/15' : ''}`}
+          >
+            <span className="inline-block mb-0.5 cursor-pointer transition-transform duration-150 group-hover:scale-125">
+              <span
+                className="chrome-bob text-base"
+                style={{ '--bob-dur': EMOJI_BOB_DURATION[link.emoji] ?? '1.6s' } as CSSProperties}
               >
                 {link.emoji}
-              </motion.span>
-
-              {/* Label - always visible */}
-              <span
-                className={
-                  isActive(link.path)
-                    ? 'text-white font-bold'
-                    : 'text-white group-hover:text-white'
-                }
-              >
-                {link.label}
               </span>
+            </span>
 
-              {isActive(link.path) && (
-                <motion.div
-                  className="absolute top-0 left-1.5 right-1.5 h-0.5 bg-primary rounded-full"
-                  layoutId="bottomNavActive"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
-              )}
-            </Link>
-          );
-        })}
+            {/* Label - always visible */}
+            <span
+              className={
+                isActive(link.path)
+                  ? 'text-white font-bold'
+                  : 'text-white group-hover:text-white'
+              }
+            >
+              {link.label}
+            </span>
+
+            {isActive(link.path) && (
+              <div className="absolute top-0 left-1.5 right-1.5 h-0.5 bg-primary rounded-full" />
+            )}
+          </Link>
+        ))}
 
         {/* WhatsApp community -- external link */}
         <a
@@ -121,20 +113,19 @@ export const BottomNav = ({ className }: { className?: string }) => {
           aria-label="Join our WhatsApp community"
           className="relative flex flex-col items-center px-2 py-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center"
         >
-          <motion.span
-            className="mb-0.5 cursor-pointer relative flex items-center justify-center"
-            animate={prefersReducedMotion ? undefined : { y: [0, -8, 0] }}
-            transition={prefersReducedMotion ? undefined : { repeat: Infinity, duration: 2.0, ease: 'easeInOut' }}
-            whileHover={{ scale: 1.3 }}
-          >
-            <WhatsAppGlyph className="w-[18px] h-[18px] text-[#25D366]" />
-            {!prefersReducedMotion && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
+          <span className="inline-block mb-0.5 cursor-pointer transition-transform duration-150 group-hover:scale-125">
+            <span
+              className="chrome-bob relative flex items-center justify-center"
+              style={{ '--bob-dur': '2s' } as CSSProperties}
+            >
+              <WhatsAppGlyph className="w-[18px] h-[18px] text-[#25D366]" />
+              {/* motion-reduce:hidden replaces the old useReducedMotion() JSX gate */}
+              <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2 motion-reduce:hidden">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5cf08a] opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-[#5cf08a]" />
               </span>
-            )}
-          </motion.span>
+            </span>
+          </span>
           <span className="text-white font-bold group-hover:text-white">Community</span>
         </a>
       </div>

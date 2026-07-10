@@ -8,6 +8,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { MapEvent, MapCategory } from '../mapTypes';
 import {
@@ -52,10 +53,16 @@ export function CoverThumb({
   return (
     <span className={cn('cv block', scene, className)}>
       {showImg ? (
+        // 320w edge-resized variant (not the multi-MB R2 original): every
+        // CoverThumb call site renders <=92px CSS, so 320 covers 3x DPR, and
+        // one shared variant per cover keeps the edge cache hot across list
+        // rows, preview sheets and pins. No width/height needed: .cv-fill is
+        // absolutely positioned inside the caller's fixed-size span (no CLS).
         <img
           className="cv-fill"
-          src={event.cover_image_url!}
+          src={optimizedImageUrl(event.cover_image_url!, 320)}
           loading="lazy"
+          decoding="async"
           alt={event.name}
           onError={() => setImgError(true)}
         />

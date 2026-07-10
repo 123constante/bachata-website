@@ -1,16 +1,16 @@
 import { startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";
-import { initSentry } from "@/lib/sentry";
+import { captureException, initSentry } from "@/lib/sentry";
+import { initWebVitals } from "@/lib/webVitals";
 import { attemptChunkReloadOnce } from "@/lib/staleChunk";
 
 // Carries over EVERY browser-only side effect from src/main.tsx (the SPA entry,
 // dead on this branch). Dropping any of these is a silent regression:
-// - initSentry() — error reporting
+// - deferred initSentry() — error reporting (idle-loaded; see below)
 // - vite:preloadError → attemptChunkReloadOnce() — lazyWithRetry's deploy-skew recovery
 // - history.scrollRestoration='manual' — otherwise the browser fights ScrollToTop
 // - async Google-Fonts loader — decorative fonts (Cormorant/Bebas/etc.)
-initSentry();
 
 if (typeof window !== "undefined") {
   window.addEventListener("vite:preloadError", () => {
@@ -19,6 +19,44 @@ if (typeof window !== "undefined") {
 
   if ("scrollRestoration" in window.history) {
     window.history.scrollRestoration = "manual";
+  }
+
+  // Sentry + RUM are observability, not UI: neither is needed to paint, and
+  // together they were ~50KB gz of parse/execute BEFORE hydrateRoot. Load them
+  // on idle instead. Errors thrown in the pre-init window are buffered here and
+  // replayed through the facade's queue, so nothing is lost — its report is
+  // just a second or two late.
+  const earlyErrors: unknown[] = [];
+  const onEarlyError = (e: ErrorEvent) => {
+    earlyErrors.push(e.error ?? e.message);
+  };
+  const onEarlyRejection = (e: PromiseRejectionEvent) => {
+    earlyErrors.push(e.reason);
+  };
+  window.addEventListener("error", onEarlyError);
+  window.addEventListener("unhandledrejection", onEarlyRejection);
+
+  const startObservability = () => {
+    // Keep the buffer listeners LIVE across the whole SDK-chunk fetch: initSentry
+    // only kicks off an async import, so Sentry's own global handlers aren't
+    // installed until it resolves. Tearing the listeners down (or flushing the
+    // buffer) synchronously would leave uncaught errors thrown during that fetch
+    // caught by nobody. Remove them and replay the buffer only once the core has
+    // landed — at which point Sentry's handlers cover everything after.
+    void initSentry().finally(() => {
+      window.removeEventListener("error", onEarlyError);
+      window.removeEventListener("unhandledrejection", onEarlyRejection);
+      for (const err of earlyErrors.splice(0)) {
+        captureException(err, { boundary: "pre-sentry-init" });
+      }
+    });
+    initWebVitals();
+  };
+  if ("requestIdleCallback" in window) {
+    // timeout caps the wait on busy pages so error cover still arrives promptly.
+    window.requestIdleCallback(startObservability, { timeout: 3000 });
+  } else {
+    window.setTimeout(startObservability, 2000);
   }
 
   window.addEventListener("load", () => {

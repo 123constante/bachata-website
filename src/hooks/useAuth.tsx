@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/react";
 import { supabase } from "@/integrations/supabase/client";
-import { isSentryEnabled } from "@/lib/sentry";
+import { isSentryEnabled, setSentryUser } from "@/lib/sentry";
 
 type AuthContextType = {
   user: User | null;
@@ -53,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isSentryEnabled()) return;
-    Sentry.setUser(user ? { id: user.id } : null);
+    setSentryUser(user ? { id: user.id } : null);
   }, [user]);
 
   const signOut = async () => {

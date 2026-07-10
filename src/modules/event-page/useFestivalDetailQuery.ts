@@ -342,6 +342,8 @@ export const useFestivalDetailQuery = (eventId?: string | null, enabled = false)
       return parseFestivalDetail(data);
     },
     enabled: Boolean(eventId) && enabled,
-    staleTime: 1000 * 60,
+    // Matches the ISR edge window (s-maxage=3600) — dehydrated by the /event
+    // and /festival loaders; see useEventPageQuery for the full rationale.
+    staleTime: 1000 * 60 * 60,
   });
 };

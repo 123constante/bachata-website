@@ -32,6 +32,8 @@ export const useMapEvents = ({
         range_end: rangeEnd,
       }),
     enabled: enabled && !!citySlug,
-    staleTime: 1000 * 60 * 5,
+    // Matches the ISR edge window (s-maxage=3600) — the /city/:slug loader
+    // dehydrates this key; see useEventPageQuery for the full rationale.
+    staleTime: 1000 * 60 * 60,
   });
 };
