@@ -38,6 +38,7 @@ import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventAction
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { EventPausedBanner } from '@/modules/event-page/bento/EventPausedBanner';
 import { selectLifecycleBanner } from '@/modules/event-page/bento/lifecycleBanner';
+import { wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -485,8 +486,19 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                 // window.location.pathname on the client but the UUID on the
                 // server made this serialized JSON-LD differ across hydration.
                 url: `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
-                startDate: occurrence?.startsAt ?? snapshot.event.date ?? '',
-                endDate: occurrence?.endsAt ?? null,
+                // JSON-LD startDate/endDate feed Google as REAL instants, so
+                // convert the stored wall clock through the event tz. Emitting
+                // the naive stamp made every BST event read 1h late.
+                startDate:
+                  wallClockToInstant(
+                    occurrence?.startsAt ?? snapshot.event.date ?? null,
+                    occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
+                  )?.toISOString() ?? '',
+                endDate:
+                  wallClockToInstant(
+                    occurrence?.endsAt ?? null,
+                    occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
+                  )?.toISOString() ?? null,
                 description: pageModel.description.body,
                 image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
                 isCancelled: occurrence?.isCancelled ?? false,

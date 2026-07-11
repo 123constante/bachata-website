@@ -9,11 +9,13 @@
 // BST. Event timezone is also carried in the description; VTIMEZONE blocks are
 // a rabbit hole we don't need for a single-event invite.
 
+import { wallClockToInstant, type WallClock } from '@/lib/time/wallClock';
+
 export type CalendarEventInput = {
   eventId: string;
   title: string;
-  startIso: string | null;
-  endIso: string | null;
+  startIso: WallClock | null;
+  endIso: WallClock | null;
   timezone: string | null;
   description: string | null;
   locationName: string | null;
@@ -31,31 +33,15 @@ const instantToCompactUtc = (iso: string | null): string | null => {
   return Number.isNaN(d.getTime()) ? null : compact(d);
 };
 
-// Convert a stored local-as-UTC wall clock into a true UTC instant using the
-// event timezone, then format as compact UTC. Offset-probe technique mirrors
-// admin's lib/datetimeInputHelpers.fromDatetimeLocal.
-const naiveLocalToCompactUtc = (iso: string | null, timezone: string | null): string | null => {
-  if (!iso) return null;
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!m) return null;
-  const [, y, mo, d, h, mi, s] = m;
-  const tz = timezone || 'Europe/London';
-  const guess = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s ?? '00'}Z`);
-  if (Number.isNaN(guess.getTime())) return null;
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  });
-  const parts = fmt.formatToParts(guess);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
-  const hour = get('hour') === '24' ? '00' : get('hour');
-  const observed = new Date(
-    `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}Z`,
-  );
-  if (Number.isNaN(observed.getTime())) return null;
-  const delta = observed.getTime() - guess.getTime();
-  return compact(new Date(guess.getTime() - delta));
+// Convert a stored wall clock into a true UTC instant (via the event timezone),
+// then format as compact UTC. Delegates to the sanctioned wallClockToInstant --
+// byte-identical to the previous inline offset-probe (parity-checked in
+// tests/wallClockFormat.test.ts). ICS `Z`-suffixed DTSTART/DTEND are read as
+// real instants by calendar clients, so this conversion is mandatory.
+const compactFromWallClock = (wc: WallClock | null, timezone: string | null): string | null => {
+  if (!wc) return null;
+  const d = wallClockToInstant(wc, timezone || 'Europe/London');
+  return d ? compact(d) : null;
 };
 
 const escapeIcsText = (value: string): string =>
@@ -80,8 +66,8 @@ const buildLocation = (input: CalendarEventInput): string | null => {
 };
 
 export const buildIcs = (input: CalendarEventInput): string => {
-  const dtStart = naiveLocalToCompactUtc(input.startIso, input.timezone);
-  const dtEnd = naiveLocalToCompactUtc(input.endIso ?? input.startIso, input.timezone);
+  const dtStart = compactFromWallClock(input.startIso, input.timezone);
+  const dtEnd = compactFromWallClock(input.endIso ?? input.startIso, input.timezone);
   const dtStamp = instantToCompactUtc(new Date().toISOString()) ?? '';
   const uid = `${input.eventId}@bachatacalendar.co.uk`;
   const location = buildLocation(input);
@@ -129,8 +115,8 @@ export const downloadIcs = (input: CalendarEventInput, filename = 'event.ics') =
 };
 
 export const buildGoogleCalendarUrl = (input: CalendarEventInput): string => {
-  const dtStart = naiveLocalToCompactUtc(input.startIso, input.timezone);
-  const dtEnd = naiveLocalToCompactUtc(input.endIso ?? input.startIso, input.timezone);
+  const dtStart = compactFromWallClock(input.startIso, input.timezone);
+  const dtEnd = compactFromWallClock(input.endIso ?? input.startIso, input.timezone);
   const location = buildLocation(input) ?? '';
   const descParts: string[] = [];
   if (input.description) descParts.push(input.description);

@@ -1,4 +1,5 @@
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { wallClockDateKey, wallClockDurationMinutes } from '@/lib/time/wallClock';
 
 // Threshold for classifying a single occurrence as multi-day. 20h (not 24h)
 // catches e.g. Fri 20:00 -> Sat 03:00 cross-night events as single-day while
@@ -7,22 +8,23 @@ const MULTI_DAY_THRESHOLD_MS = 20 * 3600 * 1000;
 
 export const isMultiDay = (occurrence: EventPageSnapshotOccurrence | null): boolean => {
   if (!occurrence || !occurrence.startsAt || !occurrence.endsAt) return false;
-  const start = Date.parse(occurrence.startsAt);
-  const end = Date.parse(occurrence.endsAt);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
-  // Both stamps share the same (+00) offset, so the difference is correct
-  // regardless of the local-as-UTC convention.
-  return end - start > MULTI_DAY_THRESHOLD_MS;
+  // Both stamps share the same (+00) offset, so the wall-clock difference is the
+  // real span regardless of the local-as-UTC convention.
+  const mins = wallClockDurationMinutes(occurrence.startsAt, occurrence.endsAt);
+  if (mins === null) return false;
+  return mins * 60_000 > MULTI_DAY_THRESHOLD_MS;
 };
 
 // Read the weekday/day/month straight off the stored naive date. These stamps
-// are "local-as-UTC" (a wall clock tagged +00, not a real instant), so we must
-// NOT apply a timezone conversion -- doing so shifts the BST hour and can roll
-// late-night events onto the wrong day. See occurrenceFormat.ts for the full
-// convention note. We anchor the naive date at UTC noon and format in UTC so
-// the result is machine-timezone-independent.
-const formatDayPart = (isoLike: string): { weekday: string; day: string; month: string } => {
-  const ymd = isoLike.slice(0, 10);
+// are "local-as-UTC" (WallClock), so we take the YYYY-MM-DD via the sanctioned
+// wallClockDateKey, anchor it at UTC noon and format in UTC -- machine-timezone
+// independent, with no BST hour shift that could roll a late event onto the
+// wrong day.
+const formatDayPart = (
+  wc: NonNullable<EventPageSnapshotOccurrence['startsAt']>,
+): { weekday: string; day: string; month: string } => {
+  const ymd = wallClockDateKey(wc);
+  if (!ymd) return { weekday: '', day: '', month: '' };
   const date = new Date(`${ymd}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     return { weekday: '', day: '', month: '' };

@@ -1,4 +1,5 @@
 import type { Json } from '@/integrations/supabase/types';
+import type { WallClock } from '@/lib/time/wallClock';
 
 // ---------------------------------------------------------------------------
 // Shared person shape used across organisers, lineup, attendance preview
@@ -24,9 +25,9 @@ export type EventPagePerson = {
 
 export type EventPageSnapshotOccurrence = {
   occurrenceId: string;
-  startsAt: string | null;
-  endsAt: string | null;
-  localDate: string | null;
+  startsAt: WallClock | null;
+  endsAt: WallClock | null;
+  localDate: WallClock | null;
   timezone: string | null;
   isCancelled: boolean;
   cancellationReasonLabel: string | null;
@@ -75,7 +76,7 @@ export type EventPageSnapshot = {
   event: {
     name: string | null;
     description: string | null;
-    date: string | null;
+    date: WallClock | null;
     type: string | null;
     /** P5 structural shape: one_off | recurring | course | festival. Null for legacy-only events. */
     format: string | null;
