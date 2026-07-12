@@ -89,11 +89,17 @@ SYNC_TIMEOUT_SECONDS = 5
 
 def find_repo_root(start: str) -> str | None:
     cur = os.path.abspath(start)
-    while cur != '/':
+    while True:
         if os.path.isdir(os.path.join(cur, '.git')):
             return cur
-        cur = os.path.dirname(cur)
-    return None
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            # Filesystem root reached: '/' on POSIX, 'C:\\' on native Windows.
+            # The old `while cur != '/'` guard never terminated on Windows
+            # (dirname stabilises at the drive root), spinning the CPU forever
+            # inside the post-write parse-check.
+            return None
+        cur = parent
 
 
 # ──────────────────────────────────────────────────────────────────────
