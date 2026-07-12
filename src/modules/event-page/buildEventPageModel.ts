@@ -1,6 +1,6 @@
-﻿import { format } from 'date-fns';
-import { resolveHeroImage } from '@/lib/utils';
+﻿import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
+import { formatWallClockLocal, formatWallClockLocalIntl, type WallClock } from '@/lib/time/wallClock';
 
 type BuildEventPageModelArgs = {
   snapshot: EventPageSnapshot | null;
@@ -17,38 +17,22 @@ const getMonogram = (value: string | null) => {
   return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
 };
 
-const formatDateLabel = (value: string | null) => {
-  if (!value) return null;
-  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS engines,
-  // which causes an off-by-one day in positive-offset timezones. Append local noon.
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
-  const parsedDate = new Date(normalized);
-  return Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, 'EEEE, d MMMM yyyy');
-};
+const formatDateLabel = (value: WallClock | null) =>
+  // Render the day AS STORED (no browser-local / BST shift, no wrong-day).
+  formatWallClockLocal(value, 'EEEE, d MMMM yyyy');
 
-const formatTimeLabel = (value: string | null) => {
-  if (!value) return null;
-  const parsedDate = new Date(value);
-  return Number.isNaN(parsedDate.getTime()) ? null : format(parsedDate, 'h:mm a');
-};
+const formatTimeLabel = (value: WallClock | null) =>
+  formatWallClockLocal(value, 'h:mm a');
 
-const formatShortDateLabel = (value: string | null, timezone: string | null): string | null => {
-  if (!value) return null;
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
-  const parsedDate = new Date(normalized);
-  if (Number.isNaN(parsedDate.getTime())) return null;
-  const options: Intl.DateTimeFormatOptions = {
+const formatShortDateLabel = (value: WallClock | null): string | null =>
+  // Read the stored calendar day directly -- the old `timeZone: timezone` shifted
+  // the wall clock as if it were a real instant (the BST / wrong-day bug).
+  formatWallClockLocalIntl(value, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  };
-  try {
-    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: timezone ?? undefined }).format(parsedDate);
-  } catch {
-    return new Intl.DateTimeFormat('en-GB', options).format(parsedDate);
-  }
-};
+  });
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
   page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false },
@@ -90,7 +74,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const endLabel = formatTimeLabel(occurrence?.endsAt ?? null);
   const scheduleTime = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel;
   const scheduleTimezone = occurrence?.timezone ?? snapshot.event.timezone ?? snapshot.locationDefault.timezone ?? null;
-  const scheduleShortDate = formatShortDateLabel(scheduleRawDate, scheduleTimezone);
+  const scheduleShortDate = formatShortDateLabel(scheduleRawDate);
   const lineup = occurrence?.lineup ?? { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] };
   const statusLabel = snapshot.event.isPublished === false || snapshot.event.status === 'draft' ? 'Draft' : null;
   const primaryOrganiser = snapshot.organisers[0] ?? null;

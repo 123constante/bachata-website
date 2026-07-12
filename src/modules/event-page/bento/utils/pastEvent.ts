@@ -1,4 +1,5 @@
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { wallClockToInstant } from '@/lib/time/wallClock';
 
 // 6h grace period so an event that just finished doesn't immediately flip to
 // "ended" (punters may still be socialising; the page stays interactive).
@@ -15,7 +16,10 @@ export const isPast = (occurrence: EventPageSnapshotOccurrence | null): boolean 
   if (!occurrence) return false;
   const anchor = occurrence.endsAt ?? occurrence.startsAt;
   if (!anchor) return false;
-  const t = Date.parse(anchor);
-  if (!Number.isFinite(t)) return false;
-  return t + PAST_GRACE_MS < Date.now();
+  // Compare the TRUE instant the wall clock denotes (via the event tz) against
+  // real now -- naive Date.parse treated the naive stamp as UTC and flipped
+  // "past" an hour late all BST season.
+  const t = wallClockToInstant(anchor, occurrence.timezone ?? 'Europe/London');
+  if (!t) return false;
+  return t.getTime() + PAST_GRACE_MS < Date.now();
 };

@@ -13,6 +13,8 @@
  *    and lets the server-derived closed-state take over)
  */
 
+import { wallClockDateKey, type WallClock } from '@/lib/time/wallClock';
+
 export type CountdownTone = 'muted' | 'normal' | 'warning' | 'urgent';
 export type CountdownResult = { text: string; tone: CountdownTone } | null;
 
@@ -28,10 +30,10 @@ export type CountdownResult = { text: string; tone: CountdownTone } | null;
  */
 export function resolveCutoffAt(
   cutoffTime: string | null | undefined,
-  eventStartIso: string | null | undefined,
+  eventStart: WallClock | null | undefined,
   eventTimezone: string | null | undefined,
 ): Date | null {
-  if (!cutoffTime || !eventStartIso || !eventTimezone) return null;
+  if (!cutoffTime || !eventStart || !eventTimezone) return null;
 
   const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(cutoffTime.trim());
   if (!timeMatch) return null;
@@ -39,20 +41,12 @@ export function resolveCutoffAt(
   const mi = Number(timeMatch[2]);
   if (h > 23 || mi > 59) return null;
 
-  const eventStart = new Date(eventStartIso);
-  if (Number.isNaN(eventStart.getTime())) return null;
-
-  // Event-local calendar date, formatted as YYYY-MM-DD. en-CA locale
-  // produces that format reliably.
-  let eventLocalDate: string;
-  try {
-    eventLocalDate = eventStart.toLocaleDateString('en-CA', {
-      timeZone: eventTimezone,
-    });
-  } catch {
-    // Invalid timezone string
-    return null;
-  }
+  // The event's local calendar date is the stored wall-clock date itself
+  // (YYYY-MM-DD), no timezone conversion. The old
+  // new Date(eventStartIso).toLocaleDateString(tz) rolled late-night events
+  // onto the wrong day (the BST +1h class).
+  const eventLocalDate = wallClockDateKey(eventStart);
+  if (!eventLocalDate) return null;
   const [y, mo, d] = eventLocalDate.split('-').map(Number);
   if (!y || !mo || !d) return null;
 
