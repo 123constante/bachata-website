@@ -1,7 +1,6 @@
-﻿import { format } from 'date-fns';
-import { resolveHeroImage } from '@/lib/utils';
+﻿import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
-import { wallClockToLocalDate, type WallClock } from '@/lib/time/wallClock';
+import { formatWallClockLocal, formatWallClockLocalIntl, type WallClock } from '@/lib/time/wallClock';
 
 type BuildEventPageModelArgs = {
   snapshot: EventPageSnapshot | null;
@@ -18,30 +17,22 @@ const getMonogram = (value: string | null) => {
   return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
 };
 
-const formatDateLabel = (value: WallClock | null) => {
-  // Feed date-fns a Date whose LOCAL fields equal the stored wall clock, so it
-  // renders the day AS STORED (no browser-local / BST shift, no wrong-day).
-  const parsedDate = wallClockToLocalDate(value);
-  return parsedDate ? format(parsedDate, 'EEEE, d MMMM yyyy') : null;
-};
+const formatDateLabel = (value: WallClock | null) =>
+  // Render the day AS STORED (no browser-local / BST shift, no wrong-day).
+  formatWallClockLocal(value, 'EEEE, d MMMM yyyy');
 
-const formatTimeLabel = (value: WallClock | null) => {
-  const parsedDate = wallClockToLocalDate(value);
-  return parsedDate ? format(parsedDate, 'h:mm a') : null;
-};
+const formatTimeLabel = (value: WallClock | null) =>
+  formatWallClockLocal(value, 'h:mm a');
 
-const formatShortDateLabel = (value: WallClock | null): string | null => {
+const formatShortDateLabel = (value: WallClock | null): string | null =>
   // Read the stored calendar day directly -- the old `timeZone: timezone` shifted
   // the wall clock as if it were a real instant (the BST / wrong-day bug).
-  const parsedDate = wallClockToLocalDate(value);
-  if (!parsedDate) return null;
-  return new Intl.DateTimeFormat('en-GB', {
+  formatWallClockLocalIntl(value, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(parsedDate);
-};
+  });
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
   page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false },

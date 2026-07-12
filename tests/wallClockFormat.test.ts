@@ -5,7 +5,10 @@ import {
   formatWallClockTime,
   formatWallClockDate,
   formatWallClockDateTime,
+  formatWallClockLocal,
+  formatWallClockLocalIntl,
   wallClockDateKey,
+  wallClockDurationMinutes,
   wallClockToInstant,
   instantToDate,
 } from '@/lib/time/wallClock';
@@ -66,10 +69,48 @@ describe('formatWallClockDateTime', () => {
   });
 });
 
+describe('formatWallClockLocal / formatWallClockLocalIntl', () => {
+  // These back buildEventPageModel's schedule labels. Machine-tz independent:
+  // the internal Date is built from the wall-clock LOCAL fields, so local
+  // formatters (date-fns / Intl-without-tz) round-trip the stored value.
+  it('date-fns patterns render the stored wall clock', () => {
+    expect(formatWallClockLocal(BST_EVENING, 'EEEE, d MMMM yyyy')).toBe('Wednesday, 15 July 2026');
+    expect(formatWallClockLocal(BST_EVENING, 'h:mm a')).toBe('8:30 PM');
+    // Date-only value -> midnight; date part still reads as stored.
+    expect(formatWallClockLocal(asWallClock('2026-07-16'), 'EEEE, d MMMM yyyy')).toBe('Thursday, 16 July 2026');
+  });
+
+  it('Intl short-date renders the stored wall clock', () => {
+    expect(
+      formatWallClockLocalIntl(BST_EVENING, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+    ).toBe('Wed, 15 Jul 2026');
+    expect(formatWallClockLocal(null, 'h:mm a')).toBeNull();
+  });
+});
+
 describe('wallClockDateKey', () => {
   it('is the YYYY-MM-DD prefix, near-midnight safe', () => {
     expect(wallClockDateKey(BST_NEAR_MIDNIGHT)).toBe('2026-07-15');
     expect(wallClockDateKey(NEXT_DAY_EARLY)).toBe('2026-07-16');
+  });
+});
+
+describe('wallClockDurationMinutes', () => {
+  it('is the naive wall-clock difference, offset-format robust', () => {
+    // 20:00 -> 23:30 same day = 210 min. Uses regex digits, so a 2-digit "+00"
+    // offset (which Date.parse rejects on iOS Safari) still parses.
+    expect(
+      wallClockDurationMinutes(asWallClock('2026-07-15T20:00:00+00'), asWallClock('2026-07-15T23:30:00+00')),
+    ).toBe(210);
+    // Space-separated (venue-RPC style) parses too.
+    expect(
+      wallClockDurationMinutes(asWallClock('2026-07-15 20:00:00+00'), asWallClock('2026-07-16 04:00:00+00')),
+    ).toBe(480);
+  });
+
+  it('returns null for missing input', () => {
+    expect(wallClockDurationMinutes(null, BST_EVENING)).toBeNull();
+    expect(wallClockDurationMinutes(BST_EVENING, null)).toBeNull();
   });
 });
 
@@ -92,6 +133,20 @@ describe('wallClockToInstant', () => {
       expect(wallClockToInstant(asWallClock(raw))?.getTime())
         .toBe(londonWallClockToInstant(raw)?.getTime());
     }
+  });
+
+  it('returns null for a value with no time component (date-only / garbage)', () => {
+    // The JSON-LD / ICS callers rely on this: a timeless value has no instant.
+    expect(wallClockToInstant(asWallClock('2026-07-15'))).toBeNull();
+    expect(wallClockToInstant(asWallClock('not-a-date'))).toBeNull();
+    expect(wallClockToInstant(null)).toBeNull();
+  });
+
+  it('falls back to Europe/London on a malformed timezone rather than throwing', () => {
+    // Runs in render/effect paths (JSON-LD, isPast); a bad DB tz must not crash.
+    expect(() => wallClockToInstant(BST_EVENING, 'Not/A_Zone')).not.toThrow();
+    expect(wallClockToInstant(BST_EVENING, 'Not/A_Zone')?.getTime())
+      .toBe(new Date('2026-07-15T19:30:00Z').getTime());
   });
 });
 

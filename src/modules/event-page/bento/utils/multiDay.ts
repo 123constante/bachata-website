@@ -4,7 +4,7 @@ import { wallClockDateKey, wallClockDurationMinutes } from '@/lib/time/wallClock
 // Threshold for classifying a single occurrence as multi-day. 20h (not 24h)
 // catches e.g. Fri 20:00 -> Sat 03:00 cross-night events as single-day while
 // still flipping a multi-night weekender.
-const MULTI_DAY_THRESHOLD_MS = 20 * 3600 * 1000;
+const MULTI_DAY_THRESHOLD_MIN = 20 * 60;
 
 export const isMultiDay = (occurrence: EventPageSnapshotOccurrence | null): boolean => {
   if (!occurrence || !occurrence.startsAt || !occurrence.endsAt) return false;
@@ -12,7 +12,7 @@ export const isMultiDay = (occurrence: EventPageSnapshotOccurrence | null): bool
   // real span regardless of the local-as-UTC convention.
   const mins = wallClockDurationMinutes(occurrence.startsAt, occurrence.endsAt);
   if (mins === null) return false;
-  return mins * 60_000 > MULTI_DAY_THRESHOLD_MS;
+  return mins > MULTI_DAY_THRESHOLD_MIN;
 };
 
 // Read the weekday/day/month straight off the stored naive date. These stamps

@@ -26,6 +26,7 @@
 // CONSUMERS: only the sanctioned helpers below. The single `unwrap` back to
 // string is confined to this file -- nothing else may cast a brand to string.
 
+import { format } from 'date-fns';
 import { parseUtcIso } from '@/lib/londonDate';
 
 declare const _wallClockBrand: unique symbol;
@@ -51,6 +52,22 @@ export const asInstant = (raw: string): Instant => raw as unknown as Instant;
 // The sole sanctioned cast back to string. Every reader below goes through this
 // so the raw string never escapes the boundary.
 const unwrap = (v: WallClock | Instant): string => v as unknown as string;
+
+// Parse the naive Y-M-D[ H:M[:S]] digits out of a wall-clock string. Tolerant of
+// a 'T' or space separator and an optional time; ignores whatever offset the
+// stamp carries (it is always +00 by convention). Shared by the readers below.
+const NAIVE_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/;
+const naiveParts = (
+  wc: WallClock,
+): { y: number; mo: number; d: number; h: number; mi: number; s: number } | null => {
+  const m = unwrap(wc).match(NAIVE_RE);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  return {
+    y: Number(y), mo: Number(mo), d: Number(d),
+    h: Number(h ?? '0'), mi: Number(mi ?? '0'), s: Number(s ?? '0'),
+  };
+};
 
 // --- Wall-clock readers (render AS STORED, no timezone shift) ----------------
 
@@ -128,6 +145,23 @@ export const wallClockDateKey = (wc: WallClock | null | undefined): string | nul
   return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
 };
 
+// Build a zoned formatter, falling back to Europe/London if `tz` is not a valid
+// IANA zone. new Intl.DateTimeFormat({ timeZone }) throws a RangeError on a
+// malformed zone; wallClockToInstant runs in render/effect paths (JSON-LD,
+// isPast), so a bad DB timezone must degrade to London rather than crash the
+// page. (The pre-brand formatShortDateLabel wrapped this same call in try/catch.)
+const ZONED_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+};
+const zonedFormatter = (tz: string): Intl.DateTimeFormat => {
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz, ...ZONED_OPTS });
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/London', ...ZONED_OPTS });
+  }
+};
+
 /**
  * Convert a stored wall clock into the TRUE UTC instant it denotes, using the
  * event timezone (default Europe/London). This is the one path that MUST do a
@@ -151,12 +185,7 @@ export const wallClockToInstant = (
   const [, y, mo, d, h, mi, s] = m;
   const guess = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s ?? '00'}Z`);
   if (Number.isNaN(guess.getTime())) return null;
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  });
-  const parts = fmt.formatToParts(guess);
+  const parts = zonedFormatter(tz).formatToParts(guess);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
   const hour = get('hour') === '24' ? '00' : get('hour');
   const observed = new Date(
@@ -167,43 +196,67 @@ export const wallClockToInstant = (
   return new Date(guess.getTime() - delta);
 };
 
-/**
- * A Date whose LOCAL calendar fields equal the stored wall clock. Use ONLY to
- * feed local-timezone formatters (date-fns `format`, `toLocale*`) so they render
- * the wall clock AS STORED, machine-timezone-independent. Its epoch value is
- * MEANINGLESS -- never diff it or treat it as an instant (use wallClockToInstant
- * for that). Accepts a date-only "YYYY-MM-DD" (-> midnight) or a full ISO stamp.
- * (Around the machine tz's own DST switch a nonexistent local hour may normalise;
- * negligible in practice and CI runs in UTC. This replaces the pre-brand
- * `new Date(stamp)` that formatters read in browser-local time -- the BST bug.)
- */
-export const wallClockToLocalDate = (wc: WallClock | null | undefined): Date | null => {
+// INTERNAL: a Date whose LOCAL calendar fields equal the stored wall clock, for
+// feeding local-timezone formatters (date-fns `format`, Intl). NOT exported --
+// its epoch value is machine-timezone-dependent and MEANINGLESS, so it must
+// never escape this module, be diffed, or be treated as an instant (use
+// wallClockToInstant for that). Accepts a date-only "YYYY-MM-DD" (-> midnight)
+// or a full ISO stamp. (Around the machine tz's own DST switch a nonexistent
+// local hour may normalise; negligible in practice and CI runs in UTC.)
+const toLocalDate = (wc: WallClock | null | undefined): Date | null => {
   if (!wc) return null;
-  const m = unwrap(wc).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-  if (!m) return null;
-  const [, y, mo, d, h, mi, s] = m;
-  const date = new Date(
-    Number(y), Number(mo) - 1, Number(d),
-    Number(h ?? '0'), Number(mi ?? '0'), Number(s ?? '0'), 0,
-  );
+  const p = naiveParts(wc);
+  if (!p) return null;
+  const date = new Date(p.y, p.mo - 1, p.d, p.h, p.mi, p.s, 0);
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * Format a stored wall clock AS STORED with a date-fns pattern, machine-timezone
+ * independent. Replaces the old exported wallClockToLocalDate: the raw
+ * local-positioned Date never leaves this module, so it can't be mistaken for a
+ * real instant or diffed.
+ */
+export const formatWallClockLocal = (
+  wc: WallClock | null | undefined,
+  pattern: string,
+): string | null => {
+  const d = toLocalDate(wc);
+  return d ? format(d, pattern) : null;
+};
+
+/**
+ * Format a stored wall clock AS STORED with Intl.DateTimeFormat (for the
+ * weekday/day/month/year short-date chip). Same "raw Date stays internal" rule
+ * as formatWallClockLocal.
+ */
+export const formatWallClockLocalIntl = (
+  wc: WallClock | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = 'en-GB',
+): string | null => {
+  const d = toLocalDate(wc);
+  return d ? new Intl.DateTimeFormat(locale, options).format(d) : null;
 };
 
 /**
  * Whole minutes from `start` to `end`, both stored wall clocks. Since both carry
  * the same (+00) offset the naive difference IS the wall-clock difference -- no
- * timezone handling needed. Returns null if either is unparseable. Matches the
- * pre-brand `new Date(end) - new Date(start)` duration exactly.
+ * timezone handling needed. Returns null if either is unparseable. Reads the
+ * digits via regex (not Date.parse, which rejects a 2-digit '+00' offset on iOS
+ * Safari), matching the pre-brand duration result for valid stamps.
  */
 export const wallClockDurationMinutes = (
   start: WallClock | null | undefined,
   end: WallClock | null | undefined,
 ): number | null => {
   if (!start || !end) return null;
-  const a = Date.parse(unwrap(start));
-  const b = Date.parse(unwrap(end));
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-  return (b - a) / 60000;
+  const a = naiveParts(start);
+  const b = naiveParts(end);
+  if (!a || !b) return null;
+  const aMs = Date.UTC(a.y, a.mo - 1, a.d, a.h, a.mi, a.s);
+  const bMs = Date.UTC(b.y, b.mo - 1, b.d, b.h, b.mi, b.s);
+  return (bMs - aMs) / 60000;
 };
 
 // --- Instant readers --------------------------------------------------------
