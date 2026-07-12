@@ -1,6 +1,7 @@
 import { CalendarDays, Music } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { formatWallClockTime, wallClockDateKey, type WallClock } from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
   FestivalScheduleItem,
@@ -72,16 +73,16 @@ const rankTooltip = (item: FestivalScheduleItem): string => {
 
 // ─── Time helpers ────────────────────────────────────────────────────────────
 
-// Handle "HH:MM" or full ISO timestamp "YYYY-MM-DDTHH:MM..."
-const formatTime = (time: string): string => {
-  if (!time) return '';
-  const tIdx = time.indexOf('T');
-  const timePart = tIdx !== -1 ? time.slice(tIdx + 1) : time;
-  return timePart.slice(0, 5);
-};
+// 24h "HH:MM" from a stored wall clock, read as-stored via the sanctioned
+// reader. '' for the codec's empty sentinel / unparseable stamps.
+const wcTime24 = (wc: WallClock | null): string =>
+  formatWallClockTime(wc, { hour12: false }) ?? '';
 
-const formatTime12 = (time: string): string => {
-  const hhmm = formatTime(time);
+// 12h with minutes ALWAYS shown ("5:00 PM"), from a 24h "HH:MM" string.
+// Deliberately kept local instead of formatWallClockTime's default 12h form,
+// which drops ":00" on the hour ("5 PM") -- party ranges here have always
+// shown minutes and must stay byte-stable.
+const formatTime12 = (hhmm: string): string => {
   if (!hhmm) return '';
   const [hStr, mStr] = hhmm.split(':');
   const h = Number(hStr);
@@ -89,6 +90,16 @@ const formatTime12 = (time: string): string => {
   const ampm = h < 12 ? 'AM' : 'PM';
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:${mStr ?? '00'} ${ampm}`;
+};
+
+// Chronological sort key: 'YYYY-MM-DDTHH:MM' rebuilt from the sanctioned
+// readers, so FULL-stamp order survives the brand (an 01:00 next-day party
+// stays last within its admin-assigned day group) and unparseable/sentinel
+// values sort first exactly like the old '' stamps did.
+const wcSortKey = (wc: WallClock | null): string => {
+  const day = wallClockDateKey(wc);
+  const time = wcTime24(wc);
+  return day && time ? `${day}T${time}` : '';
 };
 
 const formatDayLabel = (day: string): string => {
@@ -101,13 +112,16 @@ const formatDayLabel = (day: string): string => {
 const groupByDay = (items: FestivalScheduleItem[]) => {
   const map = new Map<string, FestivalScheduleItem[]>();
   for (const item of items) {
-    const key = item.day || 'TBD';
+    // wallClockDateKey(day) is the raw 'YYYY-MM-DD' for real day values and
+    // null for the codec's '' sentinel -- byte-identical keys to the old
+    // `item.day || 'TBD'`.
+    const key = wallClockDateKey(item.day) ?? 'TBD';
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(item);
   }
   const sorted = [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   for (const [, dayItems] of sorted) {
-    dayItems.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    dayItems.sort((a, b) => wcSortKey(a.startTime).localeCompare(wcSortKey(b.startTime)));
   }
   return sorted;
 };
@@ -184,8 +198,8 @@ const FestivalRankCard = ({
     >
       <div className="flex items-baseline justify-between gap-2 mb-2">
         <p className="text-[11px] tabular-nums text-white/60">
-          {formatTime(item.startTime)}
-          {item.endTime ? ` – ${formatTime(item.endTime)}` : ''}
+          {wcTime24(item.startTime)}
+          {item.endTime ? ` – ${wcTime24(item.endTime)}` : ''}
         </p>
         {highlightParallel && (
           <span
@@ -245,10 +259,12 @@ const FestivalRankCard = ({
 
 const FestivalPartyCard = ({ item }: { item: FestivalScheduleItem }) => {
   const showTitle = !isDefaultTitle(item.title) && item.title.trim().length > 0;
+  const start24 = wcTime24(item.startTime);
+  const end24 = item.endTime ? wcTime24(item.endTime) : '';
   const range =
-    item.startTime && item.endTime
-      ? `${formatTime12(item.startTime)} – ${formatTime12(item.endTime)}`
-      : formatTime12(item.startTime);
+    start24 && end24
+      ? `${formatTime12(start24)} – ${formatTime12(end24)}`
+      : formatTime12(start24);
 
   return (
     <div className="rounded-lg p-3 border border-white/5 bg-white/5 text-center">
@@ -288,7 +304,7 @@ const FestivalPartyCard = ({ item }: { item: FestivalScheduleItem }) => {
 const buildParallelMap = (classItems: FestivalScheduleItem[]): Map<string, number> => {
   const counts = new Map<string, number>();
   for (const it of classItems) {
-    const key = formatTime(it.startTime);
+    const key = wcTime24(it.startTime);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
@@ -341,7 +357,7 @@ export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps
           <div className="space-y-2">
             {classItems.length > 0 ? (
               classItems.map((item, idx) => {
-                const key = formatTime(item.startTime);
+                const key = wcTime24(item.startTime);
                 const isParallel = key ? (parallelCounts.get(key) ?? 0) > 1 : false;
                 return (
                   <FestivalRankCard

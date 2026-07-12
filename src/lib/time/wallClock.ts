@@ -106,6 +106,17 @@ export const formatWallClockTime = (
 };
 
 /**
+ * The stored wall-clock HOUR (0-23), read as-stored with no timezone shift.
+ * For bucketing festival sessions into hour rows. Returns null if unparseable.
+ * Reuses the same naive HH:MM slice as formatWallClockTime so the two agree.
+ */
+export const wallClockHour = (wc: WallClock | null | undefined): number | null => {
+  if (!wc) return null;
+  const hm = naiveHourMinute(unwrap(wc));
+  return hm ? hm.hh : null;
+};
+
+/**
  * "Wed 15 Jul" from a stored wall clock: the YYYY-MM-DD prefix anchored at UTC
  * noon and formatted in UTC, so weekday/day/month are read straight off the
  * stored date, machine-timezone-independent. Byte-identical to the old

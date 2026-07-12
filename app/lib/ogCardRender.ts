@@ -21,6 +21,7 @@ import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
 import interRegularUrl from "./ogCardFonts/Inter-Regular.ttf";
 
@@ -144,15 +145,16 @@ export function firstString(val: unknown): string | null {
   return typeof val === "string" && val.trim() ? val : null;
 }
 
-export function formatOgDate(iso: string | null): string | null {
-  if (!iso) return null;
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London",
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 10);
-  }
+export function formatOgDate(wc: WallClock | null): string | null {
+  if (!wc) return null;
+  // Read the stored calendar day AS STORED. The pre-brand new Date(stamp) +
+  // Europe/London Intl shifted late-night local-as-UTC stamps to the NEXT day
+  // all BST season -- OG cards carried the wrong date. Same Intl options, so
+  // the output is byte-identical outside that bug case.
+  return (
+    formatWallClockLocalIntl(wc, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) ??
+    wallClockDateKey(wc)
+  );
 }
 
 export async function fetchImageBytes(url: string): Promise<Buffer | null> {

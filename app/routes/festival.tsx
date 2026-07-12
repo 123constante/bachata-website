@@ -2,7 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
+import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
 import FestivalDetail from "@/pages/FestivalDetail";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -51,11 +51,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }),
     qc.prefetchQuery({
       queryKey: festivalDetailQueryKey(eventId),
-      queryFn: async () => {
-        const { data, error } = await supabase.rpc("get_public_festival_detail", { p_event_id: eventId });
-        if (error) throw error;
-        return parseFestivalDetail(data);
-      },
+      // Shared fetcher = same RPC (_v2) + same parse as the client hook, so the
+      // dehydrated entry matches what the client would fetch byte-for-byte.
+      queryFn: async () => fetchFestivalDetail(eventId),
       staleTime: 1000 * 60,
     }),
   ]);

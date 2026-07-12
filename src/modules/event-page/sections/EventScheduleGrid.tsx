@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatWallClockTime, wallClockDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -406,9 +407,13 @@ export function useProgramSections(eventId: string | null | undefined) {
 function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
   return items
     .map((item): ScheduleSession | null => {
-      const startMins = toMins(item.startTime);
+      // Branded festival stamps -> 24h "HH:MM" via the sanctioned reader, then
+      // through the SAME toMins as every other path. toMins itself must stay
+      // string-typed: the occurrence-override program feeds it bare "HH:MM"
+      // by DB construction (recompute_override_payload_program_v1).
+      const startMins = toMins(formatWallClockTime(item.startTime, { hour12: false }));
       if (startMins === null) return null;
-      const endMins = toMins(item.endTime) ?? startMins + 60;
+      const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? startMins + 60;
       const people: Person[] = [
         ...item.instructors.map((p) => ({
           id: p.id,
@@ -433,7 +438,7 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         id: item.id ?? `${item.type}-${item.day ?? ''}-${item.startTime}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
-        day: /^\d{4}-\d{2}-\d{2}$/.test(item.day ?? '') ? item.day : null,
+        day: wallClockDateKey(item.day),
         startMins,
         endMins,
         levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { safeExternalHref } from '@/lib/url';
+import { asInstant, asWallClock, type Instant, type WallClock } from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
   FestivalCompetition,
@@ -37,6 +38,19 @@ const asStringList = (value: unknown): string[] =>
   asArray(value)
     .map((s) => asString(s))
     .filter((s): s is string => s !== null);
+
+// Brand a stored wall-clock string at the RPC boundary; null stays null.
+const asWallClockOrNull = (value: unknown): WallClock | null => {
+  const raw = asString(value);
+  return raw === null ? null : asWallClock(raw);
+};
+
+// Brand a true-UTC instant string at the RPC boundary; null stays null.
+// v2's dates.starts_at/ends_at are tz-corrected REAL instants, not wall clocks.
+const asInstantOrNull = (value: unknown): Instant | null => {
+  const raw = asString(value);
+  return raw === null ? null : asInstant(raw);
+};
 
 // ---------------------------------------------------------------------------
 // Sub-parsers
@@ -81,11 +95,11 @@ const parseSchedule = (raw: unknown): FestivalScheduleItem[] =>
     if (!obj) return acc;
     acc.push({
       id: asString(obj.id),
-      day: asString(obj.day) ?? '',
+      day: asWallClock(asString(obj.day) ?? ''),
       type: asString(obj.type) ?? 'class',
       title: asString(obj.title) ?? '',
-      startTime: asString(obj.start_time) ?? '',
-      endTime: asString(obj.end_time),
+      startTime: asWallClock(asString(obj.start_time) ?? ''),
+      endTime: asWallClockOrNull(obj.end_time),
       venueRoom: asString(obj.venue_room),
       isMasterclass: asBoolean(obj.is_masterclass),
       levels: parseLevels(obj.levels),
@@ -236,10 +250,10 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
     },
 
     dates: {
-      startsAt: asString(dates.starts_at),
-      endsAt: asString(dates.ends_at),
-      localStart: asString(dates.local_start),
-      localEnd: asString(dates.local_end),
+      startsAt: asInstantOrNull(dates.starts_at),
+      endsAt: asInstantOrNull(dates.ends_at),
+      localStart: asWallClockOrNull(dates.local_start),
+      localEnd: asWallClockOrNull(dates.local_end),
       timezone: asString(dates.timezone),
     },
 
@@ -330,17 +344,26 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
 export const festivalDetailQueryKey = (eventId?: string | null) =>
   ['festival-detail', eventId ?? null] as const;
 
+// The ONE fetch path for the festival payload -- shared by this hook, the RR7
+// /event + /festival loaders and the OG-card routes so every surface reads the
+// SAME RPC with the SAME parse. _v2 returns tz-corrected TRUE instants in
+// dates.starts_at/ends_at (v1's COALESCE mixed wall clocks with instants per
+// row -- unbrandable). 'as never': the generated Supabase types predate _v2;
+// same pattern as event_view_p5 in app/routes/api.og.card.tsx.
+export const fetchFestivalDetail = async (eventId: string): Promise<FestivalDetail | null> => {
+  const { data, error } = await supabase.rpc('get_public_festival_detail_v2' as never, {
+    p_event_id: eventId,
+  } as never);
+  if (error) {
+    throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
+  }
+  return parseFestivalDetail(data);
+};
+
 export const useFestivalDetailQuery = (eventId?: string | null, enabled = false) => {
   return useQuery<FestivalDetail | null, Error>({
     queryKey: festivalDetailQueryKey(eventId),
-    queryFn: async () => {
-      if (!eventId) return null;
-      const { data, error } = await supabase.rpc('get_public_festival_detail', {
-        p_event_id: eventId,
-      });
-      if (error) throw new Error(error.message ?? JSON.stringify(error));
-      return parseFestivalDetail(data);
-    },
+    queryFn: async () => (eventId ? fetchFestivalDetail(eventId) : null),
     enabled: Boolean(eventId) && enabled,
     staleTime: 1000 * 60,
   });

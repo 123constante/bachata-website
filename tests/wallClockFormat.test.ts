@@ -9,6 +9,7 @@ import {
   formatWallClockLocalIntl,
   wallClockDateKey,
   wallClockDurationMinutes,
+  wallClockHour,
   wallClockToInstant,
   instantToDate,
 } from '@/lib/time/wallClock';
@@ -92,6 +93,21 @@ describe('wallClockDateKey', () => {
   it('is the YYYY-MM-DD prefix, near-midnight safe', () => {
     expect(wallClockDateKey(BST_NEAR_MIDNIGHT)).toBe('2026-07-15');
     expect(wallClockDateKey(NEXT_DAY_EARLY)).toBe('2026-07-16');
+  });
+});
+
+describe('wallClockHour', () => {
+  it('reads the stored hour, offset-invariant across BST and GMT', () => {
+    expect(wallClockHour(BST_EVENING)).toBe(20);
+    expect(wallClockHour(GMT_EVENING)).toBe(20);
+    expect(wallClockHour(NEXT_DAY_EARLY)).toBe(0);
+  });
+
+  it('returns null for date-only stamps, the codec empty sentinel, and null', () => {
+    expect(wallClockHour(asWallClock('2026-07-15'))).toBeNull();
+    expect(wallClockHour(asWallClock(''))).toBeNull();
+    expect(wallClockHour(null)).toBeNull();
+    expect(wallClockHour(undefined)).toBeNull();
   });
 });
 

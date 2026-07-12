@@ -16,6 +16,8 @@
 // POST body: { entity_type: 'event'|'festival', entity_id: uuid, occurrence_id?: uuid|null }
 import { createHash } from "node:crypto";
 import { supabase } from "@/integrations/supabase/client";
+import { asWallClock } from "@/lib/time/wallClock";
+import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import {
   buildFallbackCard,
   buildImageCard,
@@ -59,23 +61,34 @@ async function fetchEventData(id: string, occ: string | null): Promise<OgCardDat
   const snap: any = data;
   if (error || !snap || !snap.event) return null;
   const venue = snap.location_default?.venue;
+  // Mini boundary codec: occurrence starts_at / event.date are stored wall
+  // clocks on the snapshot RPC -- brand at this read so formatOgDate renders
+  // the stored day (never new Date + tz-shift).
+  const rawStart = firstString(snap.occurrence_effective?.starts_at) ?? firstString(snap.event.date);
   return {
     title: snap.event.name ?? "Bachata Event",
-    dateLine: formatOgDate(snap.occurrence_effective?.starts_at ?? snap.event.date ?? null),
+    dateLine: formatOgDate(rawStart ? asWallClock(rawStart) : null),
     venueLine: venue?.name ? `at ${venue.name}` : null,
     coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
   };
 }
 
 async function fetchFestivalData(id: string): Promise<OgCardData | null> {
-  const { data, error } = await supabase.rpc("get_public_festival_detail", { p_event_id: id });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fest: any = data;
-  if (error || !fest || !fest.identity) return null;
-  const venue = fest.location?.primaryVenue;
+  // Shared codec fetch (_v2 + parseFestivalDetail). The previous inline read
+  // used camelCase keys against the snake_case RPC json, so dateLine/poster/
+  // venue were silently undefined -- festival cards rendered title-only.
+  let fest: Awaited<ReturnType<typeof fetchFestivalDetail>> = null;
+  try {
+    fest = await fetchFestivalDetail(id);
+  } catch {
+    return null;
+  }
+  if (!fest) return null;
+  const venue = fest.location.primaryVenue;
   return {
     title: fest.identity.name ?? "Bachata Festival",
-    dateLine: formatOgDate(fest.dates?.startsAt ?? null),
+    // localStart = event-timezone calendar date (date-only wall clock).
+    dateLine: formatOgDate(fest.dates.localStart),
     venueLine: venue?.name ? `at ${venue.name}` : null,
     coverUrl: firstString(fest.identity.posterUrl) ?? firstString(venue?.imageUrl),
   };
