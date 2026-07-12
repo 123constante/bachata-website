@@ -4,6 +4,10 @@
     "home (/city/:slug)": {
       "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/home.tsx"],
       "maxFirstLoadGzipKB": 245
+    },
+    "event (/event/:id)": {
+      "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/event.tsx"],
+      "maxFirstLoadGzipKB": 385
     }
   }
 }

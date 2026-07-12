@@ -72,6 +72,6 @@ export function isOccurrenceToday(occ: EventPageSnapshotOccurrence): boolean {
   // authority is Europe/London (londonDate.ts). Browser-local getDate() was both
   // wrong for non-London visitors AND a server-vs-client SSR hydration mismatch
   // (a UTC server and a London client disagreed on "today", so DatesBlock /
-  // WeeksLadderBlock's today-gated elements structurally mismatched → React #418).
+  // WeeksLadderBlock's today-gated elements structurally mismatched -> React #418).
   return ymd === londonTodayKey();
 }

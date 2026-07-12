@@ -4,11 +4,11 @@ import { RouteOwnsHeadContext } from "@/lib/seo";
 
 // PageTransition is LAZY (perf, Pillar A): every framework route funnels
 // through this wrapper, so a static import here was framer-motion's one
-// remaining road into the first-load bundle of every page — for a fade that
+// remaining road into the first-load bundle of every page -- for a fade that
 // only ever plays on the SECOND-plus client navigation (SSR + first mount
 // render the plain div below). The chunk is warmed post-hydration, so the
 // first client nav almost always has it cached; when it doesn't, the Suspense
-// fallback renders the same plain wrapper (one navigation without the fade —
+// fallback renders the same plain wrapper (one navigation without the fade --
 // unnoticeable, not broken).
 const PageTransition = lazyWithRetry(() =>
   import("@/components/PageTransition").then((m) => ({ default: m.PageTransition })),
@@ -32,7 +32,7 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     clientNavigated = true;
     // Warm the transition chunk while the page is settled so the first client
     // navigation animates instead of falling back. safeDynamicImport gives it
-    // the house stale-chunk heal; any other failure is absorbed — the Suspense
+    // the house stale-chunk heal; any other failure is absorbed -- the Suspense
     // fallback simply covers that first nav.
     void safeDynamicImport(() => import("@/components/PageTransition")).catch(() => {});
   }, []);

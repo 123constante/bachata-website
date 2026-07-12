@@ -1,6 +1,6 @@
 name: Perf Budget
 
-# Performance guardrails (perf programme, Pillar D — "stays fast"). Two jobs:
+# Performance guardrails (perf programme, Pillar D -- "stays fast"). Two jobs:
 #   - bundle-budget: builds the client and enforces per-route first-load JS
 #     budgets from perf-budgets.json (catches a heavy dep creeping back onto the
 #     hydration critical path, e.g. framer-motion/Sentry).

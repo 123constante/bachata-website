@@ -1,4 +1,4 @@
-﻿import { format } from 'date-fns';
+import { format } from 'date-fns';
 import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
 

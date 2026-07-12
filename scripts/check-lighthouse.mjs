@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Lighthouse mobile budget guard (perf programme, Pillar D — "stays fast").
+// Lighthouse mobile budget guard (perf programme, Pillar D -- "stays fast").
 //
 // Runs Lighthouse (mobile emulation, simulated 4G) against a deployed base URL
-// for the three representative surfaces — the homepage, a landing page, and one
-// event-detail page — and asserts the field-quality metrics that matter for the
+// for the three representative surfaces -- the homepage, a landing page, and one
+// event-detail page -- and asserts the field-quality metrics that matter for the
 // ~95%-mobile audience:
 //
 //   LCP <= 2500 ms   TBT <= 200 ms   CLS <= 0.10
@@ -28,7 +28,7 @@ if (!BASE) {
   process.exit(1);
 }
 
-// [label, path] — homepage redirects "/" -> "/city/london-gb" (vercel.json), so
+// [label, path] -- homepage redirects "/" -> "/city/london-gb" (vercel.json), so
 // audit the real destination to avoid measuring the redirect hop.
 const FIXED_TARGETS = [
   ['homepage', '/city/london-gb'],
@@ -46,7 +46,7 @@ const BUDGETS = {
 // Resolve Lighthouse's CLI entry and run it with the current node binary rather
 // than the node_modules/.bin shim. The shim is a .cmd on Windows, and since the
 // Node fix for CVE-2024-27980, spawning a .cmd via execFile WITHOUT a shell
-// throws EINVAL — which the per-target try/catch below would swallow, silently
+// throws EINVAL -- which the per-target try/catch below would swallow, silently
 // skipping every audit and reporting a false pass on a local Windows run.
 // `node cli/index.js` is spawn-safe and identical on Linux CI and Windows, and
 // (unlike shell:true) preserves the space-containing --chrome-flags argument.
@@ -80,7 +80,10 @@ function runLighthouse(url) {
       '--output-path=stdout',
       '--quiet',
     ],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    // timeout: a hung Lighthouse run must fail this target (caught by the
+    // per-target try/catch) instead of blocking to the job timeout and
+    // starving the remaining audits.
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 },
   );
   return JSON.parse(out);
 }
@@ -92,7 +95,7 @@ function auditTarget(label, pathname) {
   try {
     report = runLighthouse(url);
   } catch (e) {
-    console.log(`  warn: lighthouse run failed (${e?.message ?? e}) — skipping`);
+    console.log(`  warn: lighthouse run failed (${e?.message ?? e}) -- skipping`);
     return { label, url, breaches: [], rows: [], skipped: true };
   }
 
@@ -118,14 +121,14 @@ async function main() {
   const targets = [...FIXED_TARGETS];
   const eventPath = await discoverEventUrl();
   if (eventPath) targets.push(['event', eventPath]);
-  else console.log('note: no /event/ URL found in sitemap — event audit skipped');
+  else console.log('note: no /event/ URL found in sitemap -- event audit skipped');
 
   const results = targets.map(([label, p]) => auditTarget(label, p));
 
   const summary = ['## Lighthouse mobile budgets', '', '| Page | Metric | Value | Budget | Status |', '|---|---|---|---|---|'];
   for (const r of results) {
     if (r.skipped) {
-      summary.push(`| ${r.label} | — | — | — | skipped |`);
+      summary.push(`| ${r.label} | -- | -- | -- | skipped |`);
       continue;
     }
     for (const row of r.rows) {
@@ -141,7 +144,7 @@ async function main() {
   // rather than the reassuring "all budgets respected".
   const ranCount = results.filter((r) => !r.skipped).length;
   if (ranCount === 0) {
-    console.error('\nLighthouse produced no results — every target was skipped (binary failed to run?). Not reporting a pass.');
+    console.error('\nLighthouse produced no results -- every target was skipped (binary failed to run?). Not reporting a pass.');
     process.exit(1);
   }
 

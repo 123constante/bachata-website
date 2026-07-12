@@ -139,7 +139,12 @@ let core: SentryCore | null = null;
 let coreLoading: Promise<SentryCore | null> | null = null;
 
 type QueuedCapture =
-  | { kind: 'exception'; payload: unknown; context?: Record<string, unknown> }
+  | {
+      kind: 'exception';
+      payload: unknown;
+      context?: Record<string, unknown>;
+      onEventId?: (id: string) => void;
+    }
   | { kind: 'message'; payload: string; context?: Record<string, unknown> };
 
 // Bounded so a pre-init error loop can't grow memory unchecked.
@@ -161,8 +166,12 @@ function loadCore(): Promise<SentryCore | null> {
         pendingUser = undefined;
       }
       for (const q of queue.splice(0)) {
-        if (q.kind === 'exception') mod.captureExceptionCore(q.payload, q.context);
-        else mod.captureMessageCore(q.payload, q.context);
+        if (q.kind === 'exception') {
+          const id = mod.captureExceptionCore(q.payload, q.context);
+          if (id) q.onEventId?.(id);
+        } else {
+          mod.captureMessageCore(q.payload, q.context);
+        }
       }
       return mod;
     })
@@ -199,6 +208,11 @@ export function initSentry(): Promise<void> {
 export function captureException(
   err: unknown,
   context?: Record<string, unknown>,
+  // Called with the real Sentry event ID -- synchronously when the SDK is
+  // already loaded, or later when a queued capture replays after init. The
+  // sync return stays undefined in the queued case, so callers that show a
+  // user-facing ref (ErrorBoundary) must use this instead of the return.
+  onEventId?: (id: string) => void,
 ): string | undefined {
   if (!SENTRY_DSN || typeof window === 'undefined') {
     if (typeof console !== 'undefined') {
@@ -207,11 +221,17 @@ export function captureException(
     }
     return undefined;
   }
-  if (core) return core.captureExceptionCore(err, context);
-  if (queue.length < QUEUE_LIMIT) queue.push({ kind: 'exception', payload: err, context });
+  if (core) {
+    const id = core.captureExceptionCore(err, context);
+    if (id) onEventId?.(id);
+    return id;
+  }
+  if (queue.length < QUEUE_LIMIT) {
+    queue.push({ kind: 'exception', payload: err, context, onEventId });
+  }
   void loadCore();
-  // Event ID is unknowable until the SDK lands; callers (ErrorBoundary) already
-  // handle undefined via the sentry-disabled path.
+  // Event ID is unknowable until the SDK lands; it is delivered via onEventId
+  // when the queued capture replays after init.
   return undefined;
 }
 

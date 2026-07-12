@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// First-load JS budget guard (perf programme, Pillar D — "stays fast").
+// First-load JS budget guard (perf programme, Pillar D -- "stays fast").
 //
-// Reads the CLIENT build manifest (build/client/.vite/manifest.json — emitted
+// Reads the CLIENT build manifest (build/client/.vite/manifest.json -- emitted
 // because vite.config.ts sets build.manifest for the client build only), walks
 // the STATIC import graph from each budgeted route's entry modules (dynamic
 // imports are lazy-loaded, so they are not first-load bytes), gzips every
@@ -13,7 +13,7 @@
 // (fix the import) or the growth is deliberate (raise the budget in the same
 // PR and justify it in the PR description).
 //
-//   npm run build          # must run first — the manifest is a build artifact
+//   npm run build          # must run first -- the manifest is a build artifact
 //   npm run check:bundle-budget
 //
 // Exit 1 if any route is over budget. The perf-budget workflow runs this

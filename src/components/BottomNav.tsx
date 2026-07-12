@@ -9,7 +9,7 @@ import { flags } from '@/lib/featureFlags';
 // `motion.*` import would drag the whole library into the first-load bundle.
 // Emoji bob = .chrome-bob (index.css, reduced-motion gated); hover pop = a CSS
 // transform on a wrapper span (separate element so the two transforms compose);
-// the active-tab bar is a plain div — the framer layoutId slide between tabs
+// the active-tab bar is a plain div -- the framer layoutId slide between tabs
 // was the one visual this intentionally gives up.
 
 const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';

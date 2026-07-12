@@ -7,7 +7,7 @@ import { attemptChunkReloadOnce } from "@/lib/staleChunk";
 
 // Carries over EVERY browser-only side effect from src/main.tsx (the SPA entry,
 // dead on this branch). Dropping any of these is a silent regression:
-// - deferred initSentry() — error reporting (idle-loaded; see below)
+// - deferred initSentry() -- error reporting (idle-loaded; see below)
 // - vite:preloadError → attemptChunkReloadOnce() — lazyWithRetry's deploy-skew recovery
 // - history.scrollRestoration='manual' — otherwise the browser fights ScrollToTop
 // - async Google-Fonts loader — decorative fonts (Cormorant/Bebas/etc.)
@@ -24,14 +24,17 @@ if (typeof window !== "undefined") {
   // Sentry + RUM are observability, not UI: neither is needed to paint, and
   // together they were ~50KB gz of parse/execute BEFORE hydrateRoot. Load them
   // on idle instead. Errors thrown in the pre-init window are buffered here and
-  // replayed through the facade's queue, so nothing is lost — its report is
+  // replayed through the facade's queue, so nothing is lost -- its report is
   // just a second or two late.
+  // Bounded like the facade's capture queue: a pre-init error loop must not
+  // grow memory unchecked. Keeps the earliest errors (the root cause).
+  const EARLY_ERROR_LIMIT = 20;
   const earlyErrors: unknown[] = [];
   const onEarlyError = (e: ErrorEvent) => {
-    earlyErrors.push(e.error ?? e.message);
+    if (earlyErrors.length < EARLY_ERROR_LIMIT) earlyErrors.push(e.error ?? e.message);
   };
   const onEarlyRejection = (e: PromiseRejectionEvent) => {
-    earlyErrors.push(e.reason);
+    if (earlyErrors.length < EARLY_ERROR_LIMIT) earlyErrors.push(e.reason);
   };
   window.addEventListener("error", onEarlyError);
   window.addEventListener("unhandledrejection", onEarlyRejection);
@@ -42,7 +45,7 @@ if (typeof window !== "undefined") {
     // installed until it resolves. Tearing the listeners down (or flushing the
     // buffer) synchronously would leave uncaught errors thrown during that fetch
     // caught by nobody. Remove them and replay the buffer only once the core has
-    // landed — at which point Sentry's handlers cover everything after.
+    // landed -- at which point Sentry's handlers cover everything after.
     void initSentry().finally(() => {
       window.removeEventListener("error", onEarlyError);
       window.removeEventListener("unhandledrejection", onEarlyRejection);
