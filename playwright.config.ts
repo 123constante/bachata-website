@@ -28,6 +28,20 @@ export default defineConfig({
     // "not ready", so with the placeholder Supabase key this polled for the full
     // 120s and aborted the run before a single test started. /auth is a
     // client-only route with no server data fetch, so it renders 200 regardless.
+    //
+    // SCOPE, so nobody "repairs" this back to '/': with a placeholder key every SSR
+    // route 500s BY DESIGN, so this suite structurally cannot cover them — and it does
+    // not try to. Its specs only visit client-only routes (/auth, /profile), where the
+    // page.route() mocks actually apply (mocks patch the BROWSER's network stack and
+    // can never intercept a server loader's fetch).
+    //
+    // A broken SSR root is covered ELSEWHERE, against the real site with real creds:
+    //   - prod-smoke.yml           — runs on deployment_status, i.e. after every deploy
+    //   - synthetic-ssr-monitor.yml — loads /city/london-gb every 6h
+    // That is the right split. Do not add secrets here to "cover" SSR: this workflow
+    // also runs on pull_request, and Dependabot PRs get NO repo secrets, so an empty
+    // URL would make createClient throw at module init and 500 every route — leaving
+    // every Dependabot PR permanently red.
     url: 'http://127.0.0.1:4173/auth',
     reuseExistingServer: true,
     timeout: 120_000,
