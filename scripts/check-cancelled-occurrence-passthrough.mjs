@@ -13,6 +13,18 @@
  *
  * This check guards against the filter being re-introduced.
  *
+ * 2026-07-14 - keyed on local_date, not occurrence id. The probe finds cancelled
+ * rows in the LEGACY calendar_occurrences table, but event_view_p5 went P5-native:
+ * occurrences[].occurrence_id is the event_occurrence_p5 id, NOT the legacy id it
+ * mirrors. Comparing the two namespaces meant the check could never find its own
+ * target and reported a filter that was not there - it failed on 4 healthy events
+ * for weeks, which is what made the daily run chronically red. anon cannot read
+ * event_occurrence_p5 (RLS) to map legacy -> P5, so match on the occurrence's local
+ * date instead: it is stable across both namespaces and is the thing the contract
+ * actually cares about ("the cancelled DATE must surface, flagged, and stay pinned").
+ * Verified against prod: the RPC resolves a legacy occurrence_id in p_target and
+ * correctly pins occurrence_effective to it with is_cancelled=true.
+ *
  * Local:  node scripts/check-cancelled-occurrence-passthrough.mjs
  * CI:     same; env supplied as repo secrets.
  *
@@ -121,12 +133,16 @@ async function main() {
       continue;
     }
 
+    // instance_start is London wall-clock stored as-if-UTC, so its date part IS the
+    // occurrence's local date -- the same key snapshot_compat exposes as local_date.
+    const targetDate = String(row.instance_start).slice(0, 10);
+
     const occurrences = Array.isArray(snap?.occurrences) ? snap.occurrences : [];
-    const match = occurrences.find((o) => o.occurrence_id === row.id);
+    const match = occurrences.find((o) => o.local_date === targetDate);
 
     if (!match) {
       console.error(
-        `${RED}FAIL${RESET}: cancelled occurrence ${row.id} (event ${row.event_id}) ` +
+        `${RED}FAIL${RESET}: cancelled occurrence ${row.id} (event ${row.event_id}, ${targetDate}) ` +
           'is NOT present in snapshot.occurrences[]. The RPC is filtering cancelled rows. ' +
           'See admin migration 20260531210000_get_event_page_snapshot_v2_include_cancelled.',
       );
@@ -136,18 +152,18 @@ async function main() {
 
     if (match.is_cancelled !== true) {
       console.error(
-        `${RED}FAIL${RESET}: cancelled occurrence ${row.id} surfaces but is_cancelled=${match.is_cancelled} ` +
-          '(expected true).',
+        `${RED}FAIL${RESET}: cancelled occurrence ${targetDate} surfaces but ` +
+          `is_cancelled=${match.is_cancelled} (expected true).`,
       );
       failures++;
       continue;
     }
 
     const effective = snap?.occurrence_effective;
-    if (!effective || effective.occurrence_id !== row.id) {
+    if (!effective || effective.local_date !== targetDate) {
       console.error(
-        `${RED}FAIL${RESET}: occurrence_effective for cancelled occurrence ${row.id} ` +
-          `is ${effective?.occurrence_id ?? 'null'} (expected ${row.id}). ` +
+        `${RED}FAIL${RESET}: occurrence_effective for cancelled occurrence ${targetDate} ` +
+          `is ${effective?.local_date ?? 'null'} (expected ${targetDate}). ` +
           'When ?occurrence_id is explicitly passed, the RPC must pin occurrence_effective to that row even when cancelled.',
       );
       failures++;
@@ -155,7 +171,7 @@ async function main() {
     }
 
     console.log(
-      `${GREEN}OK${RESET}: cancelled occurrence ${row.id} surfaces in snapshot with ` +
+      `${GREEN}OK${RESET}: cancelled occurrence ${targetDate} surfaces in snapshot with ` +
         `is_cancelled=true, reason=${JSON.stringify(match.cancellation_reason_label)}, ` +
         `occurrence_effective pinned.`,
     );
