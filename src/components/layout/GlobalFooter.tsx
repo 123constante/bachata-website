@@ -1,5 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+
+// NO framer-motion here (perf, Pillar A): the footer mounts on every page, so
+// a `motion.*` import would drag the whole library into the first-load bundle.
+// The CTA spotlight beam + megaphone wiggle live in index.css (.footer-beam /
+// .footer-shout), reduced-motion gated by CSS media query.
 
 const HIDDEN_RE = /^\/(auth|onboarding)(\/|$)/i;
 
@@ -21,7 +25,6 @@ const GUIDES: ReadonlyArray<readonly [string, string]> = [
 
 export const GlobalFooter = () => {
   const { pathname } = useLocation();
-  const prefersReducedMotion = useReducedMotion();
   if (HIDDEN_RE.test(pathname)) return null;
 
   return (
@@ -74,38 +77,18 @@ export const GlobalFooter = () => {
           className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-primary no-underline transition-colors hover:bg-primary/15"
         >
           {/* Spotlight beam sweeping left-to-right across the pill */}
-          <motion.span
+          <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-8"
+            className="footer-beam pointer-events-none absolute inset-y-0 left-0 w-8"
             style={{
               background:
                 'radial-gradient(ellipse at center, hsl(25 100% 62% / 0.55) 0%, transparent 70%)',
               filter: 'blur(4px)',
             }}
-            animate={prefersReducedMotion ? undefined : { x: ['-30px', '220px'] }}
-            transition={
-              prefersReducedMotion
-                ? undefined
-                : { repeat: Infinity, duration: 3.4, ease: 'linear' }
-            }
           />
-          <motion.span
-            className="relative z-10 inline-block text-base leading-none"
-            style={{ transformOrigin: '50% 80%' }}
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : { rotate: [-8, 0, -8], y: [0, -3, 0] }
-            }
-            transition={
-              prefersReducedMotion
-                ? undefined
-                : { repeat: Infinity, duration: 1.4, ease: 'easeInOut' }
-            }
-            aria-hidden="true"
-          >
+          <span className="footer-shout relative z-10 text-base leading-none" aria-hidden="true">
             &#128227;
-          </motion.span>
+          </span>
           <span className="relative z-10">Get Listed</span>
         </a>
       </div>

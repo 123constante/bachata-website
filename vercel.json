@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/",
+      "destination": "/city/london-gb",
+      "permanent": false
+    },
+    {
       "source": "/:slug([a-z-]+-[a-z]{2})/dancers",
       "destination": "/dancers",
       "permanent": true
@@ -147,6 +152,15 @@
       ]
     }
   ],
+  "images": {
+    "sizes": [96, 160, 320, 480, 640, 960, 1280],
+    "remotePatterns": [
+      { "protocol": "https", "hostname": "media.bachatacalendar.co.uk" }
+    ],
+    "formats": ["image/webp"],
+    "minimumCacheTTL": 2678400,
+    "qualities": [70]
+  },
   "framework": "react-router",
   "buildCommand": "npm run build"
 }

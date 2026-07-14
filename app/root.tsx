@@ -6,8 +6,13 @@ import {
   Scripts,
   isRouteErrorResponse,
   useRouteError,
+  type LinksFunction,
   type MetaFunction,
 } from "react-router";
+// Hashed URL of the latin subset the body text actually renders with -- used
+// by links() below to preload it (Inter is otherwise discovered only after the
+// blocking stylesheet parses, guaranteeing a visible font swap on the h1).
+import interLatinWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import { captureException } from "@/lib/sentry";
 import { AppProviders, createQueryClient, getBrowserQueryClient } from "@/App";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -17,6 +22,19 @@ import { AppChrome } from "@/components/AppChrome";
 import { useNonce } from "./nonce";
 import "@/index.css";
 import "@fontsource-variable/inter";
+
+// Preload the Inter latin woff2 (~48KB, font-display:swap via @fontsource).
+// unicode-range means latin is the only subset English content fetches, so one
+// preload covers the real render path; other subsets stay lazy.
+export const links: LinksFunction = () => [
+  {
+    rel: "preload",
+    as: "font",
+    type: "font/woff2",
+    href: interLatinWoff2,
+    crossOrigin: "anonymous",
+  },
+];
 
 // Site-wide SEO defaults. A leaf route's meta() REPLACES this (RR7 leaf-wins),
 // so detail routes emit their own full set; everything else inherits these.
@@ -53,8 +71,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             the homepage AND duplicate the per-page canonical that detail routes
             emit via meta(). Routes own their canonical; the client useSeo effect
             still sets one for catchall pages, and bots get theirs from middleware. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* No fonts.googleapis/gstatic preconnects: Inter is self-hosted
+            (bundled + preloaded via links()), and the only Google-Fonts user is
+            the DECORATIVE loader that runs at window.load (entry.client) --
+            warming those connections during the critical path spent two mobile
+            TLS handshakes on fonts nothing above the fold waits for. */}
         <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co" />
         <link rel="preconnect" href="https://media.bachatacalendar.co.uk" />
         <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossOrigin="" />

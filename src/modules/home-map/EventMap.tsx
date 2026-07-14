@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import './homeMap.css';
 import { cn } from '@/lib/utils';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { MapDisposer } from '@/lib/leaflet-safety';
 import type { MapEvent } from './mapTypes';
 import {
@@ -121,7 +122,7 @@ function posterCore(e: MapEvent): string {
     // flyer. The monogram is pre-baked with inline display:none because
     // .rpin-mono{display:grid} outranks the [hidden] UA rule.
     return `<div class="rpin" style="--pc:${color}"><span class="pcv cv">` +
-      `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />` +
+      `<img class="cv-fill" src="${esc(optimizedImageUrl(e.cover_image_url, 320))}" loading="lazy" alt="" data-scene="${scene}" />` +
       `<span class="rpin-mono" style="display:none">${mono}</span>` +
       `<span class="grain"></span></span></div>`;
   }
@@ -174,7 +175,7 @@ function popupHtml(e: MapEvent): string {
   const color = CATEGORY_COLORS[cat];
   const scene = eventScene(e);
   const cover = e.cover_image_url
-    ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />`
+    ? `<img class="cv-fill" src="${esc(optimizedImageUrl(e.cover_image_url, 640))}" loading="lazy" alt="" data-scene="${scene}" />`
     : '';
   // Container carries the scene gradient up-front only when there's no cover; on
   // an img error the delegated map-container listener adds it (see posterCore).
@@ -218,7 +219,7 @@ function stackPopupHtml(events: MapEvent[]): string {
       const color = CATEGORY_COLORS[cat];
       const scene = eventScene(e);
       const cover = e.cover_image_url
-        ? `<img class="cv-fill" src="${esc(e.cover_image_url)}" loading="lazy" alt="" data-scene="${scene}" />`
+        ? `<img class="cv-fill" src="${esc(optimizedImageUrl(e.cover_image_url, 320))}" loading="lazy" alt="" data-scene="${scene}" />`
         : '';
       const sceneClass = e.cover_image_url ? '' : scene;
       const time = formatTimeRange(e);

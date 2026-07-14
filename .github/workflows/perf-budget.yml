@@ -1,0 +1,81 @@
+name: Perf Budget
+
+# Performance guardrails (perf programme, Pillar D -- "stays fast"). Two jobs:
+#   - bundle-budget: builds the client and enforces per-route first-load JS
+#     budgets from perf-budgets.json (catches a heavy dep creeping back onto the
+#     hydration critical path, e.g. framer-motion/Sentry).
+#   - lighthouse: waits for the Vercel PR preview and asserts LCP/TBT/CLS mobile
+#     budgets on the homepage, a landing page, and one event-detail page.
+#
+# BOTH run WARN-ONLY (continue-on-error) for the initial ~2-week bake, matching
+# the plan: a breach surfaces as a PR annotation + step summary, not a red gate.
+# Phase 4 flips them to blocking by removing continue-on-error.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  bundle-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build client + server
+        env:
+          # Same rationale as e2e-smoke.yml: supabase-js validates the URL shape
+          # at module init, so a valid-shaped placeholder is required for the
+          # build to run. No real backend is contacted during a build/prerender.
+          VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.perf-budget-build-placeholder-not-a-real-key
+        run: npm run build
+
+      - name: First-load JS budgets
+        run: npm run check:bundle-budget
+
+  lighthouse:
+    # Previews only exist for PRs; skip on push (nothing to point Lighthouse at).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for Vercel preview
+        id: preview
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 600
+
+      - name: Lighthouse mobile budgets
+        env:
+          LH_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: npm run check:lighthouse

@@ -34,11 +34,13 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
     if (shouldSkipCapture(error)) return;
-    const eventId = captureException(error, {
-      boundary: "ErrorBoundary",
-      componentStack: errorInfo.componentStack,
-    });
-    if (eventId) this.setState({ eventId });
+    // Third arg: the real event ID arrives via callback -- synchronously when
+    // Sentry is loaded, or after the deferred SDK replays the queued capture.
+    captureException(
+      error,
+      { boundary: "ErrorBoundary", componentStack: errorInfo.componentStack },
+      (eventId) => this.setState({ eventId }),
+    );
   }
 
   private handleRetry = () => {
@@ -88,11 +90,11 @@ export class PageErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("PageErrorBoundary caught:", error, errorInfo);
     if (shouldSkipCapture(error)) return;
-    const eventId = captureException(error, {
-      boundary: "PageErrorBoundary",
-      componentStack: errorInfo.componentStack,
-    });
-    if (eventId) this.setState({ eventId });
+    captureException(
+      error,
+      { boundary: "PageErrorBoundary", componentStack: errorInfo.componentStack },
+      (eventId) => this.setState({ eventId }),
+    );
   }
 
   private handleRetry = () => {

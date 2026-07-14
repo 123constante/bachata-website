@@ -59,7 +59,7 @@ if (process.env.VERCEL_ENV === "production") {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({ isSsrBuild }) => ({
   server: {
     host: "::",
     port: 8080,
@@ -95,10 +95,46 @@ export default defineConfig(() => ({
   },
   build: {
     sourcemap: "hidden",
-    // manualChunks intentionally NOT restored: framework mode already does
-    // automatic per-route code-splitting, and the old object-form manualChunks
-    // (listing external react/react-router-dom) conflicts with the RR7 server
-    // build (inlineDynamicImports). Revisit with a function-form guarded on !ssr
-    // only if bundle analysis shows a regression vs the SPA's vendor chunks.
+    // Client-build manifest feeds scripts/check-bundle-budget.mjs (perf
+    // programme, Pillar D): it walks the entry/route import graphs to enforce
+    // first-load JS budgets in CI. Never emitted for the server build.
+    manifest: !isSsrBuild,
+    // Function-form manualChunks, CLIENT BUILD ONLY (the guard matters: the RR7
+    // server build uses inlineDynamicImports, which any manualChunks breaks --
+    // that conflict is why the old object-form config was removed). Pins the
+    // stable heavy vendors into their own chunks so a route-code change doesn't
+    // re-hash -- and so re-download -- framer-motion/query/supabase/sentry for
+    // returning visitors.
+    //
+    // React core MUST be pinned too, as one chunk with react-dom + scheduler
+    // (the lockstep trio -- never split them apart). Left unpinned, rollup fused
+    // react into vendor-motion (verified in the build manifest: every chunk
+    // imported vendor-motion just to reach useState), which silently dragged
+    // framer-motion's ~44KB gz back into the first load of every page -- the
+    // exact regression this config exists to prevent. The bundle-budget CI
+    // check is the tripwire if this ever recurs.
+    ...(!isSsrBuild
+      ? {
+          rollupOptions: {
+            output: {
+              manualChunks(id: string) {
+                if (!id.includes("node_modules")) return undefined;
+                if (
+                  id.includes("node_modules/react/") ||
+                  id.includes("node_modules/react-dom/") ||
+                  id.includes("node_modules/scheduler/")
+                ) {
+                  return "vendor-react";
+                }
+                if (id.includes("framer-motion")) return "vendor-motion";
+                if (id.includes("@sentry")) return "vendor-sentry";
+                if (id.includes("@tanstack")) return "vendor-query";
+                if (id.includes("@supabase")) return "vendor-supabase";
+                return undefined;
+              },
+            },
+          },
+        }
+      : {}),
   },
 }));

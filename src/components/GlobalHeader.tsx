@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { ChevronLeft } from 'lucide-react';
@@ -9,6 +8,11 @@ import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { SearchTrigger } from '@/components/search/SearchTrigger';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+
+// NO framer-motion here (perf, Pillar A): the header mounts on every page, so
+// a `motion.*` import would drag the whole library into the first-load bundle.
+// The emoji bob + scroll blur-fade live in index.css (.chrome-bob-sm /
+// #app-header transition), reduced-motion gated by CSS media query.
 
 const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
 const WHATSAPP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
@@ -45,7 +49,6 @@ export const GlobalHeader = () => {
   const homePath = buildCityPath(citySlug);
   const { pathname } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
-  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -57,15 +60,18 @@ export const GlobalHeader = () => {
     setSearching(false);
   }, [pathname]);
 
+  // The 0.3s fade between these two states is #app-header's CSS transition.
+  const blur = scrolled ? 'blur(20px) saturate(180%)' : 'blur(8px) saturate(100%)';
+
   return (
-    <motion.header
+    <header
       id="app-header"
       className="fixed top-0 left-0 right-0 z-[60] border-b border-primary/10 h-[60px]"
-      animate={{
+      style={{
         backgroundColor: scrolled ? 'hsl(var(--background) / 0.98)' : 'hsl(var(--background) / 0.85)',
-        backdropFilter: scrolled ? 'blur(20px) saturate(180%)' : 'blur(8px) saturate(100%)',
+        backdropFilter: blur,
+        WebkitBackdropFilter: blur,
       }}
-      transition={{ duration: 0.3 }}
     >
       <a
         href="#main-content"
@@ -87,7 +93,18 @@ export const GlobalHeader = () => {
           </Link>
         ) : (
           <Link to={homePath} className="flex items-center shrink-0 no-underline self-stretch" aria-label="Bachata Calendar home">
-            <img src={bachataCalendarLogo} alt="Bachata Calendar" className="h-5 w-auto" loading="eager" fetchpriority="high" />
+            {/* Intrinsic 1639x192 so the aspect ratio is known pre-load (no header
+                CLS). No fetchpriority="high": a 20px-tall logo must not outbid
+                the real LCP content for bandwidth. */}
+            <img
+              src={bachataCalendarLogo}
+              alt="Bachata Calendar"
+              width={1639}
+              height={192}
+              className="h-5 w-auto"
+              loading="eager"
+              decoding="async"
+            />
           </Link>
         ))}
 
@@ -98,22 +115,15 @@ export const GlobalHeader = () => {
               const href = item.fixedPath ?? buildCityPath(citySlug, item.segment);
               const isActive = !item.external && (pathname === href || pathname.startsWith(href + '/'));
 
+              const bobStyle = { '--bob-dur': `${item.duration}s` } as CSSProperties;
               const icon = item.emoji ? (
-                <motion.span
-                  className="text-sm leading-none"
-                  animate={prefersReducedMotion ? undefined : { y: [0, -5, 0] }}
-                  transition={prefersReducedMotion ? undefined : { repeat: Infinity, duration: item.duration, ease: 'easeInOut' }}
-                >
+                <span className="chrome-bob-sm text-sm leading-none" style={bobStyle}>
                   {item.emoji}
-                </motion.span>
+                </span>
               ) : (
-                <motion.span
-                  className="leading-none"
-                  animate={prefersReducedMotion ? undefined : { y: [0, -5, 0] }}
-                  transition={prefersReducedMotion ? undefined : { repeat: Infinity, duration: item.duration, ease: 'easeInOut' }}
-                >
+                <span className="chrome-bob-sm leading-none" style={bobStyle}>
                   <WhatsAppGlyph className="w-[14px] h-[14px] text-[#25D366]" />
-                </motion.span>
+                </span>
               );
 
               const linkClass = cn(
@@ -148,6 +158,6 @@ export const GlobalHeader = () => {
 
       {/* Decorative orange line */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
-    </motion.header>
+    </header>
   );
 };

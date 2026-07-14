@@ -1,0 +1,13 @@
+{
+  "//": "First-load JS budgets (gzip KB) enforced by scripts/check-bundle-budget.mjs (run via `npm run check:bundle-budget` after `npm run build`). Calibrated to the measured post-Phase-1 build plus ~10% headroom. Raise a budget only deliberately, in the same PR that grows the graph, with justification in the PR description. The perf-budget workflow is warn-only until Phase 4 flips it to blocking.",
+  "routes": {
+    "home (/city/:slug)": {
+      "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/home.tsx"],
+      "maxFirstLoadGzipKB": 245
+    },
+    "event (/event/:id)": {
+      "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/event.tsx"],
+      "maxFirstLoadGzipKB": 385
+    }
+  }
+}

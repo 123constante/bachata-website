@@ -1283,3 +1283,30 @@ body.hm-immersive #app-nav { display: none !important; }
   .home-map-fill .hm-mapcard { flex: 0 0 42%; margin-right: 0; }
   .home-map-fill .hm-side { flex: 1 1 auto; min-width: 0; }
 }
+
+/* ---- Chrome micro-animations (perf: replaced framer-motion) ----------------
+   GlobalHeader / BottomNav / GlobalFooter are mounted on EVERY page, so their
+   framer-motion imports put the whole ~28KB-gz library on the first-load
+   critical path -- purely for these bobbing emojis, a header blur fade and the
+   footer CTA flourish. Same visuals in CSS; framer-motion now loads only with
+   the lazy routes that genuinely animate. Do not reintroduce `motion.*` into
+   chrome components -- scripts/check-bundle-budget.mjs is the tripwire. */
+@keyframes chrome-bob-sm { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes chrome-bob    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes footer-beam   { 0% { transform: translateX(-30px); } 100% { transform: translateX(220px); } }
+@keyframes footer-shout {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  50%      { transform: rotate(0deg) translateY(-3px); }
+}
+/* inline-block: transforms are ignored on inline boxes. --bob-dur staggers the
+   per-emoji rhythm the framer variants had (1.4s-2.0s). */
+.chrome-bob-sm { display: inline-block; animation: chrome-bob-sm var(--bob-dur, 1.6s) ease-in-out infinite; }
+.chrome-bob    { display: inline-block; animation: chrome-bob    var(--bob-dur, 1.6s) ease-in-out infinite; }
+.footer-beam   { animation: footer-beam 3.4s linear infinite; }
+.footer-shout  { display: inline-block; transform-origin: 50% 80%; animation: footer-shout 1.4s ease-in-out infinite; }
+/* Replaces useReducedMotion(): the JSX no longer branches; CSS owns the gate. */
+@media (prefers-reduced-motion: reduce) {
+  .chrome-bob-sm, .chrome-bob, .footer-beam, .footer-shout { animation: none; }
+}
+/* Header background/blur fade on scroll -- was framer-motion animate={{...}}. */
+#app-header { transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease; }
