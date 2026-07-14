@@ -21,6 +21,9 @@ import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { supabase } from "@/integrations/supabase/client";
+import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
+import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
 import interRegularUrl from "./ogCardFonts/Inter-Regular.ttf";
 
@@ -144,15 +147,16 @@ export function firstString(val: unknown): string | null {
   return typeof val === "string" && val.trim() ? val : null;
 }
 
-export function formatOgDate(iso: string | null): string | null {
-  if (!iso) return null;
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London",
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 10);
-  }
+export function formatOgDate(wc: WallClock | null): string | null {
+  if (!wc) return null;
+  // Read the stored calendar day AS STORED. The pre-brand new Date(stamp) +
+  // Europe/London Intl shifted late-night local-as-UTC stamps to the NEXT day
+  // all BST season -- OG cards carried the wrong date. Same Intl options, so
+  // the output is byte-identical outside that bug case.
+  return (
+    formatWallClockLocalIntl(wc, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) ??
+    wallClockDateKey(wc)
+  );
 }
 
 export async function fetchImageBytes(url: string): Promise<Buffer | null> {
@@ -169,4 +173,71 @@ export async function fetchImageBytes(url: string): Promise<Buffer | null> {
   } finally {
     clearTimeout(t);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared OG data fetchers
+//
+// These live HERE, not inlined per route, because /api/og/card (live render) and
+// /api/og/bake (pre-bake to R2) must produce the SAME card for the same entity.
+// They were previously copy-pasted into both routes -- and that duplication is
+// exactly how the festival card broke: one copy read camelCase keys off the
+// snake_case RPC json, so dateLine/venue/cover silently came back undefined and
+// festival cards rendered title-only. One definition = one bug surface.
+// ---------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Accept a uuid straight through, else resolve a slug to its event id. */
+export async function resolveOgEventId(param: string): Promise<string | null> {
+  if (UUID_RE.test(param)) return param;
+  const { data, error } = await supabase.from("events").select("id").eq("slug", param).maybeSingle();
+  if (error || !data) return null;
+  return typeof data.id === "string" ? data.id : null;
+}
+
+export async function fetchEventCardData(id: string, occ: string | null): Promise<OgCardData | null> {
+  const target: Record<string, string> = { series_id: id };
+  if (occ) target.occurrence_id = occ;
+  const { data, error } = await supabase.rpc("event_view_p5" as never, {
+    p_target: target,
+    p_viewer: { role: "anon", shape: "snapshot_compat" },
+  } as never);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snap: any = data;
+  if (error || !snap || !snap.event) return null;
+  const venue = snap.location_default?.venue;
+  // Mini boundary codec: occurrence starts_at / event.date are stored wall
+  // clocks on the snapshot RPC -- brand at this read so formatOgDate renders
+  // the stored day (never new Date + tz-shift).
+  const rawStart = firstString(snap.occurrence_effective?.starts_at) ?? firstString(snap.event.date);
+  return {
+    title: snap.event.name ?? "Bachata Event",
+    dateLine: formatOgDate(rawStart ? asWallClock(rawStart) : null),
+    venueLine: venue?.name ? `at ${venue.name}` : null,
+    coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
+  };
+}
+
+export async function fetchFestivalCardData(id: string): Promise<OgCardData | null> {
+  let fest: Awaited<ReturnType<typeof fetchFestivalDetail>> = null;
+  try {
+    fest = await fetchFestivalDetail(id);
+  } catch (err) {
+    // Do NOT swallow silently. A dropped/renamed _v2 RPC or a grant regression
+    // would otherwise degrade EVERY festival share card to the title-only
+    // fallback, indistinguishable from "festival not found" -- invisible until
+    // someone eyeballs a shared link. Server logs surface in Vercel runtime logs.
+    console.error("[og] get_public_festival_detail_v2 failed for %s:", id, err);
+    return null;
+  }
+  if (!fest) return null;
+  const venue = fest.location.primaryVenue;
+  return {
+    title: fest.identity.name ?? "Bachata Festival",
+    // localStart = event-timezone calendar date (date-only wall clock).
+    dateLine: formatOgDate(fest.dates.localStart),
+    venueLine: venue?.name ? `at ${venue.name}` : null,
+    coverUrl: firstString(fest.identity.posterUrl) ?? firstString(venue?.imageUrl),
+  };
 }

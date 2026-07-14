@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
 import { safeExternalHref } from '@/lib/url';
-import { asWallClock, type WallClock } from '@/lib/time/wallClock';
+import { asEventTimeZone, asWallClock, type WallClock } from '@/lib/time/wallClock';
 import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
     startsAt: asWallClockOrNull(raw.starts_at),
     endsAt: asWallClockOrNull(raw.ends_at),
     localDate: asWallClockOrNull(raw.local_date),
-    timezone: asString(raw.timezone),
+    timezone: asEventTimeZone(raw.timezone),
     isCancelled: asBoolean(raw.is_cancelled),
     cancellationReasonLabel: asString(raw.cancellation_reason_label),
     isLive: asBoolean(raw.is_live),
@@ -146,7 +146,7 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
       type: asString(event.type),
       format: asString(event.format),
       category: asString(event.category),
-      timezone: asString(event.timezone),
+      timezone: asEventTimeZone(event.timezone),
       citySlug: asString(event.city_slug),
       location: asString(event.location),
       status: asString(event.status),
@@ -306,10 +306,10 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
           facilities_new: asArray(v.facilities_new)
             .map((s) => asString(s))
             .filter((s): s is string => s !== null),
-          timezone: asString(v.timezone),
+          timezone: asEventTimeZone(v.timezone),
         };
       })(),
-      timezone: asString(locationDefault.timezone),
+      timezone: asEventTimeZone(locationDefault.timezone),
     },
     attendance: {
       goingCount: asNumber(attendance.going_count) ?? 0,

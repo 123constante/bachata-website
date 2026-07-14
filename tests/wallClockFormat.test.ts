@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   asWallClock,
   asInstant,
+  asEventTimeZone,
   formatWallClockTime,
   formatWallClockDate,
   formatWallClockDateTime,
   formatWallClockLocal,
   formatWallClockLocalIntl,
   wallClockDateKey,
+  wallClockExactDateKey,
   wallClockDurationMinutes,
+  wallClockHour,
   wallClockToInstant,
   instantToDate,
 } from '@/lib/time/wallClock';
@@ -42,6 +45,14 @@ describe('formatWallClockTime', () => {
 
   it('supports 24h output', () => {
     expect(formatWallClockTime(BST_EVENING, { hour12: false })).toBe('20:30');
+  });
+
+  it('tolerates a bare "HH:MM[:SS]" stamp (legacy meta_data->program path)', () => {
+    expect(formatWallClockTime(asWallClock('20:30'), { hour12: false })).toBe('20:30');
+    expect(formatWallClockTime(asWallClock('20:30:00'))).toBe('8:30 PM');
+    expect(formatWallClockTime(asWallClock('09:00'))).toBe('9 AM');
+    // A date-only value has no time part -> still null (not parsed as an hour).
+    expect(formatWallClockTime(asWallClock('2026-07-15'))).toBeNull();
   });
 
   it('returns null for nullish input', () => {
@@ -92,6 +103,36 @@ describe('wallClockDateKey', () => {
   it('is the YYYY-MM-DD prefix, near-midnight safe', () => {
     expect(wallClockDateKey(BST_NEAR_MIDNIGHT)).toBe('2026-07-15');
     expect(wallClockDateKey(NEXT_DAY_EARLY)).toBe('2026-07-16');
+  });
+});
+
+describe('wallClockExactDateKey', () => {
+  it('accepts a bare date but rejects any time-suffixed stamp', () => {
+    // sniffIsFestival's festival-routing count depends on this anchoring.
+    expect(wallClockExactDateKey(asWallClock('2026-07-15'))).toBe('2026-07-15');
+    expect(wallClockExactDateKey(BST_EVENING)).toBeNull(); // has a time part
+    expect(wallClockExactDateKey(asWallClock(''))).toBeNull();
+    expect(wallClockExactDateKey(null)).toBeNull();
+  });
+});
+
+describe('wallClockHour', () => {
+  it('reads the stored hour, offset-invariant across BST and GMT', () => {
+    expect(wallClockHour(BST_EVENING)).toBe(20);
+    expect(wallClockHour(GMT_EVENING)).toBe(20);
+    expect(wallClockHour(NEXT_DAY_EARLY)).toBe(0);
+  });
+
+  it('returns null for date-only stamps, the codec empty sentinel, and null', () => {
+    expect(wallClockHour(asWallClock('2026-07-15'))).toBeNull();
+    expect(wallClockHour(asWallClock(''))).toBeNull();
+    expect(wallClockHour(null)).toBeNull();
+    expect(wallClockHour(undefined)).toBeNull();
+  });
+
+  it('reads a bare "HH:MM" stamp (legacy meta_data->program path)', () => {
+    expect(wallClockHour(asWallClock('20:30'))).toBe(20);
+    expect(wallClockHour(asWallClock('09:00:00'))).toBe(9);
   });
 });
 
@@ -147,6 +188,33 @@ describe('wallClockToInstant', () => {
     expect(() => wallClockToInstant(BST_EVENING, 'Not/A_Zone')).not.toThrow();
     expect(wallClockToInstant(BST_EVENING, 'Not/A_Zone')?.getTime())
       .toBe(new Date('2026-07-15T19:30:00Z').getTime());
+  });
+});
+
+describe('asEventTimeZone', () => {
+  it("treats 'UTC' as unspecified so the London default applies", () => {
+    expect(asEventTimeZone('UTC')).toBeNull();
+    expect(asEventTimeZone(null)).toBeNull();
+    expect(asEventTimeZone('')).toBeNull();
+    expect(asEventTimeZone('   ')).toBeNull();
+  });
+
+  it('passes real IANA zones through untouched', () => {
+    expect(asEventTimeZone('Europe/London')).toBe('Europe/London');
+    expect(asEventTimeZone('Europe/Madrid')).toBe('Europe/Madrid');
+    expect(asEventTimeZone('Africa/Tunis')).toBe('Africa/Tunis');
+  });
+
+  it("REGRESSION: a 'UTC'-tagged London event still gets the BST correction", () => {
+    // The live bug this exists for. Stored 20:30 London (BST). Taken literally,
+    // 'UTC' makes wallClockToInstant the identity -> 20:30Z, an hour late, which
+    // is exactly what Google/ICS were being fed. Normalised, it lands on 19:30Z.
+    const tz = asEventTimeZone('UTC') ?? 'Europe/London';
+    expect(wallClockToInstant(BST_EVENING, tz)?.toISOString()).toBe('2026-07-15T19:30:00.000Z');
+    // Proof the raw value really was harmful (documents the failure mode):
+    expect(wallClockToInstant(BST_EVENING, 'UTC')?.toISOString()).toBe('2026-07-15T20:30:00.000Z');
+    // Winter is unaffected either way (GMT == UTC), which is why it hid for months.
+    expect(wallClockToInstant(GMT_EVENING, tz)?.toISOString()).toBe('2026-01-15T20:30:00.000Z');
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Json } from '@/integrations/supabase/types';
-import type { WallClock } from '@/lib/time/wallClock';
+import type { Instant, WallClock } from '@/lib/time/wallClock';
 
 // ---------------------------------------------------------------------------
 // Shared person shape used across organisers, lineup, attendance preview
@@ -300,7 +300,7 @@ export type EventPageModel = {
 };
 
 // ---------------------------------------------------------------------------
-// Festival Detail — mirrors get_public_festival_detail RPC output
+// Festival Detail -- mirrors get_public_festival_detail_v2 RPC output
 // ---------------------------------------------------------------------------
 
 /** Artist/person in festival lineup — no is_primary (use ordering instead) */
@@ -319,11 +319,11 @@ export const ALL_FESTIVAL_LEVELS: readonly FestivalSessionLevel[] = [
 /** One row in the hydrated festival schedule */
 export type FestivalScheduleItem = {
   id: string | null;
-  day: string;
+  day: WallClock;
   type: string;
   title: string;
-  startTime: string;
-  endTime: string | null;
+  startTime: WallClock;
+  endTime: WallClock | null;
   venueRoom: string | null;
   isMasterclass: boolean;
   /** Skill levels for this session (workshop / bootcamp / masterclass).
@@ -416,10 +416,15 @@ export type FestivalDetail = {
   };
 
   dates: {
-    startsAt: string | null;
-    endsAt: string | null;
-    localStart: string | null;
-    localEnd: string | null;
+    /** TRUE UTC instants from get_public_festival_detail_v2 (tz-corrected).
+     *  Use instantToDate for countdown/JSON-LD/GCal/ICS. For calendar-field
+     *  DISPLAY (tiles, labels) read localStart/localEnd instead. */
+    startsAt: Instant | null;
+    endsAt: Instant | null;
+    /** Event-timezone calendar dates ('YYYY-MM-DD', date-only wall clocks) --
+     *  the sanctioned source for hero tiles / date labels / share subtitles. */
+    localStart: WallClock | null;
+    localEnd: WallClock | null;
     timezone: string | null;
   };
 

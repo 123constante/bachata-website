@@ -72,13 +72,24 @@ const naiveParts = (
 // --- Wall-clock readers (render AS STORED, no timezone shift) ----------------
 
 // Parse the literal HH:MM from an ISO-like string without any timezone shift.
-// Lifted verbatim from event-page/bento/blocks/occurrenceFormat.naiveHourMinute
-// so formatWallClockTime is byte-identical to the old formatTime.
+// The time slice logic is lifted verbatim from
+// event-page/bento/blocks/occurrenceFormat.naiveHourMinute, so formatWallClockTime
+// stays byte-identical to the old formatTime for full "YYYY-MM-DDThh:mm" stamps.
+// A bare "HH:MM[:SS]" (no date) is also accepted -- the legacy meta_data->program
+// schedule passthrough can store one, and the old FestivalProgramSection.formatTime
+// handled it; a date-only "YYYY-MM-DD" (no time) still returns null.
 const naiveHourMinute = (iso: string): { hh: number; mm: number } | null => {
   const tIdx = iso.indexOf('T');
-  if (tIdx === -1) return null;
-  const hh = Number(iso.slice(tIdx + 1, tIdx + 3));
-  const mm = Number(iso.slice(tIdx + 4, tIdx + 6));
+  let timePart: string;
+  if (tIdx !== -1) {
+    timePart = iso.slice(tIdx + 1);
+  } else if (/^\d{2}:\d{2}/.test(iso)) {
+    timePart = iso; // bare "HH:MM[:SS]"
+  } else {
+    return null; // date-only or unparseable -> no time component
+  }
+  const hh = Number(timePart.slice(0, 2));
+  const mm = Number(timePart.slice(3, 5));
   if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null;
   return { hh, mm: Number.isFinite(mm) ? mm : 0 };
 };
@@ -103,6 +114,17 @@ export const formatWallClockTime = (
   return hm.mm === 0
     ? `${h12} ${ampm}`
     : `${h12}:${String(hm.mm).padStart(2, '0')} ${ampm}`;
+};
+
+/**
+ * The stored wall-clock HOUR (0-23), read as-stored with no timezone shift.
+ * For bucketing festival sessions into hour rows. Returns null if unparseable.
+ * Reuses the same naive HH:MM slice as formatWallClockTime so the two agree.
+ */
+export const wallClockHour = (wc: WallClock | null | undefined): number | null => {
+  if (!wc) return null;
+  const hm = naiveHourMinute(unwrap(wc));
+  return hm ? hm.hh : null;
 };
 
 /**
@@ -138,11 +160,45 @@ export const formatWallClockDateTime = (
 };
 
 /** The YYYY-MM-DD London-calendar key of a stored wall clock, for londonDate
- *  comparisons (londonDaysFromTodayForKey, weekdayOfKey, etc.). */
+ *  comparisons (londonDaysFromTodayForKey, weekdayOfKey, etc.). Reads the date
+ *  PREFIX, so a full "YYYY-MM-DDThh:mm" stamp yields its date. */
 export const wallClockDateKey = (wc: WallClock | null | undefined): string | null => {
   if (!wc) return null;
   const ymd = unwrap(wc).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
+};
+
+/** The date key ONLY when the whole stored value is a bare date with no time
+ *  part (anchored full-string 'YYYY-MM-DD'); null for a stamp that carries a
+ *  time. Use where a time-suffixed value must NOT be treated as a plain day --
+ *  e.g. sniffIsFestival counting distinct schedule days for festival routing. */
+export const wallClockExactDateKey = (wc: WallClock | null | undefined): string | null => {
+  if (!wc) return null;
+  const s = unwrap(wc);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+};
+
+/**
+ * Boundary reader for a stored EVENT TIMEZONE. Treats 'UTC' as UNSPECIFIED
+ * (null) rather than as a real zone, so the caller's `?? 'Europe/London'`
+ * default applies -- the same safe path a NULL timezone already takes.
+ *
+ * WHY 'UTC' IS NOT A ZONE HERE: no city and no venue in this DB carries 'UTC'
+ * (audited 2026-07-14: cities are Europe/London x70, Europe/Madrid x45, ...,
+ * zero UTC). It only ever appears on events/series as a save-or-import DEFAULT
+ * artifact, and every row carrying it is really a London event.
+ *
+ * Taken LITERALLY it is actively harmful, because times are stored local-as-UTC:
+ *   - wallClockToInstant(wc, 'UTC') is the IDENTITY (the offset probe measures a
+ *     zero delta), which silently disables the BST correction -- shipping a
+ *     JSON-LD startDate / ICS DTSTART an hour late for the whole summer.
+ *   - dateKeyInTz(d, 'UTC') reads the wrong calendar day near London midnight.
+ * Both fail SILENTLY and the brand cannot catch them: this is bad data, not a
+ * bad type. Normalising once at the boundary fixes every consumer at once.
+ */
+export const asEventTimeZone = (raw: unknown): string | null => {
+  const tz = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+  return tz === 'UTC' ? null : tz;
 };
 
 // Build a zoned formatter, falling back to Europe/London if `tz` is not a valid

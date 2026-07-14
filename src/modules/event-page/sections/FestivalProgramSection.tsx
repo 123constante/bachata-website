@@ -1,6 +1,13 @@
 import { CalendarDays, Music } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  asWallClock,
+  formatWallClockDate,
+  formatWallClockTime,
+  wallClockDateKey,
+  type WallClock,
+} from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
   FestivalScheduleItem,
@@ -72,16 +79,16 @@ const rankTooltip = (item: FestivalScheduleItem): string => {
 
 // ─── Time helpers ────────────────────────────────────────────────────────────
 
-// Handle "HH:MM" or full ISO timestamp "YYYY-MM-DDTHH:MM..."
-const formatTime = (time: string): string => {
-  if (!time) return '';
-  const tIdx = time.indexOf('T');
-  const timePart = tIdx !== -1 ? time.slice(tIdx + 1) : time;
-  return timePart.slice(0, 5);
-};
+// 24h "HH:MM" from a stored wall clock, read as-stored via the sanctioned
+// reader. '' for the codec's empty sentinel / unparseable stamps.
+const wcTime24 = (wc: WallClock | null): string =>
+  formatWallClockTime(wc, { hour12: false }) ?? '';
 
-const formatTime12 = (time: string): string => {
-  const hhmm = formatTime(time);
+// 12h with minutes ALWAYS shown ("5:00 PM"), from a 24h "HH:MM" string.
+// Deliberately kept local instead of formatWallClockTime's default 12h form,
+// which drops ":00" on the hour ("5 PM") -- party ranges here have always
+// shown minutes and must stay byte-stable.
+const formatTime12 = (hhmm: string): string => {
   if (!hhmm) return '';
   const [hStr, mStr] = hhmm.split(':');
   const h = Number(hStr);
@@ -91,23 +98,37 @@ const formatTime12 = (time: string): string => {
   return `${h12}:${mStr ?? '00'} ${ampm}`;
 };
 
+// Chronological sort key: 'YYYY-MM-DDTHH:MM' rebuilt from the sanctioned
+// readers, so FULL-stamp order survives the brand (an 01:00 next-day party
+// stays last within its admin-assigned day group) and unparseable/sentinel
+// values sort first exactly like the old '' stamps did.
+const wcSortKey = (wc: WallClock | null): string => {
+  const day = wallClockDateKey(wc);
+  const time = wcTime24(wc);
+  return day && time ? `${day}T${time}` : '';
+};
+
 const formatDayLabel = (day: string): string => {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return day || 'TBD';
-  const d = new Date(day + 'T00:00:00');
-  if (isNaN(d.getTime())) return day;
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  // Sanctioned reader (UTC-noon anchor, formatted in UTC) -- same "Wed 15 Jul"
+  // output as the old toLocaleDateString, but machine-timezone-independent, so
+  // the SSR markup and every client agree. Never `new Date(day)` + local getters.
+  return formatWallClockDate(asWallClock(day)) ?? day;
 };
 
 const groupByDay = (items: FestivalScheduleItem[]) => {
   const map = new Map<string, FestivalScheduleItem[]>();
   for (const item of items) {
-    const key = item.day || 'TBD';
+    // wallClockDateKey(day) is the raw 'YYYY-MM-DD' for real day values and
+    // null for the codec's '' sentinel -- byte-identical keys to the old
+    // `item.day || 'TBD'`.
+    const key = wallClockDateKey(item.day) ?? 'TBD';
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(item);
   }
   const sorted = [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   for (const [, dayItems] of sorted) {
-    dayItems.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    dayItems.sort((a, b) => wcSortKey(a.startTime).localeCompare(wcSortKey(b.startTime)));
   }
   return sorted;
 };
@@ -184,8 +205,8 @@ const FestivalRankCard = ({
     >
       <div className="flex items-baseline justify-between gap-2 mb-2">
         <p className="text-[11px] tabular-nums text-white/60">
-          {formatTime(item.startTime)}
-          {item.endTime ? ` – ${formatTime(item.endTime)}` : ''}
+          {wcTime24(item.startTime)}
+          {item.endTime ? ` \u2013 ${wcTime24(item.endTime)}` : ''}
         </p>
         {highlightParallel && (
           <span
@@ -245,10 +266,12 @@ const FestivalRankCard = ({
 
 const FestivalPartyCard = ({ item }: { item: FestivalScheduleItem }) => {
   const showTitle = !isDefaultTitle(item.title) && item.title.trim().length > 0;
+  const start24 = wcTime24(item.startTime);
+  const end24 = item.endTime ? wcTime24(item.endTime) : '';
   const range =
-    item.startTime && item.endTime
-      ? `${formatTime12(item.startTime)} – ${formatTime12(item.endTime)}`
-      : formatTime12(item.startTime);
+    start24 && end24
+      ? `${formatTime12(start24)} \u2013 ${formatTime12(end24)}`
+      : formatTime12(start24);
 
   return (
     <div className="rounded-lg p-3 border border-white/5 bg-white/5 text-center">
@@ -288,7 +311,7 @@ const FestivalPartyCard = ({ item }: { item: FestivalScheduleItem }) => {
 const buildParallelMap = (classItems: FestivalScheduleItem[]): Map<string, number> => {
   const counts = new Map<string, number>();
   for (const it of classItems) {
-    const key = formatTime(it.startTime);
+    const key = wcTime24(it.startTime);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
@@ -298,11 +321,24 @@ const buildParallelMap = (classItems: FestivalScheduleItem[]): Map<string, numbe
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps) => {
-  if (!schedule || schedule.length === 0) return null;
+  // Hooks must run unconditionally, so compute the grouping (empty-safe) and the
+  // initial-day seed BEFORE the empty-schedule early return.
+  const grouped = useMemo(() => groupByDay(schedule ?? []), [schedule]);
+  const firstDay = grouped[0]?.[0] ?? null;
+  const [selectedDay, setSelectedDay] = useState<string | null>(firstDay);
 
-  const grouped = groupByDay(schedule);
-  const firstDay = grouped[0]?.[0];
-  const [selectedDay, setSelectedDay] = useState<string | null>(firstDay ?? null);
+  // A selected day must never outlive the schedule that produced it. Client-side
+  // nav between festivals reuses this component, so without this reset a stale
+  // selectedDay (a day of the PREVIOUS festival) stays truthy, grouped.find()
+  // misses, and the programme renders "No classes/parties scheduled" with no tab
+  // active despite a full schedule. Clearing it falls back to firstDay.
+  const dayKeys = grouped.map(([day]) => day).join('|');
+  useEffect(() => {
+    setSelectedDay((cur) => (cur && !grouped.some(([day]) => day === cur) ? null : cur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKeys]);
+
+  if (!schedule || schedule.length === 0) return null;
 
   const effectiveSelectedDay = selectedDay || firstDay;
   const currentDayItems = grouped.find(([day]) => day === effectiveSelectedDay)?.[1] || [];
@@ -341,7 +377,7 @@ export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps
           <div className="space-y-2">
             {classItems.length > 0 ? (
               classItems.map((item, idx) => {
-                const key = formatTime(item.startTime);
+                const key = wcTime24(item.startTime);
                 const isParallel = key ? (parallelCounts.get(key) ?? 0) > 1 : false;
                 return (
                   <FestivalRankCard

@@ -17,8 +17,8 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     userId: user?.id ?? null,
   });
 
-  // Always call get_public_festival_detail -- the RPC runs for every published
-  // event, not just festivals. The isFestival gate lives in sniffIsFestival
+  // Always call get_public_festival_detail_v2 -- the RPC runs for every
+  // published event, not just festivals. The isFestival gate lives in sniffIsFestival
   // (shared with the /event/:id server loader so SSR prefetches exactly what
   // the client renders -- full rationale in festivalEventQuery.ts).
   const festivalQuery = useFestivalDetailQuery(eventId, Boolean(eventId));

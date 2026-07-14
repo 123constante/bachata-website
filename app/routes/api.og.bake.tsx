@@ -15,13 +15,13 @@
 // Auth: Bearer OG_BAKE_SECRET (shared with the DB trigger via Vault).
 // POST body: { entity_type: 'event'|'festival', entity_id: uuid, occurrence_id?: uuid|null }
 import { createHash } from "node:crypto";
-import { supabase } from "@/integrations/supabase/client";
 import {
   buildFallbackCard,
   buildImageCard,
+  fetchEventCardData,
+  fetchFestivalCardData,
   fetchImageBytes,
-  firstString,
-  formatOgDate,
+  resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
 import type { Route } from "./+types/api.og.bake";
@@ -30,7 +30,6 @@ const SUPABASE_URL = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? "";
 const BAKE_SECRET = process.env.OG_BAKE_SECRET ?? "";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type EntityType = "event" | "festival";
 
@@ -39,46 +38,6 @@ function json(obj: unknown, status: number): Response {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
-}
-
-async function resolveEventId(param: string): Promise<string | null> {
-  if (UUID_RE.test(param)) return param;
-  const { data, error } = await supabase.from("events").select("id").eq("slug", param).maybeSingle();
-  if (error || !data) return null;
-  return typeof data.id === "string" ? data.id : null;
-}
-
-async function fetchEventData(id: string, occ: string | null): Promise<OgCardData | null> {
-  const target: Record<string, string> = { series_id: id };
-  if (occ) target.occurrence_id = occ;
-  const { data, error } = await supabase.rpc("event_view_p5" as never, {
-    p_target: target,
-    p_viewer: { role: "anon", shape: "snapshot_compat" },
-  } as never);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snap: any = data;
-  if (error || !snap || !snap.event) return null;
-  const venue = snap.location_default?.venue;
-  return {
-    title: snap.event.name ?? "Bachata Event",
-    dateLine: formatOgDate(snap.occurrence_effective?.starts_at ?? snap.event.date ?? null),
-    venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
-  };
-}
-
-async function fetchFestivalData(id: string): Promise<OgCardData | null> {
-  const { data, error } = await supabase.rpc("get_public_festival_detail", { p_event_id: id });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fest: any = data;
-  if (error || !fest || !fest.identity) return null;
-  const venue = fest.location?.primaryVenue;
-  return {
-    title: fest.identity.name ?? "Bachata Festival",
-    dateLine: formatOgDate(fest.dates?.startsAt ?? null),
-    venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(fest.identity.posterUrl) ?? firstString(venue?.imageUrl),
-  };
 }
 
 // Presign a PUT (storage-sign-upload edge fn) then upload the bytes — the
@@ -130,11 +89,11 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
 
   let entityId = rawId;
   try {
-    const id = await resolveEventId(rawId);
+    const id = await resolveOgEventId(rawId);
     if (!id) throw new Error("could not resolve entity id");
     entityId = id;
 
-    const cardData = entityType === "festival" ? await fetchFestivalData(id) : await fetchEventData(id, occurrenceId);
+    const cardData = entityType === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occurrenceId);
     if (!cardData) throw new Error("no card data");
 
     const coverBytes = cardData.coverUrl ? await fetchImageBytes(cardData.coverUrl) : null;

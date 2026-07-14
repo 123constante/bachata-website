@@ -35,6 +35,17 @@ import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultD
 
 import { dateKeyInTz } from "@/lib/londonDate";
 
+import {
+  asWallClock,
+  formatWallClockLocalIntl,
+  formatWallClockTime,
+  instantToDate,
+  wallClockDateKey,
+  wallClockHour,
+  wallClockToInstant,
+  type WallClock,
+} from "@/lib/time/wallClock";
+
 import { resolveTransportMode } from "@/lib/transportMode";
 
 import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover";
@@ -58,9 +69,17 @@ type FestivalEvent = {
 
   city: string | null;
 
-  date: string | null;
-
-  start_time: string | null;
+  // Boundary brand rides the existing `as FestivalEvent` cast on the raw events
+  // row: `date` is a date-only wall clock (DATE column).
+  //
+  // `start_time` is deliberately ABSENT. The column is timestamptz, but it holds
+  // a MIX of true instants and naive local-as-UTC wall clocks row-by-row (live
+  // check: 'London Latin Fest' stores 11:00Z where the tz-corrected _v2 RPC
+  // reports 10:00Z) -- the very unbrandable mix that forced the move off _v1.
+  // Branding it either way is a lie that reads 1h late through BST, so no
+  // surface may consume it. The real-instant nucleus below comes from _v2's
+  // dates.startsAt, with events.date as the date-only fallback. Do not re-add.
+  date: WallClock | null;
 
   poster_url: string | null;
 
@@ -893,16 +912,6 @@ const CINEMATIC_CSS = `
 
 
 
-/* === P4 teaching chips on polaroid ======================= */
-
-.cinematic-festival .frame-teaching{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.06em;color:rgba(255,255,255,0.55);margin-top:6px;line-height:1.5}
-
-.cinematic-festival .frame-teaching .tch-chip{display:inline-block;color:rgba(251,146,60,0.9);margin:0 4px}
-
-.cinematic-festival .frame-teaching .tch-more{color:rgba(255,255,255,0.4);margin-left:4px}
-
-
-
 /* === P2 "What's included" bullets ======================== */
 
 .cinematic-festival .about-includes{margin:0 auto 18px;text-align:left;max-width:640px;display:grid;grid-template-columns:1fr;gap:8px 18px;padding:16px 18px;background:rgba(251,146,60,0.04);border:1px solid rgba(251,146,60,0.2)}
@@ -1346,34 +1355,6 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 
 
-// Extract HH:MM from an ISO timestamp like "2026-06-19T17:00:00"
-
-const extractTimeHHMM = (iso: string | null): string => {
-
-  if (!iso) return "";
-
-  const m = iso.match(/T(\d{2}):(\d{2})/);
-
-  return m ? `${m[1]}:${m[2]}` : iso;
-
-};
-
-
-
-// Extract the hour as a number (0-23) from an ISO timestamp
-
-const extractHour = (iso: string | null): number | null => {
-
-  if (!iso) return null;
-
-  const m = iso.match(/T(\d{2}):/);
-
-  return m ? parseInt(m[1], 10) : null;
-
-};
-
-
-
 // P2: parse "What's included:" bullets from a description blob.
 
 const parseIncludedItems = (desc: string | null | undefined): string[] => {
@@ -1456,7 +1437,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const { pathname } = useLocation();
 
-  const [, setTick] = useState(0);
+  // The 1s heartbeat stores the CLOCK, not a bare counter: the countdown memo
+  // reads `now` directly, so its dependency is honest (no eslint suppression) and
+  // the memo is a pure function of its deps. Previously this was a discarded
+  // `[, setTick]` and the memo keyed off startInstant's fresh-Date identity -- a
+  // no-op memo that would have frozen the countdown the moment anyone memoized
+  // startInstant. Gated by `mounted`, so the server never renders it (#418).
+  const [now, setNow] = useState(() => Date.now());
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
@@ -1664,7 +1651,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     // window is only read AFTER hydration (see the showAllDays seed above).
     if (typeof window !== "undefined" && window.innerWidth > 900) setShowAllDays(true);
 
-    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    const interval = setInterval(() => setNow(Date.now()), 1000);
 
     return () => clearInterval(interval);
 
@@ -1674,41 +1661,47 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // --- Derived values ---
 
-  const startDateRaw = festivalDetail?.dates.startsAt ?? festival?.date ?? festival?.start_time ?? null;
+  const eventTz = festivalDetail?.dates.timezone ?? "Europe/London";
 
-  const endDateRaw = festivalDetail?.dates.endsAt ?? null;
+  // A date-only wall clock (legacy events.date) -> the event-tz midnight
+  // instant. Last-resort start when no real instant is available.
+  const dateOnlyStartInstant = (wc: WallClock | null | undefined): Date | null => {
+    const key = wallClockDateKey(wc);
+    return key ? wallClockToInstant(asWallClock(`${key}T00:00:00`), eventTz) : null;
+  };
 
-  const startDate = startDateRaw ? new Date(startDateRaw) : null;
+  // Real-instant nucleus: dates.startsAt/endsAt are TRUE UTC instants (_v2).
+  // events.start_time is NOT in this chain -- see the FestivalEvent type: that
+  // column mixes true instants with naive local-as-UTC stamps per row, so using
+  // it read 1h late through BST on exactly the path nobody watches. When _v2 has
+  // no instant, fall back to the event-tz midnight of events.date (a genuine
+  // date-only wall clock) so the countdown / JSON-LD / calendar links still
+  // carry a defensible value instead of a silently wrong one.
+  const startInstant =
+    instantToDate(festivalDetail?.dates.startsAt ?? null) ??
+    dateOnlyStartInstant(festival?.date ?? null);
 
-  const endDate = endDateRaw ? new Date(endDateRaw) : null;
+  const endInstant = instantToDate(festivalDetail?.dates.endsAt ?? null);
 
+  // Stable scalars for links/JSON-LD/memo deps. startInstant is a fresh Date on
+  // every render, so NOTHING may depend on its object identity (see countdown).
+  const startIso = startInstant ? startInstant.toISOString() : null;
 
+  const startMs = startInstant ? startInstant.getTime() : null;
 
-  // Header strip date label
+  const endIso = endInstant ? endInstant.toISOString() : null;
 
-  const formattedDate = useMemo(() => {
+  // Calendar-day keys for DISPLAY (tiles/labels/tabs): event-timezone date-only
+  // wall clocks from _v2, then the legacy date column, then the instant read in
+  // the event timezone. Never local-Date getters -- that was the wrong-day bug.
+  const startKey =
+    wallClockDateKey(festivalDetail?.dates.localStart ?? null) ??
+    wallClockDateKey(festival?.date ?? null) ??
+    (startInstant ? dateKeyInTz(startInstant, eventTz) : null);
 
-    if (!startDate) return "Date TBA";
-
-    const singleDayFmt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" };
-
-    if (!endDate || startDate.toDateString() === endDate.toDateString()) {
-
-      return startDate.toLocaleDateString("en-GB", singleDayFmt);
-
-    }
-
-    const sameMonth = startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear();
-
-    const endStr = endDate.toLocaleDateString("en-GB", singleDayFmt);
-
-    return sameMonth
-
-      ? `${startDate.getDate()} \u2013 ${endStr}`
-
-      : `${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} \u2013 ${endStr}`;
-
-  }, [startDate, endDate]);
+  const endKey =
+    wallClockDateKey(festivalDetail?.dates.localEnd ?? null) ??
+    (endInstant ? dateKeyInTz(endInstant, eventTz) : null);
 
 
 
@@ -1716,9 +1709,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const countdown = useMemo(() => {
 
-    if (!startDate) return { days: 0, hours: 0, mins: 0, secs: 0 };
+    if (startMs === null) return { days: 0, hours: 0, mins: 0, secs: 0 };
 
-    const diff = startDate.getTime() - Date.now();
+    const diff = startMs - now;
 
     if (diff <= 0) return { days: 0, hours: 0, mins: 0, secs: 0 };
 
@@ -1734,35 +1727,45 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     };
 
-  }, [startDate]);
+    // Deps are both real values the body reads: a stable epoch-ms start and the
+    // 1s clock. NEVER startInstant -- it is a new Date object every render, so
+    // keying on its identity made this memo a no-op and left a trap: memoizing
+    // startInstant would have frozen the countdown with no test failing.
+
+  }, [startMs, now]);
 
 
 
-  // Date tiles -- each day from start to end, featured = middle day if odd count
+  // Date tiles -- each day from start to end, featured = middle day if odd count.
+  // UTC-noon anchor + UTC getters read the stored calendar day back out
+  // machine-timezone-independently (same technique as formatWallClockDate), so
+  // SSR (UTC) and every client timezone agree -- no #418 divergence.
 
   const dateTiles = useMemo(() => {
 
-    if (!startDate) return [] as Array<{ dow: string; num: number; featured: boolean }>;
+    if (!startKey) return [] as Array<{ dow: string; num: number; featured: boolean }>;
 
-    const end = endDate ?? startDate;
+    const cur = new Date(`${startKey}T12:00:00Z`);
+
+    const end = new Date(`${endKey ?? startKey}T12:00:00Z`);
+
+    if (Number.isNaN(cur.getTime()) || Number.isNaN(end.getTime())) return [];
 
     const tiles: Array<{ dow: string; num: number; featured: boolean }> = [];
-
-    const cur = new Date(startDate);
 
     while (cur <= end && tiles.length < 7) {
 
       tiles.push({
 
-        dow: cur.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase().slice(0, 3),
+        dow: cur.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" }).toUpperCase().slice(0, 3),
 
-        num: cur.getDate(),
+        num: cur.getUTCDate(),
 
         featured: false,
 
       });
 
-      cur.setDate(cur.getDate() + 1);
+      cur.setUTCDate(cur.getUTCDate() + 1);
 
     }
 
@@ -1776,21 +1779,25 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     return tiles;
 
-  }, [startDate, endDate]);
+  }, [startKey, endKey]);
 
 
 
   const monthLabel = useMemo(() => {
 
-    if (!startDate) return "";
+    if (!startKey) return null;
 
-    const month = startDate.toLocaleDateString("en-GB", { month: "long" });
+    const d = new Date(`${startKey}T12:00:00Z`);
 
-    const year = startDate.getFullYear();
+    if (Number.isNaN(d.getTime())) return null;
+
+    const month = d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+
+    const year = d.getUTCFullYear();
 
     return { month, year };
 
-  }, [startDate]);
+  }, [startKey]);
 
 
 
@@ -1798,7 +1805,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const calUrls = useMemo(() => {
 
-    if (!startDateRaw) return null;
+    if (!startIso) return null;
 
     const name = festivalDetail?.identity.name ?? festival?.name ?? "Event";
 
@@ -1808,9 +1815,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     const location = venue ? `${venue.name}${venue.address ? `, ${venue.address}` : ""}` : "";
 
-    const gStart = formatGCalDate(startDateRaw);
+    // startIso/endIso are REAL UTC instants, so the compact-UTC GCal form and
+    // the Outlook startdt/enddt now land at the true moment (pre-brand these
+    // carried the naive local-as-UTC stamp: 1h late all BST season).
 
-    const gEnd = formatGCalDate(endDateRaw ?? startDateRaw);
+    const gStart = formatGCalDate(startIso);
+
+    const gEnd = formatGCalDate(endIso ?? startIso);
 
     if (!gStart || !gEnd) return null;
 
@@ -1820,11 +1831,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       google: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(name)}&dates=${gStart}/${gEnd}&details=${enc(description.slice(0, 500))}&location=${enc(location)}`,
 
-      outlook: `https://outlook.live.com/calendar/0/deeplink/compose?subject=${enc(name)}&startdt=${enc(startDateRaw)}&enddt=${enc(endDateRaw ?? startDateRaw)}&location=${enc(location)}&body=${enc(description.slice(0, 500))}`,
+      outlook: `https://outlook.live.com/calendar/0/deeplink/compose?subject=${enc(name)}&startdt=${enc(startIso)}&enddt=${enc(endIso ?? startIso)}&location=${enc(location)}&body=${enc(description.slice(0, 500))}`,
 
     };
 
-  }, [startDateRaw, endDateRaw, festival, festivalDetail]);
+  }, [startIso, endIso, festival, festivalDetail]);
 
 
 
@@ -1834,7 +1845,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     const schedule = festivalDetail?.schedule ?? [];
 
-    if (schedule.length === 0) return { days: [] as string[], hours: [] as number[], sessionsByDayHour: {} as Record<string, typeof schedule> };
+    // NB: the empty-branch seed MUST be WallClock[] -- an `[] as string[]` seed
+    // makes `days` a union of array types, TS infers .map params as the
+    // intersection `string & WallClock`, and the brand silently launders back
+    // to string (new Date(day) compiled without error before this fix).
+
+    if (schedule.length === 0) return { days: [] as WallClock[], hours: [] as number[], sessionsByDayHour: {} as Record<string, typeof schedule> };
 
 
 
@@ -1846,7 +1862,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     schedule.forEach((s) => {
 
-      const hh = extractHour(s.startTime);
+      const hh = wallClockHour(s.startTime);
 
       if (hh === null) return;
 
@@ -1881,7 +1897,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     const eid = festivalDetail?.eventId ?? null;
     if (!eid || days.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
-    setActiveDayIdx(pickDefaultDayIndex(days, festivalDetail?.dates.timezone ?? null));
+    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), festivalDetail?.dates.timezone ?? null));
   }, [festivalDetail?.eventId, festivalDetail?.dates.timezone, days]);
 
 
@@ -1912,15 +1928,18 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   }, [festivalDetail]);
 
   const shareSubtitle = useMemo(() => {
-    if (!startDateRaw) return null;
-    const start = new Date(startDateRaw);
-    const end = endDateRaw ? new Date(endDateRaw) : null;
+    if (!startKey) return null;
+    // Stored calendar days via the UTC-noon anchor -- identical on server and
+    // in every client timezone (the old local-tz Date getters drifted a day).
+    const start = new Date(`${startKey}T12:00:00Z`);
+    const end = endKey ? new Date(`${endKey}T12:00:00Z`) : null;
+    if (Number.isNaN(start.getTime())) return null;
     const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
-      d.toLocaleDateString('en-GB', opts);
-    if (!end || end.toDateString() === start.toDateString())
+      d.toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
+    if (!end || Number.isNaN(end.getTime()) || endKey === startKey)
       return fmt(start, { day: 'numeric', month: 'short', year: 'numeric' });
     return `${fmt(start, { day: 'numeric', month: 'short' })} – ${fmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  }, [startDateRaw, endDateRaw]);
+  }, [startKey, endKey]);
 
   // Paid passes, ordered by the day they cover then by price. Free (£0) passes
   // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
@@ -2090,42 +2109,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Teaching schedule per headliner (P4)
-
-  const teachingByTeacherId = useMemo(() => {
-
-    const schedule = festivalDetail?.schedule ?? [];
-
-    const map: Record<string, Array<{ day: string; startTime: string }>> = {};
-
-    schedule.forEach((s) => {
-
-      if (s.type === "party") return;
-
-      s.instructors.forEach((i) => {
-
-        if (!i.id) return;
-
-        if (!map[i.id]) map[i.id] = [];
-
-        map[i.id].push({ day: s.day, startTime: s.startTime });
-
-      });
-
-    });
-
-    Object.keys(map).forEach((k) => {
-
-      map[k].sort((a, b) => (a.day + a.startTime).localeCompare(b.day + b.startTime));
-
-    });
-
-    return map;
-
-  }, [festivalDetail]);
-
-
-
   // Title split -- break long names across lines
 
   const titleLines = useMemo(() => {
@@ -2230,9 +2213,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
               // slug stays resolved -- reading the whole pathname emitted the
               // uuid path on the server and the slug path on the client (#418).
               url: `${SITE_ORIGIN}${pathname.startsWith("/event/") ? "/event" : "/festival"}/${resolvedSlug ?? festival.id}`,
-              startDate: startDateRaw ?? "",
+              // Real UTC instants (pre-brand this shipped the naive local-as-UTC
+              // stamp: Google read startDate 1h late all BST season).
+              startDate: startIso ?? "",
               isCancelled,
-              endDate: endDateRaw,
+              endDate: endIso,
               description:
                 festivalDetail?.identity.description ?? festival.description ?? null,
               image: posterUrl ? [posterUrl] : null,
@@ -2352,7 +2337,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
             </div>
 
-            {typeof monthLabel === "object" && (
+            {monthLabel && (
 
               <div className="date-month">
 
@@ -2551,19 +2536,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
               {days.map((day, i) => {
 
-                const d = new Date(day);
-
-                const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+                const label = formatWallClockLocalIntl(day, { weekday: "short", day: "numeric" }) ?? "";
 
                 const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
 
-                const isToday = mounted && day === todayKey;
+                const isToday = mounted && wallClockDateKey(day) === todayKey;
 
                 return (
 
                   <button
 
-                    key={day}
+                    key={wallClockDateKey(day) ?? `day-${i}`}
 
                     className={`day-tab ${activeDayIdx === i ? "active" : ""} ${isToday ? "today" : ""}`}
 
@@ -2599,21 +2582,19 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 <div className="tl-time-h">Time</div>
 
-                {days.map((day) => {
+                {days.map((day, i) => {
 
-                  const d = new Date(day);
+                  const weekday = formatWallClockLocalIntl(day, { weekday: "short" }) ?? "";
 
-                  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
+                  const dayNum = formatWallClockLocalIntl(day, { day: "numeric" }) ?? "";
 
-                  const dayNum = d.getDate();
+                  const monthShort = formatWallClockLocalIntl(day, { month: "short" }) ?? "";
 
-                  const monthShort = d.toLocaleDateString("en-GB", { month: "short" });
-
-                  const isToday = mounted && day === todayKey;
+                  const isToday = mounted && wallClockDateKey(day) === todayKey;
 
                   return (
 
-                    <div key={day} className={`tl-day ${isToday ? "today" : ""}`}>
+                    <div key={wallClockDateKey(day) ?? `day-${i}`} className={`tl-day ${isToday ? "today" : ""}`}>
 
                       <span className="name">{weekday}</span>
 
@@ -2639,13 +2620,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                     <div className="tl-time">{String(hour).padStart(2, "0")}:00</div>
 
-                    {days.map((day) => {
+                    {days.map((day, dayIdx) => {
 
                       const sessions = sessionsByDayHour[`${day}-${hour}`] ?? [];
 
                       return (
 
-                        <div key={day} className="slot">
+                        <div key={wallClockDateKey(day) ?? `day-${dayIdx}`} className="slot">
 
                           {sessions.map((s, idx) => {
 
@@ -2655,9 +2636,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                             const instructors = s.instructors.map((i) => i.displayName).filter(Boolean).join(" \u00b7 ");
 
-                            const startTimeStr = extractTimeHHMM(s.startTime);
+                            const startTimeStr = formatWallClockTime(s.startTime, { hour12: false }) ?? "";
 
-                            const endTimeStr = extractTimeHHMM(s.endTime);
+                            const endTimeStr = formatWallClockTime(s.endTime, { hour12: false }) ?? "";
 
                             const dur = endTimeStr ? `${startTimeStr} \u2014 ${endTimeStr}` : startTimeStr;
 
@@ -3160,7 +3141,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 onClick={() => {
 
-                  if (!startDateRaw) return;
+                  // startIso/endIso are real UTC instants, so fmtUtc's Z-form
+                  // DTSTART/DTEND now land at the true moment (pre-brand the
+                  // naive stamp made .ics entries 1h late all BST season).
+                  if (!startIso) return;
 
                   downloadIcsFile({
 
@@ -3172,9 +3156,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                     location: venue ? `${venue.name}${venue.address ? ", " + venue.address : ""}` : "",
 
-                    startIso: startDateRaw,
+                    startIso: startIso,
 
-                    endIso: endDateRaw ?? startDateRaw,
+                    endIso: endIso ?? startIso,
 
                     url: window.location.href,
 

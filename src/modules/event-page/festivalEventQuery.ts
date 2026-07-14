@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageSnapshot, FestivalDetail } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
@@ -51,8 +52,11 @@ export function sniffIsFestival(
 ): boolean {
   if (snapshot?.event.format === 'festival') return true;
   if (!festivalDetail) return false;
+  // wallClockExactDateKey is non-null only for a bare date-only value, exactly
+  // reproducing the old anchored /^\d{4}-\d{2}-\d{2}$/ match (a time-suffixed
+  // day is NOT counted). Pure + deterministic, so server + client agree.
   const distinctDays = new Set(
-    festivalDetail.schedule.map((s) => s.day).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+    festivalDetail.schedule.map((s) => wallClockExactDateKey(s.day)).filter((k): k is string => k !== null),
   );
   return distinctDays.size >= 2 || festivalDetail.passes.length > 0;
 }

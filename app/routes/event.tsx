@@ -5,7 +5,7 @@ import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
-import { festivalDetailQueryKey, parseFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
+import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import type { EventPageSnapshot, FestivalDetail } from "@/modules/event-page/types";
 import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@/modules/event-page/festivalEventQuery";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -100,13 +100,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }),
     qc.prefetchQuery({
       queryKey: festivalDetailQueryKey(eventId),
-      queryFn: async () => {
-        const { data, error } = await supabase.rpc("get_public_festival_detail", {
-          p_event_id: eventId,
-        });
-        if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
-        return parseFestivalDetail(data);
-      },
+      // Shared fetcher = same RPC (_v2) + same parse as the client hook, so the
+      // dehydrated entry matches what the client would fetch byte-for-byte.
+      queryFn: async () => fetchFestivalDetail(eventId),
       staleTime: 1000 * 60,
     }),
   ]);

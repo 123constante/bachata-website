@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -406,9 +407,14 @@ export function useProgramSections(eventId: string | null | undefined) {
 function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
   return items
     .map((item): ScheduleSession | null => {
-      const startMins = toMins(item.startTime);
+      // Branded festival stamps -> 24h "HH:MM" via the sanctioned reader, then
+      // through the SAME toMins as every other path. toMins itself must stay
+      // string-typed: the occurrence-override program feeds it bare "HH:MM"
+      // by DB construction (recompute_override_payload_program_v1).
+      const startHHMM = formatWallClockTime(item.startTime, { hour12: false });
+      const startMins = toMins(startHHMM);
       if (startMins === null) return null;
-      const endMins = toMins(item.endTime) ?? startMins + 60;
+      const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? startMins + 60;
       const people: Person[] = [
         ...item.instructors.map((p) => ({
           id: p.id,
@@ -430,10 +436,15 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         })),
       ];
       return {
-        id: item.id ?? `${item.type}-${item.day ?? ''}-${item.startTime}`,
+        // Derive the fallback id from sanitized strings, never the branded stamps.
+        // startHHMM is non-null here: the `startMins === null` guard above already
+        // returned for anything that failed to parse. The id wants a stable
+        // discriminator, so it keeps the date PREFIX read -- unlike `day` below,
+        // which must stay anchored to preserve the pre-brand grouping semantics.
+        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
-        day: /^\d{4}-\d{2}-\d{2}$/.test(item.day ?? '') ? item.day : null,
+        day: wallClockExactDateKey(item.day),
         startMins,
         endMins,
         levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),
