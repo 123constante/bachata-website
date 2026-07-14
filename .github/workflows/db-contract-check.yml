@@ -813,3 +813,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-entry-liveness.mjs
+
+      # M2c festival-detail parity (2026-07-14). This site now reads
+      # get_public_festival_detail_v2 (P5-native schedule + lineup). It was flipped on the
+      # strength of v2 being byte-equal to the legacy v1 — and nothing was holding that.
+      # If P5 and the legacy tables drift apart, a live festival page silently shows the
+      # wrong schedule / line-up / start time and no other check would notice.
+      # Normalizes away only schedule[].section_id (legacy -> P5 id-space; no consumer
+      # reads it) and schedule[] array order (the page buckets by day + hour, never by
+      # position). Everything else is byte-for-byte, and it also holds `lineup` across ALL
+      # published events, because useEventPage feeds this RPC's lineup into non-festival
+      # BentoPages. RPC: check_festival_detail_p5_parity_v1 (admin mig 20260714090000).
+      # RETIRE this step when get_public_festival_detail (v1) is dropped.
+      - name: Run festival detail v1/v2 parity check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-festival-detail-parity.mjs
