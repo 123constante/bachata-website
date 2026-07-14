@@ -21,7 +21,14 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173',
+    // Probe /auth, NOT '/'. `npm run dev` is react-router dev (real SSR), and '/'
+    // 307s to /city/:slug, whose loader deliberately uses fetchQuery (not
+    // prefetchQuery) so a bad RPC THROWS -> 500 rather than caching an empty
+    // ItemList. Playwright's readiness probe follows redirects and treats a 500 as
+    // "not ready", so with the placeholder Supabase key this polled for the full
+    // 120s and aborted the run before a single test started. /auth is a
+    // client-only route with no server data fetch, so it renders 200 regardless.
+    url: 'http://127.0.0.1:4173/auth',
     reuseExistingServer: true,
     timeout: 120_000,
   },

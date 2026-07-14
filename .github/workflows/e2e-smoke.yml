@@ -37,12 +37,18 @@ jobs:
           # intercept every **/auth/v1/** and **/rest/v1/** call. We only need
           # createClient(url, key) to not throw at module-init time.
           #
-          # Don't use ${{ secrets.* }} here: the configured VITE_SUPABASE_URL
-          # secret is not a valid HTTPS URL (likely a pooler connection string),
-          # so supabase-js threw "Invalid supabaseUrl" and React never hydrated
-          # — the page rendered pure white. The previous "ci: pass Supabase env
-          # vars to E2E smoke" attempt was wrong-headed; the tests need a valid
-          # URL shape, not a real backend.
+          # DON'T "fix" a red run by wiring in ${{ secrets.* }}. This workflow also
+          # runs on `pull_request`, and Dependabot PRs are given NO repo secrets —
+          # an empty URL makes createClient throw at module init, 500-ing every
+          # route, so a secrets-based approach leaves every Dependabot PR
+          # permanently red. (The old note here claimed the VITE_SUPABASE_URL secret
+          # was itself malformed. That was true when written but was fixed on
+          # 2026-05-13; it is no longer a reason for anything.)
+          #
+          # Route mocks only patch the BROWSER's network stack. Since the SSR
+          # cutover they cannot reach a server loader's fetch — which is why
+          # playwright.config.ts probes /auth (no server data fetch) instead of '/'.
+          # See the comment on webServer.url there before changing any of this.
           #
           # The URL's projectRef must match the `projectRef` constant in
           # tests/e2e/*.spec.ts so the localStorage `sb-<ref>-auth-token` key
