@@ -1228,6 +1228,35 @@
   background-color: #11121a;
 }
 
+/* Pre-mount / lazy-chunk placeholder for the map surfaces (Index.tsx). It MUST
+   occupy exactly the height of whichever shell will actually mount, or the box
+   resizes on mount and the homepage takes a CLS hit. It previously hard-coded
+   the DESKTOP height (100svh - 60px) at every breakpoint, so on mobile the real
+   shell (.home-map-fill, 124px + safe-area shorter) shifted the page by ~64px +
+   the home-indicator inset on every first paint.
+
+   Breakpoint-driven in CSS, deliberately NOT via useIsMobile: a viewport-driven
+   re-render on this route bailed the route Suspense out of hydration (React
+   #421, see AppChrome.tsx) and downgraded every page to a client render. Pure
+   media query keeps the SSR and client markup byte-identical.
+
+   The 767px max-width mirrors useIsMobile's MOBILE_BREAKPOINT (768) exactly --
+   if that constant moves, move this with it or the placeholder and the mounted
+   surface disagree again near the boundary. */
+.home-map-placeholder {
+  height: calc(100svh - 60px); /* desktop: matches DesktopMapHome's shell */
+  background-color: #11121a;
+}
+
+@media (max-width: 767px) {
+  .home-map-placeholder {
+    /* Mirrors .home-map-fill above, declaration for declaration. */
+    height: calc(100vh - 124px - env(safe-area-inset-bottom));
+    height: calc(100svh - 124px - env(safe-area-inset-bottom));
+    min-height: 60vh;
+  }
+}
+
 /* Inset map card: a responsive clamp so it never dominates a short viewport nor
    shrinks to a sliver. Fullscreen lets it fill the shell (head + feed unmount). */
 .home-map-fill .hm-mapcard { flex: 0 0 clamp(148px, 32%, 236px); }

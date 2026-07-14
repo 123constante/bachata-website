@@ -168,9 +168,7 @@ const Index = () => {
       />
       <h1 className="sr-only">Bachata classes, parties &amp; festivals in {cityDisplayName}</h1>
       {mapMounted ? (
-        <Suspense
-          fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
-        >
+        <Suspense fallback={<div className="home-map-placeholder" />}>
           {isMobile ? (
             <MobileMapHome
               state={state}
@@ -190,7 +188,7 @@ const Index = () => {
           )}
         </Suspense>
       ) : (
-        <div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />
+        <div className="home-map-placeholder" />
       )}
     </PageErrorBoundary>
   );
