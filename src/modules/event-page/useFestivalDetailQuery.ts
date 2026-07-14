@@ -335,7 +335,7 @@ export const useFestivalDetailQuery = (eventId?: string | null, enabled = false)
     queryKey: festivalDetailQueryKey(eventId),
     queryFn: async () => {
       if (!eventId) return null;
-      const { data, error } = await supabase.rpc('get_public_festival_detail', {
+      const { data, error } = await supabase.rpc('get_public_festival_detail_v2', {
         p_event_id: eventId,
       });
       if (error) throw new Error(error.message ?? JSON.stringify(error));

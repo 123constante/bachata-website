@@ -347,7 +347,7 @@ export async function getEventPageSnapshot(
 export async function getPublicFestivalDetail(
   params: GetPublicFestivalDetailParams,
 ): Promise<FestivalDetail | null> {
-  const { data, error } = await supabase.rpc('get_public_festival_detail', {
+  const { data, error } = await supabase.rpc('get_public_festival_detail_v2', {
     p_event_id: params.p_event_id,
   });
 

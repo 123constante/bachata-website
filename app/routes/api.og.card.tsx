@@ -56,7 +56,7 @@ async function fetchEventData(id: string, occ: string | null): Promise<OgCardDat
 }
 
 async function fetchFestivalData(id: string): Promise<OgCardData | null> {
-  const { data, error } = await supabase.rpc("get_public_festival_detail", { p_event_id: id });
+  const { data, error } = await supabase.rpc("get_public_festival_detail_v2", { p_event_id: id });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fest: any = data;
   if (error || !fest || !fest.identity) return null;

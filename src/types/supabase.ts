@@ -6796,6 +6796,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      get_public_festival_detail_v2: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       get_public_organiser_info: {
         Args: { organiser_id: string }
         Returns: {

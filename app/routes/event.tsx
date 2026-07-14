@@ -101,7 +101,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     qc.prefetchQuery({
       queryKey: festivalDetailQueryKey(eventId),
       queryFn: async () => {
-        const { data, error } = await supabase.rpc("get_public_festival_detail", {
+        const { data, error } = await supabase.rpc("get_public_festival_detail_v2", {
           p_event_id: eventId,
         });
         if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
