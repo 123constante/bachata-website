@@ -737,3 +737,79 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-public-rpc-latency.mjs
+
+      # 48. Raffle anon-grant posture (raffle production-grade Phase 1, 2026-07-10).
+      #     The six raffle/guest self-signup tables must stay locked so public
+      #     writes cannot bypass the SECURITY DEFINER RPC chokepoint. The audit
+      #     found anon holding INSERT/UPDATE/DELETE on all six + an anon-EXECUTE
+      #     get_secret_value() Vault-exfiltration hole. Supabase's default ALTER
+      #     DEFAULT PRIVILEGES ... GRANT EXECUTE ... TO anon means the next
+      #     migration can silently re-open it, so this is a standing gate. Fails
+      #     on any table/column DML, RLS-posture, secret-exec, or internal-writer
+      #     violation. Health-check RPC: check_anon_grants_contract_v1 (admin
+      #     migration 20260710010000).
+      - name: Run raffle anon-grant posture check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-anon-grants.mjs
+
+      # 49. Raffle winner ledger integrity (raffle Phase 3, 2026-07-10).
+      #     raffle_winners is keyed on the business fact ("this phone won at this
+      #     event/venue"). This catches the live tc-02 drift class the ledger
+      #     shipped without: active-draw winners with no ledger row (they could
+      #     win again at the same venue). Fails on dup (phone,event), unledgered
+      #     active winner, orphan manual, null venue on a venued event, or a bad
+      #     source. Health-check RPC: check_raffle_winners_contract_v1 (admin
+      #     migration 20260710040000).
+      - name: Run raffle winner ledger check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-raffle-winners.mjs
+
+      # 50. Raffle draw snapshot shape (raffle Phase 4, 2026-07-10).
+      #     Every event_raffle_draws.entries_snapshot must be the canonical
+      #     {pool, chosen, method}. Draw and pick used to write divergent shapes
+      #     (a booby-trap for report readers); Phase 4 routed both through one
+      #     recorder and backfilled the legacy draws. Fails on any non-canonical
+      #     snapshot. Health-check RPC: check_raffle_draw_snapshot_contract_v1
+      #     (admin migration 20260710070000).
+      - name: Run raffle draw snapshot check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-raffle-draw-snapshot.mjs
+
+      # 51. Raffle/guest capacity ceiling (raffle Phase 5, 2026-07-11).
+      #     No scope may hold more active rows than its capacity_max. Phase 5
+      #     closed S4 (a capacity TOCTOU) by routing every writer through one
+      #     chokepoint (_claim_entry_slot_v1); this is the byte-aligned probe.
+      #     Dormant/preventative today (0 events have capacity_max set), so it
+      #     starts and should stay green. Fails on any over-capacity raffle or
+      #     guest scope. Health-check RPC: check_raffle_capacity_contract_v1
+      #     (admin migration 20260711010000).
+      - name: Run raffle capacity ceiling check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-raffle-capacity.mjs
+
+      # 52. Entry liveness + waitlist strand (raffle Phase 6, 2026-07-12).
+      #     Unified liveness (is_live := deleted_at IS NULL) must hold and no
+      #     waitlister may be stranded. Phase 6 dropped the global AFTER UPDATE
+      #     promotion triggers (which promoted soft-deleted rows) for explicit,
+      #     scoped promotion. Fails on a deleted-but-live row (status active/
+      #     waitlist with deleted_at set) or a stranded waitlister (free capacity
+      #     yet still waitlisted = the missed-callsite detector). Health-check
+      #     RPC: check_entry_liveness_contract_v1 (admin migration 20260712010000).
+      - name: Run entry liveness check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-entry-liveness.mjs
