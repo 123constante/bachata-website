@@ -26,17 +26,26 @@ function cityDisplayFromSlug(slug: string): string | undefined {
 // with no revalidation, so a swapped cover / cancelled event stayed stale in the
 // SSR HTML until the next deploy). The loader mirrors Index.tsx's two data hooks
 // BYTE-FOR-BYTE (same query keys + London date-range derivation) and dehydrates
-// them, so the document ships the JSON-LD ItemList (crawlable SEO) and the client
-// map hydrates from cache without a refetch. Edge-cached on s-maxage and purged
-// on any event/festival write via the `home-feed` cache tag (see api.revalidate
-// tagsFor + the Supabase revalidation webhook). ISR also unfreezes the
+// them, so the document ships the JSON-LD ItemList (crawlable SEO) AND the
+// above-the-fold feed as real server-rendered HTML, and the client hydrates from
+// cache without a refetch. Edge-cached on s-maxage and purged on any
+// event/festival write via the `home-feed` cache tag (see api.revalidate tagsFor
+// + the Supabase revalidation webhook). ISR also unfreezes the
 // build-time-frozen London `todayKey` below. The Leaflet map itself is client-only.
 export async function loader({ params }: Route.LoaderArgs) {
   const citySlug = (params.slug ?? "").toLowerCase();
   const qc = createQueryClient();
 
+  // The instant this document was rendered at. It ships to the client and pins
+  // the first render's time-derived output (the London "today" grouping, the
+  // "On now" badges, the "Added 2h ago" stamps) to the server's clock -- see
+  // Index.tsx / modules/home-map/homeClock. This response is edge-cached for an
+  // hour and served stale for a day, so "now" on the client is emphatically NOT
+  // "now" on the server, and the feed is server-rendered markup that has to
+  // hydrate byte-identically.
+  const nowMs = Date.now();
   // Same London-clock derivation Index uses (useLondonToday → londonDateKey).
-  const todayKey = londonDateKey(new Date());
+  const todayKey = londonDateKey(new Date(nowMs));
   const { start: weekStart, end: weekEnd } = londonDayRangeUtc(todayKey, 7);
   const rangeEnd90 = addDaysToKey(todayKey, 90);
 
@@ -45,9 +54,7 @@ export async function loader({ params }: Route.LoaderArgs) {
     // fetchQuery (NOT prefetchQuery) for this SEO-critical query so a transient
     // RPC error THROWS out of the loader → a 500 with no Vercel-Cache-Tag →
     // cacheHeaders leaves it uncached, instead of edge-caching an empty ItemList
-    // for an hour. Mirrors the detail routes' gating fetch (event.tsx). The map
-    // query below stays prefetchQuery: the map is client-only (hydrates/refetches
-    // on mount), so its failure must not 500 the SEO document.
+    // for an hour. Mirrors the detail routes' gating fetch (event.tsx).
     qc.fetchQuery({
       queryKey: ["calendar-events", weekStart.toISOString(), weekEnd.toISOString(), citySlug],
       queryFn: () =>
@@ -58,8 +65,12 @@ export async function loader({ params }: Route.LoaderArgs) {
         }),
       staleTime: 1000 * 60 * 5,
     }),
-    // 90-day map window (useMapEvents key) → map hydrates from cache.
-    qc.prefetchQuery({
+    // 90-day map window (useMapEvents key). This is now the ABOVE-THE-FOLD feed's
+    // data, not just the map's: HomeMapShell renders the event list from it on the
+    // server. fetchQuery, so a failure 500s (and stays uncached) rather than
+    // edge-caching an empty homepage for an hour -- it used to be prefetchQuery,
+    // which was right when the only consumer was the client-only map.
+    qc.fetchQuery({
       queryKey: ["map-events", citySlug, todayKey, rangeEnd90],
       queryFn: () =>
         getMapEvents({ city_slug_param: citySlug, range_start: todayKey, range_end: rangeEnd90 }),
@@ -96,7 +107,13 @@ export async function loader({ params }: Route.LoaderArgs) {
   // precision. taggedData passes the unwrapped payload to the component + meta();
   // seoEventLinks rides along for the sr-only <nav>.
   return taggedData(
-    { dehydratedState: dehydrate(qc), cityDisplay: cityDisplayFromSlug(citySlug), seoEventLinks },
+    {
+      dehydratedState: dehydrate(qc),
+      cityDisplay: cityDisplayFromSlug(citySlug),
+      seoEventLinks,
+      todayKey,
+      nowMs,
+    },
     stampHome(citySlug),
   );
 }
@@ -116,7 +133,7 @@ export default function HomeRoute({ loaderData, params }: Route.ComponentProps) 
       {/* key by slug so /city/a → /city/b fully remounts (matches today's
           location.pathname-keyed <Routes>). */}
       <InitialVisiblePageTransition key={params.slug}>
-        <Index />
+        <Index todayKey={loaderData.todayKey} serverNowMs={loaderData.nowMs} />
         {/* Loader-data-driven so server and client render byte-identically
             (zero hydration-mismatch surface). sr-only: invisible, but a real
             <nav> for crawlers (internal-link equity from the highest-authority

@@ -1,8 +1,14 @@
 // Festival Map -- shared presentational primitives for the map homepage list.
-// Density-agnostic, prop-driven; mobile sheets and the desktop rail both
+// Density-agnostic, prop-driven; the map shell's feed and its map preview both
 // compose these so the markup + map<->list linking stay identical. Must render
 // inside a `.home-map` ancestor so the scoped cover-scene CSS (.cv/.grain/.sc-*
 // + the --hm-poster font var) from homeMap.css applies.
+//
+// These rows SERVER-RENDER now (the homepage feed is above the fold), so every
+// time-of-day read below goes through useHomeNow() -- the server's instant until
+// the tree has hydrated, the live clock after. Calling Date.now() directly at
+// render time here would make the first client render disagree with the (up to
+// an hour old) edge-cached HTML and cost us the server tree. See ../homeClock.
 
 import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,6 +34,7 @@ import {
   freshnessHeat,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
+import { useHomeNow } from '../homeClock';
 import { focusRing } from './controls';
 
 type Coords = { lat: number; lng: number } | null;
@@ -179,11 +186,12 @@ const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: s
  *  change is fresh (<5 min). Must render inside a `.home-map` ancestor for the
  *  dot pulse animation (homeMap.css .hm-heatdot). */
 export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
+  const now = useHomeNow();
   const { verb, iso } = freshnessDisplay(event);
-  const rel = relativeShort(iso);
+  const rel = relativeShort(iso, now);
   if (!rel) return null;
   const justNow = rel === 'just now';
-  const heat = FRESHNESS_HEAT[freshnessHeat(iso)];
+  const heat = FRESHNESS_HEAT[freshnessHeat(iso, now)];
   return (
     <div className={cn('flex shrink-0 items-start gap-1.5', className)}>
       <span className={cn('mt-0.5 hm-heatdot', heat.live && 'is-live', heat.updated && 'is-updated')} style={{ background: heat.dot }} />
@@ -274,7 +282,7 @@ const rowState = (selected: boolean) =>
 /** Real-time "On now" / "Soon" badge for a today row. Renders nothing for past,
  *  future-day, or cancelled events, so the bulk of the list stays quiet. */
 function LiveBadge({ event }: { event: MapEvent }) {
-  const status = todayLiveStatus(event);
+  const status = todayLiveStatus(event, new Date(useHomeNow()));
   if (!status) return null;
   return status === 'on-now' ? (
     <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
@@ -310,6 +318,7 @@ export function EventRow({
   user,
   className,
 }: RowProps & { showFreshness?: boolean; user?: Coords }) {
+  const now = useHomeNow();
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
   const mi = user ? distanceMiles(event, user) : null;
@@ -349,7 +358,7 @@ export function EventRow({
       </span>
       {cancelled ? (
         <CancelPill />
-      ) : showFreshness && isRecentlyChanged(event) ? (
+      ) : showFreshness && isRecentlyChanged(event, 14, now) ? (
         <FreshnessClock event={event} />
       ) : mi != null ? (
         <DistanceChip mi={mi} />
@@ -433,6 +442,7 @@ export function TonightCard({
 
 /** News row (portrait flyer + title/venue + freshness stamp + New badge). */
 export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
+  const now = useHomeNow();
   const cancelled = event.is_cancelled;
   return (
     <a
@@ -450,7 +460,7 @@ export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          {!cancelled && isFreshNew(event) && (
+          {!cancelled && isFreshNew(event, 30, now) && (
             <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
               New
             </span>

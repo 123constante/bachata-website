@@ -1208,17 +1208,36 @@
   100% { background-position: -64px 64px; }
 }
 
-/* Festival Map mobile shell height (audit #4). Resilient to iOS Safari: a vh
-   fallback precedes the svh value so a WebKit without small-viewport units keeps
-   a valid height; a min-height floor stops a transient 0/under-collapse from
-   blanking the map; the dark background means any collapse shows #11121a, never
-   the white page surface. 124px = 60px header + 64px bottom nav. */
-/* Festival Map mobile shell (Approach C3 inset layout): a flex column of
-   page head / map card / dock / feed. Resilient to iOS Safari: a vh fallback
+/* ===== Festival Map home shell (modules/home-map/HomeMapShell) ==============
+   ONE shell for both viewports, laid out entirely in CSS.
+
+   It has to be CSS. The head, the dock and the feed SERVER-RENDER, and
+   `useIsMobile`'s getServerSnapshot returns false -- so any JS viewport branch
+   would commit the server's markup to the DESKTOP layout for everyone, and 95%
+   of visitors would hydrate it and immediately re-render. That is the React #421
+   hydration bail that emptied the homepage in production (see AppChrome.tsx).
+   UA-sniffing on the server is not an escape either: this route is edge-cached
+   (s-maxage=3600), so UA-varying HTML would split and poison the ISR cache.
+
+   Every breakpoint below is therefore a media query, and the 767/768 boundary
+   MUST stay in lockstep with useIsMobile's MOBILE_BREAKPOINT (768), Tailwind's
+   `md:` prefix, and MAP_DESKTOP_MIN in modules/home-map/viewport.ts. Move one,
+   move all four, or the layout and the map chrome disagree at the boundary.
+
+   MOBILE (default): a flex column -- [page head][map card][dock][feed].
+   124px = 60px header + 64px bottom nav. Resilient to iOS Safari: a vh fallback
    precedes the svh value so a WebKit without small-viewport units keeps a valid
    height; a min-height floor (portrait only) stops a transient collapse from
    blanking the map; the dark background means any collapse shows #11121a, never
-   the white page surface. 124px = 60px header + 64px bottom nav. */
+   the white page surface.
+
+   NOTE ON CLS (supersedes WS15's .home-map-placeholder, now deleted): the shell
+   itself is in the server HTML, so it paints at its final height on the first
+   frame and there is no placeholder-to-shell swap left to shift the page. The
+   old placeholder existed only because the whole surface was client-only, and it
+   had to mirror this height declaration-for-declaration to avoid a ~64px jump.
+   That duplication is gone -- this is now the single source of the shell height.
+   Do not reintroduce a JS-gated placeholder. */
 .home-map-fill {
   display: flex;
   flex-direction: column;
@@ -1228,50 +1247,76 @@
   background-color: #11121a;
 }
 
-/* Pre-mount / lazy-chunk placeholder for the map surfaces (Index.tsx). It MUST
-   occupy exactly the height of whichever shell will actually mount, or the box
-   resizes on mount and the homepage takes a CLS hit. It previously hard-coded
-   the DESKTOP height (100svh - 60px) at every breakpoint, so on mobile the real
-   shell (.home-map-fill, 124px + safe-area shorter) shifted the page by ~64px +
-   the home-indicator inset on every first paint.
-
-   Breakpoint-driven in CSS, deliberately NOT via useIsMobile: a viewport-driven
-   re-render on this route bailed the route Suspense out of hydration (React
-   #421, see AppChrome.tsx) and downgraded every page to a client render. Pure
-   media query keeps the SSR and client markup byte-identical.
-
-   The 767px max-width mirrors useIsMobile's MOBILE_BREAKPOINT (768) exactly --
-   if that constant moves, move this with it or the placeholder and the mounted
-   surface disagree again near the boundary. */
-.home-map-placeholder {
-  height: calc(100svh - 60px); /* desktop: matches DesktopMapHome's shell */
-  background-color: #11121a;
+/* Inset map "bento" card: a responsive clamp so it never dominates a short
+   viewport nor shrinks to a sliver. The inset chrome (margin/radius/border) lives
+   HERE rather than in Tailwind utilities so the fullscreen and desktop rules
+   below can simply undo it, instead of fighting utility specificity. */
+.home-map-fill .hm-mapcard {
+  flex: 0 0 clamp(148px, 32%, 236px);
+  margin-inline: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
 }
 
+/* Calendar tab: lift the month grid above the fold by ordering the feed above the
+   map. The map keeps its clamped size (a flex `order` change, not a resize), so
+   Leaflet needs no re-measure. The page head stays first (default order 0).
+   Mobile only -- the desktop split already shows the grid and the map at once. */
 @media (max-width: 767px) {
-  .home-map-placeholder {
-    /* Mirrors .home-map-fill above, declaration for declaration. */
-    height: calc(100vh - 124px - env(safe-area-inset-bottom));
-    height: calc(100svh - 124px - env(safe-area-inset-bottom));
-    min-height: 60vh;
+  .home-map-fill.is-cal:not(.is-fullscreen) .hm-side { order: 1; }
+  .home-map-fill.is-cal:not(.is-fullscreen) .hm-mapcard { order: 2; }
+}
+
+/* DESKTOP (>=768px): the dominant map beside the discovery rail. A GRID, not a
+   flex row: the page head has to sit ABOVE the dock+feed inside the right-hand
+   column while the map spans the full height on the left -- and it has to do that
+   from the SAME DOM order that stacks correctly on mobile. Explicit placement,
+   so the absolutely-positioned skip link never claims a track. */
+@media (min-width: 768px) {
+  .home-map-fill {
+    display: grid;
+    grid-template-columns: 55% minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: calc(100vh - 60px); /* no bottom nav on desktop home */
+    height: calc(100svh - 60px);
+    min-height: 0; /* the portrait floor would overflow the viewport here */
+  }
+  .home-map-fill .hm-mapcard {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    margin-inline: 0;
+    border: 0;
+    border-right: 1px solid hsl(var(--border));
+    border-radius: 0;
+  }
+  .home-map-fill .hm-pagehead {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .home-map-fill .hm-side {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
   }
 }
 
-/* Inset map card: a responsive clamp so it never dominates a short viewport nor
-   shrinks to a sliver. Fullscreen lets it fill the shell (head + feed unmount). */
-.home-map-fill .hm-mapcard { flex: 0 0 clamp(148px, 32%, 236px); }
-/* Calendar tab: lift the month grid above the fold by ordering the rail above
-   the map. The map keeps its clamped size (a flex `order` change, not a resize),
-   so Leaflet needs no re-measure. pagehead stays first (default order 0). */
-.home-map-fill.is-cal:not(.is-fullscreen) .hm-side { order: 1; }
-.home-map-fill.is-cal:not(.is-fullscreen) .hm-mapcard { order: 2; }
-/* Fullscreen "explore the map": the card becomes a true edge-to-edge overlay
-   ABOVE the global header (z-60) + bottom nav, so the expanded map is genuinely
-   immersive. The feed stays mounted underneath (covered) so exit restores the
-   list scroll. Relies on no transformed ancestor on the home route (PageTransition
-   is intentionally dropped there) so position:fixed is viewport-relative. */
+/* Fullscreen "explore the map" (mobile chrome only -- the expand button is the
+   only way in and HomeMapCard renders it below 768px only): the card becomes a
+   true edge-to-edge overlay ABOVE the global header + bottom nav, so the expanded
+   map is genuinely immersive. The feed stays mounted underneath (covered, and
+   `inert` so it leaves the tab order) so exit restores the list scroll. Relies on
+   no transformed ancestor on the home route (PageTransition is intentionally
+   dropped there) so position:fixed is viewport-relative.
+
+   Higher specificity than the desktop block above, so it also unwinds the rail
+   border/grid placement if the viewport is somehow resized while expanded. */
 .home-map-fill.is-fullscreen .hm-mapcard {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  margin-inline: 0;
+  border: 0;
+  border-radius: 0;
   animation: hm-fs-enter 0.22s ease-out;
 }
 /* Enter cue: the map grows into fullscreen so it reads as the same map, not a
@@ -1303,13 +1348,29 @@ body.hm-immersive #app-nav { display: none !important; }
   background: linear-gradient(to top, #11121a, transparent);
 }
 
-/* Landscape / short viewports: drop the page head, zero the portrait min-height
+/* Landscape / short phones: drop the page head, zero the portrait min-height
    floor (it would push the feed under the nav), and lay the map card beside the
-   dock+feed column instead of stacking them. */
-@media (orientation: landscape) and (max-height: 480px) {
+   dock+feed column instead of stacking them. Capped at 767px so it cannot fight
+   the desktop grid: a landscape phone wider than that gets the desktop split,
+   exactly as it did when the surfaces were chosen by useIsMobile. */
+@media (orientation: landscape) and (max-width: 767px) and (max-height: 480px) {
   .home-map-fill { flex-direction: row; min-height: 0; }
-  .home-map-fill .hm-pagehead { display: none; }
-  .home-map-fill .hm-mapcard { flex: 0 0 42%; margin-right: 0; }
+  /* The head carries the page's ONLY <h1> now (the sr-only duplicate in Index.tsx is
+     gone), so it must leave the LAYOUT without leaving the DOCUMENT -- `display: none`
+     would strip the heading from the a11y tree and from crawlers on every landscape
+     phone. This is Tailwind's sr-only recipe, inlined. */
+  .home-map-fill .hm-pagehead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  .home-map-fill .hm-mapcard { flex: 0 0 42%; margin-inline: 0.75rem 0; }
   .home-map-fill .hm-side { flex: 1 1 auto; min-width: 0; }
 }
 
