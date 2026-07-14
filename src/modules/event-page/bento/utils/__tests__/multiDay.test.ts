@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 import { isMultiDay, buildDateLabel } from '@/modules/event-page/bento/utils/multiDay';
+import { asWallClock } from '@/lib/time/wallClock';
 
 // Minimal occurrence factory. Times are local-as-UTC (naive wall-clock tagged
 // +00), matching the DB convention; isMultiDay/buildDateLabel read only
@@ -8,9 +9,9 @@ import { isMultiDay, buildDateLabel } from '@/modules/event-page/bento/utils/mul
 const occ = (startsAt: string | null, endsAt: string | null): EventPageSnapshotOccurrence =>
   ({
     occurrenceId: 'occ',
-    startsAt,
-    endsAt,
-    localDate: startsAt ? startsAt.slice(0, 10) : null,
+    startsAt: startsAt ? asWallClock(startsAt) : null,
+    endsAt: endsAt ? asWallClock(endsAt) : null,
+    localDate: startsAt ? asWallClock(startsAt.slice(0, 10)) : null,
     timezone: 'Europe/London',
     isCancelled: false,
   } as EventPageSnapshotOccurrence);

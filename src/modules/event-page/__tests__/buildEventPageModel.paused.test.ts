@@ -4,12 +4,13 @@ import type {
   EventPageSnapshot,
   EventPageSnapshotOccurrence,
 } from '@/modules/event-page/types';
+import { asWallClock } from '@/lib/time/wallClock';
 
 const baseOccurrence = (overrides: Partial<EventPageSnapshotOccurrence> = {}): EventPageSnapshotOccurrence => ({
   occurrenceId: 'occ-1',
-  startsAt: '2027-01-15T20:00:00Z',
-  endsAt: '2027-01-16T02:00:00Z',
-  localDate: '2027-01-15',
+  startsAt: asWallClock('2027-01-15T20:00:00Z'),
+  endsAt: asWallClock('2027-01-16T02:00:00Z'),
+  localDate: asWallClock('2027-01-15'),
   timezone: 'Europe/London',
   isCancelled: false,
   cancellationReasonLabel: null,

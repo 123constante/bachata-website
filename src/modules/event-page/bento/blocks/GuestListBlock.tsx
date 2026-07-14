@@ -22,6 +22,7 @@ import {
   formatCountdown,
   type CountdownTone,
 } from '@/modules/event-page/utils/guestListCountdown';
+import type { WallClock } from '@/lib/time/wallClock';
 
 type GuestListBlockProps = {
   eventId: string | null;
@@ -29,7 +30,7 @@ type GuestListBlockProps = {
   // stored cutoff_time ("HH:MM" in the event's tz) into a UTC instant
   // for the live countdown. Either may be null on a freshly-loaded
   // page, in which case the countdown row hides.
-  eventStartIso: string | null;
+  eventStartIso: WallClock | null;
   eventTimezone: string | null;
 };
 

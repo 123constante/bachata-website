@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
 import { safeExternalHref } from '@/lib/url';
+import { asWallClock, type WallClock } from '@/lib/time/wallClock';
 import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
@@ -18,6 +19,13 @@ const asObject = (value: unknown): JsonRecord | null => {
 
 const asString = (value: unknown): string | null => {
   return typeof value === 'string' && value.trim() ? value : null;
+};
+
+// Brand a stored wall-clock string as WallClock (null if absent). The event-page
+// boundary producer -- see src/lib/time/wallClock.ts.
+const asWallClockOrNull = (value: unknown): WallClock | null => {
+  const s = asString(value);
+  return s ? asWallClock(s) : null;
 };
 
 const asBoolean = (value: unknown): boolean => value === true;
@@ -90,9 +98,9 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
   const lineup = requireObject(raw.lineup, `${label}.lineup`);
   return {
     occurrenceId,
-    startsAt: asString(raw.starts_at),
-    endsAt: asString(raw.ends_at),
-    localDate: asString(raw.local_date),
+    startsAt: asWallClockOrNull(raw.starts_at),
+    endsAt: asWallClockOrNull(raw.ends_at),
+    localDate: asWallClockOrNull(raw.local_date),
     timezone: asString(raw.timezone),
     isCancelled: asBoolean(raw.is_cancelled),
     cancellationReasonLabel: asString(raw.cancellation_reason_label),
@@ -134,7 +142,7 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
     event: {
       name: asString(event.name),
       description: asString(event.description),
-      date: asString(event.date),
+      date: asWallClockOrNull(event.date),
       type: asString(event.type),
       format: asString(event.format),
       category: asString(event.category),
