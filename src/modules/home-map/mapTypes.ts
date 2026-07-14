@@ -1,6 +1,8 @@
 // Festival Map -- shared types + pure helpers for the map homepage module.
-// Data comes from get_map_events_v1 (admin migration 20260810000000), a thin
-// wrapper over get_calendar_events_v2 that adds added/updated freshness.
+// Data comes from get_map_events_v1 (admin baseline schema; refined by
+// 20260627120000), a thin wrapper over get_calendar_events_v2 that adds
+// added/updated freshness. Its time fields inherit v2's wall-clock (local-as-UTC)
+// convention -- see the CalendarEventRow note in eventRpcs.ts.
 
 import { haversineKm } from '@/lib/geo/haversineKm';
 import { isFestivalByFormat } from '@/lib/eventFormat';

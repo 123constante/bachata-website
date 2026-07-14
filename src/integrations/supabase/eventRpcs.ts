@@ -11,8 +11,11 @@ export interface CalendarEventRow {
   photo_url: string[];
   location: string;
   instance_date: string; // 'YYYY-MM-DD' in event timezone
-  start_time: string; // ISO8601 timestamptz
-  end_time: string | null; // ISO8601 timestamptz
+  // Wall clock stored local-as-UTC, rendered by a ::text cast so the separator is
+  // a SPACE, not a 'T': "2026-07-17 20:00:00+00". NOT a real instant. The identical
+  // value is also returned T-separated as occurrence_starts_at/ends_at below.
+  start_time: string;
+  end_time: string | null;
   is_recurring: boolean;
   meta_data: Record<string, any>;
   key_times?: Record<string, any>;
@@ -261,27 +264,11 @@ export interface FestivalPublish {
   press_media_contact_email?: string | null;
 }
 
-export interface FestivalDetail {
-  identity: FestivalIdentity;
-  dates: FestivalDates;
-  links: FestivalLinks;
-  location: FestivalLocation;
-  organiser: EventPerson;
-  lineup: EventLineup;
-  guest_dancers: EventPerson[] | null;
-  schedule: FestivalScheduleItem[] | null;
-  competitions: FestivalCompetition[] | null;
-  passes: FestivalPass[] | null;
-  venues: FestivalVenue[] | null;
-  hotels: FestivalHotel[] | null;
-  travel: Record<string, any> | null;
-  promo_codes: FestivalPromoCode[] | null;
-  publish: FestivalPublish;
-}
-
-export interface GetPublicFestivalDetailParams {
-  p_event_id: string;
-}
+// NOTE: the festival DETAIL boundary (the aggregate `FestivalDetail` type + its
+// v1 RPC reader) moved to get_public_festival_detail_v2 in Phase 2 -- see
+// src/modules/event-page/festivalEventQuery.ts. The Festival* leaf types above
+// are still the shared shapes for that v2 path; the v1 aggregate + fetcher were
+// removed as dead code (WallClock Phase 3).
 
 // ============================================================================
 // RPC Utilities
@@ -339,44 +326,10 @@ export async function getEventPageSnapshot(
   return (data as EventPageSnapshot) || null;
 }
 
-/**
- * RPC 3: Fetch festival-specific details
- * Call in PARALLEL with getEventPageSnapshot for festival events.
- * Returns null for standard events - use this to detect event type.
- */
-export async function getPublicFestivalDetail(
-  params: GetPublicFestivalDetailParams,
-): Promise<FestivalDetail | null> {
-  const { data, error } = await supabase.rpc('get_public_festival_detail', {
-    p_event_id: params.p_event_id,
-  });
-
-  if (error) {
-    console.error('getPublicFestivalDetail RPC error:', error);
-    throw error;
-  }
-
-  return (data as FestivalDetail) || null;
-}
-
-/**
- * Helper: Fetch event page snapshot and festival detail in parallel
- * Automatically detects event type from festival result (null = standard)
- */
-export async function getEventDetailWithFestival(
-  eventId: string,
-  occurrenceId?: string | null,
-): Promise<{
-  snapshot: EventPageSnapshot | null;
-  festival: FestivalDetail | null;
-}> {
-  const [snapshot, festival] = await Promise.all([
-    getEventPageSnapshot({ p_event_id: eventId, p_occurrence_id: occurrenceId }),
-    getPublicFestivalDetail({ p_event_id: eventId }),
-  ]);
-
-  return { snapshot, festival };
-}
+// RPC 3 (getPublicFestivalDetail / getEventDetailWithFestival) removed as dead
+// code in WallClock Phase 3: it called the superseded v1 get_public_festival_detail
+// RPC and its only caller (the unused useEventWithFestival hook) is gone. Festival
+// detail now flows through get_public_festival_detail_v2 (Phase 2).
 
 // ============================================================================
 // RPC 4: get_latest_events_v1 (newest uploads -- homepage "Just added" wheel)
@@ -445,7 +398,8 @@ export interface GetMapEventsParams {
 /**
  * RPC 5: One row per occurrence-day for the Festival Map homepage -- venue
  * coords, cover, times, category flags and added/updated freshness. Thin
- * wrapper over get_calendar_events_v2 (admin migration 20260810000000).
+ * wrapper over get_calendar_events_v2 (defined in the admin baseline schema;
+ * refined by 20260627120000_venue_is_public_predicate_and_gate_v1).
  *
  * Cast through `as never` because the generated types file does not yet include
  * this RPC (same pattern as get_latest_events_v2 above); MapEvent (from the

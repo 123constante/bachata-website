@@ -1868,7 +1868,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       uniqHoursSet.add(hh);
 
-      const key = `${s.day}-${hh}`;
+      const key = `${wallClockDateKey(s.day) ?? ''}-${hh}`;
 
       if (!byKey[key]) byKey[key] = [];
 
@@ -2622,7 +2622,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                     {days.map((day, dayIdx) => {
 
-                      const sessions = sessionsByDayHour[`${day}-${hour}`] ?? [];
+                      const sessions = sessionsByDayHour[`${wallClockDateKey(day) ?? ''}-${hour}`] ?? [];
 
                       return (
 

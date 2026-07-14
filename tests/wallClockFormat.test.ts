@@ -228,3 +228,41 @@ describe('two-brand distinction', () => {
       .toBe(new Date('2026-07-15T20:30:00Z').getTime());
   });
 });
+
+describe('wire-format tolerance: space vs T separator', () => {
+  // Two boundaries serialise the SAME stored value two ways. jsonb RPCs
+  // (event_view_p5, festival detail) emit a 'T': "2026-07-15T20:30:00+00:00".
+  // ::text-cast RPCs (get_calendar_events_v2 and its organiser wrapper) emit a
+  // SPACE: "2026-07-15 20:30:00+00". The readers must treat them identically,
+  // or the calendar boundary silently loses every time it formats.
+  const SPACE = asWallClock('2026-07-15 20:30:00+00'); // calendar RPC dialect
+  const T_FULL = asWallClock('2026-07-15T20:30:00+00:00'); // organiser RPC dialect
+
+  it('formatWallClockTime is identical for space and T forms', () => {
+    expect(formatWallClockTime(SPACE)).toBe('8:30 PM');
+    expect(formatWallClockTime(T_FULL)).toBe('8:30 PM');
+    expect(formatWallClockTime(SPACE, { hour12: false })).toBe('20:30');
+  });
+
+  it('wallClockHour reads the stored hour from a space-separated stamp', () => {
+    expect(wallClockHour(SPACE)).toBe(20);
+    expect(wallClockHour(T_FULL)).toBe(20);
+  });
+
+  it('wallClockToInstant converts a space-separated stamp (BST -> 19:30Z)', () => {
+    // Before the fix this returned null on the space form -> a home ItemList
+    // JSON-LD startDate would VANISH rather than merely be an hour late.
+    expect(wallClockToInstant(SPACE)?.getTime())
+      .toBe(new Date('2026-07-15T19:30:00Z').getTime());
+    expect(wallClockToInstant(SPACE)?.getTime())
+      .toBe(wallClockToInstant(T_FULL)?.getTime());
+  });
+
+  it('still accepts a bare "HH:MM" (program passthrough) and rejects date-only', () => {
+    expect(formatWallClockTime(asWallClock('19:30'))).toBe('7:30 PM');
+    expect(wallClockHour(asWallClock('19:30'))).toBe(19);
+    // A date-only value has no instant regardless of separator handling.
+    expect(wallClockToInstant(asWallClock('2026-07-15'))).toBeNull();
+    expect(formatWallClockTime(asWallClock('2026-07-15'))).toBeNull();
+  });
+});

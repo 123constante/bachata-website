@@ -72,17 +72,20 @@ const naiveParts = (
 // --- Wall-clock readers (render AS STORED, no timezone shift) ----------------
 
 // Parse the literal HH:MM from an ISO-like string without any timezone shift.
-// The time slice logic is lifted verbatim from
+// The time slice logic is lifted from
 // event-page/bento/blocks/occurrenceFormat.naiveHourMinute, so formatWallClockTime
 // stays byte-identical to the old formatTime for full "YYYY-MM-DDThh:mm" stamps.
-// A bare "HH:MM[:SS]" (no date) is also accepted -- the legacy meta_data->program
-// schedule passthrough can store one, and the old FestivalProgramSection.formatTime
-// handled it; a date-only "YYYY-MM-DD" (no time) still returns null.
+// The separator may be 'T' (jsonb-serialised RPCs, e.g. event_view_p5) OR a space
+// (::text-cast RPCs -- get_calendar_events_v2 emits "2026-07-17 20:00:00+00"), so
+// the same reader serves both boundaries. A bare "HH:MM[:SS]" (no date) is also
+// accepted -- the legacy meta_data->program schedule passthrough can store one, and
+// the old FestivalProgramSection.formatTime handled it; a date-only "YYYY-MM-DD"
+// (no time) still returns null.
 const naiveHourMinute = (iso: string): { hh: number; mm: number } | null => {
-  const tIdx = iso.indexOf('T');
+  const sep = iso.search(/[T ]\d{2}:\d{2}/);
   let timePart: string;
-  if (tIdx !== -1) {
-    timePart = iso.slice(tIdx + 1);
+  if (sep !== -1) {
+    timePart = iso.slice(sep + 1);
   } else if (/^\d{2}:\d{2}/.test(iso)) {
     timePart = iso; // bare "HH:MM[:SS]"
   } else {
@@ -236,7 +239,10 @@ export const wallClockToInstant = (
 ): Date | null => {
   if (!wc) return null;
   const iso = unwrap(wc);
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  // Separator is 'T' (jsonb RPCs) or a space (::text-cast RPCs like
+  // get_calendar_events_v2, "2026-07-17 20:00:00+00"). A time is required --
+  // a date-only value has no instant, so it still returns null.
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
   if (!m) return null;
   const [, y, mo, d, h, mi, s] = m;
   const guess = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s ?? '00'}Z`);
