@@ -1,7 +1,13 @@
 import { CalendarDays, Music } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatWallClockTime, wallClockDateKey, type WallClock } from '@/lib/time/wallClock';
+import {
+  asWallClock,
+  formatWallClockDate,
+  formatWallClockTime,
+  wallClockDateKey,
+  type WallClock,
+} from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
   FestivalScheduleItem,
@@ -104,9 +110,10 @@ const wcSortKey = (wc: WallClock | null): string => {
 
 const formatDayLabel = (day: string): string => {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return day || 'TBD';
-  const d = new Date(day + 'T00:00:00');
-  if (isNaN(d.getTime())) return day;
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  // Sanctioned reader (UTC-noon anchor, formatted in UTC) -- same "Wed 15 Jul"
+  // output as the old toLocaleDateString, but machine-timezone-independent, so
+  // the SSR markup and every client agree. Never `new Date(day)` + local getters.
+  return formatWallClockDate(asWallClock(day)) ?? day;
 };
 
 const groupByDay = (items: FestivalScheduleItem[]) => {
@@ -199,7 +206,7 @@ const FestivalRankCard = ({
       <div className="flex items-baseline justify-between gap-2 mb-2">
         <p className="text-[11px] tabular-nums text-white/60">
           {wcTime24(item.startTime)}
-          {item.endTime ? ` – ${wcTime24(item.endTime)}` : ''}
+          {item.endTime ? ` \u2013 ${wcTime24(item.endTime)}` : ''}
         </p>
         {highlightParallel && (
           <span
@@ -263,7 +270,7 @@ const FestivalPartyCard = ({ item }: { item: FestivalScheduleItem }) => {
   const end24 = item.endTime ? wcTime24(item.endTime) : '';
   const range =
     start24 && end24
-      ? `${formatTime12(start24)} – ${formatTime12(end24)}`
+      ? `${formatTime12(start24)} \u2013 ${formatTime12(end24)}`
       : formatTime12(start24);
 
   return (
@@ -314,11 +321,24 @@ const buildParallelMap = (classItems: FestivalScheduleItem[]): Map<string, numbe
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export const FestivalProgramSection = ({ schedule }: FestivalProgramSectionProps) => {
-  if (!schedule || schedule.length === 0) return null;
+  // Hooks must run unconditionally, so compute the grouping (empty-safe) and the
+  // initial-day seed BEFORE the empty-schedule early return.
+  const grouped = useMemo(() => groupByDay(schedule ?? []), [schedule]);
+  const firstDay = grouped[0]?.[0] ?? null;
+  const [selectedDay, setSelectedDay] = useState<string | null>(firstDay);
 
-  const grouped = groupByDay(schedule);
-  const firstDay = grouped[0]?.[0];
-  const [selectedDay, setSelectedDay] = useState<string | null>(firstDay ?? null);
+  // A selected day must never outlive the schedule that produced it. Client-side
+  // nav between festivals reuses this component, so without this reset a stale
+  // selectedDay (a day of the PREVIOUS festival) stays truthy, grouped.find()
+  // misses, and the programme renders "No classes/parties scheduled" with no tab
+  // active despite a full schedule. Clearing it falls back to firstDay.
+  const dayKeys = grouped.map(([day]) => day).join('|');
+  useEffect(() => {
+    setSelectedDay((cur) => (cur && !grouped.some(([day]) => day === cur) ? null : cur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKeys]);
+
+  if (!schedule || schedule.length === 0) return null;
 
   const effectiveSelectedDay = selectedDay || firstDay;
   const currentDayItems = grouped.find(([day]) => day === effectiveSelectedDay)?.[1] || [];

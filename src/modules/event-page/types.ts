@@ -300,7 +300,7 @@ export type EventPageModel = {
 };
 
 // ---------------------------------------------------------------------------
-// Festival Detail — mirrors get_public_festival_detail RPC output
+// Festival Detail -- mirrors get_public_festival_detail_v2 RPC output
 // ---------------------------------------------------------------------------
 
 /** Artist/person in festival lineup — no is_primary (use ordering instead) */

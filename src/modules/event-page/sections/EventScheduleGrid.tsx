@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { formatWallClockTime, wallClockDateKey } from '@/lib/time/wallClock';
+import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -411,7 +411,8 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
       // through the SAME toMins as every other path. toMins itself must stay
       // string-typed: the occurrence-override program feeds it bare "HH:MM"
       // by DB construction (recompute_override_payload_program_v1).
-      const startMins = toMins(formatWallClockTime(item.startTime, { hour12: false }));
+      const startHHMM = formatWallClockTime(item.startTime, { hour12: false });
+      const startMins = toMins(startHHMM);
       if (startMins === null) return null;
       const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? startMins + 60;
       const people: Person[] = [
@@ -435,10 +436,15 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
         })),
       ];
       return {
-        id: item.id ?? `${item.type}-${item.day ?? ''}-${item.startTime}`,
+        // Derive the fallback id from sanitized strings, never the branded stamps.
+        // startHHMM is non-null here: the `startMins === null` guard above already
+        // returned for anything that failed to parse. The id wants a stable
+        // discriminator, so it keeps the date PREFIX read -- unlike `day` below,
+        // which must stay anchored to preserve the pre-brand grouping semantics.
+        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
-        day: wallClockDateKey(item.day),
+        day: wallClockExactDateKey(item.day),
         startMins,
         endMins,
         levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),

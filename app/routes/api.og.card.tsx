@@ -15,72 +15,18 @@
 //
 // Query params: kind=event|festival|image, id, occ, v (cache-buster), src (kind=image)
 import { createHash } from "node:crypto";
-import { supabase } from "@/integrations/supabase/client";
-import { asWallClock } from "@/lib/time/wallClock";
-import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import {
   buildFallbackCard,
   buildImageCard,
+  fetchEventCardData,
+  fetchFestivalCardData,
   fetchImageBytes,
-  firstString,
-  formatOgDate,
+  resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
 import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-async function resolveEventId(param: string): Promise<string | null> {
-  if (UUID_RE.test(param)) return param;
-  const { data, error } = await supabase.from("events").select("id").eq("slug", param).maybeSingle();
-  if (error || !data) return null;
-  return typeof data.id === "string" ? data.id : null;
-}
-
-async function fetchEventData(id: string, occ: string | null): Promise<OgCardData | null> {
-  const target: Record<string, string> = { series_id: id };
-  if (occ) target.occurrence_id = occ;
-  const { data, error } = await supabase.rpc("event_view_p5" as never, {
-    p_target: target,
-    p_viewer: { role: "anon", shape: "snapshot_compat" },
-  } as never);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snap: any = data;
-  if (error || !snap || !snap.event) return null;
-  const venue = snap.location_default?.venue;
-  // Mini boundary codec: occurrence starts_at / event.date are stored wall
-  // clocks on the snapshot RPC -- brand at this read so formatOgDate renders
-  // the stored day (never new Date + tz-shift).
-  const rawStart = firstString(snap.occurrence_effective?.starts_at) ?? firstString(snap.event.date);
-  return {
-    title: snap.event.name ?? "Bachata Event",
-    dateLine: formatOgDate(rawStart ? asWallClock(rawStart) : null),
-    venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
-  };
-}
-
-async function fetchFestivalData(id: string): Promise<OgCardData | null> {
-  // Shared codec fetch (_v2 + parseFestivalDetail). The previous inline read
-  // used camelCase keys against the snake_case RPC json, so dateLine/poster/
-  // venue were silently undefined -- festival cards rendered title-only.
-  let fest: Awaited<ReturnType<typeof fetchFestivalDetail>> = null;
-  try {
-    fest = await fetchFestivalDetail(id);
-  } catch {
-    return null;
-  }
-  if (!fest) return null;
-  const venue = fest.location.primaryVenue;
-  return {
-    title: fest.identity.name ?? "Bachata Festival",
-    // localStart = event-timezone calendar date (date-only wall clock).
-    dateLine: formatOgDate(fest.dates.localStart),
-    venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(fest.identity.posterUrl) ?? firstString(venue?.imageUrl),
-  };
-}
 
 function makeEtag(kind: string, idParam: string, src: string, occ = "", v = ""): string {
   const h = createHash("sha1").update(`${kind}:${idParam}:${src}:${occ}:${v}`).digest("base64url").slice(0, 24);
@@ -132,9 +78,9 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
       return imageResponse(await buildImageCard(bytes), etag);
     }
     if (!idParam) return redirectToStatic();
-    const id = await resolveEventId(idParam);
+    const id = await resolveOgEventId(idParam);
     if (!id) return redirectToStatic();
-    const cardData = kind === "festival" ? await fetchFestivalData(id) : await fetchEventData(id, occ || null);
+    const cardData = kind === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occ || null);
     if (!cardData) return imageResponse(await buildFallbackCard(null, null, null), etag);
     // Hybrid: a flyer becomes the preview itself (no text/fonts); the branded
     // card is only the fallback for entities with no flyer.

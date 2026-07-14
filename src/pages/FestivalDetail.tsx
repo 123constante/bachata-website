@@ -36,12 +36,13 @@ import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultD
 import { dateKeyInTz } from "@/lib/londonDate";
 
 import {
+  asWallClock,
   formatWallClockLocalIntl,
   formatWallClockTime,
   instantToDate,
   wallClockDateKey,
   wallClockHour,
-  type Instant,
+  wallClockToInstant,
   type WallClock,
 } from "@/lib/time/wallClock";
 
@@ -68,12 +69,17 @@ type FestivalEvent = {
 
   city: string | null;
 
-  // Boundary brands ride the existing `as FestivalEvent` cast on the raw
-  // events row: `date` is a date-only wall clock (DATE column); `start_time`
-  // is a TRUE UTC instant (timestamptz) -- do not mis-brand (see wallClock.ts).
+  // Boundary brand rides the existing `as FestivalEvent` cast on the raw events
+  // row: `date` is a date-only wall clock (DATE column).
+  //
+  // `start_time` is deliberately ABSENT. The column is timestamptz, but it holds
+  // a MIX of true instants and naive local-as-UTC wall clocks row-by-row (live
+  // check: 'London Latin Fest' stores 11:00Z where the tz-corrected _v2 RPC
+  // reports 10:00Z) -- the very unbrandable mix that forced the move off _v1.
+  // Branding it either way is a lie that reads 1h late through BST, so no
+  // surface may consume it. The real-instant nucleus below comes from _v2's
+  // dates.startsAt, with events.date as the date-only fallback. Do not re-add.
   date: WallClock | null;
-
-  start_time: Instant | null;
 
   poster_url: string | null;
 
@@ -1431,7 +1437,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const { pathname } = useLocation();
 
-  const [, setTick] = useState(0);
+  // The 1s heartbeat stores the CLOCK, not a bare counter: the countdown memo
+  // reads `now` directly, so its dependency is honest (no eslint suppression) and
+  // the memo is a pure function of its deps. Previously this was a discarded
+  // `[, setTick]` and the memo keyed off startInstant's fresh-Date identity -- a
+  // no-op memo that would have frozen the countdown the moment anyone memoized
+  // startInstant. Gated by `mounted`, so the server never renders it (#418).
+  const [now, setNow] = useState(() => Date.now());
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
@@ -1639,7 +1651,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     // window is only read AFTER hydration (see the showAllDays seed above).
     if (typeof window !== "undefined" && window.innerWidth > 900) setShowAllDays(true);
 
-    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    const interval = setInterval(() => setNow(Date.now()), 1000);
 
     return () => clearInterval(interval);
 
@@ -1649,25 +1661,39 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // --- Derived values ---
 
-  // Real-instant nucleus: dates.startsAt/endsAt are TRUE UTC instants (_v2);
-  // the legacy events.start_time fallback is a timestamptz instant too.
-  // startInstant is deliberately NOT memoized -- the 1s tick re-render advances
-  // the countdown because the fresh Date identity busts that memo's deps
-  // (exactly how the pre-brand startDate behaved).
-  const startInstant = instantToDate(festivalDetail?.dates.startsAt ?? festival?.start_time ?? null);
+  const eventTz = festivalDetail?.dates.timezone ?? "Europe/London";
+
+  // A date-only wall clock (legacy events.date) -> the event-tz midnight
+  // instant. Last-resort start when no real instant is available.
+  const dateOnlyStartInstant = (wc: WallClock | null | undefined): Date | null => {
+    const key = wallClockDateKey(wc);
+    return key ? wallClockToInstant(asWallClock(`${key}T00:00:00`), eventTz) : null;
+  };
+
+  // Real-instant nucleus: dates.startsAt/endsAt are TRUE UTC instants (_v2).
+  // events.start_time is NOT in this chain -- see the FestivalEvent type: that
+  // column mixes true instants with naive local-as-UTC stamps per row, so using
+  // it read 1h late through BST on exactly the path nobody watches. When _v2 has
+  // no instant, fall back to the event-tz midnight of events.date (a genuine
+  // date-only wall clock) so the countdown / JSON-LD / calendar links still
+  // carry a defensible value instead of a silently wrong one.
+  const startInstant =
+    instantToDate(festivalDetail?.dates.startsAt ?? null) ??
+    dateOnlyStartInstant(festival?.date ?? null);
 
   const endInstant = instantToDate(festivalDetail?.dates.endsAt ?? null);
 
-  // Stable ISO forms for links/JSON-LD (strings keep the memos below stable).
+  // Stable scalars for links/JSON-LD/memo deps. startInstant is a fresh Date on
+  // every render, so NOTHING may depend on its object identity (see countdown).
   const startIso = startInstant ? startInstant.toISOString() : null;
+
+  const startMs = startInstant ? startInstant.getTime() : null;
 
   const endIso = endInstant ? endInstant.toISOString() : null;
 
   // Calendar-day keys for DISPLAY (tiles/labels/tabs): event-timezone date-only
   // wall clocks from _v2, then the legacy date column, then the instant read in
   // the event timezone. Never local-Date getters -- that was the wrong-day bug.
-  const eventTz = festivalDetail?.dates.timezone ?? "Europe/London";
-
   const startKey =
     wallClockDateKey(festivalDetail?.dates.localStart ?? null) ??
     wallClockDateKey(festival?.date ?? null) ??
@@ -1683,9 +1709,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const countdown = useMemo(() => {
 
-    if (!startInstant) return { days: 0, hours: 0, mins: 0, secs: 0 };
+    if (startMs === null) return { days: 0, hours: 0, mins: 0, secs: 0 };
 
-    const diff = startInstant.getTime() - Date.now();
+    const diff = startMs - now;
 
     if (diff <= 0) return { days: 0, hours: 0, mins: 0, secs: 0 };
 
@@ -1701,7 +1727,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     };
 
-  }, [startInstant]);
+    // Deps are both real values the body reads: a stable epoch-ms start and the
+    // 1s clock. NEVER startInstant -- it is a new Date object every render, so
+    // keying on its identity made this memo a no-op and left a trap: memoizing
+    // startInstant would have frozen the countdown with no test failing.
+
+  }, [startMs, now]);
 
 
 
@@ -1754,11 +1785,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   const monthLabel = useMemo(() => {
 
-    if (!startKey) return "";
+    if (!startKey) return null;
 
     const d = new Date(`${startKey}T12:00:00Z`);
 
-    if (Number.isNaN(d.getTime())) return "";
+    if (Number.isNaN(d.getTime())) return null;
 
     const month = d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
@@ -2306,7 +2337,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
             </div>
 
-            {typeof monthLabel === "object" && (
+            {monthLabel && (
 
               <div className="date-month">
 

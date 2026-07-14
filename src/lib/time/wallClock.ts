@@ -72,13 +72,24 @@ const naiveParts = (
 // --- Wall-clock readers (render AS STORED, no timezone shift) ----------------
 
 // Parse the literal HH:MM from an ISO-like string without any timezone shift.
-// Lifted verbatim from event-page/bento/blocks/occurrenceFormat.naiveHourMinute
-// so formatWallClockTime is byte-identical to the old formatTime.
+// The time slice logic is lifted verbatim from
+// event-page/bento/blocks/occurrenceFormat.naiveHourMinute, so formatWallClockTime
+// stays byte-identical to the old formatTime for full "YYYY-MM-DDThh:mm" stamps.
+// A bare "HH:MM[:SS]" (no date) is also accepted -- the legacy meta_data->program
+// schedule passthrough can store one, and the old FestivalProgramSection.formatTime
+// handled it; a date-only "YYYY-MM-DD" (no time) still returns null.
 const naiveHourMinute = (iso: string): { hh: number; mm: number } | null => {
   const tIdx = iso.indexOf('T');
-  if (tIdx === -1) return null;
-  const hh = Number(iso.slice(tIdx + 1, tIdx + 3));
-  const mm = Number(iso.slice(tIdx + 4, tIdx + 6));
+  let timePart: string;
+  if (tIdx !== -1) {
+    timePart = iso.slice(tIdx + 1);
+  } else if (/^\d{2}:\d{2}/.test(iso)) {
+    timePart = iso; // bare "HH:MM[:SS]"
+  } else {
+    return null; // date-only or unparseable -> no time component
+  }
+  const hh = Number(timePart.slice(0, 2));
+  const mm = Number(timePart.slice(3, 5));
   if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null;
   return { hh, mm: Number.isFinite(mm) ? mm : 0 };
 };
@@ -149,11 +160,22 @@ export const formatWallClockDateTime = (
 };
 
 /** The YYYY-MM-DD London-calendar key of a stored wall clock, for londonDate
- *  comparisons (londonDaysFromTodayForKey, weekdayOfKey, etc.). */
+ *  comparisons (londonDaysFromTodayForKey, weekdayOfKey, etc.). Reads the date
+ *  PREFIX, so a full "YYYY-MM-DDThh:mm" stamp yields its date. */
 export const wallClockDateKey = (wc: WallClock | null | undefined): string | null => {
   if (!wc) return null;
   const ymd = unwrap(wc).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
+};
+
+/** The date key ONLY when the whole stored value is a bare date with no time
+ *  part (anchored full-string 'YYYY-MM-DD'); null for a stamp that carries a
+ *  time. Use where a time-suffixed value must NOT be treated as a plain day --
+ *  e.g. sniffIsFestival counting distinct schedule days for festival routing. */
+export const wallClockExactDateKey = (wc: WallClock | null | undefined): string | null => {
+  if (!wc) return null;
+  const s = unwrap(wc);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 };
 
 // Build a zoned formatter, falling back to Europe/London if `tz` is not a valid

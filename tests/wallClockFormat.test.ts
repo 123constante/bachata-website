@@ -8,6 +8,7 @@ import {
   formatWallClockLocal,
   formatWallClockLocalIntl,
   wallClockDateKey,
+  wallClockExactDateKey,
   wallClockDurationMinutes,
   wallClockHour,
   wallClockToInstant,
@@ -43,6 +44,14 @@ describe('formatWallClockTime', () => {
 
   it('supports 24h output', () => {
     expect(formatWallClockTime(BST_EVENING, { hour12: false })).toBe('20:30');
+  });
+
+  it('tolerates a bare "HH:MM[:SS]" stamp (legacy meta_data->program path)', () => {
+    expect(formatWallClockTime(asWallClock('20:30'), { hour12: false })).toBe('20:30');
+    expect(formatWallClockTime(asWallClock('20:30:00'))).toBe('8:30 PM');
+    expect(formatWallClockTime(asWallClock('09:00'))).toBe('9 AM');
+    // A date-only value has no time part -> still null (not parsed as an hour).
+    expect(formatWallClockTime(asWallClock('2026-07-15'))).toBeNull();
   });
 
   it('returns null for nullish input', () => {
@@ -96,6 +105,16 @@ describe('wallClockDateKey', () => {
   });
 });
 
+describe('wallClockExactDateKey', () => {
+  it('accepts a bare date but rejects any time-suffixed stamp', () => {
+    // sniffIsFestival's festival-routing count depends on this anchoring.
+    expect(wallClockExactDateKey(asWallClock('2026-07-15'))).toBe('2026-07-15');
+    expect(wallClockExactDateKey(BST_EVENING)).toBeNull(); // has a time part
+    expect(wallClockExactDateKey(asWallClock(''))).toBeNull();
+    expect(wallClockExactDateKey(null)).toBeNull();
+  });
+});
+
 describe('wallClockHour', () => {
   it('reads the stored hour, offset-invariant across BST and GMT', () => {
     expect(wallClockHour(BST_EVENING)).toBe(20);
@@ -108,6 +127,11 @@ describe('wallClockHour', () => {
     expect(wallClockHour(asWallClock(''))).toBeNull();
     expect(wallClockHour(null)).toBeNull();
     expect(wallClockHour(undefined)).toBeNull();
+  });
+
+  it('reads a bare "HH:MM" stamp (legacy meta_data->program path)', () => {
+    expect(wallClockHour(asWallClock('20:30'))).toBe(20);
+    expect(wallClockHour(asWallClock('09:00:00'))).toBe(9);
   });
 });
 
