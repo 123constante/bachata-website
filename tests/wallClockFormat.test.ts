@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   asWallClock,
   asInstant,
+  asEventTimeZone,
   formatWallClockTime,
   formatWallClockDate,
   formatWallClockDateTime,
@@ -187,6 +188,33 @@ describe('wallClockToInstant', () => {
     expect(() => wallClockToInstant(BST_EVENING, 'Not/A_Zone')).not.toThrow();
     expect(wallClockToInstant(BST_EVENING, 'Not/A_Zone')?.getTime())
       .toBe(new Date('2026-07-15T19:30:00Z').getTime());
+  });
+});
+
+describe('asEventTimeZone', () => {
+  it("treats 'UTC' as unspecified so the London default applies", () => {
+    expect(asEventTimeZone('UTC')).toBeNull();
+    expect(asEventTimeZone(null)).toBeNull();
+    expect(asEventTimeZone('')).toBeNull();
+    expect(asEventTimeZone('   ')).toBeNull();
+  });
+
+  it('passes real IANA zones through untouched', () => {
+    expect(asEventTimeZone('Europe/London')).toBe('Europe/London');
+    expect(asEventTimeZone('Europe/Madrid')).toBe('Europe/Madrid');
+    expect(asEventTimeZone('Africa/Tunis')).toBe('Africa/Tunis');
+  });
+
+  it("REGRESSION: a 'UTC'-tagged London event still gets the BST correction", () => {
+    // The live bug this exists for. Stored 20:30 London (BST). Taken literally,
+    // 'UTC' makes wallClockToInstant the identity -> 20:30Z, an hour late, which
+    // is exactly what Google/ICS were being fed. Normalised, it lands on 19:30Z.
+    const tz = asEventTimeZone('UTC') ?? 'Europe/London';
+    expect(wallClockToInstant(BST_EVENING, tz)?.toISOString()).toBe('2026-07-15T19:30:00.000Z');
+    // Proof the raw value really was harmful (documents the failure mode):
+    expect(wallClockToInstant(BST_EVENING, 'UTC')?.toISOString()).toBe('2026-07-15T20:30:00.000Z');
+    // Winter is unaffected either way (GMT == UTC), which is why it hid for months.
+    expect(wallClockToInstant(GMT_EVENING, tz)?.toISOString()).toBe('2026-01-15T20:30:00.000Z');
   });
 });
 

@@ -178,6 +178,29 @@ export const wallClockExactDateKey = (wc: WallClock | null | undefined): string 
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 };
 
+/**
+ * Boundary reader for a stored EVENT TIMEZONE. Treats 'UTC' as UNSPECIFIED
+ * (null) rather than as a real zone, so the caller's `?? 'Europe/London'`
+ * default applies -- the same safe path a NULL timezone already takes.
+ *
+ * WHY 'UTC' IS NOT A ZONE HERE: no city and no venue in this DB carries 'UTC'
+ * (audited 2026-07-14: cities are Europe/London x70, Europe/Madrid x45, ...,
+ * zero UTC). It only ever appears on events/series as a save-or-import DEFAULT
+ * artifact, and every row carrying it is really a London event.
+ *
+ * Taken LITERALLY it is actively harmful, because times are stored local-as-UTC:
+ *   - wallClockToInstant(wc, 'UTC') is the IDENTITY (the offset probe measures a
+ *     zero delta), which silently disables the BST correction -- shipping a
+ *     JSON-LD startDate / ICS DTSTART an hour late for the whole summer.
+ *   - dateKeyInTz(d, 'UTC') reads the wrong calendar day near London midnight.
+ * Both fail SILENTLY and the brand cannot catch them: this is bad data, not a
+ * bad type. Normalising once at the boundary fixes every consumer at once.
+ */
+export const asEventTimeZone = (raw: unknown): string | null => {
+  const tz = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+  return tz === 'UTC' ? null : tz;
+};
+
 // Build a zoned formatter, falling back to Europe/London if `tz` is not a valid
 // IANA zone. new Intl.DateTimeFormat({ timeZone }) throws a RangeError on a
 // malformed zone; wallClockToInstant runs in render/effect paths (JSON-LD,

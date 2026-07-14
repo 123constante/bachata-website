@@ -1,3 +1,4 @@
+import { asEventTimeZone } from "@/lib/time/wallClock";
 import type { CalendarEvent } from "@/types/CalendarEvent";
 import type { SupabaseCalendarRow } from "@/types/SupabaseCalendarRow";
 
@@ -28,7 +29,7 @@ export const adaptEvent = (row: SupabaseCalendarRow): CalendarEvent => {
     citySlug: asStringOrNull(row.city_slug),
     location: asStringOrNull(row.location) ?? venueName ?? null,
     instanceDate: asStringOrNull(row.instance_start),
-    timezone: asStringOrNull(row.timezone),
+    timezone: asEventTimeZone(row.timezone),
     type: asStringOrNull(row.type),
     photoUrls: normalizePhotoUrls(row.photo_url),
     coverImageUrl: asStringOrNull(row.cover_image_url),

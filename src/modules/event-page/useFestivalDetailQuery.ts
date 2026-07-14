@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { safeExternalHref } from '@/lib/url';
-import { asInstant, asWallClock, type Instant, type WallClock } from '@/lib/time/wallClock';
+import { asEventTimeZone, asInstant, asWallClock, type Instant, type WallClock } from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
   FestivalCompetition,
@@ -254,7 +254,7 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
       endsAt: asInstantOrNull(dates.ends_at),
       localStart: asWallClockOrNull(dates.local_start),
       localEnd: asWallClockOrNull(dates.local_end),
-      timezone: asString(dates.timezone),
+      timezone: asEventTimeZone(dates.timezone),
     },
 
     links: {
