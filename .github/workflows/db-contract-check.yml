@@ -814,20 +814,21 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-entry-liveness.mjs
 
-      # M2c festival-detail parity (2026-07-14). This site now reads
-      # get_public_festival_detail_v2 (P5-native schedule + lineup). It was flipped on the
-      # strength of v2 being byte-equal to the legacy v1 — and nothing was holding that.
-      # If P5 and the legacy tables drift apart, a live festival page silently shows the
-      # wrong schedule / line-up / start time and no other check would notice.
-      # Normalizes away only schedule[].section_id (legacy -> P5 id-space; no consumer
-      # reads it) and schedule[] array order (the page buckets by day + hour, never by
-      # position). Everything else is byte-for-byte, and it also holds `lineup` across ALL
-      # published events, because useEventPage feeds this RPC's lineup into non-festival
-      # BentoPages. RPC: check_festival_detail_p5_parity_v1 (admin mig 20260714090000).
-      # RETIRE this step when get_public_festival_detail (v1) is dropped.
-      - name: Run festival detail v1/v2 parity check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-festival-detail-parity.mjs
+      # M2c festival-detail parity (2026-07-14) — NOT HERE. This site now reads
+      # get_public_festival_detail_v2 (P5-native schedule + lineup), flipped on the strength
+      # of v2 being byte-equal to the legacy v1, and that equality IS guarded — but from the
+      # ADMIN repo (.github/workflows/migration-drift-check.yml, job `festival-detail-parity`,
+      # daily 06:00 UTC, same cadence as this workflow).
+      #
+      # Why it is not a step here, next to the other ~50. The guard RPC
+      # (check_festival_detail_p5_parity_v1) is service_role-only BY DESIGN: unlike every
+      # other check_* function — cheap single aggregates — it builds a full festival payload
+      # for every published event, ~130 payload builds per call. That must not be reachable
+      # with the anon key that ships in every browser bundle. Every job in THIS workflow has
+      # only the anon key, and the way to fix that is NOT to copy a prod service-role key
+      # into this repo's Actions secrets, which would widen the blast radius of every
+      # workflow in it. The admin repo already has the key, already runs a daily cron, and
+      # owns the migrations that can break the invariant in the first place.
+      #
+      # If you are here because a festival page looks wrong: check the admin repo's
+      # Migration Drift Check run, not this one.
