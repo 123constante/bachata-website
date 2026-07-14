@@ -327,8 +327,14 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
   };
 };
 
+// Key is versioned with the RPC it caches. Bumped when the source flipped from
+// get_public_festival_detail to _v2: a persisted/warm client cache (and the SSR
+// dehydrated payload, which uses this same key) would otherwise keep serving the
+// v1-derived object under the old key — with staleTime of an hour — so the flip would
+// be silently unobservable in prod and you could not tell whether v2 was live.
+// Bump this again if the payload shape ever changes.
 export const festivalDetailQueryKey = (eventId?: string | null) =>
-  ['festival-detail', eventId ?? null] as const;
+  ['festival-detail-v2', eventId ?? null] as const;
 
 export const useFestivalDetailQuery = (eventId?: string | null, enabled = false) => {
   return useQuery<FestivalDetail | null, Error>({
