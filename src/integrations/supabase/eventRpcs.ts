@@ -279,10 +279,6 @@ export interface FestivalDetail {
   publish: FestivalPublish;
 }
 
-export interface GetPublicFestivalDetailParams {
-  p_event_id: string;
-}
-
 // ============================================================================
 // RPC Utilities
 // ============================================================================
@@ -339,44 +335,19 @@ export async function getEventPageSnapshot(
   return (data as EventPageSnapshot) || null;
 }
 
-/**
- * RPC 3: Fetch festival-specific details
- * Call in PARALLEL with getEventPageSnapshot for festival events.
- * Returns null for standard events - use this to detect event type.
- */
-export async function getPublicFestivalDetail(
-  params: GetPublicFestivalDetailParams,
-): Promise<FestivalDetail | null> {
-  const { data, error } = await supabase.rpc('get_public_festival_detail', {
-    p_event_id: params.p_event_id,
-  });
-
-  if (error) {
-    console.error('getPublicFestivalDetail RPC error:', error);
-    throw error;
-  }
-
-  return (data as FestivalDetail) || null;
-}
-
-/**
- * Helper: Fetch event page snapshot and festival detail in parallel
- * Automatically detects event type from festival result (null = standard)
- */
-export async function getEventDetailWithFestival(
-  eventId: string,
-  occurrenceId?: string | null,
-): Promise<{
-  snapshot: EventPageSnapshot | null;
-  festival: FestivalDetail | null;
-}> {
-  const [snapshot, festival] = await Promise.all([
-    getEventPageSnapshot({ p_event_id: eventId, p_occurrence_id: occurrenceId }),
-    getPublicFestivalDetail({ p_event_id: eventId }),
-  ]);
-
-  return { snapshot, festival };
-}
+// REMOVED: getPublicFestivalDetail + getEventDetailWithFestival (2026-07-14).
+//
+// They were the LAST callers of the legacy v1 RPC `get_public_festival_detail` in this
+// app, and they were DEAD: the only consumer was src/hooks/useEventWithFestival.ts, which
+// nothing imported (the live event page is BentoPage, which reads the festival payload
+// through fetchFestivalDetail -> get_public_festival_detail_v2). Pointing dead code at _v2
+// would have "removed a v1 caller" on paper while leaving an unreachable chain behind, so
+// the chain is gone instead. The single fetch path is now
+// src/modules/event-page/useFestivalDetailQuery.ts::fetchFestivalDetail.
+//
+// This matters beyond tidiness: Phase 1E Stage F retires the v1 public RPCs, and its gate
+// is caller-zero. A dead-but-present caller is exactly the kind of thing a grep-based
+// audit counts as live and a human then has to re-litigate.
 
 // ============================================================================
 // RPC 4: get_latest_events_v1 (newest uploads -- homepage "Just added" wheel)
