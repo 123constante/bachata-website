@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, getDayDotFlags } from '@/components/calendar/calendarUtils';
+import { useLondonToday } from '@/hooks/useLondonToday';
 
 interface CalendarGridProps {
   currentMonth: number;
@@ -22,8 +23,11 @@ export const CalendarGrid = ({
   const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  const today = new Date();
-  const isCurrentMonth = today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+  // Gate on the LONDON calendar day, not the browser's -- a visitor west of UTC
+  // (or anyone near midnight) would otherwise grey/highlight the wrong day, and
+  // the wrong month at boundaries. useLondonToday() returns 'YYYY-MM-DD' (tm is 1-based).
+  const [ty, tm, td] = useLondonToday().split('-').map(Number);
+  const isCurrentMonth = tm - 1 === currentMonth && ty === currentYear;
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < adjustedFirstDay; i++) cells.push(null);
@@ -50,7 +54,7 @@ export const CalendarGrid = ({
         {displayCells.map((day, index) => {
           if (day === null) return <div key={`empty-${index}`} aria-hidden="true" className="aspect-square rounded-xl" />;
 
-          const isPast = isCurrentMonth && day < today.getDate();
+          const isPast = isCurrentMonth && day < td;
           if (isPast) {
             return (
               <div
@@ -65,7 +69,7 @@ export const CalendarGrid = ({
           const checkDate = new Date(currentYear, currentMonth, day);
           checkDate.setHours(12, 0, 0, 0);
           const { hasEvents, hasParty, hasClass, hasFestival, allCancelled } = getDayDotFlags(events, checkDate, selectedCategory);
-          const isToday = isCurrentMonth && today.getDate() === day;
+          const isToday = isCurrentMonth && td === day;
 
           return (
             <motion.button
