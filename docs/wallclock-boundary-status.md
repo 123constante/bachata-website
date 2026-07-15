@@ -42,8 +42,30 @@ not remove it. That is why the arc spans 5+ phases and re-opens at every new RPC
   - **Fixed the live bugs** (as-stored rendering, convention-independent): organiser
     page `/organisers/cumbaye` 8:00pm→7:00pm; `LiveEventsSection`/`BachataWeekday`
     9:00pm→8:00pm; calendar grid unchanged (byte-equal).
-  - **Home ItemList JSON-LD** now emits valid **per-day** ISO 8601 composed from
-    `instance_date` + the stored time-of-day (fixes invalid-ISO + festival day-1 pin).
+  - **Home ItemList JSON-LD** now emits valid ISO 8601 by converting
+    `occurrence_starts_at`/`occurrence_ends_at` **directly** with `wallClockToInstant`
+    (London), so each row carries its own real per-row date — incl. the next day for a
+    cross-midnight party and the last day of a multi-day festival. (An earlier revision
+    *composed* the instant from `instance_date` + time-of-day; that put a cross-midnight
+    `endDate` before its `startDate` on ~26% of rows — caught in review, see below.)
+
+## Current state (session snapshot, 2026-07-15)
+
+- **PR #117** (`feat/wallclock-phase-3-calendar`, tip `05fd592`) — OPEN. Bundles the whole
+  calendar-boundary stack: Phase 1 wire-dialect (`9909a6a`), Phase 2 schema regen
+  (`c93fb83`) + drift guard (`e03395f`), Phase 3 branding (`72e3faa`) + both review-fix
+  commits (`638cbf6`, `05fd592`).
+- **PR #118** (`fix/calendar-day-gating-london`, tip `9abc48e`) — OPEN. The density-exempt
+  `CalendarGrid`/`CalendarListView` today/past gating, now keyed on the London day
+  (`useLondonToday`) not the browser's. Split out for a focused review (Ricky).
+- **All 7 code-review findings fixed & verified:** #1 cross-midnight `endDate` (the
+  composition bug above), #2 empty `ItemList` → `renderEventListJsonLd` returns null,
+  #3 calendar `staleTime` restored to 5 min, #4 six genuinely-nullable columns re-widened
+  to `| null` in the branded row, #5 `wallClockTimeKey` renders a value (not blank) for an
+  unpadded single-digit-hour bare time, #6/#7 double `fmt()` per row deduped.
+- **Verify bar:** brand gate + `check-calendar-rpc-typing` green; tsc error SET unchanged
+  vs the ~105 baseline; unit + live-probe + dev-smoke pass.
+- **Owner escalation below is still a DRAFT** — not yet sent.
 
 ## Phase-Q hold (convention-dependent surface)
 
@@ -68,7 +90,7 @@ authoritatively). It is walled off by **ADR-002 D10** (no tz column), **CI check
 separate admin repo. `v3` is not a clean win on its own (v2 has 3 wrappers, can't be
 retired, so v3 *adds* a dialect).
 
-## Owner escalation (ready to send)
+## Owner escalation (drafted — NOT yet sent)
 
 Two asks for the owner:
 
@@ -86,8 +108,8 @@ Two asks for the owner:
 
 ## Deferred / recorded (not in this PR)
 
-- Density-exempt `CalendarGrid`/`CalendarListView`/`DayDetailModal` (confirmed
-  unaffected — separate PR; show the today/past gating diff first).
+- Density-exempt `CalendarGrid`/`CalendarListView` today/past gating — now shipped as
+  **PR #118** (see Current state). `DayDetailModal` confirmed unaffected (byte-equal).
 - Now-in-schema `get_map_events_v1` / `get_latest_events_v2` still cast `as never`
   (trivial follow-up; their `MapEvent`/`LatestEventRow` shapes aren't in the bug set).
 - Phase-5 leaf tail: `calendar_events_dto`/`VenueEntity`, `get_public_events_list_v2`,
