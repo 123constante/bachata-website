@@ -348,12 +348,11 @@ export const festivalDetailQueryKey = (eventId?: string | null) =>
 // /event + /festival loaders and the OG-card routes so every surface reads the
 // SAME RPC with the SAME parse. _v2 returns tz-corrected TRUE instants in
 // dates.starts_at/ends_at (v1's COALESCE mixed wall clocks with instants per
-// row -- unbrandable). 'as never': the generated Supabase types predate _v2;
-// same pattern as event_view_p5 in app/routes/api.og.card.tsx.
+// row -- unbrandable).
 export const fetchFestivalDetail = async (eventId: string): Promise<FestivalDetail | null> => {
-  const { data, error } = await supabase.rpc('get_public_festival_detail_v2' as never, {
+  const { data, error } = await supabase.rpc('get_public_festival_detail_v2', {
     p_event_id: eventId,
-  } as never);
+  });
   if (error) {
     throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
   }
