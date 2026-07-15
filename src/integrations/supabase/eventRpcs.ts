@@ -22,6 +22,23 @@ type RawCalendarEventRow =
   Database['public']['Functions']['get_calendar_events_v2']['Returns'][number];
 
 /**
+ * Columns `supabase gen types` marks non-null (every RPC-Returns column is) but
+ * which are genuinely NULL at runtime for legacy rows: a slug/city_slug predates
+ * the backfill; cover_image_url / primary_organiser_name / cancellation_reason_label
+ * are optional; category can be unset. The old hand-written row typed these
+ * `| null`; deriving from `Returns` would silently narrow them to `string`, so
+ * `row.slug.toLowerCase()` would COMPILE yet throw at runtime. We re-widen them
+ * below so the compiler keeps forcing the `?? ` / truthy guard consumers rely on.
+ */
+type NullableWireCol =
+  | 'slug'
+  | 'category'
+  | 'city_slug'
+  | 'cancellation_reason_label'
+  | 'primary_organiser_name'
+  | 'cover_image_url';
+
+/**
  * The branded calendar row. Every stored wall clock is a `WallClock` so the
  * compiler forbids `new Date(row.start_time)` (the +1h-in-BST bug); produced
  * ONLY by parseCalendarEventRow below. We keep all non-time columns from the
@@ -48,6 +65,7 @@ export type CalendarEventRow = Omit<
   | 'original_party_start'
   | 'original_party_end'
   | 'city_timezone'
+  | NullableWireCol
 > & {
   start_time: WallClock;
   end_time: WallClock | null;
@@ -62,7 +80,7 @@ export type CalendarEventRow = Omit<
   original_party_start: WallClock | null;
   original_party_end: WallClock | null;
   city_timezone: string | null; // via asEventTimeZone ('UTC' -> null -> London default)
-};
+} & { [K in NullableWireCol]: RawCalendarEventRow[K] | null };
 
 /**
  * The one producer of a branded CalendarEventRow. Replaces the old blanket

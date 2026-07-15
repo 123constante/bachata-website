@@ -92,17 +92,16 @@ const naiveParts = (
 // the old FestivalProgramSection.formatTime handled it; a date-only "YYYY-MM-DD"
 // (no time) still returns null.
 const naiveHourMinute = (iso: string): { hh: number; mm: number } | null => {
-  const sep = iso.search(/[T ]\d{2}:\d{2}/);
-  let timePart: string;
-  if (sep !== -1) {
-    timePart = iso.slice(sep + 1);
-  } else if (/^\d{2}:\d{2}/.test(iso)) {
-    timePart = iso; // bare "HH:MM[:SS]"
-  } else {
-    return null; // date-only or unparseable -> no time component
-  }
-  const hh = Number(timePart.slice(0, 2));
-  const mm = Number(timePart.slice(3, 5));
+  // Match the H:MM either right after a "YYYY-MM-DD" date + [T ] separator, or
+  // at the very start (a bare "H:MM[:SS]" program time). The hour is \d{1,2} so
+  // an UNPADDED bare time ("9:05") parses too -- the old string-slicing fmtTime
+  // returned "9:05" for it, whereas requiring \d{2} would drop it to null and
+  // render the calendar/session time BLANK. A date-only "YYYY-MM-DD" (no time)
+  // matches neither branch and still returns null.
+  const m = iso.match(/(?:^\d{4}-\d{2}-\d{2}[T ]|^)(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
   if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null;
   return { hh, mm: Number.isFinite(mm) ? mm : 0 };
 };
@@ -144,8 +143,10 @@ export const wallClockHour = (wc: WallClock | null | undefined): number | null =
  * The naive "HH:MM" time key of a stored wall clock, zero-padded, read as-stored
  * with no timezone shift. Tolerates full space/T stamps AND a bare "HH:MM[:SS]"
  * (the meta_data->program passthrough); returns null for a date-only or
- * unparseable value. Byte-identical to the old string-slicing `fmtTime`/`formatHHmm`
- * so calendar-grid + Tonight times render unchanged after branding.
+ * unparseable value. Matches the old string-slicing `fmtTime`/`formatHHmm` for the
+ * zero-padded stamps the RPC actually emits; for a rare UNPADDED bare time it
+ * emits the zero-padded form ("9:05" -> "09:05") rather than the old raw slice --
+ * a value, not a blank, which is what matters for the calendar/session render.
  */
 export const wallClockTimeKey = (wc: WallClock | null | undefined): string | null => {
   if (!wc) return null;

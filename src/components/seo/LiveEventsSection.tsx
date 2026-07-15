@@ -113,20 +113,23 @@ const LiveEventsSection = ({
         </p>
       ) : (
         <ul className="space-y-2">
-          {matched.map((e) => (
-            <li
-              key={`${e.event_id}-${e.instance_date}`}
-              className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
-            >
-              <Link to={eventHref(e)} className="block">
-                <div className="font-semibold text-base">{e.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {e.location}
-                  {fmt(e.occurrence_starts_at) ? <> &middot; {fmt(e.occurrence_starts_at)}</> : null}
-                </div>
-              </Link>
-            </li>
-          ))}
+          {matched.map((e) => {
+            const when = fmt(e.occurrence_starts_at);
+            return (
+              <li
+                key={`${e.event_id}-${e.instance_date}`}
+                className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
+              >
+                <Link to={eventHref(e)} className="block">
+                  <div className="font-semibold text-base">{e.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {e.location}
+                    {when ? <> &middot; {when}</> : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

@@ -302,6 +302,17 @@ describe('wallClockTimeKey (calendar-grid HH:MM, byte-equal to the old fmtTime)'
     expect(wallClockTimeKey(asWallClock(''))).toBeNull();
     expect(wallClockTimeKey(null)).toBeNull();
   });
+
+  it('renders a value (not blank) for an UNPADDED single-digit-hour bare time', () => {
+    // Regression: a bare "9:05" (unpadded hour) once returned null because the
+    // parser required a 2-digit hour -- rendering the calendar/session time as a
+    // blank where the old string-slicing fmtTime showed "9:05". We now emit the
+    // zero-padded form; the point is a value survives, not the leading zero.
+    expect(wallClockTimeKey(asWallClock('9:05'))).toBe('09:05');
+    expect(wallClockTimeKey(asWallClock('9:05:00'))).toBe('09:05');
+    expect(formatWallClockTime(asWallClock('9:05'))).toBe('9:05 AM');
+    expect(wallClockHour(asWallClock('9:05'))).toBe(9);
+  });
 });
 
 describe('non-London real zone round-trip (Phase Q sanity: conversion is zone-driven)', () => {
