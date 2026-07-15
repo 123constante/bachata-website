@@ -1,0 +1,49 @@
+name: Supabase types drift
+
+# Guards against the root cause of the WallClock arc: src/integrations/supabase/types.ts
+# went ~10 weeks stale (last regen 2026-05-07 vs migrations through 2026-07-14), so 12
+# RPCs were invisible to the compiler behind `rpc('name' as never)` and the hand-written
+# row types silently drifted from the wire. This job regenerates the types from the LIVE
+# database and fails if the committed file differs -- so a schema change in the admin repo
+# (which owns the migrations) can no longer rot this file unnoticed.
+#
+# Cadence: the DB is driven by the ADMIN repo, not this one, so drift is EXTERNAL -- hence
+# the daily schedule. The pull_request trigger additionally catches a hand-edited types.ts.
+# Regenerate locally with `npm run gen:types` (needs SUPABASE_ACCESS_TOKEN in your env).
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # daily 06:17 UTC
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'src/integrations/supabase/types.ts'
+
+jobs:
+  types-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Regenerate types from the live schema
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: npm run gen:types
+
+      - name: Fail if the committed types.ts is stale
+        # --ignore-cr-at-eol: the repo stores types.ts LF-normalised and checks it out
+        # CRLF (.gitattributes eol=crlf), while the CLI emits LF -- compare content only.
+        run: |
+          if ! git diff --ignore-cr-at-eol --exit-code -- src/integrations/supabase/types.ts; then
+            echo '::error::src/integrations/supabase/types.ts is stale vs the live database.'
+            echo 'Run `npm run gen:types` (with SUPABASE_ACCESS_TOKEN set) and commit the result.'
+            exit 1
+          fi
+          echo 'types.ts is in sync with the live schema.'
