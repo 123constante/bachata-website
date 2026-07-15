@@ -9,6 +9,13 @@ export interface UseCalendarEventsParams {
   rangeEnd: Date;
   citySlug?: string | null;
   enabled?: boolean;
+  /**
+   * Cache lifetime. Default 1h matches the ISR edge window (s-maxage=3600) for
+   * the prerendered SEO surfaces. Interactive calendar UIs (EventCalendar,
+   * CalendarPanel) pass a shorter value so a cancelled/re-timed event surfaces
+   * sooner -- the deleted duplicate hook used 5 min.
+   */
+  staleTime?: number;
 }
 
 /**
@@ -21,6 +28,7 @@ export const useCalendarEvents = ({
   rangeEnd,
   citySlug,
   enabled = true,
+  staleTime = 1000 * 60 * 60,
 }: UseCalendarEventsParams) => {
   return useQuery({
     queryKey: [
@@ -36,9 +44,7 @@ export const useCalendarEvents = ({
         city_slug_param: citySlug,
       }),
     enabled: enabled && !!rangeStart && !!rangeEnd,
-    // Matches the ISR edge window (s-maxage=3600) so a client refetch does not
-    // race ahead of the cached HTML. Window-focus refetch (global default) still
-    // refreshes long-lived tabs.
-    staleTime: 1000 * 60 * 60,
+    // Window-focus refetch (global default) still refreshes long-lived tabs.
+    staleTime,
   });
 };

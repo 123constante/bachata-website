@@ -10,33 +10,18 @@
  */
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { eventHref } from '@/lib/seo/eventHref';
-import {
-  type WallClock,
-  asWallClock,
-  formatWallClockLocal,
-  wallClockToInstant,
-} from '@/lib/time/wallClock';
+import { type WallClock, wallClockToInstant } from '@/lib/time/wallClock';
 
-/**
- * Compose the day's OWN start/end as a true UTC ISO 8601 instant.
- *
- * The calendar RPC returns one row per festival day but repeats day-1's time on
- * every row (only instance_date varies), so we take the time-of-day from the
- * wall clock and pin it to THIS row's instance_date -- otherwise every festival
- * day would emit day-1's date. The stored clock is local-as-UTC; converting with
- * Europe/London yields the real instant Google needs (a raw stamp is +1h in BST
- * AND invalid ISO 8601 -- space separator).
- *
- * PHASE-Q GATE: this conversion is only applied to LONDON rows (see the filter
- * below). The stored-clock convention is unverified for non-London (Tunis/Madrid)
- * rows, so those are excluded from the ItemList rather than emit a possibly-wrong
- * instant. Owner decision 2026-07-15 ("London-only + documented").
- */
-const perDayInstantIso = (day: string, timeWc: WallClock | null): string | null => {
-  const t = formatWallClockLocal(timeWc, 'HH:mm:ss'); // stored time-of-day, no shift
-  if (!t || !day) return null;
-  return wallClockToInstant(asWallClock(`${day} ${t}+00`), 'Europe/London')?.toISOString() ?? null;
-};
+// The stored clock is local-as-UTC; converting with Europe/London yields the
+// true instant Google needs (a raw stamp is +1h in BST AND invalid ISO 8601 --
+// space separator). occurrence_starts_at / occurrence_ends_at already carry the
+// correct per-row date -- incl. the next day for a cross-midnight party and the
+// last day of a multi-day festival -- so we convert them directly. (Composing
+// from instance_date + time-of-day, as an earlier revision did, put a
+// cross-midnight endDate BEFORE its startDate on ~26% of rows.)
+const LONDON = 'Europe/London';
+const toInstantIso = (wc: WallClock | null): string | null =>
+  wallClockToInstant(wc, LONDON)?.toISOString() ?? null;
 
 export interface BuildEventListJsonLdInput {
   events: CalendarEventRow[];
@@ -74,8 +59,8 @@ export const buildEventListJsonLd = ({
     const tz = e.city_timezone;
     if (tz != null && tz !== 'Europe/London') continue;
 
-    // A valid schema.org Event needs a startDate; skip rows we can't compose one for.
-    const startDate = perDayInstantIso(e.instance_date, e.occurrence_starts_at);
+    // A valid schema.org Event needs a startDate; skip rows we can't convert.
+    const startDate = toInstantIso(e.occurrence_starts_at);
     if (!startDate) continue;
 
     const eventUrl = `${origin}${eventHref(e)}`;
@@ -105,7 +90,7 @@ export const buildEventListJsonLd = ({
       },
     };
 
-    const endDate = perDayInstantIso(e.instance_date, e.occurrence_ends_at);
+    const endDate = toInstantIso(e.occurrence_ends_at);
     if (endDate) event.endDate = endDate;
     if (Array.isArray(e.photo_url) && e.photo_url.length > 0) {
       event.image = [e.photo_url[0]];
@@ -134,6 +119,13 @@ export const buildEventListJsonLd = ({
   };
 };
 
-/** Stringify the payload for a <script type="application/ld+json"> tag. */
-export const renderEventListJsonLd = (input: BuildEventListJsonLdInput): string =>
-  JSON.stringify(buildEventListJsonLd(input));
+/**
+ * Stringify the payload for a <script type="application/ld+json"> tag, or null
+ * when no eligible events remain (e.g. an all-non-London feed under the Phase-Q
+ * gate) -- the caller then omits the script rather than emit an empty ItemList.
+ */
+export const renderEventListJsonLd = (input: BuildEventListJsonLdInput): string | null => {
+  const payload = buildEventListJsonLd(input);
+  const items = payload.itemListElement as unknown[];
+  return items.length > 0 ? JSON.stringify(payload) : null;
+};
