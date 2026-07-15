@@ -53,6 +53,17 @@ function pick(html, re) {
   return m ? m[1] : null;
 }
 
+// og:image content is an HTML attribute, so ampersands are entity-encoded
+// (`...&amp;v=...`). A real client (WhatsApp, browsers) decodes entities before
+// fetching, so decode here too — otherwise the query-param assertions below see
+// `;v=` instead of `&v=` and false-fail, and the image fetch would request a
+// literally-wrong URL. Covers the ampersand forms that appear in these URLs.
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&#(?:38|x26);/gi, '&');
+}
+
 async function sampleUrls() {
   const { ok, text } = await fetchText(`${BASE}/sitemap.xml`, { redirect: 'follow' });
   const urls = ['/'];
@@ -81,9 +92,10 @@ async function checkPage(pathOrUrl) {
   if (!res.ok) return { url, failures: [`page HTTP ${res.status}`] };
 
   const html = res.text;
-  const ogImage = pick(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+  const ogImageRaw = pick(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
     || pick(html, /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (!ogImage) { failures.push('no og:image'); return { url, failures }; }
+  if (!ogImageRaw) { failures.push('no og:image'); return { url, failures }; }
+  const ogImage = decodeEntities(ogImageRaw);
   if (!/^https:\/\//i.test(ogImage)) failures.push(`og:image not absolute https: ${ogImage}`);
   if (!/og:image:width/i.test(html)) failures.push('missing og:image:width');
   if (!/og:image:height/i.test(html)) failures.push('missing og:image:height');

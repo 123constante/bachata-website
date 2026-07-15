@@ -35,3 +35,18 @@ jobs:
             exit 1
           fi
           echo "No BOMs found in .github/workflows/"
+
+  masking-check:
+    # Guards against the dead-Lighthouse failure mode: a check masked green by an
+    # unjustified continue-on-error. Every continue-on-error must carry a
+    # `soft-signal:` justification (see scripts/lint-workflow-masking.mjs).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint workflows for unjustified continue-on-error
+        run: node scripts/lint-workflow-masking.mjs
