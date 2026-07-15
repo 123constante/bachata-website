@@ -1,5 +1,6 @@
 import { resolveEventImage } from '@/lib/utils';
-import type { CalendarEvent } from '@/hooks/useCalendarEvents';
+import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { wallClockTimeKey } from '@/lib/time/wallClock';
 import { eventHref } from '@/lib/seo/eventHref';
 import { isFestivalByFormat } from '@/lib/eventFormat';
 
@@ -39,7 +40,7 @@ export interface CalendarEventItem {
   goingCount?: number;
   venueLat?: number | null;
   venueLng?: number | null;
-  // Cancellation surfacing -- mirrors CalendarEvent.is_cancelled.
+  // Cancellation surfacing -- mirrors CalendarEventRow.is_cancelled.
   // Cancelled occurrences still appear on the calendar but render
   // with the CANCELLED red strip + dimmed image (matches Tonight).
   isCancelled: boolean;
@@ -123,7 +124,7 @@ const programClassRange = (
 export type VenueCoordMap = Map<string, { lat: number | null; lng: number | null }>;
 
 export const transformCalendarEvents = (
-  raw: CalendarEvent[],
+  raw: CalendarEventRow[],
   venueCoords?: VenueCoordMap,
 ): CalendarEventItem[] =>
   raw.map((event) => {
@@ -170,9 +171,11 @@ export const transformCalendarEvents = (
     const hasParty = programHasParty || !!keyTimes.party?.active;
     const hasClass = programHasClass || !!keyTimes.classes?.active;
 
-    // Class times: aggregate across ALL sources → earliest start, latest end
-    const rpcClassStart = fmtTime(event.class_start);
-    const rpcClassEnd   = fmtTime(event.class_end);
+    // Class times: aggregate across ALL sources → earliest start, latest end.
+    // RPC row times are branded WallClocks -> read via wallClockTimeKey (byte-equal
+    // to fmtTime); program/key_times values are untyped JSON -> stay on fmtTime.
+    const rpcClassStart = wallClockTimeKey(event.class_start);
+    const rpcClassEnd   = wallClockTimeKey(event.class_end);
     const progClass     = classItems.length > 0 ? programClassRange(classItems) : { start: undefined, end: undefined };
 
     const allClassStarts = [rpcClassStart, progClass.start, fmtTime(keyTimes.classes?.start)].filter((v): v is string => !!v);
@@ -181,8 +184,8 @@ export const transformCalendarEvents = (
     const classEnd   = allClassEnds.length   ? allClassEnds.sort().at(-1)  : undefined;
 
     // Party times: aggregate across ALL sources → earliest start, latest end
-    const rpcPartyStart = fmtTime(event.party_start);
-    const rpcPartyEnd   = fmtTime(event.party_end);
+    const rpcPartyStart = wallClockTimeKey(event.party_start);
+    const rpcPartyEnd   = wallClockTimeKey(event.party_end);
     const progParty     = partyItems.length > 0 ? programClassRange(partyItems) : { start: undefined, end: undefined };
 
     const allPartyStarts = [rpcPartyStart, progParty.start, fmtTime(keyTimes.party?.start)].filter((v): v is string => !!v);
@@ -190,8 +193,8 @@ export const transformCalendarEvents = (
     const partyStart = allPartyStarts.length ? allPartyStarts.sort()[0]   : undefined;
     const partyEnd   = allPartyEnds.length   ? allPartyEnds.sort().at(-1) : undefined;
 
-    const globalStart = fmtTime(event.start_time);
-    const globalEnd = fmtTime(event.end_time);
+    const globalStart = wallClockTimeKey(event.start_time);
+    const globalEnd = wallClockTimeKey(event.end_time);
 
     let type: CalendarEventItem['type'];
     if (hasParty && hasClass) type = 'both';

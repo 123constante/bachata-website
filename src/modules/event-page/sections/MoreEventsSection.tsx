@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { londonWallClockNowIso, weekdayOfKey } from '@/lib/londonDate';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -171,17 +172,15 @@ const useThisWeekEvents = (citySlug: string | null, currentEventId: string | nul
       const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + 7);
-      const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
+      const rows = await getCalendarEvents({
         range_start: start.toISOString(),
         range_end: end.toISOString(),
         city_slug_param: citySlug,
-      } as never);
-      if (error) throw error;
-      type Row = { event_id: string; occurrence_id: string | null; name: string; instance_date: string; cover_image_url: string | null; photo_url: string | null };
-      const allRows = ((data as unknown as Row[]) ?? []).filter((e) => e.event_id !== currentEventId);
+      });
+      const allRows = rows.filter((e) => e.event_id !== currentEventId);
       // Collapse multi-day festivals (one row per day) to a single card per
       // event -- keep the earliest occurrence so a festival fills one slot, not many.
-      const byEvent = new Map<string, Row>();
+      const byEvent = new Map<string, (typeof allRows)[number]>();
       for (const r of allRows) {
         const cur = byEvent.get(r.event_id);
         if (!cur || (r.instance_date ?? '') < (cur.instance_date ?? '')) byEvent.set(r.event_id, r);
@@ -213,7 +212,7 @@ const useThisWeekEvents = (citySlug: string | null, currentEventId: string | nul
           occurrenceId: e.occurrence_id ?? null,
           title: e.name,
           dateLabel: formatDate(e.instance_date),
-          imageUrl: e.cover_image_url ?? e.photo_url ?? null,
+          imageUrl: e.cover_image_url ?? e.photo_url?.[0] ?? null,
         }));
     },
   });

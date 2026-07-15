@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { Card } from '@/components/ui/card';
 import { useCity } from '@/contexts/CityContext';
 
@@ -22,15 +22,14 @@ const Debug = () => {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 30);
 
-        // M2b: repointed off the legacy v1 get_calendar_events (reads
-        // calendar_occurrences) to the P5-native v2 — identical args + shape.
-        const { data: events, error } = await supabase.rpc('get_calendar_events_v2' as any, {
+        // Routes through the typed+branded getCalendarEvents boundary (was a raw
+        // `rpc(... as any)` dump). Times render as their stored wall-clock strings.
+        const events = await getCalendarEvents({
           range_start: startDate.toISOString(),
           range_end: endDate.toISOString(),
           city_slug_param: citySlug,
         });
 
-        if (error) throw error;
         setData(events);
       } catch (err) {
         setError(err);

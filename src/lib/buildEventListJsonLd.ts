@@ -10,6 +10,33 @@
  */
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { eventHref } from '@/lib/seo/eventHref';
+import {
+  type WallClock,
+  asWallClock,
+  formatWallClockLocal,
+  wallClockToInstant,
+} from '@/lib/time/wallClock';
+
+/**
+ * Compose the day's OWN start/end as a true UTC ISO 8601 instant.
+ *
+ * The calendar RPC returns one row per festival day but repeats day-1's time on
+ * every row (only instance_date varies), so we take the time-of-day from the
+ * wall clock and pin it to THIS row's instance_date -- otherwise every festival
+ * day would emit day-1's date. The stored clock is local-as-UTC; converting with
+ * Europe/London yields the real instant Google needs (a raw stamp is +1h in BST
+ * AND invalid ISO 8601 -- space separator).
+ *
+ * PHASE-Q GATE: this conversion is only applied to LONDON rows (see the filter
+ * below). The stored-clock convention is unverified for non-London (Tunis/Madrid)
+ * rows, so those are excluded from the ItemList rather than emit a possibly-wrong
+ * instant. Owner decision 2026-07-15 ("London-only + documented").
+ */
+const perDayInstantIso = (day: string, timeWc: WallClock | null): string | null => {
+  const t = formatWallClockLocal(timeWc, 'HH:mm:ss'); // stored time-of-day, no shift
+  if (!t || !day) return null;
+  return wallClockToInstant(asWallClock(`${day} ${t}+00`), 'Europe/London')?.toISOString() ?? null;
+};
 
 export interface BuildEventListJsonLdInput {
   events: CalendarEventRow[];
@@ -37,17 +64,30 @@ export const buildEventListJsonLd = ({
   origin,
   limit = 25,
 }: BuildEventListJsonLdInput): Record<string, unknown> => {
-  const itemListElement = events.slice(0, limit).map((e, i) => {
+  const itemListElement: Array<Record<string, unknown>> = [];
+  for (const e of events) {
+    if (itemListElement.length >= limit) break;
+
+    // PHASE-Q GATE: city_timezone is asEventTimeZone-normalised at the codec
+    // ('UTC' -> null -> London-safe). Only London rows get a converted instant;
+    // non-London (Tunis/Madrid) rows are held out until the convention is verified.
+    const tz = e.city_timezone;
+    if (tz != null && tz !== 'Europe/London') continue;
+
+    // A valid schema.org Event needs a startDate; skip rows we can't compose one for.
+    const startDate = perDayInstantIso(e.instance_date, e.occurrence_starts_at);
+    if (!startDate) continue;
+
     const eventUrl = `${origin}${eventHref(e)}`;
     const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
     const description: string =
-      (e.meta_data as Record<string, unknown>)?.description as string ||
+      ((e.meta_data as unknown as { description?: string } | null)?.description) ||
       `${e.name} — Bachata event in ${locality}`;
 
     const event: Record<string, unknown> = {
       '@type': 'Event',
       name: e.name,
-      startDate: e.start_time,
+      startDate,
       url: eventUrl,
       eventStatus: 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -65,7 +105,8 @@ export const buildEventListJsonLd = ({
       },
     };
 
-    if (e.end_time) event.endDate = e.end_time;
+    const endDate = perDayInstantIso(e.instance_date, e.occurrence_ends_at);
+    if (endDate) event.endDate = endDate;
     if (Array.isArray(e.photo_url) && e.photo_url.length > 0) {
       event.image = [e.photo_url[0]];
     }
@@ -79,12 +120,12 @@ export const buildEventListJsonLd = ({
       },
     };
 
-    return {
+    itemListElement.push({
       '@type': 'ListItem',
-      position: i + 1,
+      position: itemListElement.length + 1,
       item: event,
-    };
-  });
+    });
+  }
 
   return {
     '@context': 'https://schema.org',

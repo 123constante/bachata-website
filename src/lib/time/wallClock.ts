@@ -48,6 +48,16 @@ export const asWallClock = (raw: string): WallClock => raw as unknown as WallClo
 /** Brand a raw true-UTC timestamp string. Call ONLY in a boundary codec. */
 export const asInstant = (raw: string): Instant => raw as unknown as Instant;
 
+/**
+ * Brand a nullable stored wall clock, mapping BOTH null/undefined AND the
+ * COALESCE(...,'') empty-string sentinel that the calendar RPC emits for an
+ * absent session time to `null`. Call ONLY in a boundary codec. (There are
+ * older local copies of this helper in useEventPageQuery / useFestivalDetailQuery
+ * with subtly different '' handling; new codecs should use this shared one.)
+ */
+export const asWallClockOrNull = (raw: unknown): WallClock | null =>
+  typeof raw === 'string' && raw !== '' ? asWallClock(raw) : null;
+
 // --- Internal unwrap: confined to this file ---------------------------------
 // The sole sanctioned cast back to string. Every reader below goes through this
 // so the raw string never escapes the boundary.
@@ -128,6 +138,19 @@ export const wallClockHour = (wc: WallClock | null | undefined): number | null =
   if (!wc) return null;
   const hm = naiveHourMinute(unwrap(wc));
   return hm ? hm.hh : null;
+};
+
+/**
+ * The naive "HH:MM" time key of a stored wall clock, zero-padded, read as-stored
+ * with no timezone shift. Tolerates full space/T stamps AND a bare "HH:MM[:SS]"
+ * (the meta_data->program passthrough); returns null for a date-only or
+ * unparseable value. Byte-identical to the old string-slicing `fmtTime`/`formatHHmm`
+ * so calendar-grid + Tonight times render unchanged after branding.
+ */
+export const wallClockTimeKey = (wc: WallClock | null | undefined): string | null => {
+  if (!wc) return null;
+  const hm = naiveHourMinute(unwrap(wc));
+  return hm ? `${String(hm.hh).padStart(2, '0')}:${String(hm.mm).padStart(2, '0')}` : null;
 };
 
 /**

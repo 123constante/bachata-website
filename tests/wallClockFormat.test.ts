@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   asWallClock,
+  asWallClockOrNull,
   asInstant,
   asEventTimeZone,
   formatWallClockTime,
@@ -12,6 +13,7 @@ import {
   wallClockExactDateKey,
   wallClockDurationMinutes,
   wallClockHour,
+  wallClockTimeKey,
   wallClockToInstant,
   instantToDate,
 } from '@/lib/time/wallClock';
@@ -264,5 +266,52 @@ describe('wire-format tolerance: space vs T separator', () => {
     // A date-only value has no instant regardless of separator handling.
     expect(wallClockToInstant(asWallClock('2026-07-15'))).toBeNull();
     expect(formatWallClockTime(asWallClock('2026-07-15'))).toBeNull();
+  });
+
+  it('formatWallClockDate / DateTime / dateKey read the space form and the empty sentinel', () => {
+    // Phase-3 gap fill: these readers were only exercised on the T form before.
+    expect(formatWallClockDate(SPACE)).toBe('Wed 15 Jul');
+    expect(formatWallClockDateTime(SPACE)).toBe('Wed 15 Jul, 8:30 PM');
+    expect(wallClockDateKey(SPACE)).toBe('2026-07-15');
+    // The COALESCE(...,'') sentinel is falsy -> every reader returns null.
+    const EMPTY = asWallClock('');
+    expect(formatWallClockDate(EMPTY)).toBeNull();
+    expect(formatWallClockDateTime(EMPTY)).toBeNull();
+    expect(wallClockDateKey(EMPTY)).toBeNull();
+    expect(wallClockToInstant(EMPTY)).toBeNull();
+  });
+});
+
+describe('asWallClockOrNull (calendar codec producer)', () => {
+  it('maps null, undefined and the empty sentinel to null; brands everything else', () => {
+    expect(asWallClockOrNull(null)).toBeNull();
+    expect(asWallClockOrNull(undefined)).toBeNull();
+    expect(asWallClockOrNull('')).toBeNull(); // COALESCE(...,'') absent-session sentinel
+    expect(asWallClockOrNull(123 as unknown)).toBeNull();
+    // A real stamp round-trips through the readers.
+    expect(formatWallClockTime(asWallClockOrNull('2026-07-15 20:30:00+00'))).toBe('8:30 PM');
+  });
+});
+
+describe('wallClockTimeKey (calendar-grid HH:MM, byte-equal to the old fmtTime)', () => {
+  it('extracts zero-padded HH:MM from space, T and bare forms; null for date-only', () => {
+    expect(wallClockTimeKey(asWallClock('2026-07-15 20:00:00+00'))).toBe('20:00');
+    expect(wallClockTimeKey(asWallClock('2026-07-15T09:05:00+00:00'))).toBe('09:05');
+    expect(wallClockTimeKey(asWallClock('20:30'))).toBe('20:30'); // program passthrough
+    expect(wallClockTimeKey(asWallClock('2026-07-15'))).toBeNull(); // date-only
+    expect(wallClockTimeKey(asWallClock(''))).toBeNull();
+    expect(wallClockTimeKey(null)).toBeNull();
+  });
+});
+
+describe('non-London real zone round-trip (Phase Q sanity: conversion is zone-driven)', () => {
+  it('wallClockToInstant converts a stored 14:00 with Europe/Madrid to 13:00Z (CEST -1h)', () => {
+    // Madrid is CEST (UTC+2) in July, so a 14:00 wall clock is the 12:00Z instant.
+    expect(wallClockToInstant(asWallClock('2026-07-15 14:00:00+00'), 'Europe/Madrid')?.getTime())
+      .toBe(new Date('2026-07-15T12:00:00Z').getTime());
+    // The SAME digits under Europe/London (BST, +1) are the 13:00Z instant --
+    // proof the zone, not the digits, decides the moment (the crux of Phase Q).
+    expect(wallClockToInstant(asWallClock('2026-07-15 14:00:00+00'), 'Europe/London')?.getTime())
+      .toBe(new Date('2026-07-15T13:00:00Z').getTime());
   });
 });

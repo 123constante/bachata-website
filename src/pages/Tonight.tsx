@@ -4,7 +4,7 @@ import { MapPin, Clock, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
@@ -15,7 +15,13 @@ import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
-import { londonDayRangeUtc, londonWallClockToInstant } from '@/lib/londonDate';
+import { londonDayRangeUtc } from '@/lib/londonDate';
+import {
+  type WallClock,
+  wallClockToInstant,
+  wallClockTimeKey,
+  formatWallClockLocal,
+} from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 type TonightEvent = {
@@ -23,8 +29,8 @@ type TonightEvent = {
   occurrenceId: string | null;
   name: string;
   location: string;
-  occurrenceStartsAt: string | null;
-  occurrenceEndsAt: string | null;
+  occurrenceStartsAt: WallClock | null;
+  occurrenceEndsAt: WallClock | null;
   image: string;
   hasClass: boolean;
   hasParty: boolean;
@@ -58,16 +64,18 @@ const formatHHmm = (value?: string | null) => {
 type CountdownState = { label: string; tone: 'soon' | 'live' } | null;
 
 const computeCountdown = (
-  startsAt: string | null,
-  endsAt: string | null,
+  startsAt: WallClock | null,
+  endsAt: WallClock | null,
   now: Date,
 ): CountdownState => {
   if (!startsAt) return null;
   // occurrence_starts_at/_ends_at are London wall-clock stored as-if-UTC;
   // parsing them as plain instants runs the countdown an hour late all BST.
-  const start = londonWallClockToInstant(startsAt);
+  // wallClockToInstant defaults to Europe/London (Tonight is a city-scoped feed),
+  // matching the old londonWallClockToInstant behaviour.
+  const start = wallClockToInstant(startsAt);
   if (!start || Number.isNaN(start.getTime())) return null;
-  const end = endsAt ? londonWallClockToInstant(endsAt) : null;
+  const end = endsAt ? wallClockToInstant(endsAt) : null;
   const nowMs = now.getTime();
   if (nowMs < start.getTime()) {
     const diffMin = Math.max(0, Math.round((start.getTime() - nowMs) / 60000));
@@ -134,15 +142,13 @@ const Tonight = () => {
       // visitor in Sydney or New York must query the same London "tonight".
       const { start, end } = londonDayRangeUtc(todayKey);
 
-      const { data, error } = await supabase.rpc('get_calendar_events_v2' as any, {
+      const rows = await getCalendarEvents({
         range_start: start.toISOString(),
         range_end: end.toISOString(),
         city_slug_param: citySlug,
       });
 
-      if (error || !data) return [];
-
-      return (data as any[]).map((event) => {
+      return rows.map((event) => {
         const keyTimes = event.key_times as any;
         const classData = keyTimes?.classes;
         const partyData = keyTimes?.party;
@@ -150,8 +156,9 @@ const Tonight = () => {
         // Fallback: derive class/party times from meta_data.program when key_times is absent.
         // Program items have type "class"|"party" and ISO start_time/end_time strings.
         type ProgramItem = { type: string; start_time?: string; end_time?: string };
-        const program: ProgramItem[] = Array.isArray(event.meta_data?.program)
-          ? event.meta_data.program
+        const meta = event.meta_data as { program?: unknown } | null;
+        const program: ProgramItem[] = Array.isArray(meta?.program)
+          ? (meta!.program as ProgramItem[])
           : [];
         const classItems = program.filter(p => p.type === 'class' && p.start_time && p.end_time);
         const partyItems = program.filter(p => p.type === 'party' && p.start_time && p.end_time);
@@ -166,11 +173,11 @@ const Tonight = () => {
           slug: event.slug ?? null,
           // ADR-007 Phase 4.2c — deep-link cards to the specific date so
           // the public page shows that date's per-occurrence program.
-          occurrenceId: (event.occurrence_id as string | null) ?? null,
-          name: event.name as string,
-          location: (event.location as string) || 'Location TBD',
-          occurrenceStartsAt: (event.occurrence_starts_at as string | null) ?? null,
-          occurrenceEndsAt: (event.occurrence_ends_at as string | null) ?? null,
+          occurrenceId: event.occurrence_id ?? null,
+          name: event.name,
+          location: event.location || 'Location TBD',
+          occurrenceStartsAt: event.occurrence_starts_at, // branded WallClock
+          occurrenceEndsAt: event.occurrence_ends_at,     // branded WallClock | null
           image:
             resolveEventImage(event.photo_url, null) ||
             'https://images.unsplash.com/photo-1546707012-c46675f12716',
@@ -182,14 +189,16 @@ const Tonight = () => {
           partyEnd:   partyData ? formatHHmm(partyData.end)   : formatHHmm(maxStr(partyItems, 'end_time')),
           venueLat: typeof event.venue_lat === 'number' ? event.venue_lat : null,
           venueLng: typeof event.venue_lng === 'number' ? event.venue_lng : null,
-          primaryOrganiserName: (event.primary_organiser_name as string | null) ?? null,
-          type: (event.type as string | null) ?? '',
+          primaryOrganiserName: event.primary_organiser_name ?? null,
+          type: event.type ?? '',
           isCancelled: event.is_cancelled === true,
-          cancellationReasonLabel: (event.cancellation_reason_label as string | null) ?? null,
-          originalClassStart: (event.original_class_start as string | null) ?? null,
-          originalClassEnd: (event.original_class_end as string | null) ?? null,
-          originalPartyStart: (event.original_party_start as string | null) ?? null,
-          originalPartyEnd: (event.original_party_end as string | null) ?? null,
+          cancellationReasonLabel: event.cancellation_reason_label ?? null,
+          // original_* are branded WallClocks (bare "HH:MM" overrides) -> read the
+          // HH:MM key for the strike-through display row.
+          originalClassStart: wallClockTimeKey(event.original_class_start),
+          originalClassEnd: wallClockTimeKey(event.original_class_end),
+          originalPartyStart: wallClockTimeKey(event.original_party_start),
+          originalPartyEnd: wallClockTimeKey(event.original_party_end),
         };
       });
     },
@@ -197,12 +206,15 @@ const Tonight = () => {
   });
 
   const events = useMemo(() => {
+    // Sort by a lexical wall-clock key (no new Date(wc) on a stored stamp): the
+    // stored digits ARE the London wall clock, so their string order IS start
+    // order within a city feed -- convention-independent, no timezone shift.
+    const startKey = (wc: WallClock | null): string =>
+      formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm:ss") ?? '9999'; // nulls sort last
     if (!coords) {
-      return [...rawEvents].sort((a, b) => {
-        const ta = a.occurrenceStartsAt ? new Date(a.occurrenceStartsAt).getTime() : Infinity;
-        const tb = b.occurrenceStartsAt ? new Date(b.occurrenceStartsAt).getTime() : Infinity;
-        return ta - tb;
-      });
+      return [...rawEvents].sort((a, b) =>
+        startKey(a.occurrenceStartsAt).localeCompare(startKey(b.occurrenceStartsAt)),
+      );
     }
     const withDistance = rawEvents.map((e) => ({
       ev: e,
@@ -213,9 +225,7 @@ const Tonight = () => {
     }));
     withDistance.sort((a, b) => {
       if (a.km == null && b.km == null) {
-        const ta = a.ev.occurrenceStartsAt ? new Date(a.ev.occurrenceStartsAt).getTime() : Infinity;
-        const tb = b.ev.occurrenceStartsAt ? new Date(b.ev.occurrenceStartsAt).getTime() : Infinity;
-        return ta - tb;
+        return startKey(a.ev.occurrenceStartsAt).localeCompare(startKey(b.ev.occurrenceStartsAt));
       }
       if (a.km == null) return 1;
       if (b.km == null) return -1;
@@ -319,8 +329,8 @@ const Tonight = () => {
                 now,
               );
               const km = distanceByEventId.get(event.id);
-              const startLabel = formatHHmm(event.occurrenceStartsAt);
-              const endLabel = formatHHmm(event.occurrenceEndsAt);
+              const startLabel = wallClockTimeKey(event.occurrenceStartsAt);
+              const endLabel = wallClockTimeKey(event.occurrenceEndsAt);
 
               return (
                 <motion.div
