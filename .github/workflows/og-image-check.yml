@@ -2,16 +2,24 @@ name: OG Image Guard
 
 # Verifies social link previews still render: every sampled page must expose an
 # og:image that resolves to a JPEG/PNG (never WebP) under 300KB, with dimensions.
-# Targets the deployed site (middleware + /api/og/card only exist post-deploy),
-# so this is a scheduled job, not a PR gate.
+#
+# Two triggers:
+#   - scheduled/dispatch: against PRODUCTION (post-deploy drift).
+#   - pull_request: against the PR's Vercel PREVIEW (pre-merge coverage), reached
+#     first-party via scripts/lib/previewProbe.mjs + the protection-bypass secret.
+#     Catches an OG regression BEFORE it ships, not a day later on prod.
 
 on:
   schedule:
     - cron: '0 6 * * *'   # daily, offset from the 3am e2e nightly
   workflow_dispatch:
+  pull_request:
+    branches: [main, master]
 
 jobs:
   og-check:
+    # Production run (schedule + manual). Skipped on PRs — the preview job covers those.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,4 +35,36 @@ jobs:
       - name: Run OG image guard
         env:
           OG_CHECK_BASE: https://www.bachatacalendar.co.uk
+        run: npm run check:og
+
+  og-preview:
+    # Pre-merge run against the PR's Vercel preview. check-og-images.mjs +
+    # previewProbe.mjs use only Node builtins + fetch, so no `npm ci`.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$(node scripts/resolve-preview-url.mjs)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run OG image guard (preview)
+        env:
+          OG_CHECK_BASE: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run check:og

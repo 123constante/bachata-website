@@ -20,8 +20,13 @@
 //
 // Exit 1 if any sampled page fails a hard assertion.
 
+import { bypassHeaders } from './lib/previewProbe.mjs';
+
 const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
+// Preview PR coverage: send the Vercel protection-bypass headers when pointed at
+// a protected preview; null against public prod (default).
+const BYPASS = bypassHeaders({ required: false });
 const UA = 'Mozilla/5.0 (compatible; BachataCalendarSeoCheck/1.0)';
 const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing pages must NOT use it
 
@@ -47,7 +52,7 @@ async function fetchText(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const r = await fetch(url, { headers: { 'user-agent': UA }, redirect: 'follow', signal: ctrl.signal });
+    const r = await fetch(url, { headers: { 'user-agent': UA, ...(BYPASS ?? {}) }, redirect: 'follow', signal: ctrl.signal });
     return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
   } finally {
     clearTimeout(t);
