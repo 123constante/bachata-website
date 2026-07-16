@@ -5,22 +5,27 @@ name: SEO Guard
 # the homepage's crawlable /event/ links. The h1 assertion alone would have
 # caught the July 2026 festival-skeleton regression; the title/canonical ones
 # the landing-page shell regression. Targets the deployed site (SSR output
-# only exists post-deploy), so this runs post-deploy + daily, not as a PR
-# gate — same reasoning as og-image-check.yml.
+# only exists post-deploy). Runs post-deploy + daily against PRODUCTION, and
+# additionally on pull_request against the PR's Vercel PREVIEW for pre-merge
+# coverage (reached first-party via previewProbe + the protection-bypass secret).
 
 on:
   deployment_status:
   schedule:
     - cron: '30 6 * * *'   # daily, offset from the 06:00 db-contract run
   workflow_dispatch:
+  pull_request:
+    branches: [main, master]
 
 jobs:
   seo-check:
-    # For deployment_status events, only run on a successful production deploy.
+    # Production run. For deployment_status, only a successful production deploy;
+    # never on PRs (the preview job covers those).
     if: >-
-      github.event_name != 'deployment_status' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'deployment_status' ||
+       (github.event.deployment_status.state == 'success' &&
+        github.event.deployment.environment == 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -36,4 +41,36 @@ jobs:
       - name: Run SEO guard
         env:
           SEO_CHECK_BASE: https://www.bachatacalendar.co.uk
+        run: npm run check:seo
+
+  seo-preview:
+    # Pre-merge run against the PR's Vercel preview. check-seo.mjs + previewProbe
+    # use only Node builtins + fetch, so no `npm ci`.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$(node scripts/resolve-preview-url.mjs)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run SEO guard (preview)
+        env:
+          SEO_CHECK_BASE: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run check:seo
