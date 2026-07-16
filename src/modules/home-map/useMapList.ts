@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { useLondonToday } from '@/hooks/useLondonToday';
 import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
 import { matchesFilter } from './mapTypes';
+import { isDesktopViewport } from './viewport';
 import {
   dedupePins,
   listFor,
@@ -17,13 +17,17 @@ import type { HomeStats } from './mapListDerivations';
 import type { MapApi } from './EventMap';
 
 export interface UseMapListOptions {
-  /** When true (desktop), a pin tap scrolls the list to the matching card. On
-   *  mobile the inline preview card replaces that scroll, so pass false. */
-  scrollOnPinSelect?: boolean;
   /** The page's city slug. Pins are scoped to it so a feed-wide festival in
    *  another city (real foreign coords) stays listable but never pins on the map
    *  and drags fitBounds abroad. Null/undefined = no scoping (pin everything). */
   citySlug?: string | null;
+  /** The London day everything here dates against (YYYY-MM-DD). The PAGE owns the
+   *  clock (Index's useLondonToday, seeded from the server's day and rolling over
+   *  on its own) and passes the live value down -- this hook deliberately does NOT
+   *  run a second useLondonToday. Two independent 60s intervals could flip up to a
+   *  minute apart at London midnight, and the feed's grouping would disagree with
+   *  the query window that fetched it. */
+  today: string;
 }
 
 export interface UseMapListResult {
@@ -49,8 +53,13 @@ export interface UseMapListResult {
   glow: string[];
   calendarDays: Map<string, MapCategory[]>;
   stats: HomeStats;
+  /** The London day every consumer must date against (YYYY-MM-DD). Exposed so
+   *  the feed's own "today" reads come from the SAME hydration-pinned source as
+   *  these derivations, instead of each calling todayStr() at render time. */
+  today: string;
   apiRef: React.MutableRefObject<MapApi | null>;
-  onMapReady: (api: MapApi) => void;
+  /** EventMap calls this with its API on mount and with NULL on teardown. */
+  onMapReady: (api: MapApi | null) => void;
   listRef: React.MutableRefObject<HTMLDivElement | null>;
   fromCard: (occId: string) => void;
   fromPin: (occId: string | null) => void;
@@ -66,7 +75,7 @@ export interface UseMapListResult {
  */
 export function useMapList(
   events: MapEvent[],
-  opts?: UseMapListOptions,
+  opts: UseMapListOptions,
 ): UseMapListResult {
   // Lead with events (audit P1): the homepage opens on the All Events list, not
   // the brand/freshness hero. The /city/:slug/calendar deep-link still overrides
@@ -82,10 +91,6 @@ export function useMapList(
   const apiRef = useRef<MapApi | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const wantScroll = useRef(false);
-  // Mobile suppresses the pin-tap -> list-scroll (the inline preview card stands
-  // in for it); desktop keeps it. Read through a ref so the callbacks stay stable.
-  const scrollOnPinSelect = useRef(opts?.scrollOnPinSelect ?? true);
-  scrollOnPinSelect.current = opts?.scrollOnPinSelect ?? true;
 
   // Switching tabs clears any picked day (a stale Calendar day must not silently
   // re-filter the list/map on return; audit #16) and the current selection (so a
@@ -113,16 +118,17 @@ export function useMapList(
     setSelected(null);
   }, []);
 
-  // Reactive LONDON-calendar "today" (rolls across midnight / tab-refocus so a
-  // long-lived session doesn't freeze Tonight/Calendar filters at the mount
-  // day — audit #20). Must match the London-anchored map query window in
-  // Index.tsx, or the Tonight tab filters for a day the query didn't fetch.
-  const today = useLondonToday();
+  // The page's London day (see UseMapListOptions.today). It is BY CONSTRUCTION the
+  // same value that keyed the map query in Index, so the Tonight tab can never
+  // filter for a day the query didn't fetch.
+  const today = opts.today;
 
   const geo = useGeolocation();
   const user = geo.coords;
 
-  const onMapReady = useCallback((api: MapApi) => {
+  // Also called with null when EventMap tears down (a resize across the
+  // mobile/desktop breakpoint remounts it), so nothing can invalidate a dead map.
+  const onMapReady = useCallback((api: MapApi | null) => {
     apiRef.current = api;
   }, []);
 
@@ -130,7 +136,7 @@ export function useMapList(
   // out of BOTH the pin set and mapVisible (which resolves through pinKeyForOcc),
   // while listEvents/calendarDays/stats below still see every row, so a far-flung
   // festival stays in the list ("further afield") but never on the map.
-  const citySlug = opts?.citySlug ?? null;
+  const citySlug = opts.citySlug ?? null;
   const { pins, pinKeyForOcc } = useMemo(
     () => dedupePins(events.filter((e) => isOnCityMap(e, citySlug))),
     [events, citySlug],
@@ -192,9 +198,14 @@ export function useMapList(
     [byOcc, navigate],
   );
 
+  // A pin tap arms the list scroll on desktop only -- on mobile the inline
+  // preview card stands in for it. The viewport is read HERE, at tap time: a pin
+  // can only be tapped on a mounted, client-side map, so matchMedia is always
+  // available and always current (it even survives a resize across the
+  // breakpoint, which a render-time flag would not).
   const fromPin = useCallback((occId: string | null) => {
     setSelected(occId);
-    if (occId && scrollOnPinSelect.current) wantScroll.current = true;
+    if (occId && isDesktopViewport()) wantScroll.current = true;
   }, []);
 
   // Map popup "View event" CTA -> client-side route. Leaflet cancels the raw
@@ -202,8 +213,10 @@ export function useMapList(
   // mobile; EventMap intercepts the click and calls this instead.
   const openEvent = useCallback((href: string) => navigate(href), [navigate]);
 
-  // After a pin click, scroll the list to the matching card (desktop only -- on
-  // mobile scrollOnPinSelect is false so wantScroll never arms).
+  // After a pin click, scroll the feed to the matching card. The feed (.hm-feed)
+  // is now the ONE scroller at every viewport -- the desktop rail no longer
+  // scrolls itself -- so offsetTop is always measured from the same offset
+  // parent as the element it scrolls.
   useEffect(() => {
     if (wantScroll.current && selected && listRef.current) {
       const el = listRef.current.querySelector(
@@ -237,6 +250,7 @@ export function useMapList(
     glow,
     calendarDays,
     stats,
+    today,
     apiRef,
     onMapReady,
     listRef,

@@ -302,11 +302,11 @@ test.describe('Festival Map Homepage -- mobile', () => {
     await page.goto(HOME_PATH);
     await expect(page.locator('.home-map__canvas')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('in one place.')).toBeVisible();
-    await page.getByRole('button', { name: 'Expand map to full screen' }).click();
+    await page.getByRole('button', { name: 'Explore the full map' }).click();
     // Page head + feed unmount in fullscreen.
     await expect(page.getByText('in one place.')).toHaveCount(0);
     await expect(page.getByRole('tablist')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Exit full screen map' }).click();
+    await page.getByRole('button', { name: 'Back to the list' }).click();
     await expect(page.getByText('in one place.')).toBeVisible();
     await expect(page.getByRole('tablist')).toBeVisible();
   });

@@ -46,7 +46,10 @@ interface EventMapProps {
   /** null clears the selection (mobile background-map tap). */
   onSelect: (occId: string | null) => void;
   onHover: (occId: string | null) => void;
-  onReady?: (api: MapApi) => void;
+  /** Called with the map's API on mount, and with NULL on teardown -- callers hold
+   *  this in a ref, and a resize across the mobile/desktop breakpoint remounts this
+   *  component, so a ref left pointing at the removed map would invalidate() a corpse. */
+  onReady?: (api: MapApi | null) => void;
   onOpenEvent?: (href: string) => void;
   /** Mobile: a tap on a multi-event location pin surfaces its events in an inline
    *  preview card instead of a Leaflet popup. Carries the currently-visible
@@ -557,6 +560,8 @@ export default function EventMap({
       // can't fire against the removed map.
       disposer.dispose();
       m.remove();
+      // Retract the API before anything else can reach for it: this map is dead.
+      onReady?.(null);
       mapRef.current = null;
       markers.current = new Map();
       occMarkerRef.current = new Map();
