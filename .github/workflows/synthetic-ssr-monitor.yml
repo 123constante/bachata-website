@@ -19,13 +19,17 @@ on:
         description: 'Target base URL (defaults to production)'
         required: false
         default: 'https://www.bachatacalendar.co.uk'
+  pull_request:
+    branches: [main, master]
 
 concurrency:
-  group: synthetic-ssr-monitor
+  group: synthetic-ssr-monitor-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   synthetic:
+    # Production run (schedule + manual). Skipped on PRs — synthetic-preview covers those.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -53,5 +57,54 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: synthetic-ssr-traces
+          path: test-results/
+          retention-days: 7
+
+  synthetic-preview:
+    # Pre-merge run against the PR's Vercel preview: catches an SSR/hydration
+    # regression before it ships. The preview is reached first-party via
+    # previewProbe, and playwright.synthetic.config.ts attaches the protection-
+    # bypass header to every request when the secret is present.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$(node scripts/resolve-preview-url.mjs)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run synthetic SSR monitor (preview)
+        env:
+          CI: 'true'
+          SYNTHETIC_BASE_URL: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run synthetic:ssr
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-ssr-traces-preview
           path: test-results/
           retention-days: 7
