@@ -29,6 +29,7 @@
     "check:integrity": "bin/check-integrity.sh",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
     "check:lighthouse": "node scripts/check-lighthouse.mjs",
+    "check:doc-weight": "node scripts/check-doc-weight.mjs",
     "postinstall": "node bin/install-hooks.cjs",
     "repair:corrupt": "bin/repair-corrupt.sh"
   },
