@@ -26,7 +26,16 @@ const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk')
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
 // Preview PR coverage: send the Vercel protection-bypass headers when pointed at
 // a protected preview; null against public prod (default).
-const BYPASS = bypassHeaders({ required: false });
+//
+// REQUIRED for a *.vercel.app preview. Those deployments sit behind Vercel's
+// protection wall, so running unauthenticated does not 401 cleanly -- it bounces
+// through /sso-api -> /login until fetch dies with "redirect count exceeded", an
+// error that says nothing about SEO and sent a real investigation chasing the
+// wrong thing. Demanding the secret up front makes previewProbe throw with the
+// actionable message instead (Vercel -> Settings -> Deployment Protection ->
+// Protection Bypass for Automation). Prod stays bypass-free: it is public.
+const IS_PREVIEW = /\.vercel\.app$/i.test(new URL(BASE).hostname);
+const BYPASS = bypassHeaders({ required: IS_PREVIEW });
 const UA = 'Mozilla/5.0 (compatible; BachataCalendarSeoCheck/1.0)';
 const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing pages must NOT use it
 
