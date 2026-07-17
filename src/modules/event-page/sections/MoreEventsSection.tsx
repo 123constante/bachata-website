@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { londonWallClockNowIso, weekdayOfKey } from '@/lib/londonDate';
+import { weekdayOfKey } from '@/lib/londonDate';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

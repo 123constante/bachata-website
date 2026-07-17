@@ -13,7 +13,7 @@ import type { Route } from "./+types/festivals";
 // build-time prerender, which froze the dehydrated festival list at deploy time).
 // The loader and FestivalHub share ONE fetcher and ONE key (@/lib/festivalsList),
 // so the dehydrated entry the document ships is by construction the entry the client
-// hook reads — no byte-for-byte mirroring to keep in sync by hand. Edge-cached on
+// hook reads -- no byte-for-byte mirroring to keep in sync by hand. Edge-cached on
 // s-maxage and purged on any festival write via the `festivals-list` cache tag (see
 // api.revalidate tagsFor + the Supabase webhook). Secondary attendance queries stay
 // client-only.

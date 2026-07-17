@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
-import { fetchPublicFestivalsList } from '@/lib/festivalsList';
+import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 import { londonTodayKey } from '@/lib/londonDate';
 
@@ -131,11 +131,10 @@ export async function searchPublicV3(
   if (!term) return [];
   const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
   // Global festivals are fetched separately so a festival in ANOTHER city still
-  // surfaces in search (mirrors prior v3/v4 behaviour). They now come from the
-  // P5-native shared festivals-list seam rather than a direct events select (M2).
-  // The RPC returns every live festival ordered by start date, so the name match,
-  // the past/future window and the section cap are applied here instead of in the
-  // query. `date` is a London calendar date — bound it with the London today key.
+  // surfaces in search (mirrors prior v3/v4 behaviour). They come from the
+  // P5-native shared festivals-list seam (module-cached, so the per-keystroke
+  // debounce does not rebuild the projection server-side each time). The name
+  // match, the shared upcoming window and the section cap are applied here.
   const today = londonTodayKey();
   const needle = term.toLowerCase();
 
@@ -149,9 +148,8 @@ export async function searchPublicV3(
     fetchPublicFestivalsList(),
   ]);
 
-  const festResult = festRows
-    .filter((f) => (f.name ?? '').toLowerCase().includes(needle))
-    .filter((f) => includePast || (f.date ?? '') >= today)
+  const nameMatches = festRows.filter((f) => (f.name ?? '').toLowerCase().includes(needle));
+  const festResult = (includePast ? nameMatches : filterUpcomingFestivals(nameMatches, today))
     .slice(0, sectionLimit);
   if (rpcResult.error) throw rpcResult.error;
   const payload = rpcResult.data as V3Payload;

@@ -1,22 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchPublicFestivalsList, type FestivalListItem } from '@/lib/festivalsList';
+import {
+  FESTIVALS_LIST_QUERY_KEY,
+  fetchPublicFestivalsList,
+  filterUpcomingFestivals,
+  type FestivalListItem,
+} from '@/lib/festivalsList';
 import { londonTodayKey } from '@/lib/londonDate';
 
 export type FestivalPreview = FestivalListItem;
 
 export function useUpcomingFestivalsGlobal() {
   return useQuery({
-    // Versioned alongside the shared festivals-list seam: the payload now comes from
-    // the P5-native get_public_festivals_list_v1 rather than a direct events select.
-    queryKey: ['upcoming-festivals-global-v2'],
-    queryFn: async () => {
-      // The RPC returns every live festival (past + future) already ordered by
-      // start date, so the "upcoming" window is applied here. `date` is a London
-      // calendar date — bound it with the London today key, not the browser/UTC one.
-      const today = londonTodayKey();
-      const rows = await fetchPublicFestivalsList();
-      return rows.filter((f) => (f.date ?? '') >= today).slice(0, 40);
-    },
-    staleTime: 60_000,
+    // Shares the seam's cache entry (same key, same fetcher) instead of holding
+    // a second copy of the identical payload under its own identity; the
+    // "upcoming" window is a select-time projection. select re-runs on render,
+    // so the London-midnight rollover is picked up without a shorter staleTime.
+    queryKey: FESTIVALS_LIST_QUERY_KEY,
+    queryFn: fetchPublicFestivalsList,
+    staleTime: 1000 * 60 * 60,
+    select: (rows: FestivalListItem[]) =>
+      filterUpcomingFestivals(rows, londonTodayKey()).slice(0, 40),
   });
 }
