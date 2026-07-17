@@ -3578,6 +3578,7 @@ export type Database = {
           passes: Json | null
           promo_codes: Json | null
           recurrence_rule: Json | null
+          removed_dates: string[]
           slug: string | null
           timezone: string | null
           type: string | null
@@ -3614,6 +3615,7 @@ export type Database = {
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
+          removed_dates?: string[]
           slug?: string | null
           timezone?: string | null
           type?: string | null
@@ -3650,6 +3652,7 @@ export type Database = {
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
+          removed_dates?: string[]
           slug?: string | null
           timezone?: string | null
           type?: string | null
@@ -8244,6 +8247,10 @@ export type Database = {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
+      _cmd_series_stop_repeating_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
       _cmd_series_upsert_p5: {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
@@ -8299,6 +8306,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: boolean
       }
+      _event_is_retention_dead_v1: {
+        Args: { p_cutoff: string; p_event_id: string }
+        Returns: boolean
+      }
       _event_publish_blocking_reason_v1: {
         Args: { p_series_id: string }
         Returns: string
@@ -8307,6 +8318,13 @@ export type Database = {
       _event_view_snapshot_compat_v1: {
         Args: { p_target: Json }
         Returns: Json
+      }
+      _festival_anchor_dates_p5: {
+        Args: { p_series_id: string }
+        Returns: {
+          first_wall_start: string
+          start_date: string
+        }[]
       }
       _festival_parity_normalize_v1: { Args: { p: Json }; Returns: Json }
       _floor_test_probe: { Args: never; Returns: string }
@@ -8408,12 +8426,34 @@ export type Database = {
       _og_scrape_drain: { Args: never; Returns: undefined }
       _og_sweep: { Args: never; Returns: undefined }
       _p5_native_people_v1: { Args: { p_people: Json }; Returns: Json }
+      _p5_occ_wall_end_v1: {
+        Args: {
+          p_default_duration: string
+          p_local_start: string
+          p_m_end: string
+          p_occ_date: string
+          p_override_end: string
+        }
+        Returns: string
+      }
+      _p5_occ_wall_start_v1: {
+        Args: { p_local_start: string; p_m_start: string; p_occ_date: string }
+        Returns: string
+      }
       _p5_occurrence_effective_headline_v1: {
         Args: { p_occurrence_id: string }
         Returns: {
           headline_end: string
           headline_start: string
         }[]
+      }
+      _p5_series_legacy_type_v1: {
+        Args: { p_category: string; p_format: string }
+        Returns: string
+      }
+      _p5_series_public_visibility_v1: {
+        Args: { p_legacy_event_id: string; p_lifecycle_status: string }
+        Returns: boolean
       }
       _person_publicly_visible_v1: {
         Args: { p_person_id: string }
@@ -11538,6 +11578,13 @@ export type Database = {
           event_count: number
         }[]
       }
+      get_organiser_last_event_dates_v1: {
+        Args: never
+        Returns: {
+          entity_id: string
+          last_event_date: string
+        }[]
+      }
       get_organiser_linked_events: {
         Args: { p_organiser_id: string }
         Returns: {
@@ -11553,6 +11600,17 @@ export type Database = {
         Returns: {
           entity_id: string
           next_event_date: string
+        }[]
+      }
+      get_organiser_next_occurrences_v1: {
+        Args: { p_organiser_id: string }
+        Returns: {
+          event_id: string
+          name: string
+          next_start: string
+          occurrence_id: string
+          poster_url: string
+          slug: string
         }[]
       }
       get_popular_searches_v1: {
@@ -11724,6 +11782,17 @@ export type Database = {
       get_public_festival_detail_v2: {
         Args: { p_event_id: string }
         Returns: Json
+      }
+      get_public_festivals_list_v1: {
+        Args: never
+        Returns: {
+          city: string
+          event_id: string
+          name: string
+          poster_url: string
+          start_date: string
+          starts_at: string
+        }[]
       }
       get_public_organiser_info: {
         Args: { organiser_id: string }
