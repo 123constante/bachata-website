@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 export type VenueUpcomingEvent = {
   event_id: string;
@@ -68,7 +69,7 @@ export const VenueUpcomingTile = ({
                 <div className="aspect-square rounded-md overflow-hidden bg-venue-card-border">
                   {event.poster_url ? (
                     <img
-                      src={event.poster_url}
+                      src={optimizedImageUrl(event.poster_url, 320)}
                       alt={event.name}
                       className="w-full h-full object-cover"
                       loading="lazy"

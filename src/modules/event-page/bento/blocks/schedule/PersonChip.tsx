@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 // --- PersonChip - atomic per-person render primitive ---
 //
@@ -161,7 +162,7 @@ const AvatarCircle = ({
     >
       {showAvatar ? (
         <img
-          src={person.avatarUrl as string}
+          src={optimizedImageUrl(person.avatarUrl as string, 96)}
           alt=""
           width={t.avatarPx}
           height={t.avatarPx}

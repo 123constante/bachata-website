@@ -29,6 +29,7 @@ import { getPhotoUrl, parsePartnerDetails, serializePartnerDetails, type Partner
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -992,7 +993,7 @@ export const DancerDashboard = () => {
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 rounded-full border border-cyan-400/30 bg-slate-900/70 overflow-hidden flex items-center justify-center">
                       {avatarUrl ? (
-                        <img src={avatarUrl} alt={fullName} className="h-full w-full object-cover" loading="lazy" />
+                        <img src={optimizedImageUrl(avatarUrl, 160)} alt={fullName} className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <span className="text-sm font-bold text-cyan-100">{fullName.slice(0, 2).toUpperCase()}</span>
                       )}

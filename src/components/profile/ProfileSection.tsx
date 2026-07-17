@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 const toConnectionBadge = (value: string | null | undefined) => {
   if (!value) return 'Connected';
@@ -45,7 +46,7 @@ const ProfileSection = ({ title, profiles, roleLabel, onProfileClick }: ProfileS
               className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/50 px-2.5 py-1 text-left text-xs text-foreground transition-all duration-150 hover:-translate-y-0.5 hover:bg-muted/40 hover:border-amber-400/40 hover:shadow-md hover:shadow-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
             >
               <Avatar className="h-6 w-6 border border-border">
-                <AvatarImage src={(person.avatar_url as string) || undefined} alt={(person.display_name as string) || roleLabel} />
+                <AvatarImage src={optimizedImageUrl((person.avatar_url as string) || '', 96) || undefined} alt={(person.display_name as string) || roleLabel} />
                 <AvatarFallback className="bg-muted text-foreground">
                   {((person.display_name as string) || roleLabel).slice(0, 1).toUpperCase()}
                 </AvatarFallback>

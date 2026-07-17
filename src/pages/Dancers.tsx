@@ -4,6 +4,7 @@ import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Came
 import { useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { emitProfileView } from '@/lib/profileViewEmit';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
@@ -338,7 +339,7 @@ const Dancers = () => {
                         transition={{ type: 'spring', stiffness: 300 }}
                       >
                         {dancer.avatar_url ? (
-                          <img src={dancer.avatar_url} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" loading="lazy" />
+                          <img src={optimizedImageUrl(dancer.avatar_url, 160)} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" loading="lazy" />
                         ) : (
                           getAvatarEmoji(dancer.first_name)
                         )}

@@ -77,7 +77,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             warming those connections during the critical path spent two mobile
             TLS handshakes on fonts nothing above the fold waits for. */}
         <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co" />
-        <link rel="preconnect" href="https://media.bachatacalendar.co.uk" />
+        {/* R2 media bucket: direct-origin fetches (dev, full-size gallery views,
+            anything not yet routed through /_vercel/image). The previous target,
+            media.bachatacalendar.co.uk, was a dangling DNS record pointing at
+            Vercel -- it never served a byte. */}
+        <link rel="preconnect" href="https://pub-07f606224cac4f2596903c44df723644.r2.dev" />
         <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossOrigin="" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

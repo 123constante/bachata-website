@@ -16,13 +16,20 @@
 //   - INFRA ("couldn't measure"): always a hard failure (exit 1).
 //   - BUDGET ("measured, over budget"): warn-only until DOC_WEIGHT_ENFORCE=1.
 //
+// Also guards IMAGE OPTIMIZATION: any <img> in the rendered document whose src
+// hits an R2 public bucket directly (pub-*.r2.dev) instead of /_vercel/image is
+// a breach (same warn-until-enforce class). This is the failure mode that let
+// imageCdn.ts silently no-op for months: 5.94 MB of full-size originals into
+// <=92px thumbnails, and nothing red anywhere.
+//
 //   DOC_WEIGHT_BUDGET_KB   brotli budget per page (default 120; generous while
 //                          this bakes -- re-baseline once WS14 lands)
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { resolvePreviewUrl, bypassHeaders, assertMeasured } from './lib/previewProbe.mjs';
 
 const EXPLICIT_BASE = (process.env.DOC_WEIGHT_BASE_URL ?? '').replace(/\/$/, '');
@@ -47,7 +54,35 @@ function measureWire(url, bypassSecret) {
   const m = /DOCW=(\d+)\|(\d+)/.exec(out);
   const enc = /content-encoding:\s*([^\r\n]+)/i.exec(out)?.[1]?.trim() ?? 'identity';
   if (!m) return null;
-  return { bytes: Number(m[1]), status: Number(m[2]), enc };
+  return { bytes: Number(m[1]), status: Number(m[2]), enc, bodyTmp };
+}
+
+/**
+ * Unoptimised-image guard. Scans the rendered document's <img> tags for src
+ * attributes that hit an R2 public bucket DIRECTLY instead of going through
+ * /_vercel/image. This is the exact failure mode that shipped 5.94 MB of
+ * full-size originals into <=92px homepage thumbnails while imageCdn.ts
+ * silently no-op'd on a hostname mismatch: the helper was wired into every
+ * call site and never rewrote a single URL, and nothing noticed. og:image
+ * <meta> tags are deliberately out of scope (baked OG images are served raw
+ * to scrapers by design) -- only <img> tags count.
+ */
+function scanUnoptimizedImages(bodyPath, enc) {
+  let html;
+  const raw = readFileSync(bodyPath);
+  try {
+    html = enc === 'br' ? brotliDecompressSync(raw).toString('utf8')
+      : enc === 'gzip' ? gunzipSync(raw).toString('utf8')
+      : raw.toString('utf8');
+  } catch {
+    return null; // could not decode -- caller reports "not scanned" as an infra miss
+  }
+  const offenders = new Set();
+  for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
+    const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    if (src && /^https:\/\/pub-[a-z0-9]+\.r2\.dev\//i.test(src)) offenders.add(src);
+  }
+  return [...offenders];
 }
 
 async function main() {
@@ -57,8 +92,9 @@ async function main() {
   console.log(`Doc-weight base: ${base}${bypassSecret ? ' (protection bypass active)' : ''}`);
 
   const budgetBytes = BUDGET_KB * 1024;
-  const summary = ['## Document weight (brotli, on the wire)', '', '| Page | Size | Budget | Status |', '|---|---|---|---|'];
+  const summary = ['## Document weight (brotli, on the wire)', '', '| Page | Size | Budget | Raw R2 imgs | Status |', '|---|---|---|---|---|'];
   let measured = 0;
+  let scanFailures = 0;
   const breaches = [];
 
   for (const [label, pathname] of TARGETS) {
@@ -74,7 +110,7 @@ async function main() {
     // not measure this page -- do not count it as a pass.
     if (!r || r.status < 200 || r.status >= 300) {
       console.log(`  [${label}] not measured (status ${r?.status ?? 'n/a'})`);
-      summary.push(`| ${label} | -- | ${BUDGET_KB} KB | not measured |`);
+      summary.push(`| ${label} | -- | ${BUDGET_KB} KB | -- | not measured |`);
       continue;
     }
     measured += 1;
@@ -82,16 +118,33 @@ async function main() {
     const over = r.bytes > budgetBytes;
     if (r.enc !== 'br') console.log(`  [${label}] note: content-encoding=${r.enc} (expected br)`);
     if (over) breaches.push(`${label} ${kb} KB > ${BUDGET_KB} KB`);
+
+    // Unoptimised-image guard: no <img> in the rendered document may fetch an
+    // R2 bucket directly -- covers must go through /_vercel/image.
+    const rawImgs = scanUnoptimizedImages(r.bodyTmp, r.enc);
+    if (rawImgs === null) {
+      scanFailures += 1;
+      console.log(`  [${label}] image scan failed: could not decode body (${r.enc})`);
+    } else if (rawImgs.length) {
+      breaches.push(`${label} serves ${rawImgs.length} <img> src(s) straight from R2 (unoptimised); first: ${rawImgs[0]}`);
+      console.log(`  OVER [${label}] ${rawImgs.length} unoptimised R2 <img>; e.g. ${rawImgs[0]}`);
+    }
+
     console.log(`  ${over ? 'OVER' : 'ok  '} [${label}] ${kb} KB (budget ${BUDGET_KB} KB, ${r.enc})`);
-    summary.push(`| ${label} | ${kb} KB | ${BUDGET_KB} KB | ${over ? 'OVER' : 'ok'} |`);
+    summary.push(`| ${label} | ${kb} KB | ${BUDGET_KB} KB | ${rawImgs === null ? 'scan failed' : rawImgs.length} | ${over || rawImgs?.length ? 'OVER' : 'ok'} |`);
   }
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
   }
 
-  // INFRA guard (fail-loud): we must have measured every target.
+  // INFRA guard (fail-loud): we must have measured every target, and every
+  // measured body must have been decodable for the image scan.
   assertMeasured(measured, TARGETS.length, 'document-weight targets');
+  if (scanFailures) {
+    console.error(`\n${scanFailures} target(s) could not be scanned for unoptimised images -- treating as infra failure.`);
+    process.exit(1);
+  }
 
   // BUDGET guard: warn-only until DOC_WEIGHT_ENFORCE=1.
   if (breaches.length) {

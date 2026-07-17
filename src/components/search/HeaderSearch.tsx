@@ -14,6 +14,7 @@ import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import type { SearchKind } from '@/lib/searchRpc';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 // Inline header omnibox (approach: omnibox typeahead). Lives in GlobalHeader;
 // the magnifier expands into a field that fills the bar, and a typeahead panel
@@ -317,7 +318,7 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                       >
                         <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
                           {r.imageUrl
-                            ? <img src={r.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+                            ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
                             : <Icon className="h-4 w-4 text-muted-foreground" />}
                         </span>
                         <span className="min-w-0 flex-1">

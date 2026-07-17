@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { weekdayOfKey } from '@/lib/londonDate';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -220,7 +221,7 @@ const EventCard = ({ ev }: { ev: MoreEvent }) => (
   >
     <div className="h-24 w-full overflow-hidden bg-gradient-to-br from-primary/30 to-festival-pink/20">
       {ev.imageUrl ? (
-        <img src={ev.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img src={optimizedImageUrl(ev.imageUrl, 320)} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : null}
     </div>
     <div className="flex flex-col gap-0.5 px-2 py-1.5">
@@ -247,7 +248,7 @@ const OrganiserCard = ({ org }: { org: OtherOrganiser }) => (
       style={{ background: 'hsl(var(--bento-accent) / 0.18)' }}
     >
       {org.avatarUrl ? (
-        <img src={org.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img src={optimizedImageUrl(org.avatarUrl, 160)} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : null}
     </div>
     <span className="line-clamp-2 text-center text-xs font-semibold leading-tight">{org.name}</span>

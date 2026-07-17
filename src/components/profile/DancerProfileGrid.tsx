@@ -9,6 +9,7 @@ import {
 import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import { motion } from "framer-motion";
 import { calculateDuration } from "@/components/profile/ExperiencePicker";
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 interface DancerProfileGridProps {
   dancer: DancerPublicViewModel;
@@ -113,7 +114,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
           <div className="absolute inset-0">
             {dancer.avatarUrl ? (
               <img 
-                src={dancer.avatarUrl} 
+                src={optimizedImageUrl(dancer.avatarUrl, 480)} 
                 alt={dancer.displayName}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"
               />

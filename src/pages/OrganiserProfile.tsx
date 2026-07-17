@@ -32,6 +32,7 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 // --- Types ---
 
@@ -255,7 +256,7 @@ const AvatarCircle = ({
       }}
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <img src={optimizedImageUrl(avatarUrl, 160)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       ) : (
         <span style={{ fontFamily: SERIF, fontSize, color: 'rgba(251,239,196,0.85)' }}>{initials(name)}</span>
       )}
@@ -269,7 +270,7 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
       <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, 96)} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}

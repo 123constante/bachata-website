@@ -155,7 +155,8 @@
   "images": {
     "sizes": [96, 160, 320, 480, 640, 960, 1280],
     "remotePatterns": [
-      { "protocol": "https", "hostname": "media.bachatacalendar.co.uk" }
+      { "protocol": "https", "hostname": "pub-07f606224cac4f2596903c44df723644.r2.dev" },
+      { "protocol": "https", "hostname": "pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev" }
     ],
     "formats": ["image/webp"],
     "minimumCacheTTL": 2678400,
