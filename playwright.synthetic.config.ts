@@ -9,6 +9,14 @@ import { defineConfig, devices } from '@playwright/test';
 // untouched.
 const BASE_URL = process.env.SYNTHETIC_BASE_URL || 'https://www.bachatacalendar.co.uk';
 
+// Preview PR coverage: when pointed at a protected Vercel preview, attach the
+// protection-bypass header to EVERY request (document + subresources) so the
+// synthetic monitor can load it; undefined against public prod (default).
+const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const extraHTTPHeaders = bypassSecret
+  ? { 'x-vercel-protection-bypass': bypassSecret, 'x-vercel-set-bypass-cookie': 'true' }
+  : undefined;
+
 export default defineConfig({
   testDir: './tests/synthetic',
   timeout: 60_000,
@@ -18,6 +26,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: BASE_URL,
+    extraHTTPHeaders,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     navigationTimeout: 30_000,

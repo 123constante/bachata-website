@@ -11,7 +11,7 @@ import { ChevronDown, Globe, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
 import { groupByDate, collapseFestivals, partitionRemote } from '../mapListDerivations';
-import { todayStr, distanceMiles } from '../mapTypes';
+import { distanceMiles } from '../mapTypes';
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { focusRing } from './controls';
@@ -39,8 +39,11 @@ function GroupHeader({
     'flex items-center gap-2 px-1 pb-1.5 pt-1',
     // Opaque bg + a pseudo strip directly above it so the sticky header covers
     // the feed's top padding / inter-group gap (no previous row peeks through).
+    // The colour is the SHELL's (#11121a), not --background (pure black): the feed
+    // has no background of its own and shows .home-map-fill through, so a
+    // bg-background header would stick out as a black band against it.
     sticky &&
-      "sticky top-0 z-10 bg-background before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-background before:content-['']",
+      "sticky top-0 z-10 bg-[#11121a] before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-[#11121a] before:content-['']",
   );
   if (isToday) {
     return (
@@ -144,11 +147,16 @@ export function AllEventsList({
 }: {
   state: UseMapListResult;
   showSearchEmpty?: boolean;
-  /** Pin each day's header to the top of the scroll as you pass it (mobile feed,
-   *  one tall scroller). Off on desktop, whose rail header would collide. */
+  /** Pin each day's header to the top of the scroll as you pass it. Safe at every
+   *  viewport now: the feed is the one scroller and the tabs/heading sit OUTSIDE
+   *  it, so a stuck header has nothing to collide with. */
   stickyHeaders?: boolean;
 }) {
-  const today = todayStr();
+  // NOT todayStr(): this list server-renders, and a render-time clock read would
+  // let the client derive a different "today" from hour-old cached HTML and
+  // discard the server tree. state.today is pinned to the server's day for the
+  // first render, then rolls over (see useMapList / homeClock).
+  const today = state.today;
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
   const tomorrow = addDaysToKey(today, 1);

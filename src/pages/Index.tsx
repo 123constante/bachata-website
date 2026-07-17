@@ -1,50 +1,56 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useCity } from '@/contexts/CityContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useMapEvents } from '@/hooks/useMapEvents';
 import { useMapList } from '@/modules/home-map/useMapList';
+import { HomeClockProvider } from '@/modules/home-map/homeClock';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
 import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
 import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
 
-// Both home surfaces are lazy so neither bundle blocks the other; the Festival
-// Map's Leaflet code only loads once one of them mounts.
-const MobileMapHome = lazyWithRetry(() => import('@/modules/home-map/mobile/MobileMapHome'));
-const DesktopMapHome = lazyWithRetry(() => import('@/modules/home-map/DesktopMapHome'));
+// STATIC import, deliberately. The shell is the page's above-the-fold content
+// (heading, tabs, event feed) and it must land in the server-rendered HTML --
+// a lazy import would resolve to a Suspense fallback on the server, which is
+// exactly the empty dark box this route used to paint. Leaflet stays lazy inside
+// it (HomeMapCard), so the map's bytes are still off the critical path.
+import HomeMapShell from '@/modules/home-map/HomeMapShell';
 
 // Stable empty fallback so useMapList's memoised derivations don't churn while
 // the map query is loading.
 const NO_EVENTS: MapEvent[] = [];
 
 /**
- * Festival Map homepage (`/city/:slug` and `/city/:slug/calendar`). A thin
- * responsive switch: the map data + discovery state are built unconditionally,
- * then the mobile or desktop surface renders. SEO JSON-LD + an sr-only <h1>
- * stay so the map surface (which has no visible heading) remains crawlable.
+ * Festival Map homepage (`/city/:slug` and `/city/:slug/calendar`). Builds the
+ * map data + discovery state, then renders the one CSS-responsive shell. The
+ * feed now server-renders from the loader's dehydrated query cache, so the
+ * document ships real content rather than a placeholder.
+ *
+ * `todayKey` / `serverNowMs` come from the route loader (app/routes/home.tsx).
+ * They pin every time-derived value on the FIRST render to the instant the
+ * server rendered at. This route is edge-cached (s-maxage=3600, SWR a day), so
+ * without them a browser hydrating hour-old HTML would compute a different
+ * "today" group or a different "Added 2h ago" stamp from the same data, and
+ * React would throw the server tree away. They are optional: the legacy SPA
+ * router (AnimatedRoutes) renders this page with no loader, and then the live
+ * clock is the right answer.
  */
-const Index = () => {
+const Index = ({
+  todayKey: serverTodayKey,
+  serverNowMs,
+}: {
+  todayKey?: string;
+  serverNowMs?: number;
+} = {}) => {
   const { citySlug } = useCity();
   const { pathname } = useLocation();
-  const isMobile = useIsMobile();
-
-  // The map surfaces are lazy and pull in Leaflet, which touches `window` at
-  // module load — so they must NEVER be imported on the server (a prerender that
-  // resolved the lazy import would crash). Gate them behind a mount flag: the
-  // server + client-first-render emit only the placeholder (no lazy import), then
-  // the map mounts client-side. The SEO payload below (sr-only <h1> + JSON-LD)
-  // still server-renders, which is the whole point of prerendering this route.
-  const [mapMounted, setMapMounted] = useState(false);
-  useEffect(() => setMapMounted(true), []);
 
   // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
   // 'london-gb'); drop a trailing 2-letter country code and title-case every
@@ -57,10 +63,10 @@ const Index = () => {
     return parts.map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
   }, [citySlug]);
 
-  // Reactive London-calendar "today": both windows below were previously
-  // frozen at mount ([] memos), so a tab left open overnight kept querying
-  // yesterday's ranges forever. Keying them by the London day rolls them over.
-  const todayKey = useLondonToday();
+  // Reactive London-calendar "today", seeded from the server's day so the first
+  // client render reproduces the cached HTML byte for byte; it then rolls over
+  // on its own (a tab left open overnight must not keep querying yesterday).
+  const todayKey = useLondonToday(serverTodayKey);
 
   // SEO-only: this week's events drive the JSON-LD ItemList. Kept separate from
   // the map query (different shape + horizon) so search-engine output is stable.
@@ -80,6 +86,9 @@ const Index = () => {
   }, [weekEvents]);
 
   // Map data: a 90-day window of occurrences (coords, cover, times, freshness).
+  // The loader dehydrates this exact query key, so on the server -- and on the
+  // first client render -- the data is already here and the feed renders for
+  // real. Keep the key derivation in lockstep with app/routes/home.tsx.
   const rangeStart = todayKey;
   const rangeEnd = useMemo(() => addDaysToKey(todayKey, 90), [todayKey]);
   const { data: mapEvents, isLoading, isError, refetch } = useMapEvents({
@@ -124,7 +133,10 @@ const Index = () => {
     return remote.length ? [...base, ...remote] : base;
   }, [mapEvents, globalFestivals]);
 
-  const state = useMapList(allMapEvents, { scrollOnPinSelect: !isMobile, citySlug });
+  // The LIVE todayKey, not the server seed: useMapList no longer runs a clock of its
+  // own, so the feed's grouping and the query window above are the same day by
+  // construction, even across a midnight rollover.
+  const state = useMapList(allMapEvents, { citySlug, today: todayKey });
 
   // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
   const { setTab } = state;
@@ -166,32 +178,23 @@ const Index = () => {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: renderOrganizationJsonLd() }}
       />
-      <h1 className="sr-only">Bachata classes, parties &amp; festivals in {cityDisplayName}</h1>
-      {mapMounted ? (
-        <Suspense
-          fallback={<div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />}
-        >
-          {isMobile ? (
-            <MobileMapHome
-              state={state}
-              cityName={cityDisplayName}
-              loading={isLoading}
-              error={isError}
-              onRetry={onRetry}
-            />
-          ) : (
-            <DesktopMapHome
-              state={state}
-              cityName={cityDisplayName}
-              loading={isLoading}
-              error={isError}
-              onRetry={onRetry}
-            />
-          )}
-        </Suspense>
-      ) : (
-        <div style={{ height: 'calc(100svh - 60px)', background: '#11121a' }} />
-      )}
+      {/* The sr-only <h1> that used to live here is gone: the shell's visible
+          "What's on in {city}" IS the page heading now. It was only ever an
+          sr-only duplicate because the visible one was locked inside the
+          client-only mobile surface. */}
+      <HomeClockProvider serverNowMs={serverNowMs ?? Date.now()}>
+        <HomeMapShell
+          state={state}
+          cityName={cityDisplayName}
+          loading={isLoading}
+          // Only when we have NOTHING to show. isError is also true for a failed
+          // BACKGROUND refetch, where React Query still holds the last good rows --
+          // and tearing the server-rendered feed down for a retry notice in that case
+          // would be a self-inflicted outage on a transient blip.
+          error={isError && !mapEvents}
+          onRetry={onRetry}
+        />
+      </HomeClockProvider>
     </PageErrorBoundary>
   );
 };

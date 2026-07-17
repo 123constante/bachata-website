@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { captureException } from "@/lib/sentry";
+import { pack, unpack } from "@/lib/dehydrateCodec";
 import { BrowserRouter } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -46,6 +47,16 @@ export function createQueryClient(): QueryClient {
         retry: 1,
         refetchOnWindowFocus: true,
       },
+      // WS14: losslessly columnar-encode dehydrated array payloads (the ~383-row
+      // 90-day map-events feed dominates the homepage HTML) to shed turbo-stream's
+      // per-row key-ref scaffolding. serializeData packs on dehydrate();
+      // deserializeData unpacks on hydrate(). They MUST be set together and be
+      // exact inverses: a server render mints its own createQueryClient() (see
+      // getBrowserQueryClient) and hydrate() runs deserializeData synchronously
+      // inside HydrationBoundary during SSR, so pack-without-unpack would render
+      // the server tree from packed data and hydration-mismatch. See lib/dehydrateCodec.
+      dehydrate: { serializeData: pack },
+      hydrate: { deserializeData: unpack },
     },
   });
 }

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
+import { useLondonToday } from '@/hooks/useLondonToday';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 type UserLocation = { lat: number; lng: number };
@@ -236,14 +237,16 @@ export const CalendarListView = ({
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   monthEnd.setHours(23, 59, 59, 999);
 
-  const now = new Date();
-  const isCurrentMonth =
-    currentYear === now.getFullYear() && currentMonth === now.getMonth();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // London calendar day, not the browser's (see CalendarGrid) -- otherwise a
+  // non-London visitor's past/today gating is off by a day. useLondonToday()
+  // returns 'YYYY-MM-DD' (tm is 1-based).
+  const [ty, tm, td] = useLondonToday().split('-').map(Number);
+  const isCurrentMonth = currentYear === ty && currentMonth === tm - 1;
+  const todayStart = new Date(ty, tm - 1, td);
   const effectiveStart =
     isCurrentMonth && todayStart > monthStart ? todayStart : monthStart;
 
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayMidnight = new Date(ty, tm - 1, td);
 
   const filtered = events
     .filter(

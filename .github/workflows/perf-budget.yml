@@ -1,15 +1,29 @@
 name: Perf Budget
 
-# Performance guardrails (perf programme, Pillar D -- "stays fast"). Two jobs:
+# Performance guardrails (perf programme, Pillar D -- "stays fast"). Three jobs:
 #   - bundle-budget: builds the client and enforces per-route first-load JS
 #     budgets from perf-budgets.json (catches a heavy dep creeping back onto the
 #     hydration critical path, e.g. framer-motion/Sentry).
-#   - lighthouse: waits for the Vercel PR preview and asserts LCP/TBT/CLS mobile
-#     budgets on the homepage, a landing page, and one event-detail page.
+#   - lighthouse: resolves the PR's Vercel preview first-party (scripts/lib/
+#     previewProbe.mjs, via the GitHub Deployments API -- no third-party action)
+#     and asserts LCP/TBT/CLS mobile budgets on the homepage, a landing page, and
+#     one event page.
+#   - doc-weight: measures the rendered homepage's on-the-wire brotli bytes -- the
+#     first CI check that sees the actual document (bundle-budget only sees JS).
 #
-# BOTH run WARN-ONLY (continue-on-error) for the initial ~2-week bake, matching
-# the plan: a breach surfaces as a PR annotation + step summary, not a red gate.
-# Phase 4 flips them to blocking by removing continue-on-error.
+# ANTI-MASKING (why this workflow no longer hides a dead check): the measure jobs
+# are NOT continue-on-error. Their scripts split two failure classes -- an INFRA
+# failure ("couldn't measure": preview unreachable, protection not bypassed, zero
+# metrics) is ALWAYS a hard red; a BUDGET breach ("measured, over budget") is
+# warn-only until LH_ENFORCE=1 / DOC_WEIGHT_ENFORCE=1 flips it to blocking. That
+# flip is Phase 4 -- a deliberate env switch, NOT the accident of dropping a
+# continue-on-error. Do not add continue-on-error to a measure job to quiet it:
+# that is exactly how the Lighthouse check sat dead-but-green for 13 PR runs.
+#
+# PREREQUISITE: the lighthouse + doc-weight jobs reach the protected preview with
+# VERCEL_AUTOMATION_BYPASS_SECRET (Vercel: Settings -> Deployment Protection ->
+# Protection Bypass for Automation, added as a repo Actions secret). Until that
+# secret exists they fail LOUDLY (by design) rather than silently passing.
 
 on:
   push:
@@ -21,6 +35,10 @@ jobs:
   bundle-budget:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # soft-signal: first-load JS budgets are warn-only during the bake; Phase 4
+    # removes this to make them blocking. This is a real, reliably-failing local
+    # check (no external dependency), so a soft window here cannot hide a dead
+    # check the way the old lighthouse continue-on-error did.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -52,8 +70,12 @@ jobs:
     # Previews only exist for PRs; skip on push (nothing to point Lighthouse at).
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
+    timeout-minutes: 30
+    # NOT continue-on-error: an infra failure here must be a loud red. Budget
+    # breaches are warn-only inside the script (LH_ENFORCE) instead.
+    permissions:
+      contents: read
+      deployments: read
     steps:
       - uses: actions/checkout@v4
 
@@ -68,14 +90,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for Vercel preview
-        id: preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 600
-
       - name: Lighthouse mobile budgets
         env:
-          LH_BASE_URL: ${{ steps.preview.outputs.url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run check:lighthouse
+
+  doc-weight:
+    # Measures the rendered homepage's on-the-wire brotli bytes on the PR preview.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # NOT continue-on-error: same anti-masking rule as lighthouse.
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci`: check-doc-weight.mjs and previewProbe.mjs use only Node
+      # builtins + curl (preinstalled on ubuntu-latest).
+      - name: Document weight budget
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run check:doc-weight

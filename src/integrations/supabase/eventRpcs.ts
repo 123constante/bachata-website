@@ -330,7 +330,8 @@ export interface FestivalPublish {
 // v1 RPC reader) moved to get_public_festival_detail_v2 in Phase 2 -- see
 // src/modules/event-page/festivalEventQuery.ts. The Festival* leaf types above
 // are still the shared shapes for that v2 path; the v1 aggregate + fetcher were
-// removed as dead code (WallClock Phase 3).
+// removed as dead code (WallClock Phase 3). The branded, camelCase FestivalDetail
+// consumers import lives in src/modules/event-page/types.ts.
 
 // ============================================================================
 // RPC Utilities
@@ -388,10 +389,20 @@ export async function getEventPageSnapshot(
   return (data as EventPageSnapshot) || null;
 }
 
-// RPC 3 (getPublicFestivalDetail / getEventDetailWithFestival) removed as dead
-// code in WallClock Phase 3: it called the superseded v1 get_public_festival_detail
-// RPC and its only caller (the unused useEventWithFestival hook) is gone. Festival
-// detail now flows through get_public_festival_detail_v2 (Phase 2).
+// REMOVED: getPublicFestivalDetail + getEventDetailWithFestival (2026-07-14).
+//
+// They were the LAST callers of the legacy v1 RPC `get_public_festival_detail` in this
+// app, and they were DEAD: the only consumer was src/hooks/useEventWithFestival.ts, which
+// nothing imported (the live event page is BentoPage, which reads the festival payload
+// through fetchFestivalDetail -> get_public_festival_detail_v2). Pointing dead code at _v2
+// would have "removed a v1 caller" on paper while leaving an unreachable chain behind, so
+// the chain is gone instead -- and WallClock Phase 3 deletes that unused hook itself, so
+// the chain has no remaining link. The single fetch path is now
+// src/modules/event-page/useFestivalDetailQuery.ts::fetchFestivalDetail.
+//
+// This matters beyond tidiness: Phase 1E Stage F retires the v1 public RPCs, and its gate
+// is caller-zero. A dead-but-present caller is exactly the kind of thing a grep-based
+// audit counts as live and a human then has to re-litigate.
 
 // ============================================================================
 // RPC 4: get_latest_events_v1 (newest uploads -- homepage "Just added" wheel)
