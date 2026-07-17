@@ -1,7 +1,7 @@
 // Festival Map -- shared "Calendar" panel: a month grid with category dots.
 // Tap a day to open the DayDetailModal (same rich view as the /parties page).
 // New UI (not the exempt DayDetailModal) so density rules apply. Used by both the
-// mobile sheet (SheetCalendarTab) and the desktop list rail (DesktopMapHome).
+// home shell's Calendar tab (HomeMapShell), lazily -- see the note there.
 
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { focusRing } from './controls';
 import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
-import { todayStr } from '../mapTypes';
+import { isDesktopViewport } from '../viewport';
 import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
@@ -18,23 +18,21 @@ import { useCity } from '@/contexts/CityContext';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export function CalendarPanel({
-  state,
-  seedDefault = false,
-}: {
-  state: UseMapListResult;
-  /** Desktop's tall rail looks empty with no day picked, so seed a default day
-   *  on mount (audit #14). The short mobile sheet leaves it unset. */
-  seedDefault?: boolean;
-}) {
-  const today = todayStr();
+export function CalendarPanel({ state }: { state: UseMapListResult }) {
+  // The London day, pinned to the server's for the first render (see useMapList).
+  const today = state.today;
   const { citySlug } = useCity();
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Seed the soonest day that has events (else today) once per Calendar entry
-  // when asked (desktop). Runs on mount only, so a manual Clear is respected.
+  // Seed the soonest day that has events (else today) once per Calendar entry,
+  // on DESKTOP only: its tall rail looks empty with no day picked (audit #14),
+  // while on mobile the seed would pop the day modal open the instant you tap
+  // the Calendar tab. The viewport is read inside the effect, never during
+  // render -- this component is lazy and only ever mounts client-side, but a
+  // render-time viewport branch is the one thing this page must never grow
+  // (see ../viewport). Runs on mount only, so a manual Clear is respected.
   useEffect(() => {
-    if (!seedDefault || state.day) return;
+    if (!isDesktopViewport() || state.day) return;
     const dates = [...state.calendarDays.keys()].filter((d) => d >= today).sort();
     state.setDay(dates[0] ?? today);
     setModalOpen(true);

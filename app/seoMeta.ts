@@ -31,14 +31,19 @@ export function seoInputToMeta(input: SeoInput): Array<Record<string, string>> {
     { name: "twitter:image", content: ogImage },
   ];
 
-  // Mirror useSeo: declare dimensions only for the known default card.
-  if (ogImage === DEFAULT_OG_IMAGE) {
-    tags.push(
-      { property: "og:image:width", content: "1200" },
-      { property: "og:image:height", content: "630" },
-      { property: "og:image:type", content: "image/jpeg" },
-    );
-  }
+  // Every og:image this app serves is a normalized 1200x630 JPEG — the default
+  // card, an R2-baked event/festival card, and the live /api/og/card render
+  // (kind=image letterboxes entity covers to the same frame; see app/lib/
+  // ogCardRender CARD_W/CARD_H and api.og.card's image/jpeg response). Declare
+  // the dimensions + type for ALL of them, not just the default: WhatsApp and
+  // other crawlers use og:image:width/height to lay out the link preview, and
+  // omitting them on the dynamic-card path degraded the preview on the most-
+  // shared surface (events/festivals).
+  tags.push(
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:type", content: "image/jpeg" },
+  );
 
   if (input.noindex) {
     tags.push({ name: "robots", content: "noindex,nofollow" });

@@ -12,21 +12,33 @@
 // when individual events are retired; if none is found the event audit is
 // skipped with a warning rather than failing.
 //
-//   LH_BASE_URL   base URL to audit (Vercel preview URL in CI)
+// Base URL: LH_BASE_URL if set (explicit target, e.g. prod for a local run),
+// otherwise the PR's Vercel preview is resolved first-party via the GitHub
+// Deployments API (previewProbe) — no third-party wait action. Protected previews
+// are reached with the Vercel Protection-Bypass headers, applied to Lighthouse's
+// requests via --extra-headers (CDP Network.setExtraHTTPHeaders → document AND
+// every subresource) and to the sitemap fetch.
 //
-// Runs WARN-ONLY in the perf-budget workflow (continue-on-error) until Phase 4
-// flips it to blocking, so a breach here surfaces as a PR annotation, not a red
-// check. Exit 1 on any breach so the blocking flip is a one-line workflow edit.
+// Anti-masking: two distinct failure classes.
+//   - INFRA ("couldn't measure a mandatory target"): ALWAYS a hard failure
+//     (exit 1). This is what the dead-Lighthouse era hid behind continue-on-error.
+//   - BUDGET ("measured, but over budget"): warn-only until LH_ENFORCE=1 flips it
+//     to blocking (that flip is Phase 4 — a deliberate env switch, not the
+//     accident of removing the job's infra-health guard).
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { resolvePreviewUrl, bypassHeaders, assertMeasured } from './lib/previewProbe.mjs';
 
-const BASE = (process.env.LH_BASE_URL ?? '').replace(/\/$/, '');
-if (!BASE) {
-  console.error('LH_BASE_URL is not set (need the deployed base URL to audit).');
-  process.exit(1);
-}
+const EXPLICIT_BASE = (process.env.LH_BASE_URL ?? '').replace(/\/$/, '');
+// Resolved in main(): the explicit base, or the PR preview. The bypass headers
+// and their temp-file path (for --extra-headers) are set alongside it.
+let BASE = EXPLICIT_BASE;
+let BYPASS = null;
+let extraHeadersPath = null;
 
 // [label, path] -- homepage redirects "/" -> "/city/london-gb" (vercel.json), so
 // audit the real destination to avoid measuring the redirect hop.
@@ -54,7 +66,7 @@ const LH_CLI = createRequire(import.meta.url).resolve('lighthouse/cli/index.js')
 
 async function discoverEventUrl() {
   try {
-    const res = await fetch(`${BASE}/sitemap.xml`, { redirect: 'follow' });
+    const res = await fetch(`${BASE}/sitemap.xml`, { redirect: 'follow', headers: BYPASS ?? undefined });
     if (!res.ok) return null;
     const xml = await res.text();
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
@@ -75,6 +87,10 @@ function runLighthouse(url) {
       '--form-factor=mobile',
       '--screenEmulation.mobile',
       '--throttling-method=simulate',
+      // Bypass Vercel Deployment Protection on ALL requests. A file PATH (not
+      // inline JSON) keeps the secret off argv, which execFileSync echoes in
+      // thrown errors the per-target catch logs.
+      ...(extraHeadersPath ? [`--extra-headers=${extraHeadersPath}`] : []),
       '--chrome-flags=--headless=new --no-sandbox --disable-gpu',
       '--output=json',
       '--output-path=stdout',
@@ -118,6 +134,18 @@ function auditTarget(label, pathname) {
 }
 
 async function main() {
+  // Resolve the target base URL and the protection bypass. When no explicit
+  // LH_BASE_URL is given we resolve the PR preview first-party; a protected
+  // preview then REQUIRES the bypass secret (previewProbe throws in CI if absent),
+  // so a misconfig fails loudly instead of 401-ing into empty metrics.
+  BASE = EXPLICIT_BASE || (await resolvePreviewUrl());
+  BYPASS = bypassHeaders({ required: !EXPLICIT_BASE });
+  if (BYPASS) {
+    extraHeadersPath = join(mkdtempSync(join(tmpdir(), 'lh-hdr-')), 'headers.json');
+    writeFileSync(extraHeadersPath, JSON.stringify(BYPASS));
+  }
+  console.log(`Lighthouse base: ${BASE}${BYPASS ? ' (protection bypass active)' : ''}`);
+
   const targets = [...FIXED_TARGETS];
   const eventPath = await discoverEventUrl();
   if (eventPath) targets.push(['event', eventPath]);
@@ -139,22 +167,33 @@ async function main() {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
   }
 
-  // Never let a wholesale failure masquerade as a pass: if not a single target
-  // actually produced a report (e.g. the binary couldn't spawn), report failure
-  // rather than the reassuring "all budgets respected".
-  const ranCount = results.filter((r) => !r.skipped).length;
-  if (ranCount === 0) {
-    console.error('\nLighthouse produced no results -- every target was skipped (binary failed to run?). Not reporting a pass.');
-    process.exit(1);
-  }
+  // INFRA guard (fail-loud, always): the mandatory targets MUST have produced
+  // real metrics. A skipped/empty mandatory target means we measured nothing --
+  // exactly the dead-Lighthouse failure that continue-on-error used to hide.
+  // assertMeasured throws -> main().catch -> exit 1, regardless of LH_ENFORCE.
+  const MANDATORY = new Set(['homepage', 'landing']);
+  const measuredMandatory = results.filter(
+    (r) => MANDATORY.has(r.label) && !r.skipped && r.rows.length > 0,
+  ).length;
+  assertMeasured(measuredMandatory, MANDATORY.size, 'mandatory Lighthouse targets');
 
+  // BUDGET guard: warn-only until LH_ENFORCE=1 (Phase 4) makes it blocking.
+  const ENFORCE = process.env.LH_ENFORCE === '1';
   const totalBreaches = results.flatMap((r) => r.breaches);
   if (totalBreaches.length) {
-    console.error(`\n${totalBreaches.length} Lighthouse budget breach(es):`);
-    for (const b of totalBreaches) console.error(`  - ${b}`);
-    process.exit(1);
+    const lines = totalBreaches.map((b) => `  - ${b}`).join('\n');
+    if (ENFORCE) {
+      console.error(`\n${totalBreaches.length} Lighthouse budget breach(es):\n${lines}`);
+      process.exit(1);
+    }
+    console.warn(
+      `\nWARN: ${totalBreaches.length} Lighthouse budget breach(es) (warn-only until LH_ENFORCE=1):\n${lines}`,
+    );
   }
-  console.log(`\nAll Lighthouse mobile budgets respected (${ranCount} page(s) audited).`);
+  console.log(
+    `\nLighthouse measured ${measuredMandatory}/${MANDATORY.size} mandatory targets` +
+      `${totalBreaches.length ? ` with ${totalBreaches.length} budget warning(s)` : ' — all budgets respected'}.`,
+  );
 }
 
 main().catch((err) => {

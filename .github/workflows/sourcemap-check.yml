@@ -52,6 +52,10 @@ jobs:
       # Secondary: event-based drift monitor (catches resolution failures seen in
       # real prod errors). Informational — does not fail the job on its own.
       - name: Check recent production errors resolve (drift monitor)
+        # soft-signal: informational drift monitor over live Sentry data. The
+        # primary invariant (debug-ids resolve) is guarded by the fail-fast step
+        # above; this secondary step only annotates and must not fail the job on
+        # transient Sentry/event noise.
         continue-on-error: true
         env:
           SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}

@@ -14,8 +14,13 @@
 //
 // Exit 1 if any sampled page would show no preview.
 
+import { bypassHeaders } from './lib/previewProbe.mjs';
+
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
+// When pointed at a protected Vercel preview (PR coverage), send the bypass
+// headers; null (no secret) against public prod, where they are not needed.
+const BYPASS = bypassHeaders({ required: false });
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
 
@@ -26,7 +31,7 @@ async function fetchText(url, opts = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const r = await fetch(url, { ...opts, signal: ctrl.signal });
+    const r = await fetch(url, { ...opts, headers: { ...(BYPASS ?? {}), ...(opts.headers ?? {}) }, signal: ctrl.signal });
     return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
   } finally {
     clearTimeout(t);
@@ -38,7 +43,7 @@ async function headImage(url) {
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     // GET (not HEAD): the card endpoint streams a generated image; HEAD may skip Content-Length.
-    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: BYPASS ?? undefined });
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     let bytes = Number(r.headers.get('content-length') || 0);
     if (!bytes && r.ok) bytes = (await r.arrayBuffer()).byteLength;
@@ -51,6 +56,17 @@ async function headImage(url) {
 function pick(html, re) {
   const m = html.match(re);
   return m ? m[1] : null;
+}
+
+// og:image content is an HTML attribute, so ampersands are entity-encoded
+// (`...&amp;v=...`). A real client (WhatsApp, browsers) decodes entities before
+// fetching, so decode here too — otherwise the query-param assertions below see
+// `;v=` instead of `&v=` and false-fail, and the image fetch would request a
+// literally-wrong URL. Covers the ampersand forms that appear in these URLs.
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&#(?:38|x26);/gi, '&');
 }
 
 async function sampleUrls() {
@@ -81,9 +97,10 @@ async function checkPage(pathOrUrl) {
   if (!res.ok) return { url, failures: [`page HTTP ${res.status}`] };
 
   const html = res.text;
-  const ogImage = pick(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+  const ogImageRaw = pick(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
     || pick(html, /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (!ogImage) { failures.push('no og:image'); return { url, failures }; }
+  if (!ogImageRaw) { failures.push('no og:image'); return { url, failures }; }
+  const ogImage = decodeEntities(ogImageRaw);
   if (!/^https:\/\//i.test(ogImage)) failures.push(`og:image not absolute https: ${ogImage}`);
   if (!/og:image:width/i.test(html)) failures.push('missing og:image:width');
   if (!/og:image:height/i.test(html)) failures.push('missing og:image:height');

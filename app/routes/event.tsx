@@ -190,6 +190,13 @@ export const meta: Route.MetaFunction = ({ data }) => {
     { property: "og:description", content: description },
     { property: "og:url", content: canonical },
     { property: "og:image", content: ogImage },
+    // The og:image is always a 1200x630 JPEG (R2-baked card or live /api/og/card;
+    // see app/lib/ogCardRender). Declare its dimensions + type so WhatsApp and
+    // other crawlers render the link preview at the right size — omitting these
+    // on the dynamic-card path degraded event previews (the most-shared surface).
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:type", content: "image/jpeg" },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:image", content: ogImage },
   ];
