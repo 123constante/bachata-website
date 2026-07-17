@@ -1,4 +1,11 @@
-#!/usr/bin/env node
+// NB: deliberately NO `#!/usr/bin/env node` shebang. tests/wallClockBrandGate.test.ts
+// imports isBrandMisuse from this file directly (so the test exercises the REAL
+// predicate); Vitest inlines the module and a leading `#!` is an invalid token there --
+// it fails the whole file with "SyntaxError: Invalid or unexpected token" and collects
+// ZERO tests, while pointing at the importer rather than here. The shebang was
+// decorative: this is only ever invoked as `node scripts/check-wallclock-brand.mjs`
+// (package.json `check:wallclock-brand` + .github/workflows/typecheck.yml), never as
+// `./check-wallclock-brand.mjs`. Please don't re-add it.
 /**
  * check-wallclock-brand.mjs
  *
