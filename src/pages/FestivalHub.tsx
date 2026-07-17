@@ -11,19 +11,11 @@ import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/Scroll
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { supabase } from "@/integrations/supabase/client";
+import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
-
-type FestivalEvent = {
-  id: string;
-  name: string;
-  city: string | null;
-  date: string | null;
-  start_time: string | null;
-  poster_url: string | null;
-};
 
 type AttendanceCounts = {
   interested_count: number;
@@ -95,18 +87,8 @@ const FestivalHubInner = () => {
   };
 
   const { data: festivals = [] } = useQuery({
-    queryKey: ['festival-events-live'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, name, city, date, start_time, poster_url')
-        .eq('type', 'festival')
-        .eq('is_active', true)
-        .order('start_time', { ascending: true });
-
-      if (error) throw error;
-      return (data || []) as FestivalEvent[];
-    },
+    queryKey: FESTIVALS_LIST_QUERY_KEY,
+    queryFn: fetchPublicFestivalsList,
     // Matches the ISR edge window (s-maxage=3600) -- the /festivals loader
     // dehydrates this key; see useEventPageQuery for the full rationale. The
     // attendance/status queries below stay short-lived (they're personalised

@@ -1,33 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchPublicFestivalsList, type FestivalListItem } from '@/lib/festivalsList';
 import { londonTodayKey } from '@/lib/londonDate';
 
-export type FestivalPreview = {
-  id: string;
-  name: string;
-  city: string | null;
-  date: string | null;
-  start_time: string | null;
-  poster_url: string | null;
-};
+export type FestivalPreview = FestivalListItem;
 
 export function useUpcomingFestivalsGlobal() {
   return useQuery({
-    queryKey: ['upcoming-festivals-global'],
+    // Versioned alongside the shared festivals-list seam: the payload now comes from
+    // the P5-native get_public_festivals_list_v1 rather than a direct events select.
+    queryKey: ['upcoming-festivals-global-v2'],
     queryFn: async () => {
-      // events.date is a London calendar date — bound it with the London
-      // today key, not the browser/UTC one.
+      // The RPC returns every live festival (past + future) already ordered by
+      // start date, so the "upcoming" window is applied here. `date` is a London
+      // calendar date — bound it with the London today key, not the browser/UTC one.
       const today = londonTodayKey();
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, name, city, date, start_time, poster_url')
-        .eq('type', 'festival')
-        .eq('is_active', true)
-        .gte('date', today)
-        .order('date', { ascending: true })
-        .limit(40);
-      if (error) throw error;
-      return (data ?? []) as FestivalPreview[];
+      const rows = await fetchPublicFestivalsList();
+      return rows.filter((f) => (f.date ?? '') >= today).slice(0, 40);
     },
     staleTime: 60_000,
   });

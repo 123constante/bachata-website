@@ -330,25 +330,21 @@ const Organisers = () => {
   });
 
   const { data: lastEventDates = {} } = useQuery({
-    queryKey: ['organiser-last-event-dates', todayKey],
+    // Keyed by London-day to match the next-dates query: the "past" boundary the
+    // RPC applies moves when the London calendar day does.
+    queryKey: ['organiser-last-event-dates-v2', todayKey],
     queryFn: async () => {
-      // instance_start is London wall-clock stored as-if-UTC, so the London
-      // date key is the correct "past" boundary (not the browser/UTC date).
-      // Use the closured todayKey (the queryKey's value) — recomputing "now"
-      // here can diverge from the key when a fetch straddles London midnight,
-      // caching next-day data under the old key.
-      const today = todayKey;
-      const [entitiesRes, occRes] = await Promise.all([
-        supabase.from('event_entities' as any).select('event_id, entity_id').eq('role', 'organiser').limit(5000),
-        supabase.from('calendar_occurrences' as any).select('event_id, instance_start').lt('instance_start', today).order('instance_start', { ascending: false }).limit(2000),
-      ]);
-      if (entitiesRes.error || occRes.error) return {} as Record<string, string>;
-      const eventToEntity: Record<string, string> = {};
-      (entitiesRes.data as any[]).forEach((r) => { eventToEntity[r.event_id] = r.entity_id; });
+      // Was a client-side join over event_entities + calendar_occurrences (two
+      // legacy tables, capped at 2000 occurrence rows, and it kept only ONE
+      // organiser per event). The P5-native RPC does the aggregation server-side
+      // with the London-day boundary applied there (M2).
+      const { data, error } = await supabase.rpc('get_organiser_last_event_dates_v1' as any);
+      if (error) return {} as Record<string, string>;
       const best: Record<string, string> = {};
-      (occRes.data as any[]).forEach((r) => {
-        const eid = eventToEntity[r.event_id];
-        if (eid && r.instance_start && (!best[eid] || r.instance_start > best[eid])) best[eid] = r.instance_start;
+      (data as any[] | null)?.forEach((item) => {
+        if (item?.entity_id && item?.last_event_date) {
+          best[item.entity_id] = item.last_event_date;
+        }
       });
       return best;
     },

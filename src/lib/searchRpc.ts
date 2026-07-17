@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+import { fetchPublicFestivalsList } from '@/lib/festivalsList';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 import { londonTodayKey } from '@/lib/londonDate';
 
@@ -129,29 +130,29 @@ export async function searchPublicV3(
   const term = query.trim();
   if (!term) return [];
   const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
-  // Global festivals still come from the legacy events table so a festival in
-  // another city surfaces in search (mirrors prior v3/v4 behaviour).
-  // events.date is a London calendar date — bound it with the London today key.
+  // Global festivals are fetched separately so a festival in ANOTHER city still
+  // surfaces in search (mirrors prior v3/v4 behaviour). They now come from the
+  // P5-native shared festivals-list seam rather than a direct events select (M2).
+  // The RPC returns every live festival ordered by start date, so the name match,
+  // the past/future window and the section cap are applied here instead of in the
+  // query. `date` is a London calendar date — bound it with the London today key.
   const today = londonTodayKey();
-  let festQuery = supabase
-    .from('events')
-    .select('id, name, city, poster_url, date')
-    .eq('type', 'festival')
-    .eq('is_active', true)
-    .ilike('name', `%${term}%`)
-    .order('date', { ascending: true })
-    .limit(sectionLimit);
-  if (!includePast) festQuery = festQuery.gte('date', today);
+  const needle = term.toLowerCase();
 
-  const [rpcResult, festResult] = await Promise.all([
+  const [rpcResult, festRows] = await Promise.all([
     supabase.rpc(fn as never, {
       p_query: term,
       p_city_slug: citySlug ?? null,
       p_section_limit: sectionLimit,
       p_include_past: includePast,
     }),
-    festQuery,
+    fetchPublicFestivalsList(),
   ]);
+
+  const festResult = festRows
+    .filter((f) => (f.name ?? '').toLowerCase().includes(needle))
+    .filter((f) => includePast || (f.date ?? '') >= today)
+    .slice(0, sectionLimit);
   if (rpcResult.error) throw rpcResult.error;
   const payload = rpcResult.data as V3Payload;
   if (!payload) return [];
@@ -168,12 +169,12 @@ export async function searchPublicV3(
   });
 
   const localEventIds = new Set((payload.events ?? []).map((e) => e.id));
-  const globalFests: SearchResult[] = ((festResult.data ?? []) as { id: string; name: string; city: string | null; poster_url: string | null; date: string | null }[])
+  const globalFests: SearchResult[] = festResult
     .filter((f) => !localEventIds.has(f.id))
     .map((f) => ({
       kind: 'event' as SearchKind,
       id: f.id,
-      title: f.name,
+      title: f.name ?? '',
       subtitle: f.city,
       imageUrl: resolveEventImage(f.poster_url, null),
       eventType: 'festival',
