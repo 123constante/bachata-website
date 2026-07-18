@@ -837,3 +837,21 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-public-read-contract.mjs
+
+      # 54. Series-materialisation horizon watchdog (2026-07-18). Occurrence
+      #     materialisation is save-triggered; the admin pg_cron job
+      #     'nightly-series-horizon-topup' (admin migration 20260718090000) now
+      #     re-materialises every live/paused recurring/course series' tail to
+      #     today+12mo nightly. check_series_materialisation_contract_v1 compares
+      #     rule dates vs materialised rows over today+11mo — so its 11-vs-12-month
+      #     grace band makes it the cron's watchdog: green while the cron runs, red
+      #     within ~1 month if the cron dies (or on a genuine interior gap). Before
+      #     this the check had ZERO callers in either repo — the cascade it caught
+      #     turned nothing red. GATED at divergent = 0. Health-check RPC:
+      #     check_series_materialisation_contract_v1 (admin migration 20260709050000).
+      - name: Run series-materialisation horizon watchdog check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-series-materialisation.mjs
