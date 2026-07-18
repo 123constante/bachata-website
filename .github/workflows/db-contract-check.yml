@@ -855,3 +855,34 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-series-materialisation.mjs
+
+      # 55. People public-read contract (M3 Phase 0, 2026-07-18). The people
+      #     surfaces — /teachers, /djs, /all-profiles, site search — had NO guard
+      #     at all, and that gap is how the M3 plan came to specify a change that
+      #     would have deleted three teachers from the live site. Phase A strips
+      #     legacy COALESCE arms (COALESCE(avatar_url, photo_url) -> avatar_url)
+      #     and was described as non-destructive; but on the three teacher RPCs
+      #     that COALESCE is in the WHERE clause, so it gates ROW MEMBERSHIP, not
+      #     display. Measured against prod: get_public_teachers_list_v1 would have
+      #     gone 34 rows -> 31, 404ing three detail pages and orphaning their
+      #     sitemap URLs. Every existing guard stayed green: check-search-public-v5
+      #     probes v5 while production runs v4 and asserts shape only;
+      #     check_dancer_profiles_legacy_col_drift_v1 was wired into nothing and
+      #     went red on correct work; check:rpc-snapshots is an md5 of the body;
+      #     and no E2E spec covers these routes. Asserts survivor violations,
+      #     teacher-gate parity (with vs without the legacy arm — self-maintaining,
+      #     no pinned count to rot), sidecar coverage, that admin_save_person_v1
+      #     stays key-driven rather than role-driven (it used to DELETE a person's
+      #     sidecar whenever the role was absent, while the READ emitted that same
+      #     sidecar from row existence — 70 of 111 rows were one save from silent
+      #     deletion), and search recall against search_public_v4, the LIVE path.
+      #     All five failure modes verified reachable by re-introducing the bug
+      #     against prod in a rolled-back transaction. Health-check RPC:
+      #     check_people_public_read_contract_v1 (admin migration 20260718120000);
+      #     survivor heal 20260718100000, writer fix 20260718110000.
+      - name: Run people public-read contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-people-public-read-contract.mjs
