@@ -1,0 +1,102 @@
+{
+  "app/detailLoader.ts": {
+    "get_og_image_v1": 1
+  },
+  "app/lib/ogCardRender.ts": {
+    "event_view_p5": 1
+  },
+  "app/routes/api.embed.calendar.tsx": {
+    "get_public_events_list_v2": 1
+  },
+  "app/routes/api.ics.calendar.tsx": {
+    "get_public_events_list_v2": 1
+  },
+  "app/routes/event.tsx": {
+    "event_view_p5": 1
+  },
+  "app/routes/festival.tsx": {
+    "event_view_p5": 1
+  },
+  "src/components/DiscountPartners.tsx": {
+    "get_discount_partners_with_next_event": 1
+  },
+  "src/hooks/useFavouriteVenue.ts": {
+    "is_venue_favourited_v1": 1
+  },
+  "src/hooks/usePopularSearches.ts": {
+    "get_popular_searches_v1": 1
+  },
+  "src/integrations/supabase/eventRpcs.ts": {
+    "event_view_p5": 1,
+    "get_latest_events_v2": 1,
+    "get_map_events_v1": 1
+  },
+  "src/lib/auth-intent.ts": {
+    "account_exists_by_email": 1
+  },
+  "src/lib/festivalsList.ts": {
+    "get_public_festivals_list_v1": 1
+  },
+  "src/lib/profileViewEmit.ts": {
+    "record_profile_view_v1": 1
+  },
+  "src/lib/searchClickTelemetry.ts": {
+    "record_search_result_click_v1": 1
+  },
+  "src/lib/searchRpc.ts": {
+    "search_public_v2": 1
+  },
+  "src/lib/searchTelemetry.ts": {
+    "record_search_query_v1": 1
+  },
+  "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx": {
+    "record_organiser_card_click_v1": 1
+  },
+  "src/modules/event-page/sections/MoreEventsSection.tsx": {
+    "get_organiser_event_counts": 1,
+    "get_organiser_next_occurrences_v1": 1
+  },
+  "src/modules/event-page/useEventPageQuery.ts": {
+    "event_view_p5": 1
+  },
+  "src/modules/event-page/useRecordEventView.ts": {
+    "record_event_view_v1": 1
+  },
+  "src/pages/CreateProfile.tsx": {
+    "claim_dancer_profile": 1
+  },
+  "src/pages/FestivalDetail.tsx": {
+    "event_view_p5": 1
+  },
+  "src/pages/OrganiserProfile.tsx": {
+    "get_organiser_calendar_events_v1": 2
+  },
+  "src/pages/Organisers.tsx": {
+    "get_organiser_event_counts": 1,
+    "get_organiser_last_event_dates_v1": 1,
+    "get_organiser_next_event_dates": 1
+  },
+  "src/pages/VenueEntity.tsx": {
+    "calendar_events_dto": 1
+  },
+  "src/services/venuePublicService.ts": {
+    "get_public_venues_list_v3": 1
+  },
+  "tests/eventViewCompat.contract.test.ts": {
+    "event_view_p5": 9,
+    "get_event_page_snapshot_v2": 1,
+    "get_event_program_v1": 1,
+    "get_occurrence_program_v1": 1
+  },
+  "tests/latestEvents.contract.test.ts": {
+    "get_latest_events_v2": 2
+  },
+  "tests/occurrenceProgram.contract.test.ts": {
+    "get_event_program_sections_v1": 1,
+    "get_event_program_v1": 1,
+    "get_occurrence_program_v1": 6
+  },
+  "tests/publicEventPageLineup.contract.test.ts": {
+    "event_view_p5": 2
+  }
+}

@@ -37,8 +37,11 @@ not remove it. That is why the arc spans 5+ phases and re-opens at every new RPC
     `MoreEventsSection`/`Debug`/`EventCalendar`/`CalendarPanel` all route through
     `getCalendarEvents`). Added `enabled: Boolean(citySlug)` where the shared hook
     would otherwise fetch all cities into a city-scoped view.
-  - **New CI guard** `check-calendar-rpc-typing.mjs` forbids re-laundering the calendar
-    RPC through `as never`/`as any` — the hole a type-checker structurally cannot see.
+  - **New CI guard** `check-rpc-typing.mjs` forbids re-laundering ANY Supabase RPC
+    through `as never`/`as any` — the hole a type-checker structurally cannot see.
+    Snapshot-ratcheted (`scripts/rpc-typing-allowlist.json`) so today's sites are
+    frozen and new laundering fails CI; `get_calendar_events_v2` is absent from the
+    allowlist, so it stays zero-tolerance. (Supersedes the earlier calendar-only guard.)
   - **Fixed the live bugs** (as-stored rendering, convention-independent): organiser
     page `/organisers/cumbaye` 8:00pm→7:00pm; `LiveEventsSection`/`BachataWeekday`
     9:00pm→8:00pm; calendar grid unchanged (byte-equal).
@@ -63,7 +66,7 @@ not remove it. That is why the arc spans 5+ phases and re-opens at every new RPC
   #3 calendar `staleTime` restored to 5 min, #4 six genuinely-nullable columns re-widened
   to `| null` in the branded row, #5 `wallClockTimeKey` renders a value (not blank) for an
   unpadded single-digit-hour bare time, #6/#7 double `fmt()` per row deduped.
-- **Verify bar:** brand gate + `check-calendar-rpc-typing` green; tsc error SET unchanged
+- **Verify bar:** brand gate + `check-rpc-typing` green; tsc error SET unchanged
   vs the ~105 baseline; unit + live-probe + dev-smoke pass.
 - **Owner escalation below is still a DRAFT** — not yet sent.
 

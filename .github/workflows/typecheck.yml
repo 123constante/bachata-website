@@ -36,11 +36,13 @@ jobs:
         run: npm ci
 
       # Closes the hole the brand gate structurally cannot see: a type-checker
-      # sees nothing through `rpc('get_calendar_events_v2' as never/any)`, so the
-      # calendar RPC must stay typed (route through getCalendarEvents) or a
-      # new Date(row.start_time) ships silently on an `any` row.
-      - name: Calendar-RPC typing guard
-        run: npm run check:calendar-rpc-typing
+      # sees nothing through `rpc('<name>' as never/any)`, so a laundered RPC call
+      # must stay typed (route through a typed boundary) or a
+      # new Date(row.start_time) ships silently on an `any` row. Snapshot-ratcheted
+      # against scripts/rpc-typing-allowlist.json; get_calendar_events_v2 is absent
+      # from the allowlist, so it stays zero-tolerance.
+      - name: RPC typing guard
+        run: npm run check:rpc-typing
 
       # `react-router typegen` generates the ./+types/* route modules; without
       # them tsc reports ~13 spurious TS2307s. Harmless to this message-scoped
