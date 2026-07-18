@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
 import { SITE_ORIGIN } from '@/lib/seo';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import type { Category, ViewType } from '@/components/calendar/calendarUtils';
 import { MONTHS, transformCalendarEvents } from '@/components/calendar/calendarUtils';
@@ -137,7 +137,10 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
     };
   }, [currentYear, currentMonth]);
 
-  const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug });
+  // enabled: Boolean(citySlug) is load-bearing -- the shared Rpc hook fetches
+  // ALL cities on a null city (no type error under strictNullChecks:false); the
+  // guard preserves "empty until a city is chosen" (was hook A's internal gate).
+  const { data: rawEvents, isLoading: isEventsLoading } = useCalendarEvents({ rangeStart: queryStart, rangeEnd: queryEnd, citySlug, enabled: Boolean(citySlug), staleTime: 1000 * 60 * 5 });
 
   // Unique raw event IDs — transform into calendar display format
   const baseEvents = useMemo(

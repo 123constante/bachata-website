@@ -1,46 +1,111 @@
 import { supabase } from './client';
+import type { Database } from './types';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
+import {
+  asWallClock,
+  asWallClockOrNull,
+  asEventTimeZone,
+  type WallClock,
+} from '@/lib/time/wallClock';
 
 // ============================================================================
-// Types for RPC 1: get_calendar_events
+// Types for RPC 1: get_calendar_events_v2
 // ============================================================================
 
-export interface CalendarEventRow {
-  event_id: string;
-  name: string;
-  photo_url: string[];
-  location: string;
-  instance_date: string; // 'YYYY-MM-DD' in event timezone
-  start_time: string; // ISO8601 timestamptz
-  end_time: string | null; // ISO8601 timestamptz
-  is_recurring: boolean;
-  meta_data: Record<string, any>;
-  key_times?: Record<string, any>;
-  has_class: boolean;
-  has_party: boolean;
-  class_start: string | null;
-  class_end: string | null;
-  party_start: string | null;
-  party_end: string | null;
-  type: 'standard' | 'festival' | string;
-  // Phase 8 (format/category split): additive axes from get_calendar_events_v2.
-  // `format` drives LAYOUT (one_off|recurring|course|festival); `category` is the
-  // discovery genre. Nullable for legacy-only series — read format-primary with a
-  // `type` COALESCE fallback (type is now a GENERATED proxy = format-derived).
-  format?: 'one_off' | 'recurring' | 'course' | 'festival' | null;
-  category?: string | null;
-  city_slug: string | null;
-  // Added by admin migration 20260601120000_get_calendar_events_v2_cancelled_and_time_changed.
-  // is_cancelled drives the Tonight CANCELLED red strip + dimmed image; original_*
-  // drives the strike-through old/new time row when an occurrence had its session
-  // times overridden (event_occurrence_session_override_p5).
-  is_cancelled?: boolean;
-  cancellation_reason_label?: string | null;
-  original_class_start?: string | null;
-  original_class_end?: string | null;
-  original_party_start?: string | null;
-  original_party_end?: string | null;
-  slug?: string | null;
+/**
+ * The raw wire row, straight from the regenerated schema (Phase 2, c93fb83) --
+ * the single source of truth for which columns `get_calendar_events_v2` returns.
+ * We DERIVE the branded row from it (below) rather than hand-maintain a shape
+ * that drifts from the wire.
+ */
+type RawCalendarEventRow =
+  Database['public']['Functions']['get_calendar_events_v2']['Returns'][number];
+
+/**
+ * Columns `supabase gen types` marks non-null (every RPC-Returns column is) but
+ * which are genuinely NULL at runtime for legacy rows: a slug/city_slug predates
+ * the backfill; cover_image_url / primary_organiser_name / cancellation_reason_label
+ * are optional; category can be unset. The old hand-written row typed these
+ * `| null`; deriving from `Returns` would silently narrow them to `string`, so
+ * `row.slug.toLowerCase()` would COMPILE yet throw at runtime. We re-widen them
+ * below so the compiler keeps forcing the `?? ` / truthy guard consumers rely on.
+ */
+type NullableWireCol =
+  | 'slug'
+  | 'category'
+  | 'city_slug'
+  | 'cancellation_reason_label'
+  | 'primary_organiser_name'
+  | 'cover_image_url';
+
+/**
+ * The branded calendar row. Every stored wall clock is a `WallClock` so the
+ * compiler forbids `new Date(row.start_time)` (the +1h-in-BST bug); produced
+ * ONLY by parseCalendarEventRow below. We keep all non-time columns from the
+ * generated `Returns` and override only the time fields + city_timezone.
+ *
+ * Both `start_time` (SPACE form "2026-07-17 20:00:00+00", ::text cast) and
+ * `occurrence_starts_at` (T form, same value) are present -- PREFER
+ * occurrence_starts_at, both parse identically. `instance_date` stays a raw
+ * 'YYYY-MM-DD' date key. class/party/original_* are bare "HH:MM" with a
+ * COALESCE(...,'') sentinel that the codec maps to null.
+ */
+export type CalendarEventRow = Omit<
+  RawCalendarEventRow,
+  | 'start_time'
+  | 'end_time'
+  | 'occurrence_starts_at'
+  | 'occurrence_ends_at'
+  | 'class_start'
+  | 'class_end'
+  | 'party_start'
+  | 'party_end'
+  | 'original_class_start'
+  | 'original_class_end'
+  | 'original_party_start'
+  | 'original_party_end'
+  | 'city_timezone'
+  | NullableWireCol
+> & {
+  start_time: WallClock;
+  end_time: WallClock | null;
+  occurrence_starts_at: WallClock;
+  occurrence_ends_at: WallClock | null;
+  class_start: WallClock | null;
+  class_end: WallClock | null;
+  party_start: WallClock | null;
+  party_end: WallClock | null;
+  original_class_start: WallClock | null;
+  original_class_end: WallClock | null;
+  original_party_start: WallClock | null;
+  original_party_end: WallClock | null;
+  city_timezone: string | null; // via asEventTimeZone ('UTC' -> null -> London default)
+} & { [K in NullableWireCol]: RawCalendarEventRow[K] | null };
+
+/**
+ * The one producer of a branded CalendarEventRow. Replaces the old blanket
+ * `data as CalendarEventRow[]` cast, which asserted nothing. Runs each stored
+ * wall clock through the brand (mapping the '' session sentinel to null) and
+ * normalises city_timezone at the boundary so every downstream consumer's
+ * `?? 'Europe/London'` default applies.
+ */
+export function parseCalendarEventRow(raw: RawCalendarEventRow): CalendarEventRow {
+  return {
+    ...raw,
+    start_time: asWallClock(raw.start_time),
+    end_time: asWallClockOrNull(raw.end_time),
+    occurrence_starts_at: asWallClock(raw.occurrence_starts_at),
+    occurrence_ends_at: asWallClockOrNull(raw.occurrence_ends_at),
+    class_start: asWallClockOrNull(raw.class_start),
+    class_end: asWallClockOrNull(raw.class_end),
+    party_start: asWallClockOrNull(raw.party_start),
+    party_end: asWallClockOrNull(raw.party_end),
+    original_class_start: asWallClockOrNull(raw.original_class_start),
+    original_class_end: asWallClockOrNull(raw.original_class_end),
+    original_party_start: asWallClockOrNull(raw.original_party_start),
+    original_party_end: asWallClockOrNull(raw.original_party_end),
+    city_timezone: asEventTimeZone(raw.city_timezone),
+  };
 }
 
 export interface GetCalendarEventsParams {
@@ -261,23 +326,12 @@ export interface FestivalPublish {
   press_media_contact_email?: string | null;
 }
 
-export interface FestivalDetail {
-  identity: FestivalIdentity;
-  dates: FestivalDates;
-  links: FestivalLinks;
-  location: FestivalLocation;
-  organiser: EventPerson;
-  lineup: EventLineup;
-  guest_dancers: EventPerson[] | null;
-  schedule: FestivalScheduleItem[] | null;
-  competitions: FestivalCompetition[] | null;
-  passes: FestivalPass[] | null;
-  venues: FestivalVenue[] | null;
-  hotels: FestivalHotel[] | null;
-  travel: Record<string, any> | null;
-  promo_codes: FestivalPromoCode[] | null;
-  publish: FestivalPublish;
-}
+// NOTE: the festival DETAIL boundary (the aggregate `FestivalDetail` type + its
+// v1 RPC reader) moved to get_public_festival_detail_v2 in Phase 2 -- see
+// src/modules/event-page/festivalEventQuery.ts. The Festival* leaf types above
+// are still the shared shapes for that v2 path; the v1 aggregate + fetcher were
+// removed as dead code (WallClock Phase 3). The branded, camelCase FestivalDetail
+// consumers import lives in src/modules/event-page/types.ts.
 
 // ============================================================================
 // RPC Utilities
@@ -294,18 +348,18 @@ export interface FestivalDetail {
 export async function getCalendarEvents(
   params: GetCalendarEventsParams,
 ): Promise<CalendarEventRow[]> {
-  const { data, error } = await supabase.rpc('get_calendar_events_v2' as never, {
+  const { data, error } = await supabase.rpc('get_calendar_events_v2', {
     range_start: params.range_start,
     range_end: params.range_end,
-    city_slug_param: params.city_slug_param,
-  } as never);
+    city_slug_param: params.city_slug_param ?? undefined,
+  });
 
   if (error) {
     console.error('getCalendarEvents RPC error:', error);
     throw error;
   }
 
-  return (data as CalendarEventRow[]) || [];
+  return (data ?? []).map(parseCalendarEventRow);
 }
 
 /**
@@ -342,7 +396,8 @@ export async function getEventPageSnapshot(
 // nothing imported (the live event page is BentoPage, which reads the festival payload
 // through fetchFestivalDetail -> get_public_festival_detail_v2). Pointing dead code at _v2
 // would have "removed a v1 caller" on paper while leaving an unreachable chain behind, so
-// the chain is gone instead. The single fetch path is now
+// the chain is gone instead -- and WallClock Phase 3 deletes that unused hook itself, so
+// the chain has no remaining link. The single fetch path is now
 // src/modules/event-page/useFestivalDetailQuery.ts::fetchFestivalDetail.
 //
 // This matters beyond tidiness: Phase 1E Stage F retires the v1 public RPCs, and its gate
@@ -379,9 +434,11 @@ export interface GetLatestEventsParams {
  * RPC 4: Most recently *uploaded* events (events.created_at DESC), one row per
  * event. Powers the homepage "Just added" carousel.
  *
- * Cast through `as never` because the generated types file does not yet include
- * this RPC (same pattern as event_view_p5 above); LatestEventRow is the source
- * of truth until types are regenerated.
+ * Still cast through `as never`: this wrapper's hand-written LatestEventRow has
+ * not yet been migrated to the typed/branded Returns pattern (see
+ * getCalendarEvents above). The RPC IS in the regenerated schema now -- dropping
+ * the cast is a recorded Phase-3 follow-up, deferred here to keep this PR scoped
+ * to the calendar-row boundary.
  */
 export async function getLatestEvents(
   params: GetLatestEventsParams = {},
@@ -416,12 +473,15 @@ export interface GetMapEventsParams {
 /**
  * RPC 5: One row per occurrence-day for the Festival Map homepage -- venue
  * coords, cover, times, category flags and added/updated freshness. Thin
- * wrapper over get_calendar_events_v2 (admin migration 20260810000000).
+ * wrapper over get_calendar_events_v2 (defined in the admin baseline schema;
+ * refined by 20260627120000_venue_is_public_predicate_and_gate_v1).
  *
- * Cast through `as never` because the generated types file does not yet include
- * this RPC (same pattern as get_latest_events_v2 above); MapEvent (from the
- * home-map module) is the source of truth until types are regenerated. Errors
- * (incl. a future rename/regression) surface to the UI + Sentry, not a silent [].
+ * Still cast through `as never`: this wrapper's hand-written MapEvent (from the
+ * home-map module) has not yet been migrated to the typed/branded Returns
+ * pattern (see getCalendarEvents above). The RPC IS in the regenerated schema
+ * now -- dropping the cast is a recorded Phase-3 follow-up, deferred here to keep
+ * this PR scoped to the calendar-row boundary. Errors (incl. a future
+ * rename/regression) surface to the UI + Sentry, not a silent [].
  */
 export async function getMapEvents(
   params: GetMapEventsParams,

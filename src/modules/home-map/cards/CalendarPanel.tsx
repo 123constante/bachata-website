@@ -12,7 +12,7 @@ import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
 import { isDesktopViewport } from '../viewport';
 import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { useCity } from '@/contexts/CityContext';
 
@@ -62,6 +62,12 @@ export function CalendarPanel({ state }: { state: UseMapListResult }) {
     rangeStart,
     rangeEnd,
     citySlug,
+    // Load-bearing: the shared Rpc hook fetches ALL cities on a null city; the
+    // guard keeps a city-scoped panel from rendering the whole country.
+    enabled: Boolean(citySlug),
+    // Interactive UI -- keep the 5-min freshness the deleted hook had, not the
+    // shared hook's 1h ISR default.
+    staleTime: 1000 * 60 * 5,
   });
   const allItems = transformCalendarEvents(rawEvents);
 

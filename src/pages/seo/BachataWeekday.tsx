@@ -22,6 +22,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { type WallClock, formatWallClockLocalIntl, wallClockDateKey } from '@/lib/time/wallClock';
 import { londonDayRangeUtc, weekdayOfKey } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
@@ -76,19 +77,21 @@ function isSameWeekday(e: CalendarEventRow, dow: number): boolean {
   // wall-clock-as-UTC string whose leading date part is the same calendar day.
   // Compare via weekdayOfKey — `new Date(str).getDay()` reads the BROWSER's
   // weekday of UTC midnight, which is off by one west of UTC.
-  const iso = e.instance_date ?? e.start_time;
-  if (!iso) return false;
-  return weekdayOfKey(iso.slice(0, 10)) === dow;
+  const key = e.instance_date ?? wallClockDateKey(e.occurrence_starts_at);
+  if (!key) return false;
+  return weekdayOfKey(key.slice(0, 10)) === dow;
 }
 
-const fmt = (iso: string): string =>
-  new Date(iso).toLocaleString('en-GB', {
+// Renders the stored wall clock AS STORED -- new Date(iso).toLocaleString() was
+// an hour late all BST ("9:00 pm" for a stored 20:00).
+const fmt = (wc: WallClock | null | undefined): string =>
+  formatWallClockLocalIntl(wc, {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }) ?? '';
 
 interface ItemListJsonLdProps {
   events: CalendarEventRow[];
@@ -235,20 +238,23 @@ const BachataWeekday = () => {
             </p>
           ) : (
             <ul className="space-y-2">
-              {matched.map((e) => (
-                <li
-                  key={`${e.event_id}-${e.instance_date}`}
-                  className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
-                >
-                  <Link to={eventHref(e)} className="block">
-                    <div className="font-semibold text-base">{e.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {e.location}
-                      {e.start_time ? <> &middot; {fmt(e.start_time)}</> : null}
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {matched.map((e) => {
+                const when = fmt(e.occurrence_starts_at);
+                return (
+                  <li
+                    key={`${e.event_id}-${e.instance_date}`}
+                    className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
+                  >
+                    <Link to={eventHref(e)} className="block">
+                      <div className="font-semibold text-base">{e.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {e.location}
+                        {when ? <> &middot; {when}</> : null}
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

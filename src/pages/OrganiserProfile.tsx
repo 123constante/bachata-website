@@ -24,6 +24,13 @@ import { CityPicker } from '@/components/ui/city-picker';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { londonDayRangeUtc } from '@/lib/londonDate';
+import {
+  type WallClock,
+  asWallClockOrNull,
+  formatWallClockLocal,
+  formatWallClockLocalIntl,
+  wallClockExactDateKey,
+} from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 // --- Types ---
@@ -39,7 +46,7 @@ type EventRow = {
   city: string | null;
 };
 
-type OrgEvent = EventRow & { displayStart: string | null; occurrenceId?: string | null };
+type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
 
 type OrgOccRow = {
   event_id: string;
@@ -127,44 +134,39 @@ const initials = (name: string | null | undefined): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-const dateParts = (raw: string | null): { day: string; mon: string } => {
-  if (!raw) return { day: '--', mon: 'TBA' };
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return { day: '--', mon: 'TBA' };
+// displayStart is a branded WallClock (stored local-as-UTC). These read it
+// AS STORED via the wallClock formatters -- the old `new Date(raw).toLocale*`
+// rendered the time an hour late in BST (the live "8:00pm" bug for a stored
+// 19:00 on /organisers/cumbaye) and the date a day early west of UTC.
+const dateParts = (wc: WallClock | null | undefined): { day: string; mon: string } => {
+  const day = formatWallClockLocal(wc, 'dd');
+  const mon = formatWallClockLocal(wc, 'MMM');
+  if (!day || !mon) return { day: '--', mon: 'TBA' };
+  return { day, mon: mon.toUpperCase() };
+};
+
+const ticketDateParts = (wc: WallClock | null | undefined) => {
+  const day = formatWallClockLocal(wc, 'd');
+  if (!day) return { day: '--', mon: 'TBA', yr: '', wd: '' };
   return {
-    day: String(d.getDate()).padStart(2, '0'),
-    mon: d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase(),
+    day,
+    mon: (formatWallClockLocal(wc, 'MMM') ?? '').toUpperCase(),
+    yr: formatWallClockLocal(wc, 'yyyy') ?? '',
+    wd: formatWallClockLocal(wc, 'EEEE') ?? '',
   };
 };
 
-const ticketDateParts = (raw: string | null) => {
-  if (!raw) return { day: '--', mon: 'TBA', yr: '', wd: '' };
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return { day: '--', mon: 'TBA', yr: '', wd: '' };
-  return {
-    day: String(d.getDate()),
-    mon: d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase(),
-    yr: String(d.getFullYear()),
-    wd: d.toLocaleDateString('en-GB', { weekday: 'long' }),
-  };
-};
+const weekdayShort = (wc: WallClock | null | undefined): string =>
+  (formatWallClockLocal(wc, 'EEE') ?? '').toUpperCase();
 
-const weekdayShort = (raw: string | null): string => {
-  if (!raw) return '';
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
-};
-
-const eventTime = (raw: string | null): string | null => {
-  if (!raw || !raw.includes('T')) return null;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return null;
-  if (d.getHours() === 0 && d.getMinutes() === 0) return null;
-  return d
-    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })
-    .replace(/\s/g, '')
-    .toLowerCase();
+const eventTime = (wc: WallClock | null | undefined): string | null => {
+  // A date-only value (the instance_date fallback) carries no time; and suppress
+  // an exact-midnight placeholder, as the old `!raw.includes('T')` / 00:00 gates did.
+  if (!wc || wallClockExactDateKey(wc) || formatWallClockLocal(wc, 'HH:mm') === '00:00') {
+    return null;
+  }
+  const s = formatWallClockLocalIntl(wc, { hour: 'numeric', minute: '2-digit', hour12: true });
+  return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
 const FB_NON_HANDLE_PATHS = new Set([
@@ -501,7 +503,7 @@ const OrganiserProfile = () => {
       if (!e) continue;
       eventsWithFutureOcc.add(occ.event_id);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: occ.start_time ?? occ.instance_date ?? null, occurrenceId: occ.occurrence_id });
+      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
     }
     // Past list: driven by real past occurrences (server is_past flag), one
     // OrgEvent per past date. Cancelled rows are passed through by the RPC, so
@@ -513,27 +515,36 @@ const OrganiserProfile = () => {
       if (!occ.is_past) continue;
       const e = eventById.get(occ.event_id);
       if (!e) continue;
+      // startRaw stays a RAW string: it feeds the dedupe key (a template
+      // interpolation, which the brand forbids). displayStart is branded below.
       const startRaw = occ.start_time ?? occ.instance_date ?? null;
       const dedupeKey = occ.occurrence_id ?? `${occ.event_id}:${startRaw}`;
       if (pastSeen.has(dedupeKey)) continue;
       pastSeen.add(dedupeKey);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: startRaw, occurrenceId: occ.occurrence_id });
+      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
     }
     // Base-date fallback only for legacy events the occurrence feed never
-    // surfaced (no future AND no past occurrence row at all).
+    // surfaced (no future AND no past occurrence row at all). EventRow.start_time
+    // / .date stay RAW strings -- their semantics are genuinely mixed and this
+    // fallback is unreachable on live data (0 of 15 organisers sampled); displayStart
+    // is branded at the push.
     const eventsWithAnyOcc = new Set<string>([...eventsWithFutureOcc, ...pastOccs.map((o) => o.event_id)]);
     for (const e of allEvents) {
       if (eventsWithAnyOcc.has(e.id)) continue;
       const baseRaw = e.start_time ?? e.date;
       const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
       const nextStart = baseRaw && !Number.isNaN(baseMs) && baseMs >= todayMs ? baseRaw : null;
-      if (nextStart) { upcoming.push({ ...e, displayStart: nextStart, occurrenceId: null }); }
+      if (nextStart) { upcoming.push({ ...e, displayStart: asWallClockOrNull(nextStart), occurrenceId: null }); }
       else if (!baseRaw) { upcoming.push({ ...e, displayStart: null, occurrenceId: null }); }
-      else { past.push({ ...e, displayStart: baseRaw, occurrenceId: null }); }
+      else { past.push({ ...e, displayStart: asWallClockOrNull(baseRaw), occurrenceId: null }); }
     }
-    upcoming.sort((a, b) => (a.displayStart ?? '').localeCompare(b.displayStart ?? ''));
-    past.sort((a, b) => (b.displayStart ?? '').localeCompare(a.displayStart ?? ''));
+    // Sort by a reader-derived key, NOT `displayStart ?? ''` -- coercing a branded
+    // WallClock to '' launders it to `string & WallClock` (defeats the brand).
+    const sortKey = (wc: WallClock | null): string =>
+      formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm") ?? '';
+    upcoming.sort((a, b) => sortKey(a.displayStart).localeCompare(sortKey(b.displayStart)));
+    past.sort((a, b) => sortKey(b.displayStart).localeCompare(sortKey(a.displayStart)));
     return { upcomingEvents: upcoming, pastEvents: past };
   }, [allEvents, futureOccs, pastOccs, todayMs]);
 

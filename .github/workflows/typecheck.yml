@@ -1,0 +1,49 @@
+name: Typecheck (WallClock brand gate)
+
+# Enforces the WallClock/Instant branded-type boundary (src/lib/time/wallClock.ts).
+# The production build is esbuild (transpile-only), so NOTHING else in CI runs
+# tsc -- a `new Date(wallClock)` would ship silently and reintroduce the +1h-in-BST
+# / wrong-calendar-day bug class. This job is that missing gate.
+#
+# It is MESSAGE-SCOPED, not a tsc-error-count ratchet: it fails only on
+# diagnostics whose flattened text names the brand under an assignment/call/cast
+# code (see scripts/check-wallclock-brand.mjs). So the repo's ~168 pre-existing,
+# brand-unrelated tsc errors do NOT gate it, and regenerating the large generated
+# types.ts (which re-baselines every count-based signal) never false-fails it.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  wallclock-brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Closes the hole the brand gate structurally cannot see: a type-checker
+      # sees nothing through `rpc('get_calendar_events_v2' as never/any)`, so the
+      # calendar RPC must stay typed (route through getCalendarEvents) or a
+      # new Date(row.start_time) ships silently on an `any` row.
+      - name: Calendar-RPC typing guard
+        run: npm run check:calendar-rpc-typing
+
+      # `react-router typegen` generates the ./+types/* route modules; without
+      # them tsc reports ~13 spurious TS2307s. Harmless to this message-scoped
+      # gate, but the npm script runs typegen first anyway so local and CI agree.
+      - name: WallClock/Instant brand gate
+        run: npm run check:wallclock-brand

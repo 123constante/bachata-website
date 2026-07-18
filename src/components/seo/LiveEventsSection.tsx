@@ -16,6 +16,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { type WallClock, formatWallClockLocalIntl } from '@/lib/time/wallClock';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
@@ -36,18 +37,17 @@ export interface LiveEventsSectionProps {
   id?: string;
 }
 
-const fmt = (iso: string | null | undefined): string => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('en-GB', {
+// Reads the stored wall clock AS STORED (no timezone shift) -- a plain
+// new Date(iso).toLocaleString() rendered these an hour late all BST ("9:00 pm"
+// for a stored 20:00).
+const fmt = (wc: WallClock | null | undefined): string =>
+  formatWallClockLocalIntl(wc, {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-  });
-};
+  }) ?? '';
 
 const LiveEventsSection = ({
   heading,
@@ -113,20 +113,23 @@ const LiveEventsSection = ({
         </p>
       ) : (
         <ul className="space-y-2">
-          {matched.map((e) => (
-            <li
-              key={`${e.event_id}-${e.instance_date}`}
-              className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
-            >
-              <Link to={eventHref(e)} className="block">
-                <div className="font-semibold text-base">{e.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {e.location}
-                  {e.start_time ? <> &middot; {fmt(e.start_time)}</> : null}
-                </div>
-              </Link>
-            </li>
-          ))}
+          {matched.map((e) => {
+            const when = fmt(e.occurrence_starts_at);
+            return (
+              <li
+                key={`${e.event_id}-${e.instance_date}`}
+                className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
+              >
+                <Link to={eventHref(e)} className="block">
+                  <div className="font-semibold text-base">{e.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {e.location}
+                    {when ? <> &middot; {when}</> : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
