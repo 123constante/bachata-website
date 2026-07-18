@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
-import { londonWallClockNowIso, weekdayOfKey } from '@/lib/londonDate';
+import { weekdayOfKey } from '@/lib/londonDate';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -43,54 +43,41 @@ type Props = {
   cityName: string | null;
 };
 
-// "More from {Organiser}" -- queries event_entities directly (same pattern
-// as OrganiserProfile.tsx), resolves the next upcoming occurrence per event
-// via calendar_occurrences, then ranks by 30-day view counts from
-// event_views. Tie-break: next-occurrence date ASC. Excludes current event.
+// "More from {Organiser}" -- one P5-native call returns each of the organiser's
+// events with its next upcoming occurrence (M2: this replaced a direct
+// event_entities->events embed plus a calendar_occurrences lookup). The RPC applies
+// the organiser linkage, the is_active gate and the London-wall-clock "upcoming"
+// boundary server-side. Ranking stays here: 30-day view counts from event_views,
+// tie-broken by next-occurrence date ASC. Excludes the current event.
+type OrganiserOccurrenceRow = {
+  event_id: string;
+  slug: string | null;
+  name: string | null;
+  poster_url: string | null;
+  occurrence_id: string;
+  next_start: string;
+};
+
 const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
   useQuery({
-    queryKey: ['more-events:organiser-flagship', organiserId, currentEventId],
+    queryKey: ['more-events:organiser-flagship-v2', organiserId, currentEventId],
     enabled: !!organiserId && !!currentEventId,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<MoreEvent[]> => {
-      const { data: links } = await supabase
-        .from('event_entities')
-        .select('events(id, slug, name, poster_url, is_active)')
-        .eq('entity_id', organiserId!)
-        .eq('role', 'organiser');
+      const { data, error } = await supabase.rpc('get_organiser_next_occurrences_v1' as never, {
+        p_organiser_id: organiserId!,
+      } as never);
+      if (error) throw error;
 
-      type Link = { events: { id: string; slug: string | null; name: string; poster_url: string | null; is_active: boolean | null } | null };
-      const events = ((links ?? []) as unknown as Link[])
-        .map((r) => r.events)
-        .filter((e): e is NonNullable<Link['events']> => Boolean(e))
-        .filter((e) => e.is_active !== false && e.id !== currentEventId);
-      const slugById = new Map(events.map((e) => [e.id, e.slug]));
-
+      const events = ((data ?? []) as OrganiserOccurrenceRow[])
+        .filter((e) => e.event_id !== currentEventId);
       if (events.length === 0) return [];
-
-      const eventIds = events.map((e) => e.id);
-      const { data: occs } = await supabase
-        .from('calendar_occurrences')
-        .select('id, event_id, instance_start')
-        .in('event_id', eventIds)
-        // instance_start is London wall-clock as-Z; compare against the
-        // London wall clock, not true-UTC now (1h behind during BST).
-        .gte('instance_start', londonWallClockNowIso())
-        .order('instance_start', { ascending: true });
-
-      const nextByEvent: Record<string, { id: string; start: string }> = {};
-      for (const r of (occs ?? []) as { id: string; event_id: string; instance_start: string }[]) {
-        if (!nextByEvent[r.event_id]) nextByEvent[r.event_id] = { id: r.id, start: r.instance_start };
-      }
-
-      const upcomingIds = events.filter((e) => nextByEvent[e.id]).map((e) => e.id);
-      if (upcomingIds.length === 0) return [];
 
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: views } = await supabase
         .from('event_views')
         .select('event_id')
-        .in('event_id', upcomingIds)
+        .in('event_id', events.map((e) => e.event_id))
         .gte('viewed_at', thirtyDaysAgo);
       const viewCount: Record<string, number> = {};
       for (const v of ((views ?? []) as { event_id: string }[])) {
@@ -98,19 +85,18 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
       }
 
       return events
-        .filter((e) => nextByEvent[e.id])
         .sort((a, b) => {
-          const diff = (viewCount[b.id] ?? 0) - (viewCount[a.id] ?? 0);
+          const diff = (viewCount[b.event_id] ?? 0) - (viewCount[a.event_id] ?? 0);
           if (diff !== 0) return diff;
-          return nextByEvent[a.id].start.localeCompare(nextByEvent[b.id].start);
+          return a.next_start.localeCompare(b.next_start);
         })
         .slice(0, 2)
         .map((e) => ({
-          id: e.id,
-          slug: slugById.get(e.id) ?? null,
-          occurrenceId: nextByEvent[e.id].id,
-          title: e.name,
-          dateLabel: formatDate(nextByEvent[e.id].start),
+          id: e.event_id,
+          slug: e.slug,
+          occurrenceId: e.occurrence_id,
+          title: e.name ?? '',
+          dateLabel: formatDate(e.next_start),
           imageUrl: e.poster_url ?? null,
         }));
     },

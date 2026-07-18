@@ -1,34 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  FESTIVALS_LIST_QUERY_KEY,
+  fetchPublicFestivalsList,
+  filterUpcomingFestivals,
+  type FestivalListItem,
+} from '@/lib/festivalsList';
 import { londonTodayKey } from '@/lib/londonDate';
 
-export type FestivalPreview = {
-  id: string;
-  name: string;
-  city: string | null;
-  date: string | null;
-  start_time: string | null;
-  poster_url: string | null;
-};
+export type FestivalPreview = FestivalListItem;
 
 export function useUpcomingFestivalsGlobal() {
   return useQuery({
-    queryKey: ['upcoming-festivals-global'],
-    queryFn: async () => {
-      // events.date is a London calendar date — bound it with the London
-      // today key, not the browser/UTC one.
-      const today = londonTodayKey();
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, name, city, date, start_time, poster_url')
-        .eq('type', 'festival')
-        .eq('is_active', true)
-        .gte('date', today)
-        .order('date', { ascending: true })
-        .limit(40);
-      if (error) throw error;
-      return (data ?? []) as FestivalPreview[];
-    },
-    staleTime: 60_000,
+    // Shares the seam's cache entry (same key, same fetcher) instead of holding
+    // a second copy of the identical payload under its own identity; the
+    // "upcoming" window is a select-time projection. select re-runs on render,
+    // so the London-midnight rollover is picked up without a shorter staleTime.
+    queryKey: FESTIVALS_LIST_QUERY_KEY,
+    queryFn: fetchPublicFestivalsList,
+    staleTime: 1000 * 60 * 60,
+    select: (rows: FestivalListItem[]) =>
+      filterUpcomingFestivals(rows, londonTodayKey()).slice(0, 40),
   });
 }

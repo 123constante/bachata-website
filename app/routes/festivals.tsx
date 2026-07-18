@@ -1,6 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
-import { supabase } from "@/integrations/supabase/client";
+import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
 import { buildSeoForRoute } from "@/lib/seo";
 import FestivalHub from "@/pages/FestivalHub";
 import { stampFestivalsList } from "../cacheTags";
@@ -11,11 +11,12 @@ import type { Route } from "./+types/festivals";
 
 // Framework route for /festivals — on-demand SSR + tagged ISR (moved off
 // build-time prerender, which froze the dehydrated festival list at deploy time).
-// The loader mirrors FestivalHub's primary content query (['festival-events-live'])
-// byte-for-byte and dehydrates it, so the document ships the festival list (SEO)
-// without a client refetch. Edge-cached on s-maxage and purged on any festival
-// write via the `festivals-list` cache tag (see api.revalidate tagsFor + the
-// Supabase webhook). Secondary attendance queries stay client-only.
+// The loader and FestivalHub share ONE fetcher and ONE key (@/lib/festivalsList),
+// so the dehydrated entry the document ships is by construction the entry the client
+// hook reads -- no byte-for-byte mirroring to keep in sync by hand. Edge-cached on
+// s-maxage and purged on any festival write via the `festivals-list` cache tag (see
+// api.revalidate tagsFor + the Supabase webhook). Secondary attendance queries stay
+// client-only.
 export async function loader() {
   const qc = createQueryClient();
 
@@ -23,17 +24,8 @@ export async function loader() {
   // → 500 with no Vercel-Cache-Tag → cacheHeaders leaves it uncached, instead of
   // edge-caching an empty festival list for an hour. Mirrors the detail routes.
   await qc.fetchQuery({
-    queryKey: ["festival-events-live"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("id, name, city, date, start_time, poster_url")
-        .eq("type", "festival")
-        .eq("is_active", true)
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
+    queryKey: FESTIVALS_LIST_QUERY_KEY,
+    queryFn: fetchPublicFestivalsList,
     staleTime: 1000 * 60 * 2,
   });
 

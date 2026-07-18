@@ -813,3 +813,27 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-entry-liveness.mjs
+
+      # 53. P5 public-read contract (the M2 repoint invariants, 2026-07-17). The
+      #     M2 cutover moved five public surfaces onto the P5 spine — the
+      #     festivals hub, the venue "What's on" list, the /organisers pills, the
+      #     event-page "More from organiser" rail — and nothing watched what those
+      #     RPCs RETURN. check_occurrence_integrity watches the data;
+      #     check_festival_detail_p5_parity watches v1==v2; the read surfaces
+      #     themselves were unguarded, and three real bugs shipped through the gap
+      #     (found by an xhigh review, not by CI): a multi-day festival vanishing
+      #     from the venue list mid-run, a fail-open visibility gate letting
+      #     draft/dangling series feed organiser dates, and unlabelled surfaces
+      #     recommending cancelled nights. Each failure mode was verified reachable
+      #     by re-introducing the bug against prod in a rolled-back transaction.
+      #     Note the festival assertion probes each festival over its OWN run: the
+      #     first draft of the guard used a 60-day window and could not see the
+      #     bug, inheriting the exact blind spot that let it ship. Health-check
+      #     RPC: check_p5_public_read_contract_v1 (admin migration 20260717150000);
+      #     the shared gate is _p5_series_public_visibility_v1 (20260717130000).
+      - name: Run P5 public-read contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-p5-public-read-contract.mjs
