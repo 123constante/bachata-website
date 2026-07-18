@@ -11057,6 +11057,7 @@ export type Database = {
       check_p5_legacy_program_drift_v1: { Args: never; Returns: Json }
       check_p5_legacy_program_parity_v1: { Args: never; Returns: Json }
       check_p5_orphan_series_v1: { Args: never; Returns: Json }
+      check_p5_public_read_contract_v1: { Args: never; Returns: Json }
       check_p5_session_override_parity_v1: { Args: never; Returns: Json }
       check_parallel_group_contract_v1: { Args: never; Returns: Json }
       check_per_date_program_canonical_consistency_v1: {
@@ -12821,6 +12822,7 @@ export type Database = {
       test_per_date_program_sync_mutation_v1: { Args: never; Returns: Json }
       test_per_occurrence_actor_kind_v1: { Args: never; Returns: Json }
       test_per_occurrence_v1: { Args: never; Returns: Json }
+      topup_series_materialisation_horizon_v1: { Args: never; Returns: Json }
       upsert_event_profile_connection: {
         Args: {
           p_connection_label: string
