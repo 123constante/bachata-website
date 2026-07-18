@@ -120,11 +120,29 @@ if (data?.ok !== true) {
 
 const s = data.surfaces ?? {};
 const a = data.assertions ?? {};
+const r = data.reported_not_gated ?? {};
+
+// The RPC is SECURITY INVOKER, so its public-surface probes reflect whichever role
+// called it. In CI that must be anon -- if it is not, the counts are some other
+// role's view and the run proves nothing about what the public sees. This is not
+// hypothetical: run as postgres, all_profiles reads 277; as anon it reads 261,
+// because RLS filters 16 rows. The previous SECURITY DEFINER version reported the
+// 277 as though it were the public's view, which is the defect this replaced.
+if (data.measured_as !== 'anon') {
+  console.error(
+    `\nPEOPLE PUBLIC-READ GUARD: refusing to pass -- measured as ` +
+    `'${data.measured_as}', not 'anon'. The surface counts are that role's view, not ` +
+    `the public's. Check that VITE_SUPABASE_PUBLISHABLE_KEY is the anon key.`,
+  );
+  process.exit(1);
+}
+
 console.log(
-  `\nPeople public-read guard: ok (teachers ${s.teachers_list}, all-profiles ` +
-  `${s.all_profiles}, djs ${s.djs_list}; teacher gate ${a.teacher_gate_with_legacy}` +
-  `/${a.teacher_gate_survivor_only} legacy/survivor, sidecar violations ` +
-  `${a.sidecar_coverage_violations}, search probe "${a.search_probe_style}" found ` +
-  `${a.search_probe_found}).`,
+  `\nPeople public-read guard: ok as ${data.measured_as} (teachers ${s.teachers_list}, ` +
+  `all-profiles ${s.all_profiles}, djs ${s.djs_list}; teacher gate ` +
+  `${a.teacher_gate_with_legacy}/${a.teacher_gate_survivor_only} legacy/survivor, ` +
+  `sidecar drift ${a.sidecar_drift_gating}, search probe "${a.search_probe_style}" found ` +
+  `${a.search_probe_found}; reported-not-gated: ` +
+  `${r.sidecar_absent_with_legacy_data} with legacy dance-root data and no sidecar row).`,
 );
 process.exit(0);
