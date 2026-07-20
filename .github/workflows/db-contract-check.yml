@@ -143,12 +143,38 @@ on:
   schedule:
     - cron: '0 6 * * *'  # 06:00 UTC daily
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
 
 jobs:
   contract-check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Needed by the "Announce failure" step at the end of this job. The default
+    # GITHUB_TOKEN is read-only on this repo, so without this the notification
+    # silently 403s -- which would reproduce the exact failure mode it exists to
+    # fix.
+    permissions:
+      contents: read
+      issues: write
     steps:
+      # A deliberate failure, on demand. The notification below is the only thing
+      # standing between a red guard and nobody noticing, and a channel nobody has
+      # watched fail is not a channel -- the house rule that produced this whole
+      # workstream. Scoping the notify step to `schedule` alone would have made it
+      # unprovable except by waiting for a genuinely bad night, so it accepts
+      # workflow_dispatch too and this switch exists to exercise it end to end:
+      # dispatch once with test_notification=true (issue opens), once with false
+      # (issue closes). Costs one boolean; buys a channel you have seen work.
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -855,3 +881,104 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-series-materialisation.mjs
+
+      # 55. People public-read contract (M3 Phase 0, 2026-07-18). The people
+      #     surfaces — /teachers, /djs, /all-profiles, site search — had NO guard
+      #     at all, and that gap is how the M3 plan came to specify a change that
+      #     would have deleted three teachers from the live site. Phase A strips
+      #     legacy COALESCE arms (COALESCE(avatar_url, photo_url) -> avatar_url)
+      #     and was described as non-destructive; but on the three teacher RPCs
+      #     that COALESCE is in the WHERE clause, so it gates ROW MEMBERSHIP, not
+      #     display. Measured against prod: get_public_teachers_list_v1 would have
+      #     gone 34 rows -> 31, 404ing three detail pages and orphaning their
+      #     sitemap URLs. Every existing guard stayed green: check-search-public-v5
+      #     probes v5 while production runs v4 and asserts shape only;
+      #     check_dancer_profiles_legacy_col_drift_v1 was wired into nothing and
+      #     went red on correct work; check:rpc-snapshots is an md5 of the body;
+      #     and no E2E spec covers these routes. Asserts survivor violations,
+      #     teacher-gate parity (with vs without the legacy arm — self-maintaining,
+      #     no pinned count to rot), sidecar coverage, that admin_save_person_v1
+      #     stays key-driven rather than role-driven (it used to DELETE a person's
+      #     sidecar whenever the role was absent, while the READ emitted that same
+      #     sidecar from row existence — 70 of 111 rows were one save from silent
+      #     deletion), and search recall against search_public_v4, the LIVE path.
+      #     All five failure modes verified reachable by re-introducing the bug
+      #     against prod in a rolled-back transaction. Health-check RPC:
+      #     check_people_public_read_contract_v1 (admin migration 20260718120000);
+      #     survivor heal 20260718100000, writer fix 20260718110000.
+      - name: Run people public-read contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-people-public-read-contract.mjs
+
+      # ── Failure notification ────────────────────────────────────────────────────
+      #
+      # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
+      # runs all of them and collapses the result into one red X. Until now nothing
+      # announced that X. The precheck comment further up records what that costs:
+      # from inception (2026-04-28) through 2026-05-13 this workflow failed 77
+      # consecutive runs on a malformed VITE_SUPABASE_URL, and every downstream
+      # contract was silently un-watched the entire time. The checks were wired; they
+      # had no audience. A guard nobody hears is not a guard, and adding more of them
+      # to this job without this step would just have grown the silent set.
+      #
+      # SCOPED TO `schedule` DELIBERATELY. push/pull_request failures already reach
+      # the author through GitHub's default notification, and a per-push issue was
+      # the "CI-fail-email loop" the install step above was softened to stop. It is
+      # the unattended nightly run that has no audience.
+      #
+      # ONE ISSUE, REUSED. A guard that stays red for a week should produce a single
+      # thread with a comment trail, not seven issues that train you to close them
+      # unread. It auto-closes on the next green nightly.
+      - name: Announce failure
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'db-contract-check';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Nightly `db-contract-check` failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Open the run and read which step(s) are red. Each step names the',
+              'health-check RPC it calls, and the comment above that step explains',
+              'what regression it was added to catch.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'db-contract-check red', body, labels: [LABEL],
+              });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'db-contract-check';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }
