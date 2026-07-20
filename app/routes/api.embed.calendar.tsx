@@ -21,27 +21,16 @@
 //
 // Data source: get_public_events_list_v2 RPC.
 import { supabase } from "@/integrations/supabase/client";
+import {
+  parsePublicEventsListRow,
+  type PublicEventsListRow,
+} from "../lib/publicEventsList";
+import { wallClockTimeKey, type WallClock } from "@/lib/time/wallClock";
 import type { Route } from "./+types/api.embed.calendar";
 
-interface WidgetEvent {
-  event_id: string;
-  occurrence_id: string;
-  name: string;
-  type: string | null;
-  occurrence_date: string; // YYYY-MM-DD (already in city tz per RPC)
-  starts_at: string;       // wall-clock-as-Z ISO string
-  ends_at: string | null;
-  city_slug: string | null;
-  city_name: string | null;
-  city_timezone: string | null;
-  venue_id: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  organiser_id: string | null;
-  organiser_name: string | null;
-  cover_image_url: string | null;
-  is_recurring: boolean;
-}
+// The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not
+// hand-declared here -- a hand-written interface silently drifts from the wire.
+type WidgetEvent = PublicEventsListRow;
 
 interface WidgetConfig {
   events: WidgetEvent[];
@@ -84,10 +73,12 @@ function formatOccurrenceDate(yyyymmdd: string): { day: string; month: string; w
   };
 }
 
-function formatStartTime(startsAtIso: string): string {
-  const m = startsAtIso.match(/T(\d{2}):(\d{2})/);
-  if (!m) return "";
-  return `${m[1]}:${m[2]}`;
+// starts_at is a stored wall clock: render it AS STORED (never via new Date(),
+// which would re-read it as an instant and shift the hour). wallClockTimeKey is
+// byte-equal to the previous regex for the T-separated wire form, and also
+// tolerates the space-separated form.
+function formatStartTime(startsAt: WallClock): string {
+  return wallClockTimeKey(startsAt) ?? "";
 }
 
 function eventDetailUrl(publicOrigin: string, eventId: string): string {
@@ -229,14 +220,25 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     p_offset: 0,
   };
 
-  const { data, error } = await supabase.rpc("get_public_events_list_v2" as never, params as never);
+  // Typed call: no `as never`. Nullable filters become `undefined` so the RPC's
+  // own DEFAULT NULL applies (PostgREST omits the key) -- same resulting query.
+  // `params` itself keeps its nulls: it feeds the error log and city_slug below.
+  const { data, error } = await supabase.rpc("get_public_events_list_v2", {
+    p_city_slug: params.p_city_slug ?? undefined,
+    p_from_date: params.p_from_date ?? undefined,
+    p_to_date: params.p_to_date ?? undefined,
+    p_organiser_id: params.p_organiser_id ?? undefined,
+    p_type: params.p_type ?? undefined,
+    p_limit: params.p_limit,
+    p_offset: params.p_offset,
+  });
 
   if (error) {
     console.error("[embed/calendar] rpc_error", { message: error.message, params });
     return htmlResponse(errorHtml("Could not load events."), 500);
   }
 
-  const events = (data ?? []) as WidgetEvent[];
+  const events: WidgetEvent[] = (data ?? []).map(parsePublicEventsListRow);
 
   const html = renderWidgetHtml({
     events,
