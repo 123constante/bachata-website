@@ -16,53 +16,36 @@
 //
 // Subscribe via webcal:// or paste the https:// URL into any calendar app.
 import { supabase } from "@/integrations/supabase/client";
+import {
+  parsePublicEventsListRow,
+  type PublicEventsListRow,
+} from "../lib/publicEventsList";
+import { wallClockToInstant, type WallClock } from "@/lib/time/wallClock";
 import type { Route } from "./+types/api.ics.calendar";
 
-interface FeedEvent {
-  event_id: string;
-  occurrence_id: string;
-  name: string;
-  type: string | null;
-  occurrence_date: string;
-  starts_at: string;
-  ends_at: string | null;
-  city_slug: string | null;
-  city_name: string | null;
-  city_timezone: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  organiser_name: string | null;
-}
+// The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not
+// hand-declared here -- a hand-written interface silently drifts from the wire.
+type FeedEvent = PublicEventsListRow;
 
 // ─── ICS helpers (mirrors src/modules/event-page/bento/utils/ics.ts) ─────────
 
 const compact = (d: Date): string =>
   d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
-// Convert a stored local-as-UTC wall clock into a true UTC instant using
-// the event timezone. Same offset-probe technique as the single-event ics util.
-const naiveLocalToCompactUtc = (iso: string | null, timezone: string | null): string | null => {
-  if (!iso) return null;
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!m) return null;
-  const [, y, mo, d, h, mi, s] = m;
-  const tz = timezone || "Europe/London";
-  const guess = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s ?? "00"}Z`);
-  if (Number.isNaN(guess.getTime())) return null;
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  });
-  const parts = fmt.formatToParts(guess);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  const hour = get("hour") === "24" ? "00" : get("hour");
-  const observed = new Date(
-    `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}:${get("second")}Z`,
-  );
-  if (Number.isNaN(observed.getTime())) return null;
-  const delta = observed.getTime() - guess.getTime();
-  return compact(new Date(guess.getTime() - delta));
+// Convert a stored local-as-UTC wall clock into a true UTC instant using the
+// event timezone. Delegates to the shared, unit-tested wallClockToInstant rather
+// than re-implementing the offset probe: the module version also tolerates the
+// SPACE-separated wire form and falls back to Europe/London on a bad IANA zone,
+// both of which the local copy silently failed (returning null = a dropped
+// DTSTART).
+const naiveLocalToCompactUtc = (
+  wc: WallClock | null,
+  timezone: string | null,
+): string | null => {
+  // `?? undefined` (not `|| "Europe/London"`): an explicit null would override
+  // the parameter default rather than fall back to it.
+  const instant = wallClockToInstant(wc, timezone ?? undefined);
+  return instant ? compact(instant) : null;
 };
 
 const escapeIcsText = (v: string): string =>
@@ -131,22 +114,24 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const fromDate = today.toISOString().split("T")[0];
   const toDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  const { data, error } = await supabase.rpc("get_public_events_list_v2" as never, {
-    p_city_slug: citySlug,
-    p_from_date: fromDate,
-    p_to_date: toDate,
-    p_organiser_id: organiserId,
-    p_type: type,
+  // Typed call: no `as never`. Nullable filters become `undefined` so the RPC's
+  // own DEFAULT NULL applies (PostgREST omits the key) -- same resulting query.
+  const { data, error } = await supabase.rpc("get_public_events_list_v2", {
+    p_city_slug: citySlug ?? undefined,
+    p_from_date: fromDate ?? undefined,
+    p_to_date: toDate ?? undefined,
+    p_organiser_id: organiserId ?? undefined,
+    p_type: type ?? undefined,
     p_limit: 200,
     p_offset: 0,
-  } as never);
+  });
 
   if (error) {
     console.error("[ics/calendar] rpc_error", { message: error.message });
     return new Response("Could not load events", { status: 500 });
   }
 
-  const events = (data ?? []) as FeedEvent[];
+  const events: FeedEvent[] = (data ?? []).map(parsePublicEventsListRow);
 
   const cityName = events[0]?.city_name ?? (citySlug ? citySlug.split("-")[0] : null);
   const calName = cityName
