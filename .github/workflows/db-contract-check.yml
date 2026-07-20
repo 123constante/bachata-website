@@ -143,6 +143,11 @@ on:
   schedule:
     - cron: '0 6 * * *'  # 06:00 UTC daily
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
 
 jobs:
   contract-check:
@@ -156,6 +161,20 @@ jobs:
       contents: read
       issues: write
     steps:
+      # A deliberate failure, on demand. The notification below is the only thing
+      # standing between a red guard and nobody noticing, and a channel nobody has
+      # watched fail is not a channel -- the house rule that produced this whole
+      # workstream. Scoping the notify step to `schedule` alone would have made it
+      # unprovable except by waiting for a genuinely bad night, so it accepts
+      # workflow_dispatch too and this switch exists to exercise it end to end:
+      # dispatch once with test_notification=true (issue opens), once with false
+      # (issue closes). Costs one boolean; buys a channel you have seen work.
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -914,7 +933,7 @@ jobs:
       # thread with a comment trail, not seven issues that train you to close them
       # unread. It auto-closes on the next green nightly.
       - name: Announce failure
-        if: failure() && github.event_name == 'schedule'
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v7
         with:
           script: |
@@ -945,7 +964,7 @@ jobs:
             }
 
       - name: Close failure issue when green again
-        if: success() && github.event_name == 'schedule'
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v7
         with:
           script: |
