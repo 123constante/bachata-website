@@ -62,28 +62,26 @@ async function fetchText(url) {
 }
 
 // Is the preview sitting behind Vercel's Deployment Protection with our bypass
-// absent or rejected? Such a preview answers a 3xx toward vercel.com/login ->
-// /sso-api and, followed, dies with "redirect count exceeded" -- an error about
-// auth, not SEO. We detect it with a single un-followed request so the guard can
-// SKIP (production SEO is still covered by the scheduled run) instead of failing
-// red on a wall it cannot see past. A working bypass answers 200 here -> not
-// walled -> the real checks run.
+// absent or rejected? Such a preview bounces through vercel.com/login -> /sso-api
+// and, followed, dies with "redirect count exceeded" -- an error about auth, not
+// SEO. We probe with the SAME follow semantics the real fetch uses so we see the
+// same outcome: a throw (redirect loop / network death) or a final URL parked on
+// the auth wall both read as walled. The guard then SKIPS (production SEO is still
+// covered by the scheduled run) instead of failing red on a wall it cannot see
+// past. A working bypass lands 200 on the real host -> not walled -> checks run.
 async function previewIsWalled() {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 15000);
   try {
     const r = await fetch(BASE, {
       headers: { 'user-agent': UA, ...(BYPASS ?? {}) },
-      redirect: 'manual',
+      redirect: 'follow',
       signal: ctrl.signal,
     });
-    if (r.status >= 300 && r.status < 400) {
-      const loc = r.headers.get('location') ?? '';
-      return /vercel\.com\/(login|sso-api)|\/sso-api/i.test(loc);
-    }
-    return false;
+    // Landed somewhere. If the redirect chain ended on Vercel's auth wall, walled.
+    return /vercel\.com\/(login|sso-api)|\/sso-api/i.test(r.url ?? '');
   } catch {
-    // A redirect-loop / network death against a protected preview reads as walled.
+    // "redirect count exceeded" / network death against a protected preview = walled.
     return true;
   } finally {
     clearTimeout(t);
