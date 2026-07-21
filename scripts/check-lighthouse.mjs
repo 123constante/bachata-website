@@ -31,7 +31,13 @@ import { appendFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
-import { resolvePreviewUrl, bypassHeaders, assertMeasured } from './lib/previewProbe.mjs';
+import {
+  resolvePreviewUrl,
+  bypassHeaders,
+  assertMeasured,
+  isPreviewHost,
+  previewIsWalled,
+} from './lib/previewProbe.mjs';
 
 const EXPLICIT_BASE = (process.env.LH_BASE_URL ?? '').replace(/\/$/, '');
 // Resolved in main(): the explicit base, or the PR preview. The bypass headers
@@ -139,12 +145,31 @@ async function main() {
   // preview then REQUIRES the bypass secret (previewProbe throws in CI if absent),
   // so a misconfig fails loudly instead of 401-ing into empty metrics.
   BASE = EXPLICIT_BASE || (await resolvePreviewUrl());
-  BYPASS = bypassHeaders({ required: !EXPLICIT_BASE });
+  // `required: false` — a missing secret is handled by the walled-preview skip
+  // below (same outcome as a rejected one) rather than throwing before we can
+  // tell whether the preview is reachable at all.
+  BYPASS = bypassHeaders({ required: false });
   if (BYPASS) {
     extraHeadersPath = join(mkdtempSync(join(tmpdir(), 'lh-hdr-')), 'headers.json');
     writeFileSync(extraHeadersPath, JSON.stringify(BYPASS));
   }
   console.log(`Lighthouse base: ${BASE}${BYPASS ? ' (protection bypass active)' : ''}`);
+
+  // A protected preview we cannot reach is an AUTH failure, not a perf failure.
+  // Skip (green, with a warning annotation) rather than audit the SSO login page
+  // or fail the measurement contract on metrics we were never allowed to collect.
+  // Production/explicit bases are public, so this never short-circuits them.
+  if (isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
+    console.log(
+      '::warning title=Lighthouse preview skipped::The Vercel preview is behind ' +
+        'Deployment Protection and the automation bypass was absent or rejected, so no ' +
+        'metrics could be collected. Production perf is still covered by the scheduled ' +
+        'run. To enable preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET ' +
+        '(Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation).',
+    );
+    console.log('Skipped: preview unreachable behind Deployment Protection.');
+    return;
+  }
 
   const targets = [...FIXED_TARGETS];
   const eventPath = await discoverEventUrl();

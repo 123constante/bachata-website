@@ -14,7 +14,7 @@
 //
 // Exit 1 if any sampled page would show no preview.
 
-import { bypassHeaders } from './lib/previewProbe.mjs';
+import { bypassHeaders, isPreviewHost, previewIsWalled } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
@@ -138,6 +138,22 @@ async function checkPage(pathOrUrl) {
 
 async function main() {
   console.log(`OG image guard — base: ${BASE}`);
+
+  // A protected preview we cannot reach is an AUTH failure, not an OG failure.
+  // Skip (green, with a warning annotation) instead of "checking" the SSO login
+  // page. Production is public, so this never short-circuits the real run.
+  if (isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
+    console.log(
+      '::warning title=OG preview skipped::The Vercel preview is behind Deployment ' +
+        'Protection and the automation bypass was absent or rejected, so OG cards could ' +
+        'not be checked. Production OG is still covered by the scheduled run. To enable ' +
+        'preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET (Vercel -> ' +
+        'Settings -> Deployment Protection -> Protection Bypass for Automation).',
+    );
+    console.log('Skipped: preview unreachable behind Deployment Protection.');
+    return;
+  }
+
   const urls = await sampleUrls();
   console.log(`Checking ${urls.length} pages...\n`);
 

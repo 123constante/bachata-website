@@ -141,6 +141,44 @@ export async function probe(url, opts = {}) {
   return res;
 }
 
+/** True when `base` is a Vercel preview host (*.vercel.app). Prod is public, so
+ *  callers gate the walled-preview skip on this first. */
+export function isPreviewHost(base) {
+  try {
+    return /\.vercel\.app$/i.test(new URL(base).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Is `base` a preview sitting behind Deployment Protection with the bypass absent
+ * or rejected? Such a preview bounces through vercel.com/login -> /sso-api and,
+ * followed, dies with "redirect count exceeded" — an AUTH failure, not a check
+ * failure. We probe with the same follow semantics the real fetches use, so we
+ * observe the same outcome: a throw (redirect loop / network death) or a final URL
+ * parked on the auth wall both read as walled. A working bypass lands 200 on the
+ * real host -> not walled -> the real check runs. Lets a preview-gated guard SKIP
+ * (green, with a ::warning:: annotation) instead of failing red on a wall it
+ * cannot see past; production coverage stays with the scheduled run.
+ */
+export async function previewIsWalled(base, { bypass = null, ua = 'Mozilla/5.0', timeoutMs = 15000 } = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(base, {
+      headers: { 'user-agent': ua, ...(bypass ?? {}) },
+      redirect: 'follow',
+      signal: ctrl.signal,
+    });
+    return /vercel\.com\/(login|sso-api)|\/sso-api/i.test(r.url ?? '');
+  } catch {
+    return true;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 /** Fail-loud measurement contract. A check that measured fewer targets than it
  *  promised is a failure, not a pass — this is what stops "green but measured
  *  nothing" from ever recurring. */
