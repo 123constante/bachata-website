@@ -27,6 +27,8 @@ const STRICT = process.env.SEO_CHECK_STRICT === '1';
 // Preview PR coverage: send the Vercel protection-bypass headers when pointed at
 // a protected preview; null against public prod (default).
 const BYPASS = bypassHeaders({ required: false });
+// A *.vercel.app target is a protected preview; prod is public.
+const IS_PREVIEW = /\.vercel\.app$/i.test(new URL(BASE).hostname);
 const UA = 'Mozilla/5.0 (compatible; BachataCalendarSeoCheck/1.0)';
 const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing pages must NOT use it
 
@@ -54,6 +56,35 @@ async function fetchText(url) {
   try {
     const r = await fetch(url, { headers: { 'user-agent': UA, ...(BYPASS ?? {}) }, redirect: 'follow', signal: ctrl.signal });
     return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Is the preview sitting behind Vercel's Deployment Protection with our bypass
+// absent or rejected? Such a preview answers a 3xx toward vercel.com/login ->
+// /sso-api and, followed, dies with "redirect count exceeded" -- an error about
+// auth, not SEO. We detect it with a single un-followed request so the guard can
+// SKIP (production SEO is still covered by the scheduled run) instead of failing
+// red on a wall it cannot see past. A working bypass answers 200 here -> not
+// walled -> the real checks run.
+async function previewIsWalled() {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch(BASE, {
+      headers: { 'user-agent': UA, ...(BYPASS ?? {}) },
+      redirect: 'manual',
+      signal: ctrl.signal,
+    });
+    if (r.status >= 300 && r.status < 400) {
+      const loc = r.headers.get('location') ?? '';
+      return /vercel\.com\/(login|sso-api)|\/sso-api/i.test(loc);
+    }
+    return false;
+  } catch {
+    // A redirect-loop / network death against a protected preview reads as walled.
+    return true;
   } finally {
     clearTimeout(t);
   }
@@ -184,6 +215,22 @@ async function checkPage(path, { isEvent = false, isFixedProbe = false, minEvent
 
 async function main() {
   console.log(`SEO guard against ${BASE}`);
+
+  // A protected preview we cannot reach is not an SEO failure. Skip (green with a
+  // GitHub warning annotation) rather than crash on the SSO redirect loop. Prod is
+  // public, so IS_PREVIEW is false there and this never short-circuits the real run.
+  if (IS_PREVIEW && (await previewIsWalled())) {
+    console.log(
+      '::warning title=SEO preview skipped::The Vercel preview is behind Deployment ' +
+        'Protection and the automation bypass was absent or rejected, so preview SEO ' +
+        'could not be checked. Production SEO is still covered by the scheduled run. ' +
+        'To enable preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET ' +
+        '(Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation).',
+    );
+    console.log('Skipped: preview unreachable behind Deployment Protection.');
+    return;
+  }
+
   const urls = await sampleUrls();
   let hardFailures = 0;
 
