@@ -187,18 +187,20 @@ async function checkPage(path, { isEvent = false, isFixedProbe = false, minEvent
 async function main() {
   console.log(`SEO guard against ${BASE}`);
 
-  // A protected preview we cannot reach is not an SEO failure. Skip (green with a
-  // GitHub warning annotation) rather than crash on the SSO redirect loop. Prod is
-  // public, so IS_PREVIEW is false there and this never short-circuits the real run.
+  // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
+  // surface — see previewIsWalled) is not an SEO failure: skip green with a
+  // warning. Anything else (timeout, DNS, broken preview) is NOT walled and the
+  // real checks run and fail loud. Prod is public, so IS_PREVIEW is false there
+  // and this never short-circuits the real run.
   if (IS_PREVIEW && (await previewIsWalled(BASE, { bypass: BYPASS, ua: UA }))) {
     console.log(
       '::warning title=SEO preview skipped::The Vercel preview is behind Deployment ' +
-        'Protection and the automation bypass was absent or rejected, so preview SEO ' +
+        'Protection and the automation bypass did not open it, so preview SEO ' +
         'could not be checked. Production SEO is still covered by the scheduled run. ' +
-        'To enable preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET ' +
+        'To restore preview coverage, fix the VERCEL_AUTOMATION_BYPASS_SECRET ' +
         '(Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation).',
     );
-    console.log('Skipped: preview unreachable behind Deployment Protection.');
+    console.log('Skipped: preview behind Deployment Protection (proven wall).');
     return;
   }
 

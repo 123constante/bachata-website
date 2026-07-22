@@ -22,6 +22,11 @@
 // Anti-masking: two distinct failure classes.
 //   - INFRA ("couldn't measure a mandatory target"): ALWAYS a hard failure
 //     (exit 1). This is what the dead-Lighthouse era hid behind continue-on-error.
+//     ONE narrow exception: a positively-PROVEN Deployment Protection wall on the
+//     self-resolved PR preview (401/403 or parked on Vercel's login surface)
+//     skips green with a ::warning:: — no code change can open that wall, and
+//     the warning states plainly that zero perf was measured. Timeouts, DNS
+//     death, and broken previews are NOT the exception; they stay hard red.
 //   - BUDGET ("measured, but over budget"): warn-only until LH_ENFORCE=1 flips it
 //     to blocking (that flip is Phase 4 — a deliberate env switch, not the
 //     accident of removing the job's infra-health guard).
@@ -143,32 +148,38 @@ async function main() {
   // Resolve the target base URL and the protection bypass. When no explicit
   // LH_BASE_URL is given we resolve the PR preview first-party; a protected
   // preview then REQUIRES the bypass secret (previewProbe throws in CI if absent),
-  // so a misconfig fails loudly instead of 401-ing into empty metrics.
+  // so a MISSING secret fails loudly. A present-but-genuinely-rejected secret is
+  // the walled-preview skip's job, below.
   BASE = EXPLICIT_BASE || (await resolvePreviewUrl());
-  // `required: false` — a missing secret is handled by the walled-preview skip
-  // below (same outcome as a rejected one) rather than throwing before we can
-  // tell whether the preview is reachable at all.
-  BYPASS = bypassHeaders({ required: false });
+  BYPASS = bypassHeaders({ required: !EXPLICIT_BASE });
+  console.log(`Lighthouse base: ${BASE}${BYPASS ? ' (protection bypass active)' : ''}`);
+
+  // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
+  // surface — see previewIsWalled) is an AUTH failure, not a perf failure. Skip
+  // green with a warning rather than audit the SSO login page. Only for the
+  // self-resolved PR preview: an EXPLICIT base was deliberately requested, so a
+  // wall there must stay loud. Transients/broken previews are NOT walled and
+  // fail loud via assertMeasured. NOTE: nothing else measures perf — there is no
+  // scheduled production Lighthouse run — so this skip means zero perf coverage
+  // for the PR; the warning says so.
+  if (!EXPLICIT_BASE && isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
+    console.log(
+      '::warning title=Lighthouse preview skipped::The Vercel preview is behind ' +
+        'Deployment Protection and the automation bypass did not open it, so NO ' +
+        'performance metrics were collected for this PR (no scheduled production ' +
+        'perf run exists to fall back on). Fix the bypass to restore coverage: ' +
+        'Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation, ' +
+        'and mirror the value into the VERCEL_AUTOMATION_BYPASS_SECRET Actions secret.',
+    );
+    console.log('Skipped: preview behind Deployment Protection (proven wall).');
+    return;
+  }
+
+  // Written only once we know we'll audit — the skip path must not leave an
+  // unused secret-bearing temp file behind.
   if (BYPASS) {
     extraHeadersPath = join(mkdtempSync(join(tmpdir(), 'lh-hdr-')), 'headers.json');
     writeFileSync(extraHeadersPath, JSON.stringify(BYPASS));
-  }
-  console.log(`Lighthouse base: ${BASE}${BYPASS ? ' (protection bypass active)' : ''}`);
-
-  // A protected preview we cannot reach is an AUTH failure, not a perf failure.
-  // Skip (green, with a warning annotation) rather than audit the SSO login page
-  // or fail the measurement contract on metrics we were never allowed to collect.
-  // Production/explicit bases are public, so this never short-circuits them.
-  if (isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
-    console.log(
-      '::warning title=Lighthouse preview skipped::The Vercel preview is behind ' +
-        'Deployment Protection and the automation bypass was absent or rejected, so no ' +
-        'metrics could be collected. Production perf is still covered by the scheduled ' +
-        'run. To enable preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET ' +
-        '(Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation).',
-    );
-    console.log('Skipped: preview unreachable behind Deployment Protection.');
-    return;
   }
 
   const targets = [...FIXED_TARGETS];

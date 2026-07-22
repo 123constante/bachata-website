@@ -11,18 +11,25 @@
 //                        Deployments API using the built-in GITHUB_TOKEN — the
 //                        Vercel bot publishes each preview as a GitHub Deployment.
 //                        No third-party action, no extra Vercel secret.
-//   bypassHeaders()      the Vercel Protection-Bypass-for-Automation headers,
+//   bypassHeaders()      the Vercel Protection-Bypass-for-Automation header,
 //                        from VERCEL_AUTOMATION_BYPASS_SECRET. Throws in CI when
-//                        absent: a check meant to hit a protected preview must
-//                        never silently run unauthenticated.
+//                        absent (unless required:false): a check meant to hit a
+//                        protected preview must never silently run unauthenticated.
 //   probe()              a fetch that injects the bypass and THROWS on 401/403
 //                        (couldn't get past protection) instead of returning a
 //                        body a check would misread as "measured nothing".
+//   isPreviewHost()      is this base a *.vercel.app preview (vs public prod)?
+//   previewIsWalled()    POSITIVE wall detection (401/403 or parked on Vercel's
+//                        login/sso surface). Preview checks may skip green — with
+//                        a ::warning:: — on a PROVEN wall only; anything else
+//                        (timeout, DNS, broken preview) must still fail loud.
 //   assertMeasured()     fail-loud contract: a check declares how many targets it
 //                        must have measured; a shortfall throws (non-zero exit).
 //
-// The point of the last two is anti-masking: an unreachable / unauthenticated /
-// zero-metric run becomes a LOUD failure, not a green check that measured nothing.
+// The anti-masking rule, amended for the wall: an unreachable / unauthenticated /
+// zero-metric run is a LOUD failure, not a green check that measured nothing —
+// with ONE narrow exception, a positively-proven Deployment Protection wall,
+// which skips green with a visible warning because no code change can open it.
 
 import { readFileSync } from 'node:fs';
 
@@ -47,11 +54,25 @@ export function getPreviewSha() {
   return process.env.GITHUB_SHA ?? null;
 }
 
-/** The Vercel Protection-Bypass headers, or null when no secret is configured.
+/** The Vercel Protection-Bypass header, or null when no secret is configured.
  *  In CI, a missing secret THROWS (unless required:false) — a protected-preview
- *  check that ran unauthenticated would 401 and look like it measured nothing. */
+ *  check that ran unauthenticated would 401 and look like it measured nothing.
+ *
+ *  Deliberately does NOT send `x-vercel-set-bypass-cookie`. That header makes a
+ *  VALID secret answer with a cookie-setting redirect; our clients (undici fetch,
+ *  curl) have no cookie jar, so each hop re-triggers the redirect until the cap —
+ *  "redirect count exceeded" — which made a WORKING secret look like a rejected
+ *  one (proven on PR #135's run: doc-weight's bare-header curl got 200+br from
+ *  the same preview, same secret, same minute the fetch-based checks "skipped").
+ *  The bare header authenticates every request directly, no cookie needed —
+ *  including Lighthouse's Chrome, where --extra-headers applies via
+ *  Network.setExtraHTTPHeaders to all requests.
+ *
+ *  The secret is trimmed: a trailing newline (gh secret set from a file /
+ *  clipboard paste) would make undici reject the header before any network I/O.
+ */
 export function bypassHeaders({ required = true } = {}) {
-  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
+  const secret = (process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '').trim();
   if (!secret) {
     if (required && process.env.CI) {
       throw new Error(
@@ -62,8 +83,7 @@ export function bypassHeaders({ required = true } = {}) {
     }
     return null;
   }
-  // set-bypass-cookie makes redirected/subsequent requests carry the bypass too.
-  return { 'x-vercel-protection-bypass': secret, 'x-vercel-set-bypass-cookie': 'true' };
+  return { 'x-vercel-protection-bypass': secret };
 }
 
 async function ghJson(path, token) {
@@ -152,15 +172,18 @@ export function isPreviewHost(base) {
 }
 
 /**
- * Is `base` a preview sitting behind Deployment Protection with the bypass absent
- * or rejected? Such a preview bounces through vercel.com/login -> /sso-api and,
- * followed, dies with "redirect count exceeded" — an AUTH failure, not a check
- * failure. We probe with the same follow semantics the real fetches use, so we
- * observe the same outcome: a throw (redirect loop / network death) or a final URL
- * parked on the auth wall both read as walled. A working bypass lands 200 on the
- * real host -> not walled -> the real check runs. Lets a preview-gated guard SKIP
- * (green, with a ::warning:: annotation) instead of failing red on a wall it
- * cannot see past; production coverage stays with the scheduled run.
+ * Is `base` a preview sitting behind Deployment Protection that our bypass does
+ * not open? POSITIVE detection only — walled means the probe PROVED the wall:
+ *   - the redirect chain parked on Vercel's auth surface (vercel.com/login or
+ *     /sso-api on vercel.com), or
+ *   - the preview itself answered 401/403 (Password Protection / non-browser
+ *     SSO modes serve the wall on the preview host with no redirect).
+ * Everything else — including a fetch THROW (DNS death, timeout, a preview the
+ * PR itself broke) — is NOT walled: the real check must run and fail LOUD with
+ * the real error, not be skipped green under a misdiagnosis. (The first cut
+ * returned walled on any throw; combined with the set-bypass-cookie redirect
+ * loop it silently green-skipped previews a WORKING secret could open.)
+ * A working bypass lands 200 on the preview host -> not walled -> checks run.
  */
 export async function previewIsWalled(base, { bypass = null, ua = 'Mozilla/5.0', timeoutMs = 15000 } = {}) {
   const ctrl = new AbortController();
@@ -171,9 +194,21 @@ export async function previewIsWalled(base, { bypass = null, ua = 'Mozilla/5.0',
       redirect: 'follow',
       signal: ctrl.signal,
     });
-    return /vercel\.com\/(login|sso-api)|\/sso-api/i.test(r.url ?? '');
+    // Unconsumed undici bodies keep the event loop alive for minutes (measured);
+    // we only need status + final URL.
+    await r.body?.cancel();
+    if (r.status === 401 || r.status === 403) return true;
+    let host = '';
+    try {
+      host = new URL(r.url).hostname;
+    } catch {
+      return false;
+    }
+    return host === 'vercel.com' && /^\/(login|sso-api)/i.test(new URL(r.url).pathname);
   } catch {
-    return true;
+    // Network death / timeout / redirect loop is NOT proof of a wall — let the
+    // real check run and surface the real error loudly.
+    return false;
   } finally {
     clearTimeout(t);
   }

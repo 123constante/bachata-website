@@ -27,11 +27,22 @@ const MAX_BYTES = 300 * 1024;
 // One or two URLs per page type so a regression in any fetcher gets caught.
 const PREFIX_SAMPLE = { '/event/': 2, '/festival/': 1, '/city/': 1, '/teachers/': 1, '/djs/': 1, '/dancers/': 1, '/organisers/': 1 };
 
+// The bypass secret is a credential for the PREVIEW host only. og:image URLs can
+// resolve to third-party hosts (R2, any absolute URL a page carries) — sending
+// the header there would put the secret in someone else's access logs.
+function bypassFor(url) {
+  try {
+    return new URL(url, BASE).origin === new URL(BASE).origin ? BYPASS : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchText(url, opts = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const r = await fetch(url, { ...opts, headers: { ...(BYPASS ?? {}), ...(opts.headers ?? {}) }, signal: ctrl.signal });
+    const r = await fetch(url, { ...opts, headers: { ...(bypassFor(url) ?? {}), ...(opts.headers ?? {}) }, signal: ctrl.signal });
     return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
   } finally {
     clearTimeout(t);
@@ -43,7 +54,7 @@ async function headImage(url) {
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     // GET (not HEAD): the card endpoint streams a generated image; HEAD may skip Content-Length.
-    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: BYPASS ?? undefined });
+    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: bypassFor(url) ?? undefined });
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     let bytes = Number(r.headers.get('content-length') || 0);
     if (!bytes && r.ok) bytes = (await r.arrayBuffer()).byteLength;
@@ -139,18 +150,20 @@ async function checkPage(pathOrUrl) {
 async function main() {
   console.log(`OG image guard — base: ${BASE}`);
 
-  // A protected preview we cannot reach is an AUTH failure, not an OG failure.
-  // Skip (green, with a warning annotation) instead of "checking" the SSO login
-  // page. Production is public, so this never short-circuits the real run.
+  // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
+  // surface — see previewIsWalled) is an AUTH failure, not an OG failure: skip
+  // green with a warning. Anything else (timeout, DNS, broken preview) is NOT
+  // walled and the real checks run and fail loud. Production is public, so this
+  // never short-circuits the real run.
   if (isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
     console.log(
       '::warning title=OG preview skipped::The Vercel preview is behind Deployment ' +
-        'Protection and the automation bypass was absent or rejected, so OG cards could ' +
-        'not be checked. Production OG is still covered by the scheduled run. To enable ' +
-        'preview coverage, set a working VERCEL_AUTOMATION_BYPASS_SECRET (Vercel -> ' +
+        'Protection and the automation bypass did not open it, so OG cards could ' +
+        'not be checked. Production OG is still covered by the scheduled run. To ' +
+        'restore preview coverage, fix the VERCEL_AUTOMATION_BYPASS_SECRET (Vercel -> ' +
         'Settings -> Deployment Protection -> Protection Bypass for Automation).',
     );
-    console.log('Skipped: preview unreachable behind Deployment Protection.');
+    console.log('Skipped: preview behind Deployment Protection (proven wall).');
     return;
   }
 
