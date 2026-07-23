@@ -17,6 +17,7 @@ import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 import { normalizeGenreToken } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 
 type PersonLike = { first_name: string | null; surname: string | null; display_name: string | null };
@@ -74,7 +75,7 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query 
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
         {image ? (
-          <img src={image} alt={title} className="h-full w-full object-cover" loading="lazy" />
+          <img src={optimizedImageUrl(image, 320)} alt={title} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">{fallbackIcon}</div>
         )}

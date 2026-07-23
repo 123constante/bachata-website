@@ -1,4 +1,5 @@
 import { Image as ImageIcon } from 'lucide-react';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 interface VenueHeroMosaicProps {
   name: string;
@@ -47,7 +48,7 @@ function PhotoSlot({
     >
       {src ? (
         <img
-          src={src}
+          src={optimizedImageUrl(src, 640)}
           alt={alt}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"

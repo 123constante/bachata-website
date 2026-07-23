@@ -32,7 +32,7 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
+import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 
 // --- Types ---
 
@@ -256,7 +256,7 @@ const AvatarCircle = ({
       }}
     >
       {avatarUrl ? (
-        <img src={optimizedImageUrl(avatarUrl, 160)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       ) : (
         <span style={{ fontFamily: SERIF, fontSize, color: 'rgba(251,239,196,0.85)' }}>{initials(name)}</span>
       )}
@@ -270,7 +270,7 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
       <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, 96)} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
@@ -1000,7 +1000,7 @@ const OrganiserProfile = () => {
             </div>
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
               {pastVisible.map((e, i) => (
-                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 160), backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
+                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 320), backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '6px 7px', background: 'linear-gradient(transparent,rgba(12,10,13,0.88))', fontSize: 9, fontWeight: 700, color: D.cream, lineHeight: 1.3 }}>
                     {e.name.length > 14 ? e.name.slice(0, 13) + '???' : e.name}
                   </div>

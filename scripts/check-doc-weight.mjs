@@ -26,9 +26,9 @@
 //                          this bakes -- re-baseline once WS14 lands)
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { resolvePreviewUrl, bypassHeaders, assertMeasured } from './lib/previewProbe.mjs';
 
@@ -137,6 +137,7 @@ async function main() {
     if (!r || r.status < 200 || r.status >= 300) {
       console.log(`  [${label}] not measured (status ${r?.status ?? 'n/a'})`);
       summary.push(`| ${label} | -- | ${BUDGET_KB} KB | -- | not measured |`);
+      if (r?.bodyTmp) { try { rmSync(dirname(r.bodyTmp), { recursive: true, force: true }); } catch { /* best-effort */ } }
       continue;
     }
     measured += 1;
@@ -177,6 +178,7 @@ async function main() {
         (scan.failed ? '' : `, ${scan.imgCount} <img>, ${scan.offenders.length} unoptimised`),
     );
     summary.push(`| ${label} | ${kb} KB | ${BUDGET_KB} KB | ${imgCell} | ${status} |`);
+    try { rmSync(dirname(r.bodyTmp), { recursive: true, force: true }); } catch { /* best-effort */ }
   }
 
   if (process.env.GITHUB_STEP_SUMMARY) {

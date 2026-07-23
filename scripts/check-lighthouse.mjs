@@ -264,7 +264,7 @@ async function main() {
     );
   }
   console.log(
-    `\nLighthouse measured ${measuredMandatory}/${MANDATORY.size} mandatory targets` +
+    `\nLighthouse measured ${measuredMandatory}/${targets.length} mandatory targets` +
       `${totalBreaches.length ? ` with ${totalBreaches.length} budget warning(s)` : ' — all budgets respected'}.`,
   );
 }
