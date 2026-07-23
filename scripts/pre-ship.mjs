@@ -114,7 +114,7 @@ export const CHECK_SKIPS = {
  * tsc cannot be scoped to a file list the way eslint can -- the type graph is
  * project-wide -- so counting is the only honest scoping available.
  */
-export const TYPECHECK_BASELINE = 107;
+export const TYPECHECK_BASELINE = 106;
 
 const TSC_FILE_ERROR = /^[^\s(].*\([0-9]+,[0-9]+\): error TS[0-9]+/gm;
 const TSC_ANY_ERROR = /error TS[0-9]+/g;

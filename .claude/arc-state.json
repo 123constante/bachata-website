@@ -1,25 +1,21 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 6,
-  "phase_name": "Metrics + queues (four independent ships)",
+  "phase": 8,
+  "phase_name": "Review + ship the queue (last item: #139 RPC-typing burn-down)",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-07-30T23:09:35Z",
+  "set_at": "2026-08-04T00:00:00Z",
   "scope": [
     ".claude/arc-state.json",
-    ".claude/settings.json",
-    ".github/workflows/unit-tests.yml",
-    ".github/workflows/weekly-digest.yml",
-    ".gitignore",
-    "CLAUDE.md",
-    "bin/session-lock.sh",
-    "package.json",
-    "scripts/hooks/session-lock.mjs",
-    "scripts/rework-share.mjs",
-    "tests/reworkShare.test.ts",
-    "tests/sessionLock.test.ts"
+    "scripts/pre-ship.mjs",
+    "scripts/rpc-typing-allowlist.json",
+    "src/lib/profileViewEmit.ts",
+    "src/lib/searchClickTelemetry.ts",
+    "src/lib/searchTelemetry.ts",
+    "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx",
+    "src/modules/event-page/useRecordEventView.ts"
   ],
-  "note": "Phase 6 ships four independent items across two repos. Website half (this branch): the rework-share digest section + the session-lock heartbeat repair. Admin half is UNCOMMITTED in c:/dev/bachata-admin-11april and mixes with Phase 4's admin leftovers (arc-checkpoint.mjs, lib/arc-state.mjs, docs/open-loops.md, docs/review-cascade-fix-plan.md) -- separate those before committing there. Two deliberate NON-APPEND hook edits, both called out: Website Stop release->heartbeat (release-per-turn WAS the bug), and admin's two inline graphify tips replaced by scripts/hooks/graphify-tip.mjs (appending a deduped copy beside the un-deduped originals would have kept paying for both). Item 4(b), the 35k-token open-loops pre-read cap, is WITHDRAWN on re-measurement: the boot injection is 14,310 chars (~3k tokens), already capped, and the full-file read the plan measured no longer happens. Ricky must add repo secret ADMIN_READ_TOKEN before the admin digest row stops reading 'unavailable'."
+  "note": "Phase 8 is the review+ship phase for the queued PR ladder. This branch is the LAST queue item: #139, the RPC-typing burn-down increment 1 (5 telemetry casts). Its PR base was retargeted off the obsolete chore/regen-supabase-types onto main. TYPECHECK_BASELINE 107->106 was re-measured against origin/main with the real gate (npx react-router typegen && npx tsc -p tsconfig.app.json --noEmit); a bare npx tsc --noEmit reports 0 and is a known false green. This arc-state was inherited from main still declaring Phase 6, which inflated pre-ship scope-drift -- corrected here by the phase-START write that trap #4 asks for. Ahead of this ship: #183, #136, #138, #184, #185 all still OPEN as of 2026-08-04; main is at 721305a."
 }

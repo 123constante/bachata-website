@@ -22,7 +22,7 @@ export function useRecordEventView(
     // execute timers long enough to reach this point.
     const timer = setTimeout(() => {
       void supabase
-        .rpc('record_event_view_v1' as any, {
+        .rpc('record_event_view_v1', {
           p_event_id: eventId,
           p_viewer_session_id: sessionId,
           p_source: source,
