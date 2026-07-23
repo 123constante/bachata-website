@@ -14,18 +14,44 @@
 //
 // Exit 1 if any sampled page would show no preview.
 
-import { bypassHeaders, isPreviewHost, previewIsWalled } from './lib/previewProbe.mjs';
+import { assertMeasured, bypassHeaders, isPreviewHost, previewIsWalled } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
+// Floor for the sitemap sample. PREFIX_SAMPLE asks for 8 URLs across 7 prefixes;
+// individual entity types legitimately come and go, so this is a "the sitemap
+// clearly worked" floor, not a per-prefix assertion.
+const MIN_OG_PAGES = 4;
 // When pointed at a protected Vercel preview (PR coverage), send the bypass
 // headers; null (no secret) against public prod, where they are not needed.
 const BYPASS = bypassHeaders({ required: false });
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
 
-// One or two URLs per page type so a regression in any fetcher gets caught.
-const PREFIX_SAMPLE = { '/event/': 2, '/festival/': 1, '/city/': 1, '/teachers/': 1, '/djs/': 1, '/dancers/': 1, '/organisers/': 1 };
+// A few URLs per page type so a regression in any fetcher gets caught.
+//
+// EVENTS GET THE WIDEST SAMPLE because they are the page people actually share
+// and the only type with a per-row image pipeline. It was 2, taken as the FIRST
+// two <loc> entries -- i.e. sitemap ORDER decided coverage, and 63 of the 65
+// event URLs were never looked at. That is not a sampling strategy, it is a
+// lottery: creating one event on 2026-07-31 made it entry #1, pushed a stale
+// 2026-05-09 row into entry #2, and reddened og-preview on every PR from
+// 2026-08-01 with an UNCHANGED codebase. Coverage must not re-roll when the
+// sitemap reorders.
+//
+// HONEST LIMIT, measured against prod 2026-08-03: only /event/, /dancers/ and
+// /organisers/ actually appear in sitemap.xml, so the other four keys below
+// contribute NOTHING and this samples three page types, not seven. Some of that
+// is deliberate (PR #140 stopped emitting /teachers/ URLs for non-teacher
+// profiles); /festival/ and /city/ are worth a look. Left declared rather than
+// deleted so the keys reactivate if those URLs return -- but do not read the
+// list as coverage it does not have.
+const PREFIX_SAMPLE = { '/event/': 6, '/festival/': 2, '/city/': 1, '/teachers/': 1, '/djs/': 1, '/dancers/': 1, '/organisers/': 1 };
+// How long after an event ends its link preview still matters. Past events stay
+// published on purpose (the organiser past-events surface, CI check #41), so
+// they stay in the sitemap and can be sampled -- but nobody shares last May's
+// flyer, so a stale image on one must WARN, not red the build.
+const PAST_EVENT_GRACE_HOURS = 24;
 
 // The bypass secret is a credential for the PREVIEW host only. og:image URLs can
 // resolve to third-party hosts (R2, any absolute URL a page carries) — sending
@@ -96,6 +122,23 @@ async function sampleUrls() {
   return urls;
 }
 
+/**
+ * Has this event/festival already finished?
+ *
+ * Read from the page's own Event JSON-LD, which both surfaces already emit, so
+ * no extra request and no DB credentials are needed -- the sitemap carries no
+ * date, which is why the sample could not be filtered before fetching. Falls
+ * back to startDate when endDate is absent. Unparseable or missing dates answer
+ * false, so an unknown page is treated as LIVE and still fails hard: the
+ * scoping may only ever narrow what is forgiven, never what is checked.
+ */
+function eventHasEnded(html, nowMs = Date.now()) {
+  const raw = pick(html, /"endDate"\s*:\s*"([^"]+)"/) || pick(html, /"startDate"\s*:\s*"([^"]+)"/);
+  if (!raw) return false;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) && t < nowMs - PAST_EVENT_GRACE_HOURS * 60 * 60 * 1000;
+}
+
 async function checkPage(pathOrUrl) {
   const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${BASE}${pathOrUrl}`;
   const failures = [];
@@ -144,6 +187,14 @@ async function checkPage(pathOrUrl) {
   } catch (e) {
     return { url, soft: true, failures: [`og:image fetch error: ${e.message}`] };
   }
+  // Scope the VERDICT, not the check: a finished event is still fetched and
+  // still asserted, but its failures warn instead of redding. Deliberately
+  // applied at the end so it downgrades every failure kind uniformly (a 404
+  // image on a past page is as harmless as a fallback one) rather than
+  // special-casing the one shape rule that happened to fire first.
+  if (failures.length > 0 && /\/(event|festival)\//.test(url) && eventHasEnded(html)) {
+    return { url, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
+  }
   return { url, failures };
 }
 
@@ -168,6 +219,9 @@ async function main() {
   }
 
   const urls = await sampleUrls();
+  // Fail-loud measurement contract: a silently-shrunk sitemap sample (or a
+  // sitemap that parsed to nothing) must not report a 0-page green pass.
+  assertMeasured(urls.length, MIN_OG_PAGES, 'OG sample pages');
   console.log(`Checking ${urls.length} pages...\n`);
 
   let hardFailures = 0;
@@ -191,4 +245,20 @@ async function main() {
   if (hardFailures > 0) process.exit(1);
 }
 
-main().catch((e) => { console.error('check-og-images crashed:', e); process.exit(STRICT ? 1 : 0); });
+// A CRASH is always a hard failure -- the same strict form check-seo.mjs,
+// check-lighthouse.mjs and check-doc-weight.mjs already use. It previously exited
+// 0 unless OG_CHECK_STRICT=1, which NO workflow sets, so a throw in sampleUrls()
+// (sitemap 500, HTML instead of XML, a parse change) made the daily production
+// og-check report SUCCESS having checked zero pages -- byte-for-byte the
+// dead-Lighthouse "green but measured nothing" failure this repo exists to kill.
+// OG_CHECK_STRICT keeps its original, narrower meaning: escalating per-page SOFT
+// failures (see the `r.soft && !STRICT` branch above).
+// process.exitCode, NOT process.exit(1). Measured on Windows 2026-08-03: the
+// bare exit() discards the in-flight stderr pipe write of the error object and
+// libuv aborts -- "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING),
+// src\win\async.c" -- so the run ends 127 with a libuv assertion where the real
+// cause should be. Non-zero either way, so CI still reds, but the operator
+// reads a crash in node instead of the sitemap failure that caused it. This is
+// rule (1) of the arc-close check-script-conventions.mjs candidate, and
+// pre-ship.mjs already documents the class.
+main().catch((err) => { console.error(err); process.exitCode = 1; });

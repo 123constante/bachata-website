@@ -1,18 +1,41 @@
 #!/usr/bin/env node
-// Masking guard for GitHub Actions workflows.
+// Masking tripwire for GitHub Actions workflows -- NARROW BY DESIGN.
 //
 // The dead-Lighthouse incident: a job that could not run AT ALL reported SUCCESS
 // on 13 consecutive PRs because a job-level `continue-on-error: true` masked its
 // failure -- a dead check was indistinguishable from a passing one. This lint
-// makes that impossible to reintroduce silently: every `continue-on-error: true`
-// must carry a `soft-signal:` justification in the comment block immediately
+// catches a REPEAT of that exact spelling: every literal `continue-on-error: true`
+// line must carry a `soft-signal:` justification in the comment block immediately
 // above it (or trailing on the same line). An unjustified one fails the check.
 //
+// WHAT IT DOES NOT CATCH -- do not read a green run here as "masking is now
+// impossible". This is a single per-line regex, not a YAML parser, so it is blind
+// to other VALID spellings of the same directive (each verified against the
+// actions/runner YAML reader + the workflow schema): the `${{ }}` expression form
+// (an official GHA docs example), `True`/`TRUE` (the reader accepts them; this
+// regex is case-sensitive), a plain `true` on the line AFTER the key, and
+// anchor/alias (`&x true` ... `*x`, on github.com since 2025-09-18) at both the
+// anchor and the alias site. It only reads .github/workflows, so a local composite
+// action's `runs.steps[*].continue-on-error` is out of scope. And it says nothing
+// about non-YAML masking -- `|| true` / `set +e` / a trailing `exit 0` in a `run:`
+// block, or an `if:` that silently never fires. None of those exist in the tree
+// today; this guard would not notice if one arrived.
+//
 // continue-on-error is legitimate for a genuinely optional, already-MEASURED
-// signal (e.g. a warn-only budget during a bake). It must never be the reason a
-// check that failed to measure looks green -- that is what the previewProbe
-// fail-loud contract enforces on the script side; this lint enforces the intent
-// on the workflow side.
+// signal (e.g. a warn-only budget during a bake -- perf-budget.yml). The intended
+// invariant is that a check which FAILED TO MEASURE must not look green. Two
+// honest limits on that invariant, so this comment does not overclaim as the
+// previous one did:
+//   - It is NOT enforced on the script side. previewProbe's assertMeasured() is an
+//     opt-in helper, not a structural guarantee -- only check-doc-weight,
+//     check-lighthouse and check-og-images call it; check-seo.mjs consumes
+//     previewProbe yet asserts no measurement. The fail-loud contract is a
+//     convention where invoked, not a repo-wide guarantee.
+//   - There is ONE sanctioned case where an UNMEASURED check still goes green: a
+//     positively-proven Deployment Protection wall on a PR preview skips with a
+//     ::warning:: (perf-budget.yml documents this; no code change can open a wall).
+// So treat this lint as one layer of defence-in-depth against the specific 2026
+// regression, not as a proof that no check can be masked green.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

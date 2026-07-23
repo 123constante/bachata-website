@@ -1,25 +1,17 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 6,
-  "phase_name": "Metrics + queues (four independent ships)",
+  "phase": 8,
+  "phase_name": "CI honesty: flush the stale PR queue",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-07-30T23:09:35Z",
+  "set_at": "2026-08-03T22:55:00Z",
   "scope": [
-    ".claude/arc-state.json",
-    ".claude/settings.json",
-    ".github/workflows/unit-tests.yml",
-    ".github/workflows/weekly-digest.yml",
-    ".gitignore",
-    "CLAUDE.md",
-    "bin/session-lock.sh",
-    "package.json",
-    "scripts/hooks/session-lock.mjs",
-    "scripts/rework-share.mjs",
-    "tests/reworkShare.test.ts",
-    "tests/sessionLock.test.ts"
+    "playwright.synthetic.config.ts",
+    "scripts/check-og-images.mjs",
+    "scripts/check-search-public-v5.mjs",
+    "scripts/lint-workflow-masking.mjs"
   ],
-  "note": "Phase 6 ships four independent items across two repos. Website half (this branch): the rework-share digest section + the session-lock heartbeat repair. Admin half is UNCOMMITTED in c:/dev/bachata-admin-11april and mixes with Phase 4's admin leftovers (arc-checkpoint.mjs, lib/arc-state.mjs, docs/open-loops.md, docs/review-cascade-fix-plan.md) -- separate those before committing there. Two deliberate NON-APPEND hook edits, both called out: Website Stop release->heartbeat (release-per-turn WAS the bug), and admin's two inline graphify tips replaced by scripts/hooks/graphify-tip.mjs (appending a deduped copy beside the un-deduped originals would have kept paying for both). Item 4(b), the 35k-token open-loops pre-read cap, is WITHDRAWN on re-measurement: the boot injection is 14,310 chars (~3k tokens), already capped, and the full-file read the plan measured no longer happens. Ricky must add repo secret ADMIN_READ_TOKEN before the admin digest row stops reading 'unavailable'."
+  "note": "Phase 8 ship 3 of the serial ladder: PR #136, the CI-honesty branch, rebased off a 34-commit-stale base onto current main. It arrived declaring PHASE 6 because main still carries Phase 6's arc-state -- the P8 write lives on the #183/#184 branch and has not merged -- which is the stale-arc-state trap the 2026-07-31 interposed session logged: a branch inherits whatever arc-state main carries, and only a phase-START write corrects it. Expect a trivial conflict on this file when #184 lands first; take #184's phase/set_at and this ship's scope. Review round folded three findings into the branch: check-og-images' new crash handler used process.exit(1), which on Windows discards the in-flight stderr write and aborts under libuv (exit 127, not 1) -- rule (1) of the arc-close check-script-conventions candidate; the sitemap sample took the FIRST 2 event URLs, so ordering decided coverage and 63 of 65 events were never checked (widened to 6, and a finished event now WARNS rather than reds, matching the live/slugged scoping principle CI check #47 already documents); and PREFIX_SAMPLE declared 7 page types of which only 3 appear in sitemap.xml. NOT closed by this ship: the arc-close check-search-public-v5 item asked for a rollover-boundary anchor plus a fixed-clock both-direction proof; this branch widens the bound with a measured heuristic instead and says so in its own comment, so the row stays open."
 }
