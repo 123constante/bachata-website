@@ -431,7 +431,7 @@ const Teachers = () => {
                       {/* Top row: avatar + name/meta */}
                       <div className="flex items-start gap-4 mb-3">
                         <Avatar className="w-14 h-14 border-2 border-primary/20 group-hover:border-primary/60 transition-colors shrink-0">
-                          <AvatarImage src={optimizedImageUrl(teacher.photo_url || '', 96) || undefined} alt={name} />
+                          <AvatarImage src={optimizedImageUrl(teacher.photo_url || '', 160) || undefined} alt={name} />
                           <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
                             {(teacher.first_name ?? '?').charAt(0).toUpperCase()}
                           </AvatarFallback>

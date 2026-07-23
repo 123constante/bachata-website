@@ -28,9 +28,43 @@ export function optimizedImageUrl(url: string, width: number, quality = 70): str
   // Dev servers have no /_vercel/image endpoint -- render originals locally.
   if (import.meta.env.DEV) return url;
   try {
-    if (!OPTIMIZABLE_HOSTS.has(new URL(url).hostname)) return url;
+    const { hostname, pathname } = new URL(url);
+    if (!OPTIMIZABLE_HOSTS.has(hostname)) return url;
+    // SVG passthrough. upload-validation.ts allows 'image/svg+xml', so SVGs do
+    // reach R2. Vercel refuses to optimize SVG unless images.dangerouslyAllowSVG
+    // is set (it isn't, and turning it on lets user-uploaded SVG execute script
+    // on our origin) -- so an SVG here would 400 and render a broken image where
+    // it renders fine today. Vectors gain nothing from raster resizing anyway:
+    // serve them straight from the bucket.
+    if (/\.svg$/i.test(pathname)) return url;
   } catch {
     return url; // relative/malformed URL -- leave untouched
   }
   return `/_vercel/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
+}
+
+/** The widths Vercel will serve. MUST equal vercel.json images.sizes. */
+const SIZES = [96, 160, 320, 480, 640, 960, 1280] as const;
+
+/**
+ * Smallest allowed source width that still covers `cssPx` at 3x DPR (~95% of
+ * traffic is mobile, so assume retina rather than the 1x case). Use this instead
+ * of hardcoding a width whenever the element's rendered size is a variable:
+ * a literal silently under-serves the moment the box grows (a 52px avatar asking
+ * for w=96 upscales 1.6x on a DPR-3 phone -- sharp before optimization, soft after).
+ */
+export function srcWidthFor(cssPx: number): number {
+  const need = cssPx * 3;
+  return SIZES.find((s) => s >= need) ?? SIZES[SIZES.length - 1];
+}
+
+/**
+ * CSS background-image helper: `backgroundImage: cssUrl(poster, 480)`.
+ * Same rewriting as optimizedImageUrl, but returns a ready `url(...)` value.
+ * Background images are invisible to both an <img> sweep and the doc-weight
+ * guard, so they are exactly where full-size originals hide.
+ */
+export function cssUrl(url: string | null | undefined, width: number, quality = 70): string | undefined {
+  if (!url) return undefined;
+  return `url(${optimizedImageUrl(url, width, quality)})`;
 }

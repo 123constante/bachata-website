@@ -36,6 +36,14 @@ const EXPLICIT_BASE = (process.env.DOC_WEIGHT_BASE_URL ?? '').replace(/\/$/, '')
 const BUDGET_KB = Number(process.env.DOC_WEIGHT_BUDGET_KB ?? 120);
 const ENFORCE = process.env.DOC_WEIGHT_ENFORCE === '1';
 
+// The hosts that MUST be optimized, read from vercel.json's images.remotePatterns
+// -- the list Vercel itself enforces -- rather than a hardcoded copy that can
+// drift out of sync with the thing it is guarding. imageCdn.ts's OPTIMIZABLE_HOSTS
+// must equal this set; a mismatch is exactly how the original bug survived.
+const REMOTE_HOSTS = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
+  .images.remotePatterns.map((p) => p.hostname);
+const RAW_R2_SRC = new RegExp(`^https://(?:${REMOTE_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|')})/`, 'i');
+
 // The pages whose document weight we guard. Homepage is the heavy one (dehydrated
 // map-events JSON); add more as needed.
 const TARGETS = [['homepage', '/city/london-gb']];
@@ -69,20 +77,37 @@ function measureWire(url, bypassSecret) {
  */
 function scanUnoptimizedImages(bodyPath, enc) {
   let html;
-  const raw = readFileSync(bodyPath);
   try {
-    html = enc === 'br' ? brotliDecompressSync(raw).toString('utf8')
-      : enc === 'gzip' ? gunzipSync(raw).toString('utf8')
-      : raw.toString('utf8');
-  } catch {
-    return null; // could not decode -- caller reports "not scanned" as an infra miss
+    const raw = readFileSync(bodyPath);
+    if (enc === 'br') html = brotliDecompressSync(raw).toString('utf8');
+    else if (enc === 'gzip') html = gunzipSync(raw).toString('utf8');
+    else if (enc === 'identity' || !enc) html = raw.toString('utf8');
+    // Any other encoding (zstd, or a proxy rewriting the header over a still
+    // compressed body) would decode to mojibake. raw.toString() never throws, so
+    // without this the scan would find 0 <img> and report a vacuous PASS.
+    else return { failed: `unsupported content-encoding: ${enc}` };
+  } catch (e) {
+    return { failed: `decode failed (${enc}): ${e?.message ?? e}` };
   }
+
   const offenders = new Set();
+  let imgCount = 0;
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
-    const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
-    if (src && /^https:\/\/pub-[a-z0-9]+\.r2\.dev\//i.test(src)) offenders.add(src);
+    imgCount += 1;
+    // (^|\s)src= so we do not match data-src / data-lazy-src, which can legitimately
+    // hold the raw original while the real src is optimized.
+    const src = /(?:^|\s)src\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    if (src && RAW_R2_SRC.test(src)) offenders.add(src);
   }
-  return [...offenders];
+
+  // POSITIVE ASSERTION. "Found no offenders" and "never saw an <img> at all" are
+  // otherwise indistinguishable, both returning a green tick. A guard whose whole
+  // purpose is to end a silent no-op must not have one: if the page stops SSR-ing
+  // covers (client-only render, markup change, mojibake body), that is a scan
+  // failure, not a pass.
+  if (imgCount === 0) return { failed: 'scanned document contains zero <img> tags -- cannot verify' };
+
+  return { offenders: [...offenders], imgCount };
 }
 
 async function main() {
@@ -96,6 +121,7 @@ async function main() {
   let measured = 0;
   let scanFailures = 0;
   const breaches = [];
+  const rawImageFailures = [];
 
   for (const [label, pathname] of TARGETS) {
     const url = `${base}${pathname}`;
@@ -121,17 +147,36 @@ async function main() {
 
     // Unoptimised-image guard: no <img> in the rendered document may fetch an
     // R2 bucket directly -- covers must go through /_vercel/image.
-    const rawImgs = scanUnoptimizedImages(r.bodyTmp, r.enc);
-    if (rawImgs === null) {
+    const scan = scanUnoptimizedImages(r.bodyTmp, r.enc);
+    let imgCell;
+    if (scan.failed) {
       scanFailures += 1;
-      console.log(`  [${label}] image scan failed: could not decode body (${r.enc})`);
-    } else if (rawImgs.length) {
-      breaches.push(`${label} serves ${rawImgs.length} <img> src(s) straight from R2 (unoptimised); first: ${rawImgs[0]}`);
-      console.log(`  OVER [${label}] ${rawImgs.length} unoptimised R2 <img>; e.g. ${rawImgs[0]}`);
+      imgCell = 'scan failed';
+      console.log(`  [${label}] image scan failed: ${scan.failed}`);
+    } else {
+      imgCell = String(scan.offenders.length);
+      if (scan.offenders.length) {
+        // NOT a `breaches` entry: those are warn-only until DOC_WEIGHT_ENFORCE=1,
+        // which perf-budget.yml never sets -- so routing offenders there would make
+        // the guard against "nothing red anywhere" incapable of ever being red.
+        // An unoptimised image is a correctness bug, not a budget overrun: always hard.
+        rawImageFailures.push(
+          `${label}: ${scan.offenders.length} <img> src(s) straight from R2 (unoptimised)\n` +
+            scan.offenders.slice(0, 5).map((u) => `      ${u}`).join('\n') +
+            (scan.offenders.length > 5 ? `\n      ... and ${scan.offenders.length - 5} more` : ''),
+        );
+      }
     }
 
-    console.log(`  ${over ? 'OVER' : 'ok  '} [${label}] ${kb} KB (budget ${BUDGET_KB} KB, ${r.enc})`);
-    summary.push(`| ${label} | ${kb} KB | ${BUDGET_KB} KB | ${rawImgs === null ? 'scan failed' : rawImgs.length} | ${over || rawImgs?.length ? 'OVER' : 'ok'} |`);
+    // Single source of truth for this row's verdict, so console and step summary
+    // cannot disagree and a scan failure can never render as "ok".
+    const status = scan.failed ? 'scan failed' : over || scan.offenders.length ? 'OVER' : 'ok';
+    console.log(
+      `  ${status === 'ok' ? 'ok  ' : status === 'OVER' ? 'OVER' : 'FAIL'} [${label}] ${kb} KB ` +
+        `(budget ${BUDGET_KB} KB, ${r.enc})` +
+        (scan.failed ? '' : `, ${scan.imgCount} <img>, ${scan.offenders.length} unoptimised`),
+    );
+    summary.push(`| ${label} | ${kb} KB | ${BUDGET_KB} KB | ${imgCell} | ${status} |`);
   }
 
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -139,10 +184,18 @@ async function main() {
   }
 
   // INFRA guard (fail-loud): we must have measured every target, and every
-  // measured body must have been decodable for the image scan.
+  // measured body must have been scannable. Reuse assertMeasured for both rather
+  // than hand-rolling a second exit path next to it.
   assertMeasured(measured, TARGETS.length, 'document-weight targets');
-  if (scanFailures) {
-    console.error(`\n${scanFailures} target(s) could not be scanned for unoptimised images -- treating as infra failure.`);
+  assertMeasured(measured - scanFailures, TARGETS.length, 'scannable document bodies');
+
+  // CORRECTNESS guard (always hard, never warn-only): an <img> pulling a raw R2
+  // original is a bug, not a budget overrun.
+  if (rawImageFailures.length) {
+    console.error(
+      `\nUnoptimised images found -- every <img> must go through /_vercel/image ` +
+        `(see src/lib/imageCdn.ts):\n${rawImageFailures.map((f) => `  - ${f}`).join('\n')}`,
+    );
     process.exit(1);
   }
 

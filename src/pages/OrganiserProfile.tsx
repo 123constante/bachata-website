@@ -32,7 +32,7 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { optimizedImageUrl } from '@/lib/imageCdn';
+import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 
 // --- Types ---
 
@@ -924,7 +924,7 @@ const OrganiserProfile = () => {
                   </div>
                   <div style={{ flex: 1, minWidth: 0, padding: 'clamp(16px,3vw,30px) clamp(14px,4vw,34px)', position: 'relative', overflow: 'hidden', background: nextEvent.poster_url ? undefined : 'radial-gradient(circle at 96% 12%,rgba(255,106,44,0.18),transparent 44%),linear-gradient(150deg,#1a1018,#0C0A0D)' }}>
                     {nextEvent.poster_url && <>
-                      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${nextEvent.poster_url})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22 }} />
+                      <div style={{ position: 'absolute', inset: 0, backgroundImage: cssUrl(nextEvent.poster_url, 960), backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22 }} />
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(12,10,13,0.85) 0%,rgba(12,10,13,0.55) 60%,rgba(12,10,13,0.3) 100%)' }} />
                     </>}
                     <div style={{ position: 'relative', zIndex: 1 }}>
@@ -1000,7 +1000,7 @@ const OrganiserProfile = () => {
             </div>
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
               {pastVisible.map((e, i) => (
-                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: e.poster_url ? `url(${e.poster_url})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
+                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 160), backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '6px 7px', background: 'linear-gradient(transparent,rgba(12,10,13,0.88))', fontSize: 9, fontWeight: 700, color: D.cream, lineHeight: 1.3 }}>
                     {e.name.length > 14 ? e.name.slice(0, 13) + '???' : e.name}
                   </div>

@@ -3,6 +3,7 @@ import { Images, Maximize2 } from 'lucide-react';
 import { ShareButton } from '@/components/ShareButton';
 import { GalleryLightbox } from '@/modules/event-page/bento/modals/GalleryLightbox';
 import { PinkFallback } from '@/modules/event-page/bento/blocks/PinkFallback';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import {
   COVER_CAROUSEL_ADVANCE_MS,
   useCoverCarousel,
@@ -155,7 +156,7 @@ export const CoverBlock = ({
                   aria-hidden={i !== currentIndex}
                 >
                   <img
-                    src={url}
+                    src={optimizedImageUrl(url, 640)}
                     alt={i === 0 ? title : ''}
                     className="h-full w-full"
                     style={{

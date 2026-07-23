@@ -6,6 +6,7 @@ import { usePopularSearches } from '@/hooks/usePopularSearches';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import { buildCityPath } from '@/lib/cityPath';
 import { resolveEventImage } from '@/lib/utils';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 interface DiscoveryPanelProps {
   citySlug: string | null;
@@ -85,7 +86,7 @@ export function DiscoveryPanel({ citySlug, onPickTerm, onNavigate }: DiscoveryPa
               return (
                 <Link key={f.id} to={`/festival/${f.id}`} onClick={onNavigate} className="group overflow-hidden rounded-xl border border-border bg-surface">
                   <div className="aspect-[4/3] overflow-hidden bg-muted/50">
-                    {img ? <img src={img} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+                    {img ? <img src={optimizedImageUrl(img, 320)} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
                   </div>
                   <div className="truncate px-2 py-1.5 text-[11px] font-semibold group-hover:text-primary">{f.name}</div>
                 </Link>
