@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, ArrowUpRight, Copy, Check, X } from 'lucide-react';
 import type { EventPageModel } from '@/modules/event-page/types';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { emitProfileView } from '@/lib/profileViewEmit';
 
 const GOLD = '#FFA500';
@@ -176,7 +177,7 @@ const OrganiserPill = ({
   return (
     <button type="button" onClick={onClick} disabled={!person.href} className={pillClass}>
       {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" loading="lazy" />
+        <img src={optimizedImageUrl(person.avatarUrl, 96)} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" loading="lazy" />
       ) : (
         <span
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
@@ -215,7 +216,7 @@ export const EventHeroMetaBlock = ({
       <div className="h-[200px] overflow-hidden rounded-lg border-[0.5px] border-white/15 bg-white/[0.04]">
         {hero.imageUrl ? (
           <img
-            src={hero.imageUrl}
+            src={optimizedImageUrl(hero.imageUrl, 640)}
             alt={hero.imageAlt}
             loading="eager"
             fetchPriority="high"

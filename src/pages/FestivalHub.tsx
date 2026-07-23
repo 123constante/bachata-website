@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from "@/integrations/supabase/client";
 import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
 import { useAuth } from "@/hooks/useAuth";
@@ -438,7 +439,7 @@ const FestivalHubInner = () => {
                               >
                                 {attendee.avatar_url ? (
                                   <img
-                                    src={attendee.avatar_url}
+                                    src={optimizedImageUrl(attendee.avatar_url, 96)}
                                     alt={attendee.username ?? 'Attendee'}
                                     className="w-full h-full object-cover" loading="lazy"/>
                                 ) : (

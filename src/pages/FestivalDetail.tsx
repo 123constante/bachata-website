@@ -58,6 +58,7 @@ import { FestivalGroupChatSection } from "@/modules/event-page/sections/Festival
 import type { EventPageSnapshot } from "@/modules/event-page/types";
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
+import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 
 
 
@@ -2450,7 +2451,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
             const inner = (
               <>
                 {teacher.avatarUrl ? (
-                  <div className="nl-img" style={{ backgroundImage: `url(${teacher.avatarUrl})` }} />
+                  <div className="nl-img" style={{ backgroundImage: cssUrl(teacher.avatarUrl, 160) }} />
                 ) : (
                   <div className="nl-img no-photo"><span className="initial">{initial}</span></div>
                 )}
@@ -2724,7 +2725,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                     {venue.imageUrl ? (
 
-                      <div className="v-img" style={{ backgroundImage: `url(${venue.imageUrl})` }} />
+                      <div className="v-img" style={{ backgroundImage: cssUrl(venue.imageUrl, 480) }} />
 
                     ) : (
 
@@ -2740,7 +2741,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                       return (
 
-                        <div className="v-photo-extra" style={{ backgroundImage: `url(${extras[0]})` }} aria-hidden="true" />
+                        <div className="v-photo-extra" style={{ backgroundImage: cssUrl(extras[0], 320) }} aria-hidden="true" />
 
                       );
 
@@ -2830,7 +2831,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                     {organiser.avatarUrl ? (
 
-                      <div className="o-avatar" style={{ backgroundImage: `url(${organiser.avatarUrl})` }} />
+                      <div className="o-avatar" style={{ backgroundImage: cssUrl(organiser.avatarUrl, 160) }} />
 
                     ) : (
 
@@ -3083,7 +3084,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 <button type="button" key={src} className={`lf-lb-thumb${i === lightboxIndex ? " active" : ""}`} aria-label={`View flyer ${i + 1}`} onClick={() => setLightboxIndex(i)}>
 
-                  <img src={src} alt="" loading="lazy"/>
+                  <img src={optimizedImageUrl(src, 96)} alt="" loading="lazy"/>
 
                 </button>
 

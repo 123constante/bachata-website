@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 export interface VenueWhatsOnEvent {
   event_id: string;
@@ -96,7 +97,7 @@ export default function VenueWhatsOnList({
               >
                 {ev.poster_url ? (
                   <img
-                    src={ev.poster_url}
+                    src={optimizedImageUrl(ev.poster_url, 160)}
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
                     loading="lazy"

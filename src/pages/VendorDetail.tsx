@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { VendorPublicDetail } from "@/modules/vendor/types";
 import { normalizeLink, normalizeProducts } from "@/modules/vendor/utils";
 import { recordVendorLinkClick, type VendorLinkType } from "@/lib/vendorLinkClicks";
+import { optimizedImageUrl } from "@/lib/imageCdn";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -395,7 +396,7 @@ const VendorDetail = () => {
                         <div className="flex items-center gap-2">
                           {member.avatarUrl ? (
                             <img
-                              src={member.avatarUrl}
+                              src={optimizedImageUrl(member.avatarUrl, 96)}
                               alt=""
                               aria-hidden
                               className="h-5 w-5 rounded-full object-cover flex-shrink-0" loading="lazy"/>
@@ -515,7 +516,7 @@ const VendorDetail = () => {
 
                         {product.image_url && (
                           <div className="rounded-md overflow-hidden bg-muted h-32 mb-3">
-                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" loading="lazy"/>
+                            <img src={optimizedImageUrl(product.image_url, 480)} alt={product.name} className="h-full w-full object-cover" loading="lazy"/>
                           </div>
                         )}
 

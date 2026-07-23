@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { emitProfileView } from '@/lib/profileViewEmit';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import './OrganiserHoloCard.css';
 
 type Props = {
@@ -66,7 +67,7 @@ export const OrganiserHoloCard = ({
           {showImage ? (
             <img
               className="holo-card__avatar"
-              src={avatarUrl!}
+              src={optimizedImageUrl(avatarUrl!, 480)}
               alt=""
               loading="lazy"
               onError={() => setImgFailed(true)}

@@ -1,6 +1,7 @@
 import { CalendarDays, Music } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import {
   asWallClock,
   formatWallClockDate,
@@ -150,7 +151,7 @@ const ArtistLink = ({ artist }: { artist: FestivalArtist }) => {
         }}
       >
         {artist.avatarUrl ? (
-          <img src={artist.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img src={optimizedImageUrl(artist.avatarUrl, 160)} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <span>{initial}</span>
         )}

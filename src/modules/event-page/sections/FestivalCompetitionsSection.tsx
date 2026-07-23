@@ -1,4 +1,5 @@
 import { Trophy, Clock, DollarSign } from 'lucide-react';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import type { FestivalCompetition, FestivalArtist } from '@/modules/event-page/types';
 
 type FestivalCompetitionsSectionProps = {
@@ -9,7 +10,7 @@ const JudgeAvatar = ({ judge }: { judge: FestivalArtist }) => (
   <div className="group/judge relative flex flex-col items-center">
     <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.06] ring-1 ring-white/10">
       {judge.avatarUrl ? (
-        <img src={judge.avatarUrl} alt={judge.displayName ?? undefined} className="h-full w-full object-cover" loading="lazy" />
+        <img src={optimizedImageUrl(judge.avatarUrl, 96)} alt={judge.displayName ?? undefined} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[10px] text-white/60">
           {(judge.displayName || '').trim().charAt(0) || '•'}

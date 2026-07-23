@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
@@ -493,7 +494,7 @@ const AvatarStack = ({ people }: { people: Person[] }) => {
             }}
           >
             {p.avatarUrl ? (
-              <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <img src={optimizedImageUrl(p.avatarUrl, 96)} alt="" className="h-full w-full object-cover" loading="lazy" />
             ) : (
               <span className="text-[11px] font-semibold text-white/80">{initial}</span>
             )}

@@ -2,6 +2,7 @@ import { resolveTransportMode } from '@/lib/transportMode';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPageModel } from '@/modules/event-page/types';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 type VenueBlockProps = {
   location: EventPageModel['location'];
@@ -75,7 +76,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
         {location.venueImageUrl && (
           <div className="relative mt-[6px] aspect-[4/3] w-full overflow-hidden rounded-[6px]">
             <img
-              src={location.venueImageUrl}
+              src={optimizedImageUrl(location.venueImageUrl, 480)}
               alt={location.venueName ?? 'Venue'}
               className="h-full w-full object-cover"
               loading="lazy"

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import type { Person, SessionLevel } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PersonChip } from '@/modules/event-page/bento/blocks/schedule/PersonChip';
 
@@ -136,7 +137,7 @@ const Avatar = ({ person, size }: { person: Person; size: number }) => {
     >
       {showAvatar ? (
         <img
-          src={person.avatarUrl as string}
+          src={optimizedImageUrl(person.avatarUrl as string, 96)}
           alt=""
           width={size}
           height={size}

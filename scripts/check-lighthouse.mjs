@@ -75,17 +75,36 @@ const BUDGETS = {
 // (unlike shell:true) preserves the space-containing --chrome-flags argument.
 const LH_CLI = createRequire(import.meta.url).resolve('lighthouse/cli/index.js');
 
+/**
+ * Find one /event/ path via the deployed sitemap. Returns:
+ *   { path }        -- an event URL to audit
+ *   { none: true }  -- sitemap fetched OK but lists no events (legit skip)
+ *   { failed: msg } -- sitemap could not be fetched (INFRA -- caller fails loud)
+ * The distinction matters: this used to silently return null on ANY failure,
+ * so a cold-start 500 from the live sitemap route (fresh preview, anon
+ * statement_timeout=3s) quietly dropped 1 of 3 audit surfaces. Retries ride
+ * out the cold start; a persistent failure must be red, not a "note:" line.
+ */
 async function discoverEventUrl() {
-  try {
-    const res = await fetch(`${BASE}/sitemap.xml`, { redirect: 'follow', headers: BYPASS ?? undefined });
-    if (!res.ok) return null;
-    const xml = await res.text();
-    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    const ev = locs.find((u) => u.includes('/event/'));
-    return ev ? ev.replace(/^https?:\/\/[^/]+/, '') : null;
-  } catch {
-    return null;
+  const ATTEMPTS = 4;
+  let lastErr = 'unknown';
+  for (let i = 1; i <= ATTEMPTS; i++) {
+    try {
+      const res = await fetch(`${BASE}/sitemap.xml`, { redirect: 'follow', headers: BYPASS ?? undefined });
+      if (res.ok) {
+        const xml = await res.text();
+        const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+        const ev = locs.find((u) => u.includes('/event/'));
+        return ev ? { path: ev.replace(/^https?:\/\/[^/]+/, '') } : { none: true };
+      }
+      lastErr = `HTTP ${res.status}`;
+    } catch (e) {
+      lastErr = e?.message ?? String(e);
+    }
+    console.log(`  sitemap fetch attempt ${i}/${ATTEMPTS} failed (${lastErr})${i < ATTEMPTS ? ' -- retrying in 5s' : ''}`);
+    if (i < ATTEMPTS) await new Promise((r) => setTimeout(r, 5000));
   }
+  return { failed: lastErr };
 }
 
 function runLighthouse(url) {
@@ -183,9 +202,19 @@ async function main() {
   }
 
   const targets = [...FIXED_TARGETS];
-  const eventPath = await discoverEventUrl();
-  if (eventPath) targets.push(['event', eventPath]);
-  else console.log('note: no /event/ URL found in sitemap -- event audit skipped');
+  const discovered = await discoverEventUrl();
+  if (discovered.path) {
+    targets.push(['event', discovered.path]);
+  } else if (discovered.none) {
+    console.log('note: sitemap lists no /event/ URLs -- event audit skipped (legitimate)');
+  } else {
+    // Sitemap unreachable after retries: an INFRA failure we must not swallow --
+    // silently skipping is how 1 of 3 audit surfaces went missing with nothing red.
+    // But do NOT throw here: that would discard the homepage + landing audits that
+    // would have succeeded and skip the step-summary write entirely. Record it and
+    // fail at the end, after everything measurable has been measured and reported.
+    console.log(`  sitemap unreachable: ${discovered.failed}`);
+  }
 
   const results = targets.map(([label, p]) => auditTarget(label, p));
 
@@ -203,15 +232,23 @@ async function main() {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
   }
 
-  // INFRA guard (fail-loud, always): the mandatory targets MUST have produced
-  // real metrics. A skipped/empty mandatory target means we measured nothing --
+  // INFRA guard (fail-loud, always): every target we set out to audit MUST have
+  // produced real metrics. A skipped/empty target means we measured nothing --
   // exactly the dead-Lighthouse failure that continue-on-error used to hide.
   // assertMeasured throws -> main().catch -> exit 1, regardless of LH_ENFORCE.
-  const MANDATORY = new Set(['homepage', 'landing']);
-  const measuredMandatory = results.filter(
-    (r) => MANDATORY.has(r.label) && !r.skipped && r.rows.length > 0,
-  ).length;
-  assertMeasured(measuredMandatory, MANDATORY.size, 'mandatory Lighthouse targets');
+  // Derived from `targets` rather than re-listing the labels: `targets` already
+  // resolved whether the event surface is in play, and a second hand-maintained
+  // copy of that decision is a drift waiting to happen.
+  const measuredMandatory = results.filter((r) => !r.skipped && r.rows.length > 0).length;
+  assertMeasured(measuredMandatory, targets.length, 'Lighthouse targets');
+
+  // Deferred INFRA failure: the sitemap was unreachable, so the event surface was
+  // never audited. Raised HERE, after every measurable target has been audited and
+  // the step summary written, so a transient sitemap 500 does not throw away the
+  // homepage/landing numbers we did get.
+  if (discovered.failed) {
+    throw new Error(`could not fetch sitemap to discover an event URL: ${discovered.failed}`);
+  }
 
   // BUDGET guard: warn-only until LH_ENFORCE=1 (Phase 4) makes it blocking.
   const ENFORCE = process.env.LH_ENFORCE === '1';
@@ -227,7 +264,7 @@ async function main() {
     );
   }
   console.log(
-    `\nLighthouse measured ${measuredMandatory}/${MANDATORY.size} mandatory targets` +
+    `\nLighthouse measured ${measuredMandatory}/${targets.length} mandatory targets` +
       `${totalBreaches.length ? ` with ${totalBreaches.length} budget warning(s)` : ' — all budgets respected'}.`,
   );
 }
