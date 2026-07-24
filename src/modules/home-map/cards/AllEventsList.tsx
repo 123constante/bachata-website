@@ -6,11 +6,18 @@
 // and has a real floor instead of trailing into next-year events on another
 // continent.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Globe, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
-import { groupByDate, collapseFestivals, partitionRemote } from '../mapListDerivations';
+import {
+  groupByDate,
+  collapseFestivals,
+  partitionRemote,
+  windowGroups,
+  INITIAL_FEED_DAYS,
+  FEED_DAYS_CHUNK,
+} from '../mapListDerivations';
 import { distanceMiles } from '../mapTypes';
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
@@ -162,6 +169,40 @@ export function AllEventsList({
   const tomorrow = addDaysToKey(today, 1);
   const { local, remote } = partitionRemote(state.listEvents);
   const groups = groupByDate(collapseFestivals(local));
+
+  // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
+  // client's FIRST render must agree exactly or React #421 blanks the page, so the
+  // window starts at the same constant on both and only ever grows in the effect
+  // below (post-hydration). Searching shows every match: q is '' on the server and
+  // first client render, so this stays hydration-identical -- a query is only ever
+  // set by a keystroke, long after hydration.
+  const searching = state.q.trim().length > 0;
+  const [visibleDays, setVisibleDays] = useState(INITIAL_FEED_DAYS);
+  const { visible: shownGroups, hasMore } = searching
+    ? { visible: groups, hasMore: false }
+    : windowGroups(groups, visibleDays);
+
+  // Grow the window when the reader reaches the end of it. An IntersectionObserver
+  // rooted on the FEED scroller (state.listRef) -- not the viewport: the feed is an
+  // overflow-y-auto container, so a viewport-rooted observer would never fire for a
+  // sentinel nested inside it. Re-armed on each expansion (the sentinel moves down
+  // as rows render), and torn down once every day-group is shown (hasMore false).
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (searching || !hasMore) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleDays((v) => v + FEED_DAYS_CHUNK);
+        }
+      },
+      { root: state.listRef.current ?? null, rootMargin: '600px 0px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [searching, hasMore, visibleDays, state.listRef]);
   // When located, optionally re-order each day's rows nearest-first -- kept
   // WITHIN the day so the date timeline is preserved (not a global distance sort).
   const orderItems = (items: typeof local) =>
@@ -214,7 +255,7 @@ export function AllEventsList({
           </div>
         </div>
       )}
-      {groups.map((g) => (
+      {shownGroups.map((g) => (
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
           <div className="space-y-1">
@@ -232,6 +273,7 @@ export function AllEventsList({
           </div>
         </section>
       ))}
+      {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
       <FurtherAfield remote={remote} />
     </div>
   );
