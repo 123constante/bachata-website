@@ -128,6 +128,13 @@ async function fetchDancerProfiles(): Promise<ProfileRow[]> {
   return (data ?? []) as ProfileRow[];
 }
 
+// teacher_profiles: which dancer_profiles ids also have a teacher role.
+async function fetchTeacherProfileIds(): Promise<Set<string>> {
+  const { data, error } = await db.from("teacher_profiles").select("id").limit(500);
+  if (error) throw error;
+  return new Set(((data ?? []) as Array<{ id: string }>).map((t) => t.id));
+}
+
 // organiser_profiles: /organisers/:id pages.
 async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   const { data, error } = await db
@@ -156,11 +163,12 @@ export async function loader() {
     if (flags.teachersDirectory) staticRoutes.push({ path: "/teachers", changefreq: "weekly", priority: "0.7" });
     if (flags.organisersDirectory) staticRoutes.push({ path: "/organisers", changefreq: "weekly", priority: "0.7" });
 
-    const [events, venueUrls, dancerRows, organiserUrls] = await Promise.all([
+    const [events, venueUrls, dancerRows, organiserUrls, teacherIds] = await Promise.all([
       fetchEvents(),
       flags.venueDetail ? fetchVenues() : Promise.resolve([] as UrlRow[]),
       fetchDancerProfiles(),
       flags.organiserDetail ? fetchOrganiserProfiles() : Promise.resolve([] as UrlRow[]),
+      flags.teacherDetail ? fetchTeacherProfileIds() : Promise.resolve(new Set<string>()),
     ]);
 
     const dancerUrls: UrlRow[] = dancerRows.map((d) => ({
@@ -169,14 +177,14 @@ export async function loader() {
       changefreq: "weekly",
       priority: "0.6",
     }));
-    const teacherUrls: UrlRow[] = flags.teacherDetail
-      ? dancerRows.map((d) => ({
-          loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
-          lastmod: toDate(d.updated_at),
-          changefreq: "weekly",
-          priority: "0.6",
-        }))
-      : [];
+    const teacherUrls: UrlRow[] = dancerRows
+      .filter((d) => teacherIds.has(d.id))
+      .map((d) => ({
+        loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
+        lastmod: toDate(d.updated_at),
+        changefreq: "weekly",
+        priority: "0.6",
+      }));
 
     xml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
