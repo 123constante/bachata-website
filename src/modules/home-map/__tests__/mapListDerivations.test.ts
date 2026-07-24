@@ -14,6 +14,9 @@ import {
   buildMonthCells,
   homeStats,
   collapseFestivals,
+  windowGroups,
+  INITIAL_FEED_DAYS,
+  FEED_DAYS_CHUNK,
   festivalRangeLabel,
   groupPinsByLocation,
   isOnCityMap,
@@ -497,5 +500,55 @@ describe('groupPinsByLocation', () => {
     ];
     const groups = groupPinsByLocation(pins);
     expect(groups).toHaveLength(2);
+  });
+});
+
+describe('windowGroups (windowed SSR)', () => {
+  // Build N day-groups, one dated event each, ascending from 2026-06-01.
+  const groupsOf = (n: number) =>
+    groupByDate(
+      Array.from({ length: n }, (_, i) =>
+        ev({ occurrence_id: `o${i}`, instance_date: `2026-06-${String(i + 1).padStart(2, '0')}` }),
+      ),
+    );
+
+  it('withholds groups beyond the window and flags hasMore', () => {
+    const groups = groupsOf(20);
+    const { visible, hasMore } = windowGroups(groups, 7);
+    expect(visible).toHaveLength(7);
+    expect(hasMore).toBe(true);
+    // The window is a prefix: the earliest days, in order, never a gap.
+    expect(visible.map((g) => g.key)).toEqual(groups.slice(0, 7).map((g) => g.key));
+  });
+
+  it('shows every group and clears hasMore once the window covers them all', () => {
+    const groups = groupsOf(5);
+    const { visible, hasMore } = windowGroups(groups, INITIAL_FEED_DAYS);
+    expect(visible).toEqual(groups);
+    expect(hasMore).toBe(false);
+  });
+
+  it('treats the exact-fit boundary as no-more (no empty sentinel round)', () => {
+    const groups = groupsOf(7);
+    expect(windowGroups(groups, 7).hasMore).toBe(false);
+  });
+
+  it('never returns a windowed group with no rows (header-without-rows invariant)', () => {
+    const groups = groupsOf(30);
+    for (const g of windowGroups(groups, INITIAL_FEED_DAYS).visible) {
+      expect(g.items.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('clamps a nonsensical negative window to empty, still hasMore', () => {
+    const groups = groupsOf(10);
+    const { visible, hasMore } = windowGroups(groups, -3);
+    expect(visible).toHaveLength(0);
+    expect(hasMore).toBe(true);
+  });
+
+  it('expansion chunk is a whole number of days', () => {
+    expect(Number.isInteger(FEED_DAYS_CHUNK)).toBe(true);
+    expect(FEED_DAYS_CHUNK).toBeGreaterThan(0);
   });
 });

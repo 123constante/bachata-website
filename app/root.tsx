@@ -82,7 +82,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             media.bachatacalendar.co.uk, was a dangling DNS record pointing at
             Vercel -- it never served a byte. */}
         <link rel="preconnect" href="https://pub-07f606224cac4f2596903c44df723644.r2.dev" />
+        {/* Carto basemap tiles. Leaflet rotates the subdomain across a/b/c/d
+            ({s} in EventMap's tile URL), and the homepage LCP element is one of
+            these tiles -- preconnecting only `a` left b/c/d to a cold connect on
+            the critical path (measured resourceLoadDelay ~3.2s). Warm all four. */}
         <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossOrigin="" />
+        <link rel="preconnect" href="https://b.basemaps.cartocdn.com" crossOrigin="" />
+        <link rel="preconnect" href="https://c.basemaps.cartocdn.com" crossOrigin="" />
+        <link rel="preconnect" href="https://d.basemaps.cartocdn.com" crossOrigin="" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

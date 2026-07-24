@@ -176,6 +176,37 @@ export function groupByDate(events: MapEvent[]): DateGroup[] {
     }));
 }
 
+/** Days of the feed the server renders before the reader scrolls. Windowed SSR:
+ *  the homepage feed can carry ~380 event rows across ~90 day-groups, and React
+ *  hydrating every one of them was the single biggest homepage TBT cost (the
+ *  vendor-react long task -- same chunk booted 4.5x slower here than on a page
+ *  with no feed). We render only the first week up front and grow the window
+ *  post-hydration as the reader reaches the end of it.
+ *
+ *  SEO is unaffected: home.tsx emits an sr-only <nav> linking every event, built
+ *  separately from this visual feed. The MAP is unaffected too: this windowing
+ *  lives in the All-Events list body, never in useMapList.listEvents (which feeds
+ *  the pins) -- so every marker stays on the map no matter how few rows show. */
+export const INITIAL_FEED_DAYS = 7;
+
+/** How many further days each expansion reveals. Whole day-groups at a time (so a
+ *  date header never renders without its rows), and a chunk rather than the whole
+ *  tail so no single post-hydration render re-introduces a long task. */
+export const FEED_DAYS_CHUNK = 7;
+
+/** Take the first `visibleDays` day-groups. Windowing is by whole day-group, not
+ *  by row, so a date header always renders with its complete set of rows beneath
+ *  it. `hasMore` is true when groups were withheld (drives the load-more sentinel).
+ *  Pure so the window logic is unit-testable without React or a DOM. */
+export function windowGroups(
+  groups: DateGroup[],
+  visibleDays: number,
+): { visible: DateGroup[]; hasMore: boolean } {
+  const n = Math.max(0, visibleDays);
+  if (n >= groups.length) return { visible: groups, hasMore: false };
+  return { visible: groups.slice(0, n), hasMore: true };
+}
+
 /** Per-day distinct dot categories (drives the calendar dots). A class+party
  *  event contributes BOTH a party and a class dot rather than a single 'mix'
  *  dot, so the grid answers "parties? classes? festival?" at a glance. Dots are
