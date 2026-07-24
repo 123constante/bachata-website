@@ -49,8 +49,17 @@ import { createClient } from '@supabase/supabase-js';
 // expansion, not a dropped-assignment regression (20 of the unassigned predate
 // the import and are stable vs the old baseline). DJ floor unchanged: unassigned
 // DJs actually fell to 4 (<= 5), so the existing ceiling still holds.
-const BASELINE_TEACHERS_UNASSIGNED = 35; // active teachers with no epp row
-const BASELINE_DJS_UNASSIGNED = 5;       // active DJs with no epp row
+//
+// 2026-07-24: re-baselined BOTH ceilings to the measured live counts, 35/5 ->
+// 32/6. Teachers FELL 35 -> 32 (three of the 2026-06-12 couples have since
+// picked up a lineup), so leaving the ceiling at 35 would have let three
+// genuine regressions land unnoticed -- a ratchet that only ever loosens stops
+// guarding anything. DJs rose 5 -> 6: six active DJs hold no
+// event_program_people row (Richards, Carbonero, Davids, Sobolewska, Somos,
+// Quinonez). That is ordinary roster churn -- a DJ is listed in the directory
+// before their first booking -- not a dropped assignment.
+const BASELINE_TEACHERS_UNASSIGNED = 32; // active teachers with no epp row
+const BASELINE_DJS_UNASSIGNED = 6;       // active DJs with no epp row
 
 function loadEnv() {
   const env = { ...process.env };
