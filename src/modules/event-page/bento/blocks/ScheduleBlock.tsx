@@ -848,8 +848,9 @@ const SingleRoomScheduleRow = ({
   const isParty = session.type === 'party';
   const isPerformance = session.type === 'performance' || session.type === 'show';
   const isPartyish = isParty || isPerformance;
-  // A time-less session (organiser never set a start) renders "Time TBC" and
-  // suppresses the end/duration sub-line. Guard every fmt* call on non-null:
+  // A time-less session (organiser never set a start) renders "Time TBC". When a
+  // known end time survives (start_time NULL but end_time set), it is shown as
+  // "until <end>" rather than dropped. Guard every fmt* call on non-null:
   // fmtMins12(null) coerces to "12:00 AM" (a wrong midnight), not NaN.
   const { startMins, endMins } = session;
   const hasTime = startMins !== null;
@@ -941,6 +942,20 @@ const SingleRoomScheduleRow = ({
             }}
           >
             Time TBC
+            {endStr && (
+              <div
+                className="font-mono"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  marginTop: '6px',
+                }}
+              >
+                until {endStr}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1319,7 +1334,15 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                             marginTop: '3px',
                           }}
                         >
-                          {isPartyish ? `– ${endStr}` : durStr}
+                          {slot.startMins === null
+                          ? endStr
+                            ? `until ${endStr}`
+                            : ''
+                          : isPartyish
+                            ? endStr
+                              ? `– ${endStr}`
+                              : ''
+                            : durStr}
                         </div>
                       </div>
                       {orderedRooms.map((room) => {

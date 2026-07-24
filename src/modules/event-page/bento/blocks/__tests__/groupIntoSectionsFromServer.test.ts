@@ -40,8 +40,14 @@ import { groupIntoSectionsFromServer, groupIntoSectionsFromItems } from '../Sche
 import {
   isRenderableTimelessItem,
   orderSessionsForDisplay,
+  fromFestivalSchedule,
+  backfillFestivalPeople,
   type ProgramSection,
+  type ScheduleSession,
+  type Person,
 } from '../../../sections/EventScheduleGrid';
+import { asWallClock } from '@/lib/time/wallClock';
+import type { FestivalScheduleItem } from '@/modules/event-page/types';
 
 // Minimal slot fixture. groupIntoSectionsFromServer reads
 // `slots[0].sessions[0].sectionId` for routing, the session type/sectionKind
@@ -254,5 +260,84 @@ describe('isRenderableTimelessItem -- suppress editor detritus', () => {
       isRenderableTimelessItem(mkItem({ people: [{ profile_id: 'p1' }] })),
     ).toBe(true);
     expect(isRenderableTimelessItem(mkItem({ levels: ['open_level'] }))).toBe(true);
+  });
+});
+
+
+describe('fromFestivalSchedule -- time-less rows (deferred review follow-up)', () => {
+  const mkFest = (over: Partial<FestivalScheduleItem>): FestivalScheduleItem => ({
+    id: null,
+    day: asWallClock('2026-07-01T00:00:00'),
+    type: 'class',
+    title: 'Masterclass',
+    // '' is unparseable -> formatWallClockTime returns null -> startMins null.
+    startTime: asWallClock(''),
+    endTime: null,
+    venueRoom: null,
+    isMasterclass: false,
+    levels: [],
+    instructors: [],
+    djs: [],
+    style: null,
+    ...over,
+  });
+
+  it('gives two undated same-type rows DISTINCT ids (no colliding React key)', () => {
+    const out = fromFestivalSchedule([mkFest({ title: 'MC A' }), mkFest({ title: 'MC B' })]);
+    expect(out).toHaveLength(2);
+    expect(out.every((s) => s.startMins === null)).toBe(true);
+    expect(new Set(out.map((s) => s.id)).size).toBe(2);
+  });
+
+  it('drops a content-free time-less row (no title, people or levels)', () => {
+    expect(fromFestivalSchedule([mkFest({ title: '' })])).toHaveLength(0);
+    expect(fromFestivalSchedule([mkFest({ title: '   ' })])).toHaveLength(0);
+  });
+
+  it('keeps a time-less row that carries content', () => {
+    expect(fromFestivalSchedule([mkFest({ title: 'Ronald y Alba' })])).toHaveLength(1);
+    expect(
+      fromFestivalSchedule([mkFest({ title: '', levels: ['open_level'] as FestivalScheduleItem['levels'] })]),
+    ).toHaveLength(1);
+  });
+
+  it('keeps a TIMED row even with a placeholder title (its time anchors it)', () => {
+    const out = fromFestivalSchedule([
+      mkFest({ title: '', startTime: asWallClock('2026-07-01T19:30:00') }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].startMins).toBe(19 * 60 + 30);
+  });
+});
+
+describe('backfillFestivalPeople -- no null-key collision (deferred review follow-up)', () => {
+  const person = (id: string): Person => ({
+    id, name: id, href: null, avatarUrl: null, role: 'teacher', profileType: 'teacher', level: null,
+  });
+  const mkSess = (over: Partial<ScheduleSession>): ScheduleSession => ({
+    id: 'x', title: '', type: 'class', day: null, startMins: null, endMins: null,
+    programIndex: 0, levels: [], room: null, people: [],
+    sectionId: null, sectionKind: null, sectionLabel: null, ...over,
+  });
+
+  it('does NOT back-fill a time-less item (key would be null|type, cross-matching)', () => {
+    const fest = [
+      mkSess({ startMins: null, people: [person('a')] }),
+      mkSess({ startMins: null, people: [person('b')] }),
+    ];
+    const items = [mkSess({ startMins: null, people: [] })];
+    expect(backfillFestivalPeople(items, fest)[0].people).toEqual([]);
+  });
+
+  it('still back-fills a TIMED item from a matching time+type festival row', () => {
+    const fest = [mkSess({ startMins: 1140, people: [person('a')] })];
+    const items = [mkSess({ startMins: 1140, people: [] })];
+    expect(backfillFestivalPeople(items, fest)[0].people.map((p) => p.id)).toEqual(['a']);
+  });
+
+  it("never overwrites an item's own lineup", () => {
+    const fest = [mkSess({ startMins: 1140, people: [person('fest')] })];
+    const items = [mkSess({ startMins: 1140, people: [person('own')] })];
+    expect(backfillFestivalPeople(items, fest)[0].people.map((p) => p.id)).toEqual(['own']);
   });
 });
