@@ -229,6 +229,16 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
               };
             })
             .filter((x): x is Person => x !== null);
+          // Renderability gate (mirrors isRenderableTimelessItem for the override
+          // RPC's jsonb shape): a time-less row with no title, people or levels is
+          // editor detritus -- without this it renders as a bare "Time TBC / Class"
+          // row above the real sessions.
+          if (startMins === null) {
+            const raw = typeof item.title === 'string' ? item.title.trim().toLowerCase() : '';
+            const hasTitle = raw.length > 0 && raw !== 'untitled';
+            const hasLevels = Array.isArray(item.levels) && item.levels.length > 0;
+            if (!hasTitle && people.length === 0 && !hasLevels) return null;
+          }
           return {
             id: typeof item.id === 'string' ? item.id : `occ-${idx}`,
             title: typeof item.title === 'string' && item.title
@@ -482,7 +492,7 @@ export function useProgramSections(eventId: string | null | undefined) {
 
 // ─── Fallback converters ──────────────────────────────────────────────────────
 
-function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
+export function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
   return items
     .map((item, idx): ScheduleSession | null => {
       // Branded festival stamps -> 24h "HH:MM" via the sanctioned reader, then
@@ -512,13 +522,21 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
           level: null,
         })),
       ];
+      // Renderability gate (mirrors isRenderableTimelessItem for the festival
+      // fallback shape): keep a time-less row only when it carries a title,
+      // people or levels; otherwise drop it so it cannot render as detritus.
+      if (startMins === null) {
+        const raw = item.title.trim().toLowerCase();
+        const hasTitle = raw.length > 0 && raw !== 'untitled';
+        const hasLevels = item.levels.length > 0;
+        if (!hasTitle && people.length === 0 && !hasLevels) return null;
+      }
       return {
         // Derive the fallback id from sanitized strings, never the branded stamps.
-        // startHHMM is non-null here: the `startMins === null` guard above already
-        // returned for anything that failed to parse. The id wants a stable
-        // discriminator, so it keeps the date PREFIX read -- unlike `day` below,
-        // which must stay anchored to preserve the pre-brand grouping semantics.
-        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM}`,
+        // A time-less row that survives the gate has startHHMM === null, so the id
+        // MUST include idx to stay unique -- two undated rows of the same type/day
+        // would otherwise collide to one React key ("type-date-null").
+        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM ?? 'tbc'}-${idx}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
         day: wallClockExactDateKey(item.day),
@@ -534,6 +552,30 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
       };
     })
     .filter((x): x is ScheduleSession => x !== null);
+}
+
+/** Back-fill missing lineups on DB program items from a festival fallback
+ *  schedule, matching by start time + type. Time-less rows are excluded on BOTH
+ *  sides: their key would be `null|<type>`, collapsing every undated session of a
+ *  type onto one entry and attaching the wrong lineup. A time-less item keeps its
+ *  own (possibly empty) people. */
+export function backfillFestivalPeople(
+  programItems: ScheduleSession[],
+  festivalSessions: ScheduleSession[],
+): ScheduleSession[] {
+  const fbPeople = new Map<string, Person[]>();
+  for (const s of festivalSessions) {
+    if (s.people.length > 0 && s.startMins !== null) {
+      fbPeople.set(`${s.startMins}|${s.type}`, s.people);
+    }
+  }
+  return programItems.map((item) => ({
+    ...item,
+    people:
+      item.people.length > 0 || item.startMins === null
+        ? item.people
+        : (fbPeople.get(`${item.startMins}|${item.type}`) ?? []),
+  }));
 }
 
 function fromKeyTimes(kt: NonNullable<EventPageModel['schedule']['keyTimes']>): ScheduleSession[] {
@@ -708,20 +750,8 @@ export const EventScheduleGrid = ({
     // Priority 2: Parent event's event_program_items (from DB)
     if (programItems.length) {
       if (fallbackSchedule?.length) {
-        const fbPeople = new Map<string, Person[]>();
-        for (const s of fromFestivalSchedule(fallbackSchedule)) {
-          if (s.people.length > 0) {
-            fbPeople.set(`${s.startMins}|${s.type}`, s.people);
-          }
-        }
         return normalizeSessions(
-          programItems.map((item) => ({
-            ...item,
-            people:
-              item.people.length > 0
-                ? item.people
-                : (fbPeople.get(`${item.startMins}|${item.type}`) ?? []),
-          })),
+          backfillFestivalPeople(programItems, fromFestivalSchedule(fallbackSchedule)),
         );
       }
       return normalizeSessions(programItems);
