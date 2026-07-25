@@ -38,22 +38,25 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const qc = createQueryClient();
 
-  // 1. Resolve slug → uuid (mirrors useEntitySlugOrId, idColumn 'id').
+  // 1. Resolve slug → uuid (mirrors useEntitySlugOrId, idColumn 'id'). Identity now
+  //    comes from P5 via resolve_public_event_ref_v1 (reads the canonical
+  //    event_series_p5.slug; branches slug-vs-uuid internally on the client UUID
+  //    regex; returns {id, slug} where id = COALESCE(legacy_event_id, series id),
+  //    or SQL NULL — never RAISE). Byte-parity with the client hook's events branch
+  //    so the dehydrated ["entity-resolve","events","id",param] entry matches.
   const resolved = await qc.fetchQuery({
     queryKey: ["entity-resolve", "events", "id", routeParam],
     queryFn: async () => {
-      const whereCol = isUuid ? "id" : "slug";
-      const { data: row, error } = await supabase
-        .from("events")
-        .select("id, slug")
-        .eq(whereCol, routeParam)
-        .maybeSingle();
+      const { data: row, error } = await supabase.rpc(
+        "resolve_public_event_ref_v1" as never,
+        { p_param: routeParam } as never,
+      );
       // Distinguish a TRANSIENT error from a genuine miss: throwing surfaces a
       // retryable 500 rather than 404-ing (deindexing) a valid event on a blip.
       if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
       if (!row) return null;
-      const r = row as Record<string, unknown>;
-      return { id: (r.id as string | null) ?? null, slug: (r.slug as string | null) ?? null };
+      const r = row as { id: string | null; slug: string | null };
+      return { id: r.id ?? null, slug: r.slug ?? null };
     },
     staleTime: 5 * 60 * 1000,
   });

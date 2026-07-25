@@ -29,6 +29,23 @@ export async function resolveEntityInLoader(
   const resolved = await qc.fetchQuery({
     queryKey: ["entity-resolve", table, idColumn, param],
     queryFn: async () => {
+      // Events resolve identity from P5, not legacy `events`: resolve_public_event_ref_v1
+      // reads event_series_p5.slug (now canonical) and returns {id, slug} — id =
+      // COALESCE(legacy_event_id, series id). It takes ONE param and branches
+      // slug-vs-uuid internally (client UUID regex, not a ::uuid cast), returning
+      // SQL NULL (never RAISE) on a miss. Other tables (venue/organiser/dancer)
+      // have no P5 resolver and stay on .from(table).
+      if (table === "events") {
+        const { data: row, error } = await supabase.rpc(
+          "resolve_public_event_ref_v1" as never,
+          { p_param: param } as never,
+        );
+        // TRANSIENT error → rethrow (retryable 500); `null` = genuine not-found.
+        if (error) throw error;
+        if (!row) return null;
+        const r = row as { id: string | null; slug: string | null };
+        return { id: r.id ?? null, slug: r.slug ?? null };
+      }
       const whereCol = arrivedViaUuid ? idColumn : "slug";
       const { data: row, error } = await supabase
         .from(table)

@@ -1,12 +1,15 @@
 {
   "app/detailLoader.ts": {
-    "get_og_image_v1": 1
+    "get_og_image_v1": 1,
+    "resolve_public_event_ref_v1": 1
   },
   "app/lib/ogCardRender.ts": {
-    "event_view_p5": 1
+    "event_view_p5": 1,
+    "resolve_public_event_ref_v1": 1
   },
   "app/routes/event.tsx": {
-    "event_view_p5": 1
+    "event_view_p5": 1,
+    "resolve_public_event_ref_v1": 1
   },
   "app/routes/festival.tsx": {
     "event_view_p5": 1
@@ -42,6 +45,9 @@
   },
   "src/lib/searchTelemetry.ts": {
     "record_search_query_v1": 1
+  },
+  "src/lib/seo/useEntitySlugOrId.ts": {
+    "resolve_public_event_ref_v1": 1
   },
   "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx": {
     "record_organiser_card_click_v1": 1

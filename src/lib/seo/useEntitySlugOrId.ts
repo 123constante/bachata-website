@@ -49,6 +49,21 @@ export function useEntitySlugOrId(
     queryKey: ['entity-resolve', table, idColumn, param],
     queryFn: async () => {
       if (!param) return null;
+      // Events resolve identity from P5, not legacy `events`:
+      // resolve_public_event_ref_v1 reads the now-canonical event_series_p5.slug
+      // and returns {id, slug} (id = COALESCE(legacy_event_id, series id)),
+      // branching slug-vs-uuid internally on the client UUID regex, SQL NULL on a
+      // miss. SWALLOW errors here (unchanged) — the loader is the throwing mirror.
+      // Other tables have no P5 resolver and stay on .from(table).
+      if (table === 'events') {
+        const { data: row, error } = await supabase.rpc(
+          'resolve_public_event_ref_v1' as never,
+          { p_param: param } as never,
+        );
+        if (error || !row) return null;
+        const r = row as { id: string | null; slug: string | null };
+        return { id: r.id ?? null, slug: r.slug ?? null };
+      }
       const whereCol = arrivedViaUuid ? idColumn : 'slug';
       const selectCols = `${idColumn}, slug`;
       const { data: row, error } = await supabase

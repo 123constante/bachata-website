@@ -188,12 +188,19 @@ export async function fetchImageBytes(url: string): Promise<Buffer | null> {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Accept a uuid straight through, else resolve a slug to its event id. */
+/** Accept a uuid straight through, else resolve a slug to its event id. Identity
+ *  now comes from P5 (resolve_public_event_ref_v1 reads the canonical
+ *  event_series_p5.slug; id = COALESCE(legacy_event_id, series id)), not legacy
+ *  `events`. Only the slug branch hits the DB; the uuid short-circuit is unchanged. */
 export async function resolveOgEventId(param: string): Promise<string | null> {
   if (UUID_RE.test(param)) return param;
-  const { data, error } = await supabase.from("events").select("id").eq("slug", param).maybeSingle();
+  const { data, error } = await supabase.rpc(
+    "resolve_public_event_ref_v1" as never,
+    { p_param: param } as never,
+  );
   if (error || !data) return null;
-  return typeof data.id === "string" ? data.id : null;
+  const r = data as { id: string | null };
+  return typeof r.id === "string" ? r.id : null;
 }
 
 export async function fetchEventCardData(id: string, occ: string | null): Promise<OgCardData | null> {

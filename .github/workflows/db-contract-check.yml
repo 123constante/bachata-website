@@ -913,6 +913,44 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-people-public-read-contract.mjs
 
+      # 56. P5 slug-resolver parity (M2 caller-zero keystone, 2026-07-25). The
+      #     keystone repointed the /event and /festival identity resolve
+      #     (app/detailLoader.ts, app/routes/event.tsx, src/lib/seo/useEntitySlugOrId.ts,
+      #     app/lib/ogCardRender.ts) off legacy `events` onto the pure-P5 resolver
+      #     resolve_public_event_ref_v1, which reads the now-canonical
+      #     event_series_p5.slug. This guard HOLDS that resolver byte-equal to the old
+      #     legacy read for every anon-visible event until legacy `events` drops
+      #     (Phase 1E #2 Stage E) - a slug that stops resolving, or resolves to the
+      #     wrong id, silently 404s a live page. Asserts positive (every active event
+      #     round-trips its slug), fidelity (the anon EXECUTE grant - the DEFINER guard
+      #     calls the DEFINER resolver as OWNER, so a botched grant would pass here
+      #     while the live anon site 403s), and non-vacuity (checked > 0). GATED at
+      #     ok=true; soft-passes until admin migration 20260725110000 ships.
+      #     Health-check RPC: check_slug_resolver_p5_parity_v1.
+      - name: Run slug-resolver parity check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-slug-resolver-parity.mjs
+
+      # 57. event_series_p5 slug presence (M2 caller-zero keystone, 2026-07-25).
+      #     REPORT-ONLY sibling of #56. Flags any LIVE series with a NULL/empty slug -
+      #     a writer the BEFORE-INSERT auto-populate trigger (admin migration
+      #     20260725100000) did not cover, whose page cannot be reached by slug. Follows
+      #     enforce-don't-repair sequencing: report first, soak, let runtime truth
+      #     produce any missed-writer worklist, THEN promote slug to a hard NOT NULL /
+      #     DEFERRABLE constraint (migration C). So this WARNS and stays green; the hard
+      #     gate is #56 (a null-slug live series also fails to round-trip there).
+      #     Soft-passes until admin migration 20260725100000 ships. Health-check RPC:
+      #     check_event_series_p5_slug_presence_v1.
+      - name: Run event_series_p5 slug presence check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-slug-presence.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
