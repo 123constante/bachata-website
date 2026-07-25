@@ -41,6 +41,10 @@ type RpcItem = {
   type: string | null;
   start_time: string | null;
   end_time: string | null;
+  /** Day anchor for the row. parseProgramItems falls back to this when
+   *  start_time is null (a time-less session carries no date prefix), so the
+   *  key must keep being emitted or time-less rows lose their day grouping. */
+  day_event_date: string | null;
   sort_order: number | null;
   levels: string[] | null;
   room: string | null;
@@ -115,6 +119,7 @@ describe('get_occurrence_program_v1 contract', () => {
       'type',
       'start_time',
       'end_time',
+      'day_event_date',
       'levels',
       'room',
       'people',

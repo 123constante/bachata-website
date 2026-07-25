@@ -248,7 +248,7 @@ const CreateEvent = () => {
           <Card>
             <CardHeader><CardTitle>Tickets & Links</CardTitle></CardHeader>
             <CardContent className='space-y-4'>
-              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. Â£10' /></div>
+              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. &pound;10' /></div>
               <div><Label>Ticket URL</Label><Input {...register('ticket_url')} placeholder='https://' /></div>
               <div><Label>Payment Methods</Label><Input {...register('payment_methods')} placeholder='Cash, Card...' /></div>
               <div><Label>Facebook Event</Label><Input {...register('facebook_url')} placeholder='https://' /></div>
