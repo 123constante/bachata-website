@@ -3759,27 +3759,35 @@ export type Database = {
           default_start_date: string | null
           default_ticket_url: string | null
           default_venue_id: string | null
+          facebook_url: string | null
           featured: boolean | null
           festival_id: string | null
           format: string | null
           gallery: string[] | null
+          group_chat_url: string | null
           id: string
+          instagram_url: string | null
           is_template: boolean
           legacy_event_id: string | null
           lifecycle_status: string
+          livestream_url: string | null
           name: string
+          organiser_card_slot_1: string | null
+          organiser_card_slot_2: string | null
           organiser_ids: string[] | null
           passes: Json | null
           promo_codes: Json | null
           recurrence_rule: Json | null
           removed_dates: string[]
           slug: string | null
+          tiktok_url: string | null
           timezone: string | null
           type: string | null
           updated_at: string
           v3_series_id: string | null
           version: number
           video_urls: string[] | null
+          website: string | null
         }
         Insert: {
           category?: string | null
@@ -3796,27 +3804,35 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
           format?: string | null
           gallery?: string[] | null
+          group_chat_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_template?: boolean
           legacy_event_id?: string | null
           lifecycle_status?: string
+          livestream_url?: string | null
           name: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
           updated_at?: string
           v3_series_id?: string | null
           version?: number
           video_urls?: string[] | null
+          website?: string | null
         }
         Update: {
           category?: string | null
@@ -3833,27 +3849,35 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
           format?: string | null
           gallery?: string[] | null
+          group_chat_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_template?: boolean
           legacy_event_id?: string | null
           lifecycle_status?: string
+          livestream_url?: string | null
           name?: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
           updated_at?: string
           v3_series_id?: string | null
           version?: number
           video_urls?: string[] | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -8572,6 +8596,10 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _event_series_p5_slugify_v1: {
+        Args: { p_id: string; p_name: string }
+        Returns: string
+      }
       _event_view_legacy_compat_v1: { Args: { p_target: Json }; Returns: Json }
       _event_view_snapshot_compat_v1: {
         Args: { p_target: Json }
@@ -8734,6 +8762,15 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _public_time_agreement_sample_v1: {
+        Args: { p_limit?: number }
+        Returns: {
+          canonical_start: string
+          event_id: string
+          occurrence_id: string
+          series_name: string
+        }[]
+      }
       _raffle_drawable_entries_v1: {
         Args: { p_event_id: string; p_exclude_entry_id?: string }
         Returns: {
@@ -8839,6 +8876,7 @@ export type Database = {
         Returns: Json
       }
       _snapshot_series_p5: { Args: { p_series_id: string }; Returns: Json }
+      _strip_sql_comments_v1: { Args: { p_src: string }; Returns: string }
       _target_series_lifecycle_p5: { Args: { p_target: Json }; Returns: string }
       _validate_recurrence_payload_v1: {
         Args: { p_rule: Json }
@@ -11245,6 +11283,7 @@ export type Database = {
       }
       check_event_program_room_contract_v1: { Args: never; Returns: Json }
       check_event_program_section_consistency_v1: { Args: never; Returns: Json }
+      check_event_series_p5_slug_presence_v1: { Args: never; Returns: Json }
       check_event_tracking_health_v1: { Args: never; Returns: Json }
       check_events_time_constraint_health_v1: { Args: never; Returns: Json }
       check_festival_detail_p5_parity_v1: { Args: never; Returns: Json }
@@ -11292,6 +11331,7 @@ export type Database = {
         Args: { p_field: string; p_value: string }
         Returns: Json
       }
+      check_no_materialised_utc_miscast_v1: { Args: never; Returns: Json }
       check_occurrence_added_session_contract_v1: { Args: never; Returns: Json }
       check_occurrence_instance_end_canonical_v1: { Args: never; Returns: Json }
       check_occurrence_instance_time_canonical_v1: {
@@ -11303,6 +11343,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      check_occurrence_p5_unmaterialised_v1: { Args: never; Returns: Json }
       check_occurrence_program_format_v1: { Args: never; Returns: Json }
       check_occurrence_program_parity_v1: { Args: never; Returns: Json }
       check_occurrence_time_stamping_convention_v1: {
@@ -11370,10 +11411,12 @@ export type Database = {
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
       check_session_override_contract_v1: { Args: never; Returns: Json }
       check_session_override_mirror_parity_v1: { Args: never; Returns: Json }
+      check_session_override_people_mirror_v1: { Args: never; Returns: Json }
       check_session_people_display_name_contract_v1: {
         Args: never
         Returns: Json
       }
+      check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
       check_teacher_dj_assignment_integrity_v1: { Args: never; Returns: Json }
       check_unmigrated_schema_changes_contract_v1: {
         Args: never
@@ -12923,6 +12966,7 @@ export type Database = {
           slug: string
         }[]
       }
+      resolve_public_event_ref_v1: { Args: { p_param: string }; Returns: Json }
       resolve_venue_city: {
         Args: { p_fallback_city_id: string; p_venue_id: string }
         Returns: {
