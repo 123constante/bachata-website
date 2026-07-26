@@ -14,16 +14,20 @@ name: Perf Budget
 # ANTI-MASKING (why this workflow no longer hides a dead check): the measure jobs
 # are NOT continue-on-error. Their scripts split two failure classes -- an INFRA
 # failure ("couldn't measure": preview unreachable, protection not bypassed, zero
-# metrics) is ALWAYS a hard red; a BUDGET breach ("measured, over budget") is
+# metrics) is a hard red; a BUDGET breach ("measured, over budget") is
 # warn-only until LH_ENFORCE=1 / DOC_WEIGHT_ENFORCE=1 flips it to blocking. That
 # flip is Phase 4 -- a deliberate env switch, NOT the accident of dropping a
 # continue-on-error. Do not add continue-on-error to a measure job to quiet it:
 # that is exactly how the Lighthouse check sat dead-but-green for 13 PR runs.
+# ONE narrow INFRA exception (lighthouse job only): a positively-PROVEN
+# Deployment Protection wall on the PR preview (401/403 or parked on Vercel's
+# login surface) skips green with a ::warning:: -- no code change can open that
+# wall. Timeouts / DNS / broken previews are NOT the exception; they stay red.
 #
 # PREREQUISITE: the lighthouse + doc-weight jobs reach the protected preview with
 # VERCEL_AUTOMATION_BYPASS_SECRET (Vercel: Settings -> Deployment Protection ->
-# Protection Bypass for Automation, added as a repo Actions secret). Until that
-# secret exists they fail LOUDLY (by design) rather than silently passing.
+# Protection Bypass for Automation, added as a repo Actions secret). If the
+# secret is MISSING they fail LOUDLY (by design) rather than silently passing.
 
 on:
   push:

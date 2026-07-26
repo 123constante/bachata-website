@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 // ============================================================
 // DJ profile bento tiles
@@ -164,7 +165,7 @@ export function DjHero({ name, photoUrl, cityName, nationality, bio, isLive, sta
               boxShadow: '0 0 0 3px rgba(231,190,110,0.55), 0 0 0 6px rgba(10,8,11,0.92), inset 0 0 24px rgba(0,0,0,0.5)',
             }}
           >
-            <img src={photoUrl} alt={name} className="h-full w-full object-cover" loading="eager" />
+            <img src={optimizedImageUrl(photoUrl, 480)} alt={name} className="h-full w-full object-cover" loading="eager" />
           </div>
         ) : null}
       </div>
@@ -498,7 +499,7 @@ export function DjGallery({ urls, name }: { urls: string[]; name: string }) {
       <div className="grid grid-cols-3 gap-2">
         {urls.slice(0, 9).map((url, i) => (
           <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-            <img src={url} alt={`${name} photo ${i + 1}`} loading="lazy" className="aspect-square w-full rounded-[10px] object-cover transition-opacity hover:opacity-80" />
+            <img src={optimizedImageUrl(url, 320)} alt={`${name} photo ${i + 1}`} loading="lazy" className="aspect-square w-full rounded-[10px] object-cover transition-opacity hover:opacity-80" />
           </a>
         ))}
       </div>

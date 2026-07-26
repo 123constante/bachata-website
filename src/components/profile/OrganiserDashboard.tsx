@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { cssUrl } from '@/lib/imageCdn';
 import { captureException } from '@/lib/sentry';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -120,7 +121,7 @@ export const OrganiserDashboard = () => {
                   <Card key={event.id} className='dashboard-card overflow-hidden hover:bg-accent/50 transition-colors cursor-pointer' onClick={() => navigate(`/event/${event.id}/edit`)}>
                     <div className='flex'>
                       {event.cover_image_url && (
-                        <div className='w-24 bg-cover bg-center' style={{ backgroundImage: `url(${event.cover_image_url})` }} />
+                        <div className='w-24 bg-cover bg-center' style={{ backgroundImage: cssUrl(event.cover_image_url, 320) }} />
                       )}
                       <div className='p-3 flex-1'>
                         <div className='flex justify-between items-start'>

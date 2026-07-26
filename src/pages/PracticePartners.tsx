@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { buildFullName } from "@/lib/name-utils";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/sentry";
+import { optimizedImageUrl } from "@/lib/imageCdn";
 
 type Dancer = {
   id: string;
@@ -140,7 +141,7 @@ const PracticePartners = () => {
     if (partner.avatar_url) {
       return (
         <img
-          src={partner.avatar_url}
+          src={optimizedImageUrl(partner.avatar_url, 160)}
           alt={buildFullName(partner.first_name, partner.surname)}
           className="w-full h-full object-cover rounded-full" loading="lazy"/>
       );

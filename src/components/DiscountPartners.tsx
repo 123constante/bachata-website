@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Ticket, MapPin, CalendarDays } from 'lucide-react';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 interface PartnerWithEvent {
   id: string;
@@ -100,7 +101,7 @@ export const DiscountPartners = () => {
                     <div className="absolute -inset-1 bg-gradient-to-r from-primary to-festival-pink rounded-full opacity-0 group-hover:opacity-75 blur transition duration-500" />
                     <Avatar className="w-24 h-24 border-4 border-background relative">
                       <AvatarImage
-                        src={resolveEventImage(partner.photo_url, null) || ''}
+                        src={optimizedImageUrl(resolveEventImage(partner.photo_url, null) || '', 320)}
                         alt={partner.name}
                         className="object-cover"
                       />

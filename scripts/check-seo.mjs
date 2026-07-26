@@ -20,13 +20,15 @@
 //
 // Exit 1 if any sampled page fails a hard assertion.
 
-import { bypassHeaders } from './lib/previewProbe.mjs';
+import { bypassHeaders, isPreviewHost, previewIsWalled } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
 // Preview PR coverage: send the Vercel protection-bypass headers when pointed at
 // a protected preview; null against public prod (default).
 const BYPASS = bypassHeaders({ required: false });
+// A *.vercel.app target is a protected preview; prod is public.
+const IS_PREVIEW = isPreviewHost(BASE);
 const UA = 'Mozilla/5.0 (compatible; BachataCalendarSeoCheck/1.0)';
 const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing pages must NOT use it
 
@@ -184,6 +186,24 @@ async function checkPage(path, { isEvent = false, isFixedProbe = false, minEvent
 
 async function main() {
   console.log(`SEO guard against ${BASE}`);
+
+  // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
+  // surface — see previewIsWalled) is not an SEO failure: skip green with a
+  // warning. Anything else (timeout, DNS, broken preview) is NOT walled and the
+  // real checks run and fail loud. Prod is public, so IS_PREVIEW is false there
+  // and this never short-circuits the real run.
+  if (IS_PREVIEW && (await previewIsWalled(BASE, { bypass: BYPASS, ua: UA }))) {
+    console.log(
+      '::warning title=SEO preview skipped::The Vercel preview is behind Deployment ' +
+        'Protection and the automation bypass did not open it, so preview SEO ' +
+        'could not be checked. Production SEO is still covered by the scheduled run. ' +
+        'To restore preview coverage, fix the VERCEL_AUTOMATION_BYPASS_SECRET ' +
+        '(Vercel -> Settings -> Deployment Protection -> Protection Bypass for Automation).',
+    );
+    console.log('Skipped: preview behind Deployment Protection (proven wall).');
+    return;
+  }
+
   const urls = await sampleUrls();
   let hardFailures = 0;
 

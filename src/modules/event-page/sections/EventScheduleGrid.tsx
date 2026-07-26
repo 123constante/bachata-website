@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
@@ -35,8 +36,18 @@ export type ScheduleSession = {
   title: string;
   type: string;
   day: string | null;
-  startMins: number;
-  endMins: number;
+  startMins: number | null;
+  endMins: number | null;
+  /** This row's position in the RPC's returned array. Used ONLY as a stable,
+   *  unique tiebreak so the display sort is a strict total order -- it is NOT
+   *  a cross-section program authority, and neither is `sort_order`:
+   *    - `sort_order` restarts per section AND repeats within one (verified
+   *      live: occurrence da08f3c6 returns two items both at sort_order 0).
+   *    - the array order appends occurrence-added sessions LAST (verified
+   *      live: occurrence 2714d3bd returns [party 23:00, masterclass no-time]
+   *      even though the masterclass leads the program).
+   *  Hence neither can place a time-less row; see orderSessionsForDisplay. */
+  programIndex: number;
   /** Skill levels for this session (class / masterclass / workshop / bootcamp).
    *  Subset of {beginner, improver, intermediate, advanced, open_level}. Empty = unspecified.
    *  `open_level` is the platform-wide term for "anyone, any level, no restriction"
@@ -112,15 +123,49 @@ const normalizeTitle = (title: string): string =>
     ? title.trim().replace(/\s+\d+$/, '')
     : title;
 
+/** Display order for a session list. Shared by the legacy grid and the bento
+ *  ScheduleBlock so the two surfaces cannot drift.
+ *
+ *  Timed sessions order chronologically. A time-less session (startMins ===
+ *  null) has no chronological home, so it LEADS the day -- which is what puts
+ *  the no-time masterclass above the 11pm party on the Sensual Vibes page, and
+ *  reads correctly for a reader ("there is a masterclass, time to be
+ *  confirmed"). Several time-less rows keep their RPC array order.
+ *
+ *  Why "leads" rather than "at its program position": neither available field
+ *  can express that position across sections. `sort_order` restarts per
+ *  section and repeats within one, and the RPC appends occurrence-added
+ *  sessions to the END of the array (so array order would sink the very
+ *  masterclass this exists to surface). Both were verified against prod.
+ *
+ *  Deliberately a single total order (start, then programIndex) and NOT a
+ *  comparator that switches key by pair. A mixed-key comparator ("both timed
+ *  -> compare time, else compare order") is non-transitive: with 3+ rows it
+ *  can report a < b, b < c and c < a, and V8's TimSort then emits an arbitrary
+ *  order (other engines a different one). */
+export const orderSessionsForDisplay = <T extends { startMins: number | null; programIndex: number }>(
+  sessions: T[],
+): T[] => {
+  if (!sessions.length) return [];
+  return [...sessions].sort((a, b) => {
+    const ka = a.startMins ?? Number.NEGATIVE_INFINITY;
+    const kb = b.startMins ?? Number.NEGATIVE_INFINITY;
+    // Compare, never subtract: (-Infinity) - (-Infinity) is NaN, which would
+    // corrupt the sort. programIndex is unique per list, so this is a STRICT
+    // total order -- every pair is decided by one key, never two.
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return a.programIndex - b.programIndex;
+  });
+};
+
 const normalizeSessions = (sessions: ScheduleSession[]): ScheduleSession[] => {
   if (!sessions.length) return [];
-  return [...sessions]
-    .sort((a, b) => a.startMins - b.startMins)
-    .map((s) => {
-      let end = s.endMins;
-      if (end > 0 && end <= s.startMins) end += 24 * 60;
-      return { ...s, endMins: end };
-    });
+  return orderSessionsForDisplay(sessions).map((s) => {
+    if (s.startMins === null || s.endMins === null) return s;
+    let end = s.endMins;
+    if (end > 0 && end <= s.startMins) end += 24 * 60;
+    return { ...s, endMins: end };
+  });
 };
 
 // ─── Role / href helpers ──────────────────────────────────────────────────────
@@ -160,10 +205,9 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
       const items: unknown[] = Array.isArray(data) ? data : [];
       return items
         .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
-        .map((item): ScheduleSession | null => {
+        .map((item, idx): ScheduleSession | null => {
           const startMins = toMins(item.startTime as string | null);
-          if (startMins === null) return null;
-          const endMins = toMins(item.endTime as string | null) ?? startMins + 60;
+          const endMins = toMins(item.endTime as string | null) ?? (startMins !== null ? startMins + 60 : null);
           const people: Person[] = (Array.isArray(item.people) ? item.people : [])
             .map((p: unknown): Person | null => {
               if (!p || typeof p !== 'object') return null;
@@ -185,8 +229,18 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
               };
             })
             .filter((x): x is Person => x !== null);
+          // Renderability gate (mirrors isRenderableTimelessItem for the override
+          // RPC's jsonb shape): a time-less row with no title, people or levels is
+          // editor detritus -- without this it renders as a bare "Time TBC / Class"
+          // row above the real sessions.
+          if (startMins === null) {
+            const raw = typeof item.title === 'string' ? item.title.trim().toLowerCase() : '';
+            const hasTitle = raw.length > 0 && raw !== 'untitled';
+            const hasLevels = Array.isArray(item.levels) && item.levels.length > 0;
+            if (!hasTitle && people.length === 0 && !hasLevels) return null;
+          }
           return {
-            id: typeof item.id === 'string' ? item.id : `occ-${startMins}`,
+            id: typeof item.id === 'string' ? item.id : `occ-${idx}`,
             title: typeof item.title === 'string' && item.title
               ? item.title
               : item.type === 'party' ? 'Party' : 'Class',
@@ -194,6 +248,7 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
             day: null,
             startMins,
             endMins,
+            programIndex: idx,
             levels: sanitizeLevels(item.levels),
             room: typeof item.room === 'string' && item.room.trim() ? item.room.trim() : null,
             people,
@@ -231,6 +286,10 @@ type RpcItem = {
   type: string | null;
   start_time: string | null;
   end_time: string | null;
+  /** Occurrence/day date (YYYY-MM-DD) surfaced by event_view_p5 legacy_compat.
+   *  Fallback day source for time-less rows: a null start_time carries no
+   *  date prefix, so the day derivation reads this instead. */
+  day_event_date?: string | null;
   sort_order: number | null;
   levels: string[] | null;
   room: string | null;
@@ -252,13 +311,29 @@ type RpcItem = {
   cancelled?: boolean | null;
 };
 
+/** A time-less row only earns a place on the public page when it carries
+ *  something worth showing. Dropping the old null-start filter (so a real
+ *  masterclass with no time renders) would otherwise also surface editor
+ *  detritus: the RPC coalesces a NULL title to 'Untitled', so a half-created
+ *  session with no teacher, level or title would render as a bare
+ *  "Time TBC / UNTITLED" row above the real classes (verified live on the
+ *  50/50 event, reachable from the organiser past-events grid). Timed rows are
+ *  never gated by this -- their time alone anchors them. */
+export const isRenderableTimelessItem = (item: RpcItem): boolean => {
+  const title = typeof item.title === 'string' ? item.title.trim().toLowerCase() : '';
+  const hasTitle = title.length > 0 && title !== 'untitled';
+  const hasPeople = Array.isArray(item.people) && item.people.some((p) => p && p.profile_id);
+  const hasLevels = Array.isArray(item.levels) && item.levels.length > 0;
+  return hasTitle || hasPeople || hasLevels;
+};
+
 function parseProgramItems(data: unknown): ScheduleSession[] {
   const items = (data as unknown as RpcItem[]) ?? [];
   return items
-    .filter((item) => toMins(item.start_time) !== null)
-    .map((item): ScheduleSession => {
-      const startMins = toMins(item.start_time)!;
-      const endMins = toMins(item.end_time) ?? startMins + 60;
+    .filter((item) => toMins(item.start_time) !== null || isRenderableTimelessItem(item))
+    .map((item, idx): ScheduleSession => {
+      const startMins = toMins(item.start_time);
+      const endMins = toMins(item.end_time) ?? (startMins !== null ? startMins + 60 : null);
 
       const people: Person[] = (item.people ?? [])
         .slice()
@@ -288,7 +363,19 @@ function parseProgramItems(data: unknown): ScheduleSession[] {
       // matches what DayBlock/formatDayLabel expect.
       const dayMatch =
         typeof item.start_time === 'string' ? item.start_time.match(/^(\d{4}-\d{2}-\d{2})/) : null;
-      const day = dayMatch ? dayMatch[1] : null;
+      // Time-less rows carry no date in start_time; fall back to the RPC's
+      // day_event_date so day-grouping / multi-day logic still places them.
+      const dayFallback =
+        typeof item.day_event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.day_event_date)
+          ? item.day_event_date.slice(0, 10)
+          : null;
+      // Confined to TIME-LESS rows, which is all the comment above ever claimed.
+      // Applying it to any row lacking a date prefix also caught legacy
+      // meta_data->program items (branch 3 emits a bare 'HH:MM' start_time
+      // alongside day_event_date = item->>'day'), which would hand every row a
+      // day and flip a flat single-day list into day tabs. Latent today (0 live
+      // rows have that shape) -- kept impossible rather than left to chance.
+      const day = dayMatch ? dayMatch[1] : startMins === null ? dayFallback : null;
 
       return {
         id: item.id,
@@ -297,6 +384,7 @@ function parseProgramItems(data: unknown): ScheduleSession[] {
         day,
         startMins,
         endMins,
+        programIndex: idx,
         levels: sanitizeLevels(item.levels),
         room: typeof item.room === 'string' && item.room.trim().length > 0 ? item.room.trim() : null,
         people,
@@ -404,17 +492,16 @@ export function useProgramSections(eventId: string | null | undefined) {
 
 // ─── Fallback converters ──────────────────────────────────────────────────────
 
-function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
+export function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] {
   return items
-    .map((item): ScheduleSession | null => {
+    .map((item, idx): ScheduleSession | null => {
       // Branded festival stamps -> 24h "HH:MM" via the sanctioned reader, then
       // through the SAME toMins as every other path. toMins itself must stay
       // string-typed: the occurrence-override program feeds it bare "HH:MM"
       // by DB construction (recompute_override_payload_program_v1).
       const startHHMM = formatWallClockTime(item.startTime, { hour12: false });
       const startMins = toMins(startHHMM);
-      if (startMins === null) return null;
-      const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? startMins + 60;
+      const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? (startMins !== null ? startMins + 60 : null);
       const people: Person[] = [
         ...item.instructors.map((p) => ({
           id: p.id,
@@ -435,18 +522,27 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
           level: null,
         })),
       ];
+      // Renderability gate (mirrors isRenderableTimelessItem for the festival
+      // fallback shape): keep a time-less row only when it carries a title,
+      // people or levels; otherwise drop it so it cannot render as detritus.
+      if (startMins === null) {
+        const raw = item.title.trim().toLowerCase();
+        const hasTitle = raw.length > 0 && raw !== 'untitled';
+        const hasLevels = item.levels.length > 0;
+        if (!hasTitle && people.length === 0 && !hasLevels) return null;
+      }
       return {
         // Derive the fallback id from sanitized strings, never the branded stamps.
-        // startHHMM is non-null here: the `startMins === null` guard above already
-        // returned for anything that failed to parse. The id wants a stable
-        // discriminator, so it keeps the date PREFIX read -- unlike `day` below,
-        // which must stay anchored to preserve the pre-brand grouping semantics.
-        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM}`,
+        // A time-less row that survives the gate has startHHMM === null, so the id
+        // MUST include idx to stay unique -- two undated rows of the same type/day
+        // would otherwise collide to one React key ("type-date-null").
+        id: item.id ?? `${item.type}-${wallClockDateKey(item.day) ?? ''}-${startHHMM ?? 'tbc'}-${idx}`,
         title: normalizeTitle(item.title || (item.type === 'party' ? 'Party' : 'Class')),
         type: item.type,
         day: wallClockExactDateKey(item.day),
         startMins,
         endMins,
+        programIndex: idx,
         levels: sanitizeLevels((item as unknown as { levels?: unknown }).levels),
         room: typeof item.venueRoom === 'string' && item.venueRoom.trim().length > 0 ? item.venueRoom.trim() : null,
         people,
@@ -458,17 +554,41 @@ function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSession[] 
     .filter((x): x is ScheduleSession => x !== null);
 }
 
+/** Back-fill missing lineups on DB program items from a festival fallback
+ *  schedule, matching by start time + type. Time-less rows are excluded on BOTH
+ *  sides: their key would be `null|<type>`, collapsing every undated session of a
+ *  type onto one entry and attaching the wrong lineup. A time-less item keeps its
+ *  own (possibly empty) people. */
+export function backfillFestivalPeople(
+  programItems: ScheduleSession[],
+  festivalSessions: ScheduleSession[],
+): ScheduleSession[] {
+  const fbPeople = new Map<string, Person[]>();
+  for (const s of festivalSessions) {
+    if (s.people.length > 0 && s.startMins !== null) {
+      fbPeople.set(`${s.startMins}|${s.type}`, s.people);
+    }
+  }
+  return programItems.map((item) => ({
+    ...item,
+    people:
+      item.people.length > 0 || item.startMins === null
+        ? item.people
+        : (fbPeople.get(`${item.startMins}|${item.type}`) ?? []),
+  }));
+}
+
 function fromKeyTimes(kt: NonNullable<EventPageModel['schedule']['keyTimes']>): ScheduleSession[] {
   const out: ScheduleSession[] = [];
   if (kt.classes?.start) {
     const s = toMins(kt.classes.start) ?? 0;
     const e = toMins(kt.classes.end) ?? s + 60;
-    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
+    out.push({ id: 'kt-classes', title: 'Classes', type: 'class', day: null, startMins: s, endMins: e, programIndex: 0, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
   }
   if (kt.party?.start) {
     const s = toMins(kt.party.start) ?? 0;
     const e = toMins(kt.party.end) ?? s + 60;
-    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
+    out.push({ id: 'kt-party', title: 'Party', type: 'party', day: null, startMins: s, endMins: e, programIndex: 1, levels: [], room: null, people: [], sectionId: null, sectionKind: null, sectionLabel: null });
   }
   return out;
 }
@@ -493,7 +613,7 @@ const AvatarStack = ({ people }: { people: Person[] }) => {
             }}
           >
             {p.avatarUrl ? (
-              <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <img src={optimizedImageUrl(p.avatarUrl, 96)} alt="" className="h-full w-full object-cover" loading="lazy" />
             ) : (
               <span className="text-[11px] font-semibold text-white/80">{initial}</span>
             )}
@@ -524,7 +644,7 @@ const SessionRow = ({ session, isLast }: { session: ScheduleSession; isLast: boo
     style={{ gridTemplateColumns: '64px minmax(0,1fr) auto' }}
   >
     <span className="text-[13px] font-medium text-black tabular-nums whitespace-nowrap">
-      {fmtMins12(session.startMins)}
+      {session.startMins === null ? 'Time TBC' : fmtMins12(session.startMins)}
     </span>
     <span className="text-[13px] text-black/85 line-clamp-2">{session.title}</span>
     <div className="min-w-[32px]">
@@ -630,20 +750,8 @@ export const EventScheduleGrid = ({
     // Priority 2: Parent event's event_program_items (from DB)
     if (programItems.length) {
       if (fallbackSchedule?.length) {
-        const fbPeople = new Map<string, Person[]>();
-        for (const s of fromFestivalSchedule(fallbackSchedule)) {
-          if (s.people.length > 0) {
-            fbPeople.set(`${s.startMins}|${s.type}`, s.people);
-          }
-        }
         return normalizeSessions(
-          programItems.map((item) => ({
-            ...item,
-            people:
-              item.people.length > 0
-                ? item.people
-                : (fbPeople.get(`${item.startMins}|${item.type}`) ?? []),
-          })),
+          backfillFestivalPeople(programItems, fromFestivalSchedule(fallbackSchedule)),
         );
       }
       return normalizeSessions(programItems);
@@ -676,11 +784,16 @@ export const EventScheduleGrid = ({
     return (
       <section className="space-y-2">
         {schedule.isCancelled && <CancelledBanner />}
-        {uniqueDays.map((day) => (
+        {uniqueDays.map((day, idx) => (
           <DayBlock
             key={day}
             day={day}
-            sessions={sessions.filter((s) => s.day === day)}
+            // `day === null` matches no DayBlock, so an undated row would render
+            // NOWHERE on a multi-day event -- and the P5-native series branch of
+            // get_event_program_v1 hard-codes day_event_date NULL, so every
+            // time-less item from it arrives that way (223 such rows live).
+            // Surface them under the earliest day; each carries its own "Time TBC".
+            sessions={sessions.filter((s) => s.day === day || (idx === 0 && s.day === null))}
             defaultOpen={day === defaultOpenDay}
           />
         ))}

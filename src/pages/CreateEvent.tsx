@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { captureException } from '@/lib/sentry';
@@ -192,7 +193,7 @@ const CreateEvent = () => {
             <CardContent>
               {coverImageUrl ? (
                 <div className='relative'>
-                  <img src={coverImageUrl} alt='Cover' className='w-full h-48 object-cover rounded-lg' loading="lazy"/>
+                  <img src={optimizedImageUrl(coverImageUrl, 640)} alt='Cover' className='w-full h-48 object-cover rounded-lg' loading="lazy"/>
                   <Button type='button' variant='secondary' size='sm' className='absolute bottom-3 right-3' onClick={() => setCoverImageUrl('')}>Change</Button>
                 </div>
               ) : (
@@ -247,7 +248,7 @@ const CreateEvent = () => {
           <Card>
             <CardHeader><CardTitle>Tickets & Links</CardTitle></CardHeader>
             <CardContent className='space-y-4'>
-              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. Â£10' /></div>
+              <div><Label>Ticket Price Information</Label><Input {...register('tickets')} placeholder='e.g. &pound;10' /></div>
               <div><Label>Ticket URL</Label><Input {...register('ticket_url')} placeholder='https://' /></div>
               <div><Label>Payment Methods</Label><Input {...register('payment_methods')} placeholder='Cash, Card...' /></div>
               <div><Label>Facebook Event</Label><Input {...register('facebook_url')} placeholder='https://' /></div>

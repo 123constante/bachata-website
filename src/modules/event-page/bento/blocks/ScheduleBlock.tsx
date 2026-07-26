@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import {
+  orderSessionsForDisplay,
   useProgramItems,
   useProgramSections,
   useOccurrenceProgram,
@@ -402,7 +403,7 @@ const PartyCard = ({
             border: `1px solid ${roomAccent ?? 'hsl(var(--bento-accent))'}66`,
           }}
         >
-          âœ¦ Show
+          &#10022; Show
         </div>
       )}
       {headingText && (() => {
@@ -498,15 +499,20 @@ const DayTabs = ({
 
 // ─── Normalization (sort + overnight fold) ───────────────────────────────────
 
+// Display order + overnight fold. Ordering is delegated to
+// orderSessionsForDisplay (EventScheduleGrid) so the bento and legacy surfaces
+// cannot drift: timed sessions chronological, a time-less session inheriting
+// the start of the timed session it follows in program order. That helper is a
+// single total order, so no non-transitive comparator reaches Array#sort.
+// Overnight fold only runs when both ends are known.
 const normalize = (sessions: ScheduleSession[]): ScheduleSession[] => {
   if (!sessions.length) return [];
-  return [...sessions]
-    .sort((a, b) => a.startMins - b.startMins || a.id.localeCompare(b.id))
-    .map((s) => {
-      let end = s.endMins;
-      if (end > 0 && end <= s.startMins) end += 24 * 60;
-      return { ...s, endMins: end };
-    });
+  return orderSessionsForDisplay(sessions).map((s) => {
+    if (s.startMins === null || s.endMins === null) return s;
+    let end = s.endMins;
+    if (end > 0 && end <= s.startMins) end += 24 * 60;
+    return { ...s, endMins: end };
+  });
 };
 
 // ─── Time-slot grouping ──────────────────────────────────────────────────────
@@ -517,8 +523,8 @@ const normalize = (sessions: ScheduleSession[]): ScheduleSession[] => {
 // under a "pick your level" header. Mixed-type or solo slots stack vertically.
 
 type Slot = {
-  startMins: number;
-  endMins: number;
+  startMins: number | null;
+  endMins: number | null;
   sessions: ScheduleSession[];
   isParallelClassy: boolean;
   hasParty: boolean;
@@ -528,9 +534,15 @@ const groupIntoSlots = (sessions: ScheduleSession[]): Slot[] => {
   const slots: Slot[] = [];
   for (const s of sessions) {
     const last = slots[slots.length - 1];
-    if (last && last.startMins === s.startMins) {
+    // Only merge into the previous slot when both share a NON-null start. Two
+    // time-less sessions (startMins === null) must NOT collapse together --
+    // null === null would merge unrelated rows -- so guard on non-null.
+    if (last && s.startMins !== null && last.startMins === s.startMins) {
       last.sessions.push(s);
-      last.endMins = Math.max(last.endMins, s.endMins);
+      last.endMins =
+        last.endMins === null ? s.endMins
+        : s.endMins === null ? last.endMins
+        : Math.max(last.endMins, s.endMins);
     } else {
       slots.push({
         startMins: s.startMins,
@@ -607,18 +619,42 @@ const labelFromKind = (kind: string, slots: Slot[]): string => {
   return KIND_LABEL[kind] ?? kind;
 };
 
-// Legacy fallback: derive sections from slot kind (party-vs-class). Used when
-// the event has no rows in event_program_sections (pre-Phase-2B events).
+// Legacy fallback: derive sections from slot content. Used when the event has
+// no rows in event_program_sections (pre-Phase-2B events) and for orphan slots
+// whose section_id the sections RPC didn't return. A slot is a party when it
+// holds any party/performance/show; a masterclass when EVERY session in it is a
+// masterclass (type or section_kind); otherwise a class. The masterclass branch
+// gives a time-less occurrence-added masterclass its own MASTERCLASS header
+// (both party and masterclass carry section_id: null, so both route here).
+const slotKind = (slot: Slot): 'party' | 'masterclass' | 'class' => {
+  if (slot.hasParty) return 'party';
+  // ONLY a TIME-LESS masterclass earns its own section. Before this arc the
+  // kind was `hasParty ? 'party' : 'class'`, so a TIMED masterclass merged into
+  // the surrounding class run; promoting it re-sectioned every legacy event
+  // that has one (class 19:00 / masterclass 20:00 / class 21:00 went from one
+  // section to three, each with its own spine label and rule).
+  if (
+    slot.startMins === null &&
+    slot.sessions.length > 0 &&
+    slot.sessions.every((s) => s.type === 'masterclass' || s.sectionKind === 'masterclass')
+  ) {
+    return 'masterclass';
+  }
+  return 'class';
+};
+
 const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
   const sections: Section[] = [];
   for (const slot of slots) {
-    const kind: 'class' | 'party' = slot.hasParty ? 'party' : 'class';
+    const kind = slotKind(slot);
     const last = sections[sections.length - 1];
     if (last && last.kind === kind) {
       last.slots.push(slot);
     } else {
       sections.push({
-        id: `legacy-${kind}-${slot.startMins}`,
+        // Key off the first session's id -- startMins can be null for a
+        // time-less slot, which would collide as `legacy-<kind>-null`.
+        id: `legacy-${kind}-${slot.sessions[0]?.id ?? slot.startMins ?? 'x'}`,
         kind,
         label: '',
         hasParty: kind === 'party',
@@ -626,9 +662,10 @@ const groupIntoSectionsLegacy = (slots: Slot[]): Section[] => {
       });
     }
   }
-  // Apply singular/plural label after slots are settled.
+  // Apply label after slots are settled.
   return sections.map((s) => {
     if (s.kind === 'party') return { ...s, label: 'Party' };
+    if (s.kind === 'masterclass') return { ...s, label: KIND_LABEL.masterclass };
     const isPlural = s.slots.length > 1 || (s.slots[0]?.sessions.length ?? 0) > 1;
     return { ...s, label: isPlural ? 'Classes' : 'Class' };
   });
@@ -703,17 +740,29 @@ export const groupIntoSectionsFromServer = (
   // Legacy/orphan synthetic sections always carry slots, so they survive.
   const filtered = result.filter((s) => s.slots.length > 0);
 
-  // Sort sections by the earliest slot's startMins so the public schedule
-  // reads top-to-bottom in chronological order regardless of the admin's
-  // manually-set event_program_sections.sort_order. Slots within a section
-  // are already in startMins-ascending order (groupIntoSlots walks the
-  // normalize()-sorted session list), so slots[0] is the earliest. Empty
-  // sections (deliberately surfaced headers with no items) sink to the end.
-  filtered.sort((a, b) => {
-    const aMin = a.slots[0]?.startMins ?? Number.MAX_SAFE_INTEGER;
-    const bMin = b.slots[0]?.startMins ?? Number.MAX_SAFE_INTEGER;
-    return aMin - bMin;
-  });
+  // Each section takes the position of its earliest slot. `slots` already
+  // arrives in display order (groupIntoSlots walks the
+  // orderSessionsForDisplay-sorted session list) and slots are appended to a
+  // section in that order, so slots[0] is the earliest and ranking by slot
+  // INDEX is a single total order over integers -- transitive by construction.
+  //
+  // For an all-timed event this is identical to the previous "earliest
+  // startMins" sort, since slot index ascends with start time. It additionally
+  // gives a fully time-less section (a masterclass with no time) the program
+  // position it inherited upstream, instead of sinking it to the end.
+  const slotRank = new Map<Slot, number>();
+  slots.forEach((slot, i) => slotRank.set(slot, i));
+  // Anchor on the earliest TIMED slot, not slots[0]. orderSessionsForDisplay
+  // maps a null start to -Infinity, so ANY time-less row lands at index 0 of
+  // the day -- ranking on slots[0] let a single undated class drag its whole
+  // section (20:00 sessions included) above an 18:00 masterclass. A section
+  // with no timed slot at all still falls back to its first slot, which is what
+  // gives a wholly time-less section its inherited program position.
+  const rankOf = (s: Section): number => {
+    const anchor = s.slots.find((sl) => sl.startMins !== null) ?? s.slots[0];
+    return anchor ? slotRank.get(anchor) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+  };
+  filtered.sort((a, b) => rankOf(a) - rankOf(b));
 
   return filtered;
 };
@@ -799,9 +848,16 @@ const SingleRoomScheduleRow = ({
   const isParty = session.type === 'party';
   const isPerformance = session.type === 'performance' || session.type === 'show';
   const isPartyish = isParty || isPerformance;
-  const startStr = fmtMins12(session.startMins);
-  const endStr = fmtMins12(session.endMins);
-  const duration = fmtDuration(session.startMins, session.endMins);
+  // A time-less session (organiser never set a start) renders "Time TBC". When a
+  // known end time survives (start_time NULL but end_time set), it is shown as
+  // "until <end>" rather than dropped. Guard every fmt* call on non-null:
+  // fmtMins12(null) coerces to "12:00 AM" (a wrong midnight), not NaN.
+  const { startMins, endMins } = session;
+  const hasTime = startMins !== null;
+  const startStr = startMins !== null ? fmtMins12(startMins) : null;
+  const endStr = endMins !== null ? fmtMins12(endMins) : null;
+  const duration =
+    startMins !== null && endMins !== null ? fmtDuration(startMins, endMins) : null;
 
   // Title display — drop default placeholder titles ("Class 1", "Party"...).
   const trimmed = (session.title ?? '').trim();
@@ -825,7 +881,7 @@ const SingleRoomScheduleRow = ({
   // Mega Serif Time — split "7:30 PM" into hour:min and ampm parts for the
   // editorial display where the digits are large Fraunces serif and the
   // meridiem is a small caps tail.
-  const [startCore, startAmpm] = startStr.split(' ');
+  const [startCore, startAmpm] = (startStr ?? '').split(' ');
   return (
     <div
       className="grid items-center gap-[14px] px-1 py-1"
@@ -833,45 +889,75 @@ const SingleRoomScheduleRow = ({
     >
       {/* Time column — mega serif */}
       <div className="text-center" style={{ paddingTop: '2px' }}>
-        <div
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontSize: '26px',
-            fontWeight: 600,
-            color: 'hsl(var(--bento-fg))',
-            lineHeight: 1,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {startCore}
-          {startAmpm && (
-            <span
+        {hasTime ? (
+          <>
+            <div
               style={{
-                fontFamily: 'var(--font-mono, ui-monospace)',
-                fontSize: '10px',
-                fontWeight: 500,
-                color: 'hsl(var(--bento-fg-muted))',
-                marginLeft: '3px',
-                letterSpacing: '0.1em',
+                fontFamily: '"Fraunces", Georgia, serif',
+                fontSize: '26px',
+                fontWeight: 600,
+                color: 'hsl(var(--bento-fg))',
+                lineHeight: 1,
+                letterSpacing: '-0.01em',
               }}
             >
-              {startAmpm}
-            </span>
-          )}
-        </div>
-        <div
-          className="font-mono"
-          style={{
-            fontSize: '9px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.12em',
-            color: 'hsl(var(--bento-fg-muted))',
-            marginTop: '6px',
-          }}
-        >
-          {isPartyish ? `– ${endStr}` : duration}
-        </div>
+              {startCore}
+              {startAmpm && (
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono, ui-monospace)',
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    color: 'hsl(var(--bento-fg-muted))',
+                    marginLeft: '3px',
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  {startAmpm}
+                </span>
+              )}
+            </div>
+            <div
+              className="font-mono"
+              style={{
+                fontSize: '9px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'hsl(var(--bento-fg-muted))',
+                marginTop: '6px',
+              }}
+            >
+              {isPartyish ? `– ${endStr}` : duration}
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              fontFamily: '"Fraunces", Georgia, serif',
+              fontSize: '15px',
+              fontWeight: 600,
+              color: 'hsl(var(--bento-fg-muted))',
+              lineHeight: 1.15,
+            }}
+          >
+            Time TBC
+            {endStr && (
+              <div
+                className="font-mono"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  marginTop: '6px',
+                }}
+              >
+                until {endStr}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content column — pill + people chips. The dedicated avatar column was
@@ -1045,8 +1131,13 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
 
   const visibleSessions = useMemo(() => {
     if (!isMultiDay || !currentDay) return sessions;
-    return sessions.filter((s) => s.day === currentDay);
-  }, [sessions, isMultiDay, currentDay]);
+    // Undated rows match no tab. get_event_program_v1's P5-native series branch
+    // hard-codes day_event_date NULL, so every time-less item arrives with
+    // day === null and would render on NO tab at all. Show them on the first
+    // day; the row already renders its own "Time TBC".
+    const isFirstDay = currentDay === uniqueDays[0];
+    return sessions.filter((s) => s.day === currentDay || (isFirstDay && s.day === null));
+  }, [sessions, isMultiDay, currentDay, uniqueDays]);
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
 
@@ -1208,9 +1299,12 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                 // each room. Mobile collapses to single-column stacking via
                 // Tailwind's responsive grid (sm:grid-cols-N).
                 if (isMultiRoom && orderedRooms.length >= 2) {
-                  const startStr = fmtMins12(slot.startMins);
-                  const endStr = fmtMins12(slot.endMins);
-                  const durStr = fmtDuration(slot.startMins, slot.endMins);
+                  const startStr = slot.startMins !== null ? fmtMins12(slot.startMins) : 'Time TBC';
+                  const endStr = slot.endMins !== null ? fmtMins12(slot.endMins) : '';
+                  const durStr =
+                    slot.startMins !== null && slot.endMins !== null
+                      ? fmtDuration(slot.startMins, slot.endMins)
+                      : '';
                   const isPartyish = format === 'range';
                   return (
                     <div
@@ -1240,7 +1334,15 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                             marginTop: '3px',
                           }}
                         >
-                          {isPartyish ? `– ${endStr}` : durStr}
+                          {slot.startMins === null
+                          ? endStr
+                            ? `until ${endStr}`
+                            : ''
+                          : isPartyish
+                            ? endStr
+                              ? `– ${endStr}`
+                              : ''
+                            : durStr}
                         </div>
                       </div>
                       {orderedRooms.map((room) => {

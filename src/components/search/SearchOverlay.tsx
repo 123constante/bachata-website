@@ -16,6 +16,7 @@ import { pushRecent } from '@/lib/searchRecents';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { DiscoveryPanel } from './DiscoveryPanel';
 import type { SearchResult } from '@/lib/searchRpc';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 const ELLIPSIS = '...';
 
@@ -190,7 +191,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                   className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', activeIndex === idx && 'bg-primary/10')}
                 >
                   <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
-                    {r.imageUrl ? <img src={r.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
+                    {r.imageUrl ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>

@@ -5,6 +5,7 @@ import { getPhotoUrl } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { buildFullName, getInitials } from "@/lib/name-utils";
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 interface Dancer {
   id: string;
@@ -41,7 +42,7 @@ export const CommunitySpotlight = () => {
             transition={{ delay: 0.1 * i }}
           >
             <Avatar className="w-9 h-9 border-2 border-background ring-2 ring-primary/10">
-              <AvatarImage src={getPhotoUrl(dancer.avatar_url) || ''} alt={buildFullName(dancer.first_name, dancer.surname)} />
+              <AvatarImage src={optimizedImageUrl(getPhotoUrl(dancer.avatar_url) || '', 96)} alt={buildFullName(dancer.first_name, dancer.surname)} />
               <AvatarFallback className="bg-green-100 text-green-700 text-[10px]">
                 {getInitials(dancer)}
               </AvatarFallback>

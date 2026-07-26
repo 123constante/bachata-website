@@ -7,6 +7,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
@@ -110,7 +111,7 @@ function OrgPill({
         >
           <div className="absolute inset-0 rounded-full" style={{ background: color, opacity: 0.1 }} />
           {org.avatar_url ? (
-            <img src={org.avatar_url} alt={org.name} loading="lazy" className="relative z-10 w-full h-full object-cover" />
+            <img src={optimizedImageUrl(org.avatar_url, 96)} alt={org.name} loading="lazy" className="relative z-10 w-full h-full object-cover" />
           ) : (
             <span className="relative z-10">{initials(org.name)}</span>
           )}
@@ -203,7 +204,7 @@ function DesktopOrgPill({
         }}
       >
         {org.avatar_url ? (
-          <img src={org.avatar_url} alt={org.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={optimizedImageUrl(org.avatar_url, 96)} alt={org.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           initials(org.name)
         )}

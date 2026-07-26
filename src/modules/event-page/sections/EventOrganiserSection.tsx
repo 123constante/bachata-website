@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import type { EventPageModel } from '@/modules/event-page/types';
 
 type EventOrganiserSectionProps = {
@@ -12,7 +13,7 @@ export const EventOrganiserSection = ({ organiser }: EventOrganiserSectionProps)
     <>
       <div className="h-16 w-16 overflow-hidden rounded-full bg-white/[0.06]">
         {organiser.person.avatarUrl ? (
-          <img src={organiser.person.avatarUrl} alt={organiser.person.displayName ?? undefined} className="h-full w-full object-cover" loading="lazy" />
+          <img src={optimizedImageUrl(organiser.person.avatarUrl, 160)} alt={organiser.person.displayName ?? undefined} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-white/70">
             {(organiser.person.displayName || '').trim().charAt(0) || '•'}

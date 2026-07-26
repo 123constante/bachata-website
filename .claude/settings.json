@@ -3,7 +3,6 @@
     "allow": [
       "Bash(git switch *)",
       "Bash(gh pr create --base main --head fix/mojibake-sweep --title 'fix\\(integrity\\): sweep cp1252 mojibake from comments + one error string' --body ' *)",
-      "Bash(gh pr *)",
       "Bash(git fetch *)",
       "Bash(python3 c:/dev/Website/scripts/safe-write.py c:/dev/Website/src/pages/SearchResults.tsx)",
       "Bash(PYTHONUTF8=1 python3)",
@@ -47,7 +46,21 @@
       "Bash(xargs -I {} sh -c 'gh api repos/123constante/bachata-website/actions/runs/{} --jq \".name, .status, .conclusion, .html_url\"')",
       "Bash(python3 scripts/safe-write.py src/modules/home-map/EventMap.tsx)",
       "Bash(python3 scripts/safe-write.py /c/dev/Website/src/modules/home-map/useMapList.ts)",
-      "Bash(PYTHONUTF8=1 python3 -)"
+      "Bash(PYTHONUTF8=1 python3 -)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/lib/previewProbe.mjs)",
+      "Bash(git -C /c/dev/Website diff --stat origin/main...origin/fix/preview-checks-skip-when-walled)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- .github/workflows/perf-budget.yml scripts/check-lighthouse.mjs)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- scripts/check-og-images.mjs scripts/check-seo.mjs tests/previewProbe.test.ts)",
+      "PowerShell(gh run view 29808152486 --log-failed | Out-File -Encoding utf8 C:\\\\tmp\\\\r29808152486.log; \\(Get-Content C:\\\\tmp\\\\r29808152486.log | Measure-Object -Line\\).Lines)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:.github/workflows/perf-budget.yml)",
+      "Bash(git -C /c/dev/Website grep -rln 'previewProbe\\\\|bypassHeaders\\\\|VERCEL_AUTOMATION_BYPASS\\\\|set-bypass-cookie' origin/fix/preview-checks-skip-when-walled)",
+      "Bash(MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' git -C /c/dev/Website show 'origin/fix/preview-checks-skip-when-walled:.github/workflows/perf-budget.yml')",
+      "PowerShell(gh run view 29808152486 --log | Out-File -Encoding utf8 C:\\\\tmp\\\\full29808152486.log; \\(Get-Content C:\\\\tmp\\\\full29808152486.log | Measure-Object -Line\\).Lines; gh run view 29888236022 --log | Out-File -Encoding utf8 C:\\\\tmp\\\\full29888236022.log; \\(Get-Content C:\\\\tmp\\\\full29888236022.log | Measure-Object -Line\\).Lines)",
+      "Bash(git -C /c/dev/Website ls-tree -r --name-only origin/main)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/check-doc-weight.mjs)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/check-lighthouse.mjs)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:playwright.synthetic.config.ts)"
     ],
     "additionalDirectories": [
       "\\tmp",

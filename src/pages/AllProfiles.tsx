@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { optimizedImageUrl } from '@/lib/imageCdn';
 
 
 const roleColors: Record<string, string> = {
@@ -136,7 +137,7 @@ export default function AllProfiles() {
                     {/* Photo */}
                     {profile.photo_url && (
                       <img
-                        src={profile.photo_url}
+                        src={optimizedImageUrl(profile.photo_url, 960)}
                         alt={profile.display_name}
                         className="w-full h-40 object-cover rounded" loading="lazy"/>
                     )}

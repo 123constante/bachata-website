@@ -1,3 +1,4 @@
+import { optimizedImageUrl } from '@/lib/imageCdn';
 import type { EventPageModel, EventPagePerson } from '@/modules/event-page/types';
 
 type EventAttendanceSectionProps = {
@@ -34,7 +35,7 @@ const AvatarCell = ({
       }}
     >
       {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img src={optimizedImageUrl(person.avatarUrl, 96)} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <span
           className="text-[12px] font-semibold"

@@ -6,6 +6,8 @@ import {
   assertMeasured,
   resolvePreviewUrl,
   probe,
+  isPreviewHost,
+  previewIsWalled,
 } from '../scripts/lib/previewProbe.mjs';
 
 const ENV_KEYS = ['CI', 'VERCEL_AUTOMATION_BYPASS_SECRET', 'GITHUB_SHA', 'GITHUB_EVENT_PATH', 'GITHUB_REPOSITORY', 'GITHUB_TOKEN'];
@@ -28,12 +30,23 @@ afterEach(() => {
 });
 
 describe('bypassHeaders', () => {
-  it('returns the two Vercel bypass headers when the secret is set', () => {
+  it('returns the bare bypass header when the secret is set (NO set-bypass-cookie: cookie-less fetch/curl clients would redirect-loop on the cookie-setting response a valid secret triggers)', () => {
     process.env.VERCEL_AUTOMATION_BYPASS_SECRET = 's3cr3t';
     expect(bypassHeaders()).toEqual({
       'x-vercel-protection-bypass': 's3cr3t',
-      'x-vercel-set-bypass-cookie': 'true',
     });
+  });
+
+  it('trims the secret (a trailing newline from `gh secret set < file` would make undici reject the header before any network I/O)', () => {
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET = ' s3cr3t\n';
+    expect(bypassHeaders()).toEqual({
+      'x-vercel-protection-bypass': 's3cr3t',
+    });
+  });
+
+  it('treats a whitespace-only secret as absent', () => {
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET = '  \n';
+    expect(bypassHeaders({ required: false })).toBeNull();
   });
 
   it('THROWS in CI when the secret is missing (never runs unauthenticated)', () => {
@@ -126,5 +139,58 @@ describe('probe', () => {
     const res = await probe('https://x.vercel.app/');
     expect(res.status).toBe(200);
     expect(seen['x-vercel-protection-bypass']).toBe('s');
+  });
+});
+
+describe('isPreviewHost', () => {
+  it('true for *.vercel.app, false for prod and garbage', () => {
+    expect(isPreviewHost('https://site-abc123.vercel.app')).toBe(true);
+    expect(isPreviewHost('https://www.bachatacalendar.co.uk')).toBe(false);
+    expect(isPreviewHost('not a url')).toBe(false);
+  });
+});
+
+// Wall detection is POSITIVE-only: walled means proven (401/403, or the redirect
+// chain parked on Vercel's login/sso surface). A throw (timeout, DNS, redirect
+// loop, broken preview) is NOT walled — the real check must run and fail loud.
+describe('previewIsWalled', () => {
+  const resp = (status: number, url: string) =>
+    ({ status, url, body: { cancel: vi.fn(async () => {}) } }) as unknown as Response;
+
+  it('walled: redirect chain parked on vercel.com/login', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, 'https://vercel.com/login?next=%2Fsso-api')));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(true);
+  });
+
+  it('walled: direct 401/403 on the preview host (Password Protection mode)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(401, 'https://x-abc.vercel.app/')));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(true);
+    vi.stubGlobal('fetch', vi.fn(async () => resp(403, 'https://x-abc.vercel.app/')));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(true);
+  });
+
+  it('NOT walled: healthy 200 on the preview host', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, 'https://x-abc.vercel.app/city/london-gb')));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(false);
+  });
+
+  it('NOT walled: a site URL merely containing /sso-api is not the wall (host-anchored match)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, 'https://x-abc.vercel.app/docs/sso-api-integration')));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(false);
+  });
+
+  it('NOT walled: a fetch throw (timeout/DNS/redirect loop) must let the real check fail loud', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('fetch failed');
+    }));
+    expect(await previewIsWalled('https://x-abc.vercel.app')).toBe(false);
+  });
+
+  it('cancels the response body (an unconsumed undici body keeps the event loop alive)', async () => {
+    const cancel = vi.fn(async () => {});
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      ({ status: 200, url: 'https://x-abc.vercel.app/', body: { cancel } }) as unknown as Response));
+    await previewIsWalled('https://x-abc.vercel.app');
+    expect(cancel).toHaveBeenCalled();
   });
 });
