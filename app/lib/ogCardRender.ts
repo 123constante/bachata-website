@@ -22,6 +22,7 @@ import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
@@ -189,18 +190,19 @@ export async function fetchImageBytes(url: string): Promise<Buffer | null> {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Accept a uuid straight through, else resolve a slug to its event id. Identity
- *  now comes from P5 (resolve_public_event_ref_v1 reads the canonical
- *  event_series_p5.slug; id = COALESCE(legacy_event_id, series id)), not legacy
- *  `events`. Only the slug branch hits the DB; the uuid short-circuit is unchanged. */
+ *  now comes from P5 via the SHARED resolvePublicEventRef (src/lib/seo), which
+ *  wraps resolve_public_event_ref_v1: reads the canonical event_series_p5.slug,
+ *  id = COALESCE(legacy_event_id, series id). Not legacy `events`.
+ *
+ *  Only the slug branch hits the DB -- the uuid short-circuit is deliberately kept
+ *  (an OG card must still render for a uuid URL a crawler already holds, even
+ *  though the page itself 301s to the slug), so unlike the page loaders this is
+ *  NOT gated on the resolver. 'swallow': a DB blip degrades the card to the
+ *  branded fallback, never a 500 on the image endpoint. */
 export async function resolveOgEventId(param: string): Promise<string | null> {
   if (UUID_RE.test(param)) return param;
-  const { data, error } = await supabase.rpc(
-    "resolve_public_event_ref_v1" as never,
-    { p_param: param } as never,
-  );
-  if (error || !data) return null;
-  const r = data as { id: string | null };
-  return typeof r.id === "string" ? r.id : null;
+  const ref = await resolvePublicEventRef(param, "swallow");
+  return ref?.id ?? null;
 }
 
 export async function fetchEventCardData(id: string, occ: string | null): Promise<OgCardData | null> {

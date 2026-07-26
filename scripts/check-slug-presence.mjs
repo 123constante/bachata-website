@@ -10,8 +10,17 @@
  * first, soak, let runtime truth produce any missed-writer worklist, THEN promote
  * to a hard NOT NULL / DEFERRABLE constraint in a later soak-gated migration. So
  * this step WARNS on offenders and stays green - it is a visibility surface, not a
- * gate. The HARD gate is the sibling parity check (check-slug-resolver-parity.mjs):
- * a live series with a null slug also fails to round-trip there and turns it red.
+ * gate.
+ *
+ * NB: the sibling parity check (check-slug-resolver-parity.mjs, #56) is NOT a
+ * backstop for this one, and it is wrong to read it as the hard gate behind this
+ * report. check_slug_resolver_p5_parity_v1 drives BOTH its loops
+ * `FROM public.events`, so it only ever probes series that still have a legacy
+ * row. A P5-NATIVE series (event_series_p5.legacy_event_id IS NULL) with a null
+ * slug is never probed there and cannot turn it red - and P5-native is precisely
+ * the shape the self-serve writers produce, i.e. the population this presence
+ * report exists for. So for those rows this report-only WARN is the ONLY signal
+ * until the hard NOT NULL constraint (migration C) lands.
  *
  * Exit policy:
  *   - RPC missing on prod   -> exit 0 (warn; admin migration 20260725100000 pending)
@@ -93,8 +102,10 @@ if (data.ok === true || offenders === 0) {
 console.warn(
   `\nWARN (report-only): ${offenders} live event_series_p5 row(s) have a NULL/empty slug - a ` +
   `writer the auto-populate trigger did not cover. Their /event or /festival page cannot be ` +
-  `reached by slug. Offenders printed above. This does NOT fail the build during the soak; the ` +
-  `parity guard (check-slug-resolver-parity) gates it. Add the missing writer to the worklist ` +
-  `before promoting slug to a hard NOT NULL constraint (migration C).`,
+  `reached by slug. Offenders printed above. This does NOT fail the build during the soak, and ` +
+  `for a P5-NATIVE series (legacy_event_id IS NULL) nothing else catches it - the parity guard ` +
+  `(check-slug-resolver-parity, #56) loops FROM public.events and never probes those rows. Add ` +
+  `the missing writer to the worklist before promoting slug to a hard NOT NULL constraint ` +
+  `(migration C).`,
 );
 process.exit(0);

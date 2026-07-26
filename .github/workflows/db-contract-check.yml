@@ -940,8 +940,12 @@ jobs:
       #     20260725100000) did not cover, whose page cannot be reached by slug. Follows
       #     enforce-don't-repair sequencing: report first, soak, let runtime truth
       #     produce any missed-writer worklist, THEN promote slug to a hard NOT NULL /
-      #     DEFERRABLE constraint (migration C). So this WARNS and stays green; the hard
-      #     gate is #56 (a null-slug live series also fails to round-trip there).
+      #     DEFERRABLE constraint (migration C). So this WARNS and stays green.
+      #     NB #56 is NOT a backstop for the P5-native population:
+      #     check_slug_resolver_p5_parity_v1 drives its loops FROM public.events, so a
+      #     series with legacy_event_id IS NULL is never probed there and can never turn
+      #     it red. For those rows - the shape every self-serve writer produces - this
+      #     report-only step is the ONLY signal until migration C lands.
       #     Soft-passes until admin migration 20260725100000 ships. Health-check RPC:
       #     check_event_series_p5_slug_presence_v1.
       - name: Run event_series_p5 slug presence check
