@@ -55,8 +55,11 @@ when the flag is false (see `lib/featureFlags.ts`).
 `src/modules/event-page/` is the full event detail surface:
 - `buildEventPageModel.ts` — pure model builder from DB payload
 - `useEventPageQuery.ts` — React Query hook; calls `event_view_p5` with
-  `shape:'snapshot_compat'` (delegates to legacy program RPCs, byte-equal
-  to `get_event_page_snapshot_v2`)
+  `shape:'snapshot_compat'` (native P5 build; NOT byte-equal to the retired
+  `get_event_page_snapshot_v2` -- admin `20260709070000` made it native and
+  `20260709080000` revoked anon EXECUTE on the legacy fn. `starts_at`/`ends_at`
+  echo `event_occurrence_p5.materialised_start_utc`, a naive London wall clock
+  stamped `+00` -- display as-stored, never Intl-convert)
 - `EventPageScreen.tsx` — top-level render
 - `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
 - `sections/` — page sections

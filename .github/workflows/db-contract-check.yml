@@ -955,6 +955,59 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-slug-presence.mjs
 
+      # 58. pg_proc materialised-cast lint (P5 wall-clock +1h regression guard,
+      #     2026-07-26). materialised_start_utc / materialised_end_utc hold a NAIVE
+      #     London wall clock stamped +00 (stash_local_as_utc STAMPS, does not
+      #     convert), so the ONLY correct unstamp is `AT TIME ZONE 'UTC'`; any other
+      #     zone re-applies the offset. In BST season search_public_v5 and the event
+      #     page (_event_view_snapshot_compat_v1) both shipped a double cast
+      #     (`... AT TIME ZONE tz ... AT TIME ZONE 'UTC'`) that reported 21:00 for a
+      #     20:00 event; the client's WallClock brand renders whatever the RPC hands
+      #     it, so nothing caught it. This is the SQL analogue of that brand lint:
+      #     scans pg_proc.prosrc for `materialised_%_utc AT TIME ZONE <not 'UTC'>` and
+      #     fails on any offender. Fixed by admin migrations 20260726010000 /
+      #     20260726015000. Health-check RPC: check_no_materialised_utc_miscast_v1.
+      - name: Run pg_proc materialised-cast lint
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-pgproc-materialised-cast.mjs
+
+      # 59. Cross-surface start-time agreement (2026-07-26). The event page
+      #     (event_view_p5 snapshot_compat) and search (search_public_v5) both READ
+      #     event_occurrence_p5.materialised_start_utc; they must echo that stored wall
+      #     clock as-is. The +1h double-cast (see #58) made both report 21:00 for a
+      #     20:00 event, and no guard compared a surface to the canonical value, so it
+      #     shipped live for 53 of 61 BST-season series. This asserts both readers
+      #     equal the canonical materialised_start_utc (via the anon sampler
+      #     _public_time_agreement_sample_v1) to the millisecond for the next-upcoming
+      #     occurrence of a sample of live series. Calendar/map/venue-dto are NOT the
+      #     reference: they re-derive from the program/default and can legitimately
+      #     differ from a stale column (that is materialised drift, #43's job).
+      - name: Run surface time-agreement check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-surface-time-agreement.mjs
+
+      # 60. Event-page payload self-consistency (2026-07-26). event_view_p5
+      #     (snapshot_compat) must never return a non-null occurrence_id with a null
+      #     occurrence_effective - DateBlock renders "TBA" when occurrence_effective is
+      #     null. A pinned NULL-materialised (or archived, or beyond-52-window)
+      #     occurrence used to echo occurrence_id non-null + occurrence_effective null,
+      #     which is what put "TBA" on the venue What's-On -> event page path. Fixed
+      #     (admin 20260726015000: build occurrence_effective from a direct lookup with
+      #     a NULL-materialised fallback). Asserts the invariant on a sample of live
+      #     events, landing AND pinned. Calls event_view_p5 directly (no health RPC).
+      - name: Run compat payload-consistency check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-compat-payload-consistency.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
