@@ -43,8 +43,14 @@
   "src/lib/searchTelemetry.ts": {
     "record_search_query_v1": 1
   },
+  "src/lib/seo/resolvePublicEventRef.ts": {
+    "resolve_public_event_ref_v1": 1
+  },
   "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx": {
     "record_organiser_card_click_v1": 1
+  },
+  "src/modules/event-page/festivalEventQuery.ts": {
+    "event_view_p5": 1
   },
   "src/modules/event-page/sections/MoreEventsSection.tsx": {
     "get_organiser_event_counts": 1,

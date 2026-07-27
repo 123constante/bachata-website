@@ -10,6 +10,7 @@ import type { EventPageSnapshot, FestivalDetail } from "@/modules/event-page/typ
 import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@/modules/event-page/festivalEventQuery";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { SITE_ORIGIN } from "@/lib/seo";
+import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import EventPage from "@/pages/EventPage";
 import type { Route } from "./+types/event";
 
@@ -38,27 +39,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const qc = createQueryClient();
 
-  // 1. Resolve slug → uuid (mirrors useEntitySlugOrId, idColumn 'id').
+  // 1. Resolve slug -> uuid (mirrors useEntitySlugOrId, idColumn 'id'). Identity
+  //    comes from P5 via the SHARED resolvePublicEventRef (src/lib/seo), which
+  //    wraps resolve_public_event_ref_v1: it reads the canonical
+  //    event_series_p5.slug, branches slug-vs-uuid internally on the client UUID
+  //    regex, and returns {id, slug} where id = COALESCE(legacy_event_id, series
+  //    id) -- or SQL NULL, never RAISE. 'throw' distinguishes a TRANSIENT DB error
+  //    from a genuine miss, surfacing a retryable 500 rather than 404-ing
+  //    (deindexing) a valid event on a blip. One definition, so this stays
+  //    byte-parity with the client hook's events branch and the dehydrated
+  //    ["entity-resolve","events","id",param] entry matches what the client reads.
   const resolved = await qc.fetchQuery({
     queryKey: ["entity-resolve", "events", "id", routeParam],
-    queryFn: async () => {
-      const whereCol = isUuid ? "id" : "slug";
-      const { data: row, error } = await supabase
-        .from("events")
-        .select("id, slug")
-        .eq(whereCol, routeParam)
-        .maybeSingle();
-      // Distinguish a TRANSIENT error from a genuine miss: throwing surfaces a
-      // retryable 500 rather than 404-ing (deindexing) a valid event on a blip.
-      if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
-      if (!row) return null;
-      const r = row as Record<string, unknown>;
-      return { id: (r.id as string | null) ?? null, slug: (r.slug as string | null) ?? null };
-    },
+    queryFn: () => resolvePublicEventRef(routeParam, "throw"),
     staleTime: 5 * 60 * 1000,
   });
 
-  const eventId = resolved?.id ?? (isUuid ? routeParam : null);
+  // The resolver is the authority AND the visibility gate (hidden/archived/draft
+  // -> null), so NEVER re-inject the raw uuid: an archived event fetched by its
+  // uuid must 404, not 200. Mirrors app/detailLoader.ts.
+  const eventId = resolved?.id ?? null;
   const slug = resolved?.slug ?? (isUuid ? null : routeParam);
 
   if (!eventId) {

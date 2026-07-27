@@ -26,7 +26,82 @@ export async function fetchFestivalEventRow(
     .eq('type', 'festival')
     .maybeSingle();
   if (error) throw error;
-  return (data as Record<string, unknown> | null) ?? null;
+  if (data) return data as Record<string, unknown>;
+  // Legacy miss is NOT proof of absence any more -- see below.
+  return fetchFestivalEventRowFromP5(eventId);
+}
+
+// M2 fallback. A PURE-P5 series (event_series_p5.legacy_event_id IS NULL) has no
+// row in legacy `events` at all, so the read above misses and the festival hub
+// dies: FestivalDetail renders "Festival not found", and /festival/:id throws a
+// hard 404+noindex (app/routes/festival.tsx gates on this query). The public URL
+// id resolvePublicEventRef hands us for such a series IS the series id, so ask
+// event_view_p5 instead.
+//
+// Why that RPC and not a direct event_series_p5 read: it is anon-callable
+// SECURITY DEFINER, its snapshot_compat branch resolves
+// `legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)` -- exactly
+// the pure-P5 case -- and it filters lifecycle_status IN ('live','paused'),
+// returning NULL otherwise, so it IS the visibility gate. A direct table read
+// would not be one: event_series_p5's anon RLS is still behind
+// FF_DB_SELF_SERVE_RLS.
+//
+// The returned object carries the SAME ten keys as FESTIVAL_EVENT_SELECT so the
+// `as FestivalEvent` cast in FestivalDetail and the dehydrated
+// ['festival-event', id] entry stay identical whichever path produced them. The
+// four legacy-only columns are null: `date`/`start_time` because the real dates
+// come from get_public_festival_detail_v2 (and events.start_time may never be
+// consumed -- see the FestivalEvent type's note on its unbrandable mix of
+// instants and wall clocks), `faq`/`meta_data` because the compat payload has no
+// equivalent.
+async function fetchFestivalEventRowFromP5(
+  eventId: string,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase.rpc('event_view_p5' as never, {
+    p_target: { series_id: eventId },
+    p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+  } as never);
+  // Rethrow: a transient RPC error must surface as a retryable 500, not 404 a
+  // live festival (the legacy branch above rethrows for the same reason).
+  if (error) throw error;
+  const snap = data as P5CompatSnapshot | null;
+  const ev = snap?.event;
+  // Mirrors the legacy `.eq('type','festival')` filter: a non-festival series
+  // must still resolve to null so the caller 404s rather than rendering a party
+  // in the festival hub. `format` is the P5 canonical field the compat payload
+  // derives its legacy `type` from.
+  if (!ev || ev.format !== 'festival') return null;
+  return {
+    id: eventId,
+    name: ev.name ?? '',
+    city: nonEmpty(snap?.location_default?.city?.name),
+    date: null,
+    start_time: null,
+    poster_url: nonEmpty(ev.cover_image_url),
+    description: nonEmpty(ev.description),
+    ticket_url: nonEmpty(ev.actions?.ticket_url),
+    faq: null,
+    meta_data: null,
+  };
+}
+
+// The compat RPC emits '' (not NULL) for an unset description, where the legacy
+// column would be NULL. Normalise so both paths produce the same row.
+function nonEmpty(v: string | null | undefined): string | null {
+  return typeof v === 'string' && v.trim() !== '' ? v : null;
+}
+
+// Only the handful of fields the festival basic-row shape needs; the compat
+// payload is much wider (see _event_view_snapshot_compat_v1).
+interface P5CompatSnapshot {
+  event?: {
+    name?: string | null;
+    format?: string | null;
+    description?: string | null;
+    cover_image_url?: string | null;
+    actions?: { ticket_url?: string | null } | null;
+  } | null;
+  location_default?: { city?: { name?: string | null } | null } | null;
 }
 
 // isFestival sniff shared by useEventPage (client) and the /event/:id loader

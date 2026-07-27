@@ -7,6 +7,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { resolvePublicEventRef } from './resolvePublicEventRef';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Matches the UUID prefix pattern (8-4-4-4-) without the strict 12-char suffix.
@@ -49,6 +50,17 @@ export function useEntitySlugOrId(
     queryKey: ['entity-resolve', table, idColumn, param],
     queryFn: async () => {
       if (!param) return null;
+      // Events resolve identity from P5, not legacy `events`: the SHARED
+      // resolvePublicEventRef wraps resolve_public_event_ref_v1, which reads the
+      // now-canonical event_series_p5.slug and returns {id, slug} (id =
+      // COALESCE(legacy_event_id, series id)), branching slug-vs-uuid internally on
+      // the client UUID regex, SQL NULL on a miss. SWALLOW errors here (unchanged)
+      // -- app/detailLoader.ts is the throwing mirror. Sharing one definition is
+      // what keeps the two byte-equal, so the dehydrated cache entry hydrates.
+      // Other tables have no P5 resolver and stay on .from(table).
+      if (table === 'events') {
+        return resolvePublicEventRef(param, 'swallow');
+      }
       const whereCol = arrivedViaUuid ? idColumn : 'slug';
       const selectCols = `${idColumn}, slug`;
       const { data: row, error } = await supabase
@@ -72,7 +84,12 @@ export function useEntitySlugOrId(
   }
 
   return {
-    id: data?.id ?? (arrivedViaUuid ? (param as string) : null),
+    // Events: the resolver is the authority AND the visibility gate
+    // (hidden/archived/draft -> null), so NEVER re-inject the raw uuid here, or an
+    // archived event opened by uuid renders instead of reporting notFound.
+    // Non-events resolution defers not-found to the content query, so those keep
+    // the uuid passthrough. Mirrors app/detailLoader.ts.
+    id: data?.id ?? (arrivedViaUuid && table !== 'events' ? (param as string) : null),
     slug: data?.slug ?? (arrivedViaUuid ? null : (param as string)),
     isLoading,
     notFound: !isLoading && Boolean(param) && !data,

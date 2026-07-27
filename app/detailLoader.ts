@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { data, redirect } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SITE_ORIGIN, type EntityTable } from "@/lib/seo";
+import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
@@ -29,6 +30,12 @@ export async function resolveEntityInLoader(
   const resolved = await qc.fetchQuery({
     queryKey: ["entity-resolve", table, idColumn, param],
     queryFn: async () => {
+      // Events resolve identity from P5 (event_series_p5.slug) via the shared
+      // resolver, which is ALSO the visibility gate (hidden/archived -> null).
+      // Other tables (venue/organiser/dancer) have no P5 resolver.
+      if (table === "events") {
+        return resolvePublicEventRef(param, "throw");
+      }
       const whereCol = arrivedViaUuid ? idColumn : "slug";
       const { data: row, error } = await supabase
         .from(table)
@@ -47,7 +54,11 @@ export async function resolveEntityInLoader(
   });
 
   return {
-    id: resolved?.id ?? (arrivedViaUuid ? param : null),
+    // Events: the resolver is the authority (hidden/archived -> null), so NEVER
+    // re-inject the raw uuid here, or an archived event fetched by uuid 200s
+    // instead of 404-ing. Non-events resolution defers the 404 to the content
+    // query, so it keeps the uuid passthrough.
+    id: resolved?.id ?? (arrivedViaUuid && table !== "events" ? param : null),
     slug: resolved?.slug ?? (arrivedViaUuid ? null : param),
     arrivedViaUuid,
   };
