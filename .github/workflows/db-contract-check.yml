@@ -1008,6 +1008,30 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-compat-payload-consistency.mjs
 
+      # 61. P5 occurrence materialise-leak guard (2026-07-26). A write path
+      #     (_cmd_series_add_date_p5, the ad-hoc "add date" command) inserted
+      #     event_occurrence_p5 rows with lifecycle_status='scheduled' but a NULL
+      #     materialised_start_utc. search_public_v5 filters that column IS NOT
+      #     NULL, so such an occurrence is INVISIBLE to site search while the
+      #     calendar/map (which do not read it) render it fine — one leaked in a
+      #     live series ("Bachata on Saturday") and went unfindable. The canonical
+      #     materialised check (#43, check_occurrence_p5_materialised_canonical_v1)
+      #     is STRUCTURALLY BLIND to this: it filters materialised_start_utc IS NOT
+      #     NULL BEFORE counting, so an unmaterialised row scores as clean. This
+      #     guard is scoped to the leak: live, non-festival, scheduled occurrences
+      #     that ARE materialisable (the canonical resolver yields a headline) yet
+      #     carry a NULL materialised_start_utc — so the 305-row dead orphan-series
+      #     blob never counts and it stays green. Writer fixed in admin migration
+      #     20260726020000. Health-check RPC: check_occurrence_p5_unmaterialised_v1
+      #     (admin migration 20260726030000); live rows repaired via
+      #     _recompute_occurrence_headline_time_from_sessions_v1.
+      - name: Run P5 unmaterialised-occurrence guard check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-p5-unmaterialised.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
