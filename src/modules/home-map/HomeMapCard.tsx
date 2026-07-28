@@ -27,7 +27,6 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Plus, Minus, Focus, ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
 import type { MapEvent, MapFilter } from './mapTypes';
 import { useIsDesktopMapChrome } from './viewport';
@@ -37,7 +36,13 @@ import { MapPreviewCard } from './mobile/MapPreviewCard';
 import { MapHintPill } from './mobile/MapHintPill';
 import { MapHint } from './MapHint';
 
-const EventMap = lazyWithRetry(() => import('./EventMap'));
+// STATIC import (not lazy): this module is itself only ever imported lazily
+// and mapMounted-gated by HomeMapShell, so EventMap's ~198.6 KB JS + ~29.6 KB
+// CSS already never reach the server or the first client render. Making it
+// static here lets Vite fetch that chunk IN PARALLEL with HomeMapCard's own
+// chunk instead of only starting after HomeMapCard resolves -- collapsing a
+// two-hop waterfall into one.
+import EventMap from './EventMap';
 
 // Constrain the mobile map to Greater London so a fling rubber-bands back rather
 // than drifting to empty ocean (EventMap applies maxBoundsViscosity).
