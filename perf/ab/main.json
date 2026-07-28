@@ -1,0 +1,280 @@
+{
+  "label": "main",
+  "base": "http://127.0.0.1:4173",
+  "date": "2026-07-28T07:19:58.723Z",
+  "commit": "a753f568c96c2c3f134516003857b4fd57149f74",
+  "runsPerSurface": 3,
+  "method": "lighthouse mobile, simulated 4G (check-lighthouse.mjs flag parity), per-metric median",
+  "surfaces": {
+    "home": {
+      "path": "/city/london-gb",
+      "medians": {
+        "score": 53,
+        "lcp": 11012.74102161319,
+        "fcp": 4099.39531168175,
+        "tbt": 476.9999999999991,
+        "cls": 0.00005147288491988814,
+        "si": 4544.1181887704715,
+        "ttfb": 942
+      },
+      "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile",
+      "runs": [
+        {
+          "score": 43,
+          "lcp": 11346.819000000001,
+          "fcp": 4268.3589999999995,
+          "tbt": 829.5000000000009,
+          "cls": 0.00005147288491988814,
+          "si": 5593.549828848836,
+          "ttfb": 1110,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        },
+        {
+          "score": 53,
+          "lcp": 10738.389499999997,
+          "fcp": 3888.6720000000005,
+          "tbt": 476.9999999999991,
+          "cls": 0.00005147288491988814,
+          "si": 4544.1181887704715,
+          "ttfb": 942,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        },
+        {
+          "score": 65,
+          "lcp": 11012.74102161319,
+          "fcp": 4099.39531168175,
+          "tbt": 56,
+          "cls": 0.00005147288491988814,
+          "si": 4099.39531168175,
+          "ttfb": 715,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        }
+      ]
+    },
+    "calendar": {
+      "path": "/city/london-gb/calendar",
+      "medians": {
+        "score": 62,
+        "lcp": 7493.762300000001,
+        "fcp": 4800.842449999999,
+        "tbt": 99.49999999999955,
+        "cls": 0,
+        "si": 5733.590672829918,
+        "ttfb": 8
+      },
+      "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile",
+      "runs": [
+        {
+          "score": 62,
+          "lcp": 7493.762300000001,
+          "fcp": 4808.223100000001,
+          "tbt": 81.49999999999955,
+          "cls": 0,
+          "si": 5755.003103875202,
+          "ttfb": 8,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        },
+        {
+          "score": 61,
+          "lcp": 10278.231799999998,
+          "fcp": 4334.2476000000015,
+          "tbt": 196,
+          "cls": 0,
+          "si": 4444.3490156575745,
+          "ttfb": 11,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        },
+        {
+          "score": 62,
+          "lcp": 7490.850849999997,
+          "fcp": 4800.842449999999,
+          "tbt": 99.49999999999955,
+          "cls": 0,
+          "si": 5733.590672829918,
+          "ttfb": 7,
+          "lcpElement": "div.leaflet-pane > div.leaflet-layer > div.leaflet-tile-container > img.leaflet-tile"
+        }
+      ]
+    },
+    "parties": {
+      "path": "/parties",
+      "medians": {
+        "score": 68,
+        "lcp": 5548.611,
+        "fcp": 4454.916500000003,
+        "tbt": 120.5,
+        "cls": 0,
+        "si": 4454.916500000003,
+        "ttfb": 1
+      },
+      "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm",
+      "runs": [
+        {
+          "score": 67,
+          "lcp": 5550.671149999997,
+          "fcp": 4465.006724999999,
+          "tbt": 120.5,
+          "cls": 0,
+          "si": 4465.006724999999,
+          "ttfb": 8,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 68,
+          "lcp": 5543.81675,
+          "fcp": 4445.725125000003,
+          "tbt": 124,
+          "cls": 0,
+          "si": 4445.725125000003,
+          "ttfb": 1,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 68,
+          "lcp": 5548.611,
+          "fcp": 4454.916500000003,
+          "tbt": 54,
+          "cls": 0,
+          "si": 4454.916500000003,
+          "ttfb": 1,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        }
+      ]
+    },
+    "festivals": {
+      "path": "/festivals",
+      "medians": {
+        "score": 63,
+        "lcp": 5474.5,
+        "fcp": 4226.199000000001,
+        "tbt": 348.5,
+        "cls": 0.0071155066085873495,
+        "si": 4226.199000000001,
+        "ttfb": 28
+      },
+      "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm",
+      "runs": [
+        {
+          "score": 63,
+          "lcp": 4843.480499999997,
+          "fcp": 4136.960999999998,
+          "tbt": 407.5,
+          "cls": 0.006478762311799925,
+          "si": 4173.729145646122,
+          "ttfb": 305,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 66,
+          "lcp": 5637.107460000005,
+          "fcp": 4226.199000000001,
+          "tbt": 183.0000000000009,
+          "cls": 0.0071155066085873495,
+          "si": 4226.199000000001,
+          "ttfb": 19,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 58,
+          "lcp": 5474.5,
+          "fcp": 4459.25,
+          "tbt": 348.5,
+          "cls": 0.010225291472308499,
+          "si": 5812.18768586958,
+          "ttfb": 28,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        }
+      ]
+    },
+    "landing": {
+      "path": "/london-bachata-guide",
+      "medians": {
+        "score": 58,
+        "lcp": 5391.015450000002,
+        "fcp": 4154.899374999999,
+        "tbt": 85.32522500000005,
+        "cls": 0.22216877737417537,
+        "si": 4354.231982622194,
+        "ttfb": 2
+      },
+      "lcpElement": "div.min-h-screen > article.mx-auto > section#overview > p.leading-relaxed",
+      "runs": [
+        {
+          "score": 67,
+          "lcp": 5391.0726300000015,
+          "fcp": 4238.069775000002,
+          "tbt": 58.16261500000064,
+          "cls": 0,
+          "si": 5675.996937485512,
+          "ttfb": 8,
+          "lcpElement": "div.min-h-screen > article.mx-auto > header.space-y-3 > p.text-base"
+        },
+        {
+          "score": 58,
+          "lcp": 5388.887940000001,
+          "fcp": 4114.5126,
+          "tbt": 124.17037000000118,
+          "cls": 0.22216877737417537,
+          "si": 4318.546301703295,
+          "ttfb": 2,
+          "lcpElement": "div.min-h-screen > article.mx-auto > section#overview > p.leading-relaxed"
+        },
+        {
+          "score": 58,
+          "lcp": 5391.015450000002,
+          "fcp": 4154.899374999999,
+          "tbt": 85.32522500000005,
+          "cls": 0.22216877737417537,
+          "si": 4354.231982622194,
+          "ttfb": 1,
+          "lcpElement": "div.min-h-screen > article.mx-auto > section#overview > p.leading-relaxed"
+        }
+      ]
+    },
+    "event": {
+      "path": "/event/bachata-picnic",
+      "medians": {
+        "score": 61,
+        "lcp": 5718.564400000003,
+        "fcp": 5185.3384,
+        "tbt": 253.00000000000045,
+        "cls": 0.0404878729727248,
+        "si": 5185.3384,
+        "ttfb": 386
+      },
+      "lcpElement": "div.relative > button.relative > div.absolute > img.h-full",
+      "runs": [
+        {
+          "score": 60,
+          "lcp": 5815.7292,
+          "fcp": 5185.3384,
+          "tbt": 260.5,
+          "cls": 0.0404878729727248,
+          "si": 5185.3384,
+          "ttfb": 386,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        },
+        {
+          "score": 63,
+          "lcp": 5706.93525,
+          "fcp": 5184.621000000003,
+          "tbt": 181.99999999999864,
+          "cls": 0.01125540248939986,
+          "si": 5184.621000000003,
+          "ttfb": 310,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        },
+        {
+          "score": 61,
+          "lcp": 5718.564400000003,
+          "fcp": 5192.665600000004,
+          "tbt": 253.00000000000045,
+          "cls": 0.0404878729727248,
+          "si": 5192.665600000004,
+          "ttfb": 409,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        }
+      ]
+    }
+  }
+}
