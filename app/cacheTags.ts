@@ -51,6 +51,11 @@ export const entityTag = (t: EntityType, id: string) => ENTITY_TAG[t](id);
 // ── Listing / feed tags (one page, many entities) ────────────────────────────
 export const HOME_FEED = "home-feed"; // /city/:slug — the map + events feed
 export const FESTIVALS_LIST = "festivals-list"; // /festivals
+// The 9 event-bearing SEO landing pages (/london-bachata-guide,
+// /learn-bachata-london, /bachata-london-{weekday}). ONE tag for the set:
+// they all dehydrate the same London calendar-events window, so any event or
+// festival write invalidates all of them together.
+export const SEO_LANDING = "seo-landing";
 export const cityTag = (slug: string) => `city-${slug}`; // future per-city precision
 
 // ── Collection tags (legacy; stamped by detail routes, see STAMP_ONLY) ───────
@@ -76,6 +81,7 @@ export const stampTeacher = (id: string) => [teacherTag(id), TEACHERS].join(",")
 export const stampVenue = (id: string) => [venueTag(id), VENUES].join(",");
 export const stampHome = (citySlug: string) => [HOME_FEED, cityTag(citySlug)].join(",");
 export const stampFestivalsList = () => FESTIVALS_LIST;
+export const stampSeoLanding = () => SEO_LANDING;
 
 // Every distinct tag a route stamps, in tag-kind form (concrete ids replaced by
 // the placeholder below). The conformance test cross-checks this against the
@@ -93,6 +99,7 @@ export const ALL_ROUTE_STAMPS: string[] = [
   stampVenue(STAMP_PLACEHOLDER_ID),
   stampHome(STAMP_PLACEHOLDER_SLUG),
   stampFestivalsList(),
+  stampSeoLanding(),
 ];
 
 // Tag-kinds stamped by a route but intentionally NOT purged by the per-entity
@@ -118,9 +125,9 @@ export const STAMP_ONLY_KINDS: string[] = [
 export function purgeTagsFor(t: EntityType, id: string): string[] {
   switch (t) {
     case "festival":
-      return [festivalTag(id), eventTag(id), FESTIVALS_LIST, HOME_FEED];
+      return [festivalTag(id), eventTag(id), FESTIVALS_LIST, HOME_FEED, SEO_LANDING];
     case "event":
-      return [eventTag(id), HOME_FEED];
+      return [eventTag(id), HOME_FEED, SEO_LANDING];
     case "dancer":
       return [dancerTag(id)];
     case "dj":

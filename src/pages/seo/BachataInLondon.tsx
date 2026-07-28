@@ -21,6 +21,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import { buildOrganizationJsonLd } from "@/lib/buildOrganizationJsonLd";
 import LiveEventsSection from "@/components/seo/LiveEventsSection";
+import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
 
 const CANONICAL = `${SITE_ORIGIN}/london-bachata-guide`;
 // Bump this whenever the guide's facts are reviewed; surfaces both in the
@@ -133,7 +134,13 @@ export const SEO_INPUT: SeoInput = {
   ogType: "article",
 };
 
-const BachataInLondon = () => {
+/**
+ * `serverTodayKey` is the London date key the route loader rendered on. Load-
+ * bearing: the live-events window -- and so the query key of the dehydrated
+ * list -- derives from it, and this document is edge-cached for an hour and
+ * served stale for a day. See LiveEventsSectionProps.serverTodayKey.
+ */
+const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
   useSeo(SEO_INPUT);
 
   return (
@@ -167,7 +174,8 @@ const BachataInLondon = () => {
         <LiveEventsSection
           id="this-week"
           heading="Bachata events in London this week"
-          windowDays={7}
+          windowDays={SEO_LANDING_WINDOWS.guide}
+          serverTodayKey={serverTodayKey}
           limit={10}
           emptyText={
             <>

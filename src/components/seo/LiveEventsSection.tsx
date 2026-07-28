@@ -1,23 +1,26 @@
 /**
  * LiveEventsSection - a self-contained "what's on" block for the SEO pillar
  * pages (London guide, /learn-bachata-london). Fetches live calendar events for
- * the next N days via useCalendarEvents, optionally filters to classes or
- * parties, and renders a compact list of crawlable <Link>s to each event page.
+ * the next N days, optionally filters to classes or parties, and renders a
+ * compact list of crawlable <Link>s to each event page.
  *
  * Why this exists: the guide and learn pages both want a freshness-bearing,
  * internally-linking events list driven by real DB data (per SEO plan 2.2 /
  * 2.4). Keeping it in one place means both pages read `e.location` (the actual
  * RPC field) rather than re-introducing the empty `venueName` bug, and both
  * link via the shared eventHref() util so the 1.2 slug migration lands once.
+ *
+ * The list is SERVER-RENDERED: the route loader dehydrates the same query entry
+ * this component reads (@/lib/seoLandingEvents owns the one key + fetcher), so
+ * crawlers get real events and real /event/ links instead of an empty section.
+ * That makes `serverTodayKey` load-bearing -- see the prop doc below.
  */
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
-import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { type WallClock, formatWallClockLocalIntl } from '@/lib/time/wallClock';
-import { londonDayRangeUtc } from '@/lib/londonDate';
+import { SEO_LANDING_WINDOWS, useSeoLandingEvents } from '@/lib/seoLandingEvents';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 export interface LiveEventsSectionProps {
@@ -35,6 +38,16 @@ export interface LiveEventsSectionProps {
   emptyText?: React.ReactNode;
   /** Optional id for in-page ToC anchoring. */
   id?: string;
+  /**
+   * The London date key the SERVER rendered on, threaded down from the route
+   * loader. Load-bearing: the window (and therefore the query key) is derived
+   * from it, and these documents are edge-cached for an hour and served stale
+   * for a day -- so a document generated before London midnight can be hydrated
+   * after it. Without the pin the client's first render would build a different
+   * key, miss the dehydrated entry, and render an empty list over server HTML
+   * that had events. useLondonToday still rolls the day over post-mount.
+   */
+  serverTodayKey?: string;
 }
 
 // Reads the stored wall clock AS STORED (no timezone shift) -- a plain
@@ -51,35 +64,22 @@ const fmt = (wc: WallClock | null | undefined): string =>
 
 const LiveEventsSection = ({
   heading,
-  windowDays = 7,
+  windowDays = SEO_LANDING_WINDOWS.guide,
   classesOnly = false,
   partiesOnly = false,
   limit = 12,
   emptyText,
   id,
+  serverTodayKey,
 }: LiveEventsSectionProps) => {
-  const { citySlug } = useCity();
-  // These are explicitly London SEO pages. CityContext only sets citySlug from
-  // the URL (/city/:slug) or prior localStorage, so a first-time visitor -- and
-  // the headless prerender, which has neither -- would otherwise get a null slug
-  // and an empty list. Defaulting to london-gb makes the live section render for
-  // crawlers and cold visitors alike.
-  const effectiveCitySlug = citySlug ?? 'london-gb';
+  // Pinned for the first render, reactive afterwards (long-lived tabs roll over
+  // at London midnight rather than freezing on the server's day).
+  const todayKey = useLondonToday(serverTodayKey);
 
-  // London-day range instants (not browser-local midnight), reactive so a
-  // long-lived tab rolls the window over at midnight.
-  const todayKey = useLondonToday();
-  const { rangeStart, rangeEnd } = useMemo(() => {
-    const { start, end } = londonDayRangeUtc(todayKey, windowDays);
-    return { rangeStart: start, rangeEnd: end };
-  }, [todayKey, windowDays]);
-
-  const { data: events = [] } = useCalendarEvents({
-    rangeStart,
-    rangeEnd,
-    citySlug: effectiveCitySlug,
-    enabled: true,
-  });
+  // City is pinned to London inside the shared seam, NOT read from CityContext:
+  // these are explicitly London pages, and a localStorage-seeded slug would
+  // change the query key between server and client. See seoLandingEvents.ts.
+  const { data: events = [] } = useSeoLandingEvents(todayKey, windowDays);
 
   const matched = useMemo(() => {
     const filtered = (events as CalendarEventRow[])
