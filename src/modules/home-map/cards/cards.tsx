@@ -10,7 +10,7 @@
 // render time here would make the first client render disagree with the (up to
 // an hour old) edge-cached HTML and cost us the server tree. See ../homeClock.
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { memo, useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -308,8 +308,13 @@ function DistanceChip({ mi }: { mi: number }) {
 /** Grouped-list / day-detail row (cover + title + times + venue). When
  *  `showFreshness` is set, a recently added/updated row carries the "Added/Updated
  *  Xm ago" stamp (gated by isRecentlyChanged). When `user` coords are passed and
- *  the row has no stamp, the right edge falls back to distance. */
-export function EventRow({
+ *  the row has no stamp, the right edge falls back to distance.
+ *
+ *  Memoised (perf, homepage TBT): the homepage feed renders up to ~380 of these,
+ *  and hover/selection state on ONE row otherwise re-renders every sibling row
+ *  through the shared AllEventsList/EventMap render. Props are plain
+ *  values/callbacks from that parent, so a shallow-equal skip is safe here. */
+export const EventRow = memo(function EventRow({
   event,
   selected,
   onSelect,
@@ -365,7 +370,7 @@ export function EventRow({
       ) : null}
     </a>
   );
-}
+});
 
 
 /** Row for a festival outside the current city. Links directly to the festival
@@ -395,8 +400,11 @@ export function RemoteFestivalRow({ event }: { event: MapEvent }) {
   );
 }
 
-/** Tonight distance card (wide cover + title/times + distance chip). */
-export function TonightCard({
+/** Tonight distance card (wide cover + title/times + distance chip).
+ *
+ *  Memoised (perf, homepage TBT): same rationale as EventRow -- the Tonight
+ *  rail re-renders on hover/selection of any sibling card. */
+export const TonightCard = memo(function TonightCard({
   event,
   user,
   selected,
@@ -438,10 +446,12 @@ export function TonightCard({
       <DistanceBadge event={event} user={user} className="m-3 h-[54px] w-[54px] shrink-0" />
     </a>
   );
-}
+});
 
-/** News row (portrait flyer + title/venue + freshness stamp + New badge). */
-export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
+/** News row (portrait flyer + title/venue + freshness stamp + New badge).
+ *
+ *  Memoised (perf, homepage TBT): same rationale as EventRow. */
+export const NewsRow = memo(function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
   const now = useHomeNow();
   const cancelled = event.is_cancelled;
   return (
@@ -476,4 +486,4 @@ export function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
       {cancelled ? <CancelPill /> : <FreshnessClock event={event} />}
     </a>
   );
-}
+});

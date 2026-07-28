@@ -141,12 +141,20 @@
   outline: 2px solid var(--hm-accent); outline-offset: 3px; border-radius: 6px;
 }
 
-/* ---- News freshness "heat" stamp dot (cards.tsx FreshnessClock) ---- */
-.home-map .hm-heatdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.home-map .hm-heatdot.is-live { animation: hm-heatpulse 2.1s ease-out infinite; }
+/* ---- News freshness "heat" stamp dot (cards.tsx FreshnessClock) ----
+   is-live's pulse is a ::after ring animated on transform/opacity only
+   (perf, homepage TBT): the prior box-shadow keyframe repainted every
+   frame; scale+opacity is compositor-only and this dot renders on every
+   "on now" row in the feed. */
+.home-map .hm-heatdot { position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.home-map .hm-heatdot.is-live::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  background: var(--hm-heat, rgba(95,191,127,.6));
+  animation: hm-heatpulse 2.1s ease-out infinite;
+}
 @keyframes hm-heatpulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--hm-heat, rgba(95,191,127,.6)); }
-  55%      { box-shadow: 0 0 0 5px rgba(0,0,0,0); }
+  0%   { transform: scale(.3); opacity: .6; }
+  100% { transform: scale(2.1); opacity: 0; }
 }
 .home-map .hm-heatdot.is-updated { animation: hm-dotblink 1.6s ease-in-out infinite; }
 @keyframes hm-dotblink {
@@ -217,7 +225,7 @@
   80% { transform: translate(-50%,-50%) scale(3.4); opacity: 0; } 100% { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-map .hm-heatdot.is-live { animation: none; }
+  .home-map .hm-heatdot.is-live::after { animation: none; opacity: 0; }
   .home-map .hm-heatdot.is-updated { animation: none; }
   .home-map .hm-userdot .r1, .home-map .hm-userdot .r2 { animation: none; opacity: .3; }
   .home-map .rclbubble::before { animation: none; opacity: .35; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import 'leaflet/dist/leaflet.css';
@@ -300,9 +300,12 @@ export default function EventMap({
   // rendered as a broken image (ORB-blocked 404), and a cancelled/rescheduled
   // event kept showing its old state — even though React Query already had the
   // fresh row. updated_at is the audit-log curation instant (bumps on any edit).
-  const eventsKey = events.map((e) => `${e.occurrence_id}:${e.updated_at ?? ''}`).join(',');
-  const visKey = visible.join(',');
-  const glowKey = glow.join(',');
+  const eventsKey = useMemo(
+    () => events.map((e) => `${e.occurrence_id}:${e.updated_at ?? ''}`).join(','),
+    [events],
+  );
+  const visKey = useMemo(() => visible.join(','), [visible]);
+  const glowKey = useMemo(() => glow.join(','), [glow]);
 
   // ---- init once -----------------------------------------------------------
   useEffect(() => {

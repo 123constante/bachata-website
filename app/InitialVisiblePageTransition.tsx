@@ -30,11 +30,21 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
   const [animate] = useState(() => clientNavigated);
   useEffect(() => {
     clientNavigated = true;
-    // Warm the transition chunk while the page is settled so the first client
-    // navigation animates instead of falling back. safeDynamicImport gives it
-    // the house stale-chunk heal; any other failure is absorbed -- the Suspense
-    // fallback simply covers that first nav.
-    void safeDynamicImport(() => import("@/components/PageTransition")).catch(() => {});
+    // Warm the transition chunk once the main thread is idle rather than right
+    // after hydration (perf, homepage TBT): this fires on every route, and a
+    // straight-after-mount import competed with hydration's own long task.
+    // requestIdleCallback yields to anything more urgent; the setTimeout
+    // fallback (Safari has no rIC) and the 4000ms timeout both still land
+    // comfortably before a reader's first navigation.
+    const warm = () => {
+      void safeDynamicImport(() => import("@/components/PageTransition")).catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(warm, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 3000);
+    return () => window.clearTimeout(id);
   }, []);
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head

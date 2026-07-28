@@ -6,7 +6,7 @@
 // and has a real floor instead of trailing into next-year events on another
 // continent.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Globe, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
@@ -84,7 +84,10 @@ function GroupHeader({
 function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
   const [open, setOpen] = useState(false);
   if (remote.length === 0) return null;
-  const groups = groupByDate(collapseFestivals(remote));
+  // Grouping is only needed once the disclosure is opened -- skip the
+  // collapseFestivals/groupByDate work on every render while it's collapsed
+  // (not a hook, so this is safe below the early return above).
+  const groups = open ? groupByDate(collapseFestivals(remote)) : [];
   return (
     <section className="pt-1">
       <button
@@ -167,8 +170,13 @@ export function AllEventsList({
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
   const tomorrow = addDaysToKey(today, 1);
-  const { local, remote } = partitionRemote(state.listEvents);
-  const groups = groupByDate(collapseFestivals(local));
+  // Memoised: partitionRemote -> collapseFestivals -> groupByDate is real work
+  // over the whole feed (up to ~380 rows), and this component re-renders on
+  // every hover/selection change. state.listEvents is already identity-stable
+  // (only changes when the query result changes), so keying on it here skips
+  // the chain on every hover-driven render.
+  const { local, remote } = useMemo(() => partitionRemote(state.listEvents), [state.listEvents]);
+  const groups = useMemo(() => groupByDate(collapseFestivals(local)), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
   // client's FIRST render must agree exactly or React #421 blanks the page, so the

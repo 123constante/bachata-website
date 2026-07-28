@@ -51,8 +51,17 @@ export const GlobalHeader = () => {
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
+    // Passive (perf, homepage TBT): this fires on every scroll frame across
+    // every page, and without { passive: true } the browser must wait for the
+    // handler before it can start compositing the scroll. Flip-only setState
+    // (only calls setScrolled when the 50px threshold is actually crossed)
+    // stops React re-rendering the header on every pixel of scroll -- setState
+    // with an unchanged value still schedules a render otherwise.
+    const handleScroll = () => {
+      const next = window.scrollY > 50;
+      setScrolled((prev) => (prev === next ? prev : next));
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
