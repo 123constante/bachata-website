@@ -218,7 +218,7 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
 
   const prizeFull = config.prize_text?.trim() || 'a free pass';
   const closeClock = formatCloseClock(config.cutoff_time, config.cutoff_at);
-  const entryCount = config.entry_count ?? 0;
+  const totalWinners = config.total_winners ?? 0;
   const winner = config.winner_display ?? null;
   const entered = hasEntered || !!config.my_status?.entered;
 
@@ -364,18 +364,24 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
                 )}
               </div>
               <div className="rsb-meta-cell">
-                <div className="rsb-meta-k">Entered</div>
+                <div className="rsb-meta-k">Prizes won</div>
                 <motion.div
-                  key={entryCount}
+                  key={totalWinners}
                   initial={{ opacity: 0.3, y: -2 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25 }}
                   className="rsb-meta-v"
                 >
-                  {entryCount}
+                  {totalWinners}
                 </motion.div>
+                {/* Site-wide, all-time. Counts rows in raffle_winners = WINS,
+                    not distinct people (a dancer who won three nights counts 3),
+                    hence "prizes won" and not a count of dancers. Deliberately no
+                    "you're in" branch -- against a winners total that reads as
+                    "you have won"; the entered state has its own chip below.
+                    "all time" also sidesteps any singular/plural. */}
                 <div className="rsb-meta-sub">
-                  {entryCount === 0 ? 'be the first' : entered ? "you're in" : entryCount === 1 ? 'dancer' : 'dancers'}
+                  {totalWinners === 0 ? 'be the first' : 'all time'}
                 </div>
               </div>
             </div>

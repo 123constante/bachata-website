@@ -561,19 +561,21 @@
 }
 .rp-totes {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   margin: 16px 0 6px;
 }
 .rp-tote {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 .rp-tote-num {
   font-family: 'Bebas Neue', 'Arial Narrow', sans-serif;
-  font-size: 42px;
+  font-size: clamp(26px, 8vw, 42px);
   line-height: 0.9;
   background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold-dk));
   -webkit-background-clip: text;
