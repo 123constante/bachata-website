@@ -253,6 +253,8 @@ def main() -> int:
     parser.add_argument('--lf', action='store_true',
                         help='Force LF line endings (overrides auto-detect)')
     parser.add_argument('--expect-min-lines', type=int, default=0)
+    parser.add_argument('--allow-empty', action='store_true',
+                        help='Allow writing empty content over an existing non-empty file')
     parser.add_argument('--no-parse-check', action='store_true')
     parser.add_argument('--quiet', action='store_true')
     args = parser.parse_args()
@@ -271,6 +273,17 @@ def main() -> int:
         print('safe-write: REFUSING — input already contains null bytes',
               file=sys.stderr)
         return 1
+
+    if not content.strip() and not args.allow_empty:
+        if os.path.exists(args.target) and os.path.getsize(args.target) > 0:
+            print(
+                'safe-write: REFUSING — stdin is empty but target is an existing '
+                'non-empty file. This usually means the upstream generator/patcher '
+                'failed silently (bad match, empty heredoc, etc.) and piped nothing '
+                'into safe-write.py. Pass --allow-empty if this is intentional.',
+                file=sys.stderr,
+            )
+            return 3
 
     # Line-ending normalization: explicit flag wins; otherwise auto-detect
     # by extension (this repo is CRLF-locked for source files).
