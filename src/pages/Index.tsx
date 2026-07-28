@@ -186,6 +186,7 @@ const Index = ({
         <HomeMapShell
           state={state}
           cityName={cityDisplayName}
+          citySlug={citySlug}
           loading={isLoading}
           // Only when we have NOTHING to show. isError is also true for a failed
           // BACKGROUND refetch, where React Query still holds the last good rows --

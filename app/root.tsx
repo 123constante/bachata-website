@@ -77,11 +77,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             warming those connections during the critical path spent two mobile
             TLS handshakes on fonts nothing above the fold waits for. */}
         <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co" />
-        {/* R2 media bucket: direct-origin fetches (dev, full-size gallery views,
-            anything not yet routed through /_vercel/image). The previous target,
-            media.bachatacalendar.co.uk, was a dangling DNS record pointing at
-            Vercel -- it never served a byte. */}
-        <link rel="preconnect" href="https://pub-07f606224cac4f2596903c44df723644.r2.dev" />
         {/* Carto basemap tiles. Leaflet rotates the subdomain across a/b/c/d
             ({s} in EventMap's tile URL), and the homepage LCP element is one of
             these tiles -- preconnecting only `a` left b/c/d to a cold connect on

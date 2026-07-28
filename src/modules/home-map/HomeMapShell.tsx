@@ -48,10 +48,20 @@ import {
 import { AllEventsList } from './cards/AllEventsList';
 import { LocateControl } from './cards/LocateControl';
 import { HomeExploreLinks } from '@/components/home/HomeExploreLinks';
+import { MAP_PLACEHOLDERS } from './mapPlaceholders';
 
 // Leaflet + every viewport-branched map control. Lazy AND mapMounted-gated, so
 // the module is never even imported on the server.
 const HomeMapCard = lazyWithRetry(() => import('./HomeMapCard'));
+
+// Prewarm the SAME dynamic import at module scope so the chunk fetch races
+// hydration instead of waiting for the mapMounted effect to fire first (which
+// only runs after hydration commits). This does not mount anything early --
+// mapMounted below is untouched -- it only starts the network fetch sooner.
+// Guarded on `document` so the SSR pass never touches it.
+if (typeof document !== 'undefined') {
+  void import('./HomeMapCard').catch(() => {});
+}
 
 // The Calendar tab is never the first render (the tab always starts on 'all';
 // the /calendar deep-link switches it in an effect), so it can stay lazy -- and
@@ -154,12 +164,14 @@ function NewsBody({ state }: { state: UseMapListResult }) {
 export default function HomeMapShell({
   state,
   cityName,
+  citySlug,
   loading,
   error,
   onRetry,
 }: {
   state: UseMapListResult;
   cityName: string;
+  citySlug?: string | null;
   loading?: boolean;
   error?: boolean;
   onRetry?: () => void;
@@ -193,6 +205,8 @@ export default function HomeMapShell({
   useIsoLayoutEffect(() => {
     if (sideRef.current) sideRef.current.inert = fullscreen;
   }, [fullscreen]);
+
+  const placeholder = citySlug ? MAP_PLACEHOLDERS[citySlug] : undefined;
 
   return (
     <div
@@ -262,13 +276,49 @@ export default function HomeMapShell({
       {/* Map card. Sizing/positioning are entirely CSS (.hm-mapcard, and
           .is-fullscreen for the overlay) so the box is the right size on the
           very first paint, before any JS runs -- that is what keeps the map
-          swap free of layout shift (WS15). Until it mounts it is simply dark. */}
+          swap free of layout shift (WS15). Until it mounts, a pre-rendered
+          basemap still (below) or the plain dark box fills it. */}
       <div
         className="hm-mapcard relative overflow-hidden"
         role={fullscreen ? 'dialog' : 'region'}
         aria-modal={fullscreen || undefined}
         aria-label={fullscreen ? `Full screen map of what's on in ${cityName}` : 'Event map'}
       >
+        {/* Unconditional placeholder layer: renders identically on the server and
+            the client's first render (there is no JS branch gating it), so it adds
+            no new hydration surface. It sits BENEATH the mapMounted slot below in
+            DOM/paint order and is never removed once mounted -- Leaflet's own
+            opaque tile layer simply paints over it, so there is no flash back to a
+            flat dark box if the HomeMapCard chunk is still streaming in when
+            mapMounted flips true. Only cities with a still in MAP_PLACEHOLDERS get
+            one; everyone else keeps the plain dark box exactly as before. */}
+        {placeholder && (
+          <picture>
+            <source media="(min-width: 768px)" srcSet={placeholder.desktop} />
+            <img
+              src={placeholder.mobile}
+              alt=""
+              decoding="async"
+              fetchPriority="high"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </picture>
+        )}
+        {/* Static attribution while the still is showing -- EventMap's own live
+            Leaflet attribution control takes over once mounted, so this must not
+            linger and double up once real tiles are on screen. */}
+        {placeholder && !mapMounted && (
+          <div className="pointer-events-none absolute bottom-0 right-0 z-10 rounded-tl bg-background/70 px-1 text-[9px] leading-tight text-muted-foreground">
+            &copy;{' '}
+            <a href="https://www.openstreetmap.org/copyright" className="pointer-events-auto underline">
+              OpenStreetMap
+            </a>{' '}
+            &copy;{' '}
+            <a href="https://carto.com/attributions" className="pointer-events-auto underline">
+              CARTO
+            </a>
+          </div>
+        )}
         {mapMounted ? (
           <Suspense fallback={<div className="absolute inset-0" style={{ background: '#11121a' }} />}>
             <HomeMapCard
@@ -280,7 +330,7 @@ export default function HomeMapShell({
             />
           </Suspense>
         ) : (
-          <div className="absolute inset-0" style={{ background: '#11121a' }} />
+          !placeholder && <div className="absolute inset-0" style={{ background: '#11121a' }} />
         )}
       </div>
 
