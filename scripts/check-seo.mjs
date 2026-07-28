@@ -9,7 +9,8 @@
 //   - parseable JSON-LD; event pages must carry an Event node with
 //     name/startDate/location/eventStatus/offers (missing offer price = WARN)
 //   - no unexpected noindex
-//   - homepage: at least 5 crawlable /event/ links in the server HTML
+//   - homepage + the 9 event-bearing SEO landing pages: a minimum number of
+//     crawlable /event/ links in the server HTML (see STATIC_PAGES)
 //
 // Targets the DEPLOYED site (SSR/prerender output only exists post-deploy), so
 // this runs as a scheduled/post-deploy job, not a PR gate - same reasoning as
@@ -43,11 +44,36 @@ const PREFIX_SAMPLE = { '/event/': 3, '/dancers/': 1, '/organisers/': 1 };
 const FIXED_EVENT_PROBES = ['/event/london-sensual-days-summer-edition'];
 
 // Static pages: [path, requiresEventNode, minEventLinks]
+//
+// The 9 event-bearing SEO landing pages carry a NON-ZERO minEventLinks: they
+// moved from build-time prerender (which indexed "(0 events)" and zero /event/
+// links) to SSR + ISR that dehydrates a real list, and this is the guardrail
+// that keeps them that way. Thresholds sit well below the counts measured on the
+// 2026-07-28 build (guide 10, learn 12, weekdays 2-7), so a quiet week is not a
+// red build -- the failure they exist to catch is the section regressing to
+// EMPTY, not a thin one. Monday is the quietest weekday in the data, hence 1.
+//
+// The three all-prose landing pages (/bachata-parties-london + the two style
+// pages) stay prerendered and carry no event list, so they check 0 links and are
+// listed only for their h1/canonical/title/description assertions.
 const STATIC_PAGES = [
   ['/', false, 5],
   ['/parties', false, 0],
-  ['/london-bachata-guide', false, 0],
   ['/faq', false, 0],
+  // SSR + ISR, real event lists
+  ['/london-bachata-guide', false, 3],
+  ['/learn-bachata-london', false, 3],
+  ['/bachata-london-monday', false, 1],
+  ['/bachata-london-tuesday', false, 1],
+  ['/bachata-london-wednesday', false, 1],
+  ['/bachata-london-thursday', false, 1],
+  ['/bachata-london-friday', false, 1],
+  ['/bachata-london-saturday', false, 1],
+  ['/bachata-london-sunday', false, 1],
+  // Prerendered prose, no event list
+  ['/bachata-parties-london', false, 0],
+  ['/bachata-london-sensual-parties', false, 0],
+  ['/bachata-london-dominican-parties', false, 0],
 ];
 
 async function fetchText(url) {
@@ -175,7 +201,8 @@ async function checkPage(path, { isEvent = false, isFixedProbe = false, minEvent
     }
   }
 
-  // homepage: crawlable event links restored (July 2026 regression: 0 links)
+  // Crawlable event links in the SERVER HTML. Homepage: the July 2026 regression
+  // (0 links). SEO landing pages: the prerender-era "(0 events)" indexed body.
   if (minEventLinks > 0) {
     const n = (html.match(/href="\/event\//g) ?? []).length;
     if (n < minEventLinks) failures.push(`only ${n} /event/ links in server HTML (expected >= ${minEventLinks})`);

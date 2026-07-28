@@ -18,12 +18,11 @@ import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, SITE_ORIGIN, type SeoInput } from '@/lib/seo';
-import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
-import { useCity } from '@/contexts/CityContext';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { type WallClock, formatWallClockLocalIntl, wallClockDateKey } from '@/lib/time/wallClock';
-import { londonDayRangeUtc, weekdayOfKey } from '@/lib/londonDate';
+import { weekdayOfKey } from '@/lib/londonDate';
+import { SEO_LANDING_WINDOWS, useSeoLandingEvents } from '@/lib/seoLandingEvents';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 interface WeekdayMeta {
@@ -138,33 +137,33 @@ export function weekdaySeoInput(pathname: string): SeoInput {
       };
 }
 
-const BachataWeekday = () => {
+/**
+ * `serverTodayKey` is the London date key the route loader rendered on
+ * (app/routes/bachata-weekday.tsx). Load-bearing: the 4-week window -- and so
+ * the query key of the dehydrated event list -- derives from it, and these
+ * documents are edge-cached for an hour and served stale for a day. Without the
+ * pin, a document generated before London midnight would hydrate against
+ * tomorrow's key, miss the dehydrated entry, and blank a server-rendered list.
+ */
+const BachataWeekday = ({ serverTodayKey }: { serverTodayKey?: string }) => {
   const location = useLocation();
   // Routes are 7 explicit /bachata-london-{weekday} paths (React Router v6
   // doesn't allow partial dynamic segments). Derive weekday from the suffix.
   const weekdayMatch = location.pathname.match(/^\/bachata-london-([a-z]+)\/?$/i);
   const meta = weekdayMatch ? WEEKDAYS[weekdayMatch[1].toLowerCase()] : undefined;
-  const { citySlug } = useCity();
-  // These are explicitly London SEO pages. CityContext only sets citySlug from
-  // the URL (/city/:slug) or prior localStorage, so a first-time visitor and
-  // the headless prerender (neither URL nor localStorage) would otherwise get a
-  // null slug and 0 live events. Defaulting to london-gb fixes both.
-  const effectiveCitySlug = citySlug ?? 'london-gb';
+  // Pinned for the first render, reactive afterwards so a long-lived tab rolls
+  // the 4-week window over at London midnight.
+  const todayKey = useLondonToday(serverTodayKey);
 
-  // London-day range instants (not browser-local midnight), reactive so a
-  // long-lived tab rolls the 4-week window over at midnight.
-  const todayKey = useLondonToday();
-  const { rangeStart, rangeEnd } = useMemo(() => {
-    const { start, end } = londonDayRangeUtc(todayKey, 28);
-    return { rangeStart: start, rangeEnd: end };
-  }, [todayKey]);
-
-  const { data: events = [] } = useCalendarEvents({
-    rangeStart,
-    rangeEnd,
-    citySlug: effectiveCitySlug,
-    enabled: Boolean(meta),
-  });
+  // City is pinned to London inside the shared seam, NOT read from CityContext:
+  // this page is titled and canonicalised for London, and a localStorage-seeded
+  // slug would change the query key between server and client. The loader
+  // dehydrates this exact entry -- see @/lib/seoLandingEvents.
+  const { data: events = [] } = useSeoLandingEvents(
+    todayKey,
+    SEO_LANDING_WINDOWS.weekday,
+    Boolean(meta),
+  );
 
   const matched = useMemo((): CalendarEventRow[] => {
     if (!meta) return [];

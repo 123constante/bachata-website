@@ -20,29 +20,27 @@ export default {
   // with no revalidation path (stale covers/cancellations until the next deploy);
   // ISR fixes that. Detail routes + the catchall are on-demand SSR too.
   async prerender() {
-    // /parties + /classes carry no server-fetched content (see comment above).
-    // The 13 SEO landing pages are the same shape -- no loaders, static content
-    // + a client-hydrated live-events section -- so a static shell with per-page
-    // meta()/JSON-LD is the whole SEO payload and nothing server-rendered can go
-    // stale; the daily redeploy cron refreshes them. /city/:slug (homepage) and
-    // /festivals stay OFF this list -- they dehydrate live content and moved to
-    // on-demand SSR + tagged ISR (see comment above).
+    // Everything left here carries NO server-fetched content: /parties +
+    // /classes (their EventCalendar is client-only/mount-gated), /faq, and the
+    // three all-prose landing pages (/bachata-parties-london + the two style
+    // pages), which render hand-written copy and internal links only. A static
+    // shell plus per-page meta()/JSON-LD is their whole SEO payload and nothing
+    // server-rendered can go stale.
+    //
+    // OFF this list and on on-demand SSR + tagged ISR instead: /city/:slug,
+    // /festivals, and the 9 event-bearing landing pages
+    // (/london-bachata-guide, /learn-bachata-london, the 7
+    // /bachata-london-{weekday} pages). They all dehydrate a live events list,
+    // which build-time prerender either froze at deploy time or -- for the
+    // landing pages, whose sections were client-only -- shipped EMPTY as the
+    // indexed HTML. ISR + the `seo-landing` cache tag fixes both.
     return [
       "/parties",
       "/classes",
       "/faq",
-      "/london-bachata-guide",
-      "/learn-bachata-london",
       "/bachata-parties-london",
       "/bachata-london-sensual-parties",
       "/bachata-london-dominican-parties",
-      "/bachata-london-monday",
-      "/bachata-london-tuesday",
-      "/bachata-london-wednesday",
-      "/bachata-london-thursday",
-      "/bachata-london-friday",
-      "/bachata-london-saturday",
-      "/bachata-london-sunday",
     ];
   },
 } satisfies Config;

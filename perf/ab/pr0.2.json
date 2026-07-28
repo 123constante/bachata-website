@@ -1,0 +1,280 @@
+{
+  "label": "pr0.2",
+  "base": "http://127.0.0.1:4173",
+  "date": "2026-07-28T11:05:16.611Z",
+  "commit": "937148970c93ff1d941510a0e6fdbb3e75b26188",
+  "runsPerSurface": 3,
+  "method": "lighthouse mobile, simulated 4G (check-lighthouse.mjs flag parity), per-metric median",
+  "surfaces": {
+    "home": {
+      "path": "/city/london-gb",
+      "medians": {
+        "score": 66,
+        "lcp": 4682.175000000001,
+        "fcp": 4079.763,
+        "tbt": 325.4999999999991,
+        "cls": 0,
+        "si": 4138.005867329576,
+        "ttfb": 923
+      },
+      "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute",
+      "runs": [
+        {
+          "score": 63,
+          "lcp": 4682.175000000001,
+          "fcp": 4232.175,
+          "tbt": 346.5,
+          "cls": 0,
+          "si": 5075.951033767906,
+          "ttfb": 1269,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 68,
+          "lcp": 4550.245000000001,
+          "fcp": 3960.294,
+          "tbt": 313.9999999999991,
+          "cls": 0,
+          "si": 3960.294,
+          "ttfb": 674,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 66,
+          "lcp": 4759.723499999998,
+          "fcp": 4079.763,
+          "tbt": 325.4999999999991,
+          "cls": 0,
+          "si": 4138.005867329576,
+          "ttfb": 923,
+          "lcpElement": null
+        }
+      ]
+    },
+    "calendar": {
+      "path": "/city/london-gb/calendar",
+      "medians": {
+        "score": 63,
+        "lcp": 6736.57885,
+        "fcp": 4205.403974999999,
+        "tbt": 144.5,
+        "cls": 0,
+        "si": 4205.403974999999,
+        "ttfb": 8
+      },
+      "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute",
+      "runs": [
+        {
+          "score": 63,
+          "lcp": 6736.57885,
+          "fcp": 4796.178,
+          "tbt": 82,
+          "cls": 0,
+          "si": 5762.160917268852,
+          "ttfb": 10,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 66,
+          "lcp": 6178.816299999995,
+          "fcp": 4205.403974999999,
+          "tbt": 144.5,
+          "cls": 0,
+          "si": 4205.403974999999,
+          "ttfb": 8,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 63,
+          "lcp": 7741.508324999998,
+          "fcp": 4198.4756,
+          "tbt": 179,
+          "cls": 0,
+          "si": 4198.4756,
+          "ttfb": 8,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        }
+      ]
+    },
+    "parties": {
+      "path": "/parties",
+      "medians": {
+        "score": 70,
+        "lcp": 5163.825349999998,
+        "fcp": 4464.831949999998,
+        "tbt": 20,
+        "cls": 0,
+        "si": 4464.831949999998,
+        "ttfb": 1
+      },
+      "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm",
+      "runs": [
+        {
+          "score": 70,
+          "lcp": 5166.2213,
+          "fcp": 4464.831949999998,
+          "tbt": 16,
+          "cls": 0,
+          "si": 4464.831949999998,
+          "ttfb": 7,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 70,
+          "lcp": 5163.825349999998,
+          "fcp": 4457.238025000001,
+          "tbt": 20,
+          "cls": 0,
+          "si": 4457.238025000001,
+          "ttfb": 1,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 69,
+          "lcp": 5152.037660000003,
+          "fcp": 4517.8240000000005,
+          "tbt": 79.34603000000016,
+          "cls": 0,
+          "si": 4517.8240000000005,
+          "ttfb": 1,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        }
+      ]
+    },
+    "festivals": {
+      "path": "/festivals",
+      "medians": {
+        "score": 64,
+        "lcp": 5281.149800000002,
+        "fcp": 4351.745900000001,
+        "tbt": 227.82615281640255,
+        "cls": 0.0047718195161064545,
+        "si": 4444.844279726217,
+        "ttfb": 25
+      },
+      "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm",
+      "runs": [
+        {
+          "score": 69,
+          "lcp": 4840.475750000002,
+          "fcp": 4125.169250000002,
+          "tbt": 202.2177500000007,
+          "cls": 0.0047718195161064545,
+          "si": 4125.169250000002,
+          "ttfb": 503,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 64,
+          "lcp": 5669.175361960852,
+          "fcp": 4385.8492091444505,
+          "tbt": 227.82615281640255,
+          "cls": 0.00036301684947948423,
+          "si": 4444.844279726217,
+          "ttfb": 25,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        },
+        {
+          "score": 57,
+          "lcp": 5281.149800000002,
+          "fcp": 4351.745900000001,
+          "tbt": 406.5,
+          "cls": 0.005151997468545262,
+          "si": 5789.531241302407,
+          "ttfb": 23,
+          "lcpElement": "div > div.min-h-screen > section.mx-auto > p.text-sm"
+        }
+      ]
+    },
+    "landing": {
+      "path": "/london-bachata-guide",
+      "medians": {
+        "score": 74,
+        "lcp": 4438.5542,
+        "fcp": 4119.578299999997,
+        "tbt": 63,
+        "cls": 0,
+        "si": 4120.28,
+        "ttfb": 184
+      },
+      "lcpElement": "div.min-h-screen > article.mx-auto > header.space-y-3 > p.text-base",
+      "runs": [
+        {
+          "score": 73,
+          "lcp": 4835.139999999999,
+          "fcp": 4120.28,
+          "tbt": 63,
+          "cls": 0,
+          "si": 4120.28,
+          "ttfb": 184,
+          "lcpElement": "div.min-h-screen > article.mx-auto > header.space-y-3 > p.text-base"
+        },
+        {
+          "score": 76,
+          "lcp": 4277.892,
+          "fcp": 3997.365,
+          "tbt": 83,
+          "cls": 0,
+          "si": 3997.365,
+          "ttfb": 173,
+          "lcpElement": "div.min-h-screen > article.mx-auto > header.space-y-3 > p.text-base"
+        },
+        {
+          "score": 74,
+          "lcp": 4438.5542,
+          "fcp": 4119.578299999997,
+          "tbt": 16.5,
+          "cls": 0,
+          "si": 4216.570723930426,
+          "ttfb": 868,
+          "lcpElement": "div.min-h-screen > article.mx-auto > header.space-y-3 > p.text-base"
+        }
+      ]
+    },
+    "event": {
+      "path": "/event/bachata-picnic",
+      "medians": {
+        "score": 50,
+        "lcp": 5652.113999999999,
+        "fcp": 5188.853300000003,
+        "tbt": 239.5,
+        "cls": 0.0404878729727248,
+        "si": 5188.853300000003,
+        "ttfb": 333
+      },
+      "lcpElement": "div.relative > button.relative > div.absolute > img.h-full",
+      "runs": [
+        {
+          "score": 62,
+          "lcp": 5652.113999999999,
+          "fcp": 5188.853300000003,
+          "tbt": 239.5,
+          "cls": 0.01125540248939986,
+          "si": 5188.853300000003,
+          "ttfb": 688,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        },
+        {
+          "score": 50,
+          "lcp": 4696.588499999998,
+          "fcp": 4220.428,
+          "tbt": 948.9999999999982,
+          "cls": 0.0404878729727248,
+          "si": 4915.650672904509,
+          "ttfb": 333,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        },
+        {
+          "score": 49,
+          "lcp": 7222.976650000004,
+          "fcp": 5394.873425000003,
+          "tbt": 222,
+          "cls": 0.20645432278848241,
+          "si": 5394.873425000003,
+          "ttfb": 293,
+          "lcpElement": "div.relative > button.relative > div.absolute > img.h-full"
+        }
+      ]
+    }
+  }
+}
