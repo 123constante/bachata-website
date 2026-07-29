@@ -49,6 +49,14 @@ fi
 # Un-escape spaces from the python output
 FILE_PATH="${FILE_PATH//\\ / }"
 
+# Claude Code sends NATIVE WINDOWS paths (C:\dev\Website\src\pages\X.tsx).
+# Bash eats the backslashes, so without this every derived value comes out
+# mangled: the .git walk never matches, REL_PATH stays absolute, and the
+# safe-edit command we print for the agent to run resolves to
+# "C:devWebsitesrcpagesX.tsx" -- a recipe that cannot execute. Normalise
+# to forward slashes once, here, after the space un-escape above.
+FILE_PATH="${FILE_PATH//\\//}"
+
 # Extension check — only enforce on source-code extensions where the
 # corruption has caused build failures.
 EXT="${FILE_PATH##*.}"
@@ -88,20 +96,64 @@ while [ "$DIR" != "/" ] && [ -n "$DIR" ]; do
     DIR="$(dirname "$DIR")"
 done
 
+# Existing files get the SURGICAL recipe first: it transports the hunk
+# instead of the whole body, which is the difference between ~2 KB and
+# ~275 KB of round-trip for a 137 KB page. New files have no base to
+# patch, so they go straight to the full-body path below.
+SURGICAL_HINT=""
+if [ -f "$FILE_PATH" ]; then
+    SURGICAL_HINT="$(cat <<HINT
+SURGICAL path -- preferred, because $REL_PATH already exists.
+Transports only the hunk, and refuses every way the mount can hand you
+a stale base:
+
+Copy the block below EXACTLY. The heredoc terminator and the @@ marker
+lines MUST stay at column 0 -- indent them and bash never closes the
+heredoc, and safe-edit's marker anchors stop matching:
+
+PATCH=\$(mktemp /tmp/hunk-XXXXXX.txt)
+cat > "\$PATCH" <<'HUNK'
+@@SAFE-EDIT-OLD@@
+...the exact existing text, unique in the file...
+@@SAFE-EDIT-NEW@@
+...its replacement...
+@@SAFE-EDIT-END@@
+HUNK
+PYTHONUTF8=1 python3 scripts/safe-edit.py $REL_PATH < "\$PATCH"
+
+Stage the payload in a file; never pipe a producer straight in. Every
+success prints a result sha256 -- chain the next edit on this file with
+--expect-base-sha <that sha> so a concurrent clobber fails loudly
+instead of silently reverting your earlier edit. Non-zero exits: 1 bad
+payload, 2 base never settled, 3 usage/no-op, 4 zero/duplicate/mixed
+match, 5 write path rejected it, 6 base-sha mismatch. All of them mean
+fall back to the full-body path below.
+
+HINT
+)"
+    # $() strips trailing newlines; restore the paragraph break so the
+    # hint does not run into the FULL-BODY heading below.
+    SURGICAL_HINT="$SURGICAL_HINT
+
+"
+fi
+
 cat >&2 <<MSG
 === PRE-WRITE BLOCK ===
 Refusing $TOOL_NAME on $REL_PATH (existing=${EXISTING_SIZE} bytes,
 new content=${CONTENT_LEN:-0} bytes, threshold=${THRESHOLD}).
 
-Source files larger than 2 KB MUST be written via safe-write.py, which
-defends against the Cowork mount's silent-truncation bug. Use this
-pattern instead:
+Source files larger than 2 KB MUST go through a guarded write path,
+which defends against the Cowork mount's silent-truncation bug.
 
-  WRITER=\$(mktemp /tmp/edit-XXXXXX.${EXT})
-  cat > "\$WRITER" << 'EOF'
+${SURGICAL_HINT}FULL-BODY path (new files, whole-file rewrites, and any
+safe-edit refusal):
+
+WRITER=\$(mktemp /tmp/edit-XXXXXX.${EXT})
+cat > "\$WRITER" <<'EOF'
   …full intended file contents (not a diff)…
-  EOF
-  cat "\$WRITER" | python3 scripts/safe-write.py $REL_PATH
+EOF
+cat "\$WRITER" | PYTHONUTF8=1 python3 scripts/safe-write.py $REL_PATH
 
 safe-write.py stages in /tmp, copies to the target, force-syncs the
 mount, verifies the on-disk sha256 from a *separate* subprocess to

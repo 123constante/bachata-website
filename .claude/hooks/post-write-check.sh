@@ -25,6 +25,13 @@ print(ti.get('file_path', ''))
 ")"
 
 [ -z "$FILE_PATH" ] && exit 0
+
+# Claude Code sends NATIVE WINDOWS paths (C:\dev\Website\src\pages\X.tsx).
+# Bash eats the backslashes, so the .git walk below never matches and the
+# repair message quotes an absolute Windows path instead of the
+# repo-relative one the recipe needs. Normalise to forward slashes first.
+FILE_PATH="${FILE_PATH//\\//}"
+
 [ ! -f "$FILE_PATH" ] && exit 0
 
 SIZE="$(wc -c < "$FILE_PATH" 2>/dev/null || echo 0)"
@@ -71,13 +78,25 @@ for issue in data.get('issues', []):
     cat >&2 <<'MSG'
 
 The file you just wrote failed its parse check. This is almost always
-the Cowork-mount silent-truncation bug. To repair:
+the Cowork-mount silent-truncation bug.
 
-  1. Reconstruct the intended content into a /tmp file
-  2. cat /tmp/<file> | python3 scripts/safe-write.py <relative-path>
+Repair with the FULL-BODY path, NOT the surgical one: the on-disk base
+is corrupt, so scripts/safe-edit.py would either refuse to match it or
+patch garbage. Reconstruct the whole intended body, then:
+
+Copy this block EXACTLY -- the heredoc terminator must stay at column 0:
+
+WRITER=$(mktemp /tmp/repair-XXXXXX)
+cat > "$WRITER" <<'BODY'
+...full intended file contents (not a diff)...
+BODY
+cat "$WRITER" | PYTHONUTF8=1 python3 scripts/safe-write.py <relative-path>
+
+Once the file parses again, ordinary edits go back through
+scripts/safe-edit.py (surgical, hunk-only, stale-base-guarded).
 
 DO NOT use Edit or Write to retry — they will corrupt again. Use
-safe-write.py for files larger than 2 KB.
+safe-write.py (full body) or safe-edit.py (surgical) above 2 KB.
 MSG
     exit 2
 fi
