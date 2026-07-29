@@ -25,11 +25,24 @@ print(ti.get('file_path', ''))
 ")"
 
 [ -z "$FILE_PATH" ] && exit 0
+
+# Claude Code sends NATIVE WINDOWS paths (C:\dev\Website\src\pages\X.tsx).
+# Bash eats the backslashes, so the .git walk below never matches and the
+# repair message quotes an absolute Windows path instead of the
+# repo-relative one the recipe needs. Normalise to forward slashes first.
+FILE_PATH="${FILE_PATH//\\//}"
+
 [ ! -f "$FILE_PATH" ] && exit 0
 
 SIZE="$(wc -c < "$FILE_PATH" 2>/dev/null || echo 0)"
 [ "$SIZE" -lt 2048 ] && exit 0
 
+# Terminate on a dirname FIXED POINT, not just on "/": on Windows paths
+# (which the normalisation above now produces) dirname stabilises at the drive
+# root -- dirname "C:" is "C:" forever -- so a `!= "/"` guard alone spins at
+# 100% CPU for any file with no .git ancestor, hanging this hook with no
+# timeout. Reachable via the declared scratchpad and C:	mp working
+# directories. Same bug, same fix as safe-write.py's find_repo_root.
 DIR="$(dirname "$FILE_PATH")"
 REPO_ROOT=""
 while [ "$DIR" != "/" ] && [ -n "$DIR" ]; do
@@ -37,7 +50,9 @@ while [ "$DIR" != "/" ] && [ -n "$DIR" ]; do
         REPO_ROOT="$DIR"
         break
     fi
-    DIR="$(dirname "$DIR")"
+    PARENT="$(dirname "$DIR")"
+    [ "$PARENT" = "$DIR" ] && break
+    DIR="$PARENT"
 done
 [ -z "$REPO_ROOT" ] && exit 0
 
@@ -71,13 +86,25 @@ for issue in data.get('issues', []):
     cat >&2 <<'MSG'
 
 The file you just wrote failed its parse check. This is almost always
-the Cowork-mount silent-truncation bug. To repair:
+the Cowork-mount silent-truncation bug.
 
-  1. Reconstruct the intended content into a /tmp file
-  2. cat /tmp/<file> | python3 scripts/safe-write.py <relative-path>
+Repair with the FULL-BODY path, NOT the surgical one: the on-disk base
+is corrupt, so scripts/safe-edit.py would either refuse to match it or
+patch garbage. Reconstruct the whole intended body, then:
+
+Copy this block EXACTLY -- the heredoc terminator must stay at column 0:
+
+WRITER=$(mktemp /tmp/repair-XXXXXX)
+cat > "$WRITER" <<'BODY'
+...full intended file contents (not a diff)...
+BODY
+cat "$WRITER" | PYTHONUTF8=1 python3 scripts/safe-write.py <relative-path>
+
+Once the file parses again, ordinary edits go back through
+scripts/safe-edit.py (surgical, hunk-only, stale-base-guarded).
 
 DO NOT use Edit or Write to retry — they will corrupt again. Use
-safe-write.py for files larger than 2 KB.
+safe-write.py (full body) or safe-edit.py (surgical) above 2 KB.
 MSG
     exit 2
 fi

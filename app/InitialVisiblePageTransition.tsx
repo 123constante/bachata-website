@@ -81,8 +81,25 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     const deferred = () => {
       requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(warm, 0)));
     };
-    if (document.readyState === "complete") deferred();
-    else window.addEventListener("load", deferred, { once: true });
+    if (document.readyState === "complete") {
+      deferred();
+      return;
+    }
+    // Raced against a deadline, so `load` is a hint and not a dependency. A
+    // single stalled subresource (a hanging third-party image, an iframe that
+    // never completes) can keep `load` pending indefinitely -- and because
+    // `warming` latches synchronously above, that would mean no route mount ever
+    // retries and the chunk is never warmed for the whole session. The rIC
+    // branch gets this guarantee from its timeout; this is the equivalent.
+    let fired = false;
+    const once = () => {
+      if (fired) return;
+      fired = true;
+      window.removeEventListener("load", once);
+      deferred();
+    };
+    window.addEventListener("load", once);
+    window.setTimeout(once, 2000);
   }, []);
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head

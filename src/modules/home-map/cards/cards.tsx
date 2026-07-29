@@ -224,38 +224,31 @@ function FreshnessClockBody({
   );
 }
 
-/** Under 24h: "2m" / "3h 12m", so it needs waking every minute. */
-function FreshnessClockMinutely(props: { event: MapEvent; className?: string }) {
-  const now = useHomeNow();
-  // Re-checked on every tick, not latched at mount: a stamp that was 23h old
-  // when its row mounted crosses into the hourly band while the tab is open, and
-  // the earlier revision that decided once (from the hydration-PINNED clock, up
-  // to an hour stale on a cached document) got both the initial answer and the
-  // ageing wrong.
-  return isFreshnessMinutely(props.event, now) ? (
-    <FreshnessClockBody {...props} now={now} />
-  ) : (
-    <FreshnessClockHourly {...props} />
-  );
+/** Under 24h: "2m" / "3h 12m", so it needs waking every minute. Mounted ALONE
+ *  by the wrapper below -- an earlier revision had this component delegate to the
+ *  hourly one as it aged, which left it mounted holding both subscriptions and
+ *  rendering from the staler of the two clocks. */
+function FreshnessClockMinutely({ event, className }: { event: MapEvent; className?: string }) {
+  return <FreshnessClockBody event={event} now={useHomeNow()} className={className} />;
 }
 
-/** 24h and older: "3d 4h", which changes on the hour. Still subscribed -- a
- *  static read here freezes the day counter for the life of the page. */
-function FreshnessClockHourly(props: { event: MapEvent; className?: string }) {
-  return <FreshnessClockBody {...props} now={useHomeNowHourly()} />;
-}
-
-/** Freshness stamp. Picks its wake-up rate by age, so the per-minute tier holds
- *  only the rows whose text actually changes that often. Both tiers subscribe:
- *  the choice is about HOW OFTEN a stamp is woken, never about whether it
- *  updates at all. The initial pick comes from a static read, so this wrapper
- *  itself never subscribes; the minutely variant re-checks as time passes. */
+/** Freshness stamp. The wrapper sits on the HOURLY tier and picks which single
+ *  child to mount:
+ *
+ *    under 24h  -> FreshnessClockMinutely, on the per-minute tier ("3h 12m")
+ *    24h and up -> the body, rendered straight from this hourly value ("3d 4h")
+ *
+ *  Subscribing the wrapper is what lets the choice be RE-MADE as a stamp ages:
+ *  when one crosses 24h the minutely child unmounts and releases its
+ *  subscription. The hourly tier is cheap enough to hold for every stamp, and
+ *  granular enough to notice the crossing. Neither band is ever read statically
+ *  -- both change on their own, they differ only in how often. */
 export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
-  const now = useHomeNowStatic();
-  return isFreshnessMinutely(event, now) ? (
+  const coarseNow = useHomeNowHourly();
+  return isFreshnessMinutely(event, coarseNow) ? (
     <FreshnessClockMinutely event={event} className={className} />
   ) : (
-    <FreshnessClockHourly event={event} className={className} />
+    <FreshnessClockBody event={event} now={coarseNow} className={className} />
   );
 }
 
@@ -376,11 +369,13 @@ export const EventRow = memo(function EventRow({
   className,
 }: RowProps & {
   showFreshness?: boolean;
-  user?: Coords;
   today?: string;
-  /** Precomputed distance, when the caller already had to derive one (the feed
-   *  sorts by it). Saves recomputing the same haversine per row; falls back to
-   *  deriving from `user` for callers that do not sort. */
+  /** The row's distance from the reader, or null/absent for no chip. Always
+   *  supplied by the caller: the feed has to derive distances anyway to sort by
+   *  them, so deriving one here too just ran the same haversine twice. (There
+   *  was a `user` prop that did that as a fallback; both call sites had stopped
+   *  using it, leaving an untested branch in the hottest component in the feed
+   *  and a signature that implied a convention nobody followed.) */
   distanceMi?: number | null;
 }) {
   // Static, NOT subscribing: the only thing this feeds is isRecentlyChanged's
@@ -390,7 +385,7 @@ export const EventRow = memo(function EventRow({
   const now = useHomeNowStatic();
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
-  const mi = distanceMi !== undefined ? distanceMi : user ? distanceMiles(event, user) : null;
+  const mi = distanceMi ?? null;
   return (
     <a
       href={eventHref(event, event.occurrence_id)}

@@ -72,10 +72,26 @@ const isHidden = () =>
 
 const anySubscribers = () => subscribers.size > 0 || coarseSubscribers.size > 0;
 
+const COARSE_MS = TICK_MS * COARSE_EVERY;
+
+/** Each tier is handed its own period's floor, never a raw Date.now(). A raw
+ *  instant is a different number every time, so setLive always stores a changed
+ *  value and React can never bail out -- even when the subscriber's text
+ *  provably cannot have moved. Truncated, a redundant wake (a second tick inside
+ *  the same minute, or the catch-up after a 2-second app switch) yields an
+ *  IDENTICAL number, Object.is matches, and React skips the render entirely.
+ *  That is what makes the visibility catch-up below safe to fire unconditionally:
+ *  on mobile it runs on every app switch and screen unlock. */
+const flooredTo = (now: number, period: number) => Math.floor(now / period) * period;
+
 function notify(coarseToo: boolean): void {
   const now = Date.now();
-  for (const sub of subscribers) sub(now);
-  if (coarseToo) for (const sub of coarseSubscribers) sub(now);
+  const minute = flooredTo(now, TICK_MS);
+  for (const sub of subscribers) sub(minute);
+  if (coarseToo) {
+    const hour = flooredTo(now, COARSE_MS);
+    for (const sub of coarseSubscribers) sub(hour);
+  }
 }
 
 /** Stop the timer OUTRIGHT while the tab is hidden -- not merely skip the work
@@ -97,8 +113,10 @@ function stopTimer(): void {
   timerId = null;
 }
 
-/** On return to a hidden tab, catch every tier up at once (the elapsed time is
- *  unbounded, so the coarse tier is due by definition) and restart the timer. */
+/** On return to a hidden tab, catch every tier up at once -- the elapsed time is
+ *  unbounded, so the coarse tier may well be due. Unconditional by design: the
+ *  floored values above make a catch-up that changed nothing a no-op React
+ *  discards, which is cheaper than tracking elapsed time to decide. */
 function onVisibility(): void {
   if (isHidden()) {
     stopTimer();
