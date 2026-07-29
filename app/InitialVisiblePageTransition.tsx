@@ -68,7 +68,11 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // first tap on a feed, so the chunk would still be unloaded when the
     // navigation needs it and the fade would fall back -- the exact thing this
     // warm exists to prevent.
-    if ("requestIdleCallback" in window) {
+    // typeof, NOT `"requestIdleCallback" in window`: because lib.dom declares the
+    // method on Window, the `in` form exhaustively narrows and types `window` as
+    // `never` on the else path -- so TypeScript checked NOTHING on the fallback
+    // branch, which is the one that matters most here (iOS Safari < 16.4).
+    if (typeof window.requestIdleCallback === "function") {
       window.requestIdleCallback(warm, { timeout: 600 });
       return;
     }
@@ -78,8 +82,20 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // busy, so a 500ms one lands INSIDE hydration on exactly the slow devices
     // this work is meant to help. Wait for load instead, then let two frames
     // pass, which yields until the browser has actually painted.
+    // rAF yields until the browser has actually painted -- but it does NOT run
+    // in a hidden tab, and `warming` has already latched, so a document that
+    // loads in the background would never warm and never retry. The timer is the
+    // floor that guarantees warm() itself runs; rAF only gets to move it later,
+    // never to cancel it.
     const deferred = () => {
-      requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(warm, 0)));
+      let ran = false;
+      const go = () => {
+        if (ran) return;
+        ran = true;
+        warm();
+      };
+      requestAnimationFrame(() => requestAnimationFrame(go));
+      window.setTimeout(go, 1000);
     };
     if (document.readyState === "complete") {
       deferred();

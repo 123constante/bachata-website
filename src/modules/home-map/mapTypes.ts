@@ -268,20 +268,6 @@ export function isTodayRow(e: MapEvent, today: string): boolean {
   return e.instance_date === today;
 }
 
-/** Does the freshness stamp for `e` still change minute to minute? True under
- *  24h, where relativeShort renders "2m" / "3h 12m". At or past 24h it renders
- *  "3d" / "3d 4h", which changes only on the hour -- those readers belong on the
- *  hourly tier (useHomeNowHourly), NOT on a static read: a previous revision
- *  used a 1h cutoff and a static fallback, which froze every stamp in the 1-24h
- *  band outright. Neither band may be read statically; they differ only in how
- *  often they need waking. */
-export function isFreshnessMinutely(e: MapEvent, now = Date.now()): boolean {
-  const { iso } = freshnessDisplay(e);
-  if (!iso) return false;
-  const then = parseInstant(iso);
-  return !Number.isNaN(then) && now - then < 86400000;
-}
-
 // ---- distance -------------------------------------------------------------
 
 /** Miles from user coords to an event, or null if either is missing. */

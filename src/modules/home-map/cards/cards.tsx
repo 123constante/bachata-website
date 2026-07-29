@@ -39,10 +39,9 @@ import {
   todayLiveStatus,
   freshnessHeat,
   isTodayRow,
-  isFreshnessMinutely,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
-import { useHomeNow, useHomeNowHourly, useHomeNowStatic } from '../homeClock';
+import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
 
 type Coords = { lat: number; lng: number } | null;
@@ -224,32 +223,15 @@ function FreshnessClockBody({
   );
 }
 
-/** Under 24h: "2m" / "3h 12m", so it needs waking every minute. Mounted ALONE
- *  by the wrapper below -- an earlier revision had this component delegate to the
- *  hourly one as it aged, which left it mounted holding both subscriptions and
- *  rendering from the staler of the two clocks. */
-function FreshnessClockMinutely({ event, className }: { event: MapEvent; className?: string }) {
-  return <FreshnessClockBody event={event} now={useHomeNow()} className={className} />;
-}
-
-/** Freshness stamp. The wrapper sits on the HOURLY tier and picks which single
- *  child to mount:
- *
- *    under 24h  -> FreshnessClockMinutely, on the per-minute tier ("3h 12m")
- *    24h and up -> the body, rendered straight from this hourly value ("3d 4h")
- *
- *  Subscribing the wrapper is what lets the choice be RE-MADE as a stamp ages:
- *  when one crosses 24h the minutely child unmounts and releases its
- *  subscription. The hourly tier is cheap enough to hold for every stamp, and
- *  granular enough to notice the crossing. Neither band is ever read statically
- *  -- both change on their own, they differ only in how often. */
+/** Freshness stamp. Subscribes to the one clock tier, so it refreshes on its
+ *  own from "just now" through "3d 4h". Affordable because it is a LEAF: the row
+ *  around it reads the static clock and stays memoised, so a tick repaints this
+ *  span and nothing above it. An earlier revision split this by age across two
+ *  tick rates to save the day-old stamps some wake-ups; it cost four rounds of
+ *  defects and saved nothing measurable. See homeClock's note. */
 export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
-  const coarseNow = useHomeNowHourly();
-  return isFreshnessMinutely(event, coarseNow) ? (
-    <FreshnessClockMinutely event={event} className={className} />
-  ) : (
-    <FreshnessClockBody event={event} now={coarseNow} className={className} />
-  );
+  const now = useHomeNow();
+  return <FreshnessClockBody event={event} now={now} className={className} />;
 }
 
 /** "Cancelled" pill. */
@@ -363,13 +345,17 @@ export const EventRow = memo(function EventRow({
   onSelect,
   onHover,
   showFreshness,
-  user,
   today,
   distanceMi,
   className,
 }: RowProps & {
   showFreshness?: boolean;
-  today?: string;
+  /** The reader's pinned London day key. REQUIRED: the LiveBadge mount below
+   *  gates on it, so an omitted prop would silently drop the On now / Soon badge
+   *  from an entire surface. isTodayRow made the same parameter required for the
+   *  same reason -- leaving it optional here just moved the fail-open out to the
+   *  call sites, where no test can see it. */
+  today: string;
   /** The row's distance from the reader, or null/absent for no chip. Always
    *  supplied by the caller: the feed has to derive distances anyway to sort by
    *  them, so deriving one here too just ran the same haversine twice. (There
@@ -406,7 +392,7 @@ export const EventRow = memo(function EventRow({
               clock, and a badge per row would put every row back on the tick.
               It renders null for any other day anyway. Gate and badge share one
               predicate (mapTypes.isTodayRow) so they cannot drift apart. */}
-          {today != null && isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
+          {isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
@@ -474,7 +460,7 @@ export const TonightCard = memo(function TonightCard({
   onSelect,
   onHover,
   today,
-}: RowProps & { user: Coords; today?: string }) {
+}: RowProps & { user: Coords; today: string }) {
   const cancelled = event.is_cancelled;
   return (
     <a
@@ -497,9 +483,7 @@ export const TonightCard = memo(function TonightCard({
       <span className="min-w-0 flex-1 p-3">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          {!cancelled && today != null && isTodayRow(event, today) && (
-            <LiveBadge event={event} today={today} />
-          )}
+          {!cancelled && isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
         </span>
         {cancelled ? (
           <span className="mt-2 inline-block">

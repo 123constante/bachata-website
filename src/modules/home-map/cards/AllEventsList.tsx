@@ -19,6 +19,16 @@ import {
   FEED_DAYS_CHUNK,
 } from '../mapListDerivations';
 import { distanceMiles } from '../mapTypes';
+import type { DateGroup } from '../mapListDerivations';
+import type { MapEvent } from '../mapTypes';
+
+/** A day group whose rows carry their precomputed distance. `source` is the
+ *  identity of the group's items array at the time it was decorated, so a cached
+ *  entry can be invalidated when (and only when) its rows actually change. */
+type DecoratedGroup = Omit<DateGroup, 'items'> & {
+  items: { e: MapEvent; mi: number | null }[];
+  source: MapEvent[];
+};
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { focusRing } from './controls';
@@ -245,8 +255,22 @@ export function AllEventsList({
   // window, the toggle or the location changes; the distances themselves are
   // already computed above and are handed to the row, which would otherwise
   // recompute the identical haversine for its own distance chip.
+  //
+  // Cached PER GROUP KEY, not per window: windowGroups returns a fresh slice on
+  // every scroll expansion, so a memo keyed on the visible window re-mapped --
+  // and re-allocated a wrapper for -- every row it had already mapped. Groups
+  // themselves are stable across an expansion (the window only grows at the
+  // tail), so the ones already on screen are reused untouched.
+  const groupCache = useRef(new Map<string, DecoratedGroup>());
   const orderedGroups = useMemo(() => {
-    return shownGroups.map((g) => {
+    const cache = groupCache.current;
+    const next = new Map<string, DecoratedGroup>();
+    const out = shownGroups.map((g) => {
+      const hit = cache.get(g.key);
+      if (hit && hit.source === g.items) {
+        next.set(g.key, hit);
+        return hit;
+      }
       const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
       if (nearest && coords) {
         items.sort((a, b) => {
@@ -256,8 +280,12 @@ export function AllEventsList({
           return a.mi - b.mi;
         });
       }
-      return { ...g, items };
+      const decorated: DecoratedGroup = { ...g, items, source: g.items };
+      next.set(g.key, decorated);
+      return decorated;
     });
+    groupCache.current = next;
+    return out;
   }, [shownGroups, nearest, coords, distances]);
 
   if (groups.length === 0 && remote.length === 0) {
