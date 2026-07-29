@@ -306,7 +306,7 @@ const rowState = (selected: boolean) =>
 
 /** Real-time "On now" / "Soon" badge for a today row. Renders nothing for past,
  *  future-day, or cancelled events, so the bulk of the list stays quiet. */
-function LiveBadge({ event, today }: { event: MapEvent; today?: string }) {
+function LiveBadge({ event, today }: { event: MapEvent; today: string }) {
   const status = todayLiveStatus(event, new Date(useHomeNow()), today);
   if (!status) return null;
   return status === 'on-now' ? (
@@ -332,8 +332,8 @@ function DistanceChip({ mi }: { mi: number }) {
 
 /** Grouped-list / day-detail row (cover + title + times + venue). When
  *  `showFreshness` is set, a recently added/updated row carries the "Added/Updated
- *  Xm ago" stamp (gated by isRecentlyChanged). When `user` coords are passed and
- *  the row has no stamp, the right edge falls back to distance.
+ *  Xm ago" stamp (gated by isRecentlyChanged). A row with no stamp falls back to
+ *  the distance chip, from the caller-supplied `distanceMi`.
  *
  *  Memoised (perf, homepage TBT): the homepage feed renders up to ~380 of these,
  *  and hover/selection state on ONE row otherwise re-renders every sibling row

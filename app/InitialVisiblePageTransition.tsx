@@ -87,6 +87,10 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // loads in the background would never warm and never retry. The timer is the
     // floor that guarantees warm() itself runs; rAF only gets to move it later,
     // never to cancel it.
+    // Two frames if they come quickly, a hard floor otherwise. The floor is
+    // SHORT because it composes with the load deadline below: chained at 1000ms
+    // it could put the import ~3s after mount, which is worse than the 2s rIC
+    // timeout this block rejects a few lines up for exactly that reason.
     const deferred = () => {
       let ran = false;
       const go = () => {
@@ -95,7 +99,7 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
         warm();
       };
       requestAnimationFrame(() => requestAnimationFrame(go));
-      window.setTimeout(go, 1000);
+      window.setTimeout(go, 200);
     };
     if (document.readyState === "complete") {
       deferred();
@@ -115,7 +119,9 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
       deferred();
     };
     window.addEventListener("load", once);
-    window.setTimeout(once, 2000);
+    // Total worst case is this + deferred()'s 200ms floor, i.e. ~600ms -- inside
+    // the 600ms budget the rIC branch uses, rather than triple it.
+    window.setTimeout(once, 400);
   }, []);
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head

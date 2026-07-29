@@ -224,7 +224,12 @@ export const BentoGrid = ({
   // happened to land before paint. Deriving it from the container removes the
   // correction entirely -- the server HTML is already right at any width, and
   // resizes are handled by the browser rather than a ResizeObserver.
-  const cell = `((100cqw - ${GAP_PX * (GRID_COLS - 1)}px) / ${GRID_COLS})`;
+  // --bento-cell is defined in index.css: a static px fallback, overridden with
+  // a cqw-derived value inside @supports (container-type: inline-size). Inline
+  // styles cannot express @supports, and without a fallback an engine that
+  // rejects cqw drops min-height entirely -- which collapses the cover block to
+  // zero height (see LAYOUT). GRID_COLS/GAP_PX are mirrored in that rule.
+  const cell = 'var(--bento-cell)';
 
   const packed = useMemo(
     () => packLayout(specs, hiddenBlocks ?? new Set()),

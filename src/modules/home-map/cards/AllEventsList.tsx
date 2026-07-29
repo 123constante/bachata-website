@@ -19,16 +19,6 @@ import {
   FEED_DAYS_CHUNK,
 } from '../mapListDerivations';
 import { distanceMiles } from '../mapTypes';
-import type { DateGroup } from '../mapListDerivations';
-import type { MapEvent } from '../mapTypes';
-
-/** A day group whose rows carry their precomputed distance. `source` is the
- *  identity of the group's items array at the time it was decorated, so a cached
- *  entry can be invalidated when (and only when) its rows actually change. */
-type DecoratedGroup = Omit<DateGroup, 'items'> & {
-  items: { e: MapEvent; mi: number | null }[];
-  source: MapEvent[];
-};
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { focusRing } from './controls';
@@ -239,54 +229,48 @@ export function AllEventsList({
   // visible group, on every render -- including the hover-driven re-renders the
   // memos above exist to make cheap.
   //
-  // Distance is derived once per EVENT, keyed on the full local set rather than
-  // on the visible window: windowGroups returns a fresh slice on every expansion,
-  // so computing inside that memo re-ran the haversine for every already-visible
-  // row each time the scroll sentinel grew the feed -- quadratic over a full
-  // scroll, on the exact path the windowing exists to keep cheap.
+  // Distances for the rows actually on screen. Keyed on the VISIBLE window, not
+  // on the whole local set: only the first INITIAL_FEED_DAYS of day-groups
+  // render up front (~25-30 rows of ~380), so haversining everything meant ~92%
+  // of the work was for rows nobody had scrolled to yet -- on the first render
+  // after coords resolve, which is exactly the path this module tries to keep
+  // cheap.
   const distances = useMemo(() => {
     const m = new Map<string, number | null>();
     if (!coords) return m;
-    for (const e of local) m.set(e.occurrence_id, distanceMiles(e, coords));
+    for (const g of shownGroups) {
+      for (const e of g.items) m.set(e.occurrence_id, distanceMiles(e, coords));
+    }
     return m;
-  }, [local, coords]);
+  }, [shownGroups, coords]);
 
-  // The rows each group renders, nearest-first when asked. Only re-sorts when the
-  // window, the toggle or the location changes; the distances themselves are
-  // already computed above and are handed to the row, which would otherwise
-  // recompute the identical haversine for its own distance chip.
+  // The rows each group renders, nearest-first when asked, each carrying the
+  // distance its chip needs so EventRow does not recompute the same haversine.
   //
-  // Cached PER GROUP KEY, not per window: windowGroups returns a fresh slice on
-  // every scroll expansion, so a memo keyed on the visible window re-mapped --
-  // and re-allocated a wrapper for -- every row it had already mapped. Groups
-  // themselves are stable across an expansion (the window only grows at the
-  // tail), so the ones already on screen are reused untouched.
-  const groupCache = useRef(new Map<string, DecoratedGroup>());
-  const orderedGroups = useMemo(() => {
-    const cache = groupCache.current;
-    const next = new Map<string, DecoratedGroup>();
-    const out = shownGroups.map((g) => {
-      const hit = cache.get(g.key);
-      if (hit && hit.source === g.items) {
-        next.set(g.key, hit);
-        return hit;
-      }
-      const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
-      if (nearest && coords) {
-        items.sort((a, b) => {
-          if (a.mi == null && b.mi == null) return 0;
-          if (a.mi == null) return 1;
-          if (b.mi == null) return -1;
-          return a.mi - b.mi;
-        });
-      }
-      const decorated: DecoratedGroup = { ...g, items, source: g.items };
-      next.set(g.key, decorated);
-      return decorated;
-    });
-    groupCache.current = next;
-    return out;
-  }, [shownGroups, nearest, coords, distances]);
+  // Deliberately NOT cached across renders. A per-group-key cache lived here
+  // briefly and was wrong twice over: it validated only on the group's items
+  // identity, so flipping Nearest/Time -- which changes neither the groups nor
+  // their rows -- hit the cache and returned the previous order, making the sort
+  // control silently inert; and it wrote to a ref during the render phase, which
+  // React can populate from an abandoned concurrent render. It was optimising
+  // scroll-expansion work whose cost never showed above the measurement noise on
+  // this feed, so the correct trade is to not have it.
+  const orderedGroups = useMemo(
+    () =>
+      shownGroups.map((g) => {
+        const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
+        if (nearest && coords) {
+          items.sort((a, b) => {
+            if (a.mi == null && b.mi == null) return 0;
+            if (a.mi == null) return 1;
+            if (b.mi == null) return -1;
+            return a.mi - b.mi;
+          });
+        }
+        return { ...g, items };
+      }),
+    [shownGroups, nearest, coords, distances],
+  );
 
   if (groups.length === 0 && remote.length === 0) {
     return (

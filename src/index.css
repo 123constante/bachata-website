@@ -316,6 +316,21 @@
     --bento-hairline: hsl(var(--bento-accent) / 0.18);
     --bento-plum: 280 35% 25%;           /* #2C1F3E — deep aubergine, pairs brass+velvet for the bento gradient palette */
 
+    /* Bento grid cell height (BentoGrid.tsx). A cell is one column wide and
+       columns are 1fr, so the height must track the grid's INLINE size -- which
+       is what container query units express. Declared here rather than inline
+       because the fallback needs @supports, and an inline style cannot carry one.
+
+       The fallback is NOT cosmetic: LAYOUT's cover block has no intrinsic height
+       (object-cover on h-full w-full resolves to 0), so if min-height is dropped
+       the flyer collapses and takes venue/date/guest's footprints with it. An
+       engine without container queries treats `calc(...cqw...)` as invalid and
+       drops the whole declaration, so without this it would render a broken page
+       rather than a slightly-wrong one -- on a ~95% mobile site, where the
+       affected cohort is iOS Safari < 16. The static value is the historical
+       measured cell at a 412px viewport. */
+    --bento-cell: 95px;
+
     /* Venue page — Latin Warm palette (locked 2026-04-30).
        Extends the existing 39° orange + 45° gold + bento brass into the
        0-30° hue band (reds/spice). Used by the public venue detail page
@@ -362,6 +377,15 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 13%;
     --sidebar-ring: 39 100% 50%;
+  }
+
+  /* Container queries available: derive the cell from the grid's own width, so
+     the server HTML is correct at every viewport with no post-mount correction.
+     GRID_COLS=4, GAP_PX=6 -- keep in sync with BentoGrid.tsx. */
+  @supports (container-type: inline-size) {
+    :root {
+      --bento-cell: calc((100cqw - 18px) / 4);
+    }
   }
 
   .dark {
