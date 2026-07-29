@@ -85,6 +85,18 @@ const mapRows = [
   },
 ];
 
+/**
+ * Both tests below `await import('@/App')`, which evaluates the app's whole
+ * module graph in a node env. That costs seconds on its own, and vitest runs
+ * this file alongside ~22 others -- the sibling eventPageSsr spec, which does
+ * the same import, is measured at ~11s in a full-suite run. Vitest's 5s default
+ * was therefore never a realistic budget here: the spec passes in ~1.7s ALONE
+ * and times out under parallel load, so the default made a green suite depend
+ * on how busy the machine was. This is a load allowance, not a slow assertion
+ * being papered over -- the assertions themselves are synchronous.
+ */
+const APP_IMPORT_TIMEOUT_MS = 20_000;
+
 describe('WS14 dehydrate/hydrate wiring', () => {
   it('columnar-encodes the dehydrated map-events payload and hydrates it back identically', async () => {
     const { createQueryClient } = await import('@/App');
@@ -107,7 +119,7 @@ describe('WS14 dehydrate/hydrate wiring', () => {
     hydrate(client, JSON.parse(wire));
 
     expect(client.getQueryData(MAP_KEY)).toEqual(mapRows);
-  });
+  }, APP_IMPORT_TIMEOUT_MS);
 
   it('leaves the live cache raw (pack does not mutate the source array)', async () => {
     const { createQueryClient } = await import('@/App');
@@ -118,5 +130,5 @@ describe('WS14 dehydrate/hydrate wiring', () => {
     // and again the render reads the live cache — both must see raw objects, not packed.
     expect(server.getQueryData(MAP_KEY)).toEqual(mapRows);
     expect(Array.isArray(server.getQueryData(MAP_KEY))).toBe(true);
-  });
+  }, APP_IMPORT_TIMEOUT_MS);
 });
