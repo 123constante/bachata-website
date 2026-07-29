@@ -257,9 +257,29 @@ export function isRecentlyChanged(e: MapEvent, days = 14, now = Date.now()): boo
  *  the day match -- todayLiveStatus gates on it, and so does the JSX that decides
  *  whether to mount a LiveBadge at all. Kept in one place deliberately: when the
  *  two were written separately, a mount gate could suppress a badge that
- *  todayLiveStatus would have returned, and no test would have caught it. */
-export function isTodayRow(e: MapEvent, today: string | null | undefined): boolean {
-  return today == null || e.instance_date === today;
+ *  todayLiveStatus would have returned, and no test would have caught it.
+ *
+ *  `today` is deliberately NOT nullable. An earlier signature accepted
+ *  null/undefined and returned true for it, which fails OPEN twice over: an
+ *  event dated next year reported 'on-now' at its start time on any date, and a
+ *  call site that forgot the prop silently re-subscribed every feed row to the
+ *  clock. Callers with no pinned day should let todayLiveStatus derive one. */
+export function isTodayRow(e: MapEvent, today: string): boolean {
+  return e.instance_date === today;
+}
+
+/** Does the freshness stamp for `e` still change minute to minute? True under
+ *  24h, where relativeShort renders "2m" / "3h 12m". At or past 24h it renders
+ *  "3d" / "3d 4h", which changes only on the hour -- those readers belong on the
+ *  hourly tier (useHomeNowHourly), NOT on a static read: a previous revision
+ *  used a 1h cutoff and a static fallback, which froze every stamp in the 1-24h
+ *  band outright. Neither band may be read statically; they differ only in how
+ *  often they need waking. */
+export function isFreshnessMinutely(e: MapEvent, now = Date.now()): boolean {
+  const { iso } = freshnessDisplay(e);
+  if (!iso) return false;
+  const then = parseInstant(iso);
+  return !Number.isNaN(then) && now - then < 86400000;
 }
 
 // ---- distance -------------------------------------------------------------

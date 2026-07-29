@@ -63,16 +63,26 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
           warming = false;
         });
     };
-    // Short deadlines on purpose: the point is to yield to hydration's long task,
+    // Short deadline on purpose: the point is to yield to hydration's long task,
     // NOT to wait out the reader. A 2s timeout is longer than a typical time to
     // first tap on a feed, so the chunk would still be unloaded when the
     // navigation needs it and the fade would fall back -- the exact thing this
     // warm exists to prevent.
     if ("requestIdleCallback" in window) {
       window.requestIdleCallback(warm, { timeout: 600 });
-    } else {
-      window.setTimeout(warm, 500);
+      return;
     }
+    // No requestIdleCallback: iOS Safari only shipped it in 16.4, and this site
+    // is ~95% mobile, so this branch is the one that matters most. A bare timer
+    // is wrong here -- it fires on schedule whether or not the main thread is
+    // busy, so a 500ms one lands INSIDE hydration on exactly the slow devices
+    // this work is meant to help. Wait for load instead, then let two frames
+    // pass, which yields until the browser has actually painted.
+    const deferred = () => {
+      requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(warm, 0)));
+    };
+    if (document.readyState === "complete") deferred();
+    else window.addEventListener("load", deferred, { once: true });
   }, []);
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head

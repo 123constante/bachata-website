@@ -57,9 +57,22 @@ describe('isTodayRow', () => {
     expect(isTodayRow(base, '2026-06-09')).toBe(false);
   });
 
-  it('is permissive when no key is supplied (caller has no pinned day)', () => {
-    expect(isTodayRow(base, null)).toBe(true);
-    expect(isTodayRow(base, undefined)).toBe(true);
+  // Pins the FAIL-CLOSED contract. An earlier signature took `string | null |
+  // undefined` and returned true for the empty cases, which this file asserted
+  // as intended behaviour -- so the test actively protected two fail-open bugs:
+  // todayLiveStatus(e, now, null) skipped the day check entirely and reported
+  // 'on-now' for an event dated any year, and a row rendered without the prop
+  // mounted a clock-subscribing badge on every row in the feed. The parameter is
+  // now a required string, so both are type errors instead.
+  it('does not treat a non-matching key as a match', () => {
+    expect(isTodayRow({ ...base, instance_date: '2027-01-01' } as MapEvent, '2026-06-08')).toBe(false);
+    expect(isTodayRow({ ...base, instance_date: null } as MapEvent, '2026-06-08')).toBe(false);
+  });
+
+  it('leaves the no-pinned-day case to todayLiveStatus own default', () => {
+    // Callers without a day key omit the argument; the default derives one from
+    // `now` rather than waving the row through.
+    expect(todayLiveStatus({ ...base, instance_date: '2027-01-01' } as MapEvent, NOW_DURING)).toBeNull();
   });
 
   // NOTE: the JSX mount gates in cards.tsx (EventRow, TonightCard) call this

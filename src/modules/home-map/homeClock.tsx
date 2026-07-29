@@ -35,60 +35,89 @@ import {
  *  working unchanged on the client-only surfaces that also render them. */
 const HomeClockContext = createContext<number | null>(null);
 
-/** How often the live clock notifies its readers. Everything it feeds is
- *  minute-granular at its finest ("2m ago", "3h 12m ago", the 90-minute "Soon"
+/** How often the live clock notifies its MINUTE-tier readers. The finest thing
+ *  it feeds is minute-granular ("2m ago", "3h 12m ago", the 90-minute "Soon"
  *  window), so a minute is the useful resolution -- anything faster just repaints
  *  identical text. One timer for the whole tree. */
 const TICK_MS = 60_000;
 
+/** Minute ticks per COARSE tick. Stamps past 24h render "3d 4h", which changes
+ *  once an hour -- often enough that a static read visibly freezes them (that is
+ *  the same bug as the 1-24h band, just an hour slower), and rarely enough that
+ *  waking them every minute is pure waste. */
+const COARSE_EVERY = 60;
+
 // ONE interval for the whole tree, not one per row: the homepage feed can mount
 // several hundred clock readers, and a timer each would be both wasteful and a
 // few hundred separate wakeups. The interval only exists while something is
-// actually subscribed.
+// subscribed AND the tab is visible.
 //
 // SUBSCRIBE SPARINGLY, AND ONLY IN LEAVES. A tick re-renders every subscriber,
 // and that update originates INSIDE the subscribing component -- React.memo
 // cannot stop it. A subscribing LEAF repaints just itself; a subscribing ROW
-// repaints its whole subtree, which on this feed is hundreds of rows twice a
-// minute and makes the rows' memoisation worthless.
+// repaints its whole subtree, which on this feed is hundreds of rows a minute
+// and makes the rows' memoisation worthless.
 //
 // So: rows read useHomeNowStatic() -- what they use the clock for is coarse
 // (isRecentlyChanged's 14 DAYS, isFreshNew's 30) and cannot change on a tick.
-// The small time-of-day cells (the freshness stamp, the on-now badge) call
-// useHomeNow() and are mounted conditionally by their row.
+// The small time-of-day cells (the freshness stamp, the on-now badge) subscribe,
+// and are mounted conditionally by their row.
 const subscribers = new Set<(now: number) => void>();
+const coarseSubscribers = new Set<(now: number) => void>();
 let timerId: ReturnType<typeof setInterval> | null = null;
+let ticksSinceCoarse = 0;
 
-/** Skip work while the tab is hidden (mirrors useLondonToday's discipline): a
- *  backgrounded tab must not keep waking to re-render invisible rows. The
- *  visibilitychange listener fires one catch-up tick on return, so coming back
- *  to a tab shows current times immediately rather than up to TICK_MS late. */
 const isHidden = () =>
   typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
-function notify(): void {
+const anySubscribers = () => subscribers.size > 0 || coarseSubscribers.size > 0;
+
+function notify(coarseToo: boolean): void {
   const now = Date.now();
   for (const sub of subscribers) sub(now);
+  if (coarseToo) for (const sub of coarseSubscribers) sub(now);
 }
 
+/** Stop the timer OUTRIGHT while the tab is hidden -- not merely skip the work
+ *  inside it. A suppressed callback still wakes the main thread on schedule,
+ *  which is most of what backgrounding is supposed to avoid. */
+function startTimer(): void {
+  if (timerId !== null || isHidden() || !anySubscribers()) return;
+  timerId = setInterval(() => {
+    ticksSinceCoarse += 1;
+    const coarseToo = ticksSinceCoarse >= COARSE_EVERY;
+    if (coarseToo) ticksSinceCoarse = 0;
+    notify(coarseToo);
+  }, TICK_MS);
+}
+
+function stopTimer(): void {
+  if (timerId === null) return;
+  clearInterval(timerId);
+  timerId = null;
+}
+
+/** On return to a hidden tab, catch every tier up at once (the elapsed time is
+ *  unbounded, so the coarse tier is due by definition) and restart the timer. */
 function onVisibility(): void {
-  if (!isHidden()) notify();
+  if (isHidden()) {
+    stopTimer();
+    return;
+  }
+  ticksSinceCoarse = 0;
+  notify(true);
+  startTimer();
 }
 
-function subscribeToTick(fn: (now: number) => void): () => void {
-  subscribers.add(fn);
-  if (timerId === null) {
-    timerId = setInterval(() => {
-      if (isHidden()) return;
-      notify();
-    }, TICK_MS);
-    document.addEventListener('visibilitychange', onVisibility);
-  }
+function subscribeTo(set: Set<(now: number) => void>, fn: (now: number) => void): () => void {
+  const first = !anySubscribers();
+  set.add(fn);
+  if (first) document.addEventListener('visibilitychange', onVisibility);
+  startTimer();
   return () => {
-    subscribers.delete(fn);
-    if (subscribers.size === 0 && timerId !== null) {
-      clearInterval(timerId);
-      timerId = null;
+    set.delete(fn);
+    if (!anySubscribers()) {
+      stopTimer();
       document.removeEventListener('visibilitychange', onVisibility);
     }
   };
@@ -114,39 +143,39 @@ export function HomeClockProvider({
   );
 }
 
-/** Epoch ms, WITHOUT subscribing to the tick: the server's instant until the
- *  tree has hydrated, then the clock as at this render.
+/** Epoch ms, WITHOUT subscribing: the server's instant until the tree has
+ *  hydrated, then the clock as at this render.
  *
- *  For coarse predicates that a 30s tick could not usefully change -- chiefly
- *  isRecentlyChanged's 14-day window. Costs nothing per row, and stays current
- *  anyway because the component re-renders for other reasons long before a
- *  fortnight passes. */
+ *  The default for ROWS. What they read the clock for is coarse
+ *  (isRecentlyChanged's 14 days, isFreshNew's 30) and cannot change on a tick,
+ *  and a row that subscribes drags its whole subtree into every repaint. */
 export function useHomeNowStatic(): number {
   const frozen = useContext(HomeClockContext);
   return frozen ?? Date.now();
 }
 
-/** Epoch ms to render time-relative UI against: the server's instant until the
- *  tree has hydrated, then a live clock that ticks every TICK_MS.
- *
- *  Only for genuinely minute-granular cells ("2m ago", the 90-minute "Soon"
- *  window) -- and mount those cells conditionally, so the tick reaches a handful
- *  of components rather than every row. See the SUBSCRIBE SPARINGLY note above.
- *
- *  The subscription is unconditional (it does not depend on a provider being
- *  present) so that a memoised cell on a surface WITHOUT HomeClockProvider still
- *  refreshes rather than freezing at its mount instant. */
-export function useHomeNow(): number {
+function useSubscribedNow(set: Set<(now: number) => void>): number {
   const frozen = useContext(HomeClockContext);
   // null until this component has mounted -- so the first render (server AND
   // hydration) reads the pinned instant below and stays byte-identical.
   const [live, setLive] = useState<number | null>(null);
-  // No seeding setLive(Date.now()) here: the render path below already falls back
-  // to the live clock while `live` is null, so seeding would only schedule a
-  // second render producing identical DOM -- paid once per subscriber, on the
-  // scroll path that mounts new rows. The first tick supplies the first value.
-  useEffect(() => subscribeToTick(setLive), []);
+  useEffect(() => subscribeTo(set, setLive), [set]);
   if (frozen !== null) return frozen;
   // No provider and not yet mounted: same live read as before this clock existed.
   return live ?? Date.now();
+}
+
+/** Epoch ms, refreshed every minute. For LEAF cells whose text changes that
+ *  often -- "2m ago", "3h 12m ago", the 90-minute "Soon" window. Mount them
+ *  conditionally; see the SUBSCRIBE SPARINGLY note above. */
+export function useHomeNow(): number {
+  return useSubscribedNow(subscribers);
+}
+
+/** Epoch ms, refreshed hourly. For leaf cells that DO still change, but only on
+ *  the hour -- the "3d 4h" freshness stamps past a day old. They must not be
+ *  read statically (they would freeze) nor per-minute (59 of every 60 repaints
+ *  would be identical). */
+export function useHomeNowHourly(): number {
+  return useSubscribedNow(coarseSubscribers);
 }
