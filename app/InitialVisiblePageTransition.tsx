@@ -6,10 +6,11 @@ import { RouteOwnsHeadContext } from "@/lib/seo";
 // through this wrapper, so a static import here was framer-motion's one
 // remaining road into the first-load bundle of every page -- for a fade that
 // only ever plays on the SECOND-plus client navigation (SSR + first mount
-// render the plain div below). The chunk is warmed post-hydration, so the
-// first client nav almost always has it cached; when it doesn't, the Suspense
-// fallback renders the same plain wrapper (one navigation without the fade --
-// unnoticeable, not broken).
+// render the plain div below). The chunk is warmed at the first idle moment
+// after hydration (short deadline -- see below), so the first client nav
+// usually has it cached; when it doesn't, the Suspense fallback renders the
+// same plain wrapper (one navigation without the fade -- unnoticeable, not
+// broken).
 const PageTransition = lazyWithRetry(() =>
   import("@/components/PageTransition").then((m) => ({ default: m.PageTransition })),
 );
@@ -55,10 +56,15 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
         })
         .catch(() => {});
     };
+    // Short deadlines on purpose: the point is to yield to hydration's long task,
+    // NOT to wait out the reader. A 2s timeout is longer than a typical time to
+    // first tap on a feed, so the chunk would still be unloaded when the
+    // navigation needs it and the fade would fall back -- the exact thing this
+    // warm exists to prevent.
     if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(warm, { timeout: 2000 });
+      window.requestIdleCallback(warm, { timeout: 600 });
     } else {
-      window.setTimeout(warm, 1500);
+      window.setTimeout(warm, 500);
     }
   }, []);
   // Every framework route funnels through here, and every framework route emits

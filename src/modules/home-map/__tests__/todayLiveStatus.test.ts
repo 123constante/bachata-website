@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { todayLiveStatus, type MapEvent } from '../mapTypes';
+import { todayLiveStatus, isTodayRow, isFreshnessTicking, type MapEvent } from '../mapTypes';
 
 // todayLiveStatus takes the caller's already-derived London day key as its third
 // argument so the homepage feed can pass its pinned state.today instead of
@@ -44,5 +44,51 @@ describe('todayLiveStatus pinned-today argument', () => {
   it('still returns null for a cancelled event whatever the key says', () => {
     const cancelled = { ...base, is_cancelled: true };
     expect(todayLiveStatus(cancelled, NOW_DURING, '2026-06-08')).toBeNull();
+  });
+});
+
+// isTodayRow is the SINGLE definition of the day match: todayLiveStatus gates on
+// it, and so does the JSX deciding whether to mount a LiveBadge at all. Pinned
+// together here because the failure mode is silent -- a mount gate that drifts
+// from the function suppresses a badge the function would have returned, and a
+// test covering only the function still passes.
+describe('isTodayRow', () => {
+  it('matches the row against the passed day key', () => {
+    expect(isTodayRow(base, '2026-06-08')).toBe(true);
+    expect(isTodayRow(base, '2026-06-09')).toBe(false);
+  });
+
+  it('is permissive when no key is supplied (caller has no pinned day)', () => {
+    expect(isTodayRow(base, null)).toBe(true);
+    expect(isTodayRow(base, undefined)).toBe(true);
+  });
+
+  it('agrees with todayLiveStatus, so a mount gate cannot hide a live badge', () => {
+    for (const key of ['2026-06-08', '2026-06-09']) {
+      const gateWouldMount = isTodayRow(base, key);
+      const fnWouldRender = todayLiveStatus(base, NOW_DURING, key) !== null;
+      // The gate must never be the stricter of the two.
+      expect(gateWouldMount || !fnWouldRender).toBe(true);
+    }
+  });
+});
+
+// Decides which rows may subscribe to the 30s clock. Over an hour the stamp
+// renders "3h"/"2d" and cannot change between ticks, so subscribing would
+// re-render the row into identical DOM twice a minute.
+describe('isFreshnessTicking', () => {
+  const NOW = Date.parse('2026-06-08T12:00:00Z');
+  const changed = (minsAgo: number) =>
+    ({ ...base, freshness_kind: 'added', created_at: new Date(NOW - minsAgo * 60000).toISOString() }) as MapEvent;
+
+  it('is true only inside the sub-hour band', () => {
+    expect(isFreshnessTicking(changed(0), NOW)).toBe(true);
+    expect(isFreshnessTicking(changed(59), NOW)).toBe(true);
+    expect(isFreshnessTicking(changed(60), NOW)).toBe(false);
+    expect(isFreshnessTicking(changed(60 * 26), NOW)).toBe(false);
+  });
+
+  it('is false when there is no freshness instant to render', () => {
+    expect(isFreshnessTicking({ ...base, freshness_kind: null, created_at: null } as MapEvent, NOW)).toBe(false);
   });
 });

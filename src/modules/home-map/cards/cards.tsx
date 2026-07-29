@@ -5,10 +5,15 @@
 // + the --hm-poster font var) from homeMap.css applies.
 //
 // These rows SERVER-RENDER now (the homepage feed is above the fold), so every
-// time-of-day read below goes through useHomeNow() -- the server's instant until
-// the tree has hydrated, the live clock after. Calling Date.now() directly at
-// render time here would make the first client render disagree with the (up to
-// an hour old) edge-cached HTML and cost us the server tree. See ../homeClock.
+// time-of-day read below goes through the homeClock hooks -- the server's instant
+// until the tree has hydrated, the live clock after. Calling Date.now() directly
+// at render time here would make the first client render disagree with the (up to
+// an hour old) edge-cached HTML and cost us the server tree.
+//
+// useHomeNowStatic() is the DEFAULT here; useHomeNow() subscribes to a 30s tick
+// and re-renders its component every time, which memo cannot prevent. Reserve it
+// for cells whose text genuinely changes that often, and mount those cells
+// conditionally. See ../homeClock.
 
 import { memo, useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -32,6 +37,8 @@ import {
   distanceMiles,
   todayLiveStatus,
   freshnessHeat,
+  isFreshnessTicking,
+  isTodayRow,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
@@ -185,8 +192,15 @@ const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: s
  *  text colour show how recently the event changed; the dot pulses while the
  *  change is fresh (<5 min). Must render inside a `.home-map` ancestor for the
  *  dot pulse animation (homeMap.css .hm-heatdot). */
-export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
-  const now = useHomeNow();
+function FreshnessClockBody({
+  event,
+  now,
+  className,
+}: {
+  event: MapEvent;
+  now: number;
+  className?: string;
+}) {
   const { verb, iso } = freshnessDisplay(event);
   const rel = relativeShort(iso, now);
   if (!rel) return null;
@@ -206,6 +220,33 @@ export function FreshnessClock({ event, className }: { event: MapEvent; classNam
         {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
       </span>
     </div>
+  );
+}
+
+/** The stamp for a row whose age still changes on the clock (under an hour):
+ *  subscribes, so "just now" becomes "2m" on its own. */
+function FreshnessClockLive(props: { event: MapEvent; className?: string }) {
+  return <FreshnessClockBody {...props} now={useHomeNow()} />;
+}
+
+/** The stamp for everything older, which renders "3h"/"2d" and would produce
+ *  byte-identical output on every tick. Static: no subscription, no re-render. */
+function FreshnessClockStatic(props: { event: MapEvent; className?: string }) {
+  return <FreshnessClockBody {...props} now={useHomeNowStatic()} />;
+}
+
+/** Freshness stamp. Picks the ticking or the inert variant by age, so the clock
+ *  reaches only the handful of rows whose text can actually change -- mounting
+ *  the subscribing version on every recently-changed row (a FOURTEEN-day window)
+ *  put most of the feed back on a twice-a-minute re-render for no visible
+ *  difference. The choice is made from a STATIC read, so this wrapper itself
+ *  never subscribes. */
+export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
+  const now = useHomeNowStatic();
+  return isFreshnessTicking(event, now) ? (
+    <FreshnessClockLive event={event} className={className} />
+  ) : (
+    <FreshnessClockStatic event={event} className={className} />
   );
 }
 
@@ -359,10 +400,9 @@ export const EventRow = memo(function EventRow({
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
           {/* Mounted only when this row IS today: LiveBadge subscribes to the
               clock, and a badge per row would put every row back on the tick.
-              It renders null for any other day anyway. */}
-          {(today == null || event.instance_date === today) && (
-            <LiveBadge event={event} today={today} />
-          )}
+              It renders null for any other day anyway. Gate and badge share one
+              predicate (mapTypes.isTodayRow) so they cannot drift apart. */}
+          {isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
@@ -453,9 +493,7 @@ export const TonightCard = memo(function TonightCard({
       <span className="min-w-0 flex-1 p-3">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          {!cancelled && (today == null || event.instance_date === today) && (
-            <LiveBadge event={event} today={today} />
-          )}
+          {!cancelled && isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
         </span>
         {cancelled ? (
           <span className="mt-2 inline-block">
@@ -474,7 +512,9 @@ export const TonightCard = memo(function TonightCard({
  *
  *  Memoised (perf, homepage TBT): same rationale as EventRow. */
 export const NewsRow = memo(function NewsRow({ event, selected, onSelect, onHover }: RowProps) {
-  const now = useHomeNow();
+  // Static, like EventRow: the only consumer is isFreshNew's THIRTY-day window
+  // below. FreshnessClock, rendered underneath, decides its own subscription.
+  const now = useHomeNowStatic();
   const cancelled = event.is_cancelled;
   return (
     <a

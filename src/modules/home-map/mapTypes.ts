@@ -253,6 +253,28 @@ export function isRecentlyChanged(e: MapEvent, days = 14, now = Date.now()): boo
   return !Number.isNaN(then) && now - then <= days * 86400000;
 }
 
+/** Does the freshness stamp for `e` still change minute to minute? Only sub-hour
+ *  stamps do -- relativeShort renders "3h"/"2d" above that and freshnessHeat
+ *  returns the same bucket, so the rendered output is byte-identical from one
+ *  30s tick to the next. Decides which rows may subscribe to the clock (see
+ *  homeClock's SUBSCRIBE SPARINGLY note): without this the whole feed subscribes
+ *  to re-render itself into the same DOM twice a minute. */
+export function isFreshnessTicking(e: MapEvent, now = Date.now()): boolean {
+  const { iso } = freshnessDisplay(e);
+  if (!iso) return false;
+  const then = parseInstant(iso);
+  return !Number.isNaN(then) && now - then < 3600000;
+}
+
+/** Is `e` on the caller's `today` (a London day key)? The SINGLE definition of
+ *  the day match -- todayLiveStatus gates on it, and so does the JSX that decides
+ *  whether to mount a LiveBadge at all. Kept in one place deliberately: when the
+ *  two were written separately, a mount gate could suppress a badge that
+ *  todayLiveStatus would have returned, and no test would have caught it. */
+export function isTodayRow(e: MapEvent, today: string | null | undefined): boolean {
+  return today == null || e.instance_date === today;
+}
+
 // ---- distance -------------------------------------------------------------
 
 /** Miles from user coords to an event, or null if either is missing. */
@@ -322,7 +344,7 @@ export function todayLiveStatus(
   now = new Date(),
   today = todayStr(now),
 ): LiveStatus {
-  if (e.is_cancelled || e.instance_date !== today) return null;
+  if (e.is_cancelled || !isTodayRow(e, today)) return null;
   const start = startMinutes(e);
   if (start == null) return null;
   let end = endMinutes(e);

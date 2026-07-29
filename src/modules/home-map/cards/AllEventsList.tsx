@@ -296,7 +296,6 @@ export function AllEventsList({
                 onSelect={state.fromCard}
                 onHover={state.setHovered}
                 showFreshness
-                user={state.geo.coords}
                 today={today}
                 distanceMi={mi}
               />

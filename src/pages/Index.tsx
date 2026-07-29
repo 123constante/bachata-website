@@ -152,7 +152,12 @@ const Index = ({
   // London occurrence_id (plus the old city's scroll position) on the Paris feed.
   const { setTab } = state;
   useEffect(() => {
-    setTab(pathname.endsWith('/calendar') ? 'cal' : 'all');
+    setTab(deepLinkTab);
+    // deepLinkTab is derived FROM pathname, so keying on pathname keeps the
+    // reset firing on every home navigation while leaving exactly one copy of
+    // the /calendar predicate. Two copies could drift, and a seed of 'all' with
+    // an effect that sets 'cal' is the mount-time flip that cost 0.417 CLS.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, setTab]);
 
   // Per-page meta via the centralised SEO primitive.

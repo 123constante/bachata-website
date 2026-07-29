@@ -137,10 +137,11 @@ export function useHomeNow(): number {
   // null until this component has mounted -- so the first render (server AND
   // hydration) reads the pinned instant below and stays byte-identical.
   const [live, setLive] = useState<number | null>(null);
-  useEffect(() => {
-    setLive(Date.now());
-    return subscribeToTick(setLive);
-  }, []);
+  // No seeding setLive(Date.now()) here: the render path below already falls back
+  // to the live clock while `live` is null, so seeding would only schedule a
+  // second render producing identical DOM -- paid once per subscriber, on the
+  // scroll path that mounts new rows. The first tick supplies the first value.
+  useEffect(() => subscribeToTick(setLive), []);
   if (frozen !== null) return frozen;
   // No provider and not yet mounted: same live read as before this clock existed.
   return live ?? Date.now();
