@@ -45,22 +45,47 @@ const TICK_MS = 30_000;
 // several hundred clock readers, and a timer each would be both wasteful and a
 // few hundred separate wakeups. The interval only exists while something is
 // actually subscribed.
+//
+// SUBSCRIBE SPARINGLY. A tick re-renders every subscriber, and that update
+// originates INSIDE the subscribing component -- React.memo cannot stop it. So
+// only the cells whose output actually changes minute to minute may call
+// useHomeNow(); anything reading the clock for a coarse predicate (isRecentlyChanged's
+// 14 DAYS) must use useHomeNowStatic() instead, or the whole feed re-renders
+// twice a minute and the memoisation on the rows is worthless.
 const subscribers = new Set<(now: number) => void>();
 let timerId: ReturnType<typeof setInterval> | null = null;
+
+/** Skip work while the tab is hidden (mirrors useLondonToday's discipline): a
+ *  backgrounded tab must not keep waking to re-render invisible rows. The
+ *  visibilitychange listener fires one catch-up tick on return, so coming back
+ *  to a tab shows current times immediately rather than up to TICK_MS late. */
+const isHidden = () =>
+  typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
+function notify(): void {
+  const now = Date.now();
+  for (const sub of subscribers) sub(now);
+}
+
+function onVisibility(): void {
+  if (!isHidden()) notify();
+}
 
 function subscribeToTick(fn: (now: number) => void): () => void {
   subscribers.add(fn);
   if (timerId === null) {
     timerId = setInterval(() => {
-      const now = Date.now();
-      for (const sub of subscribers) sub(now);
+      if (isHidden()) return;
+      notify();
     }, TICK_MS);
+    document.addEventListener('visibilitychange', onVisibility);
   }
   return () => {
     subscribers.delete(fn);
     if (subscribers.size === 0 && timerId !== null) {
       clearInterval(timerId);
       timerId = null;
+      document.removeEventListener('visibilitychange', onVisibility);
     }
   };
 }
@@ -85,12 +110,28 @@ export function HomeClockProvider({
   );
 }
 
+/** Epoch ms, WITHOUT subscribing to the tick: the server's instant until the
+ *  tree has hydrated, then the clock as at this render.
+ *
+ *  For coarse predicates that a 30s tick could not usefully change -- chiefly
+ *  isRecentlyChanged's 14-day window. Costs nothing per row, and stays current
+ *  anyway because the component re-renders for other reasons long before a
+ *  fortnight passes. */
+export function useHomeNowStatic(): number {
+  const frozen = useContext(HomeClockContext);
+  return frozen ?? Date.now();
+}
+
 /** Epoch ms to render time-relative UI against: the server's instant until the
  *  tree has hydrated, then a live clock that ticks every TICK_MS.
  *
- *  The tick subscription is unconditional (it does not depend on a provider
- *  being present) so that a memoised row on a surface WITHOUT HomeClockProvider
- *  still refreshes rather than freezing at its mount instant. */
+ *  Only for genuinely minute-granular cells ("2m ago", the 90-minute "Soon"
+ *  window) -- and mount those cells conditionally, so the tick reaches a handful
+ *  of components rather than every row. See the SUBSCRIBE SPARINGLY note above.
+ *
+ *  The subscription is unconditional (it does not depend on a provider being
+ *  present) so that a memoised cell on a surface WITHOUT HomeClockProvider still
+ *  refreshes rather than freezing at its mount instant. */
 export function useHomeNow(): number {
   const frozen = useContext(HomeClockContext);
   // null until this component has mounted -- so the first render (server AND

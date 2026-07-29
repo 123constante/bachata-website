@@ -66,6 +66,10 @@ export const GlobalHeader = () => {
         setScrolled(window.scrollY > 50);
       });
     };
+    // Seed from the CURRENT offset: a back-navigation restores scrollTop without
+    // firing a scroll event, so without this the header renders its unscrolled
+    // translucent style over already-scrolled content until the reader moves.
+    setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);

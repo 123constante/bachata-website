@@ -228,20 +228,22 @@ export function AllEventsList({
   // twice per comparison: this ran a pair of haversines per compare, for every
   // visible group, on every render -- including the hover-driven re-renders the
   // memos above exist to make cheap.
+  //
+  // Each row's distance is derived ONCE here and handed to the row, which would
+  // otherwise recompute the identical haversine for its own distance chip.
   const orderedGroups = useMemo(() => {
-    if (!nearest || !coords) return shownGroups;
-    return shownGroups.map((g) => ({
-      ...g,
-      items: g.items
-        .map((e) => ({ e, mi: distanceMiles(e, coords) }))
-        .sort((a, b) => {
+    return shownGroups.map((g) => {
+      const items = g.items.map((e) => ({ e, mi: coords ? distanceMiles(e, coords) : null }));
+      if (nearest && coords) {
+        items.sort((a, b) => {
           if (a.mi == null && b.mi == null) return 0;
           if (a.mi == null) return 1;
           if (b.mi == null) return -1;
           return a.mi - b.mi;
-        })
-        .map((d) => d.e),
-    }));
+        });
+      }
+      return { ...g, items };
+    });
   }, [shownGroups, nearest, coords]);
 
   if (groups.length === 0 && remote.length === 0) {
@@ -286,7 +288,7 @@ export function AllEventsList({
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
           <div className="space-y-1">
-            {g.items.map((e) => (
+            {g.items.map(({ e, mi }) => (
               <EventRow
                 key={e.occurrence_id}
                 event={e}
@@ -296,6 +298,7 @@ export function AllEventsList({
                 showFreshness
                 user={state.geo.coords}
                 today={today}
+                distanceMi={mi}
               />
             ))}
           </div>

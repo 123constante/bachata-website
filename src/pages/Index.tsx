@@ -144,13 +144,16 @@ const Index = ({
   const deepLinkTab: MapTab = pathname.endsWith('/calendar') ? 'cal' : 'all';
   const state = useMapList(allMapEvents, { citySlug, today: todayKey, initialTab: deepLinkTab });
 
-  // Keeps the tab honest across CLIENT navigations between /city/:slug and
-  // /city/:slug/calendar (the seed above only covers the first render). A no-op
-  // on mount, since the seed already matches.
+  // Keyed on PATHNAME, not on the derived tab: setTab also clears the picked day,
+  // the current selection and the feed scroll, and those must reset on any home
+  // navigation -- including a city switch (/city/london-gb -> /city/paris-fr),
+  // which keeps this component mounted and leaves deepLinkTab unchanged at 'all'.
+  // Depending on deepLinkTab would make this effect mount-only and strand a
+  // London occurrence_id (plus the old city's scroll position) on the Paris feed.
   const { setTab } = state;
   useEffect(() => {
-    setTab(deepLinkTab);
-  }, [deepLinkTab, setTab]);
+    setTab(pathname.endsWith('/calendar') ? 'cal' : 'all');
+  }, [pathname, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
   useSeo(

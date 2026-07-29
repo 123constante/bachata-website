@@ -26,8 +26,11 @@ const PageTransition = lazyWithRetry(() =>
 // wrapper's element type (div ↔ motion.div) and tear down / remount the subtree.
 let clientNavigated = false;
 
-// Whether the PageTransition chunk warm has already been scheduled this session.
-// Module-scoped so it survives the route unmounts that this component sees.
+// Whether the PageTransition chunk warm has SUCCEEDED this session. Module-scoped
+// so it survives the route unmounts that this component sees. Latched on the
+// resolved import, never on merely attempting one: setting it up-front meant a
+// single failed warm (offline, captive portal, an unhealable chunk 404) disabled
+// warming for the rest of the session, so every later navigation fell back.
 let warmed = false;
 
 export function InitialVisiblePageTransition({ children }: { children: ReactNode }) {
@@ -45,9 +48,12 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // the idle callback runs. Nothing here touches state, so a callback landing
     // after unmount is inert.
     if (warmed) return;
-    warmed = true;
     const warm = () => {
-      void safeDynamicImport(() => import("@/components/PageTransition")).catch(() => {});
+      void safeDynamicImport(() => import("@/components/PageTransition"))
+        .then(() => {
+          warmed = true;
+        })
+        .catch(() => {});
     };
     if ("requestIdleCallback" in window) {
       window.requestIdleCallback(warm, { timeout: 2000 });

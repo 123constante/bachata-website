@@ -34,7 +34,7 @@ import {
   freshnessHeat,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
-import { useHomeNow } from '../homeClock';
+import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
 
 type Coords = { lat: number; lng: number } | null;
@@ -322,12 +322,25 @@ export const EventRow = memo(function EventRow({
   showFreshness,
   user,
   today,
+  distanceMi,
   className,
-}: RowProps & { showFreshness?: boolean; user?: Coords; today?: string }) {
-  const now = useHomeNow();
+}: RowProps & {
+  showFreshness?: boolean;
+  user?: Coords;
+  today?: string;
+  /** Precomputed distance, when the caller already had to derive one (the feed
+   *  sorts by it). Saves recomputing the same haversine per row; falls back to
+   *  deriving from `user` for callers that do not sort. */
+  distanceMi?: number | null;
+}) {
+  // Static, NOT subscribing: the only thing this feeds is isRecentlyChanged's
+  // 14-day window below, which a 30s tick cannot usefully change. Subscribing
+  // here would re-render every row in the feed twice a minute and make this
+  // component's own React.memo pointless (see homeClock's SUBSCRIBE SPARINGLY).
+  const now = useHomeNowStatic();
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
-  const mi = user ? distanceMiles(event, user) : null;
+  const mi = distanceMi !== undefined ? distanceMi : user ? distanceMiles(event, user) : null;
   return (
     <a
       href={eventHref(event, event.occurrence_id)}
@@ -344,7 +357,12 @@ export const EventRow = memo(function EventRow({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          <LiveBadge event={event} today={today} />
+          {/* Mounted only when this row IS today: LiveBadge subscribes to the
+              clock, and a badge per row would put every row back on the tick.
+              It renders null for any other day anyway. */}
+          {(today == null || event.instance_date === today) && (
+            <LiveBadge event={event} today={today} />
+          )}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
@@ -435,7 +453,9 @@ export const TonightCard = memo(function TonightCard({
       <span className="min-w-0 flex-1 p-3">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          {!cancelled && <LiveBadge event={event} today={today} />}
+          {!cancelled && (today == null || event.instance_date === today) && (
+            <LiveBadge event={event} today={today} />
+          )}
         </span>
         {cancelled ? (
           <span className="mt-2 inline-block">

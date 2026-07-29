@@ -308,12 +308,15 @@ export type LiveStatus = 'on-now' | 'soon' | null;
 /** Real-time status for a TODAY row: 'on-now' while inside the window, 'soon'
  *  when it starts within 90 min, else null. Cancelled / non-today rows return
  *  null. A crossing-midnight end is wrapped so a 9pm-2am party still reads
- *  'on-now' at 11pm. */
-/** `today` is the caller's already-derived London day key. Pass it wherever one
+ *  'on-now' at 11pm.
+ *
+ *  `today` is the caller's already-derived London day key. Pass it wherever one
  *  is in hand (the feed pins one in state.today): deriving it here instead runs
- *  an Intl.format() per row per render, which on the homepage feed is several
- *  hundred identical formats of the same instant. Defaults to deriving from
- *  `now` so existing callers are unaffected. */
+ *  an Intl.format() per row per render. Defaults to deriving from `now`.
+ *  Caveat: when passed, `today` and `now` are two independent clocks and can
+ *  disagree for up to a minute either side of London midnight -- so a row can
+ *  briefly miss its badge at the rollover. Deliberate: the alternative is an
+ *  Intl.format() per row per render, and the cell is decorative. */
 export function todayLiveStatus(
   e: MapEvent,
   now = new Date(),
