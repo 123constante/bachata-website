@@ -35,23 +35,27 @@ import {
  *  working unchanged on the client-only surfaces that also render them. */
 const HomeClockContext = createContext<number | null>(null);
 
-/** How often the live clock notifies its readers. The cells that consume it are
- *  minute-granular at their finest ("2m ago", the 90-minute "Soon" window), so
- *  30s keeps every one of them at most half a minute stale while costing one
- *  timer for the whole tree. */
-const TICK_MS = 30_000;
+/** How often the live clock notifies its readers. Everything it feeds is
+ *  minute-granular at its finest ("2m ago", "3h 12m ago", the 90-minute "Soon"
+ *  window), so a minute is the useful resolution -- anything faster just repaints
+ *  identical text. One timer for the whole tree. */
+const TICK_MS = 60_000;
 
 // ONE interval for the whole tree, not one per row: the homepage feed can mount
 // several hundred clock readers, and a timer each would be both wasteful and a
 // few hundred separate wakeups. The interval only exists while something is
 // actually subscribed.
 //
-// SUBSCRIBE SPARINGLY. A tick re-renders every subscriber, and that update
-// originates INSIDE the subscribing component -- React.memo cannot stop it. So
-// only the cells whose output actually changes minute to minute may call
-// useHomeNow(); anything reading the clock for a coarse predicate (isRecentlyChanged's
-// 14 DAYS) must use useHomeNowStatic() instead, or the whole feed re-renders
-// twice a minute and the memoisation on the rows is worthless.
+// SUBSCRIBE SPARINGLY, AND ONLY IN LEAVES. A tick re-renders every subscriber,
+// and that update originates INSIDE the subscribing component -- React.memo
+// cannot stop it. A subscribing LEAF repaints just itself; a subscribing ROW
+// repaints its whole subtree, which on this feed is hundreds of rows twice a
+// minute and makes the rows' memoisation worthless.
+//
+// So: rows read useHomeNowStatic() -- what they use the clock for is coarse
+// (isRecentlyChanged's 14 DAYS, isFreshNew's 30) and cannot change on a tick.
+// The small time-of-day cells (the freshness stamp, the on-now badge) call
+// useHomeNow() and are mounted conditionally by their row.
 const subscribers = new Set<(now: number) => void>();
 let timerId: ReturnType<typeof setInterval> | null = null;
 

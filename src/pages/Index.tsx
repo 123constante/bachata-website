@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
@@ -150,15 +150,20 @@ const Index = ({
   // which keeps this component mounted and leaves deepLinkTab unchanged at 'all'.
   // Depending on deepLinkTab would make this effect mount-only and strand a
   // London occurrence_id (plus the old city's scroll position) on the Paris feed.
+  // Fires only on an ACTUAL pathname change, never on mount: useMapList already
+  // seeded the right tab (initialTab), so a mount-time call would set the same
+  // value and then run setTab's side effects anyway -- one of which scrolls the
+  // feed to the top, undoing the scroll position a back-navigation just restored.
+  // What this IS for is leaving /calendar and switching city
+  // (/city/london-gb -> /city/paris-fr), where the component stays mounted and a
+  // stale selection/day/scroll from the previous city must not survive.
   const { setTab } = state;
+  const prevPathname = useRef(pathname);
   useEffect(() => {
+    if (prevPathname.current === pathname) return;
+    prevPathname.current = pathname;
     setTab(deepLinkTab);
-    // deepLinkTab is derived FROM pathname, so keying on pathname keeps the
-    // reset firing on every home navigation while leaving exactly one copy of
-    // the /calendar predicate. Two copies could drift, and a seed of 'all' with
-    // an effect that sets 'cal' is the mount-time flip that cost 0.417 CLS.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, setTab]);
+  }, [pathname, deepLinkTab, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
   useSeo(

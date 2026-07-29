@@ -33,6 +33,10 @@ let clientNavigated = false;
 // single failed warm (offline, captive portal, an unhealable chunk 404) disabled
 // warming for the rest of the session, so every later navigation fell back.
 let warmed = false;
+// Set SYNCHRONOUSLY when a warm is scheduled, so routes mounted while the first
+// import is still in flight do not each queue another one. Cleared on failure so
+// a genuine retry still happens on the next route mount.
+let warming = false;
 
 export function InitialVisiblePageTransition({ children }: { children: ReactNode }) {
   const [animate] = useState(() => clientNavigated);
@@ -48,13 +52,16 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // guarantee the Suspense fallback on every reader who taps through before
     // the idle callback runs. Nothing here touches state, so a callback landing
     // after unmount is inert.
-    if (warmed) return;
+    if (warmed || warming) return;
+    warming = true;
     const warm = () => {
       void safeDynamicImport(() => import("@/components/PageTransition"))
         .then(() => {
           warmed = true;
         })
-        .catch(() => {});
+        .catch(() => {
+          warming = false;
+        });
     };
     // Short deadlines on purpose: the point is to yield to hydration's long task,
     // NOT to wait out the reader. A 2s timeout is longer than a typical time to

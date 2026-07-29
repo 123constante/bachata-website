@@ -10,10 +10,11 @@
 // at render time here would make the first client render disagree with the (up to
 // an hour old) edge-cached HTML and cost us the server tree.
 //
-// useHomeNowStatic() is the DEFAULT here; useHomeNow() subscribes to a 30s tick
+// useHomeNowStatic() is the DEFAULT for ROWS; useHomeNow() subscribes to the tick
 // and re-renders its component every time, which memo cannot prevent. Reserve it
-// for cells whose text genuinely changes that often, and mount those cells
-// conditionally. See ../homeClock.
+// for LEAF cells whose text genuinely changes that often -- a subscribing leaf
+// repaints itself; a subscribing row repaints everything under it. See
+// ../homeClock.
 
 import { memo, useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -37,7 +38,6 @@ import {
   distanceMiles,
   todayLiveStatus,
   freshnessHeat,
-  isFreshnessTicking,
   isTodayRow,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
@@ -192,15 +192,16 @@ const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: s
  *  text colour show how recently the event changed; the dot pulses while the
  *  change is fresh (<5 min). Must render inside a `.home-map` ancestor for the
  *  dot pulse animation (homeMap.css .hm-heatdot). */
-function FreshnessClockBody({
-  event,
-  now,
-  className,
-}: {
-  event: MapEvent;
-  now: number;
-  className?: string;
-}) {
+export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
+  // Subscribes, always. An earlier revision split this into ticking and inert
+  // variants on a one-hour cutoff, justified by "older stamps render 3h/2d and
+  // cannot change between ticks". That was simply wrong: relativeShort renders
+  // "Xh Ym" for the whole 1-24h band, so those stamps change every minute, and
+  // freezing them was a visible regression. The subscription is affordable
+  // because it is THIS leaf that re-renders, not the row -- EventRow/NewsRow
+  // read the static clock and stay memoised, so a tick repaints a handful of
+  // small stamps and no full rows.
+  const now = useHomeNow();
   const { verb, iso } = freshnessDisplay(event);
   const rel = relativeShort(iso, now);
   if (!rel) return null;
@@ -220,33 +221,6 @@ function FreshnessClockBody({
         {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
       </span>
     </div>
-  );
-}
-
-/** The stamp for a row whose age still changes on the clock (under an hour):
- *  subscribes, so "just now" becomes "2m" on its own. */
-function FreshnessClockLive(props: { event: MapEvent; className?: string }) {
-  return <FreshnessClockBody {...props} now={useHomeNow()} />;
-}
-
-/** The stamp for everything older, which renders "3h"/"2d" and would produce
- *  byte-identical output on every tick. Static: no subscription, no re-render. */
-function FreshnessClockStatic(props: { event: MapEvent; className?: string }) {
-  return <FreshnessClockBody {...props} now={useHomeNowStatic()} />;
-}
-
-/** Freshness stamp. Picks the ticking or the inert variant by age, so the clock
- *  reaches only the handful of rows whose text can actually change -- mounting
- *  the subscribing version on every recently-changed row (a FOURTEEN-day window)
- *  put most of the feed back on a twice-a-minute re-render for no visible
- *  difference. The choice is made from a STATIC read, so this wrapper itself
- *  never subscribes. */
-export function FreshnessClock({ event, className }: { event: MapEvent; className?: string }) {
-  const now = useHomeNowStatic();
-  return isFreshnessTicking(event, now) ? (
-    <FreshnessClockLive event={event} className={className} />
-  ) : (
-    <FreshnessClockStatic event={event} className={className} />
   );
 }
 

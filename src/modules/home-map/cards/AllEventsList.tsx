@@ -229,11 +229,25 @@ export function AllEventsList({
   // visible group, on every render -- including the hover-driven re-renders the
   // memos above exist to make cheap.
   //
-  // Each row's distance is derived ONCE here and handed to the row, which would
-  // otherwise recompute the identical haversine for its own distance chip.
+  // Distance is derived once per EVENT, keyed on the full local set rather than
+  // on the visible window: windowGroups returns a fresh slice on every expansion,
+  // so computing inside that memo re-ran the haversine for every already-visible
+  // row each time the scroll sentinel grew the feed -- quadratic over a full
+  // scroll, on the exact path the windowing exists to keep cheap.
+  const distances = useMemo(() => {
+    const m = new Map<string, number | null>();
+    if (!coords) return m;
+    for (const e of local) m.set(e.occurrence_id, distanceMiles(e, coords));
+    return m;
+  }, [local, coords]);
+
+  // The rows each group renders, nearest-first when asked. Only re-sorts when the
+  // window, the toggle or the location changes; the distances themselves are
+  // already computed above and are handed to the row, which would otherwise
+  // recompute the identical haversine for its own distance chip.
   const orderedGroups = useMemo(() => {
     return shownGroups.map((g) => {
-      const items = g.items.map((e) => ({ e, mi: coords ? distanceMiles(e, coords) : null }));
+      const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
       if (nearest && coords) {
         items.sort((a, b) => {
           if (a.mi == null && b.mi == null) return 0;
@@ -244,7 +258,7 @@ export function AllEventsList({
       }
       return { ...g, items };
     });
-  }, [shownGroups, nearest, coords]);
+  }, [shownGroups, nearest, coords, distances]);
 
   if (groups.length === 0 && remote.length === 0) {
     return (
