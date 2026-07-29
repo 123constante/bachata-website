@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { focusRing } from './controls';
 import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
+import { isRemoteRow } from '../mapTypes';
 import { isDesktopViewport } from '../viewport';
 import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
@@ -186,7 +187,7 @@ export function CalendarPanel({ state }: { state: UseMapListResult }) {
             <EmptyState>Nothing listed for this day yet.</EmptyState>
           ) : (
             state.listEvents.map((e) =>
-              e.occurrence_id.startsWith('remote-') ? (
+              isRemoteRow(e) ? (
                 <RemoteFestivalRow key={e.occurrence_id} event={e} />
               ) : (
                 <EventRow

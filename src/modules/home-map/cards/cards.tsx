@@ -21,7 +21,6 @@ import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { optimizedImageUrl } from '@/lib/imageCdn';
-import { eventHref } from '@/lib/seo/eventHref';
 import type { MapEvent, MapCategory } from '../mapTypes';
 import {
   deriveCategory,
@@ -39,6 +38,7 @@ import {
   todayLiveStatus,
   freshnessHeat,
   isTodayRow,
+  rowHref,
 } from '../mapTypes';
 import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
@@ -374,7 +374,7 @@ export const EventRow = memo(function EventRow({
   const mi = distanceMi ?? null;
   return (
     <a
-      href={eventHref(event, event.occurrence_id)}
+      href={rowHref(event)}
       data-occ={event.occurrence_id}
       onClick={(e) => {
         e.preventDefault();
@@ -464,7 +464,7 @@ export const TonightCard = memo(function TonightCard({
   const cancelled = event.is_cancelled;
   return (
     <a
-      href={eventHref(event, event.occurrence_id)}
+      href={rowHref(event)}
       data-occ={event.occurrence_id}
       onClick={(e) => {
         e.preventDefault();
@@ -508,7 +508,7 @@ export const NewsRow = memo(function NewsRow({ event, selected, onSelect, onHove
   const cancelled = event.is_cancelled;
   return (
     <a
-      href={eventHref(event, event.occurrence_id)}
+      href={rowHref(event)}
       data-occ={event.occurrence_id}
       onClick={(e) => {
         e.preventDefault();

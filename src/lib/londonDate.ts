@@ -221,6 +221,38 @@ export const londonWallClockToInstant = (iso: string | null | undefined): Date |
 };
 
 /**
+ * The INVERSE of londonWallClockToInstant: a true instant -> the naive
+ * "local-as-UTC" stamp this codebase stores and displays as-is
+ * ('YYYY-MM-DD HH:mm:ss+00' whose digits are London wall clock).
+ *
+ * Needed at the boundary where a genuine instant enters a pipeline that
+ * assumes the naive convention. get_public_festivals_list_v1.starts_at is such
+ * a value: it resolves the series' local start THROUGH the series timezone, so
+ * a London festival starting 11:00 arrives as '...T10:00:00+00' all BST season
+ * (live-verified: London Latin Fest 11:00 -> 10:00+00, BachaZouk 12:00 ->
+ * 11:00+00). Reading HH:MM straight off that string -- which is what every
+ * display and sort helper here does -- renders it an hour early.
+ *
+ * CAVEAT: this lands the reader's London clock, which is exactly the intended
+ * local time for a Europe/London series (the majority) but NOT for a foreign
+ * one -- a Madrid festival's own 11:00 becomes its London equivalent. Showing
+ * true event-local time for foreign series needs the series timezone in the
+ * RPC payload, which it does not currently carry; that is an admin-repo change.
+ */
+export const instantToLondonWallClockStamp = (
+  iso: string | null | undefined,
+): string | null => {
+  const instant = parseUtcIso(iso);
+  if (!instant) return null;
+  // Same trick as londonWallClockNowIso: re-stamp the London wall clock as if
+  // it were UTC, which IS the stored convention.
+  return `${new Date(wallClockMsInTz(instant, LONDON_TZ))
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', ' ')}+00`;
+};
+
+/**
  * London calendar dates (YYYY-MM-DD) of the coming Fri/Sat/Sun. If today is
  * Sat/Sun this returns next week's Fri/Sat/Sun, mirroring the directory's
  * existing weekend logic.

@@ -9,7 +9,11 @@ import { HomeClockProvider } from '@/modules/home-map/homeClock';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { MapEvent, MapTab } from '@/modules/home-map/mapTypes';
-import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
+import {
+  addDaysToKey,
+  londonDayRangeUtc,
+  instantToLondonWallClockStamp,
+} from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
@@ -115,7 +119,16 @@ const Index = ({
         lat: null,
         lng: null,
         instance_date: f.date,
-        start_time: f.start_time,
+        // starts_at is a TRUE UTC instant (get_public_festivals_list_v1
+        // resolves the series' local start through the series timezone), but
+        // every consumer downstream -- formatTime, startMinutes, the day
+        // grouping -- reads HH:MM straight off the string per the naive
+        // local-as-UTC convention. Handing it over unconverted printed and
+        // sorted every DST-period festival an hour early (live-verified: a
+        // 12:00 London festival arrived as 11:00+00). Normalise at THIS
+        // boundary so the row is indistinguishable from an occurrence row
+        // and no downstream helper needs a special case.
+        start_time: instantToLondonWallClockStamp(f.start_time),
         end_time: null,
         type: 'festival',
         has_party: false,

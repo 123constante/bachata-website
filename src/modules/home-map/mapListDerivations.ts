@@ -12,6 +12,7 @@ import {
   isFreshNew,
   freshnessDisplay,
   isFestivalFormat,
+  isRemoteRow,
   parseInstant,
   todayStr,
 } from './mapTypes';
@@ -38,7 +39,9 @@ const hasCoords = (e: MapEvent) => e.lat != null && e.lng != null;
  * design (get_calendar_events_v2 lets any festival bypass the city filter), so a
  * London-tab festival physically in another city carries real foreign coords --
  * pinning it drags fitBounds abroad (audit: Tunisia festival -> France centre).
- * Keeping such rows OFF the map (still listable, "further afield") is the fix.
+ * Keeping such rows OFF the map (still listable) is the fix. LOAD-BEARING: this
+ * is the only thing holding fitBounds to the city, and it is independent of
+ * where a row sits in the list -- do not remove it alongside list-layout work.
  */
 export const isOnCityMap = (e: MapEvent, citySlug: string | null | undefined) =>
   e.city_slug == null || citySlug == null || e.city_slug === citySlug;
@@ -197,7 +200,18 @@ export const FEED_DAYS_CHUNK = 7;
 /** Take the first `visibleDays` day-groups. Windowing is by whole day-group, not
  *  by row, so a date header always renders with its complete set of rows beneath
  *  it. `hasMore` is true when groups were withheld (drives the load-more sentinel).
- *  Pure so the window logic is unit-testable without React or a DOM. */
+ *  Pure so the window logic is unit-testable without React or a DOM.
+ *
+ *  Deliberately has NO "pin these rows past the window" escape hatch. One was
+ *  tried, to keep the remote festivals reachable while interleaved, and it was
+ *  wrong twice over: the load-more sentinel renders after the visible groups, so
+ *  each expansion spliced 7 new day-groups ABOVE the pinned block and yanked the
+ *  reader backwards in time (the scroller preserves scrollTop), and pinning by
+ *  `items.some(pin)` dragged a whole far-future group's LOCAL rows past the
+ *  window -- the exact hydration cost INITIAL_FEED_DAYS exists to avoid. Remote
+ *  rows are partitioned out of this list entirely instead (partitionRemote) and
+ *  rendered in their own section below the sentinel, where growing the window
+ *  cannot move them. */
 export function windowGroups(
   groups: DateGroup[],
   visibleDays: number,
@@ -205,6 +219,34 @@ export function windowGroups(
   const n = Math.max(0, visibleDays);
   if (n >= groups.length) return { visible: groups, hasMore: false };
   return { visible: groups.slice(0, n), hasMore: true };
+}
+
+/**
+ * Split the flat list into local rows and remote festival rows (isRemoteRow --
+ * festivals merged in from the sitewide feed because the city-scoped 90-day
+ * query did not return them).
+ *
+ * They are separated because the two belong in different places on the page,
+ * for reasons that are structural rather than cosmetic:
+ *   - The local stream is WINDOWED (INITIAL_FEED_DAYS) and grows as the reader
+ *     scrolls. Remote rows are dated ~90+ day-groups out, so interleaving them
+ *     either buries them behind ~13 expansions or, if exempted from the window,
+ *     makes every expansion insert groups above them and scroll the reader
+ *     backwards. Below the sentinel, window growth cannot move them at all.
+ *   - Chronologically merged, they render as a silent multi-month date gap
+ *     ("nothing is on between 13 July and 2 November"). A labelled, counted
+ *     section explains the jump and the travel implication instead.
+ *   - The default stream sits under a "What's on in {city}" h1, which a
+ *     far-future festival abroad does not answer.
+ */
+export function partitionRemote(events: MapEvent[]): { local: MapEvent[]; remote: MapEvent[] } {
+  const local: MapEvent[] = [];
+  const remote: MapEvent[] = [];
+  for (const e of events) {
+    if (isRemoteRow(e)) remote.push(e);
+    else local.push(e);
+  }
+  return { local, remote };
 }
 
 /** Per-day distinct dot categories (drives the calendar dots). A class+party
@@ -559,22 +601,3 @@ export function groupPinsByLocation(pins: MapEvent[]): LocationGroup[] {
   return groups;
 }
 
-/**
- * Split the flat list into local rows and remote (other-city) festival rows.
- * Remote rows carry a 'remote-' occurrence_id sentinel (Index merges the global
- * upcoming-festivals query). Keeping them out of the default chronological
- * London stream stops a far-future festival abroad sitting under the
- * "What's on in London" h1; surfaces render them in a separate "Festivals
- * further afield" section instead. Sentinel-based, NOT date/coord based, so a
- * far-future LONDON festival stays local and a coordless local row is not
- * mistaken for "abroad".
- */
-export function partitionRemote(events: MapEvent[]): { local: MapEvent[]; remote: MapEvent[] } {
-  const local: MapEvent[] = [];
-  const remote: MapEvent[] = [];
-  for (const e of events) {
-    if (e.occurrence_id.startsWith('remote-')) remote.push(e);
-    else local.push(e);
-  }
-  return { local, remote };
-}

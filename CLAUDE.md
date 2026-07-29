@@ -31,7 +31,7 @@ src/
     programDayRollover.ts  Day-rollover logic (must mirror admin lib)
   hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
   contexts/            CityContext
-scripts/               CI contract check scripts (48 checks in db-contract-check.yml)
+scripts/               CI contract check scripts (65 checks in db-contract-check.yml)
 tests/                 Vitest unit tests + Playwright e2e specs
 bin/                   Integrity and session-lock tools
 .github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
@@ -60,7 +60,14 @@ when the flag is false (see `lib/featureFlags.ts`).
   `20260709080000` revoked anon EXECUTE on the legacy fn. `starts_at`/`ends_at`
   echo `event_occurrence_p5.materialised_start_utc`, a naive London wall clock
   stamped `+00` -- display as-stored, never Intl-convert)
-- `EventPageScreen.tsx` — top-level render
+- `BentoPage.tsx` — the ACTUAL top-level render for `/event/:id`, via
+  `EventPage.tsx:90`. Owns the `mx-auto w-full max-w-[430px] px-2` wrapper that
+  the `--bento-cell` fallback in `src/index.css` is derived from; that coupling
+  is guarded by `tests/bentoCellContract.test.ts`.
+- `EventPageScreen.tsx` — UNUSED, zero importers. Do NOT derive layout from it.
+  Its wider `max-w-2xl px-3 sm:px-4` shell does not render the bento, and
+  trusting this entry cost a shipped regression (a tablet got a 155.5px bento
+  cell against a true 99px).
 - `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
 - `sections/` — page sections
 
@@ -182,7 +189,7 @@ applied via `supabase db push` from there (CLI-only).
 - Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
 **What this repo owns:**
-- Contract-check scripts (`scripts/check-*.mjs`) — 48 checks in db-contract-check.yml
+- Contract-check scripts (`scripts/check-*.mjs`) — 65 checks in db-contract-check.yml
 - `supabase/config.toml` project_id pin
 
 CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
@@ -223,19 +230,52 @@ Three corruption modes for writes >~2 KB: null-byte injection, silent
 truncation, mount eventual-consistency (fresh read sees stale content).
 
 **A `PreToolUse` hook refuses raw `Edit`/`Write` calls on source files when
-the target or content exceeds 2 KB.** It prints the exact `safe-write.py`
-invocation to use:
+the target or content exceeds 2 KB.** It prints the exact invocation to use.
+There are TWO write paths and the hook prints the right one for the case:
+
+**SURGICAL (`safe-edit.py`) &mdash; the default for a file that already
+exists.** Transports only the changed hunk, so a 15 KB component costs a
+20-line patch rather than two 15 KB round-trips:
+
+```bash
+PATCH=$(mktemp /tmp/hunk-XXXXXX.txt)
+cat > "$PATCH" <<'HUNK'
+@@SAFE-EDIT-OLD@@
+...the exact existing text, unique in the file...
+@@SAFE-EDIT-NEW@@
+...its replacement...
+@@SAFE-EDIT-END@@
+HUNK
+PYTHONUTF8=1 python3 scripts/safe-edit.py src/components/foo/Bar.tsx < "$PATCH"
+```
+
+Marker lines and the closing `HUNK` must sit at column 0. Every success prints
+a result sha256: chain the next edit on the same file with
+`--expect-base-sha <that sha>` so a concurrent clobber fails loudly instead of
+silently reverting your earlier edit. Exit 4 = zero or duplicate match,
+6 = base-sha mismatch; both mean fall back to full-body.
+
+Two gotchas, both learned the hard way: a hunk whose own payload contains
+these marker lines (i.e. editing THIS section) collides with the parser &mdash;
+use full-body for it. And a payload containing a bare `HUNK` line at column 0
+closes the outer heredoc early and leaks the rest into your shell.
+
+**FULL-BODY (`safe-write.py`) &mdash; new files, whole-file rewrites, and any
+`safe-edit.py` refusal:**
 
 ```bash
 WRITER=$(mktemp /tmp/edit-XXXXXX.tsx)
 cat > "$WRITER" << 'EOF'
 ...full file contents...
 EOF
-cat "$WRITER" | python3 scripts/safe-write.py src/components/foo/Bar.tsx
+cat "$WRITER" | PYTHONUTF8=1 python3 scripts/safe-write.py src/components/foo/Bar.tsx
 ```
 
 `safe-write.py` v2 stages to `/tmp`, verifies sha256 via subprocess after
-`sync`, retries on mismatch, restores backup on failure.
+`sync`, retries on mismatch, restores backup on failure. It is the ONE write
+path &mdash; `safe-edit.py` writes through it, so both paths get the same
+mount defences; the surgical path is a transport optimisation, never a
+replacement.
 
 **Other guardrails:**
 - `PostToolUse` hook — parse-checks files >2 KB after any Edit/Write
@@ -252,7 +292,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 48 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 65 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `e2e-nightly.yml` | daily | Full Playwright suite |
@@ -300,6 +340,12 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 - Per-occurrence override identity sync (#44)
 - Reverse-orphan occurrence guard (#45)
 - Venue publish-state visibility gate / venue_is_public consistency (#46)
+- Live image references (#47) &mdash; HEAD-checks every image URL reachable from a
+  public surface via `list_public_image_refs_v1` (admin `20260729120956`). Added
+  after a cover override pointed at an R2 object that was never uploaded and an
+  event page served a 404 image for ~14 hours. Unlike the other checks it makes
+  outbound CDN requests. Scoped to live/slugged/published records on purpose: a
+  dead image on an archived row breaks no page and must not red-light CI.
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
@@ -385,6 +431,23 @@ after event start belong to the prior day. This logic must mirror
 fixture parity between repos.
 
 ---
+
+## Operating model (pointer — doctrine lives in the project memory dir)
+
+Classify every request and say the class: TRIVIAL / BUILD-visual /
+BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC — pipelines in
+`feedback_operating_model.md` (project memory; read it before classifying).
+Non-trivial work runs the 7-step workflow. Every code-bearing working diff gets
+`/code-review` BEFORE commit — Ricky types it when told; findings become edits,
+never follow-up commits. SQL/guards → xhigh; keystone/arc-close/DB-contract
+PRs → ultra. Arc plans carry the mandatory per-PR model/effort table
+(`feedback_model_effort_matrix.md`); phase starts write `.claude/arc-state.json`
+and emit a `/model` + effort checkpoint statement. Ship gate: `npm run pre-ship`
++ the pre-push receipt gate (`scripts/ship-gate.mjs`). Decisions reach Ricky as
+clickable questions at genuine forks only. Session economy (same memory file):
+delegate bulk reads to subagents, read only what you edit, edit existing files
+with `scripts/safe-edit.py`, and SAY when to start a fresh session — Ricky is
+never left to guess.
 
 ## Recent changes
 

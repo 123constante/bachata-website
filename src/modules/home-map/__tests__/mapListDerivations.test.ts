@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type { MapEvent } from '../mapTypes';
-import { matchesFilter, deriveCategory, isFestivalFormat } from '../mapTypes';
+import {
+  matchesFilter,
+  deriveCategory,
+  isFestivalFormat,
+  isRemoteRow,
+  startMinutes,
+  formatTime,
+} from '../mapTypes';
+import { instantToLondonWallClockStamp } from '@/lib/londonDate';
 import {
   dedupePins,
   tonightEvents,
@@ -15,6 +23,7 @@ import {
   homeStats,
   collapseFestivals,
   windowGroups,
+  partitionRemote,
   INITIAL_FEED_DAYS,
   FEED_DAYS_CHUNK,
   festivalRangeLabel,
@@ -550,5 +559,141 @@ describe('windowGroups (windowed SSR)', () => {
   it('expansion chunk is a whole number of days', () => {
     expect(Number.isInteger(FEED_DAYS_CHUNK)).toBe(true);
     expect(FEED_DAYS_CHUNK).toBeGreaterThan(0);
+  });
+
+  // partitionRemote keeps remote rows OUT of this list entirely, so windowGroups
+  // has no remote-awareness to test -- that separation is what fixes both the
+  // scroll-jump and the dragged-local-rows defects. See partitionRemote's doc.
+  it('takes no pin/exempt argument -- remote rows are partitioned out instead', () => {
+    expect(windowGroups.length).toBe(2);
+  });
+});
+
+describe('partitionRemote', () => {
+  const mixed = () => [
+    ev({ occurrence_id: 'o1', instance_date: '2026-06-01' }),
+    ev({ occurrence_id: 'remote-f', instance_date: '2026-11-02' }),
+    ev({ occurrence_id: 'o2', instance_date: '2026-06-02' }),
+  ];
+
+  it('splits on the sentinel, preserving order within each side', () => {
+    const { local, remote } = partitionRemote(mixed());
+    expect(local.map((e) => e.occurrence_id)).toEqual(['o1', 'o2']);
+    expect(remote.map((e) => e.occurrence_id)).toEqual(['remote-f']);
+  });
+
+  it('loses no rows', () => {
+    const all = mixed();
+    const { local, remote } = partitionRemote(all);
+    expect(local.length + remote.length).toBe(all.length);
+  });
+
+  it('returns empty sides rather than undefined when one side is absent', () => {
+    expect(partitionRemote([]).local).toEqual([]);
+    expect(partitionRemote([]).remote).toEqual([]);
+  });
+
+  // The point of partitioning: a remote row must never enter the windowed
+  // stream, so window growth cannot displace it and it cannot drag a
+  // far-future group's local rows past the window.
+  it('keeps remote rows out of the windowed local groups entirely', () => {
+    const { local, remote } = partitionRemote([
+      ...Array.from({ length: 20 }, (_, i) =>
+        ev({ occurrence_id: `o${i}`, instance_date: `2026-06-${String(i + 1).padStart(2, '0')}` }),
+      ),
+      ev({ occurrence_id: 'remote-f', instance_date: '2026-11-02' }),
+    ]);
+    const { visible } = windowGroups(groupByDate(local), 7);
+    expect(visible.flatMap((g) => g.items.map((e) => e.occurrence_id))).not.toContain('remote-f');
+    expect(remote).toHaveLength(1);
+  });
+});
+
+describe('isRemoteRow', () => {
+  it('matches the remote- sentinel the global-festivals merge stamps', () => {
+    expect(isRemoteRow(ev({ occurrence_id: 'remote-abc' }))).toBe(true);
+    expect(isRemoteRow(ev({ occurrence_id: 'o1' }))).toBe(false);
+  });
+
+  // The three misclassifications the sentinel exists to avoid. Each of these
+  // rows is LOCAL; a date-, coord- or city-based test would wrongly call it
+  // remote and route it to /festival/:id or exempt it from the feed window.
+  it('does not mistake a far-future LONDON festival for a remote row', () => {
+    expect(isRemoteRow(ev({ occurrence_id: 'o1', instance_date: '2027-12-31' }))).toBe(false);
+  });
+
+  it('does not mistake a coordless local row for a remote row', () => {
+    expect(isRemoteRow(ev({ occurrence_id: 'o1', lat: null, lng: null }))).toBe(false);
+  });
+
+  it('does not mistake a null-city_slug local row for a remote row', () => {
+    expect(isRemoteRow(ev({ occurrence_id: 'o1', city_slug: null }))).toBe(false);
+  });
+});
+
+describe('startMinutes / time parsing', () => {
+  it('parses the space-separated wall-clock form the occurrence RPCs emit', () => {
+    expect(startMinutes(ev({ start_time: '2026-06-10 20:00:00+00' }))).toBe(20 * 60);
+  });
+
+  it('parses a bare HH:MM split token', () => {
+    expect(startMinutes(ev({ start_time: null, class_start: '18:30' }))).toBe(18 * 60 + 30);
+  });
+
+  it('returns null for a string with no time', () => {
+    expect(startMinutes(ev({ start_time: '2026-08-14' }))).toBeNull();
+  });
+
+  // T-form support is DEFENSIVE parity with formatTime, not an endorsement of
+  // feeding instants in. Both helpers must agree on whatever they are handed,
+  // so a row can never print one time and sort by another -- that mismatch
+  // silently sank rows to the end of their day-group.
+  it('agrees with formatTime on a T-separated string', () => {
+    const t = '2026-08-14T19:00:00+00:00';
+    expect(startMinutes(ev({ start_time: t }))).toBe(19 * 60);
+    expect(formatTime(t)).toBe('7:00pm');
+  });
+
+  it('orders by the same value it displays, for both separators', () => {
+    const early = ev({ occurrence_id: 'a', start_time: '2026-08-14T19:00:00+00:00' });
+    const late = ev({ occurrence_id: 'b', start_time: '2026-08-14 23:30:00+00' });
+    const [first, second] = groupByDate(
+      [late, early].map((e) => ({ ...e, instance_date: '2026-08-14' })),
+    )[0].items;
+    expect(first.occurrence_id).toBe('a');
+    expect(second.occurrence_id).toBe('b');
+  });
+});
+
+// The real fix for the festivals feed: an instant must be converted to the
+// naive local-as-UTC convention BEFORE it reaches the parsers above. Locking
+// this down here because the failure is invisible in winter -- it only appears
+// once BST is in force, i.e. it would have shipped green and broken in March.
+describe('instantToLondonWallClockStamp (festivals-feed boundary)', () => {
+  it('recovers the intended local start for a BST-period instant', () => {
+    // Live-verified shape: BachaZouk UK, intended 12:00, arrives as 11:00+00.
+    const stamped = instantToLondonWallClockStamp('2026-06-12T11:00:00+00:00');
+    expect(stamped).toBe('2026-06-12 12:00:00+00');
+    expect(formatTime(stamped)).toBe('12:00pm');
+    expect(startMinutes(ev({ start_time: stamped }))).toBe(12 * 60);
+  });
+
+  it('is a no-op in GMT, where the instant already equals the wall clock', () => {
+    // Live-verified: Any Body Can Dance, February, intended 10:00 -> 10:00+00.
+    expect(instantToLondonWallClockStamp('2027-02-11T10:00:00+00:00')).toBe(
+      '2027-02-11 10:00:00+00',
+    );
+  });
+
+  it('crosses the date boundary correctly for a late-evening BST instant', () => {
+    // 23:30 UTC in July is 00:30 the NEXT London day.
+    expect(instantToLondonWallClockStamp('2026-07-10T23:30:00+00:00')).toBe(
+      '2026-07-11 00:30:00+00',
+    );
+  });
+
+  it('returns null for null/unparseable input rather than throwing', () => {
+    expect(instantToLondonWallClockStamp(null)).toBeNull();
+    expect(instantToLondonWallClockStamp('not a date')).toBeNull();
   });
 });
