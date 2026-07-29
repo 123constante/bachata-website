@@ -123,6 +123,7 @@ function TonightBody({ state }: { state: UseMapListResult }) {
             selected={state.selected === e.occurrence_id}
             onSelect={state.fromCard}
             onHover={state.setHovered}
+            today={state.today}
           />
         ))
       )}

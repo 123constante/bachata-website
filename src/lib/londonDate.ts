@@ -71,24 +71,8 @@ export const dateKeyInTz = (d: Date, timeZone: string): string => {
   }
 };
 
-// 1-entry memo (perf, homepage TBT): pre-hydration every feed row shares the
-// same serverNowMs instant, so the naive version ran Intl.format() once per
-// row (~380 calls on the homepage feed) for an identical result every time.
-// A single last-call cache collapses that run to one format() call; it still
-// recomputes correctly the instant `d` actually changes (clock tick, a row
-// with a different instant).
-let lastDateKeyMs: number | null = null;
-let lastDateKey: string | null = null;
-
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */
-export const londonDateKey = (d: Date): string => {
-  const ms = d.getTime();
-  if (lastDateKey !== null && ms === lastDateKeyMs) return lastDateKey;
-  const key = londonKeyFormatter.format(d);
-  lastDateKeyMs = ms;
-  lastDateKey = key;
-  return key;
-};
+export const londonDateKey = (d: Date): string => londonKeyFormatter.format(d);
 
 const KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 

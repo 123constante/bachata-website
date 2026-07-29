@@ -26,6 +26,10 @@ const PageTransition = lazyWithRetry(() =>
 // wrapper's element type (div ↔ motion.div) and tear down / remount the subtree.
 let clientNavigated = false;
 
+// Whether the PageTransition chunk warm has already been scheduled this session.
+// Module-scoped so it survives the route unmounts that this component sees.
+let warmed = false;
+
 export function InitialVisiblePageTransition({ children }: { children: ReactNode }) {
   const [animate] = useState(() => clientNavigated);
   useEffect(() => {
@@ -33,18 +37,23 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // Warm the transition chunk once the main thread is idle rather than right
     // after hydration (perf, homepage TBT): this fires on every route, and a
     // straight-after-mount import competed with hydration's own long task.
-    // requestIdleCallback yields to anything more urgent; the setTimeout
-    // fallback (Safari has no rIC) and the 4000ms timeout both still land
-    // comfortably before a reader's first navigation.
+    //
+    // Deliberately NOT cancelled on unmount, and guarded to fire once per
+    // session: the unmount that would cancel it IS the first client navigation
+    // -- the exact moment the warmed chunk is needed. Cancelling there would
+    // guarantee the Suspense fallback on every reader who taps through before
+    // the idle callback runs. Nothing here touches state, so a callback landing
+    // after unmount is inert.
+    if (warmed) return;
+    warmed = true;
     const warm = () => {
       void safeDynamicImport(() => import("@/components/PageTransition")).catch(() => {});
     };
     if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(warm, { timeout: 4000 });
-      return () => window.cancelIdleCallback(id);
+      window.requestIdleCallback(warm, { timeout: 2000 });
+    } else {
+      window.setTimeout(warm, 1500);
     }
-    const id = window.setTimeout(warm, 3000);
-    return () => window.clearTimeout(id);
   }, []);
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head

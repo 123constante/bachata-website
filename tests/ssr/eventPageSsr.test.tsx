@@ -136,7 +136,12 @@ async function renderRouteDeep(location: string, opts?: { client?: QueryClient }
   return html;
 }
 
-describe('SSR safety: /event/:id render path (node, renderToString)', () => {
+// Timeout raised off the 5s default: these cases renderToString the whole event
+// shell (providers + router + GlobalLayout), which is the slowest thing in the
+// unit suite and was already running at ~85% of the default budget -- so it went
+// red purely from parallel load whenever another test file was added. The work
+// is genuinely slow, not hung; a hang still fails, just 15s later.
+describe('SSR safety: /event/:id render path (node, renderToString)', { timeout: 15_000 }, () => {
   it('imports the real supabase client module in node without throwing', async () => {
     await expect(import('@/integrations/supabase/client')).resolves.toHaveProperty('supabase');
   });

@@ -51,18 +51,26 @@ export const GlobalHeader = () => {
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
 
   useEffect(() => {
-    // Passive (perf, homepage TBT): this fires on every scroll frame across
-    // every page, and without { passive: true } the browser must wait for the
-    // handler before it can start compositing the scroll. Flip-only setState
-    // (only calls setScrolled when the 50px threshold is actually crossed)
-    // stops React re-rendering the header on every pixel of scroll -- setState
-    // with an unchanged value still schedules a render otherwise.
+    // rAF-coalesced (perf): the cost here is `window.scrollY`, a synchronous
+    // layout read, and this listener is mounted on every page. Reading it once
+    // per animation frame instead of once per scroll EVENT collapses a burst of
+    // events (trackpads and iOS momentum fire many per frame) into a single
+    // read, and moves that read to a point in the frame where layout is already
+    // clean. React's own Object.is bailout handles the repeated same-boolean
+    // setScrolled calls, so no manual flip check is needed.
+    let frame = 0;
     const handleScroll = () => {
-      const next = window.scrollY > 50;
-      setScrolled((prev) => (prev === next ? prev : next));
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setScrolled(window.scrollY > 50);
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {

@@ -83,11 +83,15 @@ function GroupHeader({
  *  local list bottoms out cleanly. */
 function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
   const [open, setOpen] = useState(false);
+  // Deferred AND memoised: nothing is grouped while the disclosure is shut, and
+  // once it is opened the result is cached rather than rebuilt on every parent
+  // re-render (this section sits inside the feed, so it re-renders whenever a
+  // sibling row is hovered). The hook has to precede the early return below.
+  const groups = useMemo(
+    () => (open ? groupByDate(collapseFestivals(remote)) : []),
+    [open, remote],
+  );
   if (remote.length === 0) return null;
-  // Grouping is only needed once the disclosure is opened -- skip the
-  // collapseFestivals/groupByDate work on every render while it's collapsed
-  // (not a hook, so this is safe below the early return above).
-  const groups = open ? groupByDate(collapseFestivals(remote)) : [];
   return (
     <section className="pt-1">
       <button
@@ -186,9 +190,15 @@ export function AllEventsList({
   // set by a keystroke, long after hydration.
   const searching = state.q.trim().length > 0;
   const [visibleDays, setVisibleDays] = useState(INITIAL_FEED_DAYS);
-  const { visible: shownGroups, hasMore } = searching
-    ? { visible: groups, hasMore: false }
-    : windowGroups(groups, visibleDays);
+  // Memoised so the sort below has a stable input to key on: windowGroups
+  // slices, i.e. returns a fresh array every call.
+  const { visible: shownGroups, hasMore } = useMemo(
+    () =>
+      searching
+        ? { visible: groups, hasMore: false }
+        : windowGroups(groups, visibleDays),
+    [searching, groups, visibleDays],
+  );
 
   // Grow the window when the reader reaches the end of it. An IntersectionObserver
   // rooted on the FEED scroller (state.listRef) -- not the viewport: the feed is an
@@ -213,17 +223,26 @@ export function AllEventsList({
   }, [searching, hasMore, visibleDays, state.listRef]);
   // When located, optionally re-order each day's rows nearest-first -- kept
   // WITHIN the day so the date timeline is preserved (not a global distance sort).
-  const orderItems = (items: typeof local) =>
-    nearest && coords
-      ? [...items].sort((a, b) => {
-          const da = distanceMiles(a, coords);
-          const db = distanceMiles(b, coords);
-          if (da == null && db == null) return 0;
-          if (da == null) return 1;
-          if (db == null) return -1;
-          return da - db;
+  //
+  // Memoised, and each row's distance is computed ONCE up front rather than
+  // twice per comparison: this ran a pair of haversines per compare, for every
+  // visible group, on every render -- including the hover-driven re-renders the
+  // memos above exist to make cheap.
+  const orderedGroups = useMemo(() => {
+    if (!nearest || !coords) return shownGroups;
+    return shownGroups.map((g) => ({
+      ...g,
+      items: g.items
+        .map((e) => ({ e, mi: distanceMiles(e, coords) }))
+        .sort((a, b) => {
+          if (a.mi == null && b.mi == null) return 0;
+          if (a.mi == null) return 1;
+          if (b.mi == null) return -1;
+          return a.mi - b.mi;
         })
-      : items;
+        .map((d) => d.e),
+    }));
+  }, [shownGroups, nearest, coords]);
 
   if (groups.length === 0 && remote.length === 0) {
     return (
@@ -263,11 +282,11 @@ export function AllEventsList({
           </div>
         </div>
       )}
-      {shownGroups.map((g) => (
+      {orderedGroups.map((g) => (
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
           <div className="space-y-1">
-            {orderItems(g.items).map((e) => (
+            {g.items.map((e) => (
               <EventRow
                 key={e.occurrence_id}
                 event={e}
@@ -276,6 +295,7 @@ export function AllEventsList({
                 onHover={state.setHovered}
                 showFreshness
                 user={state.geo.coords}
+                today={today}
               />
             ))}
           </div>

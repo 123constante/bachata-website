@@ -309,8 +309,17 @@ export type LiveStatus = 'on-now' | 'soon' | null;
  *  when it starts within 90 min, else null. Cancelled / non-today rows return
  *  null. A crossing-midnight end is wrapped so a 9pm-2am party still reads
  *  'on-now' at 11pm. */
-export function todayLiveStatus(e: MapEvent, now = new Date()): LiveStatus {
-  if (e.is_cancelled || e.instance_date !== todayStr(now)) return null;
+/** `today` is the caller's already-derived London day key. Pass it wherever one
+ *  is in hand (the feed pins one in state.today): deriving it here instead runs
+ *  an Intl.format() per row per render, which on the homepage feed is several
+ *  hundred identical formats of the same instant. Defaults to deriving from
+ *  `now` so existing callers are unaffected. */
+export function todayLiveStatus(
+  e: MapEvent,
+  now = new Date(),
+  today = todayStr(now),
+): LiveStatus {
+  if (e.is_cancelled || e.instance_date !== today) return null;
   const start = startMinutes(e);
   if (start == null) return null;
   let end = endMinutes(e);

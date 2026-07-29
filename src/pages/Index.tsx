@@ -8,7 +8,7 @@ import { useMapList } from '@/modules/home-map/useMapList';
 import { HomeClockProvider } from '@/modules/home-map/homeClock';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
-import type { MapEvent } from '@/modules/home-map/mapTypes';
+import type { MapEvent, MapTab } from '@/modules/home-map/mapTypes';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
@@ -136,15 +136,21 @@ const Index = ({
   // The LIVE todayKey, not the server seed: useMapList no longer runs a clock of its
   // own, so the feed's grouping and the query window above are the same day by
   // construction, even across a midnight rollover.
-  const state = useMapList(allMapEvents, { citySlug, today: todayKey });
+  // Derived at RENDER time, not in an effect: see UseMapListOptions.initialTab.
+  // Hydration-safe both ways -- /city/:slug is the server-rendered framework
+  // route and never ends in /calendar (so server and client both seed 'all'),
+  // while /city/:slug/calendar is served by the catchall, which renders nothing
+  // on the server, so there is no server tree to disagree with.
+  const deepLinkTab: MapTab = pathname.endsWith('/calendar') ? 'cal' : 'all';
+  const state = useMapList(allMapEvents, { citySlug, today: todayKey, initialTab: deepLinkTab });
 
-  // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
+  // Keeps the tab honest across CLIENT navigations between /city/:slug and
+  // /city/:slug/calendar (the seed above only covers the first render). A no-op
+  // on mount, since the seed already matches.
   const { setTab } = state;
   useEffect(() => {
-    // /city/:slug/calendar deep-links to Calendar; any other home path resets
-    // to the default (All Events) so leaving /calendar doesn't strand the rail.
-    setTab(pathname.endsWith('/calendar') ? 'cal' : 'all');
-  }, [pathname, setTab]);
+    setTab(deepLinkTab);
+  }, [deepLinkTab, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
   useSeo(

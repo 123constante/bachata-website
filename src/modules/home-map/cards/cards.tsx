@@ -281,8 +281,8 @@ const rowState = (selected: boolean) =>
 
 /** Real-time "On now" / "Soon" badge for a today row. Renders nothing for past,
  *  future-day, or cancelled events, so the bulk of the list stays quiet. */
-function LiveBadge({ event }: { event: MapEvent }) {
-  const status = todayLiveStatus(event, new Date(useHomeNow()));
+function LiveBadge({ event, today }: { event: MapEvent; today?: string }) {
+  const status = todayLiveStatus(event, new Date(useHomeNow()), today);
   if (!status) return null;
   return status === 'on-now' ? (
     <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
@@ -321,8 +321,9 @@ export const EventRow = memo(function EventRow({
   onHover,
   showFreshness,
   user,
+  today,
   className,
-}: RowProps & { showFreshness?: boolean; user?: Coords }) {
+}: RowProps & { showFreshness?: boolean; user?: Coords; today?: string }) {
   const now = useHomeNow();
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
@@ -343,7 +344,7 @@ export const EventRow = memo(function EventRow({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          <LiveBadge event={event} />
+          <LiveBadge event={event} today={today} />
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <TimePills event={event} />
@@ -410,7 +411,8 @@ export const TonightCard = memo(function TonightCard({
   selected,
   onSelect,
   onHover,
-}: RowProps & { user: Coords }) {
+  today,
+}: RowProps & { user: Coords; today?: string }) {
   const cancelled = event.is_cancelled;
   return (
     <a
@@ -433,7 +435,7 @@ export const TonightCard = memo(function TonightCard({
       <span className="min-w-0 flex-1 p-3">
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
-          {!cancelled && <LiveBadge event={event} />}
+          {!cancelled && <LiveBadge event={event} today={today} />}
         </span>
         {cancelled ? (
           <span className="mt-2 inline-block">
