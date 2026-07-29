@@ -687,6 +687,19 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-p5-materialised-canonical.mjs
 
+      # Check #47 -- live image references. HEAD-checks every image URL reachable
+      # from a public surface (list_public_image_refs_v1, admin migration
+      # 20260729120956). Added after a per-occurrence cover override pointed at an
+      # R2 object that was never uploaded and /event/bachata-night served a 404
+      # image for ~14 hours, caught only because Prod Smoke happened to open that
+      # one page. Makes outbound requests to the CDN, unlike the DB-only checks.
+      - name: Run live image-reference check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-image-refs-live.mjs
+
       # 44. Per-occurrence override identity sync (P5 typed columns -> legacy
       #     override_payload), 2026-06-22. calendar_occurrences.override_payload is
       #     the legacy shape the public event-detail read consumes; its identity keys

@@ -3,7 +3,8 @@
 //
 // Both call public (anon-callable) RPCs that the admin repo owns:
 //   - list_open_raffles_v1()          -> one row per event with an OPEN raffle
-//   - get_raffle_community_stats_v1() -> { entries_this_month, winners_this_month }
+//   - get_raffle_community_stats_v1() -> { entries_this_month, winners_this_month,
+//                                          total_winners }
 //
 // These RPCs are not in the generated Database types yet (they ship from the
 // admin repo separately), so they're called through a loosely-typed cast.
@@ -31,6 +32,9 @@ export interface OpenRaffle {
 export interface RaffleCommunityStats {
   entries_this_month: number;
   winners_this_month: number;
+  /** All-time, site-wide winner count -- same source as get_event_raffle's
+   *  total_winners, so the number matches the one shown on event pages. */
+  total_winners: number;
 }
 
 // Generated Database types don't know about these RPCs yet — cast through
@@ -76,6 +80,7 @@ async function fetchRaffleStats(): Promise<RaffleCommunityStats> {
   return {
     entries_this_month: Number(obj.entries_this_month ?? 0),
     winners_this_month: Number(obj.winners_this_month ?? 0),
+    total_winners: Number(obj.total_winners ?? 0),
   };
 }
 

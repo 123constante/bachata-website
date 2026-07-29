@@ -8,7 +8,10 @@ name: Prod Smoke
 # analytics pollution.
 #
 # Triggers:
-#   deployment_status - validate immediately after a successful Vercel deploy
+#   deployment_status - validate immediately after a successful PRODUCTION Vercel
+#                       deploy. Preview deploys are excluded: this job smokes the
+#                       live prod URL, so running it for a PR's preview produced a
+#                       red check that had nothing to do with the PR.
 #   schedule          - synthetic-uptime safety net (catches drift with no deploy,
 #                       and covers the case where Vercel's deployment_status
 #                       integration is not wired to GitHub)
@@ -25,10 +28,15 @@ permissions:
 
 jobs:
   smoke:
-    # Ignore pending/error/preview deployment_status noise - only a successful deploy.
+    # Ignore pending/error deployment_status noise, and PREVIEW deploys entirely.
+    # A successful *preview* deploy also reports state == 'success', so state alone
+    # let every PR trigger a run that then smoked LIVE PRODUCTION - a red check on
+    # the PR reporting prod health rather than the PR's. Vercel sets environment to
+    # exactly 'Preview' or 'Production' on the deployment_status object.
     if: >-
       github.event_name != 'deployment_status' ||
-      github.event.deployment_status.state == 'success'
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

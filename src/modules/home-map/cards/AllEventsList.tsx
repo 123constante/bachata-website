@@ -6,7 +6,7 @@
 // and has a real floor instead of trailing into next-year events on another
 // continent.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Globe, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
@@ -83,8 +83,15 @@ function GroupHeader({
  *  local list bottoms out cleanly. */
 function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
   const [open, setOpen] = useState(false);
+  // Deferred AND memoised: nothing is grouped while the disclosure is shut, and
+  // once it is opened the result is cached rather than rebuilt on every parent
+  // re-render (this section sits inside the feed, so it re-renders whenever a
+  // sibling row is hovered). The hook has to precede the early return below.
+  const groups = useMemo(
+    () => (open ? groupByDate(collapseFestivals(remote)) : []),
+    [open, remote],
+  );
   if (remote.length === 0) return null;
-  const groups = groupByDate(collapseFestivals(remote));
   return (
     <section className="pt-1">
       <button
@@ -167,8 +174,13 @@ export function AllEventsList({
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
   const tomorrow = addDaysToKey(today, 1);
-  const { local, remote } = partitionRemote(state.listEvents);
-  const groups = groupByDate(collapseFestivals(local));
+  // Memoised: partitionRemote -> collapseFestivals -> groupByDate is real work
+  // over the whole feed (up to ~380 rows), and this component re-renders on
+  // every hover/selection change. state.listEvents is already identity-stable
+  // (only changes when the query result changes), so keying on it here skips
+  // the chain on every hover-driven render.
+  const { local, remote } = useMemo(() => partitionRemote(state.listEvents), [state.listEvents]);
+  const groups = useMemo(() => groupByDate(collapseFestivals(local)), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
   // client's FIRST render must agree exactly or React #421 blanks the page, so the
@@ -178,9 +190,15 @@ export function AllEventsList({
   // set by a keystroke, long after hydration.
   const searching = state.q.trim().length > 0;
   const [visibleDays, setVisibleDays] = useState(INITIAL_FEED_DAYS);
-  const { visible: shownGroups, hasMore } = searching
-    ? { visible: groups, hasMore: false }
-    : windowGroups(groups, visibleDays);
+  // Memoised so the sort below has a stable input to key on: windowGroups
+  // slices, i.e. returns a fresh array every call.
+  const { visible: shownGroups, hasMore } = useMemo(
+    () =>
+      searching
+        ? { visible: groups, hasMore: false }
+        : windowGroups(groups, visibleDays),
+    [searching, groups, visibleDays],
+  );
 
   // Grow the window when the reader reaches the end of it. An IntersectionObserver
   // rooted on the FEED scroller (state.listRef) -- not the viewport: the feed is an
@@ -205,17 +223,54 @@ export function AllEventsList({
   }, [searching, hasMore, visibleDays, state.listRef]);
   // When located, optionally re-order each day's rows nearest-first -- kept
   // WITHIN the day so the date timeline is preserved (not a global distance sort).
-  const orderItems = (items: typeof local) =>
-    nearest && coords
-      ? [...items].sort((a, b) => {
-          const da = distanceMiles(a, coords);
-          const db = distanceMiles(b, coords);
-          if (da == null && db == null) return 0;
-          if (da == null) return 1;
-          if (db == null) return -1;
-          return da - db;
-        })
-      : items;
+  //
+  // Memoised, and each row's distance is computed ONCE up front rather than
+  // twice per comparison: this ran a pair of haversines per compare, for every
+  // visible group, on every render -- including the hover-driven re-renders the
+  // memos above exist to make cheap.
+  //
+  // Distances for the rows actually on screen. Keyed on the VISIBLE window, not
+  // on the whole local set: only the first INITIAL_FEED_DAYS of day-groups
+  // render up front (~25-30 rows of ~380), so haversining everything meant ~92%
+  // of the work was for rows nobody had scrolled to yet -- on the first render
+  // after coords resolve, which is exactly the path this module tries to keep
+  // cheap.
+  const distances = useMemo(() => {
+    const m = new Map<string, number | null>();
+    if (!coords) return m;
+    for (const g of shownGroups) {
+      for (const e of g.items) m.set(e.occurrence_id, distanceMiles(e, coords));
+    }
+    return m;
+  }, [shownGroups, coords]);
+
+  // The rows each group renders, nearest-first when asked, each carrying the
+  // distance its chip needs so EventRow does not recompute the same haversine.
+  //
+  // Deliberately NOT cached across renders. A per-group-key cache lived here
+  // briefly and was wrong twice over: it validated only on the group's items
+  // identity, so flipping Nearest/Time -- which changes neither the groups nor
+  // their rows -- hit the cache and returned the previous order, making the sort
+  // control silently inert; and it wrote to a ref during the render phase, which
+  // React can populate from an abandoned concurrent render. It was optimising
+  // scroll-expansion work whose cost never showed above the measurement noise on
+  // this feed, so the correct trade is to not have it.
+  const orderedGroups = useMemo(
+    () =>
+      shownGroups.map((g) => {
+        const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
+        if (nearest && coords) {
+          items.sort((a, b) => {
+            if (a.mi == null && b.mi == null) return 0;
+            if (a.mi == null) return 1;
+            if (b.mi == null) return -1;
+            return a.mi - b.mi;
+          });
+        }
+        return { ...g, items };
+      }),
+    [shownGroups, nearest, coords, distances],
+  );
 
   if (groups.length === 0 && remote.length === 0) {
     return (
@@ -255,11 +310,11 @@ export function AllEventsList({
           </div>
         </div>
       )}
-      {shownGroups.map((g) => (
+      {orderedGroups.map((g) => (
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
           <div className="space-y-1">
-            {orderItems(g.items).map((e) => (
+            {g.items.map(({ e, mi }) => (
               <EventRow
                 key={e.occurrence_id}
                 event={e}
@@ -267,7 +322,8 @@ export function AllEventsList({
                 onSelect={state.fromCard}
                 onHover={state.setHovered}
                 showFreshness
-                user={state.geo.coords}
+                today={today}
+                distanceMi={mi}
               />
             ))}
           </div>

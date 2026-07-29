@@ -253,6 +253,21 @@ export function isRecentlyChanged(e: MapEvent, days = 14, now = Date.now()): boo
   return !Number.isNaN(then) && now - then <= days * 86400000;
 }
 
+/** Is `e` on the caller's `today` (a London day key)? The SINGLE definition of
+ *  the day match -- todayLiveStatus gates on it, and so does the JSX that decides
+ *  whether to mount a LiveBadge at all. Kept in one place deliberately: when the
+ *  two were written separately, a mount gate could suppress a badge that
+ *  todayLiveStatus would have returned, and no test would have caught it.
+ *
+ *  `today` is deliberately NOT nullable. An earlier signature accepted
+ *  null/undefined and returned true for it, which fails OPEN twice over: an
+ *  event dated next year reported 'on-now' at its start time on any date, and a
+ *  call site that forgot the prop silently re-subscribed every feed row to the
+ *  clock. Callers with no pinned day should let todayLiveStatus derive one. */
+export function isTodayRow(e: MapEvent, today: string): boolean {
+  return e.instance_date === today;
+}
+
 // ---- distance -------------------------------------------------------------
 
 /** Miles from user coords to an event, or null if either is missing. */
@@ -308,9 +323,21 @@ export type LiveStatus = 'on-now' | 'soon' | null;
 /** Real-time status for a TODAY row: 'on-now' while inside the window, 'soon'
  *  when it starts within 90 min, else null. Cancelled / non-today rows return
  *  null. A crossing-midnight end is wrapped so a 9pm-2am party still reads
- *  'on-now' at 11pm. */
-export function todayLiveStatus(e: MapEvent, now = new Date()): LiveStatus {
-  if (e.is_cancelled || e.instance_date !== todayStr(now)) return null;
+ *  'on-now' at 11pm.
+ *
+ *  `today` is the caller's already-derived London day key. Pass it wherever one
+ *  is in hand (the feed pins one in state.today): deriving it here instead runs
+ *  an Intl.format() per row per render. Defaults to deriving from `now`.
+ *  Caveat: when passed, `today` and `now` are two independent clocks and can
+ *  disagree for up to a minute either side of London midnight -- so a row can
+ *  briefly miss its badge at the rollover. Deliberate: the alternative is an
+ *  Intl.format() per row per render, and the cell is decorative. */
+export function todayLiveStatus(
+  e: MapEvent,
+  now = new Date(),
+  today = todayStr(now),
+): LiveStatus {
+  if (e.is_cancelled || !isTodayRow(e, today)) return null;
   const start = startMinutes(e);
   if (start == null) return null;
   let end = endMinutes(e);

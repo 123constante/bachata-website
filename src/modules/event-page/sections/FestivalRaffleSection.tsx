@@ -130,7 +130,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
   const prizeFull = prizeText || 'a free pass';
   const closeClock = formatCloseClock(config.cutoff_time, config.cutoff_at);
   const drawDate = formatDrawDate(config.draw_date ?? config.cutoff_at);
-  const entryCount = config.entry_count ?? 0;
+  const totalWinners = config.total_winners ?? 0;
 
   const isWinnerState = !!winner;
   const isClosed = closed && !isWinnerState;
@@ -212,9 +212,9 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
               {!isWinnerState && (
                 <div className="rb-meta">
                   <div className="meta-cell">
-                    <p className="k">Entered</p>
-                    <div className="v gold">{entryCount}</div>
-                    <p className="sub">{entryCount === 0 ? 'Be the first' : entered ? "You're in" : 'in the draw'}</p>
+                    <p className="k">Prizes won</p>
+                    <div className="v gold">{totalWinners}</div>
+                    <p className="sub">{totalWinners === 0 ? 'Be the first' : 'All time'}</p>
                   </div>
                   <div className="meta-cell">
                     <p className="k">Closes</p>

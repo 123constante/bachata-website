@@ -40,6 +40,11 @@ export interface RaffleConfig {
   enabled: boolean;
   config_source?: 'preset' | 'custom' | 'none';
   entry_count: number;
+  /** Site-wide, event-independent: total winners across every raffle ever
+   *  run on the platform. Same value regardless of which event this config
+   *  was fetched for -- an all-time "join the crowd" figure for the public
+   *  card, not a per-event stat. */
+  total_winners: number;
   prize_text: string | null;
   draw_date: string | null;
   /** ISO timestamp (timezone-aware) when entries close. Source of truth for

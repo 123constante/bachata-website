@@ -51,9 +51,30 @@ export const GlobalHeader = () => {
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    // rAF-coalesced (perf): the cost here is `window.scrollY`, a synchronous
+    // layout read, and this listener is mounted on every page. Reading it once
+    // per animation frame instead of once per scroll EVENT collapses a burst of
+    // events (trackpads and iOS momentum fire many per frame) into a single
+    // read, and moves that read to a point in the frame where layout is already
+    // clean. React's own Object.is bailout handles the repeated same-boolean
+    // setScrolled calls, so no manual flip check is needed.
+    let frame = 0;
+    const handleScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setScrolled(window.scrollY > 50);
+      });
+    };
+    // Seed from the CURRENT offset: a back-navigation restores scrollTop without
+    // firing a scroll event, so without this the header renders its unscrolled
+    // translucent style over already-scrolled content until the reader moves.
+    setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {

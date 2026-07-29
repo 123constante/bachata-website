@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 // All bento block ids. `cover` is now a grid block (2-col top-left) rather
 // than a full-width hero. `city` is mutually exclusive with `promo` — one of
@@ -212,24 +212,34 @@ export const BentoGrid = ({
   hiddenBlocks,
   renderBlock,
 }: BentoGridProps) => {
-  const ref = useRef<HTMLDivElement>(null);
-  // Cell size drives the per-row minimum height. Columns are 1fr, and rows
-  // are `minmax(cell, auto)` so content taller than a cell is allowed to
-  // expand the row — which is what lets schedule/description be dynamic.
-  const [cell, setCell] = useState(90);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const update = () => {
-      const w = node.clientWidth;
-      setCell((w - GAP_PX * (GRID_COLS - 1)) / GRID_COLS);
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, []);
+  // Cell size drives the per-row minimum height: a cell is one column wide, and
+  // columns are 1fr, so the cell height must track the container's INLINE size.
+  //
+  // Expressed in CSS (container query units), not measured in JS. It used to be
+  // useState(90) corrected by a clientWidth read in an effect, which meant the
+  // server -- and the first client paint -- laid the whole grid out at a 90px
+  // cell and then reflowed it to the real one (95px at a 412px viewport). Every
+  // fixed block grew, pushing ~55px of cumulative movement down the page: a
+  // measured CLS of 0.217 on /event/:id, versus 0.041 when the correction
+  // happened to land before paint. Deriving it from the container removes the
+  // correction entirely -- the server HTML is already right at any width, and
+  // resizes are handled by the browser rather than a ResizeObserver.
+  // --bento-cell is defined in index.css: a viewport-derived fallback,
+  // overridden with a cqw-derived value inside @supports (container-type:
+  // inline-size). Inline styles cannot express @supports, and without a
+  // fallback an engine that rejects cqw drops min-height entirely -- which
+  // collapses the cover block to zero height (see LAYOUT).
+  //
+  // GRID_COLS/GAP_PX are mirrored in that rule, and so is THIS COMPONENT'S
+  // CONTAINER: the fallback tier cannot read the container, so it re-derives
+  // the width from BentoPage.tsx:412 (`mx-auto w-full max-w-[430px] px-2`,
+  // which renders us at :433) as (min(100vw, 430px) - 34px) / 4, constant at
+  // 99px from 430px up. If that wrapper's max-width or padding ever changes,
+  // the index.css fallback must change with it -- deriving it from the wider
+  // page shell in EventPageScreen instead hands a tablet a 155.5px cell
+  // against a true 99px. The 95px this used to hard-code was measured on this
+  // same container and was correct; its only fault was never moving.
+  const cell = 'var(--bento-cell)';
 
   const packed = useMemo(
     () => packLayout(specs, hiddenBlocks ?? new Set()),
@@ -238,8 +248,9 @@ export const BentoGrid = ({
 
   return (
     <div
-      ref={ref}
       style={{
+        // Establishes the container the cqw above resolves against.
+        containerType: 'inline-size',
         display: 'grid',
         gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
         // Rows auto-size purely from content. Per-block minimums are applied
@@ -256,7 +267,7 @@ export const BentoGrid = ({
         // get no minimum — the grid row collapses to their content.
         const minHeight = blk.dynamic
           ? undefined
-          : blk.h * cell + (blk.h - 1) * GAP_PX;
+          : `calc(${blk.h} * ${cell} + ${(blk.h - 1) * GAP_PX}px)`;
         return (
           <div
             key={blk.id}

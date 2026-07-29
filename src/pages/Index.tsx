@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useCity } from '@/contexts/CityContext';
@@ -8,7 +8,7 @@ import { useMapList } from '@/modules/home-map/useMapList';
 import { HomeClockProvider } from '@/modules/home-map/homeClock';
 import { useUpcomingFestivalsGlobal } from '@/hooks/useUpcomingFestivalsGlobal';
 import type { FestivalPreview } from '@/hooks/useUpcomingFestivalsGlobal';
-import type { MapEvent } from '@/modules/home-map/mapTypes';
+import type { MapEvent, MapTab } from '@/modules/home-map/mapTypes';
 import { addDaysToKey, londonDayRangeUtc } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
@@ -136,15 +136,34 @@ const Index = ({
   // The LIVE todayKey, not the server seed: useMapList no longer runs a clock of its
   // own, so the feed's grouping and the query window above are the same day by
   // construction, even across a midnight rollover.
-  const state = useMapList(allMapEvents, { citySlug, today: todayKey });
+  // Derived at RENDER time, not in an effect: see UseMapListOptions.initialTab.
+  // Hydration-safe both ways -- /city/:slug is the server-rendered framework
+  // route and never ends in /calendar (so server and client both seed 'all'),
+  // while /city/:slug/calendar is served by the catchall, which renders nothing
+  // on the server, so there is no server tree to disagree with.
+  const deepLinkTab: MapTab = pathname.endsWith('/calendar') ? 'cal' : 'all';
+  const state = useMapList(allMapEvents, { citySlug, today: todayKey, initialTab: deepLinkTab });
 
-  // Deep-link: /city/:slug/calendar opens the Calendar tab on mount.
+  // Keyed on PATHNAME, not on the derived tab: setTab also clears the picked day,
+  // the current selection and the feed scroll, and those must reset on any home
+  // navigation -- including a city switch (/city/london-gb -> /city/paris-fr),
+  // which keeps this component mounted and leaves deepLinkTab unchanged at 'all'.
+  // Depending on deepLinkTab would make this effect mount-only and strand a
+  // London occurrence_id (plus the old city's scroll position) on the Paris feed.
+  // Fires only on an ACTUAL pathname change, never on mount: useMapList already
+  // seeded the right tab (initialTab), so a mount-time call would set the same
+  // value and then run setTab's side effects anyway -- one of which scrolls the
+  // feed to the top, undoing the scroll position a back-navigation just restored.
+  // What this IS for is leaving /calendar and switching city
+  // (/city/london-gb -> /city/paris-fr), where the component stays mounted and a
+  // stale selection/day/scroll from the previous city must not survive.
   const { setTab } = state;
+  const prevPathname = useRef(pathname);
   useEffect(() => {
-    // /city/:slug/calendar deep-links to Calendar; any other home path resets
-    // to the default (All Events) so leaving /calendar doesn't strand the rail.
-    setTab(pathname.endsWith('/calendar') ? 'cal' : 'all');
-  }, [pathname, setTab]);
+    if (prevPathname.current === pathname) return;
+    prevPathname.current = pathname;
+    setTab(deepLinkTab);
+  }, [pathname, deepLinkTab, setTab]);
 
   // Per-page meta via the centralised SEO primitive.
   useSeo(

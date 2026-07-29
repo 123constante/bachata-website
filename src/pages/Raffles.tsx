@@ -39,6 +39,7 @@ const Raffles = () => {
           entriesThisMonth={stats?.entries_this_month ?? null}
           inDrawNow={inDrawNow}
           openNow={openNow}
+          totalWinners={stats?.total_winners ?? null}
         />
         <OrganiserCTA />
       </div>

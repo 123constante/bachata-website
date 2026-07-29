@@ -91,14 +91,20 @@ const CountUp: React.FC<{ value: number; prefix?: string }> = ({ value, prefix }
 };
 
 // -- Jackpot counter ----------------------------------------------------------
-// Deliberately NO winners count: "1 winner / 157 entries" reads as bad odds.
+// No PER-RAFFLE winners count: "1 winner / 157 entries" reads as bad odds.
 // "In the draw now" (sum of entry counts across open raffles) reads as
 // community activity instead — and it's already client-side, no extra RPC.
+// totalWinners is different: a standalone, sitewide all-time count (same
+// source as the event-page raffle card's figure) exposes no odds for any
+// single raffle, so it's shown here rather than on individual raffle cards.
+// Its caption says "All-time wins" because the divider above this band
+// reads "This month" -- and because the source counts wins, not people.
 export const JackpotCounter: React.FC<{
   entriesThisMonth: number | null;
   inDrawNow: number;
   openNow: number;
-}> = ({ entriesThisMonth, inDrawNow, openNow }) => (
+  totalWinners: number | null;
+}> = ({ entriesThisMonth, inDrawNow, openNow, totalWinners }) => (
   <section className="rp-section">
     <div className="rp-divider"><span /><em>This month</em><span /></div>
     <div className="rp-jackpot">
@@ -115,6 +121,10 @@ export const JackpotCounter: React.FC<{
         <div className="rp-tote">
           <CountUp value={openNow} />
           <span className="rp-tote-cap">Live raffles</span>
+        </div>
+        <div className="rp-tote">
+          <CountUp value={totalWinners ?? 0} />
+          <span className="rp-tote-cap">All-time wins</span>
         </div>
       </div>
       <div className="rp-jackpot-foot">Someone wins, every single week. It could be you.</div>

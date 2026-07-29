@@ -69,3 +69,11 @@ whatson-shipped.md
 
 # perf:ab raw Lighthouse reports (medians in perf/ab/*.json are committable)
 /perf/ab/raw/
+
+# Ephemeral per-session agent output under .claude/. That directory IS tracked
+# (settings.json, settings.local.json, hooks/), so without these lines a plain
+# `git add -A` sweeps one session's throwaway review transcript into the repo
+# permanently. arc-state.json is deliberately NOT ignored -- CLAUDE.md treats it
+# as real state that phase starts write.
+/.claude/*-review-findings.json
+/.claude/.session-lock.json

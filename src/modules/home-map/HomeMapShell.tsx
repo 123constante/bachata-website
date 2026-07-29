@@ -63,9 +63,11 @@ if (typeof document !== 'undefined') {
   void import('./HomeMapCard').catch(() => {});
 }
 
-// The Calendar tab is never the first render (the tab always starts on 'all';
-// the /calendar deep-link switches it in an effect), so it can stay lazy -- and
-// it must: CalendarPanel statically imports DayDetailModal, which drags
+// On /city/:slug/calendar the Calendar tab now IS the first render (the tab is
+// seeded from the pathname -- see UseMapListOptions.initialTab; it used to be
+// corrected in an effect, which cost a 0.417 CLS). So that route's first paint
+// is this Suspense fallback while the chunk loads. Kept lazy regardless, and it
+// must be: CalendarPanel statically imports DayDetailModal, which drags
 // framer-motion + date-fns + the Radix dialog stack (~61 KB gzip) behind it.
 // That tail alone would blow the home first-load budget (perf-budgets.json).
 const CalendarPanel = lazyWithRetry(() =>
@@ -123,6 +125,7 @@ function TonightBody({ state }: { state: UseMapListResult }) {
             selected={state.selected === e.occurrence_id}
             onSelect={state.fromCard}
             onHover={state.setHovered}
+            today={state.today}
           />
         ))
       )}

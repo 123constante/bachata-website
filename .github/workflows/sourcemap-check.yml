@@ -12,7 +12,13 @@ name: Sourcemap Resolve Check
 # secret FAIL here (these triggers only run on the trusted base repo) rather than
 # silently skip to green.
 #
-# Triggers mirror prod-smoke.yml: a successful Vercel deploy, plus a daily safety net.
+# Triggers mirror prod-smoke.yml: a successful PRODUCTION Vercel deploy, plus a
+# daily safety net. Preview deploys are excluded deliberately -- this job never
+# sets SITE_URL, so check-sourcemap-debugids.mjs falls back to live production.
+# A preview-triggered run therefore graded PROD state and attached the result to
+# the PR's head SHA, i.e. a red check on a PR that had nothing to do with it.
+# state == 'success' alone does NOT filter previews: a successful preview deploy
+# reports exactly the same state.
 
 on:
   deployment_status:
@@ -27,7 +33,8 @@ jobs:
   check:
     if: >-
       github.event_name != 'deployment_status' ||
-      github.event.deployment_status.state == 'success'
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

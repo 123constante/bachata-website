@@ -21,6 +21,12 @@ export interface UseMapListOptions {
    *  another city (real foreign coords) stays listable but never pins on the map
    *  and drags fitBounds abroad. Null/undefined = no scoping (pin everything). */
   citySlug?: string | null;
+  /** The tab to open on. MUST be seeded synchronously by the page rather than
+   *  corrected in a post-mount effect: on mobile the Calendar tab reorders the
+   *  feed above the map (index.css .is-cal), so arriving on 'all' and flipping
+   *  to 'cal' one tick later moved .hm-side by most of the viewport -- a 0.417
+   *  CLS on /city/:slug/calendar, measured. Defaults to 'all'. */
+  initialTab?: MapTab;
   /** The London day everything here dates against (YYYY-MM-DD). The PAGE owns the
    *  clock (Index's useLondonToday, seeded from the server's day and rolling over
    *  on its own) and passes the live value down -- this hook deliberately does NOT
@@ -78,9 +84,9 @@ export function useMapList(
   opts: UseMapListOptions,
 ): UseMapListResult {
   // Lead with events (audit P1): the homepage opens on the All Events list, not
-  // the brand/freshness hero. The /city/:slug/calendar deep-link still overrides
-  // to the Calendar tab (handled in Index).
-  const [tab, setTabState] = useState<MapTab>('all');
+  // the brand/freshness hero. The /city/:slug/calendar deep-link opens on the
+  // Calendar tab, seeded here (see initialTab) rather than corrected on mount.
+  const [tab, setTabState] = useState<MapTab>(opts.initialTab ?? 'all');
   const [day, setDayState] = useState<string | null>(null);
   const [filter, setFilterState] = useState<MapFilter>('all');
   const [q, setQ] = useState('');
