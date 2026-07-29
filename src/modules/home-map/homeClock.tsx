@@ -142,7 +142,22 @@ export function HomeClockProvider({
  *  every repaint. */
 export function useHomeNowStatic(): number {
   const frozen = useContext(HomeClockContext);
-  return frozen ?? Date.now();
+  // Floored to the same grid useHomeNow hands out, so that WITHIN ONE RENDER
+  // PASS a row and the leaf beneath it read the same number rather than instants
+  // up to a tick apart -- the row gating on `isRecentlyChanged` while the leaf
+  // formatted its stamp against a different value.
+  //
+  // It does NOT make the two agree over time, and nothing here could: this hook
+  // deliberately does not subscribe, so a row rendered at 10:00:30 keeps the
+  // 10:00:00 floor until something else re-renders it, while a subscribed
+  // FreshnessClock leaf moves on to 10:01, 10:02 and so on. That divergence is
+  // the intended trade -- a row that subscribed would drag its whole subtree
+  // into every repaint (see the SUBSCRIBE SPARINGLY note above) -- and it is
+  // harmless because what rows read the clock for is coarse.
+  //
+  // The flooring also gives React an Object.is bailout and stops the value
+  // running backwards. It costs nothing.
+  return frozen ?? flooredNow();
 }
 
 /** Epoch ms, refreshed every minute. For LEAF cells whose text changes that

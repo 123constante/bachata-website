@@ -224,11 +224,21 @@ export const BentoGrid = ({
   // happened to land before paint. Deriving it from the container removes the
   // correction entirely -- the server HTML is already right at any width, and
   // resizes are handled by the browser rather than a ResizeObserver.
-  // --bento-cell is defined in index.css: a static px fallback, overridden with
-  // a cqw-derived value inside @supports (container-type: inline-size). Inline
-  // styles cannot express @supports, and without a fallback an engine that
-  // rejects cqw drops min-height entirely -- which collapses the cover block to
-  // zero height (see LAYOUT). GRID_COLS/GAP_PX are mirrored in that rule.
+  // --bento-cell is defined in index.css: a viewport-derived fallback,
+  // overridden with a cqw-derived value inside @supports (container-type:
+  // inline-size). Inline styles cannot express @supports, and without a
+  // fallback an engine that rejects cqw drops min-height entirely -- which
+  // collapses the cover block to zero height (see LAYOUT).
+  //
+  // GRID_COLS/GAP_PX are mirrored in that rule, and so is THIS COMPONENT'S
+  // CONTAINER: the fallback tier cannot read the container, so it re-derives
+  // the width from BentoPage.tsx:412 (`mx-auto w-full max-w-[430px] px-2`,
+  // which renders us at :433) as (min(100vw, 430px) - 34px) / 4, constant at
+  // 99px from 430px up. If that wrapper's max-width or padding ever changes,
+  // the index.css fallback must change with it -- deriving it from the wider
+  // page shell in EventPageScreen instead hands a tablet a 155.5px cell
+  // against a true 99px. The 95px this used to hard-code was measured on this
+  // same container and was correct; its only fault was never moving.
   const cell = 'var(--bento-cell)';
 
   const packed = useMemo(

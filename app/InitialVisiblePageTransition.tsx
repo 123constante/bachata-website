@@ -73,7 +73,26 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
     // `never` on the else path -- so TypeScript checked NOTHING on the fallback
     // branch, which is the one that matters most here (iOS Safari < 16.4).
     if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(warm, { timeout: 600 });
+      // Same `ran`-guarded floor the fallback branch below documents. NOT for
+      // the bfcache reason -- freeze and bfcache suspend timers and idle
+      // callbacks alike and resume both, so the timer buys nothing there. It is
+      // a cheap backstop for the one case rIC's own timeout does not cover: an
+      // engine that never services the idle queue at all in a non-rendered
+      // document. `warming` has already latched by this point, so if the
+      // callback is simply never delivered the chunk would never warm and never
+      // retry for the rest of the session.
+      //
+      // It cannot make the normal path fire earlier -- rIC's 600ms timeout
+      // already bounds that -- and in a merely-hidden tab timer clamping means
+      // it fires no sooner than the idle callback would. Pure insurance.
+      let ran = false;
+      const go = () => {
+        if (ran) return;
+        ran = true;
+        warm();
+      };
+      window.requestIdleCallback(go, { timeout: 600 });
+      window.setTimeout(go, 600);
       return;
     }
     // No requestIdleCallback: iOS Safari only shipped it in 16.4, and this site

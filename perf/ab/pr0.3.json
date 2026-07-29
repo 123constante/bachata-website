@@ -1,15 +1,17 @@
 {
   "label": "pr0.3",
   "method": "Back-to-back A/B in ONE machine session: pr0.2 src+app checked out, built and measured, then the branch restored, rebuilt and measured minutes later. 5 mobile Lighthouse runs per surface per side. This supersedes every earlier capture, which compared against a baseline taken on a different day -- on this host the SAME pr0.2 code measured 325ms home TBT one day and 154ms the next, so cross-session deltas measured the machine, not the code.",
-  "baseline_commit": "3cdc17db2ce0d8807abce74a0c69d12ad838b6a6",
+  "attribution_caveat": "READ BEFORE CITING ANY NUMBER IN THIS FILE. Both commit fields were written with the same sha, so this artifact cannot attest which code produced the baseline column: the pr0.2 tree was checked out OVER the working tree and its sha was never captured. The branch column is 3cdc17db, TWO commits behind the branch head -- it predates a164a48 (dead sort-control fix + bento cqw @supports fallback) and 35cb789. Neither column measures the code actually being shipped. Corrected 2026-07-29 by recording the defect rather than re-measuring: CI Lighthouse on PR #160 is authoritative for anything load-bearing, and it independently corroborates the event CLS claim on separate hardware (0.182 -> 0.038). The calendar CLS figure below has no CI equivalent -- the Lighthouse job measures homepage, landing and event only -- so treat it as indicative, not proven.",
+  "baseline_commit": "UNRECORDED -- pr0.2 src+app checked out over the tree; sha never captured",
   "branch_commit": "3cdc17db2ce0d8807abce74a0c69d12ad838b6a6",
+  "branch_commit_stale_by": ["a164a48", "35cb789"],
   "verdict": {
     "home": "TBT 154->198ms, NOT RESOLVABLE (distributions overlap)",
-    "calendar": "TBT 22->40ms, NOT RESOLVABLE (distributions overlap); CLS 0.417->0.000, real",
+    "calendar": "TBT 22->40ms, NOT RESOLVABLE (distributions overlap); CLS 0.417->0.000, deterministic 5/5 both sides -- but READ attribution_caveat: no CI Lighthouse equivalent exists for this surface, so it is uncorroborated",
     "parties": "TBT 6->0ms, NOT RESOLVABLE (distributions overlap)",
     "festivals": "TBT 68->4ms, distributions do not overlap",
     "landing": "TBT 2->0ms, NOT RESOLVABLE (distributions overlap)",
-    "event": "TBT 92->21ms, NOT RESOLVABLE (distributions overlap); CLS 0.173->0.000, real"
+    "event": "TBT 92->21ms, NOT RESOLVABLE (distributions overlap); CLS 0.173->0.000, deterministic 5/5 both sides and INDEPENDENTLY CORROBORATED by CI Lighthouse on separate hardware (0.182->0.038) -- the one claim here that does not rest on this artifact"
   },
   "surfaces": {
     "home": {
