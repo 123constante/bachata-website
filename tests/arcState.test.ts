@@ -140,6 +140,19 @@ describe("compareModel / compareEffort", () => {
   });
   it("different tier -> mismatch", () => {
     expect(compareModel("claude-fable-5", "claude-opus-5")).toBe("mismatch");
+    expect(compareModel("fable[1m]", "claude-opus-5")).toBe("mismatch");
+  });
+  it("SHORT ALIAS matches its family (the form settings.json actually stores)", () => {
+    // Ricky's user settings hold "opus[1m]", not "claude-opus-5[1m]". Comparing
+    // those as strings made every correctly-configured session render a red
+    // SWITCH -- found by rendering the statusline with his real settings value.
+    expect(compareModel("opus", "claude-opus-5")).toBe("match");
+    expect(compareModel("sonnet", "claude-sonnet-5")).toBe("match");
+    expect(compareModel("opus[1m]", "claude-opus-5")).toBe("ceiling");
+  });
+  it("a bare family is version-agnostic, so the rule survives the next model", () => {
+    expect(compareModel("opus", "claude-opus-6")).toBe("match");
+    expect(compareModel("claude-opus-6", "claude-opus-5")).toBe("mismatch");
   });
   it("unobservable session model -> unknown, never mismatch", () => {
     expect(compareModel("", "claude-opus-5")).toBe("unknown");

@@ -109,14 +109,30 @@ export function staleness(arc, now = Date.now()) {
  *  MISMATCH -- ordering the operator onto the model they were already on, on
  *  the loudest line these tools print. A comparator that cries wolf gets
  *  ignored, so normalisation is part of the contract, not a nicety. */
-function ceilingOf(id) {
-  const m = String(id).match(/\[([^\]]*)\]$/);
-  return m ? m[1] : "";
-}
-function baseId(id) {
-  return String(id)
+/** Splits a model id into the three things that decide equality. Handles every
+ *  spelling in circulation: the canonical "claude-opus-5", the SHORT ALIAS the
+ *  operator actually types and which lands in settings.json ("opus[1m]"), the
+ *  dated form an API payload may carry ("claude-opus-5-20260514"), and any
+ *  context-ceiling suffix.
+ *
+ *  A BARE FAMILY compares version-agnostically. That is deliberate and is the
+ *  reason this is not an alias TABLE: hard-coding opus -> claude-opus-5 silently
+ *  rots the day opus-6 ships, and the failure would be a permanent red on a
+ *  correctly-configured session -- the cry-wolf class again, arriving by
+ *  calendar rather than by bug. */
+function parseModelId(id) {
+  const raw = String(id);
+  const ceilingMatch = raw.match(/\[([^\]]*)\]$/);
+  const base = raw
     .replace(/\[[^\]]*\]$/, "")
-    .replace(/-\d{8}$/, "");
+    .replace(/-\d{8}$/, "")
+    .replace(/^claude-/, "");
+  const family = base.split("-")[0] || "";
+  return {
+    family,
+    version: base.slice(family.length).replace(/^-/, ""),
+    ceiling: ceilingMatch ? ceilingMatch[1] : "",
+  };
 }
 
 /** 'match' | 'ceiling' (same tier, different context ceiling) | 'mismatch' |
@@ -126,8 +142,13 @@ export function compareModel(sessionId, requiredId) {
   const required = str(requiredId);
   if (!required) return "match";
   if (!session) return "unknown";
-  if (baseId(session) !== baseId(required)) return "mismatch";
-  return ceilingOf(session) === ceilingOf(required) ? "match" : "ceiling";
+  const a = parseModelId(session);
+  const b = parseModelId(required);
+  if (a.family !== b.family) return "mismatch";
+  // Both sides versioned and disagreeing is a real mismatch; a bare family on
+  // either side cannot contradict a version, so it matches the family.
+  if (a.version && b.version && a.version !== b.version) return "mismatch";
+  return a.ceiling === b.ceiling ? "match" : "ceiling";
 }
 
 /** Same contract for effort. The statusline payload frequently carries no
