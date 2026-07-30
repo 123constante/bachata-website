@@ -68,6 +68,16 @@
     ]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/arc-checkpoint.mjs --event=UserPromptSubmit"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -83,6 +93,10 @@
           {
             "type": "command",
             "command": "node scripts/hooks/session-boot.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/hooks/arc-checkpoint.mjs --event=SessionStart"
           }
         ]
       }

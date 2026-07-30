@@ -1,15 +1,18 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 3,
-  "phase_name": "Website session-boot hook",
-  "required_model": "claude-sonnet-5",
-  "required_effort": "medium",
+  "phase": 4,
+  "phase_name": "Model/effort checkpoint enforcement + statusline",
+  "required_model": "claude-opus-5",
+  "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-07-30T12:00:00Z",
+  "set_at": "2026-07-30T20:20:00Z",
   "scope": [
-    "scripts/hooks/session-boot.mjs",
+    "scripts/hooks/arc-checkpoint.mjs",
+    "scripts/lib/arc-state.mjs",
+    "scripts/statusline-arc.mjs",
+    "tests/arcState.test.ts",
     ".claude/settings.json"
   ],
-  "note": "Phase 2 landed via PR #167 (merged into main 2026-07-30). Phase 3 adds an advisory-only, fail-open SessionStart hook (matcher includes compact per the session-economy amendment) surfacing branch/status/commits/open-PRs/origin-staleness/review-stamp age. Reads STAMP_PATH/loadStamp/stampAgeMs/stampIsFresh from scripts/lib/review-scope.mjs (Phase 2's library) rather than re-deriving stamp freshness. Scope trimmed back to the two Phase-3-authored files now that #167 is on main and no longer carries forward on this branch."
+  "note": "Phase 4 post-review shape: 14 findings, 11 folded as edits, 3 forked to Ricky (all recommended options taken). Shared lib scripts/lib/arc-state.mjs now owns parse/verdict logic; arc-checkpoint.mjs (twin in admin, content-identical modulo line endings) and scripts/statusline-arc.mjs (moved INTO the repo from the home dir per review finding 7 -- INERT until Ricky adds the statusLine block to user settings pointing at its absolute path; his action, not repo-shipped) both import it. Verify workflow (3 lenses, 0 blocking) folded: stdin isTTY guard, ENOENT-vs-unreadable distinction in loadArcState. Per-prompt injection cadence kept (Ricky's explicit call). Finding 14 (record model/effort in the review stamp, assert in pre-push) DEFERRED as the Phase 4.5 amendment in the plan. Admin's own .claude/arc-state.json is NOT overwritten by this arc: single-slot, currently holding the live m2-legacy-read-caller-census handoff."
 }
