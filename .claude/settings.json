@@ -76,6 +76,15 @@
             "command": "bin/session-lock.sh acquire --warn-only"
           }
         ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/session-boot.mjs"
+          }
+        ]
       }
     ],
     "Stop": [

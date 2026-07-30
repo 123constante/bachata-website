@@ -1,22 +1,24 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 2,
-  "phase_name": "Website review receipt + pre-push gate",
-  "required_model": "claude-opus-5",
-  "required_effort": "high",
+  "phase": 3,
+  "phase_name": "Website session-boot hook",
+  "required_model": "claude-sonnet-5",
+  "required_effort": "medium",
   "plan": "C:\\Users\\ecual\\.claude\\plans\\analyze-the-way-i-crispy-wirth.md",
   "set_at": "2026-07-30T12:00:00Z",
   "scope": [
-    "scripts/hooks/review-stamp.mjs",
-    "scripts/ship-gate.mjs",
-    "scripts/lib/review-scope.mjs",
+    "scripts/hooks/session-boot.mjs",
+    ".claude/settings.json",
+    ".claude/arc-state.json",
     ".githooks/pre-push",
     ".gitignore",
-    ".claude/settings.json",
+    "package.json",
+    "scripts/hooks/review-stamp.mjs",
+    "scripts/lib/review-scope.mjs",
+    "scripts/ship-gate.mjs",
     "tests/reviewEnforcement.test.ts",
-    "tests/reviewScope.test.ts",
-    "package.json"
+    "tests/reviewScope.test.ts"
   ],
-  "note": "Phase 1 landed via PR #164. Phase 2 consumes tieredScope/deletedRiskyFiles/blocksTheShip. Review fix: arc-state.json is TIER_EXEMPT and stays TRACKED rather than gitignored (hiding it would take the declared-scope array out of every diff and downgrade DECLARED to INFERRED on CI). tests/reviewScope.test.ts is in scope because the fixes reversed two Phase 1 tier assertions."
+  "note": "Phase 2 landed via PR #167 (open, not yet merged; branched off feat/website-ship-gate == origin/main+#167). Phase 3 adds an advisory-only, fail-open SessionStart hook (matcher includes compact per the session-economy amendment) surfacing branch/status/commits/open-PRs/origin-staleness/review-stamp age. Reads STAMP_PATH/loadStamp/stampAgeMs/stampIsFresh from scripts/lib/review-scope.mjs (Phase 2's library) rather than re-deriving stamp freshness. Scope widened to the full origin/main..HEAD diff (11 files) -- not yet-merged #167 carries forward on this branch until it lands, and pre-ship's declared-scope drift check is fatal against the branch diff, not per-phase; only scripts/hooks/session-boot.mjs and .claude/settings.json are Phase-3-authored, the rest is Phase 2's unreviewed-by-Phase-3 carryover already covered by its own review stamp/PR."
 }
