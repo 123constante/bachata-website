@@ -55,6 +55,7 @@ import {
   shipFiles,
   toPosix,
 } from "./lib/review-scope.mjs";
+import { plansDir } from "./check-plan-hygiene.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -75,8 +76,30 @@ export const CHECKS = [
   ["check:route-boundaries", "every route has an error boundary"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
+  // Not a lint-chain link: the plan layer lives outside the repo (the home
+  // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
+  // here because the ship gate is the one place a local tree is guaranteed to
+  // have that directory. It also RE-RENDERS PLANS-INDEX.md on a passing lint.
+  ["check:plan-hygiene", "arc-plan frontmatter + arc-state cross-check (lint-only)"],
   ["test:unit", "vitest unit + contract suite", ["--reporter=dot"]],
 ];
+
+/**
+ * Per-check SKIP predicates, decided by pre-ship BEFORE running the check so
+ * the ledger can print an honest [SKIP] instead of a [PASS] that verified
+ * nothing (review finding 5). Returns a reason string to skip, or null to run.
+ *
+ * plan-hygiene: its target is the HOME plans dir, which does not exist on a
+ * fresh clone, a container, or CI. The check itself also fail-opens there, but
+ * routing the decision through pre-ship keeps the ledger truthful; the vitest
+ * suite (tests/planHygiene.test.ts) still covers the rules on such machines.
+ */
+export const CHECK_SKIPS = {
+  "check:plan-hygiene": () => {
+    const dir = plansDir();
+    return fs.existsSync(dir) ? null : "no plans dir at " + dir + " -- nothing to lint on this machine";
+  },
+};
 
 /**
  * typecheck is a COUNT RATCHET, for the same reason eslint is a file ratchet:
@@ -365,7 +388,15 @@ function main(argv = process.argv.slice(2)) {
   // -- repo-only checks -------------------------------------------------------
   const results = [];
   if (!dryRun) {
-    for (const [id, label, args] of CHECKS) results.push({ id, label, ok: runCheck(id, args || []) });
+    for (const [id, label, args] of CHECKS) {
+      const skipReason = CHECK_SKIPS[id] ? CHECK_SKIPS[id]() : null;
+      if (skipReason) {
+        console.log("SKIP " + id + " -- " + skipReason);
+        results.push({ id, label, ok: true, skipped: true, skipReason });
+      } else {
+        results.push({ id, label, ok: runCheck(id, args || []) });
+      }
+    }
   }
 
   // -- typecheck (count ratchet) ----------------------------------------------
@@ -396,7 +427,10 @@ function main(argv = process.argv.slice(2)) {
   if (dryRun) {
     for (const [id, label] of CHECKS) out.push("   -  " + id + " -- WOULD RUN: " + label);
   } else {
-    for (const r of results) out.push("   " + (r.ok ? "[PASS]" : "[FAIL]") + " " + r.id + " -- " + r.label);
+    for (const r of results) {
+      if (r.skipped) out.push("   [SKIP] " + r.id + " -- SKIPPED: " + r.skipReason);
+      else out.push("   " + (r.ok ? "[PASS]" : "[FAIL]") + " " + r.id + " -- " + r.label);
+    }
   }
   if (dryRun) {
     out.push("   -  typecheck -- WOULD RUN: count ratchet against a baseline of " + TYPECHECK_BASELINE);
