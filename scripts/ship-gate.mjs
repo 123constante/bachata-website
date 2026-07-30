@@ -1,0 +1,352 @@
+/**
+ * ship-gate.mjs -- the review-receipt decision table. THE predicate that answers
+ * "has the risky part of this ship actually been reviewed?" Ported from the admin
+ * repo's scripts/yume-gate.mjs; consulted at one chokepoint today
+ * (.githooks/pre-push step 2) and exposed as `--json` so a skill or a future
+ * chokepoint can inject the same verdict verbatim rather than re-deriving it.
+ *
+ * DECISION TABLE (exit codes mirror the admin gate -- 0/1/2 so a caller can never
+ * read an infra failure as "clean"):
+ *   exit 0  GREEN   nothing risky in scope, or every HARD-tier file/deletion is
+ *                   covered by a fresh clean stamp, and no unresolved blocking
+ *                   finding. Uncovered SOFT-tier files print as WARNINGS here.
+ *   exit 1  RED     policy: an uncovered HARD-tier file or deletion / no stamp /
+ *                   a present-but-corrupt stamp / stamp > 24h old / a blocking
+ *                   finding with no resolving outcome. Findings block regardless
+ *                   of tier and regardless of scope -- the defect may live
+ *                   anywhere.
+ *   exit 2  RED     infra: a git error, or an fs error READING the stamp. A
+ *                   garbled stamp is NOT infra -- it is policy (see loadStamp):
+ *                   otherwise a truncated write would downgrade a hard block to
+ *                   a warning, making a corrupt stamp weaker than a missing one.
+ *
+ * THE WEBSITE CHANGE vs admin: TWO TIERS, different postures.
+ *
+ *   hard (scripts/ bin/ .githooks/ .github/ .claude/) -- the guard, CI and hook
+ *     surface. If one of these is wrong, nothing downstream catches it: the
+ *     broken thing IS the net. Unstamped -> exit 1, the push is blocked.
+ *
+ *   soft (src/ api/ server/) -- app code. Merging it deploys prod, so it is
+ *     genuinely risky, but CI, the e2e suite and PR review all still sit
+ *     underneath it. Unstamped -> loud warning, exit 0.
+ *
+ * WHY SOFT ONLY WARNS (for now). Blocking every src/ push would only be honest if
+ * a receipt reliably appears when a review happens. On this repo the PostToolUse
+ * ReportFindings mint is NEWLY wired and not yet observed firing, and a gate that
+ * blocks work while the mint is unproven trains `--no-verify`, which disables the
+ * hard tier too. So soft-tier starts advisory. Flip it with
+ * SHIP_GATE_STRICT_SOFT=1 (or the STRICT_SOFT_DEFAULT constant) once mints are
+ * observed -- tests pin BOTH postures, so the flip is a one-line change with a
+ * proof already attached.
+ *
+ * DELETIONS. A risky file this ship DELETES has no bytes left to hash, so it can
+ * never appear in the stamp's `hashes` map -- which left the highest-risk guard
+ * edit there is (removing a workflow, a check script, a git hook) green by
+ * construction. review-scope's deletedRiskyFiles() finds them and the stamp's
+ * `deletions` array attests them by PATH. Same tier posture as edits.
+ *
+ * Content hashes (not commit SHAs) are the identity for files that still exist --
+ * see scripts/lib/review-scope.mjs. Re-reporting findings with outcomes refreshes
+ * the stamp, and because the refresh re-hashes files, "outcome: fixed" only goes
+ * green if the fix was made BEFORE the re-report: honest ordering enforced for
+ * free.
+ *
+ * WHAT THIS IS NOT. The receipt is a plain JSON file in a gitignored directory, so
+ * it is a DISCIPLINE boundary, not a security one: anything that can write to the
+ * repo can mint one, and `git push --no-verify` skips the hook outright. The value
+ * is that the honest path (run the review, let the hook mint) is the easy one and
+ * every dishonest path has to be chosen deliberately. Two consequences worth
+ * stating plainly: the --manual TTY gate stops a NON-INTERACTIVE SHELL from
+ * hand-minting, not a determined human; and its empty-scope refusal cannot be
+ * exercised by an automated harness at all, because the TTY check runs first (by
+ * design -- it refuses before stdin is read).
+ *
+ * And one asymmetry worth naming rather than pretending away: DELETING the receipt
+ * erases recorded findings. loadStamp() works hard to stop a corrupt stamp being
+ * weaker than a missing one, but nothing can make a MISSING stamp weaker than a
+ * findings-carrying one -- with no file there is nothing to read. So on a soft-only
+ * ship under the advisory posture, `rm .claude/.review-stamp.json` turns a red into
+ * a green, and a fresh clone or anything that tidies .claude/ does it by accident.
+ * A durable findings store is the only real fix and it is out of scope here; the
+ * mitigation that exists is that HARD-tier scope reds on a missing stamp, so the
+ * guard surface is never cleared this way.
+ *
+ * Never calls process.exit() mid-flight (Windows libuv/keep-alive quirk) -- sets
+ * process.exitCode and returns.
+ */
+
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  REPO_ROOT,
+  enableScopeCache,
+  resolveBaseRef,
+  tieredScope,
+  deletedRiskyFiles,
+  renamePairs,
+  riskTier,
+  toPosix,
+  hashFile,
+  loadStamp,
+  stampAgeMs,
+  stampIsFresh,
+  unresolvedConfirmedReasons,
+} from "./lib/review-scope.mjs";
+
+/** Soft-tier posture. false = warn and pass; true = block like hard. */
+export const STRICT_SOFT_DEFAULT = false;
+export const STRICT_SOFT_ENV = "SHIP_GATE_STRICT_SOFT";
+
+/** Read the strict-soft override. Only an explicit affirmative flips it, and an
+ *  explicit negative can force lenient even after the default flips -- so both
+ *  directions are reachable from the environment whichever way the default sits. */
+export function strictSoftFromEnv(env = process.env) {
+  const raw = env[STRICT_SOFT_ENV];
+  if (raw === undefined || raw === null || String(raw).trim() === "") return STRICT_SOFT_DEFAULT;
+  const v = String(raw).trim().toLowerCase();
+  if (v === "1" || v === "true" || v === "yes" || v === "on") return true;
+  if (v === "0" || v === "false" || v === "no" || v === "off") return false;
+  return STRICT_SOFT_DEFAULT;
+}
+
+function ageLabel(stamp, now) {
+  const ms = stampAgeMs(stamp, now);
+  return Number.isFinite(ms) ? (ms / 3600000).toFixed(1) + "h old" : "carrying no parseable timestamp";
+}
+
+/**
+ * Pure decision given the tiered scope, the current hashes, and the stamp.
+ * Unit-testable; `now` and `strictSoft` are injectable.
+ *
+ * @param {{hard:string[], soft:string[]}} scope   risky files still on disk
+ * @param {{hard:string[], soft:string[]}} deleted risky files this ship removes
+ * @param {Record<string,string|null>} currentHashes rel -> hash (null = unreadable)
+ * @param {object|null} stamp  null means "no valid stamp"
+ * @param {string} stampAbsentLabel  how to describe a null stamp (run() passes a
+ *        different phrase for a present-but-corrupt one, so the operator is not
+ *        told to run a review when the real problem is a truncated file)
+ * @returns {{code:0|1|2, status:'green'|'policy'|'infra', reasons:string[],
+ *           warnings:string[], scope:object, deleted:object, strictSoft:boolean}}
+ */
+export function decide({
+  scope = { hard: [], soft: [] },
+  deleted = { hard: [], soft: [] },
+  currentHashes = {},
+  stamp = null,
+  now = Date.now(),
+  strictSoft = STRICT_SOFT_DEFAULT,
+  stampAbsentLabel = "no valid review stamp found -- run /code-review",
+  renames = [],
+}) {
+  const hard = scope.hard || [];
+  const soft = scope.soft || [];
+  const delHard = deleted.hard || [];
+  const delSoft = deleted.soft || [];
+
+  // Findings block regardless of tier AND regardless of whether anything risky is
+  // in scope: a CONFIRMED (or unverified -- see blocksTheShip) defect may live in
+  // any file, including one this predicate never classifies as risky.
+  const findingReasons = unresolvedConfirmedReasons(stamp).map(
+    (s) => "blocking finding unresolved: " + s
+  );
+
+  const fresh = !!stamp && stampIsFresh(stamp, now);
+  const stampedFor = (stamp && stamp.hashes) || {};
+  const stampedDeletions = new Set(
+    (Array.isArray(stamp && stamp.deletions) ? stamp.deletions : []).map(toPosix)
+  );
+  /** The hash this stamp holds FOR THIS PATH, or undefined if it holds none. */
+  const stampedHashOf = (rel) =>
+    Object.prototype.hasOwnProperty.call(stampedFor, rel) ? stampedFor[rel] : undefined;
+  /** The path this one was renamed FROM in this ship, or undefined. */
+  const renameSourceOf = (rel) => {
+    const hit = (renames || []).find((p) => p && toPosix(p.to) === toPosix(rel));
+    return hit ? toPosix(hit.from) : undefined;
+  };
+
+  /** Why is this on-disk file not covered? null when it IS covered. */
+  const whyFile = (rel) => {
+    const h = currentHashes[rel];
+    // A null hash is NOT "covered by default". hashFile() returns null for an
+    // unreadable path and for a directory (EISDIR), so treating it as covered
+    // would fail OPEN on exactly the paths the gate cannot see.
+    if (!h) return rel + " -- could not be hashed (unreadable, or a directory)";
+    if (!stamp) return rel + " -- " + stampAbsentLabel;
+    if (!fresh) return rel + " -- review stamp is " + ageLabel(stamp, now) + " (> 24h) -- re-review";
+    const stamped = stampedHashOf(rel);
+    if (stamped !== undefined) return stamped === h ? null : rel + " -- changed after review";
+    /* THE PATH IS NOT IN THE STAMP AT ALL.
+     *
+     * Coverage used to be decided against a POOLED SET of every stamped hash
+     * VALUE, with the rel keys thrown away -- so any risky path whose bytes
+     * happened to equal ANY reviewed file's bytes read as reviewed. A brand-new
+     * .github/workflows/deploy.yml byte-identical to a reviewed check script was
+     * green, never having been read by anyone.
+     *
+     * Rename tolerance survives, narrowed to the renames git actually reports for
+     * THIS ship: a path is covered by proxy only when it is the destination of a
+     * rename whose SOURCE was stamped at exactly this hash. Same notion of "a
+     * rename" that deletedRiskyFiles() uses, so the two halves cannot disagree. */
+    const src = renameSourceOf(rel);
+    if (src !== undefined && stampedHashOf(src) === h) return null;
+    return rel + " -- was never reviewed (the stamp holds no entry for this path)";
+  };
+
+  /** Why is this deletion not covered? Path identity: a deletion has no bytes. */
+  const whyDeletion = (rel) => {
+    if (!stamp) return rel + " (DELETED) -- " + stampAbsentLabel;
+    if (!fresh) return rel + " (DELETED) -- review stamp is " + ageLabel(stamp, now) + " (> 24h) -- re-review";
+    if (!stampedDeletions.has(toPosix(rel))) {
+      return rel + " (DELETED) -- the review stamp records no such deletion";
+    }
+    return null;
+  };
+
+  const hardReasons = [
+    ...hard.map(whyFile),
+    ...delHard.map(whyDeletion),
+  ].filter(Boolean);
+  const softReasons = [
+    ...soft.map(whyFile),
+    ...delSoft.map(whyDeletion),
+  ].filter(Boolean);
+
+  const totalScope = hard.length + soft.length + delHard.length + delSoft.length;
+  const reasons = [...hardReasons];
+  const warnings = [];
+  if (strictSoft) reasons.push(...softReasons);
+  else warnings.push(...softReasons);
+  reasons.push(...findingReasons);
+
+  if (reasons.length) {
+    return {
+      code: 1,
+      status: "policy",
+      reasons,
+      warnings,
+      scope,
+      deleted,
+      strictSoft,
+    };
+  }
+
+  const covered = totalScope - warnings.length;
+  return {
+    code: 0,
+    status: "green",
+    reasons: [
+      totalScope === 0
+        ? "no risky files in ship scope"
+        : covered + " of " + totalScope + " risky file(s) covered by a fresh review stamp",
+    ],
+    warnings,
+    scope,
+    deleted,
+    strictSoft,
+  };
+}
+
+/** Split a flat list of risky paths into {hard, soft}. */
+function byTier(rels) {
+  const out = { hard: [], soft: [] };
+  for (const rel of rels) {
+    const tier = riskTier(rel);
+    // riskTier can only be null here if the caller passed a non-risky path;
+    // bucket it as hard rather than dropping it, so a predicate change upstream
+    // can never make a file silently ungated.
+    out[tier === "soft" ? "soft" : "hard"].push(rel);
+  }
+  return out;
+}
+
+/** Run the gate. Returns the verdict; never process.exit(). */
+export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {}) {
+  let scope;
+  let deleted;
+  let renames = [];
+  try {
+    // ONE base ref for all three halves: tieredScope(), deletedRiskyFiles() and
+    // renamePairs() each default to resolveBaseRef(), and a ref that moved between
+    // the calls would scope them against different ships.
+    const baseRef = resolveBaseRef();
+    scope = tieredScope(baseRef);
+    deleted = byTier(deletedRiskyFiles(baseRef));
+    renames = renamePairs(baseRef);
+  } catch (err) {
+    return {
+      code: 2,
+      status: "infra",
+      reasons: ["git scope failed: " + (err.message || err)],
+      warnings: [],
+      scope: { hard: [], soft: [] },
+      deleted: { hard: [], soft: [] },
+      strictSoft,
+    };
+  }
+
+  const { status, stamp } = loadStamp();
+  // Only a genuine fs read error is infra. Missing OR corrupt => "no valid stamp"
+  // (policy), so a truncated stamp can never be weaker than an absent one.
+  if (status === "io") {
+    return {
+      code: 2,
+      status: "infra",
+      reasons: ["review stamp unreadable (fs error)"],
+      warnings: [],
+      scope,
+      deleted,
+      strictSoft,
+    };
+  }
+
+  const currentHashes = {};
+  for (const rel of [...scope.hard, ...scope.soft]) {
+    currentHashes[rel] = hashFile(path.join(REPO_ROOT, rel));
+  }
+
+  return decide({
+    scope,
+    deleted,
+    currentHashes,
+    stamp: status === "ok" ? stamp : null,
+    now,
+    strictSoft,
+    renames,
+    stampAbsentLabel:
+      status === "corrupt"
+        ? "the review stamp is present but CORRUPT (treated as missing) -- delete it and re-review"
+        : "no valid review stamp found -- run /code-review",
+  });
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  // A one-shot CLI process that does not mutate the tree between queries -- the
+  // only situation where memoising the scope is safe. Library callers (tests,
+  // pre-ship, anything importing this module) stay uncached and always correct.
+  enableScopeCache();
+  const asJson = process.argv.includes("--json");
+  const verdict = run();
+  if (asJson) {
+    process.stdout.write(JSON.stringify(verdict));
+  } else {
+    const tag =
+      verdict.status === "green"
+        ? "GREEN (exit 0)"
+        : verdict.status === "policy"
+        ? "RED policy (exit 1)"
+        : "RED infra (exit 2)";
+    console.log("ship-gate: " + tag + (verdict.strictSoft ? "  [soft tier: STRICT]" : "  [soft tier: advisory]"));
+    for (const r of verdict.reasons) console.log("  - " + r);
+    for (const w of verdict.warnings) console.log("  ! unreviewed app code (advisory): " + w);
+    if (verdict.code === 1) {
+      console.log("");
+      console.log("  Fix: type /code-review, fold every blocking finding into an edit, and let the");
+      console.log("  ReportFindings hook mint the receipt. If no receipt appears (the mint is not");
+      console.log("  yet observed on this repo), hand-stamp at a real terminal:");
+      console.log("      node scripts/hooks/review-stamp.mjs --manual");
+      console.log("  Bypass of last resort: git push --no-verify (it disables the guard tier too).");
+    }
+  }
+  process.exitCode = verdict.code;
+}

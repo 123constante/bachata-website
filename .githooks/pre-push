@@ -1,0 +1,115 @@
+#!/bin/sh
+# pre-push -- the ship gate at the last local chokepoint.
+#
+#   0. Refspec triage. Git feeds this hook one line per ref being pushed:
+#      "<local-ref> <local-sha> <remote-ref> <remote-sha>". Two things come out of
+#      it.
+#      (a) A ref DELETION has an all-zero local sha and carries no content at all,
+#          so running a unit suite and a review gate against it is pure false-red --
+#          the admin repo recorded exactly that. If every line is a deletion, exit 0.
+#      (b) Anything whose local sha is NOT the checked-out HEAD is a ref this gate
+#          CANNOT scope: scripts/ship-gate.mjs measures the current branch against
+#          its upstream plus the working tree, so `git push origin other:main` or
+#          `git push origin HEAD~3:main` would sail past a gate that had just
+#          measured something else entirely and reported "no risky files in ship
+#          scope". Refusing is the honest answer -- a gate must never claim to have
+#          checked what it did not look at. Check the branch out and push it, or set
+#          SHIP_GATE_ALLOW_UNSCOPED_REF=1 to say so deliberately.
+#   1. Unit gate (npm run test:unit) -- blocks a red unit suite from reaching the
+#      remote. Complements .githooks/pre-commit (source integrity), so combined hook
+#      coverage is integrity + unit. The full lint/typecheck/e2e ladder stays in
+#      `npm run pre-ship`, which is the deliberate one-command ship gate.
+#   2. Review-receipt gate (scripts/ship-gate.mjs) -- has the risky part of this ship
+#      actually been reviewed? exit 1 (a HARD-tier guard/CI/hook file with no fresh
+#      review stamp, or an unresolved blocking finding) BLOCKS the push. exit 2 is
+#      infra and only warns -- CI is the fail-closed net there. Uncovered SOFT-tier
+#      app code prints an advisory warning and does not block; see the posture note
+#      in scripts/ship-gate.mjs.
+#
+# All of it fires only on YOUR pushes and is bypassable with --no-verify. Bypassing
+# disables the HARD tier too, which is the tier with nothing underneath it.
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT" || exit 0
+
+# -- 0. Refspec triage ---------------------------------------------------------
+# No pipeline here, so the counters survive the loop (a `... | while read` would run
+# the body in a subshell and lose them). Empty stdin leaves total=0 and falls through
+# to the real checks -- fail-unsafe-to-skip: if we cannot tell what is being pushed,
+# we gate it.
+HEAD_SHA=$(git rev-parse HEAD 2>/dev/null)
+total=0
+deletions=0
+unscoped=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+    total=$((total + 1))
+    case "$local_sha" in
+        "" | *[!0]*) ;;                        # a real sha (or nothing) -> gate it
+        *) deletions=$((deletions + 1)); continue ;;   # all zeros -> ref deletion
+    esac
+    # An annotated tag's local sha is the TAG OBJECT, never a commit, so comparing it
+    # to HEAD is meaningless. A tag also introduces no review surface of its own.
+    case "$local_ref" in
+        refs/tags/*) continue ;;
+    esac
+    if [ -n "$HEAD_SHA" ] && [ "$local_sha" != "$HEAD_SHA" ]; then
+        unscoped="$unscoped $local_ref"
+    fi
+done
+
+if [ "$total" -gt 0 ] && [ "$total" -eq "$deletions" ]; then
+    echo "pre-push: $deletions ref deletion(s) only -- nothing to test or review. Skipping the gate."
+    exit 0
+fi
+
+if [ -n "$unscoped" ] && [ -z "${SHIP_GATE_ALLOW_UNSCOPED_REF:-}" ]; then
+    echo "x pre-push: refusing to push a ref this gate cannot scope:$unscoped"
+    echo "  The review gate measures the CHECKED-OUT branch (HEAD $HEAD_SHA) against its"
+    echo "  upstream plus the working tree. The ref above points somewhere else, so the"
+    echo "  gate would have reported on a different diff than the one being pushed."
+    echo "  Check that branch out and push it, or push deliberately with:"
+    echo "      SHIP_GATE_ALLOW_UNSCOPED_REF=1 git push ..."
+    exit 1
+fi
+
+# -- 1. Unit gate --------------------------------------------------------------
+# NOTE: under heavy parallel load (a large background agent workflow), vitest's forks
+# pool can fail spuriously. If this fails mid-workflow, re-push once the workflow has
+# finished rather than reaching for --no-verify.
+# --reporter=dot keeps a green run to a few lines; a failure still prints in full.
+echo "> pre-push: unit gate (npm run test:unit)..."
+if ! npm run test:unit -- --reporter=dot; then
+    echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
+    exit 1
+fi
+
+# -- 2. Review-receipt gate ----------------------------------------------------
+# A MISSING gate script is a hard failure, not a skip. The previous form wrapped this
+# whole block in `if [ -f ... ]`, so the one ship that most needs gating -- the one
+# that deletes or moves scripts/ship-gate.mjs -- turned the guard off and exited 0.
+if [ ! -f "$REPO_ROOT/scripts/ship-gate.mjs" ]; then
+    echo "x pre-push: scripts/ship-gate.mjs is MISSING -- refusing to push."
+    echo "  If this ship deletes or moves the gate, that is exactly the change that must"
+    echo "  not go out unreviewed. Restore it, or push with --no-verify deliberately."
+    exit 1
+fi
+
+# exit 1 = a HARD-tier file (or deletion) in ship scope without a fresh stamp, or an
+#          unresolved blocking finding -> block.
+# exit 2 = infra (git/fs) -> warn only. exit 0 = clean / nothing risky in scope.
+echo "> pre-push: review-receipt gate (scripts/ship-gate.mjs)..."
+node "$REPO_ROOT/scripts/ship-gate.mjs"
+rc=$?
+if [ "$rc" -eq 1 ]; then
+    echo "x Review-receipt gate: the guard/CI surface of this ship is not covered by a fresh review."
+    echo "  Type /code-review and fold every blocking finding into an edit -- the ReportFindings"
+    echo "  hook mints the receipt (observed working 2026-07-30). If no receipt appears, the"
+    echo "  fallback mint is a hand-stamp at a real interactive terminal:"
+    echo "      node scripts/hooks/review-stamp.mjs --manual"
+    echo "  Or push with --no-verify to bypass (this disables the guard tier too)."
+    exit 1
+elif [ "$rc" -eq 2 ]; then
+    echo "! Review-receipt gate could not run (infra) -- not blocking; CI is the net."
+fi
+
+exit 0

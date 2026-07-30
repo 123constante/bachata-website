@@ -108,6 +108,15 @@
             "command": ".claude/hooks/post-write-check.sh"
           }
         ]
+      },
+      {
+        "matcher": "ReportFindings",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/review-stamp.mjs"
+          }
+        ]
       }
     ]
   }

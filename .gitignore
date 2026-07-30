@@ -70,10 +70,25 @@ whatson-shipped.md
 # perf:ab raw Lighthouse reports (medians in perf/ab/*.json are committable)
 /perf/ab/raw/
 
-# Ephemeral per-session agent output under .claude/. That directory IS tracked
-# (settings.json, settings.local.json, hooks/), so without these lines a plain
-# `git add -A` sweeps one session's throwaway review transcript into the repo
-# permanently. arc-state.json is deliberately NOT ignored -- CLAUDE.md treats it
-# as real state that phase starts write.
+# Machine-written, per-session local state under .claude/. That directory IS
+# tracked (settings.json, settings.local.json, hooks/), so without these lines a
+# plain `git add -A` sweeps one session's throwaway output into the repo
+# permanently.
+#
+# Both files below are load-bearing for the ship gate, and ignoring them is what
+# keeps it honest (arc operating-model-v2 Phase 2):
+#   .review-stamp.json  gating the review receipt on itself is circular -- minting
+#                       a stamp changes the stamp, which would demand a new stamp.
+#   .session-lock.json  machine-local coordination state, not a guard.
+#
+# arc-state.json is deliberately NOT ignored. It has the same "sits in every ship's
+# risky scope" problem, but it is also the file that CARRIES the declared-scope
+# array that can disarm pre-ship's fatal drift check -- so hiding it would mean an
+# edit widening that array never appears in a diff and never needs a receipt, and
+# resolveDeclaredScope() would return "none" on CI and in every fresh clone,
+# silently degrading the precise DECLARED mode to the advisory INFERRED heuristic.
+# It is exempted from the risk tier instead, via TIER_EXEMPT in
+# scripts/lib/review-scope.mjs: exempt without hiding.
 /.claude/*-review-findings.json
 /.claude/.session-lock.json
+/.claude/.review-stamp.json

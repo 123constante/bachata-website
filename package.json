@@ -16,6 +16,7 @@
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
     "lint:eslint": "eslint .",
     "pre-ship": "node scripts/pre-ship.mjs",
+    "ship-gate": "node scripts/ship-gate.mjs",
     "check:route-boundaries": "node scripts/check-route-error-boundaries.mjs",
     "check:no-social-word": "node scripts/check-no-social-word.mjs",
     "check:og": "node scripts/check-og-images.mjs",

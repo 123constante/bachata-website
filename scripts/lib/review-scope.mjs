@@ -60,13 +60,27 @@ export const HARD_PATTERNS = [
   /^\.claude\//,
 ];
 
-/** Never tiered, however they match above. Gating the review receipt on itself
- *  is circular -- minting a stamp changes the stamp, which would demand a new
- *  stamp -- and the session lock is machine-local coordination state, not a
- *  guard. Both are gitignored local state from Phase 2 onward. */
+/** Never tiered, however they match above.
+ *
+ *  Gating the review receipt on itself is circular -- minting a stamp changes the
+ *  stamp, which would demand a new stamp. The session lock is machine-local
+ *  coordination state, not a guard. Both are gitignored.
+ *
+ *  arc-state.json is exempted here rather than gitignored, and the difference
+ *  matters. It is hard-tier by path and rewritten at every phase start, so while
+ *  tiered it sat in EVERY ship's risky scope and demanded a review of itself
+ *  before any push. Ignoring it would fix that by making it invisible -- and it
+ *  is the file that CARRIES the declared-scope array, so an untracked copy means
+ *  (a) an edit widening `scope` (which can disarm pre-ship's fatal drift check
+ *  outright) never appears in a diff or needs a receipt, and (b)
+ *  resolveDeclaredScope() returns "none" on CI and in every fresh clone, silently
+ *  downgrading the precise DECLARED mode to the advisory INFERRED heuristic
+ *  exactly where nobody is watching. TIER_EXEMPT exempts without hiding: the file
+ *  stays tracked and reviewable, it just stops gating itself. */
 export const TIER_EXEMPT = [
   /^\.claude\/\.review-stamp\.json$/,
   /^\.claude\/\.session-lock\.json$/,
+  /^\.claude\/arc-state\.json$/,
 ];
 
 // The api/ tree is the embed/ICS feed surface; server/ does not exist in this
@@ -217,7 +231,39 @@ export function diffOrigin(baseRef) {
   return baseRef;
 }
 
+/* MEMOISATION, OPT-IN AND OFF BY DEFAULT.
+ *
+ * Every scope query (riskyFilesInScope, deletedRiskyFiles, tieredScope,
+ * hashRiskyScope) calls shipFiles(), and each call shells out to git TWICE. One
+ * ship-gate run costs 4 git invocations and a review-stamp --manual costs 8 --
+ * and `git status --untracked-files=all` stats the whole tree, on a FUSE/NTFS
+ * mount, on the push path.
+ *
+ * But caching by default was WRONG, and it was caught immediately: a Phase 1 test
+ * writes a file and then asks shipFiles() what is in the ship, and a cache
+ * populated earlier in the same process answered from before the write. Trading a
+ * correctness property (the scope is what the tree says NOW) for a latency win is
+ * the wrong way round for a guard, so the cache is opt-in: only a one-shot CLI
+ * entry point, which by construction does not mutate the tree between queries,
+ * turns it on. Every library caller -- tests, pre-ship, anything importing this
+ * module -- keeps the uncached, always-correct behaviour. */
+let SCOPE_CACHE_ENABLED = false;
+const SHIP_FILES_CACHE = new Map();
+const RENAME_CACHE = new Map();
+/** Call once from a short-lived CLI entry point that will not mutate the tree. */
+export function enableScopeCache() {
+  SCOPE_CACHE_ENABLED = true;
+}
+export function clearScopeCache() {
+  SHIP_FILES_CACHE.clear();
+  RENAME_CACHE.clear();
+}
+
 export function shipFiles(baseRef = resolveBaseRef()) {
+  if (SCOPE_CACHE_ENABLED) {
+    const cached = SHIP_FILES_CACHE.get(baseRef);
+    if (cached) return cached;
+  }
   const out = new Set();
   for (const f of git(["-c", "core.quotepath=false", "diff", "--name-only", diffOrigin(baseRef)]).split("\n")) {
     const rel = unquoteGitPath(f.trim());
@@ -238,7 +284,51 @@ export function shipFiles(baseRef = resolveBaseRef()) {
     p = unquoteGitPath(p);
     if (p) out.add(toPosix(p));
   }
-  return [...out].sort();
+  const files = [...out].sort();
+  if (SCOPE_CACHE_ENABLED) SHIP_FILES_CACHE.set(baseRef, files);
+  return files;
+}
+
+/* RENAME PAIRS -- the hole that made the deletion contract bypassable.
+ *
+ * git reports a rename as its DESTINATION only: `git mv scripts/guard.mjs
+ * archive/guard.mjs` yields exactly one path from `diff --name-only`, and the
+ * porcelain form ("R  old -> new") is parsed above for its destination too. So
+ * moving a guard OUT of the guard tree left no trace anywhere: the source was in
+ * no list, the destination was not risky, riskyFilesInScope() and
+ * deletedRiskyFiles() both saw nothing, and the gate answered "no risky files in
+ * ship scope". A CI check script could be removed on a green push with no
+ * attestation -- the precise failure the deletion contract exists to stop.
+ *
+ * --name-status carries the status letter and, for R/C, BOTH paths.
+ * @returns {{from:string, to:string}[]}
+ */
+export function renamePairs(baseRef = resolveBaseRef()) {
+  if (SCOPE_CACHE_ENABLED) {
+    const cached = RENAME_CACHE.get(baseRef);
+    if (cached) return cached;
+  }
+  const pairs = [];
+  const add = (from, to) => {
+    const f = toPosix(unquoteGitPath(from));
+    const t = toPosix(unquoteGitPath(to));
+    if (f && t && !pairs.some((p) => p.from === f && p.to === t)) pairs.push({ from: f, to: t });
+  };
+  for (const line of git(["-c", "core.quotepath=false", "diff", "--name-status", diffOrigin(baseRef)]).split("\n")) {
+    if (!line.trim()) continue;
+    const parts = line.split("\t");
+    // "R100\told\tnew" / "C75\told\tnew"; everything else has a single path.
+    if (parts.length >= 3 && /^[RC]/.test(parts[0].trim())) add(parts[1].trim(), parts[2].trim());
+  }
+  for (const line of git(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"]).split("\n")) {
+    if (!line.trim()) continue;
+    const code = line.slice(0, 2);
+    const rest = line.slice(3);
+    const arrow = rest.indexOf(" -> ");
+    if (arrow !== -1 && /[RC]/.test(code)) add(rest.slice(0, arrow).trim(), rest.slice(arrow + 4).trim());
+  }
+  if (SCOPE_CACHE_ENABLED) RENAME_CACHE.set(baseRef, pairs);
+  return pairs;
 }
 
 /**
@@ -260,9 +350,27 @@ export function riskyFilesInScope(baseRef = resolveBaseRef()) {
  * content-hash contract; Phase 2's ship-gate is what blocks on them.
  */
 export function deletedRiskyFiles(baseRef = resolveBaseRef()) {
-  return shipFiles(baseRef)
-    .filter(isRiskyPath)
-    .filter((rel) => !fs.existsSync(path.join(REPO_ROOT, rel)));
+  const out = new Set(
+    shipFiles(baseRef)
+      .filter(isRiskyPath)
+      .filter((rel) => !fs.existsSync(path.join(REPO_ROOT, rel)))
+  );
+  /* A RENAME OUT OF THE RISKY TREE IS A REMOVAL. See renamePairs() for the hole:
+   * git names only the destination, so `git mv scripts/check-x.mjs archive/x.mjs`
+   * put a non-risky path in scope and nothing else, and the guard left the repo
+   * unattested.
+   *
+   * A rename that STAYS risky is deliberately NOT listed. Its destination is in
+   * riskyFilesInScope() and gated by content hash, so the reviewed bytes are still
+   * gated -- and listing it would force a fresh mint for every in-tree file move,
+   * which is the "byte-identical rename must not force re-review" property the
+   * whole content-hash identity exists to provide. The gate's rename tolerance is
+   * narrowed to exactly these pairs (see ship-gate's whyFile), so the two halves
+   * agree on what a rename is. */
+  for (const { from, to } of renamePairs(baseRef)) {
+    if (isRiskyPath(from) && !isRiskyPath(to)) out.add(from);
+  }
+  return [...out].sort();
 }
 
 /** Risky files split by tier: { hard: [...], soft: [...] }. */
@@ -626,8 +734,33 @@ export function stampCoversHash(stamp, hash, now = Date.now()) {
  *    clause that keeps it from fail-opening.
  *  - findings come from the NEW review ONLY, so this changes coverage
  *    accumulation and NOTHING about how findings gate.
+ *
+ * DELETIONS ARE PATH-IDENTIFIED, NOT CONTENT-IDENTIFIED (added in Phase 2). A
+ * file this ship DELETES has no bytes left to hash, so it can never appear in
+ * `hashes` -- which left removing a CI workflow, a check script or a git hook
+ * (the single highest-risk guard edit there is) unreviewable by construction.
+ * The `deletions` array records those paths, and the gate clears a deletion only
+ * when the path is listed. Path identity is genuinely weaker than content
+ * identity, and that is the honest limit of what a deletion can attest: there is
+ * no content to bind to. Restoring the file puts it back under the hash
+ * contract, because it is then on disk and lands in `hashes` instead. The array
+ * carries forward under the SAME canCarry gate as `hashes`, for the same reason
+ * (an incremental review's diff need not contain an earlier review's deletion).
  */
-export function mergeReviewStamp(prev, { sessionId = null, hashes = {}, findings = [], nowIso, now = Date.now() }) {
+/** Default liveness probe for carried deletions -- injectable for tests. */
+export function pathExists(rel) {
+  return fs.existsSync(path.join(REPO_ROOT, toPosix(rel)));
+}
+
+export function mergeReviewStamp(prev, {
+  sessionId = null,
+  hashes = {},
+  deletions = [],
+  findings = [],
+  nowIso,
+  now = Date.now(),
+  exists = pathExists,
+}) {
   const canCarry =
     !!prev &&
     typeof prev === "object" &&
@@ -636,11 +769,26 @@ export function mergeReviewStamp(prev, { sessionId = null, hashes = {}, findings
     stampIsFresh(prev, now) &&
     unresolvedConfirmedReasons(prev).length === 0;
   const carried = canCarry ? prev.hashes : {};
+  /* PRUNE A CARRIED DELETION WHOSE FILE IS BACK ON DISK. `hashes` self-corrects
+   * because new content wins on drift; `deletions` had no equivalent, so a path
+   * recorded as deleted rode forward indefinitely across a chain of sub-24h mints.
+   * Delete a check script, review it, restore it twenty minutes later, keep
+   * working -- then delete it again for a different, unreviewed reason, and the
+   * stale entry cleared it. Liveness at mint time is the correction: if the file
+   * exists again, this ship is not deleting it, so the attestation is spent. */
+  const carriedDeletions = (canCarry && Array.isArray(prev.deletions) ? prev.deletions : []).filter(
+    (rel) => !exists(rel)
+  );
+  const nowDeletions = Array.isArray(deletions) ? deletions : [];
+  const mergedDeletions = [
+    ...new Set([...carriedDeletions, ...nowDeletions].map(toPosix).filter(Boolean)),
+  ].sort();
   return {
     version: 1,
     timestamp: nowIso,
     session_id: sessionId ?? null,
     hashes: { ...carried, ...hashes }, // union by rel; new content wins on drift
+    deletions: mergedDeletions, // union by path; a deletion has no content to hash
     findings: Array.isArray(findings) ? findings : [],
   };
 }
