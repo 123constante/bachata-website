@@ -65,7 +65,9 @@ describe("riskTier -- two tiers and a genuine null", () => {
       "scripts/safe-edit.py",
       "scripts/lint-runtime-architecture.mjs",
       "scripts/lib/previewProbe.mjs",
-      ".claude/arc-state.json",
+      // .claude/arc-state.json used to be here; Phase 2 moved it to TIER_EXEMPT
+      // (tracked and reviewable, but no longer gating itself) -- see the EXEMPT
+      // case below for why, and why gitignoring it was the wrong fix.
       ".claude/settings.json",
       ".github/dependabot.yml",
     ]) {
@@ -80,11 +82,26 @@ describe("riskTier -- two tiers and a genuine null", () => {
     expect(riskTier("scripts/a/b/c/deeply-nested.mjs")).toBe("hard");
   });
 
-  it("EXEMPT: the receipt and the session lock are never tiered (gating them is circular)", () => {
+  it("EXEMPT: the receipt, the session lock and arc-state are never tiered", () => {
     expect(riskTier(".claude/.review-stamp.json")).toBeNull();
     expect(riskTier(".claude/.session-lock.json")).toBeNull();
-    // ...but a sibling under .claude/ still is:
-    expect(riskTier(".claude/arc-state.json")).toBe("hard");
+    /* arc-state.json JOINED the exemption in Phase 2, reversing this test's
+     * original assertion, so the reasoning is recorded rather than just edited
+     * away. Phase 1 made it hard-tier deliberately: its `scope` array can disarm
+     * pre-ship's fatal drift check. But it is rewritten at every phase start, so it
+     * sat in EVERY ship's risky scope and demanded a review of itself before any
+     * push -- and a gate that is annoying to keep green stops being used. The
+     * alternative on the table was to gitignore it, which fixes the annoyance by
+     * making the file invisible: an edit widening `scope` would then appear in no
+     * diff and need no receipt, and resolveDeclaredScope() would return "none" on
+     * CI and in every fresh clone, silently downgrading DECLARED to the advisory
+     * INFERRED heuristic. Exempting keeps it TRACKED and reviewable in the PR diff
+     * while it stops gating itself; a receipt-level guard on the `scope` array
+     * specifically is logged for the plan-hygiene phase. */
+    expect(riskTier(".claude/arc-state.json")).toBeNull();
+    // ...but the exemption is narrow -- other siblings under .claude/ are hard:
+    expect(riskTier(".claude/settings.json")).toBe("hard");
+    expect(riskTier(".claude/hooks/pre-write-block.sh")).toBe("hard");
   });
 
   it("SOFT: app code that deploys prod on merge", () => {
