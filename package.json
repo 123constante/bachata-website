@@ -14,6 +14,8 @@
     "build:dev": "vite build --mode development",
     "lint": "npm run check:integrity && npm run check:mojibake && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && npm run check:route-boundaries && npm run check:rpc-typing && npm run check:wallclock-brand && eslint .",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
+    "lint:eslint": "eslint .",
+    "pre-ship": "node scripts/pre-ship.mjs",
     "check:route-boundaries": "node scripts/check-route-error-boundaries.mjs",
     "check:no-social-word": "node scripts/check-no-social-word.mjs",
     "check:og": "node scripts/check-og-images.mjs",
