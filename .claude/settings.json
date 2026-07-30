@@ -3,6 +3,9 @@
     "allow": [
       "Bash(git switch *)",
       "Bash(gh pr create --base main --head fix/mojibake-sweep --title 'fix\\(integrity\\): sweep cp1252 mojibake from comments + one error string' --body ' *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr checks *)",
       "Bash(git fetch *)",
       "Bash(python3 c:/dev/Website/scripts/safe-write.py c:/dev/Website/src/pages/SearchResults.tsx)",
       "Bash(PYTHONUTF8=1 python3)",
@@ -40,7 +43,8 @@
       "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py src/modules/event-page/bento/modals/RafflePhoneInput.tsx)",
       "Bash(dir \"C:\\\\dev\\\\Website\\\\src\\\\modules\")",
       "Bash(xargs -I {} gh api {} --jq '.[0] | \"\\\\\\(.state\\): \\\\\\(.environment_url\\)\"')",
-      "Bash(gh deployment *)",
+      "Bash(gh deployment view *)",
+      "Bash(gh deployment list *)",
       "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.status == \"completed\"\\) | {name: .name, conclusion: .conclusion}')",
       "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.name == \"Smoke live production\"\\) | .status')",
       "Bash(xargs -I {} sh -c 'gh api repos/123constante/bachata-website/actions/runs/{} --jq \".name, .status, .conclusion, .html_url\"')",
@@ -50,6 +54,10 @@
       "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/lib/previewProbe.mjs)",
       "Bash(git -C /c/dev/Website diff --stat origin/main...origin/fix/preview-checks-skip-when-walled)",
       "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled)",
+      "Bash(git grep *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run watch *)",
       "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- .github/workflows/perf-budget.yml scripts/check-lighthouse.mjs)",
       "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- scripts/check-og-images.mjs scripts/check-seo.mjs tests/previewProbe.test.ts)",
       "PowerShell(gh run view 29808152486 --log-failed | Out-File -Encoding utf8 C:\\\\tmp\\\\r29808152486.log; \\(Get-Content C:\\\\tmp\\\\r29808152486.log | Measure-Object -Line\\).Lines)",
@@ -64,7 +72,8 @@
     ],
     "additionalDirectories": [
       "\\tmp",
-      "c:\\tmp"
+      "c:\\tmp",
+      "C:\\tmp"
     ]
   },
   "hooks": {
