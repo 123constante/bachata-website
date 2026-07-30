@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
-import { matchesFilter } from './mapTypes';
+import { matchesFilter, isRemoteRow } from './mapTypes';
 import { isDesktopViewport } from './viewport';
 import {
   dedupePins,
@@ -141,7 +141,7 @@ export function useMapList(
   // Pins are scoped to the page city: dropping out-of-city rows here keeps them
   // out of BOTH the pin set and mapVisible (which resolves through pinKeyForOcc),
   // while listEvents/calendarDays/stats below still see every row, so a far-flung
-  // festival stays in the list ("further afield") but never on the map.
+  // festival stays in the list but never on the map.
   const citySlug = opts.citySlug ?? null;
   const { pins, pinKeyForOcc } = useMemo(
     () => dedupePins(events.filter((e) => isOnCityMap(e, citySlug))),
@@ -195,7 +195,7 @@ export function useMapList(
       setSelected(occId);
       const e = byOcc.get(occId);
       if (!e) return;
-      if (occId.startsWith('remote-')) {
+      if (isRemoteRow(e)) {
         navigate(`/festival/${e.event_id}`);
       } else {
         navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);

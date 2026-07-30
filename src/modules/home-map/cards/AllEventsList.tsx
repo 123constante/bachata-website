@@ -1,13 +1,18 @@
 // Festival Map -- shared "All Events" list body for both the mobile sheet and
-// the desktop rail, so the today-emphasis + "further afield" treatment stays in
-// sync across surfaces. Local London rows lead (today's group is highlighted);
-// remote festivals abroad are partitioned into a collapsed section at the bottom
-// so the default chronological stream keeps its promise ("What's on in London")
-// and has a real floor instead of trailing into next-year events on another
-// continent.
+// the desktop rail, so the today-emphasis treatment stays in sync across
+// surfaces. Local rows lead (today's group is highlighted); remote festivals
+// (dated outside the local 90-day query) follow in their own labelled section
+// BELOW the load-more sentinel, so growing the feed window can never displace
+// them and the local stream keeps answering "What's on in {city}".
+//
+// The section is always OPEN -- it is a signpost, not a disclosure. It was a
+// collapsed toggle, which hid festivals behind a tap nobody made; a plain
+// chronological interleave was tried instead and was worse again (see
+// mapListDerivations.windowGroups for why pinning rows past the window
+// scrolls the reader backwards).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Globe, Navigation } from 'lucide-react';
+import { Globe, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
 import {
@@ -78,55 +83,45 @@ function GroupHeader({
   );
 }
 
-/** Collapsed "Festivals further afield" disclosure: the remote (other-city)
- *  festivals, date-grouped, hidden by default behind a counted toggle so the
- *  local list bottoms out cleanly. */
+/** "Festivals further afield": the remote festivals, date-grouped, ALWAYS open.
+ *  Rendered below the local feed's load-more sentinel, so expanding the window
+ *  never moves it. The label and count are load-bearing -- without them the
+ *  jump from July to November reads as "nothing is on in between", and
+ *  RemoteFestivalRow's only travel signal is a 12px pin. */
 function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
-  const [open, setOpen] = useState(false);
-  // Deferred AND memoised: nothing is grouped while the disclosure is shut, and
-  // once it is opened the result is cached rather than rebuilt on every parent
-  // re-render (this section sits inside the feed, so it re-renders whenever a
-  // sibling row is hovered). The hook has to precede the early return below.
-  const groups = useMemo(
-    () => (open ? groupByDate(collapseFestivals(remote)) : []),
-    [open, remote],
-  );
+  // Grouped unconditionally now (no open/closed state to defer behind), but
+  // still memoised: this sits inside the feed, so it re-renders whenever a
+  // sibling row is hovered.
+  const groups = useMemo(() => groupByDate(collapseFestivals(remote)), [remote]);
   if (remote.length === 0) return null;
   return (
     <section className="pt-1">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={cn('flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left', focusRing)}
-      >
+      <header className="flex items-center gap-2 px-1 py-2">
         <Globe className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="text-xs font-bold text-foreground">Festivals further afield</span>
-        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">{remote.length}</span>
+        <h2 className="text-xs font-bold text-foreground">Festivals further afield</h2>
+        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+          {remote.length}
+        </span>
         <span className="h-px flex-1 bg-border" />
-        <ChevronDown
-          className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
-          aria-hidden="true"
-        />
-      </button>
-      {open && (
-        <div className="space-y-3 pt-2">
-          {groups.map((g) => (
-            <section key={g.key}>
-              <header className="flex items-center gap-2 px-1 pb-1.5 pt-1">
-                <span className="truncate text-xs font-bold text-muted-foreground">{g.label}</span>
-                <span className="h-px flex-1 bg-border" />
-                <span className="shrink-0 text-[10px] font-bold text-muted-foreground">{g.items.length}</span>
-              </header>
-              <div className="space-y-1">
-                {g.items.map((e) => (
-                  <RemoteFestivalRow key={e.occurrence_id} event={e} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+      </header>
+      <div className="space-y-3">
+        {groups.map((g) => (
+          <section key={g.key}>
+            <header className="flex items-center gap-2 px-1 pb-1.5 pt-1">
+              <span className="truncate text-xs font-bold text-muted-foreground">{g.label}</span>
+              <span className="h-px flex-1 bg-border" />
+              <span className="shrink-0 text-[10px] font-bold text-muted-foreground">
+                {g.items.length}
+              </span>
+            </header>
+            <div className="space-y-1">
+              {g.items.map((e) => (
+                <RemoteFestivalRow key={e.occurrence_id} event={e} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </section>
   );
 }
@@ -152,8 +147,9 @@ function LocationStrip({ onUse }: { onUse: () => void }) {
   );
 }
 
-/** The "All Events" body: local date-grouped rows (today highlighted) followed
- *  by the collapsed remote-festivals section. Shared by mobile + desktop. */
+/** The "All Events" body: date-grouped rows, today highlighted, local and
+ *  remote festivals interleaved in one chronological stream. Shared by
+ *  mobile + desktop. */
 export function AllEventsList({
   state,
   showSearchEmpty,
@@ -244,6 +240,16 @@ export function AllEventsList({
     return m;
   }, [shownGroups, coords]);
 
+  // Whether "Nearest" could actually reorder anything. Holding coords is not
+  // enough: a feed can be entirely coordless (every remote festival is, and a
+  // local feed can be), in which case the comparator returns 0 for every pair
+  // and the control renders inert -- the dead-sort-control defect an earlier
+  // review round already flagged on this component.
+  const hasDistances = useMemo(
+    () => [...distances.values()].some((mi) => mi != null),
+    [distances],
+  );
+
   // The rows each group renders, nearest-first when asked, each carrying the
   // distance its chip needs so EventRow does not recompute the same haversine.
   //
@@ -272,6 +278,8 @@ export function AllEventsList({
     [shownGroups, nearest, coords, distances],
   );
 
+  // Both empty, not just the local stream: a feed carrying only remote
+  // festivals still has something to show.
   if (groups.length === 0 && remote.length === 0) {
     return (
       <EmptyState>
@@ -287,7 +295,7 @@ export function AllEventsList({
   return (
     <div className="space-y-3">
       {state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
-      {coords && groups.length > 0 && (
+      {coords && hasDistances && (
         <div className="flex items-center justify-end gap-1.5 text-[11px] font-bold">
           <span className="text-muted-foreground">Sort</span>
           <div className="inline-flex overflow-hidden rounded-full border border-border">
@@ -330,6 +338,8 @@ export function AllEventsList({
         </section>
       ))}
       {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
+      {/* AFTER the sentinel deliberately: growing the window appends day-groups
+          above this point, so the section never moves under the reader. */}
       <FurtherAfield remote={remote} />
     </div>
   );

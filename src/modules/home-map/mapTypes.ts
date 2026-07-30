@@ -6,6 +6,7 @@
 
 import { haversineKm } from '@/lib/geo/haversineKm';
 import { isFestivalByFormat } from '@/lib/eventFormat';
+import { eventHref } from '@/lib/seo/eventHref';
 import { londonDateKey, londonMinutesOfDay, normalisePostgrestTimestamp } from '@/lib/londonDate';
 
 export type MapCategory = 'class' | 'party' | 'mix' | 'fest' | 'social';
@@ -84,6 +85,39 @@ export const CATEGORY_LABEL: Record<MapCategory, string> = {
  * fallback. Kept as a named export here for the existing map-module call sites.
  */
 export const isFestivalFormat = isFestivalByFormat;
+
+/**
+ * A "remote" row: a festival merged in from the SITEWIDE upcoming-festivals
+ * feed (useUpcomingFestivalsGlobal) because the city-scoped 90-day occurrence
+ * query did not already return it. pages/Index.tsx stamps those synthetic rows
+ * with a 'remote-' occurrence_id; every surface that must treat them
+ * differently (route to /festival/:id rather than /event/:id, render
+ * RemoteFestivalRow, exempt them from the feed's day window) tests them here.
+ *
+ * Sentinel-based, deliberately NOT date- or coord-based. A far-future LONDON
+ * festival is a normal local row and must stay one, and a local row with no
+ * coords is not "abroad" -- so `lat == null` and `city_slug == null` both
+ * MISCLASSIFY real local rows and must not be used for this. (Separately,
+ * mapListDerivations.isOnCityMap decides map PINS by city_slug; that is a
+ * different question from where a row belongs in the list.)
+ */
+export const isRemoteRow = (e: Pick<MapEvent, 'occurrence_id'>): boolean =>
+  e.occurrence_id.startsWith('remote-');
+
+/**
+ * The href for a feed row. Remote rows resolve to /festival/:id; everything
+ * else to the event page for its occurrence.
+ *
+ * Exists because getting this wrong is INVISIBLE in normal use: useMapList's
+ * fromCard intercepts left-click and routes correctly, so a row whose href
+ * still pointed at /event/:id?occurrenceId=remote-<uuid> looked fine until you
+ * middle-clicked, cmd-clicked, copied the link, or were a crawler -- and then
+ * you landed on an event route with a synthetic occurrence id that matches no
+ * occurrence. Every row component takes its href from here so the three
+ * surfaces (feed, Tonight, News) cannot drift apart again.
+ */
+export const rowHref = (e: MapEvent): string =>
+  isRemoteRow(e) ? `/festival/${e.event_id}` : eventHref(e, e.occurrence_id);
 
 /** Map an event's format/flags to a single display category. */
 export function deriveCategory(e: Pick<MapEvent, 'type' | 'format' | 'has_party' | 'has_class'>): MapCategory {
@@ -288,11 +322,25 @@ export function todayStr(d = new Date()): string {
 // ---- time-of-day + live status -------------------------------------------
 
 /** Parse a time-bearing string to minutes-from-midnight. Accepts 'HH:MM',
- *  'HH:MM:SS', or a full 'YYYY-MM-DD HH:MM:SS+00' wall-clock string. Null if it
- *  has no parseable time. Regex-free to keep this hot path cheap. */
-function hhmmToMinutes(s) {
+ *  'HH:MM:SS', a 'YYYY-MM-DD HH:MM:SS+00' wall-clock string, or a T-separated
+ *  ISO instant. Null if it has no parseable time. Regex-free to keep this hot
+ *  path cheap.
+ *
+ *  The T form is accepted DEFENSIVELY, to keep this in step with formatTime's
+ *  regex (which has always matched both). When the two disagreed, a row could
+ *  PRINT a time and then sort to the END of its day-group.
+ *
+ *  It is NOT a licence to feed this function a true instant. The HH:MM is read
+ *  as-stored and never tz-converted, so an instant must be normalised to the
+ *  naive local-as-UTC convention BEFORE it gets here -- see
+ *  instantToLondonWallClockStamp, applied to the global festivals feed at the
+ *  pages/Index.tsx boundary. Parsing an instant's digits directly renders it an
+ *  hour early for the whole BST season. */
+function hhmmToMinutes(s: string | null | undefined): number | null {
   if (!s) return null;
-  const timePart = s.includes(' ') ? s.slice(s.indexOf(' ') + 1) : s;
+  const space = s.indexOf(' ');
+  const sep = space >= 0 ? space : s.indexOf('T');
+  const timePart = sep >= 0 ? s.slice(sep + 1) : s;
   const parts = timePart.split(':');
   const hh = Number(parts[0]);
   const mm = Number(parts[1]);
