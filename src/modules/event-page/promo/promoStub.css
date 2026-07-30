@@ -1,0 +1,395 @@
+/* ==========================================================================
+   Ticket-stub promo code -- claude.ai/design "Bachata promo code
+   interactions", option 1b.
+
+   Colour comes entirely from the --promo-* custom properties set per tone in
+   promoTone.ts; there are no literal colours below. Geometry and timings are
+   the design's own: 108px card, 92px stub, 1px dashed perforation, two 16px
+   notches at the seam, tear 340ms, shine 850ms, confetti 1s.
+
+   Colocated with the component and imported by it rather than living in
+   index.css -- these rules are component-scoped and none of them are involved
+   in the load-bearing --bento-cell fallback.
+   ========================================================================== */
+
+.promo-stub-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+/* The bento host is a fixed-height tile, so the card has to fill it. */
+.promo-stub-wrap[data-layout='stub-bottom'] {
+  height: 100%;
+}
+
+.promo-stub {
+  position: relative;
+  display: flex;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--promo-radius);
+  background: var(--promo-surface);
+  color: var(--promo-fg);
+  transition: transform 0.12s ease;
+}
+.promo-stub:active {
+  transform: scale(0.99);
+}
+.promo-stub:focus-visible {
+  outline: 2px solid var(--promo-accent);
+  outline-offset: 2px;
+}
+.promo-stub[data-layout='stub-right'] {
+  flex-direction: row;
+  height: 108px;
+}
+.promo-stub[data-layout='stub-bottom'] {
+  flex-direction: column;
+  height: 100%;
+}
+
+/* -- left pane -------------------------------------------------------- */
+.ps-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  overflow: hidden;
+}
+.ps-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--promo-accent);
+}
+.ps-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--promo-display);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  color: var(--promo-fg);
+  transition: color 0.3s ease;
+}
+.promo-stub[data-phase='torn'] .ps-code {
+  color: var(--promo-accent);
+}
+.ps-hint {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--promo-fg-muted);
+}
+.ps-check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--promo-accent);
+  animation: promoCheckPop 0.38s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+.ps-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 56px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--promo-accent) 22%, transparent),
+    transparent
+  );
+  animation: promoShine 0.85s 0.05s ease-out both;
+}
+
+/* -- perforation, stub, copied panel ---------------------------------- */
+.ps-perf {
+  flex: none;
+  width: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--promo-fg) 32%, transparent);
+}
+[data-layout='stub-bottom'] .ps-perf {
+  width: auto;
+  height: 0;
+  border-left: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--promo-fg) 32%, transparent);
+}
+
+.ps-stub,
+.ps-done {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: var(--promo-accent);
+}
+.ps-stub {
+  flex-direction: column;
+  gap: 6px;
+  background: var(--promo-stub-bg);
+}
+.ps-done {
+  line-height: 1.4;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  background: color-mix(in srgb, var(--promo-stub-bg) 60%, transparent);
+  animation: promoCheckPop 0.3s ease both;
+}
+.ps-stub-icon {
+  width: 20px;
+  height: 20px;
+}
+[data-layout='stub-bottom'] .ps-stub,
+[data-layout='stub-bottom'] .ps-done {
+  width: 100%;
+  height: 44px;
+}
+[data-layout='stub-bottom'] .ps-stub {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.promo-stub[data-phase='tearing'] .ps-stub {
+  animation: promoTearAway 0.34s cubic-bezier(0.4, 0, 0.7, 0.3) forwards;
+}
+.promo-stub[data-layout='stub-bottom'][data-phase='tearing'] .ps-stub {
+  animation-name: promoTearDown;
+}
+
+/* Notches punch through to the ground behind the card at the seam. */
+.ps-notch {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--promo-notch);
+  pointer-events: none;
+}
+[data-layout='stub-right'] .ps-notch {
+  left: calc(100% - 92px);
+  transform: translateX(-8px);
+}
+[data-layout='stub-right'] .ps-notch-a {
+  top: -8px;
+}
+[data-layout='stub-right'] .ps-notch-b {
+  bottom: -8px;
+}
+[data-layout='stub-bottom'] .ps-notch {
+  top: calc(100% - 44px);
+  transform: translateY(-8px);
+}
+[data-layout='stub-bottom'] .ps-notch-a {
+  left: -8px;
+}
+[data-layout='stub-bottom'] .ps-notch-b {
+  right: -8px;
+}
+
+/* -- confetti ---------------------------------------------------------
+   Rendered as a sibling of the card, not a child: the card clips its own
+   overflow for the shine and the tear, and the pieces have to escape it. */
+.ps-confetti {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+[data-layout='stub-right'] > .ps-confetti {
+  left: calc(100% - 92px);
+  top: 50%;
+}
+[data-layout='stub-bottom'] > .ps-confetti {
+  left: 50%;
+  top: calc(100% - 44px);
+}
+.ps-conf {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 1px;
+  animation: promoConf 1s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+
+/* -- compact density (bento 1x1 tile) ---------------------------------
+   The promo bento slot is ONE grid cell: --bento-cell is calc((100cqw - 18px)
+   / 4), which measures 93px on a 390px viewport. The BentoTile host drops its
+   title strip for this block (as the date, city and venue tiles already do),
+   which leaves roughly 73px square of card once the content wrapper padding is
+   paid -- the eyebrow now has room and earns its place, the hint does not.
+
+   These numbers are load-bearing: at the first pass the bar was 26px and the
+   code 13px, which left a 17px body for a 30px two-line code and the card
+   clipped it. Budget is: card 73 - bar 22 = 51px of body for a 10px eyebrow
+   plus a 2-line code. Shrink the bar before you grow the type. */
+/* Vertical budget at the SMALLEST realistic cell (85px, a 375px viewport):
+   card 65 - bar 22 = 43px of body, which has to hold the eyebrow, the gap and
+   a code that wraps to two lines there. 4px padding + 1px gap keeps that at
+   ~41px. Do not restore the roomier 5px/2px -- it overflowed by 2px on the
+   iPhone SE width and .ps-body clips its overflow for the shine. */
+[data-density='compact'] .ps-body {
+  padding: 4px;
+  gap: 1px;
+}
+[data-density='compact'] .ps-eyebrow {
+  font-size: 8.5px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+/* Measured, not guessed: at Inter 500 a 9-character code (COMMUNITY, the
+   longest live one) is 62.2px at 10px and 74.4px at 12px, against 64px of
+   body width once the 5px padding is paid on a 390px viewport. So 10px keeps
+   it on one line here; 12px wrapped it mid-word to "COMMUN / ITY".
+
+   Below roughly 380px the cell itself shrinks and it will wrap again. That is
+   accepted: wrapping is legible and does not clip, whereas truncating a promo
+   code with an ellipsis would hide the thing the user came for. */
+[data-density='compact'] .ps-code {
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+[data-density='compact'] .ps-check {
+  width: 12px;
+  height: 12px;
+}
+[data-density='compact'] .ps-stub,
+[data-density='compact'] .ps-done {
+  height: 22px;
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  gap: 5px;
+}
+[data-density='compact'] .ps-stub-icon {
+  width: 11px;
+  height: 11px;
+}
+[data-density='compact'] .ps-notch {
+  width: 9px;
+  height: 9px;
+}
+/* All three offsets have to be rescaled together with the notch size. The
+   9px notch must sit half-outside the card on every axis, so the horizontal
+   pair moves to -4.5px as well -- left at the inherited -8px the circle fell
+   almost entirely outside and overflow:hidden clipped it to a 1px sliver. */
+[data-layout='stub-bottom'][data-density='compact'] .ps-notch {
+  top: calc(100% - 22px);
+  transform: translateY(-4.5px);
+}
+[data-layout='stub-bottom'][data-density='compact'] .ps-notch-a {
+  left: -4.5px;
+}
+[data-layout='stub-bottom'][data-density='compact'] .ps-notch-b {
+  right: -4.5px;
+}
+[data-layout='stub-bottom'][data-density='compact'] > .ps-confetti {
+  top: calc(100% - 22px);
+  transform: scale(0.55);
+}
+
+/* BentoGrid sets container-type: inline-size, so the tile responds to the
+   grid's own width rather than the viewport. The grid is the viewport minus
+   BentoPage's px-2, and the cell is (grid - 18) / 4:
+
+     375px viewport -> 359px grid -> 85px cell -> 61px of body width
+     390px viewport -> 374px grid -> 89px cell -> 65px
+     430px viewport -> 414px grid -> 99px cell -> 71px
+
+   A 9-character code is 62.2px at 10px, so everything below a 414px grid
+   wrapped it ("COMMUNIT / Y"). 9px measures 56px and fits all three. If this
+   component is ever used outside a container the query never matches and the
+   10px above stands. */
+@container (max-width: 400px) {
+  [data-density='compact'] .ps-code {
+    font-size: 9px;
+  }
+}
+
+/* -- keyframes -------------------------------------------------------- */
+@keyframes promoTearAway {
+  from {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(52px, 28px) rotate(15deg);
+    opacity: 0;
+  }
+}
+@keyframes promoTearDown {
+  from {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(16px, 44px) rotate(9deg);
+    opacity: 0;
+  }
+}
+@keyframes promoConf {
+  from {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--tx), var(--ty)) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+@keyframes promoShine {
+  from {
+    transform: translateX(-130%) skewX(-16deg);
+  }
+  to {
+    transform: translateX(260%) skewX(-16deg);
+  }
+}
+@keyframes promoCheckPop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  62% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* The design has no reduced-motion path. Copying still works and still shows
+   its copied state; only the motion is dropped. */
+@media (prefers-reduced-motion: reduce) {
+  .promo-stub,
+  .promo-stub * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .ps-shine,
+  .ps-confetti {
+    display: none !important;
+  }
+}

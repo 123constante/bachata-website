@@ -1,99 +1,54 @@
-import { useCallback, useState } from 'react';
-import { Check } from 'lucide-react';
-import { toast } from 'sonner';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
-import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
+import { BLOCK_COLORS } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPagePromoCode } from '@/modules/event-page/types';
 import { formatDiscount } from '@/modules/event-page/promoFormat';
+import { PromoTicketStub } from '@/modules/event-page/promo/PromoTicketStub';
 
 type PromoBlockProps = {
   codes: EventPagePromoCode[];
 };
 
-const TICK_DURATION_MS = 800;
-
-const useCopyCode = () => {
-  // Tracks which code id is currently showing its tick flash. A single id is
-  // sufficient because taps are serial on mobile.
-  const [flashingId, setFlashingId] = useState<string | null>(null);
-
-  const copy = useCallback(async (code: EventPagePromoCode) => {
-    try {
-      await navigator.clipboard.writeText(code.code);
-    } catch {
-      toast.error("Couldn't copy — try long-press");
-      return;
-    }
-    toast.success('Copied!');
-    // iOS Safari often ignores vibrate; Android honours it. Try/catch keeps
-    // the interaction working on browsers that throw on the API.
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(50);
-      }
-    } catch {
-      /* noop */
-    }
-    setFlashingId(code.id);
-    window.setTimeout(() => {
-      setFlashingId((current) => (current === code.id ? null : current));
-    }, TICK_DURATION_MS);
-  }, []);
-
-  return { flashingId, copy };
-};
-
+/**
+ * Promo tile on the event bento page -- design 1b, compact.
+ *
+ * The slot is 1 grid cell (LAYOUT: minW 1, preferredW 1, minH 1) -- 93px square
+ * on a 390px viewport. The stub runs stub-bottom + compact: same perforation,
+ * tear, confetti and copied state, with a 22px bar instead of a 92px side stub.
+ *
+ * The tile title is deliberately empty. BentoTile renders the strip ABOVE the
+ * card, and at this size it cost ~32px of the 73px available -- enough that the
+ * code overflowed its own body and got clipped. The date, city and venue tiles
+ * already omit their titles for the same reason; the stub says PROMO itself via
+ * the discount eyebrow and the COPY bar.
+ *
+ * Renders the first code only. Live data has never carried more than one:
+ * across every event with promo codes the maximum array length is 1.
+ *
+ * Still a multi-target tile -- the outer card does not navigate, the stub owns
+ * its own tap.
+ */
 export const PromoBlock = ({ codes }: PromoBlockProps) => {
-  const { flashingId, copy } = useCopyCode();
-  if (!codes || codes.length === 0) return null;
+  const code = codes?.[0];
+  if (!code) return null;
 
-  // Promo is a multi-target tile (the outer card doesn't navigate, each
-  // code row is its own tap target — taps copy the code).
+  // Rendering only the first code is deliberate, but it must not be silent:
+  // if an organiser ever adds a second one it would otherwise just vanish.
+  if (import.meta.env.DEV && codes.length > 1) {
+    console.warn(
+      `[PromoBlock] event has ${codes.length} promo codes; only the first (${code.code}) is rendered.`,
+    );
+  }
+
   return (
-    <BentoTile title={BLOCK_TITLES.promo} color={BLOCK_COLORS.promo} mode="multi-target">
-      <div
-        className="flex min-h-0 flex-1 flex-col gap-[6px] overflow-y-auto"
-        style={{ scrollbarWidth: 'thin' }}
-      >
-        {codes.map((code) => {
-          const flashing = flashingId === code.id;
-          return (
-            <button
-              key={code.id}
-              type="button"
-              onClick={() => copy(code)}
-              className="flex min-w-0 items-center justify-between gap-2 rounded-[10px] px-2 py-[6px] text-left transition active:scale-[0.98]"
-              style={{
-                background: 'hsl(var(--bento-surface))',
-                border: '1px solid var(--bento-hairline)',
-                color: 'hsl(var(--bento-fg))',
-              }}
-              aria-label={`Copy promo code ${code.code}`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-[6px]">
-                  <span className="truncate text-[15px] font-extrabold tracking-[-0.02em]">
-                    {code.code}
-                  </span>
-                  {flashing && (
-                    <Check
-                      className="h-3 w-3 shrink-0"
-                      style={{ color: 'hsl(var(--bento-accent))' }}
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-                <div
-                  className="text-[10px]"
-                  style={{ color: 'hsl(var(--bento-fg-muted))' }}
-                >
-                  {formatDiscount(code.discount_type, code.discount_amount, code.currency)}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+    <BentoTile title="" color={BLOCK_COLORS.promo} mode="multi-target">
+      <PromoTicketStub
+        className="min-h-0 flex-1"
+        code={code.code}
+        discountLabel={formatDiscount(code.discount_type, code.discount_amount, code.currency)}
+        tone="bento"
+        layout="stub-bottom"
+        density="compact"
+      />
     </BentoTile>
   );
 };
