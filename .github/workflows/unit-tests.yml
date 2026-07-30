@@ -40,6 +40,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # reworkShare.test.ts runs the twin-vs-frozen-recipe parity check over the
+          # trailing commit subjects; at the default depth of 1 that "proof" would be
+          # a single synthetic merge commit and the self-test now fails below 20.
+          fetch-depth: 150
 
       - name: Setup Node
         uses: actions/setup-node@v4

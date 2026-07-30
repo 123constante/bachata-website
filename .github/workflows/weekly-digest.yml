@@ -8,6 +8,8 @@ name: Weekly Digest
 #     health (check-gsc.mjs --digest, readonly service-account token)
 #   - live recurring series running out of dates
 #     (check-series-occurrence-horizon.mjs --markdown)
+#   - rework share, trailing 100 commits, both repos (rework-share.mjs --markdown;
+#     frozen recipe owned by admin docs/workflow-overhaul-adoption-checkpoint.md)
 #
 # To switch delivery to WhatsApp/Telegram later, replace the final step.
 
@@ -28,6 +30,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The rework-share step counts the trailing 100 commit SUBJECTS. The default
+          # single-commit checkout would silently make that number 1/1, so the depth is
+          # part of the metric, not a performance knob.
+          fetch-depth: 150
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -54,6 +61,28 @@ jobs:
           {
             echo ""
             node scripts/check-series-occurrence-horizon.mjs --markdown
+          } >> digest.md
+
+      - name: Append rework-share section
+        # Belt and braces on top of the script's own fail-soft: a process-level failure
+        # (module-load error, OOM, ENOENT after a rename) must degrade this SECTION, not
+        # kill the digest before the issue opens.
+        continue-on-error: true
+        env:
+          # Fine-grained PAT, admin repo only, Contents:read. Absent (e.g. on a fork or a
+          # branch copy) the section still renders and the admin row reads "unavailable" -
+          # the digest is the one push channel Ricky reads and must never die for a token.
+          ADMIN_READ_TOKEN: ${{ secrets.ADMIN_READ_TOKEN }}
+        run: |
+          {
+            echo ""
+            node scripts/rework-share.mjs --markdown || echo "_rework share unavailable this week_"
+          } >> digest.md
+
+      - name: Append footer
+        # Last on purpose: every content section lands above the sign-off.
+        run: |
+          {
             echo ""
             echo "---"
             echo "_Auto-generated weekly. Close this issue when read._"

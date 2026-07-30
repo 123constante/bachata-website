@@ -76,6 +76,14 @@
             "command": "node scripts/hooks/arc-checkpoint.mjs --event=UserPromptSubmit"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -83,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bin/session-lock.sh acquire --warn-only"
+            "command": "node scripts/hooks/session-lock.mjs acquire --warn-only --hook"
           }
         ]
       },
@@ -106,7 +114,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bin/session-lock.sh release"
+            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/session-lock.mjs release --hook"
           }
         ]
       }

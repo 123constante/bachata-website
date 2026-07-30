@@ -282,7 +282,10 @@ replacement.
 - `.githooks/pre-commit` — integrity check on staged files
 - `npm run check:integrity` — full tree scan (`bin/check-integrity.sh`)
 - `npm run repair:corrupt` — auto-restore corrupted files from HEAD
-- `bin/session-lock.sh acquire/release` — advisory lock for multi-file refactors
+- `scripts/hooks/session-lock.mjs` — advisory session lock (hooks: SessionStart
+  acquire, per-turn heartbeat, SessionEnd release; 90-min staleness backstop; a live
+  foreign lock warns with the other session's branch — work in a `git worktree` then).
+  `bin/session-lock.sh` is a thin CLI wrapper for manual use
 
 CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
