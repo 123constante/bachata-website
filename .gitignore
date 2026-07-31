@@ -91,4 +91,7 @@ whatson-shipped.md
 # scripts/lib/review-scope.mjs: exempt without hiding.
 /.claude/*-review-findings.json
 /.claude/.session-lock.json
+# writeLock() stages to .session-lock.json.tmp-<pid> before an atomic rename; a Windows
+# EPERM on the rename can orphan one, and heartbeats rewrite the lock twice a turn.
+/.claude/.session-lock.json.tmp-*
 /.claude/.review-stamp.json
