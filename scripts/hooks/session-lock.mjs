@@ -436,6 +436,13 @@ function selfTest() {
     if (!parseArgv(["release", "--bogus"]).error) fail("unknown flag was not rejected");
     if (!parseArgv(["release", "extra"]).error) fail("second verb was not rejected");
     if (parseArgv(["--id", "x", "release"]).id !== "x") fail("flag value lost");
+    // A valued flag with no payload is a usage error, not a silent undefined.
+    if (!parseArgv(["release", "--id"]).error) fail("trailing --id was not rejected");
+    if (!parseArgv(["--stale-minutes"]).error) fail("trailing --stale-minutes was not rejected");
+    // Load-bearing control for the two above: the payload sitting at the LAST index is
+    // legal, so an off-by-one in the bounds check would red here instead of passing.
+    if (parseArgv(["release", "--id", "x"]).error) fail("valued flag at end of argv wrongly rejected");
+    if (parseArgv(["release", "--id", "x"]).id !== "x") fail("value at last index lost");
   } finally {
     unmute();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -476,6 +483,15 @@ function parseArgv(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (VALUE_FLAGS.has(a)) {
+      // A valued flag at the end of argv has no payload. Accepting it silently would
+      // set the option to undefined and fall through to the default - so `release --id`
+      // would run the GENERIC unguarded release while reading like a targeted one. This
+      // parser already errors on unknown flags and stray verbs; a truncated flag is the
+      // same class of operator typo and gets the same treatment.
+      if (i + 1 >= argv.length) {
+        out.error = `flag '${a}' requires a value`;
+        return out;
+      }
       out[a === "--id" ? "id" : a === "--stale-minutes" ? "staleMinutes" : "staleHours"] = argv[++i];
     } else if (BOOL_FLAGS.has(a)) {
       out[a.replace(/^--/, "").replace(/-(\w)/g, (_, c) => c.toUpperCase())] = true;

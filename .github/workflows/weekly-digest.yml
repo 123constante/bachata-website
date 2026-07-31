@@ -64,9 +64,12 @@ jobs:
           } >> digest.md
 
       - name: Append rework-share section
-        # Belt and braces on top of the script's own fail-soft: a process-level failure
-        # (module-load error, OOM, ENOENT after a rename) must degrade this SECTION, not
-        # kill the digest before the issue opens.
+        # soft-signal: the digest is a report channel, not a gate - no correctness claim
+        # rides on this step, and the share is already measured twice over (the script's
+        # own fail-soft line, plus the `|| echo` at the call site). This is belt and
+        # braces for a process-level failure (module-load error, OOM, ENOENT after a
+        # rename): it must degrade this SECTION, not kill the digest before the issue
+        # opens.
         continue-on-error: true
         env:
           # Fine-grained PAT, admin repo only, Contents:read. Absent (e.g. on a fork or a
