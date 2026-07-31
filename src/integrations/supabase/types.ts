@@ -1332,6 +1332,138 @@ export type Database = {
           },
         ]
       }
+      dancer_profiles_archive_20260720050000: {
+        Row: {
+          achievements: string[] | null
+          archived_at: string | null
+          avatar_url: string | null
+          based_city_id: string | null
+          claimed_by: string | null
+          cover_url: string | null
+          created_at: string | null
+          created_by: string | null
+          dance_role: string | null
+          dance_started_year: number | null
+          description: string | null
+          display_name: string | null
+          email: string | null
+          facebook: string | null
+          favorite_songs: string[] | null
+          favorite_styles: string[] | null
+          first_name: string | null
+          gallery_urls: string[] | null
+          id: string | null
+          instagram: string | null
+          instagram_normalized: string | null
+          is_active: boolean | null
+          languages: string[] | null
+          looking_for_partner: boolean | null
+          meta_data: Json | null
+          nationality: string | null
+          partner_details: string | null
+          partner_practice_goals: string[] | null
+          partner_search_level: string[] | null
+          partner_search_role: string | null
+          person_entity_id: string | null
+          person_id: string | null
+          phone: string | null
+          photo_url: string | null
+          profile_source: string | null
+          slug: string | null
+          surname: string | null
+          updated_at: string | null
+          website: string | null
+          website_url: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          achievements?: string[] | null
+          archived_at?: string | null
+          avatar_url?: string | null
+          based_city_id?: string | null
+          claimed_by?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          dance_role?: string | null
+          dance_started_year?: number | null
+          description?: string | null
+          display_name?: string | null
+          email?: string | null
+          facebook?: string | null
+          favorite_songs?: string[] | null
+          favorite_styles?: string[] | null
+          first_name?: string | null
+          gallery_urls?: string[] | null
+          id?: string | null
+          instagram?: string | null
+          instagram_normalized?: string | null
+          is_active?: boolean | null
+          languages?: string[] | null
+          looking_for_partner?: boolean | null
+          meta_data?: Json | null
+          nationality?: string | null
+          partner_details?: string | null
+          partner_practice_goals?: string[] | null
+          partner_search_level?: string[] | null
+          partner_search_role?: string | null
+          person_entity_id?: string | null
+          person_id?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          profile_source?: string | null
+          slug?: string | null
+          surname?: string | null
+          updated_at?: string | null
+          website?: string | null
+          website_url?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          achievements?: string[] | null
+          archived_at?: string | null
+          avatar_url?: string | null
+          based_city_id?: string | null
+          claimed_by?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          dance_role?: string | null
+          dance_started_year?: number | null
+          description?: string | null
+          display_name?: string | null
+          email?: string | null
+          facebook?: string | null
+          favorite_songs?: string[] | null
+          favorite_styles?: string[] | null
+          first_name?: string | null
+          gallery_urls?: string[] | null
+          id?: string | null
+          instagram?: string | null
+          instagram_normalized?: string | null
+          is_active?: boolean | null
+          languages?: string[] | null
+          looking_for_partner?: boolean | null
+          meta_data?: Json | null
+          nationality?: string | null
+          partner_details?: string | null
+          partner_practice_goals?: string[] | null
+          partner_search_level?: string[] | null
+          partner_search_role?: string | null
+          person_entity_id?: string | null
+          person_id?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          profile_source?: string | null
+          slug?: string | null
+          surname?: string | null
+          updated_at?: string | null
+          website?: string | null
+          website_url?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       dancer_profiles_legacy_backup: {
         Row: {
           avatar_url: string
@@ -1542,6 +1674,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dancing_role_details_archive_20260720050000: {
+        Row: {
+          achievements: string[] | null
+          created_at: string | null
+          dance_started_year: number | null
+          favorite_songs: string[] | null
+          favorite_styles: string[] | null
+          id: string | null
+          looking_for_partner: boolean | null
+          partner_details: string | null
+          partner_practice_goals: string[] | null
+          partner_search_level: string[] | null
+          partner_search_role: string | null
+          person_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          achievements?: string[] | null
+          created_at?: string | null
+          dance_started_year?: number | null
+          favorite_songs?: string[] | null
+          favorite_styles?: string[] | null
+          id?: string | null
+          looking_for_partner?: boolean | null
+          partner_details?: string | null
+          partner_practice_goals?: string[] | null
+          partner_search_level?: string[] | null
+          partner_search_role?: string | null
+          person_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          achievements?: string[] | null
+          created_at?: string | null
+          dance_started_year?: number | null
+          favorite_songs?: string[] | null
+          favorite_styles?: string[] | null
+          id?: string | null
+          looking_for_partner?: boolean | null
+          partner_details?: string | null
+          partner_practice_goals?: string[] | null
+          partner_search_level?: string[] | null
+          partner_search_role?: string | null
+          person_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       ddl_audit_log: {
         Row: {
@@ -2524,6 +2704,20 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "event_occurrence_p5_legacy_occurrence_id_fkey"
+            columns: ["legacy_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_feed"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "event_occurrence_p5_legacy_occurrence_id_fkey"
+            columns: ["legacy_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_occurrences"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_occurrence_p5_series_id_fkey"
             columns: ["series_id"]
@@ -3565,27 +3759,35 @@ export type Database = {
           default_start_date: string | null
           default_ticket_url: string | null
           default_venue_id: string | null
+          facebook_url: string | null
           featured: boolean | null
           festival_id: string | null
           format: string | null
           gallery: string[] | null
+          group_chat_url: string | null
           id: string
+          instagram_url: string | null
           is_template: boolean
           legacy_event_id: string | null
           lifecycle_status: string
+          livestream_url: string | null
           name: string
+          organiser_card_slot_1: string | null
+          organiser_card_slot_2: string | null
           organiser_ids: string[] | null
           passes: Json | null
           promo_codes: Json | null
           recurrence_rule: Json | null
           removed_dates: string[]
           slug: string | null
+          tiktok_url: string | null
           timezone: string | null
           type: string | null
           updated_at: string
           v3_series_id: string | null
           version: number
           video_urls: string[] | null
+          website: string | null
         }
         Insert: {
           category?: string | null
@@ -3602,27 +3804,35 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
           format?: string | null
           gallery?: string[] | null
+          group_chat_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_template?: boolean
           legacy_event_id?: string | null
           lifecycle_status?: string
+          livestream_url?: string | null
           name: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
           updated_at?: string
           v3_series_id?: string | null
           version?: number
           video_urls?: string[] | null
+          website?: string | null
         }
         Update: {
           category?: string | null
@@ -3639,27 +3849,35 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
           format?: string | null
           gallery?: string[] | null
+          group_chat_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_template?: boolean
           legacy_event_id?: string | null
           lifecycle_status?: string
+          livestream_url?: string | null
           name?: string
+          organiser_card_slot_1?: string | null
+          organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
           updated_at?: string
           v3_series_id?: string | null
           version?: number
           video_urls?: string[] | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -4883,6 +5101,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      m3_dancer_survivor_sidecar_violation_log: {
+        Row: {
+          archived: boolean | null
+          auth_uid: string | null
+          caller_is_admin: boolean | null
+          dancer_profile_id: string
+          dancer_slug: string | null
+          db_user: string
+          diverged_columns: string[]
+          fired_on_table: string
+          id: number
+          jwt_role: string | null
+          legacy_values: Json | null
+          observed_at: string
+          request_method: string | null
+          request_path: string | null
+          sidecar_values: Json | null
+          trigger_op: string
+          txid: number
+          violation_kind: string
+        }
+        Insert: {
+          archived?: boolean | null
+          auth_uid?: string | null
+          caller_is_admin?: boolean | null
+          dancer_profile_id: string
+          dancer_slug?: string | null
+          db_user?: string
+          diverged_columns?: string[]
+          fired_on_table: string
+          id?: never
+          jwt_role?: string | null
+          legacy_values?: Json | null
+          observed_at?: string
+          request_method?: string | null
+          request_path?: string | null
+          sidecar_values?: Json | null
+          trigger_op: string
+          txid?: number
+          violation_kind: string
+        }
+        Update: {
+          archived?: boolean | null
+          auth_uid?: string | null
+          caller_is_admin?: boolean | null
+          dancer_profile_id?: string
+          dancer_slug?: string | null
+          db_user?: string
+          diverged_columns?: string[]
+          fired_on_table?: string
+          id?: never
+          jwt_role?: string | null
+          legacy_values?: Json | null
+          observed_at?: string
+          request_method?: string | null
+          request_path?: string | null
+          sidecar_values?: Json | null
+          trigger_op?: string
+          txid?: number
+          violation_kind?: string
+        }
+        Relationships: []
       }
       member_profiles: {
         Row: {
@@ -8174,6 +8455,7 @@ export type Database = {
       }
     }
     Functions: {
+      _arc_gates_internal_counts_v1: { Args: never; Returns: Json }
       _assert_can_edit_occurrence_p5: {
         Args: { p_actor: string; p_occurrence_id: string }
         Returns: undefined
@@ -8314,6 +8596,10 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _event_series_p5_slugify_v1: {
+        Args: { p_id: string; p_name: string }
+        Returns: string
+      }
       _event_view_legacy_compat_v1: { Args: { p_target: Json }; Returns: Json }
       _event_view_snapshot_compat_v1: {
         Args: { p_target: Json }
@@ -8326,7 +8612,6 @@ export type Database = {
           start_date: string
         }[]
       }
-      _festival_parity_normalize_v1: { Args: { p: Json }; Returns: Json }
       _floor_test_probe: { Args: never; Returns: string }
       _get_occurrence_program_p5_native_v1: {
         Args: { p_occurrence_id: string }
@@ -8455,6 +8740,19 @@ export type Database = {
         Args: { p_legacy_event_id: string; p_lifecycle_status: string }
         Returns: boolean
       }
+      _people_read_internal_counts_v1: { Args: never; Returns: Json }
+      _person_credited_event_ids_v1: {
+        Args: { p_profile_id: string }
+        Returns: string[]
+      }
+      _person_delete_blockers_v1: {
+        Args: { p_person_id: string }
+        Returns: Json
+      }
+      _person_lineup_visible_v1: {
+        Args: { p_profile_id: string }
+        Returns: boolean
+      }
       _person_publicly_visible_v1: {
         Args: { p_person_id: string }
         Returns: boolean
@@ -8475,6 +8773,16 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _public_time_agreement_sample_v1: {
+        Args: { p_limit?: number }
+        Returns: {
+          canonical_start: string
+          event_id: string
+          occurrence_id: string
+          series_name: string
+        }[]
+      }
+      _purge_person_stub_v1: { Args: { p_person_id: string }; Returns: Json }
       _raffle_drawable_entries_v1: {
         Args: { p_event_id: string; p_exclude_entry_id?: string }
         Returns: {
@@ -8580,6 +8888,7 @@ export type Database = {
         Returns: Json
       }
       _snapshot_series_p5: { Args: { p_series_id: string }; Returns: Json }
+      _strip_sql_comments_v1: { Args: { p_src: string }; Returns: string }
       _target_series_lifecycle_p5: { Args: { p_target: Json }; Returns: string }
       _validate_recurrence_payload_v1: {
         Args: { p_rule: Json }
@@ -10511,6 +10820,10 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      admin_seam_writer_candidates_v1: {
+        Args: { p_columns: string[]; p_tables: string[] }
+        Returns: Json
+      }
       admin_search_events: {
         Args: { p_limit?: number; p_search_term: string }
         Returns: {
@@ -10962,9 +11275,10 @@ export type Database = {
       }
       check_admin_secdef_contract_v1: { Args: never; Returns: Json }
       check_anon_grants_contract_v1: { Args: never; Returns: Json }
+      check_arc_gates_v1: { Args: never; Returns: Json }
       check_cancelled_occurrence_visibility_v1: { Args: never; Returns: Json }
       check_command_audit_health_v1: { Args: never; Returns: Json }
-      check_dancer_profiles_legacy_col_drift_v1: { Args: never; Returns: Json }
+      check_dancer_profiles_legacy_col_drift_v3: { Args: never; Returns: Json }
       check_entry_liveness_contract_v1: { Args: never; Returns: Json }
       check_epp_avatar_url_drift_v1: { Args: never; Returns: Json }
       check_epp_display_name_drift_v1: { Args: never; Returns: Json }
@@ -10981,14 +11295,15 @@ export type Database = {
       }
       check_event_program_room_contract_v1: { Args: never; Returns: Json }
       check_event_program_section_consistency_v1: { Args: never; Returns: Json }
+      check_event_series_p5_slug_presence_v1: { Args: never; Returns: Json }
       check_event_tracking_health_v1: { Args: never; Returns: Json }
       check_events_time_constraint_health_v1: { Args: never; Returns: Json }
-      check_festival_detail_p5_parity_v1: { Args: never; Returns: Json }
       check_festival_occurrence_span_v1: { Args: never; Returns: Json }
       check_festival_publish_readiness_v1: {
         Args: { p_series_id?: string }
         Returns: Json
       }
+      check_festival_socials_p5_sourced_v1: { Args: never; Returns: Json }
       check_finite_course_phantom_tail_v1: { Args: never; Returns: Json }
       check_fk_indexes_v1: { Args: never; Returns: Json }
       check_get_calendar_events_v2_parity_v1: {
@@ -11023,11 +11338,13 @@ export type Database = {
         Args: { p_threshold_days?: number }
         Returns: Json
       }
+      check_merged_person_credits_v1: { Args: never; Returns: Json }
       check_migration_stamp_drift_v1: { Args: never; Returns: Json }
       check_my_profile_dedup_v1: {
         Args: { p_field: string; p_value: string }
         Returns: Json
       }
+      check_no_materialised_utc_miscast_v1: { Args: never; Returns: Json }
       check_occurrence_added_session_contract_v1: { Args: never; Returns: Json }
       check_occurrence_instance_end_canonical_v1: { Args: never; Returns: Json }
       check_occurrence_instance_time_canonical_v1: {
@@ -11039,6 +11356,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      check_occurrence_p5_unmaterialised_v1: { Args: never; Returns: Json }
       check_occurrence_program_format_v1: { Args: never; Returns: Json }
       check_occurrence_program_parity_v1: { Args: never; Returns: Json }
       check_occurrence_time_stamping_convention_v1: {
@@ -11060,6 +11378,7 @@ export type Database = {
       check_p5_public_read_contract_v1: { Args: never; Returns: Json }
       check_p5_session_override_parity_v1: { Args: never; Returns: Json }
       check_parallel_group_contract_v1: { Args: never; Returns: Json }
+      check_people_public_read_contract_v1: { Args: never; Returns: Json }
       check_per_date_program_canonical_consistency_v1: {
         Args: never
         Returns: Json
@@ -11080,6 +11399,7 @@ export type Database = {
       check_program_save_v2_idempotency_v1: { Args: never; Returns: Json }
       check_public_time_pairing_contract_v1: { Args: never; Returns: Json }
       check_published_event_has_organiser_v1: { Args: never; Returns: Json }
+      check_pure_p5_public_leak_v1: { Args: never; Returns: Json }
       check_raffle_capacity_contract_v1: { Args: never; Returns: Json }
       check_raffle_draw_snapshot_contract_v1: { Args: never; Returns: Json }
       check_raffle_winners_contract_v1: { Args: never; Returns: Json }
@@ -11105,10 +11425,12 @@ export type Database = {
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
       check_session_override_contract_v1: { Args: never; Returns: Json }
       check_session_override_mirror_parity_v1: { Args: never; Returns: Json }
+      check_session_override_people_mirror_v1: { Args: never; Returns: Json }
       check_session_people_display_name_contract_v1: {
         Args: never
         Returns: Json
       }
+      check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
       check_teacher_dj_assignment_integrity_v1: { Args: never; Returns: Json }
       check_unmigrated_schema_changes_contract_v1: {
         Args: never
@@ -12123,6 +12445,14 @@ export type Database = {
         Args: { p_city_id?: string; p_limit?: number }
         Returns: Json
       }
+      list_public_image_refs_v1: {
+        Args: never
+        Returns: {
+          ref_id: string
+          source: string
+          url: string
+        }[]
+      }
       listing_request_is_stale: {
         Args: {
           p_status: Database["public"]["Enums"]["listing_request_status"]
@@ -12615,6 +12945,10 @@ export type Database = {
         Args: { p_event_id: string; p_organisers: Json; p_replace: boolean }
         Returns: undefined
       }
+      report_dancer_survivor_sidecar_violations_v1: {
+        Args: never
+        Returns: Json
+      }
       resolve_city_id: {
         Args: { p_city?: string; p_city_slug?: string }
         Returns: string
@@ -12654,6 +12988,7 @@ export type Database = {
           slug: string
         }[]
       }
+      resolve_public_event_ref_v1: { Args: { p_param: string }; Returns: Json }
       resolve_venue_city: {
         Args: { p_fallback_city_id: string; p_venue_id: string }
         Returns: {
@@ -12834,38 +13169,6 @@ export type Database = {
           p_sort_order?: number
         }
         Returns: string
-      }
-      upsert_full_member_and_dancer: {
-        Args: {
-          p_achievements?: string[]
-          p_avatar_url?: string
-          p_based_city_id?: string
-          p_city_id?: string
-          p_dancing_start_date?: string
-          p_facebook?: string
-          p_favorite_songs?: string[]
-          p_favorite_styles?: string[]
-          p_first_name?: string
-          p_first_name_dancer?: string
-          p_full_name?: string
-          p_instagram?: string
-          p_is_active?: boolean
-          p_last_name?: string
-          p_looking_for_partner?: boolean
-          p_nationality?: string
-          p_partner_details?: string
-          p_partner_practice_goals?: string[]
-          p_partner_role?: string
-          p_partner_search_level?: string[]
-          p_partner_search_role?: string
-          p_photo_url?: string
-          p_profile_source?: string
-          p_surname?: string
-          p_user_id: string
-          p_website?: string
-          p_whatsapp?: string
-        }
-        Returns: Json
       }
       upsert_venue_atomic: { Args: { payload: Json }; Returns: Json }
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
