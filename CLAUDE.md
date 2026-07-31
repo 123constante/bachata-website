@@ -455,7 +455,7 @@ Non-trivial work runs the 7-step workflow. Every code-bearing working diff gets
 never follow-up commits. SQL/guards → xhigh; keystone/arc-close/DB-contract
 PRs → ultra. Arc plans carry the mandatory per-PR model/effort table
 (`feedback_model_effort_matrix.md`); phase starts write `.claude/arc-state.json`
-and emit a `/model` + effort checkpoint statement. Ship gate: `npm run pre-ship`
+and state the phase's required /model + effort in one line (the arc-checkpoint hook injects the pin; a mismatch is declared and recorded, never a halt). Ship gate: `npm run pre-ship`
 + the pre-push receipt gate (`scripts/ship-gate.mjs`). Decisions reach Ricky as
 clickable questions at genuine forks only. Session economy (same memory file):
 delegate bulk reads to subagents, read only what you edit, edit existing files

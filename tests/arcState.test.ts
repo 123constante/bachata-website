@@ -41,7 +41,7 @@ function mkTree(arcState: unknown): string {
   fs.mkdirSync(path.join(t, "scripts", "hooks"), { recursive: true });
   fs.mkdirSync(path.join(t, "scripts", "lib"), { recursive: true });
   fs.mkdirSync(path.join(t, ".claude"), { recursive: true });
-  for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs"]) {
+  for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs", "scripts/hooks/session-lock.mjs"]) {
     fs.copyFileSync(path.join(REPO_ROOT, rel), path.join(t, rel));
   }
   if (arcState !== null) {
