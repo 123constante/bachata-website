@@ -33,6 +33,9 @@ import {
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
+import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
+import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
+import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 
 // --- Types ---
 
@@ -48,6 +51,17 @@ type EventRow = {
 };
 
 type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
+
+type UpcomingListItem =
+  | { kind: 'single'; event: OrgEvent }
+  | {
+      kind: 'series';
+      eventId: string;
+      name: string;
+      posterUrl: string | null;
+      location: string | null;
+      dates: OrgEvent[];
+    };
 
 type OrgOccRow = {
   event_id: string;
@@ -146,19 +160,28 @@ const dateParts = (wc: WallClock | null | undefined): { day: string; mon: string
   return { day, mon: mon.toUpperCase() };
 };
 
-const ticketDateParts = (wc: WallClock | null | undefined) => {
-  const day = formatWallClockLocal(wc, 'd');
-  if (!day) return { day: '--', mon: 'TBA', yr: '', wd: '' };
-  return {
-    day,
-    mon: (formatWallClockLocal(wc, 'MMM') ?? '').toUpperCase(),
-    yr: formatWallClockLocal(wc, 'yyyy') ?? '',
-    wd: formatWallClockLocal(wc, 'EEEE') ?? '',
-  };
+// Both operands below are plain YYYY-MM-DD date keys, diffed via Date.UTC --
+// never `new Date(rawString)` on a datetime string, which is what caused the
+// BST off-by-one bug the comment above documents.
+const daysFromToday = (dateKey: string, todayKey: string): number => {
+  const [ty, tm, td] = todayKey.split('-').map(Number);
+  const [ey, em, ed] = dateKey.split('-').map(Number);
+  const t = Date.UTC(ty, tm - 1, td);
+  const e = Date.UTC(ey, em - 1, ed);
+  return Math.round((e - t) / 86400000);
 };
 
-const weekdayShort = (wc: WallClock | null | undefined): string =>
-  (formatWallClockLocal(wc, 'EEE') ?? '').toUpperCase();
+const countdownLabel = (wc: WallClock | null | undefined, todayKey: string): string => {
+  const key = formatWallClockLocal(wc, 'yyyy-MM-dd');
+  if (!key) return '';
+  const diff = daysFromToday(key, todayKey);
+  if (diff < 0) return 'Past';
+  if (diff === 0) return 'Tonight';
+  if (diff === 1) return 'Tomorrow';
+  if (diff < 7) return `in ${diff} days`;
+  if (diff < 14) return 'next week';
+  return `in ${Math.round(diff / 7)} weeks`;
+};
 
 const eventTime = (wc: WallClock | null | undefined): string | null => {
   // A date-only value (the instance_date fallback) carries no time; and suppress
@@ -283,26 +306,31 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
   return member.dancerId ? <Link to={`/dancers/${member.dancerId}`}>{inner}</Link> : <div>{inner}</div>;
 };
 
-const UpcomingRow = ({ event }: { event: OrgEvent }) => {
+// Builds EventRow props for a single occurrence. EventRow itself stays
+// time-library-agnostic; all WallClock formatting happens here.
+const buildEventRowProps = (
+  event: OrgEvent,
+  todayKey: string,
+  fallbackIndex: number,
+  chip?: string,
+  onClick?: () => void,
+): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
-  const wd = weekdayShort(event.displayStart);
   const time = eventTime(event.displayStart);
   const venue = event.location?.trim() || event.city?.trim() || '';
-  const meta = [wd, venue, time].filter(Boolean).join(' / ');
+  const meta = [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
-  return (
-    <Link to={href} className="flex items-center gap-3 md:gap-5 px-4 md:px-6 py-3.5 md:py-5 hover:bg-white/5 transition-colors">
-      <div className="flex-none w-10 md:w-[58px] text-center">
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.orange }}>{mon}</div>
-        <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{day}</div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="truncate" style={{ fontSize: 14, fontWeight: 700, color: D.cream, marginBottom: 2 }}>{event.name}</div>
-        {meta && <div className="truncate" style={{ fontSize: 12, color: 'rgba(246,241,234,0.6)' }}>{meta}</div>}
-      </div>
-      <span className="flex-none text-xs font-bold px-3 py-2 rounded-full" style={{ background: 'rgba(231,190,110,0.92)', color: D.black, whiteSpace: 'nowrap' as const }}>View</span>
-    </Link>
-  );
+  return {
+    href,
+    name: event.name,
+    posterUrl: event.poster_url,
+    dateDay: day,
+    dateMon: mon,
+    meta,
+    fallbackIndex,
+    chip,
+    onClick,
+  };
 };
 
 // --- Colour extraction ---
@@ -364,6 +392,8 @@ const OrganiserProfile = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
+  const [showAllPastYears, setShowAllPastYears] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     avatar_url: '',
@@ -443,7 +473,12 @@ const OrganiserProfile = () => {
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<OrgOccRow[]> => {
-      const from = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 10);
+      // 3650 days (~10y), not the old 730-day (~2y) cap: the Past nights
+      // accordion groups by year and needs to reach back to when this
+      // organiser actually started, not an arbitrary recent slice -- a 2-year
+      // cap silently hid whole years for any organiser older than that,
+      // contradicting the "hosted since <year>" stat already shown above.
+      const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
       const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1' as never, { p_organiser_id: id, p_from: from, p_to: to, p_include_past: true } as never);
       if (error) return [];
@@ -648,14 +683,63 @@ const OrganiserProfile = () => {
     }
   };
 
-  // groupedRows must be before early returns (Rules of Hooks)
-  const nextEvent  = upcomingEvents[0] ?? null;
-  const moreEvents = upcomingEvents.slice(1);
+  // Groups upcomingEvents (one OrgEvent per occurrence, already sorted
+  // ascending) by event_id: a recurring series (3+ upcoming dates sharing an
+  // event_id) collapses to one 'series' item; 1-2-date groups stay as
+  // individual 'single' items. Because upcomingEvents is sorted ascending and
+  // grouping preserves first-seen order, `items` comes out "soonest first"
+  // for both singles and series with no secondary sort needed -- a series'
+  // position is anchored to its earliest upcoming date, which is what we want.
+  // Must be before early returns (Rules of Hooks).
+  const upcomingListItems = useMemo((): UpcomingListItem[] => {
+    return groupByEventId(upcomingEvents).map((g): UpcomingListItem => {
+      if (g.kind === 'single') return g;
+      const first = g.dates[0];
+      return {
+        kind: 'series',
+        eventId: g.eventId,
+        name: first.name,
+        posterUrl: first.poster_url,
+        location: first.location,
+        dates: g.dates,
+      };
+    });
+  }, [upcomingEvents]);
 
-  const { groupedRows, totalHidden } = useMemo(() => {
-    const rows = moreEvents.slice(0, 3);
-    return { groupedRows: rows, totalHidden: moreEvents.length - rows.length };
-  }, [moreEvents]);
+  const visibleItems = showAllUpcoming ? upcomingListItems : upcomingListItems.slice(0, 3);
+  const hiddenItems = upcomingListItems.slice(visibleItems.length);
+  // "dates" counts individual occurrences, not list rows -- a collapsed
+  // series row counts for all of its dates, not just 1, so this matches what
+  // "Show all" actually reveals.
+  const itemDateCount = (item: UpcomingListItem): number => (item.kind === 'series' ? item.dates.length : 1);
+  const totalUpcomingDateCount = upcomingListItems.reduce((sum, item) => sum + itemDateCount(item), 0);
+
+  const openSeries = upcomingListItems.find(
+    (it): it is Extract<UpcomingListItem, { kind: 'series' }> =>
+      it.kind === 'series' && it.eventId === openSeriesEventId,
+  ) ?? null;
+
+  // pastEvents is already sorted descending (most recent first), so grouping
+  // by first-seen year preserves that order -- no re-sort needed. Memoized
+  // like upcomingListItems above: the past window is 10 years, so this walk
+  // is worth skipping on unrelated re-renders (edit modal, showAllUpcoming).
+  // Must be before early returns (Rules of Hooks).
+  const pastByYear = useMemo((): { year: string; events: OrgEvent[] }[] => {
+    const byYear = new Map<string, OrgEvent[]>();
+    const groups: { year: string; events: OrgEvent[] }[] = [];
+    for (const e of pastEvents) {
+      const year = formatWallClockLocal(e.displayStart, 'yyyy') ?? 'Unknown';
+      if (!byYear.has(year)) { byYear.set(year, []); groups.push({ year, events: byYear.get(year)! }); }
+      byYear.get(year)!.push(e);
+    }
+    return groups;
+  }, [pastEvents]);
+
+  // Only the most recent 3 years mount by default -- a decade-old organiser's
+  // full history is fetched (for the "since <year>" stat) but doesn't need to
+  // render 500+ DOM rows on a mobile-first page just because they're collapsed.
+  const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, 3);
+  const hiddenPastYears = pastByYear.slice(visiblePastYears.length);
 
   // --- Loading ---
   if (isLoading) {
@@ -720,11 +804,6 @@ const OrganiserProfile = () => {
 
   const cityName = entity.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
-
-  const visibleMore = showAllUpcoming ? moreEvents : groupedRows;
-  const hiddenCount = showAllUpcoming ? 0 : totalHidden;
-  const pastVisible = pastEvents.slice(0, 6);
-  const pastExtra   = pastEvents.length - pastVisible.length;
 
   const foundedYear = (ep.founded_year as number | null | undefined) ?? null;
   const estYear     = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
@@ -906,73 +985,36 @@ const OrganiserProfile = () => {
           </section>
         )}
 
-        {/* NEXT EVENT */}
-        {nextEvent && (() => {
-          const td = ticketDateParts(nextEvent.displayStart);
-          const time = eventTime(nextEvent.displayStart);
-          const venue = nextEvent.location?.trim() || nextEvent.city?.trim() || '';
-          const href = nextEvent.occurrenceId ? `/event/${nextEvent.id}?occurrenceId=${nextEvent.occurrenceId}` : `/event/${nextEvent.id}`;
-          return (
-            <section className="px-5 md:px-12 py-8 md:py-10" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 16px' }}>Next event</p>
-              <div style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(231,190,110,0.30)', boxShadow: '0 20px 50px -28px rgba(255,106,44,0.45)' }}>
-                <div style={{ display: 'flex' }}>
-                  <div style={{ width: 'clamp(80px,20vw,188px)', flexShrink: 0, padding: 'clamp(16px,3vw,30px) 12px', textAlign: 'center', background: 'radial-gradient(circle at 50% 28%,rgba(255,106,44,0.42),transparent 62%),linear-gradient(160deg,#33202b,#15101a)', borderRight: '2px dashed rgba(231,190,110,0.4)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.orange }}>{td.wd || td.mon}</div>
-                    <div style={{ fontFamily: SERIF, fontSize: 'clamp(44px,8vw,80px)', fontWeight: 600, lineHeight: 0.85, margin: '4px 0', color: D.cream }}>{td.day}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.gold }}>{td.mon} {td.yr}</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0, padding: 'clamp(16px,3vw,30px) clamp(14px,4vw,34px)', position: 'relative', overflow: 'hidden', background: nextEvent.poster_url ? undefined : 'radial-gradient(circle at 96% 12%,rgba(255,106,44,0.18),transparent 44%),linear-gradient(150deg,#1a1018,#0C0A0D)' }}>
-                    {nextEvent.poster_url && <>
-                      <div style={{ position: 'absolute', inset: 0, backgroundImage: cssUrl(nextEvent.poster_url, 960), backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22 }} />
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(12,10,13,0.85) 0%,rgba(12,10,13,0.55) 60%,rgba(12,10,13,0.3) 100%)' }} />
-                    </>}
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                    <h3 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(20px,4vw,36px)', lineHeight: 1.05, margin: '0 0 12px', color: D.cream }}>{nextEvent.name}</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', color: 'rgba(246,241,234,0.7)', fontSize: 13 }}>
-                      {venue && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="1.9" aria-hidden="true"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                          {venue}
-                        </span>
-                      )}
-                      {time && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-                          {time}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ marginTop: 20 }}>
-                      <Link to={href} style={{ fontSize: 13, fontWeight: 800, color: D.black, padding: '12px 28px', borderRadius: 100, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E 55%,#FF6A2C)', boxShadow: '0 8px 24px rgba(255,106,44,0.32)', textDecoration: 'none', display: 'inline-block' }}>
-                        View event
-                      </Link>
-                    </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* ALL UPCOMING */}
-        {moreEvents.length > 0 && (
+        {/* UPCOMING EVENTS */}
+        {upcomingListItems.length > 0 && (
           <section className="px-5 md:px-12 py-8 md:py-10" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
-              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>All upcoming events</h2>
-              <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{moreEvents.length} {moreEvents.length === 1 ? 'date' : 'dates'}</span>
+              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>Upcoming events</h2>
+              <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{upcomingListItems.length} {upcomingListItems.length === 1 ? 'event' : 'events'}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(246,241,234,0.08)' }}>
-              {visibleMore.map((e) => (
-                <div key={e.occurrenceId ?? e.id} style={{ background: 'rgba(246,241,234,0.03)' }}>
-                  <UpcomingRow event={e} />
-                </div>
-              ))}
+            <div className="flex flex-col gap-2">
+              {visibleItems.map((item, i) =>
+                item.kind === 'single' ? (
+                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} {...buildEventRowProps(item.event, todayKey, i)} />
+                ) : (
+                  <EventRowCard
+                    key={item.eventId}
+                    href={`/event/${item.eventId}`}
+                    name={item.name}
+                    posterUrl={item.posterUrl}
+                    dateDay={dateParts(item.dates[0].displayStart).day}
+                    dateMon={dateParts(item.dates[0].displayStart).mon}
+                    meta={[countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · ')}
+                    fallbackIndex={i}
+                    chip={`${item.dates.length} dates`}
+                    onClick={() => setOpenSeriesEventId(item.eventId)}
+                  />
+                ),
+              )}
             </div>
-            {!showAllUpcoming && hiddenCount > 0 && (
+            {!showAllUpcoming && hiddenItems.length > 0 && (
               <button onClick={() => setShowAllUpcoming(true)} style={{ display: 'block', width: '100%', padding: '14px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>
-                Show all {moreEvents.length} dates
+                Show all {totalUpcomingDateCount} dates
               </button>
             )}
           </section>
@@ -998,21 +1040,45 @@ const OrganiserProfile = () => {
               <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>Past nights</h2>
               <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{pastEvents.length} hosted</span>
             </div>
-            <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-              {pastVisible.map((e, i) => (
-                <Link key={e.occurrenceId ?? e.id} to={e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`} style={{ aspectRatio: '1', borderRadius: 10, position: 'relative', overflow: 'hidden', display: 'block', background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 320), backgroundSize: 'cover', backgroundPosition: 'center', textDecoration: 'none' }}>
-                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '6px 7px', background: 'linear-gradient(transparent,rgba(12,10,13,0.88))', fontSize: 9, fontWeight: 700, color: D.cream, lineHeight: 1.3 }}>
-                    {e.name.length > 14 ? e.name.slice(0, 13) + '???' : e.name}
+            <div className="flex flex-col gap-2">
+              {visiblePastYears.map((group, gi) => (
+                <details key={group.year} open={gi === 0} className="rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '10px 12px' }}>
+                  <summary
+                    className="flex cursor-pointer list-none items-center justify-between"
+                    style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.5)' }}
+                  >
+                    <span>{group.year} &middot; {group.events.length} {group.events.length === 1 ? 'night' : 'nights'}</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </summary>
+                  <div className="mt-2 flex flex-col">
+                    {group.events.map((e, i) => {
+                      const href = e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`;
+                      const label = formatWallClockLocal(e.displayStart, 'EEEE d MMM') ?? 'TBA';
+                      return (
+                        <Link
+                          key={stableRowKey(e.occurrenceId, e.id, i)}
+                          to={href}
+                          className="flex items-center gap-2 py-1.5 no-underline"
+                          style={{ borderBottom: i < group.events.length - 1 ? '1px solid rgba(246,241,234,0.05)' : undefined }}
+                        >
+                          <span
+                            className="h-[22px] w-[22px] flex-shrink-0 rounded-md"
+                            style={{ background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 80), backgroundSize: 'cover', backgroundPosition: 'center' }}
+                          />
+                          <span className="flex-shrink-0" style={{ width: 96, fontSize: 11.5, color: D.cream }}>{label}</span>
+                          <span className="min-w-0 flex-1 truncate text-right" style={{ fontSize: 11.5, color: 'rgba(246,241,234,0.6)' }}>{e.name}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
-                </Link>
+                </details>
               ))}
-              {pastExtra > 0 && (
-                <div style={{ aspectRatio: '1', borderRadius: 10, background: 'linear-gradient(160deg,#241820,#100b13)', border: '1px solid rgba(231,190,110,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: D.gold, lineHeight: 1 }}>+{pastExtra}</div>
-                  <div style={{ fontSize: 8, fontWeight: 600, color: 'rgba(246,241,234,0.55)', marginTop: 2 }}>more</div>
-                </div>
-              )}
             </div>
+            {!showAllPastYears && hiddenPastYears.length > 0 && (
+              <button onClick={() => setShowAllPastYears(true)} style={{ display: 'block', width: '100%', padding: '14px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>
+                Show earlier years ({hiddenPastYears.length})
+              </button>
+            )}
           </section>
         )}
 
@@ -1077,6 +1143,13 @@ const OrganiserProfile = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SeriesDatesSheet
+        open={!!openSeries}
+        onOpenChange={(o) => { if (!o) setOpenSeriesEventId(null); }}
+        seriesName={openSeries?.name ?? ''}
+        dates={(openSeries?.dates ?? []).map((e, i) => buildEventRowProps(e, todayKey, i))}
+      />
     </GlobalLayout>
   );
 };
