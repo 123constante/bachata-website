@@ -41,7 +41,7 @@ function mkTree(arcState: unknown): string {
   fs.mkdirSync(path.join(t, "scripts", "hooks"), { recursive: true });
   fs.mkdirSync(path.join(t, "scripts", "lib"), { recursive: true });
   fs.mkdirSync(path.join(t, ".claude"), { recursive: true });
-  for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs"]) {
+  for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs", "scripts/hooks/session-lock.mjs"]) {
     fs.copyFileSync(path.join(REPO_ROOT, rel), path.join(t, rel));
   }
   if (arcState !== null) {
@@ -228,7 +228,7 @@ describe("twin parity (skips when the admin checkout is absent, e.g. CI)", () =>
   const lf = (p: string) => fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 
   it.skipIf(!present)("hook + lib content-identical modulo line endings", () => {
-    for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs"]) {
+    for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs", "scripts/hooks/session-lock.mjs"]) {
       expect(lf(path.join(sibling, rel)), rel).toBe(lf(path.join(REPO_ROOT, rel)));
     }
   });

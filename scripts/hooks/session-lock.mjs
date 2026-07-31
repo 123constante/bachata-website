@@ -1,11 +1,20 @@
 /**
  * session-lock.mjs - advisory lock for concurrent Claude Code sessions.
  *
- * IDENTICAL FILE IN BOTH REPOS (Website scripts/hooks/ and admin scripts/hooks/) - it
- * derives the repo name from the checkout, so keep the copies byte-equal; if one grows
- * a rule the other must follow, change BOTH. CI cover lives in the Website repo
- * (tests/sessionLock.test.ts runs --self-test); byte-equality is what extends that
- * proof to the admin copy.
+ * TWIN COPY in both repos (Website scripts/hooks/ and admin scripts/hooks/) - it derives
+ * the repo name from the checkout, so keep the copies content-identical MODULO LINE
+ * ENDINGS; if one grows a rule the other must follow, change BOTH.
+ *
+ * Not "byte-equal": each repo's safe-write.py writes that repo's own convention, so the
+ * admin copy is LF and the Website copy is CRLF and their sha256s have never matched.
+ * The header said byte-equal anyway, and used that false claim to argue the Website's
+ * tests/sessionLock.test.ts extended its proof here -- which it never did: that suite
+ * runs selfTest() on the WEBSITE copy only, and (measured 2026-07-31) NO test in either
+ * repo compared the two session-lock copies at all. Cover now: the admin repo's
+ * tests/hookSelfTests.test.ts invokes --self-test on its copy AND asserts twin parity
+ * modulo line endings; the Website's twin-parity list (tests/arcState.test.ts) includes
+ * this file. Both parity tests skip when the sibling checkout is absent, so the proof
+ * lives on dual-checkout machines, not CI -- stated so nobody re-claims CI cover.
  *
  * WHY. When two agent sessions edit the same repo simultaneously, in-flight writes can
  * be silently truncated (the 2026-04-26 corruption incident), and two sessions applying
@@ -107,7 +116,22 @@ function readLock(ctx) {
   }
 }
 
-/** No lock, an unparseable lock, or a missing/expired stale_after_iso all count as stale. */
+/**
+ * No lock, an unparseable lock, or a missing/expired stale_after_iso all count as stale.
+ *
+ * STALENESS IS TIMESTAMP-ONLY, AND MUST STAY THAT WAY. The lock body also carries `pid`
+ * and `host`, and the obvious next idea - "same host + dead pid means the owner crashed,
+ * reclaim it now instead of crying wolf for 90 minutes" - does not work here and must not
+ * be added. The pid written is the pid of the process that WROTE the lock, and every
+ * writer is either a short-lived hook invocation or a one-shot CLI run: it has already
+ * exited by the time anyone reads the file. A pid-liveness check would therefore declare
+ * EVERY lock dead the instant it was written, which is strictly worse than crying wolf.
+ * The pid that would actually answer the question is the Claude session's own, and
+ * nothing in the payload exposes it. So: `pid` is PROVENANCE, not liveness (it answers
+ * "which process wrote this", useful when a stray tmp file needs tracing), and `host` is
+ * reported in the foreign warning below so a cross-machine collision on a shared mount is
+ * legible. Neither is an input to any decision.
+ */
 function isStale(lock, now = Date.now()) {
   if (!lock) return true;
   const raw = lock.stale_after_iso;
@@ -124,6 +148,7 @@ function writeLock(ctx, startedAtIso, now = new Date()) {
     stale_after_iso: new Date(now.getTime() + ctx.staleMinutes * 60_000)
       .toISOString()
       .replace(/\.\d{3}Z$/, "Z"),
+    // Provenance only - see the isStale() note. Never read as liveness evidence.
     pid: process.pid,
     host: os.hostname(),
     branch: ctx.branch,
@@ -158,10 +183,16 @@ function writeLock(ctx, startedAtIso, now = new Date()) {
  */
 function foreignWarning(ctx, lock) {
   const wtName = `${ctx.repoName}-wt`;
+  // `host` is reported (not decided on): on a shared mount the other session can be on
+  // another machine entirely, where a worktree in THIS checkout is not the fix. Written
+  // and never read was the previous state - see the isStale() note for why `pid` stays
+  // unreported and undecided-on.
+  const otherHost = lock.host && lock.host !== os.hostname() ? `${lock.host} (NOT this machine)` : lock.host || "unknown";
   const msg =
     "session-lock: WARNING - another Claude session is live in this repo.\n" +
     `  its branch : ${lock.branch || "unknown"}\n` +
     `  its session: ${lock.session_id || "unknown"} (started ${lock.started_at_iso || "unknown"})\n` +
+    `  its host   : ${otherHost}\n` +
     `  this session is on branch: ${ctx.branch}\n` +
     "  Concurrent multi-file edits lose work here (later write wins). Give this session\n" +
     "  its own checkout on a NEW branch:\n" +
@@ -337,6 +368,22 @@ function selfTest() {
     if (!/branch-of-A/.test(captured)) fail("warning did not name the other session's branch");
     if (!/git worktree add \.\.\/fixture-repo-wt -b/.test(captured))
       fail("warning did not give a runnable worktree command (new dir + new branch)");
+    // includes(), not new RegExp(hostname): NetBIOS names legally carry regex
+    // metacharacters - ( ) + { } - and an interpolated RegExp would false-fail
+    // (or throw) on such a machine, a permanent machine-specific red.
+    if (!captured.includes(`its host   : ${os.hostname()}`))
+      fail("warning did not report the lock's host (it was written and never read)");
+    // A lock from ANOTHER machine must say so - a worktree here is not that fix.
+    // Snapshot the raw bytes and restore THEM, so later groups assert against the
+    // true pre-patch lock rather than a hand-mirrored reconstruction.
+    const rawBeforeCross = fs.readFileSync(A.lockPath);
+    fs.writeFileSync(A.lockPath, JSON.stringify({ ...readLock(A), host: "some-other-box" }));
+    mute();
+    heartbeat(B);
+    unmute();
+    if (!captured.includes("its host   : some-other-box (NOT this machine)"))
+      fail("a cross-machine lock was not flagged as such");
+    fs.writeFileSync(A.lockPath, rawBeforeCross);
     if (readLock(A).session_id !== "A") fail("foreign heartbeat stole a live lock");
     mute();
     heartbeat(B, { quiet: true });
@@ -436,13 +483,16 @@ function selfTest() {
     if (!parseArgv(["release", "--bogus"]).error) fail("unknown flag was not rejected");
     if (!parseArgv(["release", "extra"]).error) fail("second verb was not rejected");
     if (parseArgv(["--id", "x", "release"]).id !== "x") fail("flag value lost");
-    // A valued flag with no payload is a usage error, not a silent undefined.
-    if (!parseArgv(["release", "--id"]).error) fail("trailing --id was not rejected");
-    if (!parseArgv(["--stale-minutes"]).error) fail("trailing --stale-minutes was not rejected");
-    // Load-bearing control for the two above: the payload sitting at the LAST index is
-    // legal, so an off-by-one in the bounds check would red here instead of passing.
-    if (parseArgv(["release", "--id", "x"]).error) fail("valued flag at end of argv wrongly rejected");
-    if (parseArgv(["release", "--id", "x"]).id !== "x") fail("value at last index lost");
+    // ba4de33 (Website round-3 review): a valued flag with NO payload must error, not
+    // silently become undefined - `release --id` read as targeted but ran generic.
+    const trailId = parseArgv(["release", "--id"]);
+    if (!trailId.error || !/requires a value/.test(trailId.error)) fail("trailing --id with no value was not rejected");
+    if (!parseArgv(["--stale-minutes"]).error) fail("a lone trailing valued flag was not rejected");
+    // LAST-INDEX control: a valued flag whose payload IS the final token must still
+    // parse - an off-by-one in the bounds check reds here instead of passing.
+    const lastIdx = parseArgv(["release", "--id", "x"]);
+    if (lastIdx.error || lastIdx.id !== "x") fail("a valued flag at last index was wrongly rejected");
+    if (parseArgv(["--stale-hours", "2", "acquire"]).staleHours !== "2") fail("stale-hours payload lost after guard");
   } finally {
     unmute();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -516,18 +566,22 @@ const invokedDirectly =
 if (invokedDirectly) {
   const args = parseArgv(process.argv.slice(2));
 
-  if (args.selfTest) {
-    // exitCode, never process.exit(): on Windows a pending pipe write can be discarded
-    // by an immediate exit (the libuv quirk pre-ship.mjs documents) - and this file's
-    // whole job is a warning arriving.
-    process.exitCode = selfTest();
-  } else if (args.error) {
+  if (args.error) {
+    // Checked before selfTest: a malformed invocation must fail loudly even
+    // when --self-test was also passed, matching this dispatch's own
+    // fail-loud intent - an argument-parse error is never worth silently
+    // swallowing behind an unrelated flag.
     process.stderr.write(
       `session-lock: ${args.error}\n` +
         "usage: session-lock.mjs {acquire|heartbeat|release|check|status} " +
         "[--id X] [--stale-minutes N] [--stale-hours H] [--warn-only] [--force] [--quiet] [--hook]\n"
     );
     process.exitCode = 1;
+  } else if (args.selfTest) {
+    // exitCode, never process.exit(): on Windows a pending pipe write can be discarded
+    // by an immediate exit (the libuv quirk pre-ship.mjs documents) - and this file's
+    // whole job is a warning arriving.
+    process.exitCode = selfTest();
   } else {
     const hookMode = Boolean(args.hook);
     const sessionId =

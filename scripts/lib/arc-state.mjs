@@ -5,8 +5,11 @@
  * unit test enforces it whenever the sibling checkout is present.
  *
  * Single home for the parse/verdict logic that Phase 4's three consumers
- * (arc-checkpoint.mjs in both repos, scripts/statusline-arc.mjs) previously
- * re-derived. Review finding: the three copies had already diverged on their
+ * previously re-derived: arc-checkpoint.mjs in both repos, plus
+ * scripts/statusline-arc.mjs -- which lives in the WEBSITE repo only (the
+ * statusline is configured once, per user, and reads whichever project dir the
+ * harness hands it; there is no admin-side copy to keep in step).
+ * Review finding: the three copies had already diverged on their
  * preconditions before the first ship -- the hook demanded BOTH
  * required_model/required_effort while the statusline accepted either, so the
  * same arc-state produced a verdict in one comparator and silence in the other.
@@ -120,7 +123,7 @@ export function staleness(arc, now = Date.now()) {
  *  rots the day opus-6 ships, and the failure would be a permanent red on a
  *  correctly-configured session -- the cry-wolf class again, arriving by
  *  calendar rather than by bug. */
-function parseModelId(id) {
+export function parseModelId(id) {
   const raw = String(id);
   const ceilingMatch = raw.match(/\[([^\]]*)\]$/);
   const base = raw
@@ -149,6 +152,22 @@ export function compareModel(sessionId, requiredId) {
   // either side cannot contradict a version, so it matches the family.
   if (a.version && b.version && a.version !== b.version) return "mismatch";
   return a.ceiling === b.ceiling ? "match" : "ceiling";
+}
+
+/** True when a requirement names a model FAMILY with no version ("opus",
+ *  "opus[1m]") rather than a versioned id ("opus-5", "claude-opus-5").
+ *
+ *  compareModel treats a bare family as version-agnostic on purpose (see
+ *  parseModelId: an alias TABLE rots the day opus-6 ships, and the failure is a
+ *  permanent red on a correctly-configured session). The consequence is real
+ *  though: on an opus-5 arc, `required_model: "opus"` reads MATCH for an opus-4
+ *  session. That looseness must be VISIBLE rather than silent, so callers that
+ *  render the requirement say which kind of pin it is. The strict requirement IS
+ *  expressible -- it is spelt with the version. */
+export function isBareFamily(requiredId) {
+  const required = str(requiredId);
+  if (!required) return false;
+  return parseModelId(required).version === "";
 }
 
 /** Same contract for effort. The statusline payload frequently carries no

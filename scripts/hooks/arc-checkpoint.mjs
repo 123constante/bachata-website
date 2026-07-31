@@ -7,7 +7,13 @@
  * (shared with scripts/statusline-arc.mjs) -- fix rules THERE, not here.
  *
  * Reads <repo>/.claude/arc-state.json and, while an arc phase is open, injects
- * that phase's REQUIRED model + effort into every prompt. No model field exists
+ * that phase's REQUIRED model + effort into every prompt. The injected text is
+ * ADVISORY and SCOPED: it pins who AUTHORS the arc's phase work, names a
+ * concrete remedy (switch, or declare the deviation and continue), and states
+ * out loud that it does not bind a REVIEW session -- which doctrine requires to
+ * run a DIFFERENT profile from the authoring one. It must never read as "halt":
+ * a mismatch is a thing to resolve in one line, not a reason to deliver nothing.
+ * No model field exists
  * in the UserPromptSubmit payload and Claude cannot switch its own model, so this
  * hook does the one thing that works at prompt time: it puts the requirement in
  * front of the model on every turn, where the doctrine's self-check can act on
@@ -38,8 +44,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { loadArcState, arcLabel, staleness, compareModel, clip } from "../lib/arc-state.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { loadArcState, arcLabel, staleness, compareModel, isBareFamily, parseModelId, clip } from "../lib/arc-state.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -100,20 +106,48 @@ function build(payload) {
   const req = [];
   if (wantModel) req.push("/model " + wantModel);
   if (wantEffort) req.push("effort " + wantEffort);
-  const lines = [
-    "ARC CHECKPOINT [" + label + "]: required " + req.join(", ") +
-      ". Verify your model id from your system prompt; on mismatch, stop and emit the checkpoint statement before any work.",
-  ];
+
+  // This fires on EVERY prompt, so every static sentence here is a per-turn tax
+  // (review: the first rewrite grew the block ~4.5x and repeated ~170 tokens of
+  // invariant prose per turn). Keep it to: the pin, a self-check line only when
+  // the payload cannot carry a model id, the verdict when it can, and one SCOPE
+  // line -- which is the fix for review finding 16 (a deliberate cross-model
+  // reviewer obeyed "on mismatch, stop before any work" and refused to run
+  // /code-review at all; the pin names who AUTHORS, never who reviews).
+  let pin = "ARC CHECKPOINT [" + label + "]: phase work pinned to " + req.join(", ") + ".";
+  if (wantModel && isBareFamily(arc.required_model)) {
+    // Suggest the spelling parseModelId actually reads. Interpolating the raw
+    // pin here minted "opus[1m]-<version>" for a bracketed alias -- a spelling
+    // the parser reads as family "opus[1m]", so obeying the note produced a
+    // permanent false MISMATCH (review finding: the remedy text was the bug).
+    const fam = parseModelId(arc.required_model);
+    const famFamily = clip(fam.family, 40);
+    const famCeiling = fam.ceiling ? clip(fam.ceiling, 40) : "";
+    pin += " (Family pin -- any " + famFamily + " version matches; pin one as \"" +
+      famFamily + "-<version>" + (famCeiling ? "[" + famCeiling + "]" : "") + "\" in arc-state.json.)";
+  }
+  const lines = [pin];
 
   // Compare the RAW id -- clipping first could truncate an id and flip the
   // verdict; clip is for display only.
   const rawSessionModel = sessionModelId(payload);
   const sessionModel = clip(rawSessionModel, 60);
   const verdict = compareModel(rawSessionModel, arc.required_model);
+  if (wantModel && !rawSessionModel) {
+    // Only when the payload carries no model id (UserPromptSubmit never does):
+    // the model must self-check. When an id IS present, the verdict line below
+    // already states the outcome and the remedy -- repeating both was the
+    // duplication the review flagged. Emitted only for model pins (finding 10:
+    // an effort-only arc ordered a model verify with no model named).
+    lines.push(
+      "Check your model id against the pin; on mismatch, /model " + wantModel +
+        " before phase work, or state the deliberate deviation in one line and continue -- do not stop."
+    );
+  }
   if (verdict === "mismatch") {
     lines.push(
       "!! MODEL MISMATCH: session is " + sessionModel + ", arc requires " + wantModel +
-        ". Switch with /model " + wantModel + " before any work."
+        ". Switch with /model " + wantModel + " before phase work, or declare the deviation (see SCOPE)."
     );
   } else if (verdict === "ceiling") {
     lines.push(
@@ -121,18 +155,31 @@ function build(payload) {
         " -- same tier, different context ceiling. Log it in the outcome line."
     );
   }
+  lines.push(
+    "SCOPE: this binds AUTHORING of the arc's phase work only. Review sessions (doctrine wants a profile " +
+      "DIFFERENT from the authoring one), reading, and non-arc work are exempt -- note the deviation once and proceed."
+  );
   return lines.join("\n");
 }
 
-try {
-  const payload = readPayload();
-  const context = build(payload);
-  if (context) {
-    process.stdout.write(
-      JSON.stringify({ hookSpecificOutput: { hookEventName: eventName(payload), additionalContext: context } })
-    );
+// Guarded so IMPORTING this module is side-effect-free: without it, an importer
+// with a non-TTY stdin that never closes (a vitest worker) would block forever
+// inside readPayload's readFileSync(0) at module load. Every sibling script in
+// this set is import-safe; this one silently wasn't (review finding).
+const invokedDirectly =
+  process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (invokedDirectly) {
+  try {
+    const payload = readPayload();
+    const context = build(payload);
+    if (context) {
+      process.stdout.write(
+        JSON.stringify({ hookSpecificOutput: { hookEventName: eventName(payload), additionalContext: context } })
+      );
+    }
+  } catch {
+    // Deliberately silent -- see the exit-2 note in the header.
   }
-} catch {
-  // Deliberately silent -- see the exit-2 note in the header.
+  process.exitCode = 0;
 }
-process.exitCode = 0;
