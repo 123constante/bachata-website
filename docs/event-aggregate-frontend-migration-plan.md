@@ -365,7 +365,7 @@ These all query `events` table directly for listing/display. They do NOT write.
 | 4.2 | Regenerate `src/integrations/supabase/types.ts` after backend drops old RPCs |
 | 4.3 | Remove old migration SQL files from docs if desired |
 | 4.4 | Archive `docs/event-profile-graph-phases.md` and related old plans |
-| 4.5 | Run full E2E suite: `npm run test:e2e:all` |
+| 4.5 | Run `npm run test:e2e` (the CI gate). `test:e2e:all` is NOT a sign-off gate — it was never green and its nightly runner was retired 2026-07-31; see `tests/e2e-attic/README.md`. For real-site confidence use `prod-smoke` on the deployment. |
 
 ---
 

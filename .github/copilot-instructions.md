@@ -6,7 +6,8 @@
 - Run lint before finishing code changes: `npm run lint`.
 - Run unit tests with `npm run test:unit`.
 - Run targeted E2E smoke tests with `npm run test:e2e` (Chromium smoke subset).
-- Run full E2E suite only when needed: `npm run test:e2e:all`.
+- `npm run test:e2e:all` runs everything under `tests/e2e/`; nothing schedules it.
+  Retired specs live in `tests/e2e-attic/` and are collected by no runner.
 
 ## Architecture
 - Stack: Vite + React + TypeScript + Tailwind + shadcn/ui + Supabase.

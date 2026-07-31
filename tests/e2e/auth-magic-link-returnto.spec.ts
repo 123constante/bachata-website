@@ -62,6 +62,29 @@ const mockAccountLookupExisting = async (page: Parameters<typeof test>[0]['page'
   });
 };
 
+// Stub the magic-link send. Without this, clicking "Send magic link" issues a
+// REAL POST to the live project's GoTrue (`VITE_SUPABASE_URL` in e2e-smoke.yml
+// is the actual Supabase project, only the anon KEY is a placeholder). Today the
+// invalid key means GoTrue rejects the call before mailing anything, so nothing
+// escapes -- but the request is genuinely made against production on every PR
+// run, and the whole premise of that workflow, stated in its own comment, is
+// that "route mocks intercept every **/auth/v1/** and **/rest/v1/** call". This
+// closes the one that was not.
+//
+// The assertions are unaffected: they read the outgoing request via
+// page.on('request'), which fires for routed requests too, so what is being
+// verified -- the email_redirect_to this app SENDS -- is still observed exactly
+// as before. Only the network hop is removed.
+const mockMagicLinkSend = async (page: Parameters<typeof test>[0]['page']) => {
+  await page.route('**/auth/v1/otp*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: '{}',
+    });
+  });
+};
+
 test('signin magic link omits default returnTo when not provided', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
@@ -70,6 +93,7 @@ test('signin magic link omits default returnTo when not provided', async ({ page
   await page.context().clearCookies();
 
   await mockAccountLookupExisting(page);
+  await mockMagicLinkSend(page);
   const getRedirectUrl = setupAuthPayloadCapture(page);
 
   await page.goto('/auth?mode=signin');
@@ -94,6 +118,7 @@ test('signin magic link includes explicit safe returnTo', async ({ page }) => {
   await page.context().clearCookies();
 
   await mockAccountLookupExisting(page);
+  await mockMagicLinkSend(page);
   const getRedirectUrl = setupAuthPayloadCapture(page);
 
   await page.goto('/auth?mode=signin&returnTo=%2Fprofile');
