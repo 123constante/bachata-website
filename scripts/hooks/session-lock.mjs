@@ -566,18 +566,22 @@ const invokedDirectly =
 if (invokedDirectly) {
   const args = parseArgv(process.argv.slice(2));
 
-  if (args.selfTest) {
-    // exitCode, never process.exit(): on Windows a pending pipe write can be discarded
-    // by an immediate exit (the libuv quirk pre-ship.mjs documents) - and this file's
-    // whole job is a warning arriving.
-    process.exitCode = selfTest();
-  } else if (args.error) {
+  if (args.error) {
+    // Checked before selfTest: a malformed invocation must fail loudly even
+    // when --self-test was also passed, matching this dispatch's own
+    // fail-loud intent - an argument-parse error is never worth silently
+    // swallowing behind an unrelated flag.
     process.stderr.write(
       `session-lock: ${args.error}\n` +
         "usage: session-lock.mjs {acquire|heartbeat|release|check|status} " +
         "[--id X] [--stale-minutes N] [--stale-hours H] [--warn-only] [--force] [--quiet] [--hook]\n"
     );
     process.exitCode = 1;
+  } else if (args.selfTest) {
+    // exitCode, never process.exit(): on Windows a pending pipe write can be discarded
+    // by an immediate exit (the libuv quirk pre-ship.mjs documents) - and this file's
+    // whole job is a warning arriving.
+    process.exitCode = selfTest();
   } else {
     const hookMode = Boolean(args.hook);
     const sessionId =
