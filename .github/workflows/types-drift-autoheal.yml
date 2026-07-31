@@ -1,0 +1,277 @@
+name: Supabase types drift auto-heal
+
+# The HEALER half of the types-drift pair. `types-drift.yml` stays the honest
+# DETECTOR and is not touched by this file: it regenerates from the live schema
+# and goes RED when the committed types.ts is stale. That red is correct, but it
+# is a red Ricky can only clear by hand, so it sat red for weeks at a time
+# (measured 2026-07-31: 8 of the last 10 scheduled detector runs failed) and
+# started training the "ignore CI red" reflex this arc exists to kill.
+#
+# This job converts that standing red into a one-click, CI-verified merge: it
+# regenerates the types the same way, and if they drift it force-pushes ONE
+# rolling branch (bot/types-regen) and opens/refreshes ONE rolling PR. The
+# detector then runs ON that PR (its pull_request trigger watches exactly this
+# path) and green-stamps the heal, so the merge button is backed by the same
+# check that reported the problem.
+#
+# Cadence: 06:47 UTC, 30 minutes after the detector's 06:17. Deliberately AFTER,
+# so the day's honest signal is recorded before the heal is attempted -- the
+# detector's history stays a truthful record of how often the DB drifted, rather
+# than being silently pre-empted by the healer.
+#
+# WHY A PAT AND NOT GITHUB_TOKEN (load-bearing -- do not "simplify" this):
+# a push made with the default GITHUB_TOKEN does not trigger further workflow
+# runs. With GITHUB_TOKEN the rolling PR would open with NO checks on it at all,
+# and a zero-check PR presents as green -- which is the exact dead-check failure
+# mode (see scripts/lint-workflow-masking.mjs) that this arc is about.
+#
+# TYPES_BOT_TOKEN: fine-grained PAT, this repo only, Contents + Pull requests
+# read/write.
+#   ROTATION -- fine-grained PATs cannot be non-expiring. When it expires this
+#   job fails daily at the "Verify the bot token" step with a plain, named error
+#   (that step exists so the failure is not a bare 401 from checkout). To rotate:
+#   github.com/settings/personal-access-tokens -> regenerate -> update the
+#   TYPES_BOT_TOKEN repo secret. Nothing else needs changing. Set a calendar
+#   reminder for the expiry you choose; a standing red HERE is the same
+#   alarm-fatigue failure this workflow was built to remove.
+
+on:
+  schedule:
+    - cron: '47 6 * * *' # daily 06:47 UTC — 30 min after the detector
+  workflow_dispatch: {}
+
+concurrency:
+  # One heal at a time: a scheduled run and a manual dispatch overlapping would
+  # race on the same force-pushed branch.
+  group: types-drift-autoheal
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  autoheal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TYPES_FILE: src/integrations/supabase/types.ts
+      BOT_BRANCH: bot/types-regen
+    steps:
+      # BEFORE checkout, deliberately. A guard placed after the step that
+      # consumes the token is dead code: checkout@v4 fails first, on its own
+      # terms, with a bare auth error that says nothing about which secret is
+      # missing or how to mint it.
+      - name: Verify the bot token is present
+        env:
+          TYPES_BOT_TOKEN: ${{ secrets.TYPES_BOT_TOKEN }}
+        run: |
+          if [ -z "$TYPES_BOT_TOKEN" ]; then
+            echo '::error::TYPES_BOT_TOKEN is not set or has expired. Mint a'
+            echo 'fine-grained PAT scoped to this repo with Contents: read/write'
+            echo 'and Pull requests: read/write, then set the TYPES_BOT_TOKEN'
+            echo 'repository secret. See this workflow header for rotation notes.'
+            exit 1
+          fi
+          echo 'TYPES_BOT_TOKEN is present.'
+
+      - uses: actions/checkout@v4
+        with:
+          # PIN TO main. workflow_dispatch checks out the ref it was dispatched
+          # from, so dispatching this from a feature branch would cut
+          # bot/types-regen at that branch's HEAD -- and the rolling PR into main
+          # would then carry every unrelated commit on it, still green-stamped by
+          # the detector (which only inspects types.ts). The healer must only ever
+          # heal main against the live schema.
+          ref: main
+          # persist-credentials: false keeps the Contents+PR-write PAT out of
+          # .git/config, where any later step -- notably a third-party postinstall
+          # -- could read it. The one push that needs it gets it explicitly.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # NOTE: no `npm ci`. Nothing here consumes node_modules -- `gen:types` runs
+      # `npx --yes supabase@<pinned>`, which fetches the CLI itself. Installing
+      # would be the riskiest step in the job for no benefit: this repo's
+      # postinstall runs `node bin/install-hooks.cjs`, which arms .githooks, so a
+      # future hook change could make the pre-push gate block the heal push.
+
+      - name: Regenerate types from the live schema
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: npm run gen:types
+
+      - name: Sanity-check the generated file before trusting it
+        # Closes a circular-green hole. `gen:types` redirects CLI stdout straight
+        # into the file, so anything the CLI prints -- an error banner, a partial
+        # schema from a dropped connection -- becomes the "types". The detector
+        # then runs the IDENTICAL command, reproduces the same bad output
+        # byte-for-byte, sees no diff, and green-stamps it. Both halves agreeing
+        # is not evidence when both halves ran the same broken command, so the
+        # output is checked on its own terms here, before it can be committed.
+        run: |
+          set -euo pipefail
+          if [ ! -s "$TYPES_FILE" ]; then
+            echo "::error::$TYPES_FILE is empty after gen:types."
+            exit 1
+          fi
+          BYTES=$(wc -c < "$TYPES_FILE")
+          if [ "$BYTES" -lt 10000 ]; then
+            echo "::error::$TYPES_FILE is only $BYTES bytes -- implausibly small for this schema (expected ~400k). Treating as a truncated or failed generation."
+            exit 1
+          fi
+          if ! grep -q 'export type Database' "$TYPES_FILE"; then
+            echo "::error::$TYPES_FILE does not declare 'export type Database' -- the CLI likely wrote an error or usage banner into it."
+            exit 1
+          fi
+          echo "Generated file looks structurally sound ($BYTES bytes)."
+
+      - name: Detect drift
+        id: drift
+        # Compared against HEAD rather than the index so the answer is the same
+        # whether or not anything happens to be staged.
+        #
+        # No line-ending normalisation step is needed, and adding one was a
+        # mistake caught in review: .gitattributes declares `* text=auto eol=crlf`,
+        # so the WORKING TREE is CRLF but the stored blob is LF (measured: 0 CRLF /
+        # 13058 LF). `gen:types` emits LF, which is already what the blob holds,
+        # and `git add` applies the clean filter regardless. --ignore-cr-at-eol
+        # matches the detector's own comparison.
+        run: |
+          if git diff HEAD --ignore-cr-at-eol --exit-code -- "$TYPES_FILE"; then
+            echo 'drifted=false' >> "$GITHUB_OUTPUT"
+            echo 'types.ts is in sync with the live schema.'
+          else
+            echo 'drifted=true' >> "$GITHUB_OUTPUT"
+            echo 'Drift detected.'
+          fi
+
+      - name: Retire the rolling PR once the drift is gone
+        if: steps.drift.outputs.drifted == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.TYPES_BOT_TOKEN }}
+        # Without this the healer only ever OPENS. If the drift is closed some
+        # other way -- healed directly on main, or the admin-side migration that
+        # caused it gets reverted -- the stale rolling PR stays open carrying its
+        # old green detector stamp. In the revert case it still merges cleanly and
+        # REGRESSES types.ts, under a check that says green. An auto-heal PR that
+        # outlives the condition it heals is worse than no PR.
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh pr list --head "$BOT_BRANCH" --state open \
+                       --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh pr close "$EXISTING" --delete-branch --comment \
+              'Superseded: types.ts is back in sync with the live schema, so this heal is no longer needed. Closed automatically by the auto-heal run.'
+            echo "Closed stale rolling PR #$EXISTING."
+          else
+            echo 'In sync and no rolling PR open — nothing to do.'
+          fi
+
+      - name: Commit and force-push the rolling heal branch
+        if: steps.drift.outputs.drifted == 'true'
+        id: push
+        env:
+          TYPES_BOT_TOKEN: ${{ secrets.TYPES_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Skip the whole push when the open PR already carries exactly this
+          # content. A force-push mints a new sha even for identical bytes, and
+          # every new sha re-runs ~10 pull_request workflows plus a Vercel preview
+          # — daily, for no change. Drift persists until Ricky merges, so without
+          # this the steady state is a daily rebuild of an unchanged PR.
+          git fetch --quiet origin "$BOT_BRANCH" 2>/dev/null || true
+          if git rev-parse --verify --quiet "origin/$BOT_BRANCH" >/dev/null; then
+            if git diff --ignore-cr-at-eol --quiet "origin/$BOT_BRANCH" -- "$TYPES_FILE"; then
+              echo 'pushed=false' >> "$GITHUB_OUTPUT"
+              echo "origin/$BOT_BRANCH already holds exactly this content — skipping the push."
+              exit 0
+            fi
+          fi
+
+          git config user.name 'types-drift-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # -B so the branch is reset to current main every run: the PR always
+          # shows ONLY the types diff, never an accumulating stack of old heals.
+          git checkout -B "$BOT_BRANCH"
+          git add "$TYPES_FILE"
+          git commit -m 'chore(types): regenerate supabase types.ts from the live schema' \
+                     -m 'Automated by .github/workflows/types-drift-autoheal.yml.'
+          # Credentials are passed here rather than persisted in .git/config.
+          # Actions masks the secret in logs. Force-push is safe and intended HERE
+          # and ONLY here: bot/types-regen is owned exclusively by this workflow
+          # and is never a base for human work.
+          git push --force \
+            "https://x-access-token:${TYPES_BOT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$BOT_BRANCH"
+          echo 'pushed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Create or refresh the one rolling PR
+        if: steps.drift.outputs.drifted == 'true' && steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.TYPES_BOT_TOKEN }}
+          # The PR body lives in an env var, NOT an inline `cat <<BODY` heredoc.
+          # A heredoc terminator must sit at column 0, which puts it outside this
+          # YAML block scalar and makes the whole workflow unparseable — caught by
+          # scripts/safe-write.py's parse check while writing this file.
+          PR_BODY: |
+            Automated by `.github/workflows/types-drift-autoheal.yml`.
+
+            `src/integrations/supabase/types.ts` had drifted from the live database
+            schema. The database is driven by the **admin** repo, so this drift is
+            external to this repo and is expected after any migration lands.
+
+            **Why this PR exists:** the `types-drift` detector correctly goes red on
+            this, but only a human could clear it, so the red used to stand for
+            weeks. This PR is that clearance, pre-built and CI-verified.
+
+            **Before merging, check the whole check list — not just one.** The
+            `Supabase types drift` check is the same detector that reported the
+            problem, re-run against this branch, so green there means the committed
+            file matches the live schema. But this is an ordinary PR and every other
+            `pull_request` workflow runs on it too. In particular `db-contract-check`
+            reds on live prod-data drift, and it is most likely to be red on exactly
+            the mornings an admin migration landed — which are the mornings this PR
+            appears. A red there is unrelated to the types regen and should be
+            triaged on its own terms, not merged past.
+
+            This is a **rolling** PR: force-refreshed against current `main` only
+            when the regenerated content actually changes, and closed automatically
+            if the drift is resolved some other way. Merging it is normally the only
+            action needed.
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh pr list --head "$BOT_BRANCH" --state open \
+                       --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            # The force-push already updated the diff. Edit the body rather than
+            # adding a comment: a daily comment thread on a long-lived PR is noise,
+            # and the body is what a reviewer actually reads.
+            gh pr edit "$EXISTING" --body "$PR_BODY"
+            echo "Refreshed existing rolling PR #$EXISTING."
+          else
+            gh pr create \
+              --head "$BOT_BRANCH" \
+              --base main \
+              --title 'chore(types): regenerate supabase types.ts (auto-heal)' \
+              --body "$PR_BODY"
+            echo 'Opened the rolling PR.'
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ '${{ steps.drift.outputs.drifted }}' = 'true' ]; then
+            if [ '${{ steps.push.outputs.pushed }}' = 'true' ]; then
+              echo 'Drift found; rolling heal PR opened or refreshed.' >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo 'Drift found; the open rolling PR already carried this exact content, so nothing was pushed.' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [ '${{ steps.drift.outputs.drifted }}' = 'false' ]; then
+            echo 'types.ts in sync with the live schema; any stale rolling PR was closed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Auto-heal did not reach the drift check — see the failing step above.' >> "$GITHUB_STEP_SUMMARY"
+          fi

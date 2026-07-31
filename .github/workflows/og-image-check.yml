@@ -11,7 +11,7 @@ name: OG Image Guard
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # daily, offset from the 3am e2e nightly
+    - cron: '0 6 * * *'   # daily 06:00 UTC
   workflow_dispatch:
   pull_request:
     branches: [main, master]

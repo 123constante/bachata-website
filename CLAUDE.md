@@ -295,7 +295,8 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | `db-contract-check.yml` | push/PR/daily 06:00 UTC | 65 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
-| `e2e-nightly.yml` | daily | Full Playwright suite |
+| `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
+| `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
 | `workflow-lint.yml` | push/PR | Workflow file validation |
 
 **Key DB contract checks** (all in `scripts/check-*.mjs`, enforced by CI):
@@ -367,9 +368,18 @@ Contract tests: `tests/eventViewCompat.contract.test.ts`,
 ### E2E (Playwright)
 
 ```bash
-npm run test:e2e         # curated smoke specs
-npm run test:e2e:all     # full suite
+npm run test:e2e         # curated smoke specs — this is the CI gate (e2e-smoke.yml)
+npm run test:e2e:all     # everything under tests/e2e/ — no scheduled caller
 ```
+
+`test:e2e` is an EXPLICIT spec list, not a glob, so a new spec does not silently
+join the PR gate. Admit one only after running it individually under the smoke
+environment (placeholder key), then add it to the list by name.
+
+Retired specs live in `tests/e2e-attic/`, which no runner collects — `testDir`
+pins `tests/e2e`. See that directory's README for why the nightly was retired
+2026-07-31 and what covers the ground now (`e2e-smoke`, `prod-smoke`,
+`synthetic-ssr-monitor`).
 
 Dev server must be running at port 8080 for Playwright. Vite dev: `npm run dev`.
 
