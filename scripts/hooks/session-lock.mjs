@@ -3,7 +3,9 @@
  *
  * IDENTICAL FILE IN BOTH REPOS (Website scripts/hooks/ and admin scripts/hooks/) - it
  * derives the repo name from the checkout, so keep the copies byte-equal; if one grows
- * a rule the other must follow, change BOTH.
+ * a rule the other must follow, change BOTH. CI cover lives in the Website repo
+ * (tests/sessionLock.test.ts runs --self-test); byte-equality is what extends that
+ * proof to the admin copy.
  *
  * WHY. When two agent sessions edit the same repo simultaneously, in-flight writes can
  * be silently truncated (the 2026-04-26 corruption incident), and two sessions applying
@@ -12,34 +14,40 @@
  * the collision VISIBLE, by session and by branch, with the fix (a separate worktree)
  * spelled out.
  *
- * LIFECYCLE (operating-model-v2 Phase 6, revised after review):
- *   SessionStart      -> acquire --warn-only   (take the lock, or warn if held)
- *   UserPromptSubmit  -> heartbeat             (refresh; warn if a foreign lock is live)
- *   Stop              -> heartbeat             (Stop fires every TURN, not at session
- *                                               end - running `release` here was the
- *                                               original bug: the lock died after the
- *                                               first response)
- *   SessionEnd        -> release               (the actual end of the session)
- * Staleness (90 min) is the backstop for crashed sessions that never reach SessionEnd.
+ * LIFECYCLE (operating-model-v2 Phase 6, revised across two review rounds):
+ *   SessionStart      -> acquire --warn-only --hook   (take the lock, or warn if held)
+ *   UserPromptSubmit  -> heartbeat --hook             (refresh; warn if foreign+live)
+ *   Stop              -> heartbeat --hook --quiet     (refresh only - Stop fires every
+ *                                                      TURN, and its stdout is not
+ *                                                      injected, so repeating the
+ *                                                      warning there is pure noise.
+ *                                                      Running `release` here was the
+ *                                                      original bug: the lock died
+ *                                                      after the first response)
+ *   SessionEnd        -> release --hook               (the actual end of the session)
  *
- * IDENTITY comes from the hook payload's `session_id` on stdin - stable for a whole
- * session - never from the pid, because every hook invocation is a new process and a
- * pid-keyed lock cannot recognise its own session across turns.
+ * TWO MODES, TWO CONTRACTS. --hook marks an invocation from a hook chain: identity is
+ * the payload's session_id (stable all session), staleness defaults to 90 minutes
+ * (heartbeats refresh it constantly, so anything older is a crashed session), and
+ * release is GUARDED - SessionEnd fires in every session, including one that never
+ * owned the lock, and deleting the foreign owner's LIVE lock there would hand the next
+ * collision a free repo. WITHOUT --hook (a human at a terminal): identity is best-effort
+ * (env var or pid), staleness defaults to 8 HOURS (a manual acquire before a long
+ * refactor never heartbeats - 90 minutes would get it silently stolen mid-refactor),
+ * and release deletes UNCONDITIONALLY with a warning naming the owner - it is the
+ * manual escape hatch, and a pid identity can never match the lock, so a guarded
+ * manual release would refuse forever.
  *
- * RELEASE IS GUARDED. A SessionEnd fires in every session, including one that never
- * owned the lock because a foreign session held it. Deleting the foreign owner's LIVE
- * lock at that moment would hand the next collision a free repo, so release refuses a
- * live foreign lock unless --force.
- *
- * Usage (every subcommand exits 0 except `check`, a refused bare `release` is still 0,
- * and an unknown subcommand):
- *   node scripts/hooks/session-lock.mjs acquire [--warn-only] [--stale-minutes N] [--id X]
- *   (--hook: read session_id from the hook payload on stdin; hook-chain use only)
- *   node scripts/hooks/session-lock.mjs heartbeat
- *   node scripts/hooks/session-lock.mjs release [--force]
- *   node scripts/hooks/session-lock.mjs check     # exit 1 if held by another live session
- *   node scripts/hooks/session-lock.mjs status
- *   node scripts/hooks/session-lock.mjs --self-test
+ * Usage:
+ *   session-lock.mjs acquire   [--warn-only] [--stale-minutes N] [--id X] [--hook]
+ *   session-lock.mjs heartbeat [--quiet] [--hook]
+ *   session-lock.mjs release   [--force] [--hook]
+ *   session-lock.mjs check         # exit 1 if held by another live session
+ *   session-lock.mjs status
+ *   session-lock.mjs --self-test
+ * Flags are position-independent. --stale-hours H is the shell-era spelling of
+ * --stale-minutes (H*60). Exit codes: 0 everywhere except check (1 = foreign live
+ * lock) and a usage error (1).
  */
 
 import fs from "node:fs";
@@ -49,7 +57,8 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_STALE_MINUTES = 90;
+const STALE_MINUTES_HOOK = 90; // refreshed per turn; older = crashed session
+const STALE_MINUTES_MANUAL = 480; // a human refactor has no heartbeat (old shell default)
 
 function git(args, cwd) {
   try {
@@ -63,18 +72,29 @@ function git(args, cwd) {
   }
 }
 
-/** Everything the commands need, resolved once. Exported so the self-test can rebind it. */
+/**
+ * The staleness window, resolved from flags + mode. Explicit minutes win, then the
+ * shell-era hours spelling, then the per-mode default. A NaN or non-positive value
+ * falls back to the mode default rather than minting locks that are born stale
+ * (stale_after <= now), which would silently disable the lock.
+ */
+function resolveStaleMinutes({ staleMinutes, staleHours, hookMode }) {
+  const fallback = hookMode ? STALE_MINUTES_HOOK : STALE_MINUTES_MANUAL;
+  const explicit =
+    staleMinutes != null ? Number(staleMinutes) : staleHours != null ? Number(staleHours) * 60 : NaN;
+  return Number.isFinite(explicit) && explicit > 0 ? explicit : fallback;
+}
+
+/** Everything the commands need, resolved once. The self-test rebinds this wholesale. */
 function context({ repoRoot, sessionId, staleMinutes } = {}) {
   const root = repoRoot || git(["rev-parse", "--show-toplevel"], path.resolve(HERE, "..", "..")) || path.resolve(HERE, "..", "..");
-  // Guard the window: a NaN or non-positive value would mint locks that are born stale
-  // (stale_after <= now), silently disabling the lock. Fall back to the default instead.
   const mins = Number(staleMinutes);
   return {
     root,
     repoName: path.basename(root),
     lockPath: path.join(root, ".claude", ".session-lock.json"),
     sessionId: sessionId || "unknown",
-    staleMinutes: Number.isFinite(mins) && mins > 0 ? mins : DEFAULT_STALE_MINUTES,
+    staleMinutes: Number.isFinite(mins) && mins > 0 ? mins : STALE_MINUTES_HOOK,
     branch: git(["rev-parse", "--abbrev-ref", "HEAD"], root) || "unknown",
   };
 }
@@ -110,12 +130,20 @@ function writeLock(ctx, startedAtIso, now = new Date()) {
   };
   fs.mkdirSync(path.dirname(ctx.lockPath), { recursive: true });
   // Write-then-rename. The rename is atomic, so a concurrent reader sees either the old
-  // lock or the new one, never a torn file. This matters more than it looks: a torn read
-  // parses as "no lock / stale", which is exactly the state that lets another session
-  // steal a LIVE lock - and with per-prompt heartbeats this file is rewritten constantly.
+  // lock or the new one, never a torn file - a torn read parses as "no lock / stale",
+  // which is exactly the state that lets another session steal a LIVE lock, and with
+  // per-prompt heartbeats this file is rewritten constantly. On Windows the rename can
+  // throw EPERM/EBUSY if a reader holds the destination open; clean the staging file up
+  // before rethrowing so failures cannot litter .claude/ with orphans (the pattern is
+  // also gitignored - belt and braces).
   const tmp = ctx.lockPath + `.tmp-${process.pid}`;
   fs.writeFileSync(tmp, JSON.stringify(body, null, 2) + "\n");
-  fs.renameSync(tmp, ctx.lockPath);
+  try {
+    fs.renameSync(tmp, ctx.lockPath);
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    throw err;
+  }
   return body;
 }
 
@@ -165,10 +193,14 @@ function acquire(ctx, { warnOnly = false } = {}) {
 }
 
 /**
- * Silent on the happy path. This runs on every prompt AND every turn end, so a line of
- * output per turn would be noise in the transcript and in the context window.
+ * Silent on the happy path - this runs on every prompt AND every turn end, and a line
+ * of output per turn would be noise in the transcript and the context window. A live
+ * foreign lock warns on EVERY prompt, deliberately (the failure mode being guarded is
+ * a second session forgetting the first one exists) - except under quiet, which the
+ * Stop entry passes because its stdout is not injected anywhere and the prompt-side
+ * copy already fired this turn.
  */
-function heartbeat(ctx) {
+function heartbeat(ctx, { quiet = false } = {}) {
   const lock = readLock(ctx);
   if (!lock) {
     writeLock(ctx);
@@ -183,35 +215,41 @@ function heartbeat(ctx) {
     writeLock(ctx);
     return 0;
   }
-  // Live foreign lock: warn on EVERY prompt, deliberately. The failure mode being
-  // guarded is a second session forgetting the first one exists.
-  foreignWarning(ctx, lock);
+  if (!quiet) foreignWarning(ctx, lock);
   return 0;
 }
 
 /**
- * Guarded: SessionEnd fires in EVERY session, including one that never owned the lock
- * because a foreign session held it - deleting that owner's live lock would disarm the
- * warning for whoever collides next. Own lock or stale lock deletes; a live foreign
- * lock survives unless --force. Always exit 0 (SessionEnd is not a place to fail).
+ * Two contracts (see header). guarded=true is the --hook path: own lock or stale lock
+ * deletes; a live foreign lock survives unless force - SessionEnd fires in EVERY
+ * session, including ones that never owned the lock. guarded=false is the manual
+ * escape hatch: delete unconditionally, warning when the lock belonged to someone
+ * else - a terminal run mints a throwaway identity that can never match, so a guarded
+ * manual release would refuse forever and the documented one-word hatch would be a
+ * silent no-op. Always exit 0.
+ *
+ * The foreign test is `!==`, NOT truthy-and-different: a lock with a BLANK session_id
+ * (hand-edited, older tool) is still someone else's live lock, and a falsy short-circuit
+ * would have let the guarded path delete exactly the lock whose owner is least
+ * identifiable.
  */
-function release(ctx, { force = false } = {}) {
+function release(ctx, { force = false, guarded = true } = {}) {
   const lock = readLock(ctx);
   if (!lock) {
     process.stdout.write("session-lock: no lock to release\n");
     return 0;
   }
-  const foreign = lock.session_id && lock.session_id !== ctx.sessionId;
-  if (foreign && !isStale(lock) && !force) {
+  const foreign = lock.session_id !== ctx.sessionId;
+  if (guarded && foreign && !isStale(lock) && !force) {
     process.stdout.write(
       `session-lock: NOT releasing - lock is held by live session '${lock.session_id}' ` +
         "(this session never owned it). Use --force to override.\n"
     );
     return 0;
   }
-  if (foreign && force) {
+  if (foreign) {
     process.stderr.write(
-      `session-lock: WARNING - force-releasing lock held by '${lock.session_id}' (asked: '${ctx.sessionId}')\n`
+      `session-lock: WARNING - releasing lock held by '${lock.session_id}' (asked: '${ctx.sessionId}')\n`
     );
   }
   fs.rmSync(ctx.lockPath, { force: true });
@@ -251,7 +289,7 @@ function selfTest() {
     repoName: "fixture-repo",
     lockPath: path.join(tmp, ".claude", ".session-lock.json"),
     sessionId: id,
-    staleMinutes: DEFAULT_STALE_MINUTES,
+    staleMinutes: STALE_MINUTES_HOOK,
     branch: `branch-of-${id}`,
   });
   const A = ctxFor("A");
@@ -289,7 +327,8 @@ function selfTest() {
     if (lock.started_at_iso !== started) fail("own-session heartbeat lost started_at_iso");
     if (captured !== "") fail("own-session heartbeat was not silent");
 
-    // 3. LIVE foreign session warns, exits 0, and does NOT steal the lock.
+    // 3. LIVE foreign session warns, exits 0, does NOT steal - and --quiet suppresses
+    //    the warning (Stop path) without touching the lock either.
     mute();
     const rc = heartbeat(B);
     unmute();
@@ -299,23 +338,51 @@ function selfTest() {
     if (!/git worktree add \.\.\/fixture-repo-wt -b/.test(captured))
       fail("warning did not give a runnable worktree command (new dir + new branch)");
     if (readLock(A).session_id !== "A") fail("foreign heartbeat stole a live lock");
-
-    // 4. RELEASE GUARD: B's SessionEnd must not delete A's live lock; --force may.
     mute();
-    const relRc = release(B);
+    heartbeat(B, { quiet: true });
+    unmute();
+    if (captured !== "") fail("quiet foreign heartbeat was not silent");
+    if (readLock(A).session_id !== "A") fail("quiet foreign heartbeat stole the lock");
+
+    // 4. RELEASE, guarded (--hook): B cannot delete A's live lock; --force may;
+    //    and a BLANK session_id is still foreign (the falsy-short-circuit trap).
+    mute();
+    const relRc = release(B, { guarded: true });
     unmute();
     if (relRc !== 0) fail("guarded release did not exit 0");
-    if (!readLock(A)) fail("release from a non-owner deleted a live foreign lock");
+    if (!readLock(A)) fail("guarded release from a non-owner deleted a live foreign lock");
     if (!/NOT releasing/.test(captured)) fail("guarded release was silent about refusing");
+    const blank = readLock(A);
+    blank.session_id = "";
+    fs.writeFileSync(A.lockPath, JSON.stringify(blank));
     mute();
-    release(B, { force: true });
+    release(B, { guarded: true });
     unmute();
-    if (readLock(A)) fail("release --force did not delete");
+    if (!readLock(A)) fail("guarded release deleted a live BLANK-id lock");
+    if (!/NOT releasing/.test(captured)) fail("blank-id refusal was silent");
+    fs.writeFileSync(A.lockPath, JSON.stringify({ ...blank, session_id: "A" }));
     mute();
-    heartbeat(A); // A re-establishes for the next cases
+    release(B, { guarded: true, force: true });
     unmute();
+    if (readLock(A)) fail("guarded release --force did not delete");
+    if (!/WARNING - releasing lock held by 'A'/.test(captured)) fail("force release did not warn");
 
-    // 5. STALE lock: the foreign session takes over on heartbeat, and release deletes it.
+    // 5. RELEASE, manual (no --hook): deletes unconditionally with a warning naming
+    //    the owner - the escape hatch must not be a silent no-op under a pid identity.
+    mute();
+    heartbeat(A);
+    unmute();
+    const manual = ctxFor("pid-99999");
+    mute();
+    release(manual, { guarded: false });
+    unmute();
+    if (readLock(A)) fail("manual release did not delete a live foreign lock");
+    if (!/WARNING - releasing lock held by 'A'/.test(captured)) fail("manual release did not name the owner");
+
+    // 6. STALE handling: takeover on heartbeat; empty/garbage stale_after_iso is stale.
+    mute();
+    heartbeat(A);
+    unmute();
     const staleLock = readLock(A);
     staleLock.stale_after_iso = "2020-01-01T00:00:00Z";
     fs.writeFileSync(A.lockPath, JSON.stringify(staleLock));
@@ -324,26 +391,22 @@ function selfTest() {
     unmute();
     if (readLock(B).session_id !== "B") fail("stale lock was not taken over");
     if (!/took over stale lock/.test(captured)) fail("stale takeover was silent");
-
-    // 6. A lock with an EMPTY stale_after_iso (the shape of admin's April 2026 lock)
-    //    counts as stale rather than blocking forever.
     if (!isStale({ session_id: "x", stale_after_iso: "" })) fail("empty stale_after_iso not treated as stale");
     if (!isStale({ session_id: "x", stale_after_iso: "not-a-date" })) fail("unparseable stale_after_iso not stale");
     if (isStale({ session_id: "x", stale_after_iso: new Date(Date.now() + 60_000).toISOString() }))
       fail("a future stale_after_iso was wrongly treated as stale");
 
-    // 7. the window really is 90 minutes, and a garbage window falls back to it.
-    fs.rmSync(B.lockPath, { force: true });
-    mute();
-    heartbeat(B);
-    unmute();
-    const l = readLock(B);
-    const mins = Math.round((Date.parse(l.stale_after_iso) - Date.parse(l.started_at_iso)) / 60000);
-    if (mins !== DEFAULT_STALE_MINUTES) fail(`window is ${mins} min, expected ${DEFAULT_STALE_MINUTES}`);
-    const bad = context({ repoRoot: tmp, sessionId: "x", staleMinutes: "abc" });
-    if (bad.staleMinutes !== DEFAULT_STALE_MINUTES) fail("NaN stale-minutes did not fall back to the default");
-    const neg = context({ repoRoot: tmp, sessionId: "x", staleMinutes: -5 });
-    if (neg.staleMinutes !== DEFAULT_STALE_MINUTES) fail("negative stale-minutes did not fall back");
+    // 7. staleness windows: hook 90 / manual 480, explicit flags win, garbage falls back.
+    const r = resolveStaleMinutes;
+    if (r({ hookMode: true }) !== STALE_MINUTES_HOOK) fail("hook default is not 90");
+    if (r({ hookMode: false }) !== STALE_MINUTES_MANUAL) fail("manual default is not 480");
+    if (r({ staleMinutes: "30", hookMode: false }) !== 30) fail("explicit minutes did not win");
+    if (r({ staleHours: "2", hookMode: true }) !== 120) fail("stale-hours did not convert");
+    if (r({ staleMinutes: "abc", hookMode: true }) !== STALE_MINUTES_HOOK) fail("NaN did not fall back (hook)");
+    if (r({ staleMinutes: "-5", hookMode: false }) !== STALE_MINUTES_MANUAL) fail("negative did not fall back (manual)");
+    const wl = readLock(B);
+    const mins = Math.round((Date.parse(wl.stale_after_iso) - Date.parse(wl.started_at_iso)) / 60000);
+    if (mins !== STALE_MINUTES_HOOK) fail(`written window is ${mins} min, expected ${STALE_MINUTES_HOOK}`);
 
     // 8. check(): 1 against a live foreign lock, 0 for the holder.
     mute();
@@ -361,6 +424,18 @@ function selfTest() {
     if (warnRc !== 0) fail("acquire --warn-only failed against a live foreign lock");
     if (hardRc !== 1) fail("bare acquire did not fail against a live foreign lock");
     if (readLock(B).session_id !== "B") fail("acquire stole a live foreign lock");
+
+    // 10. CLI argv parsing: flags are position-independent and values are never verbs.
+    if (parseArgv(["--id", "abc", "release"]).cmd !== "release")
+      fail("a flag VALUE was parsed as the subcommand");
+    if (parseArgv(["--stale-minutes", "90", "acquire", "--warn-only"]).cmd !== "acquire")
+      fail("verb after a valued flag was not found");
+    if (parseArgv(["heartbeat", "--quiet"]).cmd !== "heartbeat" || !parseArgv(["heartbeat", "--quiet"]).quiet)
+      fail("trailing bool flag not parsed");
+    if (parseArgv([]).cmd !== "status") fail("bare invocation did not default to status");
+    if (!parseArgv(["release", "--bogus"]).error) fail("unknown flag was not rejected");
+    if (!parseArgv(["release", "extra"]).error) fail("second verb was not rejected");
+    if (parseArgv(["--id", "x", "release"]).id !== "x") fail("flag value lost");
   } finally {
     unmute();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -370,16 +445,17 @@ function selfTest() {
     console.error(`session-lock --self-test: ${failures} FAILURE(S)`);
     return 1;
   }
-  console.log("session-lock --self-test: OK (9 groups, both directions)");
+  console.log("session-lock --self-test: OK (10 groups, both directions)");
   return 0;
 }
 
 /* ---------------------------------------------------------------------- cli */
 
 /**
- * Hook payloads arrive as JSON on stdin. Read ONLY under --hook: a hook invocation is
- * guaranteed a payload plus EOF, but a manual run with a non-TTY stdin (CI, agent Bash
- * tools) would block forever on readFileSync(0) waiting for input that never comes.
+ * Hook payloads arrive as JSON on stdin. Read ONLY under --hook AND a non-TTY stdin:
+ * a hook invocation is guaranteed a payload plus EOF, but a manual run with a non-TTY
+ * stdin (CI, agent Bash tools) would block forever on readFileSync(0), and a human
+ * typing --hook at a real terminal would sit waiting for Ctrl+D.
  */
 function sessionIdFromStdin() {
   try {
@@ -390,70 +466,113 @@ function sessionIdFromStdin() {
   }
 }
 
+const BOOL_FLAGS = new Set(["--warn-only", "--force", "--quiet", "--hook", "--self-test"]);
+const VALUE_FLAGS = new Set(["--id", "--stale-minutes", "--stale-hours"]);
+const COMMANDS = new Set(["acquire", "heartbeat", "release", "check", "status"]);
+
+/** Position-independent argv parse; a valued flag's payload is never mistaken for the verb. */
+function parseArgv(argv) {
+  const out = { cmd: null, error: null };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (VALUE_FLAGS.has(a)) {
+      out[a === "--id" ? "id" : a === "--stale-minutes" ? "staleMinutes" : "staleHours"] = argv[++i];
+    } else if (BOOL_FLAGS.has(a)) {
+      out[a.replace(/^--/, "").replace(/-(\w)/g, (_, c) => c.toUpperCase())] = true;
+    } else if (a.startsWith("--")) {
+      out.error = `unknown flag '${a}'`;
+      return out;
+    } else if (out.cmd === null) {
+      out.cmd = a;
+    } else {
+      out.error = `unexpected argument '${a}'`;
+      return out;
+    }
+  }
+  out.cmd = out.cmd || "status";
+  if (!out.selfTest && !COMMANDS.has(out.cmd)) out.error = `unknown subcommand '${out.cmd}'`;
+  return out;
+}
+
 const invokedDirectly =
   process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (invokedDirectly) {
-  const argv = process.argv.slice(2);
-  const cmd = argv.find((a) => !a.startsWith("--")) || "status";
-  const flag = (name) => {
-    const i = argv.indexOf(name);
-    return i === -1 ? null : argv[i + 1];
-  };
+  const args = parseArgv(process.argv.slice(2));
 
-  if (argv.includes("--self-test")) {
-    process.exit(selfTest());
-  }
+  if (args.selfTest) {
+    // exitCode, never process.exit(): on Windows a pending pipe write can be discarded
+    // by an immediate exit (the libuv quirk pre-ship.mjs documents) - and this file's
+    // whole job is a warning arriving.
+    process.exitCode = selfTest();
+  } else if (args.error) {
+    process.stderr.write(
+      `session-lock: ${args.error}\n` +
+        "usage: session-lock.mjs {acquire|heartbeat|release|check|status} " +
+        "[--id X] [--stale-minutes N] [--stale-hours H] [--warn-only] [--force] [--quiet] [--hook]\n"
+    );
+    process.exitCode = 1;
+  } else {
+    const hookMode = Boolean(args.hook);
+    const sessionId =
+      args.id ||
+      (hookMode && !process.stdin.isTTY ? sessionIdFromStdin() : "") ||
+      process.env.COWORK_SESSION_ID ||
+      process.env.CLAUDE_SESSION_ID ||
+      `pid-${process.pid}`;
 
-  const sessionId =
-    flag("--id") ||
-    (argv.includes("--hook") ? sessionIdFromStdin() : "") ||
-    process.env.COWORK_SESSION_ID ||
-    process.env.CLAUDE_SESSION_ID ||
-    `pid-${process.pid}`;
+    const ctx = context({
+      // SESSION_LOCK_ROOT is a TEST-ONLY escape hatch: without it, a CLI-level test
+      // would resolve the root from this script's own location and operate on the
+      // real repo's lock - which is exactly how an early draft of the vitest suite
+      // deleted the live session's lock mid-run. Hooks never set it.
+      repoRoot: process.env.SESSION_LOCK_ROOT || undefined,
+      sessionId,
+      staleMinutes: resolveStaleMinutes({
+        staleMinutes: args.staleMinutes,
+        staleHours: args.staleHours,
+        hookMode,
+      }),
+    });
 
-  // --stale-hours is a compatibility spelling from the shell era; minutes win if both given.
-  const staleMinutes =
-    flag("--stale-minutes") != null
-      ? Number(flag("--stale-minutes"))
-      : flag("--stale-hours") != null
-        ? Number(flag("--stale-hours")) * 60
-        : DEFAULT_STALE_MINUTES;
-
-  const ctx = context({ sessionId, staleMinutes });
-
-  let code = 0;
-  try {
-    switch (cmd) {
-      case "acquire":
-        code = acquire(ctx, { warnOnly: argv.includes("--warn-only") });
-        break;
-      case "heartbeat":
-        code = heartbeat(ctx);
-        break;
-      case "release":
-        code = release(ctx, { force: argv.includes("--force") });
-        break;
-      case "check":
-        code = check(ctx);
-        break;
-      case "status":
-        code = status(ctx);
-        break;
-      default:
-        process.stderr.write(
-          `session-lock: unknown subcommand '${cmd}'\n` +
-            "usage: node scripts/hooks/session-lock.mjs {acquire|heartbeat|release|check|status} " +
-            "[--id X] [--stale-minutes N] [--warn-only] [--force] [--hook]\n"
-        );
-        code = 1;
+    let code = 0;
+    try {
+      switch (args.cmd) {
+        case "acquire":
+          code = acquire(ctx, { warnOnly: Boolean(args.warnOnly) });
+          break;
+        case "heartbeat":
+          code = heartbeat(ctx, { quiet: Boolean(args.quiet) });
+          break;
+        case "release":
+          code = release(ctx, { force: Boolean(args.force), guarded: hookMode });
+          break;
+        case "check":
+          code = check(ctx);
+          break;
+        default:
+          code = status(ctx);
+      }
+    } catch (err) {
+      // An advisory lock must never take a session down with it.
+      process.stderr.write(`session-lock: non-fatal error (${err.message || err})\n`);
+      code = 0;
     }
-  } catch (err) {
-    // An advisory lock must never take a session down with it.
-    process.stderr.write(`session-lock: non-fatal error (${err.message || err})\n`);
-    code = 0;
+    process.exitCode = code;
   }
-  process.exit(code);
 }
 
-export { context, readLock, isStale, writeLock, acquire, heartbeat, release, check, status, selfTest };
+export {
+  context,
+  resolveStaleMinutes,
+  readLock,
+  isStale,
+  writeLock,
+  acquire,
+  heartbeat,
+  release,
+  check,
+  status,
+  parseArgv,
+  selfTest,
+};

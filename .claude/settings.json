@@ -114,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook"
+            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook --quiet"
           }
         ]
       }

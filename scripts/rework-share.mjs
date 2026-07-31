@@ -35,11 +35,16 @@
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Verbatim from the owner doc. Do not edit without editing the owner doc first.
+// Verbatim from the owner doc (modulo joining its wrapped line). Do not edit without
+// editing the owner doc first - a copy that drifts from the pinned recipe stops being
+// comparable to the 52%/51% baselines. Note there is NO `|| true` here: the owner doc
+// does not carry one, and the byte-for-byte test in tests/reworkShare.test.ts must be
+// able to accept a verbatim paste. grep exits 1 on a zero count, so the CALL SITE
+// appends the guard instead.
 const FROZEN_RECIPE =
-  "git log --format=%s -100 | grep -c -iE '^(fix|revert)|review|punch|follow-?up|repair|reconcile|correction' || true";
+  "git log --format=%s -100 | grep -c -iE '^(fix|revert)|review|punch|follow-?up|repair|reconcile|correction'";
 
 // JS twin of the grep pattern above. POSIX ERE and JS agree on this construct: `^(fix|revert)`
 // is anchored, every other alternative floats. `-i` maps to the `i` flag; `grep -c` counts
@@ -55,10 +60,18 @@ const TARGET_PCT = 25;
 
 const ADMIN_REPO = "123constante/bachata-admin";
 
-function sh(command) {
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * Run a shell pipeline in THIS script's checkout - never process.cwd(), which would
+ * quietly measure whatever repo the caller happened to stand in and label it "Website".
+ */
+function sh(command, input) {
   return execFileSync("bash", ["-c", command], {
+    cwd: REPO_ROOT,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [input == null ? "ignore" : "pipe", "pipe", "pipe"],
+    ...(input == null ? {} : { input }),
   });
 }
 
@@ -67,10 +80,21 @@ function countTwin(subjects) {
   return subjects.filter((s) => REWORK_RE.test(s)).length;
 }
 
-/** Trailing-N subjects of the local repo (the denominator; may be < 100 on a young repo). */
+/**
+ * Trailing-N subjects of the local repo (the denominator; may be < 100 on a young
+ * repo). Via git directly, NOT bash: this repo's dev boxes are Windows, and a missing
+ * bash would otherwise read as "empty log" here while the bash-based recipe fails
+ * separately - two different failure modes must not share one symptom.
+ */
 function localSubjects() {
   try {
-    return sh("git log --format=%s -100").split("\n").filter((l) => l.length > 0);
+    return execFileSync("git", ["log", "--format=%s", "-100"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+      .split("\n")
+      .filter((l) => l.length > 0);
   } catch {
     return [];
   }
@@ -80,7 +104,8 @@ function localSubjects() {
 function localViaRecipe() {
   let n;
   try {
-    n = Number.parseInt(sh(FROZEN_RECIPE).trim(), 10);
+    // grep -c exits 1 on a zero count; that is a valid measurement, not a failure.
+    n = Number.parseInt(sh(FROZEN_RECIPE + " || true").trim(), 10);
   } catch {
     return null;
   }
@@ -225,25 +250,35 @@ function selfTest() {
   }
   console.log(`  ${FIXTURES.length} classification fixtures (both directions)`);
 
-  // Direction 2: twin vs frozen shell recipe on the SAME input. A twin that drifts from the
-  // recipe makes the two table rows incomparable -- the exact failure this guards.
-  const subjects = localSubjects();
-  const MIN_PARITY_SUBJECTS = 20;
-  if (subjects.length < MIN_PARITY_SUBJECTS) {
-    // A shallow CI checkout (fetch-depth 1) would make this parity check vacuously green
-    // over a single subject. Fail loudly so the workflow keeps its fetch-depth honest.
-    fail(`only ${subjects.length} local subjects (need ${MIN_PARITY_SUBJECTS}) -- shallow checkout? set fetch-depth so the twin-vs-recipe parity check means something`);
-  } else {
-    const viaRecipe = localViaRecipe();
-    if (!viaRecipe) {
-      fail("frozen recipe did not produce a count");
-    } else if (viaRecipe.n !== countTwin(subjects)) {
-      fail(
-        `twin/recipe disagree on ${subjects.length} live subjects: recipe ${viaRecipe.n}, twin ${countTwin(subjects)}`
-      );
+  // Direction 2: twin vs the frozen grep on the SAME input - the FIXTURES, hermetically,
+  // not whatever the last 100 commits happen to contain. The equivalence being proven
+  // (POSIX ERE vs the JS twin) is a property of the two patterns, so a fixture feed is
+  // deterministic and exercises every edge case (anchoring, -i, follow-?up) on every
+  // run, at any checkout depth. A live-history comparison would silently weaken
+  // whenever recent commits contain no edge cases - and it forced a fetch-depth knob
+  // onto CI in an earlier draft of this file.
+  const grepPart = FROZEN_RECIPE.split(" | ").slice(1).join(" | ");
+  const fixtureSubjects = FIXTURES.map(([subject]) => subject);
+  try {
+    const viaGrep = Number.parseInt(
+      sh(grepPart + " || true", fixtureSubjects.join("\n") + "\n").trim(),
+      10
+    );
+    const viaTwin = countTwin(fixtureSubjects);
+    if (!Number.isFinite(viaGrep)) {
+      fail("frozen grep did not produce a count over the fixtures");
+    } else if (viaGrep !== viaTwin) {
+      fail(`twin/grep disagree on the ${fixtureSubjects.length} fixtures: grep ${viaGrep}, twin ${viaTwin}`);
     } else {
-      console.log(`  twin == frozen recipe on ${subjects.length} live subjects (${viaRecipe.n} rework)`);
+      console.log(`  twin == frozen grep on all ${fixtureSubjects.length} fixtures (${viaGrep} rework)`);
     }
+  } catch (err) {
+    // A missing bash is an environment gap, not a parity verdict - name it as itself.
+    fail(
+      err && err.code === "ENOENT"
+        ? "bash unavailable -- cannot execute the frozen grep for the parity check"
+        : `frozen grep failed: ${(err && err.message) || err}`
+    );
   }
 
   // Direction 3: the admin arm degrades to a LINE, never a throw, when there is no token.
@@ -289,14 +324,15 @@ const invokedDirectly =
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const unknown = argv.filter((a) => a !== "--markdown" && a !== "--self-test");
+  // exitCode, never process.exit(): on Windows an immediate exit can discard a pending
+  // pipe write (the libuv quirk pre-ship.mjs documents) - here that pending write IS
+  // the digest section.
   if (unknown.length) {
     console.error(`rework-share: unknown argument(s): ${unknown.join(", ")}`);
     console.error("usage: node scripts/rework-share.mjs [--markdown|--self-test]");
-    process.exit(2);
-  }
-
-  if (argv.includes("--self-test")) {
-    process.exit(selfTest());
+    process.exitCode = 2;
+  } else if (argv.includes("--self-test")) {
+    process.exitCode = selfTest();
   } else {
     // --markdown is the only rendering mode; a bare invocation renders too, so a digest step
     // that forgot the flag still produces the section rather than silence.
@@ -309,4 +345,4 @@ if (invokedDirectly) {
   }
 }
 
-export { REWORK_RE, FROZEN_RECIPE, countTwin, render };
+export { REWORK_RE, FROZEN_RECIPE, countTwin, render, selfTest };

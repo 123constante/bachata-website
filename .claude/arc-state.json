@@ -8,16 +8,18 @@
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
   "set_at": "2026-07-30T23:09:35Z",
   "scope": [
+    ".claude/arc-state.json",
+    ".claude/settings.json",
+    ".github/workflows/unit-tests.yml",
+    ".github/workflows/weekly-digest.yml",
+    ".gitignore",
+    "CLAUDE.md",
+    "bin/session-lock.sh",
+    "package.json",
+    "scripts/hooks/session-lock.mjs",
     "scripts/rework-share.mjs",
     "tests/reworkShare.test.ts",
-    "scripts/hooks/session-lock.mjs",
-    "bin/session-lock.sh",
-    ".github/workflows/weekly-digest.yml",
-    ".github/workflows/unit-tests.yml",
-    "package.json",
-    "CLAUDE.md",
-    ".claude/settings.json",
-    ".claude/arc-state.json"
+    "tests/sessionLock.test.ts"
   ],
   "note": "Phase 6 ships four independent items across two repos. Website half (this branch): the rework-share digest section + the session-lock heartbeat repair. Admin half is UNCOMMITTED in c:/dev/bachata-admin-11april and mixes with Phase 4's admin leftovers (arc-checkpoint.mjs, lib/arc-state.mjs, docs/open-loops.md, docs/review-cascade-fix-plan.md) -- separate those before committing there. Two deliberate NON-APPEND hook edits, both called out: Website Stop release->heartbeat (release-per-turn WAS the bug), and admin's two inline graphify tips replaced by scripts/hooks/graphify-tip.mjs (appending a deduped copy beside the un-deduped originals would have kept paying for both). Item 4(b), the 35k-token open-loops pre-read cap, is WITHDRAWN on re-measurement: the boot injection is 14,310 chars (~3k tokens), already capped, and the full-file read the plan measured no longer happens. Ricky must add repo secret ADMIN_READ_TOKEN before the admin digest row stops reading 'unavailable'."
 }

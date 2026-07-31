@@ -23,6 +23,7 @@
     "plans:index": "node scripts/check-plan-hygiene.mjs --render",
     "rework:share": "node scripts/rework-share.mjs --markdown",
     "rework:self-test": "node scripts/rework-share.mjs --self-test",
+    "lock:self-test": "node scripts/hooks/session-lock.mjs --self-test",
     "check:no-social-word": "node scripts/check-no-social-word.mjs",
     "check:og": "node scripts/check-og-images.mjs",
     "check:seo": "node scripts/check-seo.mjs",
