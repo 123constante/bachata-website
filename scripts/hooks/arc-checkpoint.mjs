@@ -121,8 +121,10 @@ function build(payload) {
     // the parser reads as family "opus[1m]", so obeying the note produced a
     // permanent false MISMATCH (review finding: the remedy text was the bug).
     const fam = parseModelId(arc.required_model);
-    pin += " (Family pin -- any " + fam.family + " version matches; pin one as \"" +
-      fam.family + "-<version>" + (fam.ceiling ? "[" + fam.ceiling + "]" : "") + "\" in arc-state.json.)";
+    const famFamily = clip(fam.family, 40);
+    const famCeiling = fam.ceiling ? clip(fam.ceiling, 40) : "";
+    pin += " (Family pin -- any " + famFamily + " version matches; pin one as \"" +
+      famFamily + "-<version>" + (famCeiling ? "[" + famCeiling + "]" : "") + "\" in arc-state.json.)";
   }
   const lines = [pin];
 
