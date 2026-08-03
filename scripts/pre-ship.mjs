@@ -262,7 +262,19 @@ export const APP_PATHS = [
   /^\.env($|\.)/,
 ];
 
-export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line"]];
+// --workers=1 is LOCAL DETERMINISM, not a CI setting: e2e-smoke.yml runs the same
+// spec list at Playwright's default parallelism and is green there. On one dev
+// machine the default reddened dancer-dashboard-concept-b-smoke reproducibly
+// (measured 2026-08-03: two consecutive pre-ship runs failed it at ~55.5s, the
+// spec passed alone in 46.4s, and the full list passed 6/6 at --workers=1) --
+// contention, not a defect in the spec or the diff under test. A ship gate that
+// reds on how busy the machine is trains the operator to push past it, which is
+// the one thing this gate cannot afford; it is the same alarm-fatigue class as
+// the clock-sensitive check-search-public-v5 window. Serial costs NOTHING here --
+// measured on the same machine, the parallel run took 1.6 min and failed, serial
+// takes 35.7s and passes 6/6, because the contention was buying nothing. CI is
+// untouched either way: only pre-ship passes these args.
+export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line", "--workers=1"]];
 
 /**
  * The smoke decision, pure so both directions are unit-testable without a
