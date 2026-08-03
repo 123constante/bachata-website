@@ -1063,7 +1063,7 @@ const OrganiserProfile = () => {
                         >
                           <span
                             className="h-[22px] w-[22px] flex-shrink-0 rounded-md"
-                            style={{ background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, 80), backgroundSize: 'cover', backgroundPosition: 'center' }}
+                            style={{ background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, srcWidthFor(22)), backgroundSize: 'cover', backgroundPosition: 'center' }}
                           />
                           <span className="flex-shrink-0" style={{ width: 96, fontSize: 11.5, color: D.cream }}>{label}</span>
                           <span className="min-w-0 flex-1 truncate text-right" style={{ fontSize: 11.5, color: 'rgba(246,241,234,0.6)' }}>{e.name}</span>
