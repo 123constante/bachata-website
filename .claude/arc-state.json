@@ -1,25 +1,18 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 6,
-  "phase_name": "Metrics + queues (four independent ships)",
+  "phase": 8,
+  "phase_name": "CI honesty: flush the stale PR queue",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-07-30T23:09:35Z",
+  "set_at": "2026-08-04T00:05:00Z",
   "scope": [
-    ".claude/arc-state.json",
-    ".claude/settings.json",
-    ".github/workflows/unit-tests.yml",
-    ".github/workflows/weekly-digest.yml",
-    ".gitignore",
+    ".github/workflows/db-contract-check.yml",
     "CLAUDE.md",
-    "bin/session-lock.sh",
     "package.json",
-    "scripts/hooks/session-lock.mjs",
-    "scripts/rework-share.mjs",
-    "tests/reworkShare.test.ts",
-    "tests/sessionLock.test.ts"
+    "scripts/check-upcoming-event-cover.mjs",
+    "tests/upcomingEventCover.test.ts"
   ],
-  "note": "Phase 6 ships four independent items across two repos. Website half (this branch): the rework-share digest section + the session-lock heartbeat repair. Admin half is UNCOMMITTED in c:/dev/bachata-admin-11april and mixes with Phase 4's admin leftovers (arc-checkpoint.mjs, lib/arc-state.mjs, docs/open-loops.md, docs/review-cascade-fix-plan.md) -- separate those before committing there. Two deliberate NON-APPEND hook edits, both called out: Website Stop release->heartbeat (release-per-turn WAS the bug), and admin's two inline graphify tips replaced by scripts/hooks/graphify-tip.mjs (appending a deduped copy beside the un-deduped originals would have kept paying for both). Item 4(b), the 35k-token open-loops pre-read cap, is WITHDRAWN on re-measurement: the boot injection is 14,310 chars (~3k tokens), already capped, and the full-file read the plan measured no longer happens. Ricky must add repo secret ADMIN_READ_TOKEN before the admin digest row stops reading 'unavailable'."
+  "note": "Phase 8 ship 5: DB contract check #62, upcoming events carry a cover image. Ricky's call 2026-08-03 after the og-preview diagnosis -- the coverless-event link-preview wart was DEFERRED as app code (only 1 of 65 published events is coverless and it is PAST), but the class gets a data-layer guard so it fires while an event is still upcoming and fixable. Deliberately needs NO admin migration: get_calendar_events_v2 is already anon-callable and already returns slug + cover_image_url, so migration authority stays untouched. Two self-inflicted defects caught while writing it, both classes this repo already documents: a SHEBANG broke the spec's import (vitest compiles through vm.Script, which does not strip it, and reports a SyntaxError at line 2 -- check-image-widths.mjs carries the same warning); and the top-level `await main()` ran a live RPC on IMPORT, so the spec went green having silently called prod (collect time 813ms -> 241ms once guarded). A third was caught by the write path rather than by me: a doubled backslash in a regex was halved in transit, producing an unterminated literal, and safe-write's parse check refused the write and restored the backup. Window is bounded by PostgREST's 1000-row cap, not by taste -- the first draft used 365 days, which measured 1445 rows in SQL and returned exactly 1000 through the RPC, i.e. it silently skipped a third of the horizon while printing 'all covered'. 180d = 735 rows, and a ROW_CAP tripwire reds rather than truncating quietly."
 }

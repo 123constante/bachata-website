@@ -1045,6 +1045,28 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-unmaterialised.mjs
 
+      # 62. Upcoming events carry a cover image (2026-08-03). A coverless event is
+      #     not a broken page -- it renders fine -- but app/detailLoader.ts's
+      #     resolveOgCardImage() falls back to the static og-image.jpg whenever the
+      #     cover token is null, so the LINK PREVIEW silently degrades to the
+      #     generic site logo. Nobody sees that until someone shares the URL.
+      #     Surfaced on 2026-08-03 when the OG guard reddened on a coverless event;
+      #     that one was PAST (2026-05-09), so the OG guard now scopes finished
+      #     events to warnings and this moves detection to the data layer, where it
+      #     fires while the event is still UPCOMING and the organiser can fix it.
+      #     Scoped to upcoming on purpose -- a past event's stale preview breaks no
+      #     live journey, the same reasoning #47 applies to archived image refs.
+      #     No new RPC: reads the already-anon-callable get_calendar_events_v2.
+      #     Window is bounded by PostgREST's 1000-row cap (180d = 735 rows measured
+      #     2026-08-03); the script reds rather than silently truncating if the site
+      #     outgrows it. Pure half proved in tests/upcomingEventCover.test.ts.
+      - name: Run upcoming-event cover check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-upcoming-event-cover.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
