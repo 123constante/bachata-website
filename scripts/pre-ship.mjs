@@ -64,7 +64,11 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first nine are exactly the links of the "lint" chain, decomposed.
+ * The first TEN are exactly the links of the "lint" chain, decomposed, in the
+ * chain's own order -- tests/reviewScope.test.ts enforces set membership, so
+ * this comment is the only thing marking where the chain prefix ends and the
+ * non-chain entries (check:plan-hygiene, test:unit, ...) begin. Keep the count
+ * accurate when adding a link, or the next editor inserts into the wrong band.
  */
 export const CHECKS = [
   ["check:integrity", "source integrity (null-byte / truncation scan)"],
@@ -74,6 +78,7 @@ export const CHECKS = [
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
+  ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home

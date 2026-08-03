@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, CircleHelp, Flame, Loader2, MapPin, Plus, Search, Trash2, Upload, Copy, ExternalLink, Share2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import type { PostgrestError } from "@supabase/supabase-js";
 import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToR2 } from "@/lib/uploadToR2";
@@ -124,8 +125,18 @@ const SECTION_SAVE_TARGETS: VendorDashboardSection[] = [
   "save",
 ];
 
-const getFriendlyVendorSaveError = (error: any): string => {
-  const message = String(error?.message || "");
+/**
+ * What these handlers actually read off a thrown value. A catch binding is
+ * `unknown`, and every site below touches only `message` / `details` -- so
+ * narrow to that shape once rather than reaching for `any` four times.
+ */
+type ErrorLike = { message?: unknown; details?: unknown };
+
+const asErrorLike = (error: unknown): ErrorLike =>
+  error && typeof error === "object" ? (error as ErrorLike) : {};
+
+const getFriendlyVendorSaveError = (error: unknown): string => {
+  const message = String(asErrorLike(error).message || "");
   const schemaPattern = /Could not find the '([^']+)' column of 'vendors'/i;
   const schemaMatch = message.match(schemaPattern);
 
@@ -584,8 +595,8 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       }
       updateProduct(index, { image_url: uploadedUrl });
       toast({ title: "Product image uploaded" });
-    } catch (uploadError: any) {
-      const message = uploadError?.message || "Could not upload product image.";
+    } catch (uploadError) {
+      const message = String(asErrorLike(uploadError).message || "Could not upload product image.");
       toast({
         title: "Upload failed",
         description: message,
@@ -602,15 +613,16 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
 
     const uploaded: string[] = [];
 
-    const formatUploadErrorMessage = (error: any) => {
-      const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+    const formatUploadErrorMessage = (error: unknown) => {
+      const e = asErrorLike(error);
+      const text = `${String(e.message || "")} ${String(e.details || "")}`.toLowerCase();
       if (text.includes("bucket") || text.includes("not found")) {
         return "Upload failed: storage bucket 'images' is missing. Create it and allow authenticated uploads.";
       }
       if (text.includes("row-level security") || text.includes("permission") || text.includes("not authorized")) {
         return "Upload blocked by storage permissions. Check RLS policy for bucket 'images' for authenticated users.";
       }
-      return error?.message || "Upload failed. Please try again.";
+      return String(e.message || "Upload failed. Please try again.");
     };
 
     for (let index = 0; index < files.length; index += 1) {
@@ -857,8 +869,10 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
         vendor: savedVendor,
         progress: sectionProgress,
       });
-    } catch (saveError: any) {
-      if (isRlsError(saveError)) {
+    } catch (saveError) {
+      // isRlsError takes a PostgrestError; a catch binding is `unknown`, and the
+      // helper already guards its own null/shape access.
+      if (isRlsError(saveError as PostgrestError | null)) {
         setNotAuthorized(true);
         return;
       }
@@ -1107,7 +1121,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
               <div className="mt-2 flex flex-wrap gap-3 items-center">
                 {form.photo_url[0] && (
                   <div className="relative h-24 w-24 rounded-md overflow-hidden border">
-                    <img src={optimizedImageUrl(form.photo_url[0], 320)} alt="Business logo" className="h-full w-full object-cover" />
+                    <img src={optimizedImageUrl(form.photo_url[0], 320)} alt="Business logo" loading="lazy" className="h-full w-full object-cover" />
                     <button
                       type="button"
                       className="absolute top-1 right-1 rounded-full bg-black/70 text-white px-1"

@@ -8,7 +8,15 @@
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
   "set_at": "2026-07-31T23:01:24Z",
   "scope": [
-    "src/pages/OrganiserProfile.tsx"
+    ".github/workflows/architecture-guard.yml",
+    "package.json",
+    "scripts/audit-images.mjs",
+    "scripts/check-image-widths.mjs",
+    "scripts/lib/stripSource.mjs",
+    "scripts/pre-ship.mjs",
+    "src/pages/OrganiserProfile.tsx",
+    "src/pages/VendorDashboardPage.tsx",
+    "tests/imageWidths.test.ts"
   ],
-  "note": "Phase 8 lands or closes the stale open-PR queue serially. INTERPOSED: PR #178 shipped cssUrl(e.poster_url, 80) on 2026-07-31; 80 is not in vercel.json images.sizes, so /_vercel/image answers 400 and six organiser thumbnails render blank on production. That reds prod-smoke, which is the between-merge gate the serial ladder depends on, so the repair is a phase-8 prerequisite rather than a detour. This ship is the one-line call-site fix only. The image-width GUARD that stops the class recurring is a second, separate ship whose scope is declared when it starts. Note that listing .claude/arc-state.json here would be a no-op: DECLARED_ALWAYS_EXEMPT filters it out of the candidate set before the declared-scope match runs, which is how the previous entry made the scope effectively empty and failed pre-ship."
+  "note": "Phase 8 lands or closes the stale open-PR queue serially. INTERPOSED ship 2 of 2: the image-width GUARD, which makes the PR #178 defect class unrepeatable. Ship 1 (PR #183) was the one-line production repair and is scoped separately so it was not held behind guard review. This ship folds eleven /code-review findings, including a fail-open walk, an unguarded quality half, and a scanner that counted doc examples as call sites. scripts/audit-images.mjs is in scope because its comment/string stripper was extracted to scripts/lib/stripSource.mjs and shared rather than copied. Note that listing .claude/arc-state.json here would be a no-op: DECLARED_ALWAYS_EXEMPT filters it out of the candidate set before the declared-scope match runs. src/pages/OrganiserProfile.tsx appears in scope because this branch is STACKED on fix/organiser-thumb-image-width (PR #183): until that merges, the one-line repair is part of this branch's diff against main. It is declared rather than hidden -- the PR targets the fix branch, and GitHub retargets it to main once #183 lands. REVIEW ROUND 2 added src/pages/VendorDashboardPage.tsx: review found the shared stripper treated every quote as a string opener, so an apostrophe in JSX text or a quote inside a regex literal blanked the rest of the file (15 of 531 files partly unscanned -- the guard reporting ok over code it never read). Fixing that un-blinded audit-images.mjs too, which then found a real <img> with no loading attribute in that page and reds AUDIT_STRICT. The attribute fix pulled the file into ship scope, which pulled four pre-existing `any` uses into the scoped eslint gate; they are narrowed to a local ErrorLike rather than suppressed."
 }
