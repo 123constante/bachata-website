@@ -6,8 +6,9 @@
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-07-31T23:01:24Z",
+  "set_at": "2026-08-04T06:45:00Z",
   "scope": [
+    ".claude/arc-state.json",
     "src/pages/OrganiserProfile.tsx"
   ],
   "note": "Phase 8 lands or closes the stale open-PR queue serially. INTERPOSED: PR #178 shipped cssUrl(e.poster_url, 80) on 2026-07-31; 80 is not in vercel.json images.sizes, so /_vercel/image answers 400 and six organiser thumbnails render blank on production. That reds prod-smoke, which is the between-merge gate the serial ladder depends on, so the repair is a phase-8 prerequisite rather than a detour. This ship is the one-line call-site fix only. The image-width GUARD that stops the class recurring is a second, separate ship whose scope is declared when it starts. Note that listing .claude/arc-state.json here would be a no-op: DECLARED_ALWAYS_EXEMPT filters it out of the candidate set before the declared-scope match runs, which is how the previous entry made the scope effectively empty and failed pre-ship."
