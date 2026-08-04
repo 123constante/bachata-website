@@ -1,5 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Static ESM imports rather than inline require(): this is an ESM spec, and the
+// require() form is an eslint error (no-require-imports) that only surfaces once
+// the file enters a ship's scoped lint.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   bypassHeaders,
   getPreviewSha,
@@ -8,6 +14,7 @@ import {
   probe,
   isPreviewHost,
   previewIsWalled,
+  skipIfWalledPreview,
 } from '../scripts/lib/previewProbe.mjs';
 
 const ENV_KEYS = ['CI', 'VERCEL_AUTOMATION_BYPASS_SECRET', 'GITHUB_SHA', 'GITHUB_EVENT_PATH', 'GITHUB_REPOSITORY', 'GITHUB_TOKEN'];
@@ -65,9 +72,6 @@ describe('getPreviewSha', () => {
   it('prefers the PR head sha from the event payload over GITHUB_SHA', () => {
     process.env.GITHUB_SHA = 'mergecommitmergecommit';
     // Point at a temp event file.
-    const fs = require('node:fs');
-    const os = require('node:os');
-    const path = require('node:path');
     const p = path.join(os.tmpdir(), `evt-${Math.floor(process.hrtime()[1])}.json`);
     fs.writeFileSync(p, JSON.stringify({ pull_request: { head: { sha: 'prheadsha' } } }));
     process.env.GITHUB_EVENT_PATH = p;
@@ -192,5 +196,46 @@ describe('previewIsWalled', () => {
       ({ status: 200, url: 'https://x-abc.vercel.app/', body: { cancel } }) as unknown as Response));
     await previewIsWalled('https://x-abc.vercel.app');
     expect(cancel).toHaveBeenCalled();
+  });
+});
+
+// The gate is INSIDE the helper: a prod (non-*.vercel.app) base can never
+// green-skip, and a preview only skips on a PROVEN wall. Everything else runs.
+describe('skipIfWalledPreview', () => {
+  const resp = (status: number, url: string) =>
+    ({ status, url, body: { cancel: vi.fn(async () => {}) } }) as unknown as Response;
+
+  it('returns false for a PROD base without probing (the gate is inside — no prod green-skip)', async () => {
+    const fetchSpy = vi.fn(async () => resp(401, 'https://www.bachatacalendar.co.uk'));
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await skipIfWalledPreview('https://www.bachatacalendar.co.uk', { log: () => {} })).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled(); // short-circuited before any network I/O
+  });
+
+  it('returns true + emits the ::warning:: on a preview PROVEN walled', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(403, 'https://x-abc.vercel.app/')));
+    const lines: string[] = [];
+    const skip = await skipIfWalledPreview('https://x-abc.vercel.app', {
+      label: 'OG preview skipped',
+      subject: 'OG cards could not be checked',
+      log: (m: string) => lines.push(m),
+    });
+    expect(skip).toBe(true);
+    expect(lines[0]).toContain('::warning title=OG preview skipped::');
+    expect(lines[0]).toContain('OG cards could not be checked');
+    expect(lines[0]).toContain('VERCEL_AUTOMATION_BYPASS_SECRET');
+    expect(lines[1]).toContain('proven wall');
+  });
+
+  it('returns false (real check runs) when a preview is reachable, not walled', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, 'https://x-abc.vercel.app/city/london-gb')));
+    const lines: string[] = [];
+    expect(await skipIfWalledPreview('https://x-abc.vercel.app', { log: (m: string) => lines.push(m) })).toBe(false);
+    expect(lines).toHaveLength(0); // no annotation when not skipping
+  });
+
+  it('returns false on a fetch throw (timeout/DNS) — a wall is never inferred from a throw', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
+    expect(await skipIfWalledPreview('https://x-abc.vercel.app', { log: () => {} })).toBe(false);
   });
 });

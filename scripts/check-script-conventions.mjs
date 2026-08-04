@@ -269,7 +269,14 @@ export function stripNoise(src) {
  */
 const SKIP_TRIGGERS = [
   { key: 'missing-secret', re: /if\s*\(\s*!\s*(?:token|key|apiKey|secret|creds?|serviceAccount)\b/i },
-  { key: 'walled-preview', re: /previewIsWalled\s*\(/ },
+  // Both spellings, and this is not defensive padding -- it is a bug this rule
+  // actually had. When check-og-images.mjs and check-seo.mjs moved from calling
+  // previewIsWalled() directly to calling the skipIfWalledPreview() wrapper, the
+  // skip construct did not change by one character, but the identifier no longer
+  // contained the substring this regex looks for, so R1 went blind and the
+  // ratchet reported the debt PAID. A rule keyed on a NAME is only as durable as
+  // that name: any future wrapper needs a case here and a self-test beside it.
+  { key: 'walled-preview', re: /(?:previewIsWalled|skipIfWalledPreview)\s*\(/ },
   { key: 'undeployed-rpc', re: /42883/ },
   { key: 'empty-sample', re: /(?:probed|compared|checked|sampled|measured|found)\s*===\s*0/ },
   { key: 'empty-sample', re: /\.length\s*===\s*0|!\w+\.length\b/ },
@@ -445,6 +452,15 @@ function selfTest() {
   add(
     'R1 fires: bare return after a walled-preview probe',
     () => findSilentSkips(src('if (await previewIsWalled(BASE)) {', '  warn();', '  return;', '}')).length,
+    1,
+  );
+  // The regression that motivated widening the trigger: wrapping the same probe
+  // in a helper renamed the identifier out of the rule's sight, the construct
+  // untouched, and R1 fell silent on two real call sites. A rule keyed on a name
+  // needs a case per name, or the next wrapper repeats it.
+  add(
+    'R1 fires through the skipIfWalledPreview wrapper too',
+    () => findSilentSkips(src('if (await skipIfWalledPreview(BASE)) {', '  return;', '}')).length,
     1,
   );
   // --- R1: negative ---
