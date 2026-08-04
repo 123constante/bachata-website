@@ -32,6 +32,8 @@
     "check:images": "node scripts/audit-images.mjs",
     "check:image-widths": "node scripts/check-image-widths.mjs",
     "check:image-widths:self-test": "node scripts/check-image-widths.mjs --self-test",
+    "check:sourcemap-debugids": "node scripts/check-sourcemap-debugids.mjs",
+    "check:sourcemap-debugids:self-test": "node scripts/check-sourcemap-debugids.mjs --self-test",
     "smoke:prod": "node scripts/launch-critical-smoke.mjs",
     "check:legacy-tables": "node scripts/check-no-legacy-tables.mjs",
     "check:legacy-program-rpcs": "node scripts/check-no-legacy-program-rpcs.mjs",
