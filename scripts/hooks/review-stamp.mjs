@@ -51,6 +51,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   STAMP_PATH,
+  recordMintAttempt,
   readStdin,
   enableScopeCache,
   resolveBaseRef,
@@ -59,6 +60,7 @@ import {
   tieredScope,
   loadStamp,
   mergeReviewStamp,
+  describeProvenance,
 } from "../lib/review-scope.mjs";
 
 // ADDITIVE: fold this review's coverage into the PRIOR stamp (mergeReviewStamp),
@@ -82,6 +84,9 @@ export function writeStamp({ sessionId, findings, baseRef = resolveBaseRef() }) 
     findings,
     nowIso: new Date().toISOString(),
     now: Date.now(),
+    // WHERE this receipt was minted. Computed HERE rather than defaulted inside
+    // mergeReviewStamp so the merge stays a pure function -- see its docblock.
+    provenance: describeProvenance(),
   });
   /* ATOMIC: stage to a sibling, then rename. A full-branch mint is well past the
    * ~2 KB threshold CLAUDE.md documents for silent truncation on this mount (the
@@ -228,7 +233,36 @@ function runManual() {
  * deleting the fail-open would still have passed it; and calling runHook()
  * in-process cleared whatever exit code the vitest worker had already set.
  */
-export function runHook({ readInput = readStdin, write = writeStamp } = {}) {
+export function runHook({
+  readInput = readStdin,
+  write = writeStamp,
+  /* The journal seam. Every exit below records ONE line, so an absent journal
+   * means the hook did not run at all -- which is what a text-only /code-review
+   * leaves behind, and the only evidence that such a review ever happened.
+   *
+   * DEFAULTS TO A NO-OP, and the isMain block supplies the real writer. The
+   * other seams here (readInput, write) exist so a unit test cannot touch fd 0
+   * or the real receipt; a journal writer defaulted ON would punch straight
+   * through that -- ten existing runHook specs would each append a GENUINE fire
+   * to this tree's journal, and the gate would then reassure an operator that
+   * the mint works on the strength of a test run. recordMintAttempt is covered
+   * directly (against an injected path) and its wiring here is asserted, so
+   * nothing production depends on goes unexercised. */
+  record = () => {},
+} = {}) {
+  /* Swallow here as well as inside recordMintAttempt. An INJECTED record (tests,
+   * any future caller) does not inherit that catch, and a throwing journal would
+   * do two kinds of damage: break runHook's never-throws contract, and -- on the
+   * success path, where the stamp is ALREADY written -- drop into the catch below
+   * and report a minted receipt as a failure. The journal is a diagnostic; it
+   * gets no say in what the hook returns. */
+  const safeRecord = (entry) => {
+    try {
+      record(entry);
+    } catch {
+      /* nothing: a diagnostic that breaks a review is worse than no diagnostic */
+    }
+  };
   try {
     const raw = readInput();
     // SELF-MINT GUARD. A genuine PostToolUse `ReportFindings` fire always pipes a
@@ -247,6 +281,8 @@ export function runHook({ readInput = readStdin, write = writeStamp } = {}) {
         "review-stamp: empty stdin -- not a ReportFindings hook fire. Refusing to self-mint a receipt."
       );
       console.error("  (To hand-stamp, run `node scripts/hooks/review-stamp.mjs --manual` at a real TTY.)");
+      // genuine:false -- no payload, so this proves nothing about the wiring.
+      safeRecord({ outcome: "refused-empty-stdin", genuine: false });
       return { minted: false, code: 0 };
     }
     let payload = {};
@@ -268,11 +304,16 @@ export function runHook({ readInput = readStdin, write = writeStamp } = {}) {
         findings.length +
         " finding(s)."
     );
+    safeRecord({ outcome: "minted", genuine: true, sessionId });
     return { minted: true, code: 0 };
   } catch (err) {
     console.error(
       "review-stamp: WARN -- could not write receipt (" + (err.message || err) + "). Review not blocked."
     );
+    /* A THROWN write still proves the hook fired: the payload arrived and the
+     * failure was downstream of it. Recording it genuine keeps the gate from
+     * blaming a missing tool for what was really a broken writer. */
+    safeRecord({ outcome: "error: " + (err.message || err), genuine: true });
     return { minted: false, code: 0 };
   }
 }
@@ -292,6 +333,8 @@ if (isMain) {
     // ALWAYS SOFT: a receipt writer must never fail the review that triggered it.
     // The soft exit lives here, not inside runHook, so the function's fail-open is
     // observable by a test rather than self-asserting.
-    process.exitCode = runHook().code;
+    // The real journal writer is supplied HERE, not defaulted inside runHook --
+    // see the `record` seam. This is the only production caller.
+    process.exitCode = runHook({ record: recordMintAttempt }).code;
   }
 }
