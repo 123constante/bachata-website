@@ -80,6 +80,7 @@ export const CHECKS = [
   ["check:route-boundaries", "every route has an error boundary"],
   ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
+  ["check:script-conventions", "no guard script reports green without checking"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits

@@ -265,8 +265,16 @@ describe("the gate's own fail-open holes (each proven both directions)", () => {
     // arc-state.json is rewritten at every phase start, so it is always in the
     // ship. Making it foreign to its own declaration hard-failed legitimate
     // ships, and the fix people reach for is deleting the scope array -- which
-    // silently reverts to the advisory heuristic.
-    const exempt = [".claude/arc-state.json", ".claude/.review-stamp.json", ".claude/.session-lock.json"];
+    // silently reverts to the advisory heuristic. settings.local.json is the
+    // same class: the harness appends a permission grant whenever one is
+    // approved, so it is dirty through no act of the ship, and because the gate
+    // judges the WORKTREE, declining to stage it could never clear the red.
+    const exempt = [
+      ".claude/arc-state.json",
+      ".claude/.review-stamp.json",
+      ".claude/.session-lock.json",
+      ".claude/settings.local.json",
+    ];
     expect(DECLARED_ALWAYS_EXEMPT).toHaveLength(exempt.length);
     for (const p of exempt) {
       expect(DECLARED_ALWAYS_EXEMPT.some((re: RegExp) => re.test(p)), p).toBe(true);
