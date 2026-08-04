@@ -1,17 +1,19 @@
 {
   "version": 1,
   "arc": "operating-model-v2",
-  "phase": 8,
-  "set_at": "2026-08-04T07:05:00Z",
+  "phase": 9,
+  "set_at": "2026-08-04T08:20:00Z",
   "scope": [
     ".claude/arc-state.json",
+    "scripts/check-script-conventions.mjs",
+    "scripts/script-conventions-allowlist.json",
+    "scripts/check-search-public-v5.mjs",
     "scripts/pre-ship.mjs",
-    "scripts/rpc-typing-allowlist.json",
-    "src/lib/profileViewEmit.ts",
-    "src/lib/searchClickTelemetry.ts",
-    "src/lib/searchTelemetry.ts",
-    "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx",
-    "src/modules/event-page/useRecordEventView.ts"
+    "scripts/lib/review-scope.mjs",
+    "tests/reviewScope.test.ts",
+    "package.json",
+    ".github/workflows/db-contract-check.yml",
+    "CLAUDE.md"
   ],
-  "note": "Phase 8 is the review+ship phase for the queued PR ladder. This branch is the LAST queue item: #139, the RPC-typing burn-down increment 1 (5 telemetry casts). Its PR base was retargeted off the obsolete chore/regen-supabase-types onto main. TYPECHECK_BASELINE 107->106 was re-measured against origin/main with the real gate (npx react-router typegen && npx tsc -p tsconfig.app.json --noEmit); a bare npx tsc --noEmit reports 0 and is a known false green. This arc-state was inherited from main still declaring Phase 6, which inflated pre-ship scope-drift -- corrected here by the phase-START write that trap #4 asks for. Ahead of this ship: #183, #136, #138, #184, #185 all still OPEN as of 2026-08-04; main is at 721305a."
+  "note": "Phase 9 is the ARC-CLOSE phase for operating-model-v2. Two deliverables. (1) scripts/check-script-conventions.mjs -- a static guard over the ~81 scripts/check-*.mjs, carrying four queued classes from admin docs/open-loops.md: the receipt gate cannot distinguish 'reviewed via text' from 'never reviewed' (5856f65); static-scanner guards must be canary-tested (5856f65, class, unowned); resolveBaseRef() inflates scope after a rebase (73b3f28); coverless event og preview falls back to the site logo (aaebeed). (2) The check-search-public-v5 upcoming-only window is STILL OPEN -- #136 (11fcae3) shipped a MITIGATION, not the specified fix: it widens the bound to a measured 6h grace + 5d max span heuristic, where the slot asked for a rollover-boundary anchor plus a fixed-clock both-direction proof. Do NOT record #136 as carrying this. Deferred by Ricky's decision 2026-08-04, not to be relitigated: the coverless-event OG card stays deferred with its ledger row (/api/og/card letterboxes the cover with no text overlay, so a coverless event gets the venue photo, not a branded card); #185 guards the data instead via check #62. Authoring pin: claude-opus-5 / high; this session runs claude-opus-5[1m] / high -- same tier, context-window variant, declared. Cut from origin/main bbb86e4 into an isolated worktree because the mount served a neighbouring worktree's HEAD during inspection."
 }
