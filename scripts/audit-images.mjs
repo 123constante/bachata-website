@@ -9,52 +9,12 @@
  */
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { stripCommentsAndStrings } from './lib/stripSource.mjs';
 
 const BS = String.fromCharCode(92);
 
-function stripCommentsAndStrings(text) {
-  // Replace contents of // line comments, /* block */ comments, and string
-  // literals (" ' `) with spaces, preserving line breaks so line numbers
-  // remain accurate. Does NOT strip JSX {/* */} content (those are JSX
-  // comments and unlikely to contain <img references; left as-is).
-  let out = '';
-  let i = 0;
-  while (i < text.length) {
-    const c = text[i];
-    const c2 = text[i + 1] || '';
-    if (c === '/' && c2 === '/') {
-      // line comment
-      while (i < text.length && text[i] !== '\n') {
-        out += text[i] === '\n' ? '\n' : ' ';
-        i += 1;
-      }
-    } else if (c === '/' && c2 === '*') {
-      out += '  ';
-      i += 2;
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) {
-        out += text[i] === '\n' ? '\n' : ' ';
-        i += 1;
-      }
-      if (i < text.length) { out += '  '; i += 2; }
-    } else if (c === '"' || c === "'" || c === '`') {
-      const quote = c;
-      out += ' ';
-      i += 1;
-      while (i < text.length && text[i] !== quote) {
-        if (text[i] === BS && i + 1 < text.length) {
-          out += '  '; i += 2; continue;
-        }
-        out += text[i] === '\n' ? '\n' : ' ';
-        i += 1;
-      }
-      if (i < text.length) { out += ' '; i += 1; }
-    } else {
-      out += c;
-      i += 1;
-    }
-  }
-  return out;
-}
+// One definition, two guards: this and check-image-widths.mjs both need to
+// ignore doc examples and fixture strings, and a second copy would drift.
 
 function findTagEnd(text, start) {
   let depth = 0;
