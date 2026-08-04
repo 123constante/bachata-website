@@ -57,8 +57,24 @@ jobs:
       # anything else, so the image renders blank on production while
       # typechecking, linting and rendering fine in dev -- exactly how PR #178
       # shipped six blank organiser thumbnails on 2026-07-31.
+      #
+      # The canary runs first. It existed as a package.json entry from the day
+      # the guard landed and NOTHING invoked it -- a self-test nobody runs proves
+      # nothing, and reads as coverage that is not there. Found while auditing
+      # which canaries have real callers (rule R4, check #63).
       - name: Image-width contract
-        run: npm run check:image-widths
+        run: |
+          npm run check:image-widths:self-test
+          npm run check:image-widths
+
+      # The plan-hygiene GUARD cannot run here -- its plans directory lives
+      # outside the repo, which is why pre-ship is its only caller and why it
+      # appears in no other workflow. Its CANARY has no such dependency: it
+      # builds its fixtures in a tmpdir. So the rules get proved on every push
+      # even though the lint itself is a local-only gate, which is the half of
+      # this guard CI can honestly own.
+      - name: Plan-hygiene rules (canary only -- the lint is pre-ship-local)
+        run: npm run check:plan-hygiene:self-test
 
       # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
       # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
