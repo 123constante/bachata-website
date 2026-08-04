@@ -95,3 +95,4 @@ whatson-shipped.md
 # EPERM on the rename can orphan one, and heartbeats rewrite the lock twice a turn.
 /.claude/.session-lock.json.tmp-*
 /.claude/.review-stamp.json
+/.claude/.review-mint-log.json
