@@ -218,10 +218,6 @@
   "scripts/check-slug-resolver-parity.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-sourcemap-debugids.mjs": {
-    "R1:empty-sample": 1,
-    "R4:no-canary": 1
-  },
   "scripts/check-sourcemaps-resolve.mjs": {
     "R1:empty-sample": 1,
     "R4:no-canary": 1

@@ -47,9 +47,20 @@ jobs:
         with:
           node-version: 22
 
+      # The guard proves it can FAIL before it is trusted to say anything passed.
+      # Needs no secrets and no network -- it drives the pure classify() over every
+      # verdict in both directions. Runs first so a broken guard reds here rather
+      # than reporting a green it did not earn (rule R4, check #63).
+      - name: Prove the debug-id guard can fail (canary)
+        run: node scripts/check-sourcemap-debugids.mjs --self-test
+
       # Primary gate: deterministic per-deploy check — reads the LIVE bundle's
       # debug-ids and asks Sentry whether a matching sourcemap was uploaded. Needs
       # no error traffic, so it validates the just-shipped release directly.
+      #
+      # Exit 2 = could not measure (no token, site unreachable, no chunk body
+      # readable). It is NOT a pass: a non-zero exit fails the step, which is the
+      # point -- this guard used to exit 0 on exactly the state it guards against.
       - name: Check deployed debug-ids have uploaded sourcemaps
         env:
           SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
