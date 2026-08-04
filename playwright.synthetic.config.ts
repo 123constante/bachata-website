@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+// @ts-expect-error -- plain .mjs CI substrate, no type declarations by design.
+import { bypassHeaders } from './scripts/lib/previewProbe.mjs';
 
 // Synthetic monitor config — runs against the LIVE production site (read-only
 // GETs), NOT a local dev server. Emulates the exact conditions that first
@@ -12,10 +14,18 @@ const BASE_URL = process.env.SYNTHETIC_BASE_URL || 'https://www.bachatacalendar.
 // Preview PR coverage: when pointed at a protected Vercel preview, attach the
 // protection-bypass header to EVERY request (document + subresources) so the
 // synthetic monitor can load it; undefined against public prod (default).
-const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-const extraHTTPHeaders = bypassSecret
-  ? { 'x-vercel-protection-bypass': bypassSecret, 'x-vercel-set-bypass-cookie': 'true' }
-  : undefined;
+//
+// Shares the ONE bypassHeaders() definition rather than hand-rolling the headers.
+// This was the last site still sending `x-vercel-set-bypass-cookie: 'true'` — the
+// header PR #135 proved harmful: paired with a cookie-jar-less client (undici
+// fetch), Vercel answers a cookie-setting redirect that is re-sent every hop until
+// "redirect count exceeded", which is what made three CI checks look permanently
+// walled with a perfectly VALID secret. It never broke Playwright (a browser
+// context HAS a cookie jar), but it was the copy-paste source that would reinfect
+// the next fetch/curl check, and it skipped bypassHeaders' .trim() (a pasted
+// trailing newline makes the header get rejected before any I/O).
+// required:false so a local run against public prod works without the secret.
+const extraHTTPHeaders = bypassHeaders({ required: false }) ?? undefined;
 
 export default defineConfig({
   testDir: './tests/synthetic',

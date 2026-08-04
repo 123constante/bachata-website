@@ -36,7 +36,7 @@ const recordCardClick = (eventId: string, organiserId: string, zone: string) => 
   const sessionId = getViewerSession();
   if (!sessionId) return;
   void supabase
-    .rpc('record_organiser_card_click_v1' as any, {
+    .rpc('record_organiser_card_click_v1', {
       p_event_id:     eventId,
       p_organiser_id: organiserId,
       p_zone:         zone,

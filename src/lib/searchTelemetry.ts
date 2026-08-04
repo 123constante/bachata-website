@@ -24,7 +24,7 @@ export function recordSearchQuery({ query, resultsCount, cityId, source = 'unkno
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
 
   void supabase
-    .rpc('record_search_query_v1' as any, {
+    .rpc('record_search_query_v1', {
       p_query: trimmed,
       p_results_count: typeof resultsCount === 'number' ? resultsCount : null,
       p_city_id: cityId ?? null,

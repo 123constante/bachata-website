@@ -31,23 +31,11 @@
   "src/lib/festivalsList.ts": {
     "get_public_festivals_list_v1": 1
   },
-  "src/lib/profileViewEmit.ts": {
-    "record_profile_view_v1": 1
-  },
-  "src/lib/searchClickTelemetry.ts": {
-    "record_search_result_click_v1": 1
-  },
   "src/lib/searchRpc.ts": {
     "search_public_v2": 1
   },
-  "src/lib/searchTelemetry.ts": {
-    "record_search_query_v1": 1
-  },
   "src/lib/seo/resolvePublicEventRef.ts": {
     "resolve_public_event_ref_v1": 1
-  },
-  "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx": {
-    "record_organiser_card_click_v1": 1
   },
   "src/modules/event-page/festivalEventQuery.ts": {
     "event_view_p5": 1
@@ -58,9 +46,6 @@
   },
   "src/modules/event-page/useEventPageQuery.ts": {
     "event_view_p5": 1
-  },
-  "src/modules/event-page/useRecordEventView.ts": {
-    "record_event_view_v1": 1
   },
   "src/pages/CreateProfile.tsx": {
     "claim_dancer_profile": 1
