@@ -2,14 +2,16 @@
   "version": 1,
   "arc": "operating-model-v2",
   "phase": 8,
-  "phase_name": "CI honesty: flush the stale PR queue",
-  "required_model": "claude-opus-5",
-  "required_effort": "high",
-  "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-08-04T06:45:00Z",
+  "set_at": "2026-08-04T07:05:00Z",
   "scope": [
     ".claude/arc-state.json",
-    "src/pages/OrganiserProfile.tsx"
+    "scripts/pre-ship.mjs",
+    "scripts/rpc-typing-allowlist.json",
+    "src/lib/profileViewEmit.ts",
+    "src/lib/searchClickTelemetry.ts",
+    "src/lib/searchTelemetry.ts",
+    "src/modules/event-page/bento/blocks/OrganiserCardBlock.tsx",
+    "src/modules/event-page/useRecordEventView.ts"
   ],
-  "note": "Phase 8 lands or closes the stale open-PR queue serially. INTERPOSED: PR #178 shipped cssUrl(e.poster_url, 80) on 2026-07-31; 80 is not in vercel.json images.sizes, so /_vercel/image answers 400 and six organiser thumbnails render blank on production. That reds prod-smoke, which is the between-merge gate the serial ladder depends on, so the repair is a phase-8 prerequisite rather than a detour. This ship is the one-line call-site fix only. The image-width GUARD that stops the class recurring is a second, separate ship whose scope is declared when it starts. Note that listing .claude/arc-state.json here would be a no-op: DECLARED_ALWAYS_EXEMPT filters it out of the candidate set before the declared-scope match runs, which is how the previous entry made the scope effectively empty and failed pre-ship."
+  "note": "Phase 8 is the review+ship phase for the queued PR ladder. This branch is the LAST queue item: #139, the RPC-typing burn-down increment 1 (5 telemetry casts). Its PR base was retargeted off the obsolete chore/regen-supabase-types onto main. TYPECHECK_BASELINE 107->106 was re-measured against origin/main with the real gate (npx react-router typegen && npx tsc -p tsconfig.app.json --noEmit); a bare npx tsc --noEmit reports 0 and is a known false green. This arc-state was inherited from main still declaring Phase 6, which inflated pre-ship scope-drift -- corrected here by the phase-START write that trap #4 asks for. Ahead of this ship: #183, #136, #138, #184, #185 all still OPEN as of 2026-08-04; main is at 721305a."
 }

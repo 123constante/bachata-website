@@ -65,7 +65,7 @@ export function emitProfileView(args: EmitProfileViewArgs): void {
   // Fire-and-forget. supabase.rpc returns a thenable; we discard the result
   // and the error.  Swallowed errors are deliberate — never break navigation.
   void supabase
-    .rpc('record_profile_view_v1' as any, {
+    .rpc('record_profile_view_v1', {
       p_person_id: args.personId,
       p_profile_type: profileType,
       p_context: args.context,
