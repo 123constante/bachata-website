@@ -1,0 +1,267 @@
+{
+  "scripts/check-admin-list-occurrences-null-venue-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-anon-grants.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-bundle-budget.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-cancelled-occurrence-passthrough.mjs": {
+    "R1:empty-sample": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-cancelled-occurrence-visibility.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-compat-payload-consistency.mjs": {
+    "R1:empty-sample": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-day-rollover-consistency-v1.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-doc-weight.mjs": {
+    "R2:empty-catch": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-entry-liveness.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-epp-avatar-url-drift.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-epp-display-name-drift.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-event-attendees-fk-target.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-event-program-duration.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-festival-publish-readiness.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-festival-span.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-fk-indexes.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-gsc.mjs": {
+    "R2:empty-catch": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-guest-entries-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-image-refs-live.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-latest-events.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-lighthouse.mjs": {
+    "R1:walled-preview": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-map-events-rpc.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-migration-stamps.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-mojibake.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-no-legacy-program-rpcs.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-no-legacy-tables.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-no-social-word.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-instance-end-canonical.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-instance-time-canonical.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-integrity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-p5-materialised-canonical.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-program-format.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-occurrence-time-stamping-convention.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-og-images.mjs": {
+    "R1:walled-preview": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-organiser-link-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-organiser-past-events-rpc.mjs": {
+    "R1:empty-sample": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-override-identity-sync.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-p5-legacy-program-parity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-p5-orphan-series.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-p5-public-read-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-p5-session-people-parity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-p5-unmaterialised.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-people-public-read-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-per-date-program-canonical.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-per-date-program-sync-mutation.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-per-occurrence-rpcs.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-pgproc-materialised-cast.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-plan-hygiene.mjs": {
+    "R1:empty-sample": 1
+  },
+  "scripts/check-program-day-integrity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-program-save-idempotency-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-program-schema-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-public-rpc-latency.mjs": {
+    "R2:swallowing-catch": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-raffle-capacity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-raffle-draw-snapshot.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-raffle-winners.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-replace-event-program-canvas-consistency.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-reverse-orphan-occurrence.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-route-error-boundaries.mjs": {
+    "R2:swallowing-catch": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-rpc-typing.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-search-public-v5.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-search-telemetry-v1.mjs": {
+    "R1:empty-sample": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-security-phase2-3-policies.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-seo.mjs": {
+    "R1:walled-preview": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-series-materialisation.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-series-occurrence-horizon.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-session-people-display-name-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-slug-column.mjs": {
+    "R1:empty-sample": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-slug-presence.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-slug-resolver-parity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-sourcemap-debugids.mjs": {
+    "R1:empty-sample": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-sourcemaps-resolve.mjs": {
+    "R1:empty-sample": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/check-surface-time-agreement.mjs": {
+    "R1:empty-sample": 2,
+    "R4:no-canary": 1
+  },
+  "scripts/check-teacher-dj-assignment-integrity.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-time-pairing.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-tracking-freshness.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-tracking-rpc-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-unmigrated-ddl.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-venue-contract.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-venue-coords.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-venue-publish-gate.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/check-wallclock-brand.mjs": {
+    "R1:empty-sample": 1,
+    "R4:no-canary": 1
+  },
+  "scripts/lint-runtime-architecture.mjs": {
+    "R4:no-canary": 1
+  },
+  "scripts/lint-workflow-masking.mjs": {
+    "R4:no-canary": 1
+  }
+}

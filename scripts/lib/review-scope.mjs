@@ -530,12 +530,18 @@ export function resolveDeclaredScope() {
  * ship. The first person to hit that deletes the scope array, which silently
  * reverts to advisory inferred mode: a fatal gate that is annoying to keep
  * green does not stay green, it stops being used. The receipt and the session
- * lock are the same class of machine-written local state.
+ * lock are the same class of machine-written local state, and so is
+ * settings.local.json: the harness appends a permission grant every time one is
+ * approved, so it is dirty in most sessions through no act of the ship. It is
+ * owned by the harness, never by the diff, and judging it as scope drift made
+ * "commit nothing from it" an unreachable instruction -- the gate reds on the
+ * worktree, so declining to stage the file cannot clear it.
  */
 export const DECLARED_ALWAYS_EXEMPT = [
   /^\.claude\/arc-state\.json$/,
   /^\.claude\/\.review-stamp\.json$/,
   /^\.claude\/\.session-lock\.json$/,
+  /^\.claude\/settings\.local\.json$/,
 ];
 
 export function scopeDrift(files, { declared = null } = {}) {
