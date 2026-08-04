@@ -6,15 +6,13 @@
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "plan": "C:/Users/ecual/.claude/plans/analyze-the-way-i-crispy-wirth.md",
-  "set_at": "2026-08-03T23:27:00Z",
+  "set_at": "2026-08-04T06:55:00Z",
   "scope": [
-    "playwright.synthetic.config.ts",
+    ".claude/arc-state.json",
     "scripts/check-og-images.mjs",
-    "scripts/check-search-public-v5.mjs",
     "scripts/check-seo.mjs",
     "scripts/lib/previewProbe.mjs",
-    "scripts/lint-workflow-masking.mjs",
     "tests/previewProbe.test.ts"
   ],
-  "note": "Phase 8 ship 4 of the serial ladder: PR #138, STACKED on #136 (base ref ci/honest-checks, not main) -- the plan's '#138 before #136' ordering is INVERTED and was verified from the PR base refs, not assumed. Scope therefore covers both commits' files, because this branch's diff against main contains #136's. Reviewed on its own delta (REVIEW_SCOPE_BASE=<#136 head>) since #136 carried its own review and receipt. The load-bearing property here is that skipIfWalledPreview() puts the isPreviewHost gate INSIDE the helper, so a caller physically cannot green-skip production; the spec proves it by asserting fetch is never called for a prod base, and separately that a fetch throw (timeout/DNS) is never read as a wall. 24/24 previewProbe assertions pass. Expect a trivial arc-state conflict when #184 and then #136 land ahead of this; take the later phase/set_at and this ship's scope."
+  "note": "Phase 8 ship 4: PR #138, the skipIfWalledPreview helper. Its original PR was AUTO-CLOSED when #136 squash-merged and deleted its base branch ci/honest-checks -- the stacked-squash gotcha -- WITHOUT taking its content, so this reopens it against main. Merge conflict in check-og-images.mjs resolved toward this branch is import (skipIfWalledPreview), which is what the call site already uses."
 }
