@@ -75,7 +75,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * check:wallclock-brand and outside the band it describes (review finding).
  */
 export const CHECKS = [
-  ["check:integrity", "source integrity (null-byte / truncation scan)"],
+  ["check:integrity", "source integrity (null-byte / control-byte / truncation scan)"],
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],

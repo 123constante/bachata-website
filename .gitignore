@@ -96,3 +96,6 @@ whatson-shipped.md
 /.claude/.session-lock.json.tmp-*
 /.claude/.review-stamp.json
 /.claude/.review-mint-log.json
+# tests/integrityControlBytes.test.ts writes poisoned fixtures here and removes
+# them in afterAll; a crashed run must not leave litter that reds other guards.
+/.integrity-canary/

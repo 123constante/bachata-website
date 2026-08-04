@@ -48,7 +48,7 @@ console.log(`[vercel-log] deployment ${dep.uid}  (${dep.url})  state=${dep.ready
 // 3) build log events
 const events = await j(`${API}/v3/deployments/${dep.uid}/events?builds=1&limit=5000${TEAM}`)
 const lines = (Array.isArray(events) ? events : [])
-  .map((e) => (e.text ?? e.payload?.text ?? '').replace(/\[[0-9;]*m/g, '').trimEnd())
+  .map((e) => (e.text ?? e.payload?.text ?? '').replace(/\x1b\[[0-9;]*m/g, '').trimEnd())
   .filter(Boolean)
 
 const RE = /sentry|debug.?id|source.?map|upload|artifact|bundled|warn|error|release/i
