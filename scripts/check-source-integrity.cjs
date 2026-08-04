@@ -135,8 +135,12 @@ function main() {
     // integrity-guard.py --list-corpus does, rather than keeping a second copy
     // of the extension list here that can drift out from under it.
     if (process.argv.includes('--list-corpus')) {
-        for (const f of files) console.log(f);
-        process.exit(0);
+        // One write, then RETURN rather than process.exit(). stdout to a pipe is
+        // asynchronous on POSIX and synchronous on Windows, so exiting here
+        // truncates the list to whatever happened to have flushed: 904 lines on
+        // Windows, 194 in Linux CI. Falling out of main() lets Node drain stdout.
+        process.stdout.write(files.join('\n') + '\n');
+        return;
     }
 
     if (files.length === 0) {
