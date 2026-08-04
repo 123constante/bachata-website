@@ -173,6 +173,61 @@ const invokedDirectly =
   typeof process.argv[1] === 'string' &&
   process.argv[1].split(BACKSLASH).join('/').endsWith('check-upcoming-event-cover.mjs');
 
+/**
+ * R4 canary: prove this guard can FAIL, in both directions, without a network.
+ *
+ * tests/upcomingEventCover.test.ts already drives findBreaches() thoroughly, but
+ * a spec in a separate file is not reachable from the script, so rule R4 (check
+ * #63) cannot see it and -- more to the point -- neither can anyone running this
+ * guard. The thresholds below are the ones nothing else asserts: MIN_ROWS and
+ * ROW_CAP are what stop this check reporting green off a sample it never really
+ * measured, which is the failure mode the whole surrounding arc exists to end.
+ *
+ * Expectations are named EXPLICITLY rather than derived from the constants, per
+ * the rule earned on #189: a spec that reads its expectation from the code under
+ * test goes quiet at the same moment the code does.
+ */
+export function selfTest(log = console.log) {
+  const cases = [];
+  let failed = 0;
+  const add = (name, actual, expected) => cases.push({ name, actual, expected });
+
+  const covered = { slug: 'a', cover_image_url: 'https://x/y.jpg', instance_date: '2026-09-01', name: 'A' };
+  const bare = { slug: 'b', cover_image_url: null, instance_date: '2026-09-01', name: 'B' };
+
+  // --- findBreaches, both directions ---
+  add('a covered slugged event is not a breach', findBreaches([covered]).length, 0);
+  add('a null cover on a slugged event IS a breach', findBreaches([bare]).length, 1);
+  add('an empty-string cover counts as missing', findBreaches([{ ...bare, cover_image_url: '' }]).length, 1);
+  add('an unslugged row is ignored (no shareable URL)', findBreaches([{ ...bare, slug: null }]).length, 0);
+  add('every breach is reported, not just the first', findBreaches([bare, { ...bare, slug: 'c' }]).length, 2);
+  add('the breach names its slug', findBreaches([bare])[0].slug, 'b');
+  add('a malformed row does not throw mid-scan', findBreaches([null, undefined, {}, bare]).length, 1);
+
+  // --- the thresholds that stop a green off an unmeasured sample. These are the
+  // reason this guard does not inherit the check-sourcemap-debugids.mjs defect:
+  // an empty result is a FAILURE here, never a skip. ---
+  // Named literals, not comparisons against the constants themselves: `ROW_CAP
+  // <= ROW_CAP` is a tautology that cannot fail, and a case that cannot fail is
+  // exactly what R4 exists to stop. Changing either constant reds these.
+  add('MIN_ROWS is the measured floor (50), so an empty sample fails', MIN_ROWS, 50);
+  add('ROW_CAP is PostgREST\'s page limit (1000)', ROW_CAP, 1000);
+  add('the floor sits under the cap', MIN_ROWS < ROW_CAP, true);
+
+  for (const c of cases) {
+    const ok = c.actual === c.expected;
+    if (!ok) failed++;
+    log(`${ok ? '  ok  ' : '  FAIL'} ${c.name}${ok ? '' : ` (got ${JSON.stringify(c.actual)}, want ${JSON.stringify(c.expected)})`}`);
+  }
+  log('');
+  log(
+    failed === 0
+      ? `PASS self-test -- ${cases.length} cases, the contract proven in both directions.`
+      : `FAIL self-test -- ${failed} of ${cases.length} case(s).`,
+  );
+  return failed === 0;
+}
+
 if (invokedDirectly) {
-  process.exitCode = await main();
+  process.exitCode = process.argv.includes('--self-test') ? (selfTest() ? 0 : 1) : await main();
 }
