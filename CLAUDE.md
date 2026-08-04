@@ -295,7 +295,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 66 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 66 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + eslint |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
