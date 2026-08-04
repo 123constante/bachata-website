@@ -19,6 +19,7 @@ Per-extension checks:
   .ts .tsx .jsx    → TypeScript parser via _integrity_ts_parse.cjs helper
   .sql             → balanced-paren + unterminated-string heuristic
   *                → null-byte scan + UTF-8 decode + size-shrinkage vs HEAD
+  *                → raw C0 control-byte scan (mount-eaten escapes)
 
 Usage:
     python3 scripts/integrity-guard.py             # all tracked source files
@@ -48,6 +49,15 @@ SOURCE_EXTS = {
     '.json', '.sql', '.yml', '.yaml',
     '.html', '.css', '.sh', '.py', '.md',
 }
+
+# Tracked text files that carry no extension. The extension filter above would
+# skip these entirely, which mattered once found: .githooks/pre-commit is the
+# script that ENFORCES this guard at commit time, and it was itself unscanned.
+EXTENSIONLESS_SOURCE = [
+    re.compile(r'(^|/)\.githooks/[^/.]+$'),
+    re.compile(r'(^|/)\.gitattributes$'),
+    re.compile(r'(^|/)\.editorconfig$'),
+]
 
 PARSE_AS_JSON = {'.json'}
 PARSE_AS_JS = {'.js', '.cjs', '.mjs'}
@@ -83,6 +93,13 @@ SIZE_SHRINK_MIN_BYTES = 500
 
 SELF_SHA_FILE = '.integrity-guard.sha256'
 TS_HELPER = 'scripts/_integrity_ts_parse.cjs'
+
+# Byte-scan constants, written escape-free on purpose: this file lives on the
+# same mount whose backslash-eating is the thing being guarded against.
+NUL = bytes([0x00])
+LF = bytes([0x0A])
+# Tab, line feed and carriage return are the only control bytes source may hold.
+ALLOWED_CONTROL = frozenset({0x09, 0x0A, 0x0D})
 
 
 # ─── Self-seal ────────────────────────────────────────────────────────────
@@ -130,7 +147,9 @@ def is_source_file(path: str) -> bool:
     if any(p.search(path) for p in SKIP_PATTERNS):
         return False
     ext = os.path.splitext(path)[1].lower()
-    return ext in SOURCE_EXTS
+    if ext in SOURCE_EXTS:
+        return True
+    return any(p.search(path) for p in EXTENSIONLESS_SOURCE)
 
 
 def is_jsonc(path: str) -> bool:
@@ -159,10 +178,44 @@ class Issue:
 # ─── Per-file checks ──────────────────────────────────────────────────────
 
 def check_null_bytes(path: str, data: bytes) -> Issue | None:
-    if b'\x00' in data:
-        n = data.count(b'\x00')
+    if NUL in data:
+        n = data.count(NUL)
         return Issue(path, 0, f'null bytes detected ({n})', code='NULL')
     return None
+
+
+def check_control_bytes(path: str, data: bytes) -> Issue | None:
+    """Reject C0 control bytes (and DEL) outside tab / LF / CR.
+
+    The mount bug that eats a backslash out of an escape sequence leaves the
+    control character it denoted sitting raw in the source: an x1b escape in a
+    regex becomes a literal 0x1b, a b escape becomes a literal 0x08. Both stay
+    syntactically valid, so every parser check above passes them, and one such
+    byte already reached main this way. Nothing in this codebase legitimately
+    stores a raw control byte, so the rule is a flat ban rather than an
+    allowlist -- an exemption here would blind the guard to exactly the
+    corruption it exists to catch.
+    """
+    cap = 5
+    offenders = []
+    for i, b in enumerate(data):
+        if (b < 0x20 and b not in ALLOWED_CONTROL) or b == 0x7F:
+            offenders.append((i, b))
+            # Collect one PAST the cap so the "and more" suffix is truthful:
+            # stopping AT the cap cannot distinguish exactly-cap from truncated.
+            if len(offenders) > cap:
+                break
+    if not offenders:
+        return None
+    shown = offenders[:cap]
+    line = data.count(LF, 0, shown[0][0]) + 1
+    detail = ', '.join(
+        f'0x{b:02x} at byte {i} (line {data.count(LF, 0, i) + 1})' for i, b in shown)
+    more = ' (and more)' if len(offenders) > cap else ''
+    return Issue(path, line,
+                 f'raw control byte(s) in source: {detail}{more} -- '
+                 f'a mount-eaten escape sequence, not intended content',
+                 code='CTRL')
 
 
 def check_json(path: str, text: str) -> Issue | None:
@@ -317,6 +370,9 @@ def check_file_basic(path: str, repo_root: Path) -> list[Issue]:
     nb = check_null_bytes(path, data)
     if nb:
         return [nb]  # Don't try to parse a null-poisoned file
+    cb = check_control_bytes(path, data)
+    if cb:
+        return [cb]  # Same: a mangled escape means the bytes are untrustworthy
     try:
         text = data.decode('utf-8-sig')
     except UnicodeDecodeError as exc:
@@ -385,6 +441,10 @@ def main() -> int:
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--no-self-check', action='store_true')
     parser.add_argument('--no-ts', action='store_true', help='Skip TS parse phase (faster)')
+    parser.add_argument('--list-corpus', action='store_true',
+                        help='Print the files this guard would scan, one per line, and exit. '
+                             'Lets a test assert against the REAL corpus instead of '
+                             'maintaining a second copy of SOURCE_EXTS that can drift.')
     parser.add_argument('--quiet', action='store_true')
     args = parser.parse_args()
 
@@ -411,6 +471,11 @@ def main() -> int:
             print(f'integrity-guard: git failed: {exc.stderr}', file=sys.stderr)
             return 3
         files = [f for f in files if is_source_file(f)]
+
+    if args.list_corpus:
+        for f in files:
+            print(f)
+        return 0
 
     all_issues: list[Issue] = []
     for path in files:

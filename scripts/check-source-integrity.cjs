@@ -2,9 +2,15 @@
 /**
  * check-source-integrity.cjs
  *
- * Defends against Cowork-mount file corruption. Two checks:
+ * Defends against Cowork-mount file corruption. Three checks:
  *   1. Null bytes in source files (the classic symptom).
- *   2. Strict JSON files parse correctly (catches mid-content truncation).
+ *   2. Raw C0 control bytes outside tab/LF/CR (a backslash eaten out of an
+ *      escape sequence, leaving the character it denoted sitting raw).
+ *   3. Strict JSON files parse correctly (catches mid-content truncation).
+ *
+ * This is the scanner .githooks/pre-commit runs, so it is the floor that
+ * actually gates commits. scripts/integrity-guard.py enforces the same rules
+ * for the lint chain and CI; the two must not drift apart.
  *
  * Files known to use JSON-with-comments (jsonc) are skipped from the parse check:
  *   - tsconfig*.json (TypeScript convention)
@@ -24,7 +30,21 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-const SOURCE_EXT = /\.(ts|tsx|js|jsx|cjs|mjs|json|md|sql|yml|yaml|html|css|sh)$/i;
+const SOURCE_EXT = /\.(ts|tsx|js|jsx|cjs|mjs|json|md|sql|yml|yaml|html|css|sh|py)$/i;
+
+// Tracked text files that carry no extension. Mirrors EXTENSIONLESS_SOURCE in
+// scripts/integrity-guard.py. This mattered once found: .githooks/pre-commit is
+// the script that RUNS this scanner, and it was itself unscanned.
+const EXTENSIONLESS_SOURCE = [
+    /(^|\/)\.githooks\/[^/.]+$/,
+    /(^|\/)\.gitattributes$/,
+    /(^|\/)\.editorconfig$/,
+];
+
+function isSourceFile(path) {
+    return SOURCE_EXT.test(path) || EXTENSIONLESS_SOURCE.some(re => re.test(path));
+}
+
 const STRICT_JSON_SKIP = [
     /(^|\/)tsconfig[^/]*\.json$/,
     /(^|\/)\.vscode\/.*\.json$/,
@@ -42,7 +62,7 @@ function listFiles(staged) {
     } else {
         out = execSync('git ls-files', { encoding: 'utf8' });
     }
-    return out.split(/\r?\n/).filter(p => p && SOURCE_EXT.test(p));
+    return out.split(/\r?\n/).filter(p => p && isSourceFile(p));
 }
 
 function hasNullBytes(buf) {
@@ -53,6 +73,51 @@ function countNullBytes(buf) {
     let n = 0;
     for (let i = 0; i < buf.length; i++) if (buf[i] === 0) n++;
     return n;
+}
+
+// Tab, line feed and carriage return are the only control bytes source may hold.
+const ALLOWED_CONTROL = new Set([0x09, 0x0a, 0x0d]);
+
+/**
+ * Find raw C0 control bytes (and DEL). The mount bug that eats a backslash out
+ * of an escape sequence leaves the character it denoted sitting raw in the
+ * source, and every parser downstream accepts it: a 0x08 reached main this way
+ * inside check-image-widths.mjs. This mirrors check_control_bytes() in
+ * scripts/integrity-guard.py -- the two scanners are separate entry points
+ * (this one gates commits via .githooks/pre-commit, that one gates the lint
+ * chain and CI) and must enforce the same rule or the weaker one defines the
+ * real floor.
+ */
+function findControlBytes(buf, cap = 5) {
+    const offenders = [];
+    for (let i = 0; i < buf.length; i++) {
+        const b = buf[i];
+        if ((b < 0x20 && !ALLOWED_CONTROL.has(b)) || b === 0x7f) {
+            offenders.push({ offset: i, byte: b });
+            if (offenders.length > cap) break;
+        }
+    }
+    return offenders;
+}
+
+function describeControlBytes(buf, cap = 5) {
+    const offenders = findControlBytes(buf, cap);
+    if (offenders.length === 0) return null;
+    const shown = offenders.slice(0, cap);
+    const lineAt = (offset) => {
+        let n = 1;
+        for (let i = 0; i < offset; i++) if (buf[i] === 0x0a) n++;
+        return n;
+    };
+    // A line per offender, matching check_control_bytes() in integrity-guard.py.
+    // Reporting only the FIRST offender's line beside five byte offsets sends an
+    // operator hunting for the other four by hand.
+    const line = lineAt(shown[0].offset);
+    const detail = shown
+        .map((o) => `0x${o.byte.toString(16).padStart(2, '0')} at byte ${o.offset} (line ${lineAt(o.offset)})`)
+        .join(', ');
+    const more = offenders.length > cap ? ' (and more)' : '';
+    return `line ${line}: ${detail}${more}`;
 }
 
 function main() {
@@ -66,12 +131,21 @@ function main() {
         process.exit(1);
     }
 
+    // Lets a spec assert the COMMIT floor against the real corpus, the same way
+    // integrity-guard.py --list-corpus does, rather than keeping a second copy
+    // of the extension list here that can drift out from under it.
+    if (process.argv.includes('--list-corpus')) {
+        for (const f of files) console.log(f);
+        process.exit(0);
+    }
+
     if (files.length === 0) {
         console.log('check-source-integrity: no source files to scan');
         process.exit(0);
     }
 
     const nullCorrupted = [];
+    const controlCorrupted = [];
     const jsonCorrupted = [];
     let scanned = 0;
 
@@ -86,6 +160,12 @@ function main() {
             continue;
         }
 
+        const ctrl = describeControlBytes(buf);
+        if (ctrl) {
+            controlCorrupted.push(`${f} (${ctrl})`);
+            continue;  // A mangled escape means the rest of the bytes are untrustworthy
+        }
+
         if (f.toLowerCase().endsWith('.json') && !isStrictJsonSkip(f)) {
             try {
                 JSON.parse(buf.toString('utf8'));
@@ -95,11 +175,16 @@ function main() {
         }
     }
 
-    const total = nullCorrupted.length + jsonCorrupted.length;
+    const total = nullCorrupted.length + controlCorrupted.length + jsonCorrupted.length;
     if (total > 0) {
         if (nullCorrupted.length > 0) {
             console.error(`check-source-integrity: ${nullCorrupted.length} file(s) contain null bytes:`);
             for (const e of nullCorrupted) console.error(`   - ${e}`);
+        }
+        if (controlCorrupted.length > 0) {
+            console.error(`check-source-integrity: ${controlCorrupted.length} file(s) contain raw control bytes`);
+            console.error('   (a mount-eaten escape sequence, not intended content):');
+            for (const e of controlCorrupted) console.error(`   - ${e}`);
         }
         if (jsonCorrupted.length > 0) {
             console.error(`check-source-integrity: ${jsonCorrupted.length} JSON file(s) fail to parse (likely truncated):`);
