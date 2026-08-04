@@ -35,11 +35,30 @@ const BACKTICK = String.fromCharCode(96);
  * A ' or " literal cannot span a raw newline in JS/TS, so "no" means this was
  * never a string opener at all. A backslash-newline line continuation IS legal
  * and is skipped here, so a genuine continued string still answers yes.
+ *
+ * THE NEWLINE IT ESCAPES MAY BE CRLF, which is what every source file in this
+ * repo carries (.gitattributes applies CRLF to source extensions), so the
+ * continuation is three characters and not two. The first cut consumed only
+ * ONE character after the backslash, leaving the loop standing on the \n of a
+ * \r\n pair and returning false -- meaning a genuinely continued string was
+ * never recognised as a string ON THE ONLY LINE ENDING THIS REPO USES. Its body
+ * then stayed visible, so a cssUrl(u, 80) inside it read as a live call site
+ * (false red) and an <img> inside it read as a real tag for audit-images.mjs.
+ * A docstring claiming the case was handled is worse than one that does not.
+ *
+ * Exported because scripts/check-image-widths.mjs splits argument lists on
+ * ALREADY-STRIPPED text, where every surviving quote is by construction a stray
+ * one: it must apply the same rule or it re-acquires the runaway-string bug this
+ * function exists to kill, one layer up.
  */
-function closesOnSameLine(text, openIdx, quote) {
+export function closesOnSameLine(text, openIdx, quote) {
   for (let j = openIdx + 1; j < text.length; j += 1) {
     const ch = text[j];
-    if (ch === BS) { j += 1; continue; }
+    if (ch === BS) {
+      // Consume the escaped character -- a CRLF line continuation is TWO.
+      j += text[j + 1] === '\r' && text[j + 2] === '\n' ? 2 : 1;
+      continue;
+    }
     if (ch === '\n') return false;
     if (ch === quote) return true;
   }
@@ -82,9 +101,22 @@ export function stripCommentsAndStrings(text) {
       // remove. A ' or " literal cannot span a raw newline, so when the closing
       // quote does not arrive before the line ends this was never a string:
       // emit the character and carry on. Backticks are exempt -- template
-      // literals legitimately span lines. This only ever blanks LESS than
-      // before, so it can never hide a call site; the residual mis-pairing is
-      // confined to the single line the stray quote sits on.
+      // literals legitimately span lines.
+      //
+      // IT IS TEMPTING to argue this only ever blanks LESS than the old rule and
+      // so can never hide a call site. That argument is FALSE, and was measured
+      // false on 2026-08-04: running both strippers over all 531 scanned files,
+      // 27 outputs differ and 15 of those blank MORE than before (src/pages/seo/
+      // Faq.tsx by 2429 chars, src/pages/CreateProfile.tsx by 1701). Declining to
+      // open a phantom string re-pairs every LATER quote on the line, and one of
+      // those can open a genuine string the old rule was already inside. The
+      // sampled extra blanking is benign JSX text, but "benign here" is a
+      // measurement, not a guarantee.
+      //
+      // What IS established is empirical and repeatable: an EOF canary -- append
+      // a known helper call to each real file and require the scanner to still
+      // see it -- found 0 blind files across all 531. Re-run that probe after
+      // touching this function. Do not re-derive the one-directional argument.
       if (quote !== BACKTICK && !closesOnSameLine(text, i, quote)) {
         out += c;
         i += 1;

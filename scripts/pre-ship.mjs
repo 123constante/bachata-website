@@ -64,11 +64,15 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first TEN are exactly the links of the "lint" chain, decomposed, in the
- * chain's own order -- tests/reviewScope.test.ts enforces set membership, so
- * this comment is the only thing marking where the chain prefix ends and the
- * non-chain entries (check:plan-hygiene, test:unit, ...) begin. Keep the count
- * accurate when adding a link, or the next editor inserts into the wrong band.
+ * The first ELEVEN are exactly the npm-run links of the "lint" chain (which
+ * also ends in a bare `eslint .`, run by the chain and not listed here),
+ * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
+ * membership, so this comment is the only thing marking where the chain prefix
+ * ends and the non-chain entries (check:plan-hygiene, test:unit, ...) begin.
+ * Keep the count accurate when adding a link, or the next editor inserts into
+ * the wrong band. It said TEN in the same edit that added check:image-widths and
+ * made the count load-bearing, which would have put the next new link above
+ * check:wallclock-brand and outside the band it describes (review finding).
  */
 export const CHECKS = [
   ["check:integrity", "source integrity (null-byte / truncation scan)"],
@@ -263,19 +267,30 @@ export const APP_PATHS = [
   /^\.env($|\.)/,
 ];
 
-// --workers=1 is LOCAL DETERMINISM, not a CI setting: e2e-smoke.yml runs the same
-// spec list at Playwright's default parallelism and is green there. On one dev
-// machine the default reddened dancer-dashboard-concept-b-smoke reproducibly
+// THIS GATE EXISTS TO REPRODUCE THE PR GATE, so it must not diverge from
+// e2e-smoke.yml on the axes that decide whether a spec passes.
+//
+// The first cut pinned --workers=1 for local determinism: on one dev machine the
+// default parallelism reddened dancer-dashboard-concept-b-smoke reproducibly
 // (measured 2026-08-03: two consecutive pre-ship runs failed it at ~55.5s, the
-// spec passed alone in 46.4s, and the full list passed 6/6 at --workers=1) --
-// contention, not a defect in the spec or the diff under test. A ship gate that
-// reds on how busy the machine is trains the operator to push past it, which is
-// the one thing this gate cannot afford; it is the same alarm-fatigue class as
-// the clock-sensitive check-search-public-v5 window. Serial costs NOTHING here --
-// measured on the same machine, the parallel run took 1.6 min and failed, serial
-// takes 35.7s and passes 6/6, because the contention was buying nothing. CI is
-// untouched either way: only pre-ship passes these args.
-export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line", "--workers=1"]];
+// spec passed alone in 46.4s, the full list passed 6/6 serially in 35.7s). That
+// diagnosis stands -- it was contention, not a defect. The REMEDY was wrong.
+// e2e-smoke.yml runs this same spec list at Playwright's default parallelism
+// (playwright.config.ts sets fullyParallel: true and pins no worker count), so a
+// serial gate stops reproducing the one thing it is here to reproduce: a genuine
+// cross-spec race -- two specs sharing auth storage state, or the same DB rows --
+// passes locally and reds only in CI, which is exactly the class of failure a
+// pre-push gate is supposed to catch BEFORE the push (review finding). One spec
+// being timing-sensitive under load does not establish that no spec is
+// order- or concurrency-sensitive.
+//
+// So: match CI on BOTH axes. Default parallelism, and --retries=1 to mirror
+// playwright.config.ts's `retries: process.env.CI ? 1 : 0` -- which is also what
+// absorbs the measured contention flake, since CI has been absorbing it all
+// along. A spec that only passes on retry is green in CI, so a gate that reds on
+// it is not reproducing CI either; it is the alarm-fatigue class the original
+// comment was right to fear, reached from the other direction.
+export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line", "--retries=1"]];
 
 /**
  * The smoke decision, pure so both directions are unit-testable without a

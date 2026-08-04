@@ -35,14 +35,21 @@ describe('image-width contract', () => {
   it('passes its own both-directions self-test', () => {
     const { total, failures } = selfTestFailures();
     expect(failures).toEqual([]);
-    expect(total).toBeGreaterThan(20);
+    expect(total).toBeGreaterThan(40);
   });
 
   it('the live tree declares no width or quality Vercel would 400 on', () => {
-    const { violations, calls, scanned } = checkTree();
+    const { violations, calls, callSites, scanned } = checkTree();
     expect(violations).toEqual([]);
     // A scanner that found nothing reports the same empty array, so assert it
     // actually measured -- the fail-loud measurement contract.
+    //
+    // callSites, not calls. `calls` could not reach zero: findCalls claimed
+    // imageCdn.ts's own two `export function` lines, so blinding the scanner to
+    // every real call site still left a count of 2 and this assertion passed
+    // (review finding). callSites excludes the module the helpers are declared
+    // in, so it goes to zero exactly when the guard has stopped measuring.
+    expect(callSites).toBeGreaterThan(0);
     expect(calls).toBeGreaterThan(0);
     expect(scanned).toBeGreaterThan(0);
   });
@@ -82,6 +89,31 @@ describe('image-width contract', () => {
 
   it('GREEN: the fix is not flagged, because srcWidthFor(22) is not a literal', () => {
     expect(findCalls(incidentCall('srcWidthFor(22)'))[0].width.kind).toBe('dynamic');
+  });
+
+  it('RED: the same value extracted to a named constant, the ordinary refactor', () => {
+    // srcWidthFor() is safe by construction; a bare identifier is not, and
+    // `const THUMB = 80; cssUrl(u, THUMB)` reproduced the incident with the
+    // guard green until rule 5 landed.
+    const [call] = scanSource(['const THUMB = ', String(BAD_WIDTH), ';\nconst a = ', incidentCall('THUMB'), ';'].join(''));
+    expect(call.width).toEqual({ kind: 'decimal', value: BAD_WIDTH, via: 'THUMB' });
+  });
+
+  it('RED: a call site whose arguments cannot be parsed is a breach, not a skip', () => {
+    // Dropping it silently is how a literal width ships blank under a green run.
+    expect(findCalls('cssUrl(u, 80')[0].unparsed).toBe(true);
+  });
+
+  it('GREEN: correct code the first cut of the classifier red-lit', () => {
+    // A cast decides nothing about the value; arithmetic is dynamic, not a
+    // malformed literal. Both used to classify as odd-numeric and fail CI with
+    // advice ("write a plain decimal") that is wrong for the second.
+    expect(classifyArg('320 as number')).toEqual({ kind: 'decimal', value: 320 });
+    expect(classifyArg('2 * srcWidthFor(48)').kind).toBe('dynamic');
+  });
+
+  it('a declaration of the helper is not a call site', () => {
+    expect(findCalls('export function cssUrl(url: string, width: number, quality = 70): string {')).toHaveLength(0);
   });
 
   it('a documented or stringified example is never mistaken for a call site', () => {
