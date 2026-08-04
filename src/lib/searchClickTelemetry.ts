@@ -24,7 +24,7 @@ export function recordSearchResultClick({ query, kind, id, position, source = 's
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
 
   void supabase
-    .rpc('record_search_result_click_v1' as never, {
+    .rpc('record_search_result_click_v1', {
       p_query: trimmed,
       p_entity_type: kind,
       p_entity_id: id,
