@@ -138,14 +138,40 @@ const upcomingOnly = await callRpc(
   'search_public_v5("bachata",upcoming)',
 );
 assertShape(upcomingOnly, 'upcoming-only');
-const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+// The RPC's upcoming filter is anchored on the event's END:
+//   eo.materialised_end_utc > now() - interval '6 hours'
+// but the payload only carries start_time, so this check can only assert a
+// START-anchored PROXY. Anchoring the 6h grace to the start was a real bug: any
+// evening event sits inside the RPC's window and outside the check's for ~3h
+// every night (~02:30-05:30 UTC), which reddened db-contract-check on unrelated
+// PRs -- e.g. PR #135's 03:22 UTC run, on a "Rogue Bachata" 19:30-22:30 night.
+//
+// So the bound must be the RPC's own grace PLUS the longest event span that can
+// still be legitimately in-window. Measured against live data (2026-07-22): the
+// longest materialised span is 4d04h (a multi-day festival), p99 is 08:30.
+// 5 days is a deliberate upper bound with headroom, not a tuned threshold.
+//
+// This is deliberately loose: it still catches the failure that matters (the RPC
+// leaking long-past events into the default view) without false-reddening on the
+// end-vs-start skew. Emitting end_time in the events payload would let this
+// assert the genuine invariant instead of a proxy -- tracked as a follow-up.
+const MAX_EVENT_SPAN_HOURS = 5 * 24;
+const RPC_PAST_GRACE_HOURS = 6;
+const oldestAllowedStart =
+  Date.now() - (RPC_PAST_GRACE_HOURS + MAX_EVENT_SPAN_HOURS) * 60 * 60 * 1000;
 for (const ev of upcomingOnly.events) {
   if (!ev.start_time) {
     throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has null start_time`);
   }
   const t = Date.parse(ev.start_time);
-  if (Number.isNaN(t) || t < sixHoursAgo) {
-    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has past start_time ${ev.start_time}`);
+  if (Number.isNaN(t)) {
+    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has unparseable start_time ${ev.start_time}`);
+  }
+  if (t < oldestAllowedStart) {
+    throw new Error(
+      `upcoming-only: event ${ev.id} (${ev.name}) has start_time ${ev.start_time}, more than ` +
+        `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span in the past`,
+    );
   }
 }
 
