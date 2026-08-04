@@ -177,9 +177,18 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # Node 22, matching every other workflow in this repo. This job was the
+      # last one on 20, and that is not a cosmetic difference: @supabase/*
+      # 2.111 declares `engines.node >= 22.0.0`, and realtime-js in particular
+      # needs the NATIVE WebSocket global that Node 22 provides and Node 20 does
+      # not. On 20 every DB check in this file dies with "Node.js detected but
+      # native WebSocket not found" -- 132 Supabase references, all of them.
+      # Measured on PR #187 (supabase-js 2.89 -> 2.111), where setup-node
+      # resolved `20` to v20.20.2 and npm warned EBADENGINE for six @supabase
+      # packages before the checks failed.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
