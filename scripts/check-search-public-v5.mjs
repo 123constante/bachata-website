@@ -8,8 +8,12 @@
  *      plus total_count (number) and a did_you_mean key (string | null).
  *   3. Empty query returns total_count = 0 with all-empty sections.
  *   4. Nonsense query returns total_count = 0 and a null did_you_mean.
- *   5. Default p_include_past=false returns only upcoming events.
+ *   5. Default p_include_past=false returns only upcoming events (start-anchored
+ *      proxy -- the payload carries no end_time; deliberately loose).
  *   6. p_include_past=true broadens to include past events.
+ *   6b. The default view excludes every DEFINITELY-past event while
+ *      p_include_past=true still surfaces them -- the decisive proof that the
+ *      upcoming filter is applied at all. Needs no complete result set.
  *   7. Fuzzy: a near-miss ("bachatta") still resolves (results OR a suggestion).
  *   8. Filters narrow: p_event_type constrains the events section
  *      (soft-passes when the unfiltered base is already empty).
@@ -183,6 +187,96 @@ const includePast = await callRpc(
 assertShape(includePast, 'include-past');
 if (includePast.events.length < upcomingOnly.events.length) {
   throw new Error(`include_past returned fewer events (${includePast.events.length}) than upcoming-only (${upcomingOnly.events.length})`);
+}
+
+// Test 6b: the decisive proof that the upcoming filter is actually applied.
+//
+// Test 5's start-anchored bound is a loose proxy (see its comment), and it has
+// to be: a multi-day festival RUNNING RIGHT NOW legitimately has a start in the
+// past. So the question is never "did any returned event start in the past" but
+// "does the default view carry events that are past by ANY reading".
+//
+// DEFINITELY past = started before now - (6h grace + 5d max span). No event
+// still in progress can be that old, so such an event must be excluded by
+// `materialised_end_utc > now() - 6h`; finding one in the default view means
+// the filter is gone. Two properties, and crucially NEITHER needs a complete
+// result set:
+//   (a) p_include_past=true surfaces at least one definitely-past event, so the
+//       filter has something to exclude and (b) is not vacuous.
+//   (b) the default view contains NONE of them.
+// Truncation cannot flip either: clipping only ever REMOVES rows, (b) is a
+// universal over whatever came back, and (a) has wide measured margin.
+//
+// This replaces an earlier set-differential (include_past minus upcoming, all
+// past). That shape is unsound here and could never be made sound: the RPC caps
+// the events section server-side at LEAST(COALESCE(p_section_limit, 12), 50),
+// so asking for more than 50 is silently ignored and NO probe can guarantee a
+// complete set. Its truncation guard also told you to raise a limit that was
+// already sitting at that ceiling. Its second leg (include_past-only events are
+// all past) is dropped rather than kept as false comfort: under a capped probe
+// an upcoming event missing from a clipped upcoming set is indistinguishable
+// from a mis-anchored one.
+//
+// Measured 2026-08-04 at limit 50 across bachata/salsa/kizomba/london/festival:
+// definitely-past events in the include_past set = 10/7/2/11/4, and in the
+// default view 0/0/0/0/0. For "bachata" those 10 sit at result positions 12-42,
+// nowhere near the truncation boundary. Past events also accumulate
+// monotonically as the calendar moves, so (a) only strengthens with time.
+const PROBE_LIMIT = 50; // the RPC's own ceiling -- asking for more is a no-op
+const upcomingWide = await callRpc(
+  { p_query: 'bachata', p_city_slug: null, p_section_limit: PROBE_LIMIT },
+  'search_public_v5("bachata",upcoming,wide)',
+);
+assertShape(upcomingWide, 'upcoming-wide');
+const includePastWide = await callRpc(
+  {
+    p_query: 'bachata',
+    p_city_slug: null,
+    p_section_limit: PROBE_LIMIT,
+    p_include_past: true,
+  },
+  'search_public_v5("bachata",include_past,wide)',
+);
+assertShape(includePastWide, 'include-past-wide');
+
+/** Started too long ago for any still-running event to have that start. */
+function isDefinitelyPast(ev, label) {
+  if (!ev.start_time) {
+    throw new Error(`${label}: event ${ev.id} (${ev.name}) has null start_time`);
+  }
+  const t = Date.parse(ev.start_time);
+  if (Number.isNaN(t)) {
+    throw new Error(
+      `${label}: event ${ev.id} (${ev.name}) has unparseable start_time ${ev.start_time}`,
+    );
+  }
+  return t < oldestAllowedStart;
+}
+
+// (a) the filter has something to exclude.
+const pastReachable = includePastWide.events.filter((e) => isDefinitelyPast(e, 'include-past-wide'));
+if (pastReachable.length === 0) {
+  throw new Error(
+    'p_include_past=true surfaced NO event older than the 6h grace + 5d max span. Either the ' +
+      'corpus genuinely holds no past events (implausible for a live calendar), or include_past ' +
+      'is no longer widening the query. Without at least one, the exclusion test below would ' +
+      'pass vacuously -- so this fails rather than reporting a green it has not earned.',
+  );
+}
+
+// (b) and the default view excludes every one of them.
+const leaked = upcomingWide.events.filter((e) => isDefinitelyPast(e, 'upcoming-wide'));
+if (leaked.length > 0) {
+  const shown = leaked
+    .slice(0, 3)
+    .map((e) => `${e.id} (${e.name}) @ ${e.start_time}`)
+    .join('; ');
+  throw new Error(
+    `the default (upcoming) view returned ${leaked.length} event(s) that started more than ` +
+      `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span ago, so no reading of ` +
+      `"still running" covers them: ${shown}. The upcoming filter ` +
+      '(materialised_end_utc > now() - 6h) is no longer being applied.',
+  );
 }
 
 // Test 7: fuzzy / typo tolerance -- a near-miss resolves to results OR a suggestion.

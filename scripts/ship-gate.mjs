@@ -91,6 +91,10 @@ import {
   stampAgeMs,
   stampIsFresh,
   unresolvedConfirmedReasons,
+  provenanceMismatch,
+  describeMintHistory,
+  readMintLog,
+  STAMP_PATH,
 } from "./lib/review-scope.mjs";
 
 /** Soft-tier posture. false = warn and pass; true = block like hard. */
@@ -137,6 +141,11 @@ export function decide({
   strictSoft = STRICT_SOFT_DEFAULT,
   stampAbsentLabel = "no valid review stamp found -- run /code-review",
   renames = [],
+  /* Why an EXISTING stamp may not speak for this tree (null when it does, or
+   * when the stamp predates provenance). Injected rather than computed here so
+   * decide() stays pure and the unit tests can drive both directions. */
+  provenanceNote = null,
+  mintNote = null,
 }) {
   const hard = scope.hard || [];
   const soft = scope.soft || [];
@@ -214,9 +223,36 @@ export function decide({
   const totalScope = hard.length + soft.length + delHard.length + delSoft.length;
   const reasons = [...hardReasons];
   const warnings = [];
+  const notes = [];
   if (strictSoft) reasons.push(...softReasons);
   else warnings.push(...softReasons);
   reasons.push(...findingReasons);
+
+  /* EVERY entry in `warnings` is one uncovered file, and the green line below
+   * counts on it: `covered = totalScope - fileWarnings`. Anything else appended
+   * to that array silently under-reports coverage (a lone uncovered soft file
+   * plus one note printed "-1 of 1 risky file(s) covered"), so diagnostics go
+   * to `notes` instead and this count is taken before they could. */
+  const fileWarnings = warnings.length;
+
+  /* ONCE, at the end -- not per file. Every uncovered path on a mis-provenanced
+   * ship carries the same explanation, and this list is what the operator reads
+   * at the push: repeating one sentence across nine paths buries the nine paths
+   * it was meant to explain. It also reaches the reasons the per-file variant
+   * missed -- "changed after review" and both deletion reasons. Appended only
+   * when something is ALREADY red (or already warned), so a diagnostic can
+   * never be the thing that stops a ship. */
+  /* Both notes funnel through one emitter so the "once, at the end" rule and the
+   * "never counted as a file" rule are stated in a single place. */
+  for (const note of [provenanceNote, mintNote].filter(Boolean)) {
+    /* Asymmetric on purpose. On the RED path the note rides in `reasons`,
+     * because that is the block an operator reads when a push is refused and a
+     * separate section under it is the one thing they scroll past. On the green
+     * path there is no such list to join, and `warnings` is off limits (it is
+     * counted), so the note stands alone. */
+    if (reasons.length) reasons.push("note: " + note);
+    else if (fileWarnings) notes.push(note);
+  }
 
   if (reasons.length) {
     return {
@@ -224,13 +260,14 @@ export function decide({
       status: "policy",
       reasons,
       warnings,
+      notes,
       scope,
       deleted,
       strictSoft,
     };
   }
 
-  const covered = totalScope - warnings.length;
+  const covered = totalScope - fileWarnings;
   return {
     code: 0,
     status: "green",
@@ -240,6 +277,7 @@ export function decide({
         : covered + " of " + totalScope + " risky file(s) covered by a fresh review stamp",
     ],
     warnings,
+    notes,
     scope,
     deleted,
     strictSoft,
@@ -278,6 +316,7 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
       status: "infra",
       reasons: ["git scope failed: " + (err.message || err)],
       warnings: [],
+      notes: [],
       scope: { hard: [], soft: [] },
       deleted: { hard: [], soft: [] },
       strictSoft,
@@ -293,6 +332,7 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
       status: "infra",
       reasons: ["review stamp unreadable (fs error)"],
       warnings: [],
+      notes: [],
       scope,
       deleted,
       strictSoft,
@@ -312,10 +352,33 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
     now,
     strictSoft,
     renames,
+    /* FRESH stamps only. A stale stamp covers NOTHING -- every path is red for
+     * age alone -- so the branch note's "files it already stamped stay covered
+     * by content hash" would be false exactly when it is read, telling the
+     * operator to re-review only what is new when the whole ship needs it. */
+    provenanceNote:
+      status === "ok" && stampIsFresh(stamp, now) ? provenanceMismatch(stamp) : null,
+    /* ONLY when there is no usable stamp. With one in hand the mint plainly
+     * works, and repeating its history would be noise on a ship whose real
+     * problem is elsewhere. */
+    mintNote: status === "ok" ? null : describeMintHistory(readMintLog()),
+    /* PRINT THE PATH -- this is the line that names the 2026-08-04 failure.
+     * The receipt file follows the MODULE (STAMP_PATH derives from REPO_ROOT,
+     * which derives from review-scope.mjs's own location), so a /code-review
+     * that loaded another worktree's copy wrote a perfectly valid stamp -- over
+     * there. HERE that presents as no stamp at all, and a bare "no valid review
+     * stamp found" reads as "nobody reviewed this" when somebody did. The
+     * absolute path is what tells those two apart, and it costs nothing exactly
+     * when the stamp is absent. The provenance FIELDS cannot help on this
+     * branch: there is no stamp to read them from. */
     stampAbsentLabel:
       status === "corrupt"
-        ? "the review stamp is present but CORRUPT (treated as missing) -- delete it and re-review"
-        : "no valid review stamp found -- run /code-review",
+        ? "the review stamp at " +
+          STAMP_PATH +
+          " is present but CORRUPT (treated as missing) -- delete it and re-review"
+        : "no valid review stamp found at " +
+          STAMP_PATH +
+          " -- run /code-review from THIS working tree",
   });
 }
 
@@ -339,6 +402,9 @@ if (isMain) {
     console.log("ship-gate: " + tag + (verdict.strictSoft ? "  [soft tier: STRICT]" : "  [soft tier: advisory]"));
     for (const r of verdict.reasons) console.log("  - " + r);
     for (const w of verdict.warnings) console.log("  ! unreviewed app code (advisory): " + w);
+    // Neutral label: a note EXPLAINS the lines above it. Printed under the
+    // warnings banner it would announce a diagnostic as an unreviewed file.
+    for (const n of verdict.notes || []) console.log("  note: " + n);
     if (verdict.code === 1) {
       console.log("");
       console.log("  Fix: type /code-review, fold every blocking finding into an edit, and let the");

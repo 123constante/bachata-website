@@ -530,12 +530,18 @@ export function resolveDeclaredScope() {
  * ship. The first person to hit that deletes the scope array, which silently
  * reverts to advisory inferred mode: a fatal gate that is annoying to keep
  * green does not stay green, it stops being used. The receipt and the session
- * lock are the same class of machine-written local state.
+ * lock are the same class of machine-written local state, and so is
+ * settings.local.json: the harness appends a permission grant every time one is
+ * approved, so it is dirty in most sessions through no act of the ship. It is
+ * owned by the harness, never by the diff, and judging it as scope drift made
+ * "commit nothing from it" an unreachable instruction -- the gate reds on the
+ * worktree, so declining to stage the file cannot clear it.
  */
 export const DECLARED_ALWAYS_EXEMPT = [
   /^\.claude\/arc-state\.json$/,
   /^\.claude\/\.review-stamp\.json$/,
   /^\.claude\/\.session-lock\.json$/,
+  /^\.claude\/settings\.local\.json$/,
 ];
 
 export function scopeDrift(files, { declared = null } = {}) {
@@ -606,6 +612,240 @@ export function scopeDrift(files, { declared = null } = {}) {
  * hook) and the reader (ship-gate) can never drift on what a stamp means. */
 
 export const STAMP_PATH = path.join(REPO_ROOT, ".claude", ".review-stamp.json");
+
+/** git, but a failure is "unknown" rather than fatal -- provenance is a
+ * diagnostic, and must never be the reason a mint or a gate run dies. */
+function gitSoft(args, cwd = REPO_ROOT) {
+  try {
+    const out = execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Same tree?
+ *
+ * BOTH sides normally default to the same module-derived REPO_ROOT constant, so
+ * in the ordinary case this compares a string against itself and the folding
+ * below is dead weight. It earns its keep only where the two sides can differ:
+ * an injected `root` (tests, any future caller), or a stamp that arrived by
+ * copy, junction or symlink. Do not read it as evidence that the mint and the
+ * gate derive their roots differently -- they do not, which is exactly why
+ * repo_root cannot catch the 2026-08-04 miss (see describeProvenance below).
+ *
+ * Case-folded on win32 because NTFS is case-insensitive while path.resolve
+ * PRESERVES the drive-letter case of its argument, so `c:/x` and `C:/x` can name
+ * one directory. Junction/symlink pairs are resolved too, but only when BOTH
+ * sides resolve -- half-resolved compares worse than raw. Unknown compares
+ * EQUAL: this predicate only ever produces an accusation, so it fails quiet.
+ */
+function sameRoot(a, b) {
+  if (!a || !b) return true;
+  const real = (s) => {
+    try {
+      return fs.realpathSync.native(s);
+    } catch {
+      return null;
+    }
+  };
+  const norm = (s) => {
+    const p = toPosix(s).replace(/[/]+$/, "");
+    return process.platform === "win32" ? p.toLowerCase() : p;
+  };
+  const ra = real(a);
+  const rb = real(b);
+  return ra && rb ? norm(ra) === norm(rb) : norm(a) === norm(b);
+}
+
+/**
+ * WHERE a receipt was minted -- the answer to "a stamp exists, so why is the
+ * gate still red?".
+ *
+ * REPO_ROOT is derived from this module's own file location, so a review always
+ * stamps the tree whose copy of this module it loaded, REGARDLESS of which diff
+ * it read. With git worktrees that is two independent stamp files, and a review
+ * pointed at the wrong tree writes a perfectly valid receipt to the wrong place.
+ * The gate then reports "no valid review stamp found" -- true, but it reads as
+ * "nobody reviewed this" when the truth is "somebody reviewed this, over there".
+ *
+ * Measured 2026-08-04: three consecutive /code-review runs failed this way on
+ * one ship, and the third reported CLEAN while describing a different branch's
+ * diff. The receipt was never the weak link -- content hashing held every time
+ * and the gate correctly refused. What was missing is any way to TELL.
+ *
+ * Recording this changes nothing about what passes: coverage is still decided
+ * by content hash alone. It exists so a miss can be NAMED.
+ *
+ * KNOW THE LIMIT, so nobody mistakes this field for the whole cure. The stamp
+ * lives at REPO_ROOT/.claude/, so any stamp the gate can READ was by
+ * construction written by a module rooted in that same directory: repo_root
+ * compares a file's own directory against itself and, absent a copy or a
+ * junction, cannot differ. The cross-tree miss does not present as a mismatched
+ * root -- it presents as NO STAMP AT ALL, which is why ship-gate prints
+ * STAMP_PATH on the absent branch. THAT is the line that names 2026-08-04.
+ * What is genuinely comparable here is the BRANCH; the root check is kept as
+ * belt-and-braces for a receipt that arrives by copy, junction or symlink.
+ */
+export function describeProvenance({ root = REPO_ROOT, run = gitSoft } = {}) {
+  /* Swallow here as well as in gitSoft: an INJECTED run (tests, and any future
+   * caller passing its own git) does not inherit gitSoft's catch, and a
+   * diagnostic that throws would take the mint down with it. `root` doubles as
+   * the git cwd, so the recorded tree and the recorded branch/head can never
+   * describe two different directories. */
+  const soft = (args) => {
+    try {
+      const v = run(args, root);
+      return v ? String(v).trim() || null : null;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    repo_root: toPosix(root),
+    branch: soft(["rev-parse", "--abbrev-ref", "HEAD"]),
+    head: soft(["rev-parse", "HEAD"]),
+  };
+}
+
+/**
+ * Why a stamp that exists still does not speak for THIS tree. Returns null when
+ * there is nothing to explain -- either it matches, or it predates provenance
+ * (an older stamp is not suspect, it is just quiet, and must not be reported as
+ * a mismatch).
+ */
+export function provenanceMismatch(stamp, { root = REPO_ROOT, run = gitSoft } = {}) {
+  const p = stamp && typeof stamp === "object" ? stamp.provenance : null;
+  if (!p || typeof p !== "object") return null; // pre-provenance stamp: silent
+  const here = describeProvenance({ root, run });
+  if (!sameRoot(p.repo_root, here.repo_root)) {
+    return (
+      "the review stamp was minted in a DIFFERENT working tree (" +
+      p.repo_root +
+      "), not this one (" +
+      here.repo_root +
+      ") -- re-run /code-review from this tree"
+    );
+  }
+  /* A detached HEAD (rebase, bisect, CI checkout) reports the literal string
+   * "HEAD", which names no branch -- comparing it prints the nonsense
+   * "minted on branch 'HEAD'" at an operator who never left their branch. */
+  const named = (b) => !!b && b !== "HEAD";
+  if (named(p.branch) && named(here.branch) && p.branch !== here.branch) {
+    /* Deliberately NOT "it does not speak for this ship": coverage is content
+     * hashing, so a stamp from another branch genuinely does cover every file
+     * whose bytes it recorded. Only what is new here needs re-reviewing, and
+     * saying otherwise sends the operator back for a full re-review it does
+     * not need. */
+    return (
+      "the review stamp was minted on branch '" +
+      p.branch +
+      "', not this tree's '" +
+      here.branch +
+      "' -- files it already stamped stay covered by content hash; anything " +
+      "new to this branch needs a fresh review"
+    );
+  }
+  return null;
+}
+/* == mint observability =====================================================
+ * THE GAP THIS CLOSES, measured 2026-08-04 across five failed receipts.
+ *
+ * The mint is a PostToolUse hook on `ReportFindings`. A /code-review whose
+ * agent does not HAVE that tool reports its findings as prose, mints nothing,
+ * and is indistinguishable at the gate from no review at all -- so the operator
+ * reads "no valid review stamp found", assumes the review did not run, and runs
+ * it again. Five times, on one ship.
+ *
+ * Provenance cannot reach this: there is no stamp to read fields from. What can
+ * be answered is the prior question -- has this mechanism EVER fired here? The
+ * hook journals every invocation, INCLUDING refusals, so an absent journal is
+ * itself evidence: the hook did not run, and a review that "finished" was
+ * text-only.
+ *
+ * KNOW THE LIMIT. A text-only review leaves NO trace of its own -- nothing here
+ * observes it directly. This turns "no stamp" into "no stamp, and the mint has
+ * never fired in this tree", which is the sentence that names the failure.
+ * It is a diagnostic and nothing else: it gates nothing, and a journal that
+ * cannot be read or written is silent, never fatal.
+ */
+export const MINT_LOG_PATH = path.join(REPO_ROOT, ".claude", ".review-mint-log.json");
+
+/** The journal, or null if absent/unreadable/corrupt -- all three mean "cannot
+ * say", and a diagnostic that cannot say must stay quiet. */
+export function readMintLog({ file = MINT_LOG_PATH } = {}) {
+  try {
+    const v = JSON.parse(fs.readFileSync(file, "utf8"));
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Record ONE hook fire. Never throws: a journal that breaks a review is worse
+ * than no journal. Returns the written record, or null if it could not write. */
+export function recordMintAttempt({
+  outcome,
+  /* Did this invocation carry a real ReportFindings payload? A human running
+   * `node review-stamp.mjs` by hand also lands here, and counting THAT as
+   * evidence the hook is wired would replace one false reassurance with
+   * another -- the gate would tell an operator the mechanism works on the
+   * strength of a mis-run script. Only a genuine payload proves the wiring. */
+  genuine = false,
+  sessionId = null,
+  now = Date.now(),
+  file = MINT_LOG_PATH,
+} = {}) {
+  try {
+    const prev = readMintLog({ file }) || {};
+    const count = (v) => (Number.isInteger(v) && v > 0 ? v : 0);
+    const next = {
+      version: 1,
+      last_fire: new Date(now).toISOString(),
+      last_outcome: String(outcome || "unknown"),
+      session_id: sessionId,
+      fires: count(prev.fires) + 1,
+      hook_fires: count(prev.hook_fires) + (genuine ? 1 : 0),
+    };
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/** What the journal lets the gate say when NO stamp is present. Null when there
+ * is nothing worth saying. Lives beside the writer so the two cannot drift. */
+export function describeMintHistory(log) {
+  const NEVER =
+    "the ReportFindings mint has NEVER fired in this tree -- a /code-review " +
+    "whose agent lacks that tool reports its findings as TEXT, mints nothing, " +
+    "and looks identical here to no review at all. If one just ran, that is " +
+    "what happened: the findings are real, the receipt was never created";
+  if (!log || typeof log !== "object") return NEVER;
+  const when = typeof log.last_fire === "string" ? log.last_fire : "an unknown time";
+  const outcome = typeof log.last_outcome === "string" ? log.last_outcome : "unknown";
+  /* A journal with no GENUINE fire in it says the same thing as no journal: the
+   * script ran, but never with a ReportFindings payload behind it. */
+  if (!(Number.isInteger(log.hook_fires) && log.hook_fires > 0)) {
+    return NEVER + " (the mint script has run here " + (log.fires || "?") +
+      " time(s), last " + when + ", outcome: " + outcome +
+      " -- but never once with a ReportFindings payload)";
+  }
+  return (
+    "the ReportFindings mint HAS fired in this tree (last: " +
+    when +
+    ", outcome: " +
+    outcome +
+    ") -- so the hook is wired; this ship simply has no stamp of its own yet"
+  );
+}
+
 export const MAX_STAMP_AGE_MS = 24 * 60 * 60 * 1000;
 export const RESOLVED_OUTCOMES = new Set(["fixed", "skipped", "no_change_needed"]);
 
@@ -760,6 +1000,11 @@ export function mergeReviewStamp(prev, {
   nowIso,
   now = Date.now(),
   exists = pathExists,
+  /* Supplied by writeStamp(). Deliberately NOT defaulted to
+   * describeProvenance(): that would make this pure merge shell out to git on
+   * all ~30 of its unit call sites, and -- worse -- would mean the default the
+   * PRODUCTION writer relies on was the one path no spec ever exercised. */
+  provenance = null,
 }) {
   const canCarry =
     !!prev &&
@@ -787,6 +1032,7 @@ export function mergeReviewStamp(prev, {
     version: 1,
     timestamp: nowIso,
     session_id: sessionId ?? null,
+    provenance, // WHERE this receipt was minted -- see describeProvenance()
     hashes: { ...carried, ...hashes }, // union by rel; new content wins on drift
     deletions: mergedDeletions, // union by path; a deletion has no content to hash
     findings: Array.isArray(findings) ? findings : [],

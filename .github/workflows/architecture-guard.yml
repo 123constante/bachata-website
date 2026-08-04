@@ -51,6 +51,15 @@ jobs:
           AUDIT_STRICT: '1'
         run: npm run check:images
 
+      # Image-width contract: every literal width/quality handed to the
+      # /_vercel/image helpers must be one vercel.json declares, and
+      # imageCdn.ts's SIZES must equal images.sizes. Vercel answers 400 for
+      # anything else, so the image renders blank on production while
+      # typechecking, linting and rendering fine in dev -- exactly how PR #178
+      # shipped six blank organiser thumbnails on 2026-07-31.
+      - name: Image-width contract
+        run: npm run check:image-widths
+
       # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
       # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was

@@ -23,6 +23,11 @@
 //                        login/sso surface). Preview checks may skip green — with
 //                        a ::warning:: — on a PROVEN wall only; anything else
 //                        (timeout, DNS, broken preview) must still fail loud.
+//   skipIfWalledPreview()  the whole "is this a preview AND is it walled? then
+//                        emit the standard ::warning:: and tell the caller to
+//                        skip" decision in one place — the isPreviewHost gate
+//                        lives INSIDE, so a caller can't forget it and green-skip
+//                        a non-preview (prod) base.
 //   assertMeasured()     fail-loud contract: a check declares how many targets it
 //                        must have measured; a shortfall throws (non-zero exit).
 //
@@ -212,6 +217,43 @@ export async function previewIsWalled(base, { bypass = null, ua = 'Mozilla/5.0',
   } finally {
     clearTimeout(t);
   }
+}
+
+/**
+ * The full preview-wall decision, so a deployed-URL check does not re-implement
+ * (or subtly diverge on) it. Returns TRUE when the caller should skip green:
+ * `base` is a *.vercel.app preview (the gate is INSIDE — a non-preview/prod base
+ * always returns false, so a caller physically cannot green-skip production) AND
+ * `previewIsWalled(base)` proved a Deployment Protection wall (401/403 or parked
+ * on Vercel's login/sso surface). A timeout / DNS death / broken preview is NOT a
+ * wall, so this returns false and the real check runs and fails loud.
+ *
+ * On a proven wall it emits the standard two-line GitHub Actions annotation
+ * (::warning:: + a plain "Skipped" line). `subject` names what could not be
+ * checked; `label` is the warning title. The remediation sentence is identical
+ * across callers by construction — that shared text was the point of collapsing
+ * the near-duplicate og/seo blocks into one helper.
+ *
+ * NOTE the honest scope of the "Production is still covered by the scheduled run"
+ * line: it is TRUE for checks that HAVE a real cron run (og-check, seo-check). A
+ * check with no scheduled production run (e.g. lighthouse — perf-budget.yml is
+ * PR/push-only) must NOT use this helper's wording; it keeps its own annotation.
+ */
+export async function skipIfWalledPreview(
+  base,
+  { bypass = null, ua = 'Mozilla/5.0', label = 'preview skipped', subject = 'the preview could not be checked', log = console.log } = {},
+) {
+  if (!isPreviewHost(base)) return false;
+  if (!(await previewIsWalled(base, { bypass, ua }))) return false;
+  log(
+    `::warning title=${label}::The Vercel preview is behind Deployment Protection ` +
+      `and the automation bypass did not open it, so ${subject}. Production is ` +
+      'still covered by the scheduled run. To restore preview coverage, fix the ' +
+      'VERCEL_AUTOMATION_BYPASS_SECRET (Vercel -> Settings -> Deployment Protection ' +
+      '-> Protection Bypass for Automation).',
+  );
+  log('Skipped: preview behind Deployment Protection (proven wall).');
+  return true;
 }
 
 /** Fail-loud measurement contract. A check that measured fewer targets than it

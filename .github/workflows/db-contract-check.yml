@@ -1066,6 +1066,27 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-upcoming-event-cover.mjs
+      # Check #63 -- the guard scripts themselves.
+      #
+      # Every other step here checks the DATABASE. This one checks the CHECKS: it
+      # statically scans scripts/check-*.mjs for paths that report green without
+      # having asserted anything. Surveyed 2026-08-04, 17 of 81 scripts had such a
+      # path and only 1 of 81 proved it could fail -- including
+      # check-sourcemap-debugids.mjs, which exited green precisely when the live
+      # bundle carried no Sentry-tagged chunks, the regression it exists to catch.
+      #
+      # Needs no secrets, no DB and no network: it reads files. It is therefore the
+      # one step in this workflow that cannot be silently disarmed by a missing
+      # credential -- which is the failure mode it was written to end.
+      #
+      # Ratcheted against scripts/script-conventions-allowlist.json: it fails on a
+      # NEW violation, on an increase, and on a STALE entry, so the allowlist can
+      # only shrink. Re-baseline with: node scripts/check-script-conventions.mjs --write
+      - name: Run guard-script conventions check
+        if: always()
+        run: |
+          node scripts/check-script-conventions.mjs --self-test
+          node scripts/check-script-conventions.mjs
 
       # ── Failure notification ────────────────────────────────────────────────────
       #

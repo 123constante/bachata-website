@@ -66,10 +66,10 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const RED = '[31m';
-const GREEN = '[32m';
-const YELLOW = '[33m';
-const RESET = '[0m';
+const RED = '\x1b[31m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const RESET = '\x1b[0m';
 
 async function main() {
   // Find a future cancelled occurrence on a published event. Two-query probe:

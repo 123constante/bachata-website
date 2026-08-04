@@ -14,7 +14,7 @@
 //
 // Exit 1 if any sampled page would show no preview.
 
-import { assertMeasured, bypassHeaders, isPreviewHost, previewIsWalled } from './lib/previewProbe.mjs';
+import { assertMeasured, bypassHeaders, skipIfWalledPreview } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
@@ -202,19 +202,11 @@ async function main() {
   console.log(`OG image guard — base: ${BASE}`);
 
   // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
-  // surface — see previewIsWalled) is an AUTH failure, not an OG failure: skip
-  // green with a warning. Anything else (timeout, DNS, broken preview) is NOT
-  // walled and the real checks run and fail loud. Production is public, so this
-  // never short-circuits the real run.
-  if (isPreviewHost(BASE) && (await previewIsWalled(BASE, { bypass: BYPASS }))) {
-    console.log(
-      '::warning title=OG preview skipped::The Vercel preview is behind Deployment ' +
-        'Protection and the automation bypass did not open it, so OG cards could ' +
-        'not be checked. Production OG is still covered by the scheduled run. To ' +
-        'restore preview coverage, fix the VERCEL_AUTOMATION_BYPASS_SECRET (Vercel -> ' +
-        'Settings -> Deployment Protection -> Protection Bypass for Automation).',
-    );
-    console.log('Skipped: preview behind Deployment Protection (proven wall).');
+  // surface) is an AUTH failure, not an OG failure: skip green with a warning.
+  // Anything else (timeout, DNS, broken preview) is NOT walled and the real
+  // check runs and fails loud. The isPreviewHost gate is inside the helper, so
+  // this never short-circuits the public production run.
+  if (await skipIfWalledPreview(BASE, { bypass: BYPASS, label: 'OG preview skipped', subject: 'OG cards could not be checked' })) {
     return;
   }
 
