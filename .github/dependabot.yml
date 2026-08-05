@@ -15,16 +15,56 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
+      # Listed FIRST because a dependency joins the first group whose patterns
+      # match. Supabase is carved out of the weekly batch because its minors
+      # carry real first-load weight: 2.89.0 -> 2.111.0 in PR #187 added
+      # 12.6 KB gzip to the vendor-supabase chunk and put home (/city/:slug)
+      # 11.6 KB OVER its 245 KB budget. Batched with 52 other bumps that cost
+      # is invisible; on its own PR bundle-budget names it AND BLOCKS - the
+      # perf-budget bundle-budget job had continue-on-error dropped precisely
+      # so this carve-out rests on a gate rather than on a printed warning.
+      # Do not re-soften it without re-softening this comment too. Its own PR
+      # means the fix (code-splitting realtime out of home's first-load graph
+      # - home never uses it, only the event-page guest list does) can land
+      # alongside the bump rather than blocking the whole batch.
+      supabase:
+        patterns:
+          - "@supabase/*"
+        update-types:
+          - minor
+          - patch
       minor-and-patch:
+        exclude-patterns:
+          - "@supabase/*"
         update-types:
           - minor
           - patch
     ignore:
+      # --- MAJORS held: cache-tuned vendor chunks, plus the react-router family
+      # IN LOCKSTEP. react-router-dom alone is not the family: majors are
+      # ungrouped here (both groups declare minor+patch only), so an RR8 would
+      # arrive as a lone react-router@8 PR against a pinned react-router-dom@7
+      # - a split-version tree. Commit 3f0e491 hand-fixed exactly that class.
+      # @types/react* ride with react/react-dom for the same reason: a
+      # @types/react@19 PR against React 18 blows the 106-error typecheck
+      # ratchet that pre-ship enforces.
       - dependency-name: react
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
         update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
+      - dependency-name: react-router
+        update-types: [version-update:semver-major]
       - dependency-name: react-router-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@react-router/node"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@react-router/dev"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@vercel/react-router"
         update-types: [version-update:semver-major]
       - dependency-name: "@tanstack/react-query"
         update-types: [version-update:semver-major]
@@ -32,6 +72,32 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: "@supabase/supabase-js"
         update-types: [version-update:semver-major]
+
+      # --- 0.x deps: the MINOR is the breaking release ---
+      # npm caret on 0.x resolves to >=0.y.z <0.(y+1).0, so 0.34 -> 0.35 IS a
+      # breaking bump - but Dependabot labels it semver-minor and the major
+      # gate above never sees it. sharp 0.34->0.35 and next-themes 0.3->0.4
+      # already rode into PR #187's 53-package batch that way (both checked,
+      # both benign). The ones queued behind them are not: vaul backs five
+      # drawer call sites and lucide-react is repo-wide, and a regression in
+      # either is caught by nothing here - the esbuild build is transpile-only
+      # and e2e-smoke is an explicit 5-spec list. Patches still auto-batch;
+      # minors become deliberate, tested bumps. A 0.x -> 1.0 is a major and is
+      # deliberately NOT ignored: it arrives alone and clearly labelled.
+      - dependency-name: vaul
+        update-types: [version-update:semver-minor]
+      - dependency-name: lucide-react
+        update-types: [version-update:semver-minor]
+      - dependency-name: next-themes
+        update-types: [version-update:semver-minor]
+      - dependency-name: sharp
+        update-types: [version-update:semver-minor]
+      - dependency-name: class-variance-authority
+        update-types: [version-update:semver-minor]
+      - dependency-name: "@tailwindcss/typography"
+        update-types: [version-update:semver-minor]
+      - dependency-name: eslint-plugin-react-refresh
+        update-types: [version-update:semver-minor]
 
   - package-ecosystem: github-actions
     directory: "/"
