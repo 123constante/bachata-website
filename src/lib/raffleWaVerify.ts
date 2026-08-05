@@ -12,21 +12,20 @@
 // no WhatsApp" verdict surfaces as 'failed'.
 // =============================================================================
 
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
+import { rpcLoose as callRpc } from '@/integrations/supabase/rpcLoose';
 
-type RpcResult = { data: unknown; error: { message: string } | null };
-// Generated Database types don't know these RPCs yet — same loose-cast pattern
-// as useOpenRaffles.
-const callRpc = supabase.rpc.bind(supabase) as unknown as (
-  fn: string,
-  args?: Record<string, unknown>,
-) => Promise<RpcResult>;
+// callRpc resolves the client PER CALL. The old `supabase.rpc.bind(supabase)`
+// here constructed the client as a side effect of importing this module -- one
+// of only two sites repo-wide that structurally blocked a lazy accessor
+// (supabase-defer arc, P1). Every caller already awaits, so nothing else moved.
 
 /** Outcome of asking the edge function to send the confirmation template. */
 export type SendOutcome = 'sent' | 'skipped' | 'failed' | 'unavailable';
 
 export async function sendWaConfirmation(entryId: string, sessionId: string): Promise<SendOutcome> {
   try {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.functions.invoke('raffle-send-confirmation', {
       body: { entry_id: entryId, session_id: sessionId },
     });
