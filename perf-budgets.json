@@ -10,5 +10,19 @@
       "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/event.tsx"],
       "maxFirstLoadGzipKB": 385
     }
+  },
+  "attribution": {
+    "//": "Report-only, added by P0 of the supabase-defer arc (~/.claude/plans/arc-defer-supabase-client.md). Names one chunk whose FIRST-LOAD PULLERS each budgeted route reports: the chunks holding a direct static edge to it, a shortest path from a route entry, and the first-party modules each puller contains (from the sourcemap). The puller count is the arc's work-list -- it shrinks by one per phase, and 0 pullers on home is the completion proof. Nothing here is enforced; P6 turns the count into a ratchet.",
+    "//trackedChunkName": "Matched against the manifest node's chunk `name`, i.e. the manualChunks group key in vite.config.ts -- NOT the hashed filename, which changes on every content edit. If that group is ever renamed the guard hard-fails rather than reporting a reassuring 0: a tracker that silently measures nothing is the failure mode rule R1 of check-script-conventions.mjs exists to catch.",
+    "trackedChunkName": "vendor-supabase",
+    "baseline": {
+      "//": "Measured on 2026-08-05 in a clean worktree at 138390a (npm ci + npm run build + npm run check:bundle-budget). These figures CONFIRM the ones inherited from session-handover-2026-08-05, which had not been re-measured. Deltas printed by the guard are against this row; it is rewritten only by a phase that deliberately re-baselines, and never to paper over a regression.",
+      "commit": "138390a",
+      "trackedChunkGzipKB": 43.3,
+      "routes": {
+        "home (/city/:slug)": { "firstLoadGzipKB": 244.2, "chunks": 61, "pullers": 3 },
+        "event (/event/:id)": { "firstLoadGzipKB": 363.5, "chunks": 89, "pullers": 4 }
+      }
+    }
   }
 }

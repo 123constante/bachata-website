@@ -63,6 +63,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # BEFORE the build, deliberately. The canary drives the graph and
+      # attribution rules against fixtures and needs no manifest, so running it
+      # first means the proof-of-failure still reports in exactly the runs where
+      # the tooling is most suspect -- a dependency bump or an OOM that breaks
+      # `npm run build`. Behind the build it would be skipped in those runs. A
+      # self-test with no caller proves nothing and reads as coverage that is
+      # not there (the lesson check-image-widths taught in architecture-guard).
+      - name: Bundle-budget canary (no build required)
+        run: npm run check:bundle-budget:self-test
+
       - name: Build client + server
         env:
           # Same rationale as e2e-smoke.yml: supabase-js validates the URL shape
