@@ -74,7 +74,7 @@ jobs:
           fi
           echo 'TYPES_BOT_TOKEN is present.'
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # PIN TO main. workflow_dispatch checks out the ref it was dispatched
           # from, so dispatching this from a feature branch would cut
@@ -88,7 +88,7 @@ jobs:
           # -- could read it. The one push that needs it gets it explicitly.
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

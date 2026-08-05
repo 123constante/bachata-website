@@ -175,7 +175,7 @@ jobs:
           echo "test_notification=true - failing on purpose to exercise the notifier."
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Node 22, matching every other workflow in this repo. This job was the
       # last one on 20, and that is not a cosmetic difference: @supabase/*
@@ -186,7 +186,7 @@ jobs:
       # Measured on PR #187 (supabase-js 2.89 -> 2.111), where setup-node
       # resolved `20` to v20.20.2 and npm warned EBADENGINE for six @supabase
       # packages before the checks failed.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -1125,7 +1125,7 @@ jobs:
       # unread. It auto-closes on the next green nightly.
       - name: Announce failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const LABEL = 'db-contract-check';
@@ -1156,7 +1156,7 @@ jobs:
 
       - name: Close failure issue when green again
         if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const LABEL = 'db-contract-check';
