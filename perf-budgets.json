@@ -1,9 +1,10 @@
 {
-  "//": "First-load JS budgets (gzip KB) enforced by scripts/check-bundle-budget.mjs (run via `npm run check:bundle-budget` after `npm run build`). Calibrated to the measured post-Phase-1 build plus ~10% headroom. Raise a budget only deliberately, in the same PR that grows the graph, with justification in the PR description. The perf-budget workflow is warn-only until Phase 4 flips it to blocking.",
+  "//": "First-load JS budgets (gzip KB) enforced by scripts/check-bundle-budget.mjs (run via `npm run check:bundle-budget` after `npm run build`). Raise a budget only deliberately, in the same PR that grows the graph, with justification in the PR description. The bundle-budget job BLOCKS (continue-on-error was dropped in #187); it is not warn-only.",
+  "//home": "245 -> 255 on 2026-08-05. Measured 244.2, i.e. 0.8 KB of headroom, after #187's 53-package batch cost +5.0 KB. One more routine batch would breach it. The weight is vendor-supabase (43.3 KB gz): auth-js 46%, realtime-js 17%, storage-js 17% (storage is entirely unused -- zero `.storage.from(` in src/). None of it is separable: SupabaseClient's constructor eagerly builds every sub-client, so no bundler can drop realtime or storage while `createClient` is imported statically. The only real fix is deferring the client behind a dynamic import (~43 KB off home), which touches 82 import sites and moves when auth resolves on first paint -- an arc, not a budget tweak. 255 buys ~2 batches of room without hiding a genuine regression.",
   "routes": {
     "home (/city/:slug)": {
       "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/home.tsx"],
-      "maxFirstLoadGzipKB": 245
+      "maxFirstLoadGzipKB": 255
     },
     "event (/event/:id)": {
       "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/event.tsx"],
