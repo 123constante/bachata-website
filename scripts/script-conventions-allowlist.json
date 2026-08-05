@@ -70,9 +70,6 @@
   "scripts/check-migration-stamps.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-mojibake.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-no-legacy-program-rpcs.mjs": {
     "R4:no-canary": 1
   },

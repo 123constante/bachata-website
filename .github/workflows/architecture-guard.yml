@@ -81,10 +81,16 @@ jobs:
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was
       # swept clean on 2026-05-18; .editorconfig (charset = utf-8) tells
       # modern editors to never re-encode, so any new hit is a regression.
+      # The canary runs first, per the same rule as the image-width guard above.
+      # It proves the DETECTION rules against fixtures and needs no checkout
+      # state, so it still reports if the grep below is the thing that broke.
+      - name: Mojibake rules (canary)
+        run: npm run check:mojibake:self-test
+
       - name: Mojibake guard
         run: |
           if git grep -nE 'â€|â˜…|â†|Â·|Ã—|â‰|â”€|â„™' \
-              -- ':!.playwright-mcp/' ':!.claude/' \
+              -- ':!.playwright-mcp/' \
                  ':!.github/workflows/architecture-guard.yml' \
                  ':!devWebsitesrcmodulesevent-pagebentoBentoTile.tsx'; then
             echo '::error::cp1252→UTF-8 mojibake detected. Re-save the affected files as UTF-8 (charset declared in .editorconfig).'
