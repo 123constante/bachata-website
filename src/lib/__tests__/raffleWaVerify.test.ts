@@ -6,7 +6,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const invokeMock = vi.fn();
 const rpcMock = vi.fn();
 
-vi.mock('@/lib/supabase', () => ({
+// Mocks the CANONICAL client module, not '@/lib/supabase' (which only
+// re-exports it). raffleWaVerify now reaches the client through
+// getSupabase() -> `await import('./client')`, so that is the module id the
+// dynamic import resolves, and mocking the re-export would miss it entirely.
+vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     functions: { invoke: (...args: unknown[]) => invokeMock(...args) },
     rpc: (...args: unknown[]) => rpcMock(...args),

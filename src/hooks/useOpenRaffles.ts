@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { rpcLoose as callRpc } from '@/integrations/supabase/rpcLoose';
 
 /** One event whose raffle is currently open for entries. */
 export interface OpenRaffle {
@@ -37,15 +37,18 @@ export interface RaffleCommunityStats {
   total_winners: number;
 }
 
-// Generated Database types don't know about these RPCs yet — cast through
-// unknown so TS lets us call them by name without an `any`.
-type RpcResult = { data: unknown; error: { message: string } | null };
-const callRpc = supabase.rpc.bind(supabase) as unknown as (
-  fn: string,
-  args?: Record<string, unknown>,
-) => Promise<RpcResult>;
+// callRpc resolves the client PER CALL. The old `supabase.rpc.bind(supabase)`
+// here constructed the client as a side effect of importing this module -- one
+// of only two sites repo-wide that structurally blocked a lazy accessor
+// (supabase-defer arc, P1). Every caller already awaits, so nothing else moved.
+// The loose cast itself lives in one place now; see rpcLoose.ts for why it is
+// temporary.
 
-async function fetchOpenRaffles(): Promise<OpenRaffle[]> {
+// The two query functions are exported for tests. They hold the RPC names and
+// every coercion on this surface, and the page's failure mode is an empty list
+// that its own header describes as expected -- so an untested wrong name or a
+// dropped await would look exactly like "no raffles are open".
+export async function fetchOpenRaffles(): Promise<OpenRaffle[]> {
   const { data, error } = await callRpc('list_open_raffles_v1');
   if (error) throw new Error(error.message);
   const rows = (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
@@ -73,7 +76,7 @@ export function useOpenRaffles() {
   });
 }
 
-async function fetchRaffleStats(): Promise<RaffleCommunityStats> {
+export async function fetchRaffleStats(): Promise<RaffleCommunityStats> {
   const { data, error } = await callRpc('get_raffle_community_stats_v1');
   if (error) throw new Error(error.message);
   const obj = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
