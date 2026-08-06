@@ -37,6 +37,25 @@
 // mappings decode, which this deliberately does not do. It is a shortlist that
 // turns an opaque hash (_lazyWithRetry-CGot3tv9.js) into something greppable.
 //
+// MODULE-LEVEL EDGES (report-only; added after P4). The shortlist above is
+// where chunk-level attribution stops, and that gap got filled by
+// `grep -rl integrations/supabase/client` -- which answered "is this the last
+// edge?" wrongly three times, twice about edges the arc plan had already
+// recorded as out of scope. So this also walks the SOURCE import graph from the
+// same route entries and names every MODULE holding a direct static edge to
+// perf-budgets.json `attribution.trackedModule`. That list is the work-list a
+// phase can act on: each row is an import to delete. grep cannot produce it,
+// because the three misses were a barrel re-export, a provider three components
+// deep, and a loader helper -- none of which name the target module.
+//
+// The module list is a CEILING and the puller count stays the truth: the walk
+// counts a value-position import even when every binding happens to be a type
+// (P4's `import { User, Session }` trap), because the syntax does not say
+// whether TypeScript will elide it. The two numbers are also not comparable in
+// size -- one counts chunks, the other modules. What they are good for is
+// contradicting each other: tracked chunk IN a route's graph with an EMPTY
+// module list is the walk having gone blind, and hard-fails.
+//
 // The two zero states are NOT the same and must never share a code path:
 //   * tracked chunk present in the manifest, absent from a route's graph
 //     -> 0 pullers, green. This is the goal.
@@ -54,7 +73,7 @@
 // COUNT is report-only and never changes the exit code; a malformed attribution
 // block is a misconfiguration and does. The bundle-budget job BLOCKS.
 
-import { readFileSync, existsSync, appendFileSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, appendFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -261,6 +280,233 @@ function readChunkContents(chunkFile) {
 }
 
 // ---------------------------------------------------------------------------
+// Module graph.
+//
+// WHY THIS EXISTS. Everything above reports PULLER CHUNKS. A chunk name says
+// weight is here; it never says which import to delete, so "is this the last
+// edge?" got answered by `grep -rl integrations/supabase/client` instead -- and
+// that answer was wrong three times running, twice about edges the arc had
+// already written down as out of scope (searchClickTelemetry as "search-only",
+// resolvePublicEventRef as "detail-loader-only"; both sit on home's first-load
+// path through root.tsx's SearchProvider and home.tsx's detailLoader). grep
+// finds direct importers of a string. It cannot follow a barrel re-export, a
+// provider three components deep, or a loader helper, which is exactly where
+// all three misses lived. This walks the SOURCE import graph from the same
+// route entries and names every MODULE holding a direct static edge to the
+// tracked module.
+//
+// A CEILING, NOT THE TRUTH. The walk counts a value-position import even when
+// every binding it names happens to be a type: that is precisely the edge P4's
+// `import { User, Session }` trap describes, and whether TypeScript elides it
+// is not decidable from the syntax. So this list can be LONGER than the real
+// edge set, never shorter. The puller count above stays the build-level ground
+// truth, and the two are printed together on purpose -- the pairing is itself a
+// check. Tracked chunk IN a route's graph with an EMPTY module list means the
+// walk went blind (an alias it cannot resolve, an extension it does not try),
+// and that hard-fails rather than printing the reassuring 0 that started this.
+//
+// Report-only in the other direction, deliberately: the module COUNT never sets
+// the exit code. Turning it into a ratchet is P6's job, and a guard that starts
+// enforcing on the same PR that starts measuring has no baseline to enforce
+// against.
+// ---------------------------------------------------------------------------
+
+// A trailing `?url` / `?raw` / `?worker` is Vite asking for a different
+// REPRESENTATION of a module, not a different module. Left on, every asset
+// import resolves to nothing and reads as a hole in the walk.
+export function stripQuery(spec) {
+  const q = spec.indexOf('?');
+  return q === -1 ? spec : spec.slice(0, q);
+}
+
+// Only these two forms can name a first-party module. A bare specifier is
+// node_modules, which cannot hold a first-party edge and is not a hole.
+export function isFirstPartySpec(spec) {
+  return spec.startsWith('@/') || spec.startsWith('.');
+}
+
+// STATIC forms only:
+//   import x from 'm' / import {a} from 'm' / import * as x from 'm'
+//   import def, {a} from 'm' / import type {T} from 'm'
+//   export {a} from 'm' / export * from 'm' / export * as ns from 'm'
+//   import 'm'                                  (side-effect only)
+//
+// The clause between the keyword and `from` is matched as an import CLAUSE
+// GRAMMAR, not as "any run of text ending at the next from". The permissive
+// version spanned whole statements: an `export type Foo = { ... }` with no
+// trailing semicolon, sitting above a real import, let the match open at
+// `export`, close at that import's `from`, and read the whole thing as
+// type-only -- silently dropping a live edge AND its entire subtree, with
+// nothing landing in `unresolved` to say so. Undercounting is the one direction
+// this walk must never fail in, so the clause may only be the shapes above.
+//
+// A leading block comment is allowed before the keyword: `/* c */ import x from
+// 'm'` is an ordinary edge, and requiring `[ \t]*` after the newline dropped it.
+//
+// KNOWN OVER-REPORT, accepted rather than fixed: an import commented OUT with a
+// block comment still matches. Removing it needs a stateful comment stripper,
+// and a stripper that mistakes a regex literal's stray quote for a string
+// swallows real code after it -- trading a visible over-report for a silent
+// undercount, which is the wrong trade for this guard. It surfaces as a
+// work-list row that cannot be deleted, so check whether the line is commented
+// out before believing it. The BLIND message names this case too.
+//
+// `import(` is excluded by the negative lookahead: a dynamic import is the lazy
+// edge this whole arc is trying to create, so counting it would make every
+// converted call site look unconverted.
+const FROM_IMPORT =
+  /(?:^|[;}\n])[ \t]*(?:[/][*][\s\S]*?[*][/][ \t]*)*(import|export)\b(?!\s*\()((?:\s+type\b)?\s*(?:[A-Za-z_$][\w$]*\s*,\s*)?(?:\*(?:\s*as\s+[A-Za-z_$][\w$]*)?|\{[^{}]*\}|[A-Za-z_$][\w$]*)\s*)from\s*['"]([^'"]+)['"]/g;
+const BARE_IMPORT =
+  /(?:^|[;}\n])[ \t]*(?:[/][*][\s\S]*?[*][/][ \t]*)*import\s+['"]([^'"]+)['"]/g;
+
+// What this parser can speak. Anything else reached by an import (a stylesheet,
+// an asset) is a leaf: real in the graph, but it holds no further edges.
+const PARSEABLE = /[.](?:ts|tsx|js|jsx|mjs|cjs)$/;
+
+// A UTF-8 BOM occupies index 0, so `^` can no longer reach the first statement
+// and the file's FIRST import disappears -- and because the statement never
+// matches at all, nothing lands in `unresolved` and the BLIND guard cannot
+// fire. 18 files in this repo carry a BOM (PowerShell writes them; loadArcState
+// carries its own test for the same thing), two of them inside the walked
+// graph. Built via fromCharCode for the same mount reason as BACKSLASH above.
+const BOM = String.fromCharCode(0xfeff);
+
+/** Static specifiers in one module's source, with statement-level type-ness. */
+export function parseStaticSpecifiers(source) {
+  const src = source.charCodeAt(0) === 0xfeff ? source.slice(BOM.length) : source;
+  const out = [];
+  for (const m of src.matchAll(FROM_IMPORT)) {
+    // `import type {A} from` and `export type {A} from` are erased before the
+    // bundler sees them. `import {type A, B} from` is NOT: it is a value
+    // import whose bindings happen to be types, and it keeps the edge open.
+    out.push({ spec: m[3], typeOnly: /^\s*type\b/.test(m[2]) });
+  }
+  for (const m of src.matchAll(BARE_IMPORT)) {
+    out.push({ spec: m[1], typeOnly: false });
+  }
+  return out;
+}
+
+/**
+ * Modules reachable from `entries` via STATIC imports, breadth-first, with the
+ * parent link that first reached each -- so `pathTo` reports a SHORTEST chain,
+ * for the same reason reachableWithPaths does it at chunk level.
+ *
+ * `readSource` and `resolveSpec` are injected rather than reaching for `fs`,
+ * so every rule below is fixture-drivable in the canary.
+ */
+export function walkModuleGraph({ entries, readSource, resolveSpec }) {
+  const parent = new Map();
+  const edges = new Map();
+  const seen = new Set();
+  const unresolved = [];
+  const queue = [...entries];
+  for (const e of entries) parent.set(e, null);
+
+  // PARSED, not seen. `seen` is the visited-set and grows before the file is
+  // read, so counting it let three unreadable entries still score 3 and the
+  // measured-anything floor below could never fire for a real route.
+  let parsed = 0;
+  let head = 0;
+  while (head < queue.length) {
+    const file = queue[head++];
+    if (seen.has(file)) continue;
+    seen.add(file);
+
+    // A .css or .png reached by an asset import is a real graph node and a real
+    // dead end -- reading it as UTF-8 and regex-scanning it finds nothing, but a
+    // binary read is not free and not honest about what this parser handles.
+    if (!PARSEABLE.test(file)) continue;
+
+    const source = readSource(file);
+    if (source === null) {
+      // Named by its PARENT, not blamed on perf-budgets.json: only a root of
+      // the walk is an entry, and sending the reader to the config for a
+      // mid-graph read failure costs them the actual file.
+      unresolved.push({ from: parent.get(file) ?? '(entry)', spec: file });
+      continue;
+    }
+    parsed++;
+
+    for (const { spec, typeOnly } of parseStaticSpecifiers(source)) {
+      if (typeOnly) continue;
+      const bare = stripQuery(spec);
+      const resolved = resolveSpec(bare, file);
+      if (resolved === null) {
+        // A first-party specifier that resolves to nothing is a HOLE: the walk
+        // silently stops following a real edge. A bare specifier is not.
+        if (isFirstPartySpec(bare)) unresolved.push({ from: file, spec: bare });
+        continue;
+      }
+      if (!edges.has(file)) edges.set(file, new Set());
+      edges.get(file).add(resolved);
+      if (!parent.has(resolved)) parent.set(resolved, file);
+      queue.push(resolved);
+    }
+  }
+  return { seen, parsed, parent, edges, unresolved };
+}
+
+// The one alias this repo has: `@` -> ./src, declared identically in
+// vite.config.ts `resolve.alias` and tsconfig.json `paths`. Read from neither
+// on purpose -- parsing a TS config to learn one mapping trades a hole the
+// canary can prove (a specifier that resolves to nothing is counted and
+// reported) for one it cannot.
+const ALIAS_PREFIX = '@/';
+// Vite's own order. `''` first so an explicit `./x.css` or `./x.png` resolves
+// as itself rather than falling through to a same-named `.ts`.
+const SOURCE_EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '/index.ts', '/index.tsx', '/index.js'];
+
+const toPosix = (p) => p.split(path.sep).join('/');
+
+/**
+ * Filesystem-backed specifier resolution, repo-relative POSIX in and out.
+ * Filesystem-bound, so -- like readChunkContents -- it is NOT canary-covered;
+ * the rules it feeds are, because walkModuleGraph takes it as an argument.
+ */
+export function makeFsResolver(root) {
+  return (spec, fromFile) => {
+    let base;
+    if (spec.startsWith(ALIAS_PREFIX)) {
+      base = path.join(root, 'src', spec.slice(ALIAS_PREFIX.length));
+    } else if (spec.startsWith('.')) {
+      base = path.resolve(path.dirname(path.join(root, fromFile)), spec);
+    } else {
+      return null; // bare specifier -- node_modules, not a first-party edge
+    }
+    for (const ext of SOURCE_EXTS) {
+      const candidate = base + ext;
+      // isFile, not merely exists: `@/lib/seo` names a DIRECTORY, and treating
+      // it as the module would stop the walk one step before the barrel
+      // re-export that actually holds the edge.
+      if (existsSync(candidate) && statSync(candidate).isFile()) {
+        return toPosix(path.relative(root, candidate));
+      }
+    }
+    return null;
+  };
+}
+
+/** Repo-relative source text, or null when the file cannot be read. */
+export function makeFsReader(root) {
+  return (file) => {
+    try {
+      return readFileSync(path.join(root, file), 'utf8');
+    } catch {
+      return null;
+    }
+  };
+}
+
+/** Walked modules holding a DIRECT static edge to `trackedModule`. */
+export function findModuleEdges(edges, trackedModule) {
+  return [...edges]
+    .filter(([from, tos]) => from !== trackedModule && tos.has(trackedModule))
+    .map(([from]) => from)
+    .sort();
+}
+
+// ---------------------------------------------------------------------------
 // Sizing
 // ---------------------------------------------------------------------------
 
@@ -342,6 +588,110 @@ export function assertAttribution(budgets) {
 }
 
 /**
+ * The module walk needs a target, and it is NOT the tracked chunk: a chunk is a
+ * build artifact with no import statement to delete. This names the first-party
+ * module that leads into it -- for vendor-supabase, the generated client.
+ */
+export function assertTrackedModule(attribution) {
+  const target = attribution?.trackedModule;
+  if (typeof target !== 'string' || !target) {
+    fail(
+      'perf-budgets.json has no attribution.trackedModule. The module-level edge ' +
+        'report needs a first-party module to walk TO -- the tracked CHUNK cannot ' +
+        'serve, because no import statement names a chunk. Restore it, or remove ' +
+        'the module report deliberately in a PR that says why.',
+    );
+  }
+  return target;
+}
+
+/**
+ * Alias keys declared in vite.config.ts `resolve.alias`, or null if that block
+ * is not in the shape this can read.
+ */
+export function aliasKeysFrom(viteSource) {
+  const block = /alias\s*:\s*\{([^{}]*)\}/.exec(viteSource);
+  if (!block) return null;
+  return [...block[1].matchAll(/["']?([\w@~$./-]+)["']?\s*:/g)].map((m) => m[1]).sort();
+}
+
+/**
+ * makeFsResolver knows exactly one alias, and isFirstPartySpec decides what
+ * counts as a HOLE from the same one-alias assumption -- so a second alias
+ * would not merely go unresolved, it would be classified as node_modules and
+ * every import through it would leave the walk with nothing recorded. That is
+ * the reassuring 0 this whole report exists to stop, arriving by a route the
+ * BLIND guard cannot see. A comment asserting "the one alias this repo has" is
+ * not a check; this is.
+ */
+export function assertKnownAliases(keys) {
+  if (keys === null) {
+    fail(
+      'vite.config.ts has no `resolve.alias` block this guard can read. The ' +
+        'module walk resolves `@/` on the strength of that block, so an ' +
+        'unreadable one means its resolution rules are unverified. Restore the ' +
+        'block, or teach aliasKeysFrom the new shape.',
+    );
+  }
+  const unknown = keys.filter((k) => k !== '@');
+  if (unknown.length) {
+    fail(
+      `vite.config.ts declares alias(es) this guard does not resolve: ${unknown.join(', ')}. ` +
+        'Every import through them would vanish from the module walk WITHOUT ' +
+        'being recorded as a hole -- isFirstPartySpec would read them as ' +
+        'node_modules. Teach makeFsResolver and isFirstPartySpec the new alias ' +
+        'before adding it.',
+    );
+  }
+  return keys;
+}
+
+/**
+ * The module walk's own measured-anything floor, in three distinct failures
+ * because they send the reader to three different files.
+ *
+ * The third is the one this whole report exists for. "Tracked chunk is in the
+ * route's first-load graph, and the source walk found nothing holding it there"
+ * is not a clean bill of health -- it is the walk having gone blind while
+ * printing a 0 that reads exactly like the goal state. That silent green, from
+ * a grep rather than a walk, is what put three wrong edge-lists into this arc.
+ */
+export function assertModuleWalkSaw(route, { trackedInGraph, walked, edgeCount, unresolved }) {
+  if (walked < 2) {
+    fail(
+      `route "${route}": the module walk saw NOTHING -- ${walked} module(s) from ` +
+        'its entries. perf-budgets.json `entries` must name real source files ' +
+        '(they are shared with the chunk-level walk, so check that first).',
+    );
+  }
+  if (unresolved?.length) {
+    const shown = unresolved.slice(0, 8).map((u) => `${u.spec} (from ${u.from})`);
+    fail(
+      `route "${route}": the module walk is BLIND -- ${unresolved.length} ` +
+        'first-party specifier(s) resolved to no file on disk, so the walk stopped ' +
+        'following real edges and its count is an undercount:\n    ' +
+        shown.join('\n    ') +
+        (unresolved.length > 8 ? `\n    (+${unresolved.length - 8} more)` : '') +
+        '\n  Check the line first: an import commented OUT with a block comment ' +
+        'still matches (a known over-report of the parser), and that is not a ' +
+        'resolver bug. Otherwise teach makeFsResolver the alias or extension -- ' +
+        'do not lower the bar.',
+    );
+  }
+  if (trackedInGraph && edgeCount === 0) {
+    fail(
+      `route "${route}": the tracked chunk IS in the first-load graph, yet the ` +
+        'module walk found no module holding a static edge to the tracked module. ' +
+        'Those two cannot both be true: either the walk is not reaching the code ' +
+        'that holds the edge, or the edge enters through node_modules and this ' +
+        'report cannot see it. A 0 here reads identically to the goal state, so ' +
+        'it fails rather than being believed.',
+    );
+  }
+  return edgeCount;
+}
+
+/**
  * A baseline row must carry every number the delta line prints. A missing field
  * renders as "NaN", which reads like a measurement rather than a hole in the
  * baseline -- so it is a misconfiguration, not a report-only nicety.
@@ -377,6 +727,25 @@ function main() {
   const attribution = assertAttribution(budgets);
 
   const trackedName = attribution.trackedChunkName;
+  const trackedModule = assertTrackedModule(attribution);
+  if (!existsSync(path.join(ROOT, trackedModule))) {
+    fail(
+      `attribution.trackedModule "${trackedModule}" is not a file in this repo. ` +
+        'The module-level edge report would walk to a target nothing can import ' +
+        'and print 0 edges for every route -- which reads as the goal state. ' +
+        'Point it at the module that leads into the tracked chunk.',
+    );
+  }
+  const VITE_CONFIG = path.join(ROOT, 'vite.config.ts');
+  if (!existsSync(VITE_CONFIG)) {
+    fail(
+      'vite.config.ts is missing, so the module walk cannot confirm that `@/` is ' +
+        'still the only alias its resolver has to know.',
+    );
+  }
+  assertKnownAliases(aliasKeysFrom(readFileSync(VITE_CONFIG, 'utf8')));
+  const readSource = makeFsReader(ROOT);
+  const resolveSpec = makeFsResolver(ROOT);
   const trackedKey = resolveTrackedKey(manifest, trackedName);
   const trackedGz = gzipBytes(manifest[trackedKey].file);
   const baseRoutes = attribution.baseline?.routes ?? {};
@@ -409,6 +778,16 @@ function main() {
     `## First-load pullers of \`${trackedName}\` (${fmtKB(trackedGz)} gz)`,
     '',
     '| Route | Pullers now | Baseline | Puller chunks |',
+    '|---|---|---|---|',
+  ];
+  const moduleRows = [
+    '',
+    `## Modules holding a static edge to \`${trackedModule}\``,
+    '',
+    'Source-level ceiling, report-only. This is the work-list: each row is an',
+    'import to delete, not a chunk to look at.',
+    '',
+    '| Route | Edge modules | Modules walked | Which |',
     '|---|---|---|---|',
   ];
 
@@ -470,6 +849,32 @@ function main() {
       console.log(`      contains: ${describeContents(readChunkContents(manifest[puller].file))}`);
     }
 
+    // The chunk count above says WHERE the weight is; this says WHICH import to
+    // delete. Both are printed, and the counts are NOT comparable -- one counts
+    // chunks, the other modules, so a bigger module number is not a regression
+    // against a smaller puller number.
+    const walk = walkModuleGraph({ entries, readSource, resolveSpec });
+    const moduleEdges = findModuleEdges(walk.edges, trackedModule);
+    assertModuleWalkSaw(route, {
+      trackedInGraph: inGraph,
+      walked: walk.parsed,
+      edgeCount: moduleEdges.length,
+      unresolved: walk.unresolved,
+    });
+    console.log(
+      `  static module edges to ${trackedModule}: ${moduleEdges.length} module(s) ` +
+        `(${walk.parsed} module(s) parsed; source-level ceiling, see header)`,
+    );
+    for (const mod of moduleEdges) {
+      console.log(`    ${mod}`);
+      console.log(`      via: ${pathTo(walk.parent, mod).join(' > ')}`);
+    }
+    moduleRows.push(
+      `| ${route} | ${moduleEdges.length} | ${walk.parsed} | ${
+        moduleEdges.join('<br>') || '--'
+      } |`,
+    );
+
     budgetRows.push(
       `| ${route} | ${fmtKB(total)} (${sized.length} files) | ${maxFirstLoadGzipKB} KB | ${
         over ? 'OVER' : 'ok'
@@ -485,7 +890,7 @@ function main() {
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      [...budgetRows, ...attrRows].join('\n') + '\n',
+      [...budgetRows, ...attrRows, ...moduleRows].join('\n') + '\n',
     );
   }
 
@@ -535,6 +940,12 @@ function selfTest() {
     ['measured NOTHING', 'nothing-measured'],
     ['must be a number', 'bad-baseline'],
     ['no attribution.trackedChunkName', 'no-attribution'],
+    ['no attribution.trackedModule', 'no-tracked-module'],
+    ['saw NOTHING', 'walk-saw-nothing'],
+    ['is BLIND', 'walk-blind'],
+    ['no module holding', 'walk-found-no-edge'],
+    ['no `resolve.alias` block', 'alias-block'],
+    ['this guard does not resolve', 'unknown-alias'],
   ];
   const failureKind = (run) => {
     try {
@@ -777,6 +1188,302 @@ function selfTest() {
     'a, b (+2 more)',
   );
 
+  // --- parseStaticSpecifiers: what counts as an edge, in both directions ---
+  const specsOf = (src) => parseStaticSpecifiers(src).map((s) => s.spec).join(',');
+
+  add(
+    'every static form is counted: default, named, namespace, export-from, bare',
+    () =>
+      specsOf(
+        [
+          "import def from 'm1';",
+          "import { a } from 'm2';",
+          "import * as ns from 'm3';",
+          "export { b } from 'm4';",
+          "export * from 'm5';",
+          "import 'm6';",
+        ].join('\n'),
+      ),
+    'm1,m2,m3,m4,m5,m6',
+  );
+  add(
+    'a wrapped named import spanning lines is still one edge',
+    () => specsOf("import {\n  a,\n  b,\n} from 'm';"),
+    'm',
+  );
+  add(
+    'a statement-level `import type` is erased before the bundler and is skipped',
+    () => parseStaticSpecifiers("import type { T } from 'm';")[0].typeOnly,
+    true,
+  );
+  add('`export type ... from` is skipped too', () => parseStaticSpecifiers("export type { T } from 'm';")[0].typeOnly, true);
+  // THE P4 TRAP, asserted deliberately. `import { User, Session }` from
+  // @supabase/supabase-js is a VALUE import whose bindings happen to be types.
+  // It reads like a type import and holds the module edge open anyway -- P4
+  // exists because that one line kept 43.3 KB in home's first load.
+  add(
+    'a value-position import of types-only bindings is NOT treated as type-only',
+    () => parseStaticSpecifiers("import { User, Session } from '@supabase/supabase-js';")[0].typeOnly,
+    false,
+  );
+  add(
+    'an inline `type` modifier does not make the statement type-only',
+    () => parseStaticSpecifiers("import { type A, B } from 'm';")[0].typeOnly,
+    false,
+  );
+  add(
+    'a dynamic import is NOT an edge -- it is the lazy shape this arc creates',
+    () => specsOf("const p = import('m1');\nawait import('m2');"),
+    '',
+  );
+  add(
+    'a bare import does not swallow the next statement',
+    () => specsOf("import './side';\nconst x = 1;\nimport { a } from 'later';"),
+    'later,./side',
+  );
+  // The `;` bound in the clause character class, and the ONLY case that proves
+  // it. A type ALIAS above an import is ordinary code; without that bound the
+  // lazy match spans from `export` across the `;` to the next `from`, the
+  // clause then starts with `type`, and a live value import is classified
+  // type-only and dropped. That is the one direction this walk must never
+  // fail in -- an undercount reads as "fewer edges left" and that is the exact
+  // wrong answer this whole report exists to stop giving. Delete the `;` from
+  // the class and every other case here still passes.
+  add(
+    'a type ALIAS above an import does not make that import read as type-only',
+    () => parseStaticSpecifiers("export type Foo = 1;\nimport { B } from 'm';")[0].typeOnly,
+    false,
+  );
+  add('a module with no imports has no edges', () => parseStaticSpecifiers('export const a = 1;').length, 0);
+  // Every case below is a defect found in review of this PR, pinned so it
+  // cannot come back. Each one silently DROPPED an edge and its whole subtree.
+  add(
+    'a UTF-8 BOM does not eat the first import',
+    () => specsOf(String.fromCharCode(0xfeff) + "import { A } from 'm';"),
+    'm',
+  );
+  // The semicolon-less sibling of the type-alias case above. A clause bounded
+  // only by `;` still spans this one, which is why the clause is now matched as
+  // a grammar rather than as any-text-up-to-from.
+  add(
+    'a brace-terminated type alias with NO semicolon does not swallow the next import',
+    () => {
+      const got = parseStaticSpecifiers("export type Foo = {\n  a: string\n}\nimport { B } from './m';");
+      return `${got.length}:${got[0].spec}:${got[0].typeOnly}`;
+    },
+    "1:./m:false",
+  );
+  add(
+    'an apostrophe in a comment inside a wrapped import list does not drop the edge',
+    () => specsOf("import {\n  a, // don't use b\n  c,\n} from './m';"),
+    './m',
+  );
+  add(
+    'a block comment before the keyword does not drop the edge',
+    () => specsOf("/* hi */ import { B } from './m';"),
+    './m',
+  );
+  // The ACCEPTED over-report, asserted so it stays a decision. Fixing it needs a
+  // stateful comment stripper, which trades this visible extra row for a silent
+  // undercount whenever a regex literal carries a stray quote.
+  add(
+    'an import commented OUT with a block comment is still counted (known ceiling)',
+    () => specsOf("/*\nimport { a } from './dead';\n*/\nimport { b } from './live';"),
+    './dead,./live',
+  );
+  add(
+    'star and mixed-default clauses are counted',
+    () => specsOf("export * from 'm';\nexport * as ns from 'n';\nimport d, { x } from 'o';"),
+    'm,n,o',
+  );
+  add(
+    'an identifier merely STARTING with type is not a type import',
+    () => parseStaticSpecifiers("import typeahead from 'm';")[0].typeOnly,
+    false,
+  );
+
+  // --- stripQuery / isFirstPartySpec ---
+  add('a Vite query suffix names the same module', () => stripQuery('@/a.png?url'), '@/a.png');
+  add('a specifier without a query is untouched', () => stripQuery('@/a'), '@/a');
+  add('an alias specifier is first-party', () => isFirstPartySpec('@/lib/x'), true);
+  add('a relative specifier is first-party', () => isFirstPartySpec('./x'), true);
+  add('a bare specifier is node_modules, not a hole', () => isFirstPartySpec('react'), false);
+
+  // --- walkModuleGraph, on fixtures ---
+  // root reaches tracked at TWO depths: root>a>tracked (3) and
+  // root>mid>deep>tracked (4), so the shortest-path case can actually fail.
+  const SRC = {
+    'app/root.tsx': [
+      "import { A } from '@/a';",
+      "import { M } from '@/mid';",
+      "import type { T } from '@/typeonly';",
+      "import '@/side';",
+      "const lazy = () => import('@/lazyonly');",
+    ].join('\n'),
+    'src/a.ts': "import { C } from '@/tracked';",
+    'src/mid.ts': "import { D } from '@/deep';",
+    'src/deep.ts': "import { C } from '@/tracked';",
+    'src/side.ts': 'export const S = 1;',
+    'src/typeonly.ts': 'export type T = 1;',
+    'src/lazyonly.ts': "import { C } from '@/tracked';",
+    'src/tracked.ts': 'export const C = 1;',
+  };
+  const TRACKED_MODULE = 'src/tracked.ts';
+  const fixtureReader = (f) => SRC[f] ?? null;
+  const fixtureResolver = (spec) => {
+    if (!spec.startsWith('@/')) return null;
+    const file = `src/${spec.slice(2)}.ts`;
+    return file in SRC ? file : null;
+  };
+  const walked = () =>
+    walkModuleGraph({
+      entries: ['app/root.tsx'],
+      readSource: fixtureReader,
+      resolveSpec: fixtureResolver,
+    });
+
+  add('the walk follows static edges transitively', () => walked().seen.has(TRACKED_MODULE), true);
+  add(
+    'the reported module path is the SHORTEST one, not the deepest',
+    () => pathTo(walked().parent, TRACKED_MODULE).length,
+    3,
+  );
+  add(
+    'a module reached only by a DYNAMIC import is never walked',
+    () => walked().seen.has('src/lazyonly.ts'),
+    false,
+  );
+  add('a type-only import is not followed', () => walked().seen.has('src/typeonly.ts'), false);
+  add('a bare side-effect import IS followed', () => walked().seen.has('src/side.ts'), true);
+  add('a clean walk records no holes', () => walked().unresolved.length, 0);
+  add(
+    'a first-party specifier resolving to nothing is recorded as a hole',
+    () =>
+      walkModuleGraph({
+        entries: ['app/root.tsx'],
+        readSource: () => "import { G } from '@/ghost';\nimport React from 'react';",
+        resolveSpec: () => null,
+      }).unresolved.length,
+    1,
+  );
+
+  // A non-source leaf (stylesheet, asset) is a real graph node with no edges:
+  // seen, never parsed. Counting `seen` instead let three unreadable entries
+  // score 3 and made the measured-anything floor unfireable for a real route.
+  const leafWalk = () =>
+    walkModuleGraph({
+      entries: ['a.ts'],
+      readSource: (f) => (f === 'a.ts' ? "import './s.css';\nimport { b } from './b';" : null),
+      resolveSpec: (s) => (s === './s.css' ? 's.css' : s === './b' ? 'b.ts' : null),
+    });
+  add('a stylesheet leaf is seen but not parsed', () => `${leafWalk().parsed}/${leafWalk().seen.size}`, '1/3');
+  add(
+    'an unreadable module is blamed on its PARENT, not on perf-budgets.json',
+    () => leafWalk().unresolved.map((u) => `${u.spec}<-${u.from}`).join(','),
+    'b.ts<-a.ts',
+  );
+
+  // --- aliasKeysFrom / assertKnownAliases: the one-alias assumption is CHECKED ---
+  add(
+    'the single declared alias is read off vite.config.ts',
+    () => (aliasKeysFrom('resolve: {\n  alias: {\n    "@": path.resolve(__dirname, "./src"),\n  },\n},') || []).join(','),
+    '@',
+  );
+  add(
+    'a second alias is read too, rather than quietly ignored',
+    () => (aliasKeysFrom("alias: { '@': a, '~': b }") || []).join(','),
+    '@,~',
+  );
+  add('an unreadable alias block is null, not an empty list', () => aliasKeysFrom('export default {}'), null);
+  add(
+    'an alias the resolver does not know fails LOUDLY rather than truncating the walk',
+    () => failureKind(() => assertKnownAliases(['@', '~'])),
+    'unknown-alias',
+  );
+  add(
+    'a missing alias block fails as an unreadable block, not as an unknown alias',
+    () => failureKind(() => assertKnownAliases(null)),
+    'alias-block',
+  );
+  add('the one known alias is silent', () => failureKind(() => assertKnownAliases(['@'])), 'no-throw');
+
+  // --- findModuleEdges: both directions ---
+  add(
+    'direct importers of the tracked module are the edge list',
+    () => findModuleEdges(walked().edges, TRACKED_MODULE).join(','),
+    'src/a.ts,src/deep.ts',
+  );
+  add(
+    'a module that only reaches the tracked module transitively is not an edge',
+    () => findModuleEdges(walked().edges, TRACKED_MODULE).includes('src/mid.ts'),
+    false,
+  );
+  add(
+    'the tracked module never counts itself',
+    () => findModuleEdges(new Map([[TRACKED_MODULE, new Set([TRACKED_MODULE])]]), TRACKED_MODULE).length,
+    0,
+  );
+
+  // --- assertTrackedModule / assertModuleWalkSaw ---
+  add(
+    'a missing trackedModule fails AS a missing trackedModule',
+    () => failureKind(() => assertTrackedModule({ trackedChunkName: 'vendor-supabase' })),
+    'no-tracked-module',
+  );
+  add(
+    'a declared trackedModule is silent',
+    () => failureKind(() => assertTrackedModule({ trackedModule: 'src/x.ts' })),
+    'no-throw',
+  );
+  add(
+    'a walk that saw nothing fails rather than reporting zero edges',
+    () =>
+      failureKind(() =>
+        assertModuleWalkSaw('home', { trackedInGraph: true, walked: 1, edgeCount: 0, unresolved: [] }),
+      ),
+    'walk-saw-nothing',
+  );
+  add(
+    'unresolved first-party specifiers fail AS blindness, not as an edge count',
+    () =>
+      failureKind(() =>
+        assertModuleWalkSaw('home', {
+          trackedInGraph: true,
+          walked: 90,
+          edgeCount: 4,
+          unresolved: [{ from: 'app/root.tsx', spec: '@/ghost' }],
+        }),
+      ),
+    'walk-blind',
+  );
+  // The case this report was built for: the chunk is demonstrably in the graph,
+  // and the walk says nothing holds it there. Believing that 0 is how three
+  // wrong edge-lists got into the arc.
+  add(
+    'chunk in the graph with an empty module list fails instead of reading as done',
+    () =>
+      failureKind(() =>
+        assertModuleWalkSaw('home', { trackedInGraph: true, walked: 90, edgeCount: 0, unresolved: [] }),
+      ),
+    'walk-found-no-edge',
+  );
+  add(
+    'the GOAL state -- chunk out of the graph, no module edges -- is silent',
+    () =>
+      failureKind(() =>
+        assertModuleWalkSaw('home', { trackedInGraph: false, walked: 90, edgeCount: 0, unresolved: [] }),
+      ),
+    'no-throw',
+  );
+  add(
+    'chunk in the graph with a non-empty module list is silent',
+    () =>
+      failureKind(() =>
+        assertModuleWalkSaw('home', { trackedInGraph: true, walked: 90, edgeCount: 8, unresolved: [] }),
+      ),
+    'no-throw',
+  );
+
   let failed = 0;
   for (const { name, run, expected } of cases) {
     let actual;
@@ -801,10 +1508,16 @@ function selfTest() {
   console.log('');
   console.log(
     `PASS self-test -- ${cases.length} cases. Every PURE rule is proven in both ` +
-      'directions. The two filesystem-bound failures (no client manifest; a ' +
-      'manifest entry missing from disk) are not fixture-drivable and are NOT ' +
-      'covered -- a banner claiming total coverage is the same over-claim this ' +
-      "file's failureKind classifier exists to prevent.",
+      'directions, including the module walk (which takes its reader and ' +
+      'resolver as arguments so fixtures can drive it). What is NOT covered, ' +
+      'because none of it is fixture-drivable: the four filesystem-bound ' +
+      'failures (no client manifest; a manifest entry missing from disk; a ' +
+      'trackedModule that is not a file; no vite.config.ts), and the bodies of ' +
+      'makeFsResolver / makeFsReader. A wrong EXTENSION list surfaces as ' +
+      'unresolved specifiers on a real run; a missed ALIAS does not, which is ' +
+      'exactly why assertKnownAliases exists and is pinned here instead. A ' +
+      "banner claiming total coverage is the same over-claim this file's " +
+      'failureKind classifier exists to prevent.',
   );
   return true;
 }

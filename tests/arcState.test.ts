@@ -181,9 +181,18 @@ describe("arcLabel / clip", () => {
 
 describe("arc-checkpoint hook (spawned)", () => {
   const PROMPT = JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "hi" });
+  // These cases spawn the REAL hook, which reads the REAL clock, so a fixture
+  // with a hardcoded set_at has an expiry date. FRESH's 2026-07-30 stamp passed
+  // it seven days later and took three cases with it: two went red, and "dated
+  // session model id -> NO mismatch line" started passing VACUOUSLY, because
+  // the staleness path suppresses the very line it asserts the absence of --
+  // the worse failure of the two, since nothing goes red to say so. Stamp the
+  // live-path fixture at run time. The staleness cases above keep the fixed
+  // date on purpose: they are handed an explicit NOW, so they are not clocks.
+  const LIVE = () => ({ ...FRESH, set_at: new Date().toISOString() });
 
   it("live arc-state -> injects the requirement, exit 0", () => {
-    const out = runHook(mkTree(FRESH), PROMPT);
+    const out = runHook(mkTree(LIVE()), PROMPT);
     expect(out).toContain("ARC CHECKPOINT [x P4]");
     expect(out).toContain("/model claude-opus-5, effort high");
   });
@@ -195,12 +204,12 @@ describe("arc-checkpoint hook (spawned)", () => {
     expect(out).toContain("does not parse");
   });
   it("garbage stdin under --event=SessionStart -> hookEventName stays SessionStart", () => {
-    const out = runHook(mkTree(FRESH), "not json at all", ["--event=SessionStart"]);
+    const out = runHook(mkTree(LIVE()), "not json at all", ["--event=SessionStart"]);
     expect(JSON.parse(out).hookSpecificOutput.hookEventName).toBe("SessionStart");
   });
   it("dated session model id -> NO mismatch line", () => {
     const out = runHook(
-      mkTree(FRESH),
+      mkTree(LIVE()),
       JSON.stringify({ hook_event_name: "SessionStart", model: { id: "claude-opus-5-20260514" } }),
       ["--event=SessionStart"]
     );
@@ -208,7 +217,7 @@ describe("arc-checkpoint hook (spawned)", () => {
   });
   it("wrong-tier session model -> mismatch line names the switch", () => {
     const out = runHook(
-      mkTree(FRESH),
+      mkTree(LIVE()),
       JSON.stringify({ hook_event_name: "SessionStart", model: { id: "claude-fable-5" } }),
       ["--event=SessionStart"]
     );
