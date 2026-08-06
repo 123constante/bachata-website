@@ -2,13 +2,12 @@
   "version": 1,
   "arc": "supabase-defer",
   "phase": 3,
-  "set_at": "2026-08-06T08:30:00Z",
+  "set_at": "2026-08-06T10:53:00Z",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "scope": [
     ".claude/arc-state.json",
-    "src/integrations/supabase/eventRpcs.ts",
-    "src/contexts/CityContext.tsx"
+    "app/detailLoader.ts"
   ],
-  "note": "PHASE 3 (P3) -- CityContext lazy accessor, following P2's eventRpcs conversion. One call site: isValidCitySlug RPC on line 56, moved from static import to rpcLoose(). Cuts edge 2 (root.tsx:19 -> CityContext no longer pulls vendor-supabase). City validity remains unblocked on first render (still derived synchronously from path/localStorage on lines 33-44; RPC check is only in useEffect). With P2 merged: eventRpcs now uses await getSupabase() (all exports), CityContext now uses rpcLoose(). MEASUREMENT: home 244.7 KB gz / 62 chunks / 3 pullers, event 364.0 KB / 90 chunks / 4 pullers. vs P0 baseline 138390a (244.2/363.5): +0.5/+0.5 KB, +1/+1 chunk(s), 0 puller(s) -- no incremental KB drop because AuthProvider edge 1 still pulls vendor-supabase to first load. Puller count 3: _lazyWithRetry + root + home route (AuthProvider path + eventRpcs path merged into 3 chunks). Weight drops in P4. EDGES CUT AT SOURCE: eventRpcs no longer imports client.ts (P2), CityContext no longer imports client.ts (P3). Still STATIC EDGE: only AuthProvider remains, and CityProvider remains statically imported from root.tsx:19; the RPC call inside is now lazy but the module-level import still exists. P1's hydration invariant unchanged. P4 should diff against 244.7/364.0."
+  "note": "PRE-P4 CLEANUP -- 4th static edge discovered. The plan's 3-edge analysis (AuthProvider, CityContext, eventRpcs) was INCOMPLETE. A 4th edge, home.tsx -> app/detailLoader.ts -> client.ts, was missed by the original audit and only surfaced because P4's puller count refused to reach 0. The audit used grep -rl 'integrations/supabase/client' which misses edges reached through app/ loader modules — P5 and P6 must not treat that edge list as exhaustive. What caught it was P0's bundle-budget instrument, not the plan and not a review. MITIGATION: convert detailLoader to lazy accessor (same P2-tier pattern: resolveEntityInLoader and fetchBakedOgImage are both async, await getSupabase() at function start). MEASUREMENT AFTER DETAILLOADER: home 244.9 KB gz / 63 chunks / 3 pullers (unchanged — chunk-level metric only collapses when the LAST edge goes, which is P4). Removes one static edge so P4's AuthProvider change becomes the genuine final edge. EDGES STILL STATIC: only AuthProvider and CityProvider remain (both on root.tsx first-load path). P4 will cut AuthProvider. After P4: puller count should drop to measure the win from both P3 and P4 combined."
 }
