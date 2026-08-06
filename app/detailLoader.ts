@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { data, redirect } from "react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { SITE_ORIGIN, type EntityTable } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 
@@ -26,6 +26,8 @@ export async function resolveEntityInLoader(
   const arrivedViaUuid = UUID_RE.test(param);
   const isMalformedUuid = !arrivedViaUuid && UUID_PREFIX_RE.test(param);
   if (isMalformedUuid) return { id: null, slug: null, arrivedViaUuid: false };
+
+  const supabase = await getSupabase();
 
   const resolved = await qc.fetchQuery({
     queryKey: ["entity-resolve", table, idColumn, param],
@@ -147,6 +149,7 @@ async function fetchBakedOgImage(
   coverToken: string | null,
 ): Promise<string | null> {
   try {
+    const supabase = await getSupabase();
     const { data: url, error } = await supabase.rpc("get_og_image_v1" as never, {
       p_entity_type: entityType,
       p_entity_id: entityId,

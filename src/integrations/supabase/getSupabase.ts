@@ -60,6 +60,16 @@ export function getSupabase(): Promise<SupabaseClient> {
               'this accessor does not recognise.',
           );
         }
+        // Validate that the export actually has the methods we need, not just
+        // an empty object. Prevents "cannot read properties of undefined" errors
+        // far downstream when regeneration produces { supabase: {} }.
+        if (typeof m.supabase.rpc !== 'function' || typeof m.supabase.auth !== 'object') {
+          throw new Error(
+            'supabase client export missing required methods (rpc, auth) -- ' +
+              'src/integrations/supabase/client.ts was regenerated into a shape ' +
+              'that breaks the RPC/auth interface.',
+          );
+        }
         return m.supabase;
       })
       .catch((err) => {

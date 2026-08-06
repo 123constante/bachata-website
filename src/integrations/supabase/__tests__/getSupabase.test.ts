@@ -18,7 +18,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { marker: 'client' },
+  supabase: { marker: 'client', rpc: () => {}, auth: {} },
 }));
 
 beforeEach(() => {

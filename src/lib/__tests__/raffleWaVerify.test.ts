@@ -14,6 +14,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     functions: { invoke: (...args: unknown[]) => invokeMock(...args) },
     rpc: (...args: unknown[]) => rpcMock(...args),
+    auth: {},
   },
 }));
 
