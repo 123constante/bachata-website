@@ -36,7 +36,7 @@ const sb = vi.hoisted(() => {
 });
 
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: sb.rpc, from: sb.from },
+  supabase: { rpc: sb.rpc, from: sb.from, auth: {} },
 }));
 
 import { resolvePublicEventRef } from '@/lib/seo/resolvePublicEventRef';
