@@ -16,7 +16,7 @@ vi.mock('@/integrations/supabase/client', () => {
   // Deliberately NOT a stale-chunk message: this is the plain-rejection path,
   // where safeDynamicImport rethrows and the memo must be dropped.
   if (state.attempts === 1) throw new Error('transient module failure');
-  return { supabase: { marker: 'recovered' } };
+  return { supabase: { marker: 'recovered', rpc: () => {}, auth: {} } };
 });
 
 describe('getSupabase -- failure recovery', () => {
