@@ -1,4 +1,4 @@
-import { supabase } from './client';
+import { getSupabase } from './getSupabase';
 import type { Database } from './types';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
 import {
@@ -178,7 +178,10 @@ export interface EventSnapshot {
   is_recurring: boolean;
   actions: EventActions;
   key_times?: KeyTimes;
-  meta_data_public?: Record<string, any>;
+  // `unknown`, not `any`: every consumer already routes this through
+  // asObject() in useEventPageQuery, so nothing needed the escape hatch, and
+  // the scoped eslint gate flags `any` the moment this file is in a ship.
+  meta_data_public?: Record<string, unknown>;
 }
 
 export interface Venue {
@@ -348,6 +351,7 @@ export interface FestivalPublish {
 export async function getCalendarEvents(
   params: GetCalendarEventsParams,
 ): Promise<CalendarEventRow[]> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('get_calendar_events_v2', {
     range_start: params.range_start,
     range_end: params.range_end,
@@ -373,6 +377,7 @@ export async function getCalendarEvents(
 export async function getEventPageSnapshot(
   params: GetEventPageSnapshotParams,
 ): Promise<EventPageSnapshot | null> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('event_view_p5' as never, {
     p_target: {
       series_id: params.p_event_id,
@@ -443,6 +448,7 @@ export interface GetLatestEventsParams {
 export async function getLatestEvents(
   params: GetLatestEventsParams = {},
 ): Promise<LatestEventRow[]> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('get_latest_events_v2' as never, {
     p_city_slug: params.p_city_slug ?? null,
     p_limit: params.p_limit ?? 6,
@@ -486,6 +492,7 @@ export interface GetMapEventsParams {
 export async function getMapEvents(
   params: GetMapEventsParams,
 ): Promise<MapEvent[]> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('get_map_events_v1' as never, {
     city_slug_param: params.city_slug_param,
     range_start: params.range_start,
