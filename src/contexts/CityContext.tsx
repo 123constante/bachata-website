@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 import { captureException } from "@/lib/sentry";
 
 type CityContextValue = {
@@ -53,7 +53,7 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const { data, error } = await (supabase.rpc as any)("is_valid_city_slug", {
+      const { data, error } = await rpcLoose("is_valid_city_slug", {
         p_slug: normalized,
       });
 
