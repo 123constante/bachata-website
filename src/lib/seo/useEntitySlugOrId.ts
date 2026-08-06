@@ -6,7 +6,7 @@
  * instead of the PK. Pass `idColumn: 'entity_id'` to handle that.
  */
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolvePublicEventRef } from './resolvePublicEventRef';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -63,6 +63,7 @@ export function useEntitySlugOrId(
       }
       const whereCol = arrivedViaUuid ? idColumn : 'slug';
       const selectCols = `${idColumn}, slug`;
+      const supabase = await getSupabase();
       const { data: row, error } = await supabase
         .from(table)
         .select(selectCols)

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePublicSearch } from '@/hooks/usePublicSearch';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import type { SearchKind } from '@/lib/searchRpc';
@@ -147,6 +148,20 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
   // Refresh recents when the bar opens.
   useEffect(() => {
     if (expanded) setRecents(readRecents());
+  }, [expanded]);
+
+  // Warm the Supabase client the moment the bar opens. The search RPC now goes
+  // through the lazy accessor, so without this the FIRST query of a session
+  // pays a ~43 KB dynamic import AFTER the debounce, in series before the RPC
+  // is even issued -- a visible delay on the mobile connections that are ~95%
+  // of this site's traffic. Opening the bar is a reliable signal that a search
+  // is coming, and the accessor memoises, so this is at worst one wasted
+  // prefetch for a user who opens the bar and types nothing.
+  useEffect(() => {
+    // Errors are ignored on purpose: this is a prefetch, and the real call
+    // sites already handle a failed client import. Swallowing here keeps a
+    // dead chunk from surfacing as an unhandled rejection on focus.
+    if (expanded) void getSupabase().catch(() => undefined);
   }, [expanded]);
 
   // Focus the input synchronously once it has mounted (no setTimeout race).

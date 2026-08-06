@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 
 /**
  * The single festivals-list fetch seam (M2: Website reads P5 natively).
@@ -54,6 +54,7 @@ const CACHE_TTL_MS = 60_000;
 let cached: { at: number; promise: Promise<FestivalListItem[]> } | null = null;
 
 async function fetchFestivalsListUncached(): Promise<FestivalListItem[]> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('get_public_festivals_list_v1' as never);
   if (error) throw error;
   return ((data ?? []) as FestivalsListRow[]).map((row) => ({

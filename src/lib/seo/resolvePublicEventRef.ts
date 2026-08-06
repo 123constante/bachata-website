@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 
 export interface PublicEventRef {
   id: string | null;
@@ -30,6 +30,7 @@ export async function resolvePublicEventRef(
   param: string,
   onError: 'throw' | 'swallow',
 ): Promise<PublicEventRef | null> {
+  const supabase = await getSupabase();
   const { data: row, error } = await supabase.rpc(
     'resolve_public_event_ref_v1' as never,
     { p_param: param } as never,

@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { getViewerSession } from './viewerSession';
 
 interface RecordSearchQueryArgs {
@@ -23,14 +23,19 @@ export function recordSearchQuery({ query, resultsCount, cityId, source = 'unkno
   const sessionId = getViewerSession() || null;
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
 
-  void supabase
-    .rpc('record_search_query_v1', {
-      p_query: trimmed,
-      p_results_count: typeof resultsCount === 'number' ? resultsCount : null,
-      p_city_id: cityId ?? null,
-      p_session_id: sessionId,
-      p_user_agent: userAgent,
-      p_source: source,
-    })
+  // Still fire-and-forget, now behind the lazy accessor: every rejection --
+  // including a failure to LOAD the client chunk -- is swallowed, so telemetry
+  // can never surface as an unhandled rejection on a search keystroke.
+  void getSupabase()
+    .then((supabase) =>
+      supabase.rpc('record_search_query_v1', {
+        p_query: trimmed,
+        p_results_count: typeof resultsCount === 'number' ? resultsCount : null,
+        p_city_id: cityId ?? null,
+        p_session_id: sessionId,
+        p_user_agent: userAgent,
+        p_source: source,
+      }),
+    )
     .then(() => undefined, () => undefined);
 }
