@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
@@ -37,6 +37,7 @@ export interface SearchResult {
 export async function searchPublic(query: string, limitPerKind = 6): Promise<SearchResult[]> {
   const term = query.trim();
   if (!term) return [];
+  const supabase = await getSupabase();
   const { data, error } = await supabase.rpc('search_public_v2' as never, {
     p_query: term,
     p_limit: limitPerKind,
@@ -138,13 +139,21 @@ export async function searchPublicV3(
   const today = londonTodayKey();
   const needle = term.toLowerCase();
 
+  // The accessor is awaited inside the leg rather than hoisted above the
+  // Promise.all. This is a shape choice, NOT a latency win: the festivals leg
+  // awaits getSupabase() itself on a cache miss (festivalsList.ts) and does no
+  // I/O at all on a hit, so neither branch overlaps the client import with
+  // anything -- hoisting would behave identically. getSupabase memoises the
+  // PROMISE, so the two legs share one import either way.
   const [rpcResult, festRows] = await Promise.all([
-    supabase.rpc(fn as never, {
-      p_query: term,
-      p_city_slug: citySlug ?? null,
-      p_section_limit: sectionLimit,
-      p_include_past: includePast,
-    }),
+    getSupabase().then((supabase) =>
+      supabase.rpc(fn as never, {
+        p_query: term,
+        p_city_slug: citySlug ?? null,
+        p_section_limit: sectionLimit,
+        p_include_past: includePast,
+      }),
+    ),
     fetchPublicFestivalsList(),
   ]);
 
