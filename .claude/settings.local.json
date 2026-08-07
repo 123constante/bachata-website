@@ -223,7 +223,13 @@
       "Bash(echo \"NEW-SCRIPT EXIT=$?\")",
       "Bash(rm -f scripts/check-brandnew-probe.mjs)",
       "Bash(echo \"AFTER-CLEANUP EXIT=$?\")",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(xargs -I{} gh api repos/:owner/:repo/deployments/{}/statuses --jq '.[0].environment_url')",
+      "Bash(curl -s http://localhost:8081/auth/callback)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Write-Output \"killing PID $_\"; Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } else { Write-Output \"nothing listening on 8081\" })",
+      "mcp__playwright__browser_run_code_unsafe",
+      "Bash(cp src/lib/authResolution.ts /c/tmp/ar2.bak)",
+      "Bash(cp /c/tmp/ar2.bak src/lib/authResolution.ts)"
     ],
     "additionalDirectories": [
       "c:\\dev\\bachata-admin-11april\\supabase\\migrations",
