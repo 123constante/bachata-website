@@ -655,7 +655,23 @@ jobs:
       #     Congress showed 26-27 Mar for a 26-29 Mar festival. Not cosmetic:
       #     dates.endsAt also feeds the page JSON-LD endDate and the .ics /
       #     Google / Outlook exports. Health-check RPC:
-      #     check_festival_detail_span_v1 (admin migration 20260807082141).
+      #     check_festival_detail_span_v1, whose CURRENT body is admin migration
+      #     20260807110000 (it CREATE OR REPLACEs the one 20260807082141 first
+      #     shipped -- never apply 082141 alone, that reverts three fixes).
+      #
+      #     NOTE this workflow fires on pull_request, so every step here is
+      #     PR-BLOCKING, not merely nightly. Against the superseded 082141 body
+      #     the script SOFT-PASSES with a loud warning rather than gating: that
+      #     body reports permanent false drift on a festival with program days
+      #     but no anchor date, and emits nothing that would let the script tell
+      #     that false drift from the real thing -- so gating on it would red
+      #     every Website PR with a failure no Website change could clear. It
+      #     becomes a real gate the moment 20260807110000 is applied, which is
+      #     why this PR carries no merge-order constraint in either direction.
+      #
+      #     The canary runs first and `run: |` is bash -e, so a guard that
+      #     cannot prove it fails aborts the step before the DB is queried --
+      #     deliberate, and the same shape as #62 and #63.
       - name: Run festival detail span check
         if: always()
         env:
