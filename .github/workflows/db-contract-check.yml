@@ -642,6 +642,29 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-festival-span.mjs
 
+      # 64. Festival DETAIL date-span (2026-08-06). #40 above covers the
+      #     CALENDAR read path (get_calendar_events_v2), which the
+      #     program-day-canonical rework already moved onto
+      #     event_series_program_day_p5. The DETAIL read path
+      #     (get_public_festival_detail_v2) never got that fix: it builds its
+      #     whole `dates` block from ONE calendar_occurrences row, so it
+      #     over-runs when that row's end crosses midnight (phantom trailing
+      #     day) and under-runs when the festival is stored one row per day
+      #     (truncated to day 0). On 2026-08-06 #40 reported 0 drift while
+      #     three live festivals published a wrong span -- AB International
+      #     Congress showed 26-27 Mar for a 26-29 Mar festival. Not cosmetic:
+      #     dates.endsAt also feeds the page JSON-LD endDate and the .ics /
+      #     Google / Outlook exports. Health-check RPC:
+      #     check_festival_detail_span_v1 (admin migration 20260807082141).
+      - name: Run festival detail span check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-festival-detail-span.mjs --self-test
+          node scripts/check-festival-detail-span.mjs
+
       # 41. Organiser past-events inclusion (recurring "0 Past" fix, 2026-06-20).
       #     get_organiser_calendar_events_v1 gained an optional p_include_past
       #     boolean + an is_past per-row flag (admin migration 20260908000000); it
