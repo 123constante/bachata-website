@@ -56,19 +56,28 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
 /**
  * YYYY-MM-DD for the given instant in an arbitrary IANA timezone (DST-safe).
  * Falls back to the London calendar if `timeZone` is missing or invalid, so a
- * bad value can never throw at a call site.
+ * bad value can never throw at a call site. Formatters are cached per timezone
+ * (same idiom as wallClockFormatters below) -- construction is the expensive
+ * part of the Intl API, and useTodayKey calls this on every 60s/focus check.
  */
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>([[LONDON_TZ, londonKeyFormatter]]);
+
 export const dateKeyInTz = (d: Date, timeZone: string): string => {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d);
-  } catch {
-    return londonKeyFormatter.format(d);
+  let fmt = dateKeyFormatters.get(timeZone);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+    } catch {
+      fmt = londonKeyFormatter;
+    }
+    dateKeyFormatters.set(timeZone, fmt);
   }
+  return fmt.format(d);
 };
 
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */

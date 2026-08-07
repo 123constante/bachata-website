@@ -1266,13 +1266,25 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 
 
-const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Shape AND calendar-plausibility (month 01-12, day 01-31): a well-shaped
+// garbage key like 2027-13-05 would otherwise fall through keyToUtcNoon's
+// epoch fallback and render as 1 January 1970.
 
-// A reversed or malformed end key is bad data -- collapse to the start day
-// rather than render a reversed or garbage range.
+const DATE_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+// A reversed, malformed or absurdly long end key is bad data -- collapse to
+// the start day rather than render it as fact. The 30-day bound replaces the
+// old tile row's 7-day render cap as the only limit on a corrupt far-future
+// end date (no real festival approaches it), without silently truncating a
+// real span the way the cap did.
 
 const clampEndKey = (startKey: string, endKey: string | null | undefined): string =>
-  endKey && DATE_KEY_RE.test(endKey) && endKey >= startKey ? endKey : startKey;
+  endKey &&
+  DATE_KEY_RE.test(endKey) &&
+  endKey >= startKey &&
+  londonDaysBetweenKeys(startKey, endKey) <= 30
+    ? endKey
+    : startKey;
 
 // The one range formatter behind both the hero date line and the share
 // subtitle, so the two can never disagree on the same event. 'long' is the
@@ -1754,8 +1766,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // Today's date key on the FESTIVAL's calendar (not the visitor's browser
   // zone and not London's): flips at the event's own midnight, re-anchors on
-  // visibility/focus, and survives long-lived tabs. Drives the day-tab
-  // default, the today badges and the days-away figure.
+  // visibility/focus, and survives long-lived tabs. Drives the today badges
+  // and the days-away figure. (The day-tab default reads its own clock inside
+  // pickDefaultDayIndex -- unifying the two is a follow-up.)
   const todayKey = useTodayKey(eventTz);
 
   // The hero's timing cue, in whole calendar days on the event's calendar
@@ -1763,7 +1776,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // "Today" on the start day, "Happening now" mid-run, nothing after. Render
   // site is mount-gated (todayKey reads the clock: #418).
   const heroDayStatus = useMemo(() => {
-    if (!startKey || !DATE_KEY_RE.test(startKey)) return null;
+    // todayKey validated too: on a degraded-Intl runtime it can be malformed,
+    // and the lexicographic compares below would sort it arbitrarily.
+    if (!startKey || !DATE_KEY_RE.test(startKey) || !DATE_KEY_RE.test(todayKey)) return null;
     const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
     if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
     if (daysUntil === 0) return { label: "Today" };
@@ -2186,9 +2201,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         {heroDateLine && <div className="hero-dateline">{heroDateLine}</div>}
 
-        {mounted && heroDayStatus && (
+        {/* Always-rendered line box: the label is clock-derived so it can only
+            fill in after mount (#418), but the box itself must be in the server
+            HTML or its pop-in shifts the Get Tickets CTA under the tap. */}
 
-          <div className="hero-days-away">{heroDayStatus.label}</div>
+        {heroDateLine && (
+
+          <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
 
         )}
 
