@@ -1723,8 +1723,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     if (daysUntil === 0) return { label: "Today" };
     // Live window bounded at 30 days past the start: no real festival runs
     // longer, and a corrupt far-future end date must not pin "Happening now"
-    // for years. The date line itself renders the stored end unclamped, so a
-    // data error stays visible to whoever can fix it.
+    // for years. The date line renders a real forward end date even when it
+    // is absurdly far out, so THAT error class stays visible to whoever can
+    // fix it (reversed/unreal ends still collapse to the start day there).
     return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
       ? { label: "Happening now" }
       : null;
