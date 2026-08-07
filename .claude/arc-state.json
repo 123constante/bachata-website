@@ -3,10 +3,11 @@
   "arc": "supabase-defer",
   "phase": 4,
   "set_at": "2026-08-06T14:07:54Z",
-  "required_model": "claude-opus-5",
+  "required_model": "claude-fable-5",
   "required_effort": "high",
   "scope": [
     ".claude/arc-state.json",
+    "src/hooks/useAuth.tsx",
     "scripts/check-bundle-budget.mjs",
     "perf-budgets.json"
   ],
