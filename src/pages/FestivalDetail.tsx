@@ -33,9 +33,9 @@ import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledB
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
 
-import { dateKeyInTz } from "@/lib/londonDate";
+import { dateKeyInTz, keyToUtcNoon, londonDaysBetweenKeys } from "@/lib/londonDate";
 
-import { useLondonToday } from "@/hooks/useLondonToday";
+import { useTodayKey } from "@/hooks/useTodayKey";
 
 import {
   asWallClock,
@@ -1266,22 +1266,65 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 
 
-// Shared calendar-day-key primitives for the hero date line, days-away figure
-// and share subtitle. UTC-noon anchor + UTC-locked getters read a stored
-// YYYY-MM-DD key back out machine-timezone-independently (same technique as
-// formatWallClockDate), so SSR (UTC) and every client timezone agree -- no
-// #418 divergence.
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const utcNoon = (key: string): Date => new Date(`${key}T12:00:00Z`);
-
-const fmtUtcDay = (d: Date, opts: Intl.DateTimeFormatOptions): string =>
-  d.toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });
-
-// An end key before the start key is bad data -- collapse to the start day
-// rather than render a reversed range.
+// A reversed or malformed end key is bad data -- collapse to the start day
+// rather than render a reversed or garbage range.
 
 const clampEndKey = (startKey: string, endKey: string | null | undefined): string =>
-  endKey && endKey >= startKey ? endKey : startKey;
+  endKey && DATE_KEY_RE.test(endKey) && endKey >= startKey ? endKey : startKey;
+
+// The one range formatter behind both the hero date line and the share
+// subtitle, so the two can never disagree on the same event. 'long' is the
+// hero form ("Fri 26 to Mon 29 March 2027" -- both months and years appear
+// whenever the span crosses them); 'short' is the share form ("26 Mar to
+// 29 Mar 2027"). The separator is an en dash, written as an escape per the
+// repo rule (raw Unicode punctuation in source mojibakes on the cp1252
+// round-trip). keyToUtcNoon is the calendar authority's hardened
+// parser; UTC-locked formatting keeps SSR (UTC) and every client timezone
+// in agreement.
+
+const formatKeyRange = (
+  startKey: string | null,
+  endKey: string | null | undefined,
+  style: "long" | "short",
+): string | null => {
+
+  if (!startKey || !DATE_KEY_RE.test(startKey)) return null;
+
+  const safeEndKey = clampEndKey(startKey, endKey);
+
+  const start = new Date(keyToUtcNoon(startKey));
+
+  const end = new Date(keyToUtcNoon(safeEndKey));
+
+  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
+    d.toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });
+
+  const day = (d: Date) =>
+    style === "long" ? `${fmt(d, { weekday: "short" })} ${d.getUTCDate()}` : String(d.getUTCDate());
+
+  const month = (d: Date) => fmt(d, { month: style === "long" ? "long" : "short" });
+
+  const tail = (d: Date) => `${day(d)} ${month(d)} ${d.getUTCFullYear()}`;
+
+  if (safeEndKey === startKey) return tail(start);
+
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+
+  const startPart = [
+    day(start),
+    style === "short" || !sameMonth ? month(start) : null,
+    sameYear ? null : String(start.getUTCFullYear()),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return `${startPart} \u2013 ${tail(end)}`;
+
+};
 
 
 
@@ -1561,9 +1604,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // `mounted` gates every clock-reading display (the days-away line, the
   // schedule's today badges) so the server and first client render agree --
-  // Date.now() differs build-vs-client, a React #418 hydration mismatch on
-  // /event/<slug> under SSR. The old 1s heartbeat left with the hrs/min/sec
-  // countdown cells (P2 compaction): a whole-days figure has no use for it.
+  // the clock differs build-vs-client, a React #418 hydration mismatch on
+  // /event/<slug> under SSR.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -1622,41 +1664,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Hero date line (P2 compaction -- replaces the tile row): weekday + day +
-  // month + year, complete in one read ("FRI 26 - MON 29 MARCH 2027"). Both
-  // months are spelled out on a boundary span -- the fix for the start-month-only
-  // label that rendered "28 1 2" under FEBRUARY -- and there is no day cap, so a
-  // long span can no longer display a wrong end date.
+  // The hero's single date line, complete in one read: weekday + day + month +
+  // year, with no day cap and both months/years spelled out across a boundary.
 
-  const heroDateLine = useMemo(() => {
-
-    if (!startKey) return null;
-
-    const safeEndKey = clampEndKey(startKey, endKey);
-
-    const start = utcNoon(startKey);
-
-    const end = utcNoon(safeEndKey);
-
-    if (Number.isNaN(start.getTime())) return null;
-
-    const dowDay = (d: Date) => `${fmtUtcDay(d, { weekday: "short" })} ${d.getUTCDate()}`;
-
-    const month = (d: Date) => fmtUtcDay(d, { month: "long" });
-
-    // A malformed end key degrades to the start day, matching shareSubtitle.
-    if (Number.isNaN(end.getTime()) || safeEndKey === startKey)
-      return `${dowDay(start)} ${month(start)} ${start.getUTCFullYear()}`;
-
-    if (start.getUTCFullYear() !== end.getUTCFullYear())
-      return `${dowDay(start)} ${month(start)} ${start.getUTCFullYear()} – ${dowDay(end)} ${month(end)} ${end.getUTCFullYear()}`;
-
-    if (start.getUTCMonth() !== end.getUTCMonth())
-      return `${dowDay(start)} ${month(start)} – ${dowDay(end)} ${month(end)} ${end.getUTCFullYear()}`;
-
-    return `${dowDay(start)} – ${dowDay(end)} ${month(end)} ${end.getUTCFullYear()}`;
-
-  }, [startKey, endKey]);
+  const heroDateLine = useMemo(() => formatKeyRange(startKey, endKey, "long"), [startKey, endKey]);
 
 
 
@@ -1741,31 +1752,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Subscribe to the London day flip (60s check + visibility/focus re-anchor):
-  // its re-render is what rolls todayKey -- and with it the days-away figure and
-  // today badges -- over in a long-lived tab, instead of freezing at mount. The
-  // returned key itself is London-calendar so it is not read here; todayKey
-  // below re-derives in the event's own timezone on that re-render.
-  useLondonToday();
+  // Today's date key on the FESTIVAL's calendar (not the visitor's browser
+  // zone and not London's): flips at the event's own midnight, re-anchors on
+  // visibility/focus, and survives long-lived tabs. Drives the day-tab
+  // default, the today badges and the days-away figure.
+  const todayKey = useTodayKey(eventTz);
 
-  // Today's date key in the FESTIVAL's timezone (not the visitor's browser
-  // zone), used to default the open day-tab, badge today's tab/column and count
-  // the days-away figure. Recomputed per render -- cheap now the 1s heartbeat
-  // is gone, and a memo would need a dep it does not read (the flip subscription
-  // above) to stay fresh.
-  const todayKey = dateKeyInTz(new Date(), festivalDetail?.dates.timezone ?? "Europe/London");
-
-  // Days to go (P2 compaction): CALENDAR days in the event's timezone, not an
-  // instant delta -- ceil over instant-ms reads "in 1 day" on the start day
-  // itself (CalendarListView's midnight-to-midnight convention is the sitewide
-  // precedent). UTC-noon anchors make the key subtraction exact across DST.
-  // Null from the start day on; the render site is mount-gated (todayKey reads
-  // the clock: #418).
-  const daysToGo = useMemo(() => {
-    if (!startKey) return null;
-    const diff = Math.round((utcNoon(startKey).getTime() - utcNoon(todayKey).getTime()) / 86_400_000);
-    return Number.isFinite(diff) && diff > 0 ? diff : null;
-  }, [startKey, todayKey]);
+  // The hero's timing cue, in whole calendar days on the event's calendar
+  // (midnight-to-midnight, matching CalendarListView): "In N days" before,
+  // "Today" on the start day, "Happening now" mid-run, nothing after. Render
+  // site is mount-gated (todayKey reads the clock: #418).
+  const heroDayStatus = useMemo(() => {
+    if (!startKey || !DATE_KEY_RE.test(startKey)) return null;
+    const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
+    if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
+    if (daysUntil === 0) return { label: "Today" };
+    return todayKey <= clampEndKey(startKey, endKey) ? { label: "Happening now" } : null;
+  }, [startKey, endKey, todayKey]);
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
@@ -1805,18 +1808,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
   }, [festivalDetail]);
 
-  const shareSubtitle = useMemo(() => {
-    if (!startKey) return null;
-    // Same primitives + reversed-range clamp as heroDateLine, so the share
-    // text and the hero can never disagree on bad data.
-    const safeEndKey = clampEndKey(startKey, endKey);
-    const start = utcNoon(startKey);
-    const end = utcNoon(safeEndKey);
-    if (Number.isNaN(start.getTime())) return null;
-    if (Number.isNaN(end.getTime()) || safeEndKey === startKey)
-      return fmtUtcDay(start, { day: 'numeric', month: 'short', year: 'numeric' });
-    return `${fmtUtcDay(start, { day: 'numeric', month: 'short' })} – ${fmtUtcDay(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  }, [startKey, endKey]);
+  const shareSubtitle = useMemo(() => formatKeyRange(startKey, endKey, "short"), [startKey, endKey]);
 
   // Paid passes, ordered by the day they cover then by price. Free (£0) passes
   // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
@@ -2194,9 +2186,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         {heroDateLine && <div className="hero-dateline">{heroDateLine}</div>}
 
-        {mounted && daysToGo !== null && (
+        {mounted && heroDayStatus && (
 
-          <div className="hero-days-away">In {daysToGo} {daysToGo === 1 ? "day" : "days"}</div>
+          <div className="hero-days-away">{heroDayStatus.label}</div>
 
         )}
 

@@ -100,7 +100,13 @@ const safeKeyParts = (key: string): [number, number, number] => {
   return [y, m, d];
 };
 
-const keyToUtcNoon = (key: string): number => {
+/**
+ * UTC-noon epoch-ms anchor of a YYYY-MM-DD key: the standard way to read a
+ * stored calendar day back out machine-timezone-independently (noon survives
+ * DST and westward client zones where midnight shifts a day). Routed through
+ * safeKeyParts, so a malformed key degrades instead of producing NaN.
+ */
+export const keyToUtcNoon = (key: string): number => {
   const [y, m, d] = safeKeyParts(key);
   return Date.UTC(y, m - 1, d, 12);
 };
