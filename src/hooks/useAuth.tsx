@@ -1,20 +1,32 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import type { User, Session, Subscription } from "@supabase/supabase-js";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { captureException, isSentryEnabled, setSentryUser } from "@/lib/sentry";
+import {
+  startAuthResolution,
+  AUTH_RESOLVE_TIMEOUT_MS,
+  type AuthStatus,
+} from "@/lib/authResolution";
+
+export type { AuthStatus } from "@/lib/authResolution";
+export { AUTH_RESOLVE_TIMEOUT_MS } from "@/lib/authResolution";
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  authStatus: AuthStatus;
   signOut: () => Promise<void>;
+  retryAuth: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isLoading: true,
+  authStatus: "resolving",
   signOut: async () => {},
+  retryAuth: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -22,63 +34,41 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("resolving");
+  // Bumped by retryAuth() to re-run resolution. The getSupabase() memo clears
+  // itself on rejection, so a retry genuinely re-attempts the fetch rather than
+  // re-reading a cached failure.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    let isMounted = true;
-    let subscription: Subscription | undefined;
-
-    (async () => {
-      const supabase = await getSupabase();
-      // The client now ARRIVES asynchronously, so this provider can unmount
-      // before it lands. Without this guard the listener below would be
-      // registered after cleanup already ran, and nothing would ever
-      // unsubscribe it -- and React's dev double-invoke makes that the normal
-      // first mount, not an edge case.
-      if (!isMounted) return;
-
-      // Listener for ONGOING auth changes -- does NOT touch isLoading
-      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          if (!isMounted) return;
-          setSession(session);
-          setUser(session?.user ?? null);
-        }
-      );
-      subscription = sub;
-
-      // INITIAL load -- the only place isLoading is set to false.
-      // AWAITED deliberately: a bare .then() here would settle this IIFE as
-      // soon as getSession was CALLED, so the catch below would cover only
-      // getSupabase() and a getSession rejection would be an unhandled
-      // rejection that leaves isLoading true forever -- the exact failure the
-      // catch exists to prevent.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    })().catch((err) => {
-      // Acquiring the client can now FAIL: it is fetched at runtime, where
-      // before it was a static import that could not. Leaving isLoading true
-      // forever would park AuthGuard on its spinner site-wide, so degrade to
-      // the same signed-out state a visitor with no session already gets, and
-      // report it rather than swallowing it.
-      captureException(err, { context: "AuthProvider.getSupabase" });
-      if (!isMounted) return;
-      setIsLoading(false);
+    // All of the ordering, deadline and status logic lives in
+    // startAuthResolution, where it is reachable by a test. This effect is
+    // wiring: it maps callbacks onto React state and cancels on unmount.
+    const handle = startAuthResolution<Session>({
+      getClient: getSupabase,
+      onSession: (next) => {
+        setSession(next);
+        setUser(next?.user ?? null);
+      },
+      onStatus: setAuthStatus,
+      // The context is passed through rather than fixed, because these failures
+      // are no longer one thing: a chunk that would not load and an auth
+      // endpoint that would not answer group separately in Sentry, and the
+      // reader needs to know which one is happening.
+      onError: (err, context) => captureException(err, { context }),
     });
-
-    return () => {
-      isMounted = false;
-      subscription?.unsubscribe();
-    };
-  }, []);
+    return handle.cancel;
+  }, [attempt]);
 
   useEffect(() => {
     if (!isSentryEnabled()) return;
     setSentryUser(user ? { id: user.id } : null);
   }, [user]);
+
+  const retryAuth = useCallback(() => {
+    setAuthStatus("resolving");
+    setAttempt((n) => n + 1);
+  }, []);
 
   const signOut = async () => {
     // getSupabase() is a runtime fetch, so this call gained a rejection path a
@@ -94,7 +84,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        // UNCHANGED SEMANTICS for the 29 consumers that are not AuthGuard:
+        // loading means "still working". `unavailable` is deliberately NOT
+        // loading -- on a public surface "we could not tell" and "signed out"
+        // look the same to a visitor, and spinning forever there would be a
+        // worse regression than showing a Sign in button.
+        isLoading: authStatus === "resolving",
+        authStatus,
+        signOut,
+        retryAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

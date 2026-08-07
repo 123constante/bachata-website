@@ -204,6 +204,13 @@ const AuthCallback = () => {
       resolved.current = true;
       const hasAuthParams = Boolean(window.location.hash) || Boolean(searchParams.get("code"));
       navigateToSignInFallback(hasAuthParams ? "expired" : "manual");
+      // Must stay ABOVE AUTH_RESOLVE_TIMEOUT_MS (src/lib/authResolution.ts,
+      // currently 8000). Both clocks start on mount, so the provider settles
+      // first and the two cannot reach opposite verdicts about the same
+      // sign-in. Lowering this below that constant would let the callback
+      // declare a link expired while auth resolution was still in progress --
+      // telling a correctly-authenticated user their link failed, which is the
+      // exact outcome the supabase-defer arc's P5 exists to prevent.
     }, 9000);
 
     return () => clearTimeout(fallbackTimer);

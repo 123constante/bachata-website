@@ -1,16 +1,41 @@
 {
   "//": "First-load JS budgets (gzip KB) enforced by scripts/check-bundle-budget.mjs (run via `npm run check:bundle-budget` after `npm run build`). Raise a budget only deliberately, in the same PR that grows the graph, with justification in the PR description. The bundle-budget job BLOCKS (continue-on-error was dropped in #187); it is not warn-only.",
   "//home": "245 -> 255 on 2026-08-05. Measured 244.2, i.e. 0.8 KB of headroom, after #187's 53-package batch cost +5.0 KB. One more routine batch would breach it. The weight is vendor-supabase (43.3 KB gz): auth-js 46%, realtime-js 17%, storage-js 17% (storage is entirely unused -- zero `.storage.from(` in src/). None of it is separable: SupabaseClient's constructor eagerly builds every sub-client, so no bundler can drop realtime or storage while `createClient` is imported statically. The only real fix is deferring the client behind a dynamic import (~43 KB off home), which touches 82 import sites and moves when auth resolves on first paint -- an arc, not a budget tweak. 255 buys ~2 batches of room without hiding a genuine regression.",
+  "//auth": "Added by P5 of the supabase-defer arc. This route is budgeted PRIMARILY so requiredFirstLoad below has somewhere to hang -- the auth pages (/auth, /auth/callback) are not framework routes, they live on the catchall, so the catchall's graph IS the auth path's graph. Measured 277.4 KB gz across 58 files at ebc67e8. Budget set to 310 deliberately generously (32.6 KB headroom, ~12%): #187's 53-package batch cost +5.0 KB, so that is roughly six routine dependency batches of room. The point is that this route must never red-light for drift unrelated to the edge it exists to guard -- a budget red here would be read as an auth-path failure and waste the reader's time. It is NOT a target to optimise against; the catchall deliberately carries vendor-supabase (see requiredFirstLoad).",
   "routes": {
     "home (/city/:slug)": {
-      "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/home.tsx"],
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/home.tsx"
+      ],
       "maxFirstLoadGzipKB": 255
     },
     "event (/event/:id)": {
-      "entries": ["app/entry.client.tsx", "app/root.tsx", "app/routes/event.tsx"],
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/event.tsx"
+      ],
       "maxFirstLoadGzipKB": 385
+    },
+    "auth (/auth/callback, via catchall)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/catchall.tsx"
+      ],
+      "maxFirstLoadGzipKB": 310
     }
   },
+  "//requiredFirstLoad": "The INVERSE of the budget, and of the ratchet P6 adds. Everywhere else this file asks 'has the tracked module stayed OUT of this route's first-load graph'. Here it asks the opposite: client.ts sets detectSessionInUrl:true, so auth-js parses the magic-link fragment at CONSTRUCTION, and the auth path needs that construction to happen during initial module evaluation -- before hydration, before the router can rewrite the URL. Deferring it there loses a real user's session silently and tells them their link expired. Until P5 that edge existed only by ACCIDENT (AuthGuard.tsx and ListingRequestForm.tsx were merely unconverted), so the arc's own remaining work would have removed it with nothing failing. src/integrations/supabase/eagerAuthClient.ts makes it intentional; this makes it enforced. BLOCKING, unlike the report-only attribution above: a missing required edge exits 1.",
+  "requiredFirstLoad": [
+    {
+      "route": "auth (/auth/callback, via catchall)",
+      "module": "src/integrations/supabase/client.ts",
+      "why": "detectSessionInUrl parses the magic-link fragment at client construction; the auth path must construct eagerly, not behind getSupabase(). Held by src/integrations/supabase/eagerAuthClient.ts."
+    }
+  ],
   "attribution": {
     "//": "Report-only, added by P0 of the supabase-defer arc (~/.claude/plans/arc-defer-supabase-client.md). Names one chunk whose FIRST-LOAD PULLERS each budgeted route reports: the chunks holding a direct static edge to it, a shortest path from a route entry, and the first-party modules each puller contains (from the sourcemap). The puller count is the arc's work-list -- it shrinks by one per phase, and 0 pullers on home is the completion proof. Nothing here is enforced; P6 turns the count into a ratchet.",
     "//trackedChunkName": "Matched against the manifest node's chunk `name`, i.e. the manualChunks group key in vite.config.ts -- NOT the hashed filename, which changes on every content edit. If that group is ever renamed the guard hard-fails rather than reporting a reassuring 0: a tracker that silently measures nothing is the failure mode rule R1 of check-script-conventions.mjs exists to catch.",
@@ -22,8 +47,22 @@
       "commit": "138390a",
       "trackedChunkGzipKB": 43.3,
       "routes": {
-        "home (/city/:slug)": { "firstLoadGzipKB": 244.2, "chunks": 61, "pullers": 3 },
-        "event (/event/:id)": { "firstLoadGzipKB": 363.5, "chunks": 89, "pullers": 4 }
+        "home (/city/:slug)": {
+          "firstLoadGzipKB": 244.2,
+          "chunks": 61,
+          "pullers": 3
+        },
+        "event (/event/:id)": {
+          "firstLoadGzipKB": 363.5,
+          "chunks": 89,
+          "pullers": 4
+        },
+        "//auth": "Measured at ebc67e8 (P5's base), NOT at 138390a like the two rows above -- this route was not budgeted then, so no figure from that commit exists. Recorded so the guard has something to diff against: without a row it prints a NO-baseline-row advisory on every run, and a blocking job that permanently carries a warning teaches its reader to skim the output it most needs read.",
+        "auth (/auth/callback, via catchall)": {
+          "firstLoadGzipKB": 277.4,
+          "chunks": 58,
+          "pullers": 2
+        }
       }
     }
   }

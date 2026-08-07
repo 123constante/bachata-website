@@ -189,6 +189,91 @@ export function findPullers(manifest, seen, trackedKey) {
 }
 
 // ---------------------------------------------------------------------------
+// REQUIRED first-load edges -- the inverse rule (supabase-defer arc, P5).
+//
+// Every other rule in this file asks whether weight has stayed OUT of a route's
+// first-load graph. This one asks whether a module has stayed IN, because on
+// the auth path the deferral this arc exists to create is a BUG: client.ts sets
+// `detectSessionInUrl: true`, so auth-js parses the magic-link fragment at
+// CONSTRUCTION. Construct it lazily on /auth/callback and the parse moves after
+// the router mounts; if anything rewrites the URL first the session is lost and
+// the user is told their link expired. Eager construction there is a
+// correctness requirement wearing a bundling costume.
+//
+// It is asserted at CHUNK level, deliberately, and not with the module walk
+// below. The walk is a documented CEILING -- it counts an import whose bindings
+// are all types -- and for a rule phrased as "this edge must still exist", a
+// ceiling fails in the one direction that must never happen: it would keep
+// reporting the edge after the real one had gone, i.e. a silent green over a
+// lost session. The manifest graph is the build-level ground truth and cannot
+// over-report.
+//
+// A module with no manifest node of its own hard-fails rather than being read
+// as absent. That state means the chunking changed under this rule (the module
+// was inlined into a parent), which a human must look at -- it is NOT evidence
+// the edge went away, and quietly treating it as a regression would send the
+// reader hunting for a deleted import that still exists.
+// ---------------------------------------------------------------------------
+
+/**
+ * Required edges that are NOT satisfied, as printable rows. Pure: takes its
+ * manifest and its config, so the canary drives it without a build.
+ *
+ * Returns [] when every requirement holds. Anything non-empty is a hard fail --
+ * unlike the attribution above, this rule sets the exit code.
+ */
+/**
+ * The requiredFirstLoad block must EXIST and be non-empty.
+ *
+ * Without this, `budgets.requiredFirstLoad ?? []` turned a deleted key -- or a
+ * rename, or a merge conflict dropping it -- into a vacuous green: no rows
+ * checked, "None declared." in the step summary, exit 0, and the eager client
+ * edge free to disappear with magic links breaking in production and nothing
+ * saying so. That is exactly the silent-skip shape rule R1 of
+ * check-script-conventions.mjs names, and every sibling block in this file
+ * (assertRoutesDeclared, assertAttribution, assertMeasured) is already defended
+ * against it. This was the one exception, guarding the one failure that is
+ * invisible from the outside.
+ */
+export function assertRequiredDeclared(required) {
+  if (!Array.isArray(required) || required.length === 0) {
+    fail(
+      'perf-budgets.json declares no requiredFirstLoad edges. This guard exists ' +
+        'because the auth path must keep constructing the Supabase client EAGERLY ' +
+        '(detectSessionInUrl parses the magic-link fragment at construction), and ' +
+        'an empty block would report success while checking nothing. If the rule ' +
+        'is genuinely obsolete, delete this assert in the same PR and say why.',
+    );
+  }
+}
+
+export function findMissingRequiredEdges(manifest, required, routes) {
+  const rows = [];
+  for (const { route, module, why } of required) {
+    const declared = routes[route];
+    if (!declared) {
+      fail(
+        `requiredFirstLoad names the route "${route}", which is not declared in ` +
+          'perf-budgets.json `routes`. The rule has no entry modules to walk from, ' +
+          'so it would silently check nothing. Add the route or fix the name.',
+      );
+    }
+    if (!manifest[module]) {
+      fail(
+        `requiredFirstLoad requires "${module}" in the first-load graph of ` +
+          `"${route}", but that module has no node of its own in the client ` +
+          'manifest. It was most likely inlined into a parent chunk by a chunking ' +
+          'change. That is NOT the same as the edge being gone, so this is a ' +
+          'hard failure asking for a human, not a regression report.',
+      );
+    }
+    const { seen } = reachableWithPaths(manifest, declared.entries);
+    if (!seen.has(module)) rows.push({ route, module, why });
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
 // Sourcemap module naming
 // ---------------------------------------------------------------------------
 
@@ -887,19 +972,55 @@ function main() {
     );
   }
 
+  // REQUIRED edges (P5). Evaluated after the per-route loop so its output sits
+  // beside the budget table, but it is an independent verdict: a route can be
+  // comfortably under budget and still have lost the edge that keeps OAuth
+  // working, which is precisely the regression this exists to catch.
+  const required = budgets.requiredFirstLoad;
+  assertRequiredDeclared(required);
+  const missing = findMissingRequiredEdges(manifest, required, budgets.routes);
+  const requiredRows = ['', '## Required first-load edges', '', '| Route | Module | Status |', '|---|---|---|'];
+  console.log('');
+  for (const { route, module } of required) {
+    const gone = missing.some((r) => r.route === route && r.module === module);
+    requiredRows.push(`| ${route} | \`${module}\` | ${gone ? '**MISSING**' : 'present'} |`);
+    console.log(`[${gone ? 'MISSING' : 'ok'}] required edge: ${module} in ${route}`);
+  }
+
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      [...budgetRows, ...attrRows, ...moduleRows].join('\n') + '\n',
+      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows].join('\n') + '\n',
     );
   }
 
+  if (missing.length) {
+    console.error('');
+    for (const { route, module, why } of missing) {
+      console.error(
+        `REQUIRED FIRST-LOAD EDGE LOST: "${module}" is no longer in the ` +
+          `first-load graph of "${route}".\n  Why it is required: ${why}\n` +
+          '  This is not a size regression -- it is a CORRECTNESS one, and it fails ' +
+          'silently in production. A user who clicks a valid magic link is told the ' +
+          'link expired.\n  The edge is held by src/integrations/supabase/eagerAuthClient.ts, ' +
+          'imported by app/routes/catchall.tsx. Restore it rather than deleting this ' +
+          'rule; if the auth pages genuinely moved off the catchall, repoint the ' +
+          "route's entries here in the same PR.",
+      );
+    }
+  }
+
+  // BOTH verdicts, then one exit. Returning early on a lost edge suppressed the
+  // budget message entirely, so a PR that broke both got told about one, fixed
+  // it, rebuilt (minutes), and only then heard about the other.
   if (anyOver) {
     console.error(
       '\nOne or more routes exceed their first-load JS budget (perf-budgets.json). ' +
         'Either remove the weight from the static import graph or raise the budget ' +
         'deliberately in this PR with justification.',
     );
+  }
+  if (missing.length || anyOver) {
     return 1;
   }
   console.log('');
@@ -946,6 +1067,9 @@ function selfTest() {
     ['no module holding', 'walk-found-no-edge'],
     ['no `resolve.alias` block', 'alias-block'],
     ['this guard does not resolve', 'unknown-alias'],
+    ['declares no requiredFirstLoad', 'no-required-edges'],
+    ['which is not declared in', 'required-unknown-route'],
+    ['has no node of its own', 'required-module-not-chunked'],
   ];
   const failureKind = (run) => {
     try {
@@ -1151,6 +1275,90 @@ function selfTest() {
     0,
   );
   add('a map with no sources is empty, not a crash', () => sourceModulesFromMap({}).length, 0);
+
+  // --- findMissingRequiredEdges: the INVERSE rule, proved in BOTH directions ---
+  //
+  // The direction that matters is the SECOND one. A required-edge rule that
+  // cannot go red is worse than no rule: it reports "present" forever while the
+  // OAuth fragment parse quietly moves after the router mounts. So the removal
+  // case here is not a nicety -- it is the whole rule.
+  const REQ_M = {
+    'app/routes/catchall.tsx?__react-router-build-client-route': {
+      file: 'assets/catchall.js',
+      imports: ['src/integrations/supabase/client.ts'],
+    },
+    'src/integrations/supabase/client.ts': { file: 'assets/client.js', name: 'client' },
+    'app/routes/lean.tsx?__react-router-build-client-route': {
+      file: 'assets/lean.js',
+      imports: [],
+      // Reaching it dynamically is exactly the deferral that breaks OAuth, so
+      // it must NOT satisfy the requirement.
+      dynamicImports: ['src/integrations/supabase/client.ts'],
+    },
+  };
+  const REQ_ROUTES = {
+    auth: { entries: ['app/routes/catchall.tsx'], maxFirstLoadGzipKB: 310 },
+    lean: { entries: ['app/routes/lean.tsx'], maxFirstLoadGzipKB: 310 },
+  };
+  const REQ = (route) => [
+    { route, module: 'src/integrations/supabase/client.ts', why: 'detectSessionInUrl' },
+  ];
+  add(
+    'a present required edge reports nothing',
+    () => findMissingRequiredEdges(REQ_M, REQ('auth'), REQ_ROUTES).length,
+    0,
+  );
+  add(
+    'a required edge reached only DYNAMICALLY is reported missing',
+    () => findMissingRequiredEdges(REQ_M, REQ('lean'), REQ_ROUTES)[0]?.route,
+    'lean',
+  );
+  add(
+    'a required edge whose module left the graph entirely is reported missing',
+    () =>
+      findMissingRequiredEdges(
+        { ...REQ_M, 'app/routes/catchall.tsx?__react-router-build-client-route': {
+          file: 'assets/catchall.js', imports: [] } },
+        REQ('auth'),
+        REQ_ROUTES,
+      ).length,
+    1,
+  );
+  // The silent-skip direction. A deleted or renamed requiredFirstLoad key must
+  // fail, not report a reassuring "None declared." and exit 0.
+  add(
+    'a missing requiredFirstLoad block fails rather than checking nothing',
+    () => failureKind(() => assertRequiredDeclared(undefined)),
+    'no-required-edges',
+  );
+  add(
+    'an EMPTY requiredFirstLoad block fails the same way',
+    () => failureKind(() => assertRequiredDeclared([])),
+    'no-required-edges',
+  );
+  add(
+    'a populated requiredFirstLoad block is silent',
+    () => failureKind(() => assertRequiredDeclared(REQ('auth'))),
+    'no-throw',
+  );
+  add(
+    'a requirement naming an undeclared route fails loudly rather than checking nothing',
+    () => failureKind(() => findMissingRequiredEdges(REQ_M, REQ('ghost'), REQ_ROUTES)),
+    'required-unknown-route',
+  );
+  add(
+    'a required module with no manifest node of its own asks for a human',
+    () =>
+      failureKind(() =>
+        findMissingRequiredEdges(
+          { 'app/routes/catchall.tsx?__react-router-build-client-route': {
+            file: 'assets/catchall.js', imports: [] } },
+          REQ('auth'),
+          REQ_ROUTES,
+        ),
+      ),
+    'required-module-not-chunked',
+  );
 
   // --- packagesFromMap / describeContents: the vendor-only fallback ---
   add(
