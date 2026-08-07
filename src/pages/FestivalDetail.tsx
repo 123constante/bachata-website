@@ -1272,6 +1272,12 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 const DATE_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
+// The regex can't catch an impossible day (2027-02-30), which Date.UTC would
+// silently roll into March and render as fact. Real keys round-trip.
+
+const isRealDateKey = (key: string): boolean =>
+  DATE_KEY_RE.test(key) && new Date(keyToUtcNoon(key)).toISOString().slice(0, 10) === key;
+
 // A reversed, malformed or absurdly long end key is bad data -- collapse to
 // the start day rather than render it as fact. The 30-day bound replaces the
 // old tile row's 7-day render cap as the only limit on a corrupt far-future
@@ -1280,7 +1286,7 @@ const DATE_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 const clampEndKey = (startKey: string, endKey: string | null | undefined): string =>
   endKey &&
-  DATE_KEY_RE.test(endKey) &&
+  isRealDateKey(endKey) &&
   endKey >= startKey &&
   londonDaysBetweenKeys(startKey, endKey) <= 30
     ? endKey
@@ -1302,7 +1308,7 @@ const formatKeyRange = (
   style: "long" | "short",
 ): string | null => {
 
-  if (!startKey || !DATE_KEY_RE.test(startKey)) return null;
+  if (!startKey || !isRealDateKey(startKey)) return null;
 
   const safeEndKey = clampEndKey(startKey, endKey);
 
@@ -1778,7 +1784,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   const heroDayStatus = useMemo(() => {
     // todayKey validated too: on a degraded-Intl runtime it can be malformed,
     // and the lexicographic compares below would sort it arbitrarily.
-    if (!startKey || !DATE_KEY_RE.test(startKey) || !DATE_KEY_RE.test(todayKey)) return null;
+    if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
     const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
     if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
     if (daysUntil === 0) return { label: "Today" };
@@ -2199,15 +2205,20 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
         {/* Date line + days-away (P2 -- the tile row is retired) */}
 
-        {heroDateLine && <div className="hero-dateline">{heroDateLine}</div>}
-
-        {/* Always-rendered line box: the label is clock-derived so it can only
-            fill in after mount (#418), but the box itself must be in the server
-            HTML or its pop-in shifts the Get Tickets CTA under the tap. */}
-
         {heroDateLine && (
 
-          <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
+          <>
+
+            <div className="hero-dateline">{heroDateLine}</div>
+
+            {/* Always-rendered line box: the label is clock-derived so it can
+                only fill in after mount (#418), but the box itself must be in
+                the server HTML or its pop-in shifts the Get Tickets CTA under
+                the tap. */}
+
+            <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
+
+          </>
 
         )}
 
