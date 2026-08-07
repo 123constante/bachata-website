@@ -190,7 +190,87 @@ export function resolveBaseRef() {
   } catch {
     /* no upstream -- fall through */
   }
-  return "origin/main";
+  return TRUNK_BASE;
+}
+
+/**
+ * The widest honest base: the trunk this branch will merge into.
+ *
+ * Declared AFTER resolveBaseRef(), which returns it. Safe, because a `const` sits
+ * in the temporal dead zone only until module evaluation reaches this line and
+ * every caller runs later -- but it carries one constraint worth stating: nothing
+ * in this module may call resolveBaseRef() at MODULE SCOPE. A single such call
+ * added later would be a ReferenceError at import time, which on this path means
+ * the push gate fails to load rather than fails closed.
+ */
+export const TRUNK_BASE = "origin/main";
+
+/**
+ * PURE POLICY half of resolveShipBase(), split out so BOTH directions can be
+ * pinned by a unit test without standing up a temp repo and a fake remote.
+ *
+ * @param {string} narrowBase   what resolveBaseRef() returned
+ * @param {number} narrowRisky  risky files + risky deletions that base scopes in
+ * @param {string} trunk        the fallback base
+ */
+export function pickShipBase(narrowBase, narrowRisky, trunk = TRUNK_BASE) {
+  if (narrowBase === trunk) return trunk;
+  return narrowRisky > 0 ? narrowBase : trunk;
+}
+
+/**
+ * THE BASE THE PUSH GATE MUST SCOPE AGAINST -- resolveBaseRef() widened so it
+ * CANNOT COLLAPSE TO NOTHING merely because the branch has been pushed.
+ *
+ * THE HOLE THIS CLOSES (found during the supabase-defer P5 push, 2026-08-07).
+ * resolveBaseRef() answers "what is already pushed", which is the right question
+ * for stopping a long-lived branch re-scoping commits reviewed days ago. But
+ * ALREADY PUSHED IS NOT ALREADY REVIEWED, and the gate read the one as the other.
+ * Once origin/<branch> exists and equals HEAD, shipFiles() diffs a ref against
+ * itself, tieredScope() comes back empty, and ship-gate takes its totalScope === 0
+ * arm -- printing "no risky files in ship scope" and exiting 0 while the branch
+ * carries risky files no reviewer ever saw. GREEN, having inspected nothing. Same
+ * false-green class as #201: a guard answering a question it can no longer see the
+ * inputs to. Observed for real -- P5's push was refused, and a retry passed
+ * because the scope had EMPTIED, not because anything had been reviewed.
+ *
+ * THE ASYMMETRY THAT MADE IT OBVIOUS ONCE SEEN: review-stamp.mjs --manual ALREADY
+ * refuses this exact condition ("the risky ship scope is EMPTY -- refusing to
+ * stamp"), for this exact reason. The MINTING half failed closed and the ENFORCING
+ * half failed open, on the same predicate, inside the same apparatus.
+ *
+ * THE RULE: an empty risky scope is only believable when it is empty against the
+ * TRUNK. So when the narrow base contributes no risky content, fall back to
+ * origin/main and ask the wider question -- "does this branch carry unreviewed
+ * risky work at all?" -- instead of the vacuous one.
+ *
+ * A GENUINELY REVIEWED BRANCH STAYS GREEN. The stamp keys on CONTENT HASH, not on
+ * a base or a commit sha, so the same bytes stay covered under the wider base. The
+ * new red is reserved for branches whose risky content nothing ever attested --
+ * and for stamps that have gone stale, which is the honest answer rather than a
+ * vacuous green.
+ *
+ * WHY THE OPTIMISATION SURVIVES. The widening fires ONLY when the incremental ship
+ * has no risky content of its own. The "dozens of already-reviewed commits" case
+ * resolveBaseRef() exists for is untouched: that ship HAS risky files, keeps the
+ * narrow base, and is scoped incrementally exactly as before.
+ *
+ * REVIEW_SCOPE_BASE still wins outright -- an operator naming the base is stating
+ * what the review actually covered, which beats anything inferred here.
+ */
+export function resolveShipBase() {
+  /* AN OPERATOR-NAMED BASE IS FINAL, and deliberately NOT widened.
+   * review-stamp.mjs's empty-scope refusal tells the operator to name the base the
+   * review actually covered; a gate that then overrode that name would make its
+   * own printed remedy unreliable. The cost is that a REVIEW_SCOPE_BASE left
+   * exported in a shell keeps applying silently -- which is why ship-gate prints
+   * where the base came from rather than just what it was. */
+  if (process.env.REVIEW_SCOPE_BASE) return process.env.REVIEW_SCOPE_BASE;
+  const narrowBase = resolveBaseRef();
+  if (narrowBase === TRUNK_BASE) return TRUNK_BASE;
+  const narrowRisky =
+    riskyFilesInScope(narrowBase).length + deletedRiskyFiles(narrowBase).length;
+  return pickShipBase(narrowBase, narrowRisky);
 }
 
 /**

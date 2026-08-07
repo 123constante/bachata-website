@@ -247,6 +247,89 @@ export function assertRequiredDeclared(required) {
   }
 }
 
+/* THE PULLER RATCHET (P6, the arc's closing guard).
+ *
+ * P0 built the puller count as an INSTRUMENT: it printed, nothing enforced. That
+ * was right while the number was still moving -- the arc's whole job was to drive
+ * home from 3 pullers to 0, and a guard pinned to a number you are about to change
+ * is noise. The number has now stopped moving, so it becomes a contract.
+ *
+ * WHY A RATCHET AND NOT A BUDGET. The KB budget cannot catch this class, and P5
+ * demonstrated exactly that: simulating the regression left the auth route at
+ * 233.6 KB against a 310 budget -- the defect read as a 43.8 KB WIN. Weight and
+ * graph membership are different questions, and only one of them is what this arc
+ * bought.
+ *
+ * BOTH DIRECTIONS ARE BLOCKING, which is the part worth defending. Over the
+ * allowance is a regression -- vendor-supabase has re-entered a graph the arc
+ * removed it from. UNDER the allowance fails too, because an allowance nobody
+ * tightens stops describing the code: it decays into a ceiling with slack, and the
+ * next regression hides inside the slack it was never trimmed of. The fix for an
+ * under-count is a one-line edit in the PR that earned it, which is the moment the
+ * number is best understood. (This is the [[ratchet_shrink_not_a_win]] hazard read
+ * the other way round: there, a row LEAVING an allowlist meant the rule had gone
+ * blind. Here the count is measured from the built manifest every run, so it
+ * cannot go blind without assertAttribution/resolveTrackedKey hard-failing first.)
+ */
+export function assertRatchetDeclared(ratchet, routes) {
+  if (!ratchet || typeof ratchet !== 'object' || Object.keys(ratchet).length === 0) {
+    fail(
+      'perf-budgets.json declares no pullerRatchet. This is the guard that keeps ' +
+        'vendor-supabase out of the graphs the supabase-defer arc removed it from, ' +
+        'and an empty block would report success while checking nothing. If the ' +
+        'rule is genuinely obsolete, delete this assert in the same PR and say why.',
+    );
+  }
+  for (const [route, allowed] of Object.entries(ratchet)) {
+    if (!routes[route]) {
+      // Wording matters here: the canary classifies failures by message needle,
+      // and "which is not declared in" is already claimed by the requiredFirstLoad
+      // rule. Sharing it would make two different bugs report as one kind.
+      fail(
+        `pullerRatchet names the route "${route}", which perf-budgets.json ` +
+          '`routes` does not declare. It would silently check nothing. Add the ' +
+          'route or fix the name.',
+      );
+    }
+    if (!Number.isInteger(allowed) || allowed < 0) {
+      fail(
+        `pullerRatchet["${route}"] is ${JSON.stringify(allowed)}, which is not a ` +
+          'non-negative integer. A non-numeric allowance compares false against ' +
+          'every count and would never fire.',
+      );
+    }
+  }
+  for (const route of Object.keys(routes)) {
+    if (!(route in ratchet)) {
+      fail(
+        `the route "${route}" is budgeted but has no pullerRatchet entry. A ` +
+          'budgeted route with no ratchet can take on unlimited pullers without ' +
+          'a word, which is the exact regression this guard exists to catch. Add ' +
+          'its measured count.',
+      );
+    }
+  }
+}
+
+/** @returns {{route:string, allowed:number, observed:number, direction:'over'|'under'}[]} */
+export function findRatchetBreaks(ratchet, observed) {
+  const rows = [];
+  for (const [route, allowed] of Object.entries(ratchet)) {
+    const count = observed[route];
+    // A route present in the ratchet but never measured means the per-route loop
+    // did not run for it. Silence there would read as "0 pullers, all good".
+    if (count === undefined) {
+      fail(
+        `pullerRatchet declares "${route}" but no puller count was measured for ` +
+          'it. The route loop and the ratchet disagree about which routes exist.',
+      );
+    }
+    if (count > allowed) rows.push({ route, allowed, observed: count, direction: 'over' });
+    else if (count < allowed) rows.push({ route, allowed, observed: count, direction: 'under' });
+  }
+  return rows;
+}
+
 export function findMissingRequiredEdges(manifest, required, routes) {
   const rows = [];
   for (const { route, module, why } of required) {
@@ -852,6 +935,8 @@ function main() {
   console.log(`baseline commit: ${baseCommit}`);
 
   let anyOver = false;
+  /** route -> measured direct puller count, fed to the ratchet after the loop. */
+  const observedPullers = {};
   const budgetRows = [
     '## First-load JS budgets',
     '',
@@ -905,6 +990,7 @@ function main() {
     const pullers = findPullers(manifest, seen, trackedKey);
     const inGraph = seen.has(trackedKey);
     const base = baseRoutes[route];
+    observedPullers[route] = pullers.length;
 
     console.log(
       `  ${trackedName}: ${
@@ -987,11 +1073,58 @@ function main() {
     console.log(`[${gone ? 'MISSING' : 'ok'}] required edge: ${module} in ${route}`);
   }
 
+  // THE PULLER RATCHET (P6). A third independent verdict, for the same reason
+  // requiredFirstLoad is one: a route can sit comfortably under budget while
+  // vendor-supabase walks back into a graph this arc spent six phases removing it
+  // from. P5 measured that case at 43.8 KB UNDER budget.
+  const ratchet = budgets.pullerRatchet;
+  assertRatchetDeclared(ratchet, budgets.routes);
+  const breaks = findRatchetBreaks(ratchet, observedPullers);
+  const ratchetRows = ['', '## Puller ratchet', '', '| Route | Allowed | Measured | Status |', '|---|---|---|---|'];
+  console.log('');
+  for (const [route, allowed] of Object.entries(ratchet)) {
+    const count = observedPullers[route];
+    const broke = breaks.find((b) => b.route === route);
+    const label = broke ? (broke.direction === 'over' ? '**REGRESSION**' : '**TIGHTEN**') : 'ok';
+    ratchetRows.push(`| ${route} | ${allowed} | ${count} | ${label} |`);
+    console.log(
+      `[${broke ? broke.direction.toUpperCase() : 'ok'}] puller ratchet: ${route} -- ` +
+        `${count} puller(s), allowance ${allowed}`,
+    );
+  }
+
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows].join('\n') + '\n',
+      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows, ...ratchetRows].join('\n') + '\n',
     );
+  }
+
+  if (breaks.length) {
+    console.error('');
+    for (const { route, allowed, observed, direction } of breaks) {
+      if (direction === 'over') {
+        console.error(
+          `PULLER RATCHET REGRESSION: "${route}" now has ${observed} direct ` +
+            `puller(s) of ${trackedName}, allowance ${allowed}.\n` +
+            '  Something re-imported the Supabase client into this route\'s static ' +
+            'graph. The puller list printed above names the chunk and the module ' +
+            'edge list names the import to delete -- route it through getSupabase() ' +
+            'instead.\n  Raising the allowance is the wrong fix unless the edge is ' +
+            'genuinely required, in which case it belongs in requiredFirstLoad with ' +
+            'a reason, not here.',
+        );
+      } else {
+        console.error(
+          `PULLER RATCHET NOT TIGHTENED: "${route}" now has ${observed} direct ` +
+            `puller(s) of ${trackedName}, but the allowance is still ${allowed}.\n` +
+            '  This is a WIN that has not been recorded. Lower the allowance to ' +
+            `${observed} in perf-budgets.json in this PR -- an allowance nobody ` +
+            'tightens decays into a ceiling with slack, and the next regression ' +
+            'hides inside the slack.',
+        );
+      }
+    }
   }
 
   if (missing.length) {
@@ -1020,7 +1153,7 @@ function main() {
         'deliberately in this PR with justification.',
     );
   }
-  if (missing.length || anyOver) {
+  if (missing.length || anyOver || breaks.length) {
     return 1;
   }
   console.log('');
@@ -1070,6 +1203,11 @@ function selfTest() {
     ['declares no requiredFirstLoad', 'no-required-edges'],
     ['which is not declared in', 'required-unknown-route'],
     ['has no node of its own', 'required-module-not-chunked'],
+    ['declares no pullerRatchet', 'no-ratchet'],
+    ['pullerRatchet names the route', 'ratchet-unknown-route'],
+    ['non-negative integer', 'ratchet-bad-allowance'],
+    ['has no pullerRatchet entry', 'ratchet-missing-route'],
+    ['no puller count was measured', 'ratchet-unmeasured'],
   ];
   const failureKind = (run) => {
     try {
@@ -1358,6 +1496,81 @@ function selfTest() {
         ),
       ),
     'required-module-not-chunked',
+  );
+
+  // --- the PULLER RATCHET (P6): both directions, plus every silent-skip ---
+  //
+  // The over-direction is the regression the arc exists to prevent. The
+  // under-direction is the one that keeps the number honest, and it is easy to
+  // argue away as pedantry -- so it is pinned here rather than left to review.
+  const RAT_ROUTES = { home: { entries: ['a'], maxFirstLoadGzipKB: 1 }, event: { entries: ['b'], maxFirstLoadGzipKB: 1 } };
+  const RAT = { home: 0, event: 3 };
+  add(
+    'counts exactly at the allowance report nothing',
+    () => findRatchetBreaks(RAT, { home: 0, event: 3 }).length,
+    0,
+  );
+  add(
+    'a route ABOVE its allowance is reported as a regression',
+    () => findRatchetBreaks(RAT, { home: 1, event: 3 })[0]?.direction,
+    'over',
+  );
+  add(
+    'home taking on a SINGLE puller is caught -- the arc completion proof is 0',
+    () => findRatchetBreaks(RAT, { home: 1, event: 3 })[0]?.route,
+    'home',
+  );
+  add(
+    'a route BELOW its allowance is reported as an untightened ratchet',
+    () => findRatchetBreaks(RAT, { home: 0, event: 2 })[0]?.direction,
+    'under',
+  );
+  add(
+    'both directions can break at once, and both are reported',
+    () => findRatchetBreaks(RAT, { home: 2, event: 1 }).length,
+    2,
+  );
+  add(
+    'a ratchet-declared route that was never measured fails rather than reading as 0',
+    () => failureKind(() => findRatchetBreaks(RAT, { home: 0 })),
+    'ratchet-unmeasured',
+  );
+  // The silent-skip family. Every one of these would otherwise let a budgeted
+  // route accrue unlimited pullers while the guard printed a reassuring "ok".
+  add(
+    'a missing pullerRatchet block fails rather than checking nothing',
+    () => failureKind(() => assertRatchetDeclared(undefined, RAT_ROUTES)),
+    'no-ratchet',
+  );
+  add(
+    'an EMPTY pullerRatchet block fails the same way',
+    () => failureKind(() => assertRatchetDeclared({}, RAT_ROUTES)),
+    'no-ratchet',
+  );
+  add(
+    'a fully populated pullerRatchet block is silent',
+    () => failureKind(() => assertRatchetDeclared(RAT, RAT_ROUTES)),
+    'no-throw',
+  );
+  add(
+    'a ratchet entry naming an undeclared route fails loudly',
+    () => failureKind(() => assertRatchetDeclared({ ...RAT, ghost: 0 }, RAT_ROUTES)),
+    'ratchet-unknown-route',
+  );
+  add(
+    'a BUDGETED route with no ratchet entry fails -- unlimited pullers, silently',
+    () => failureKind(() => assertRatchetDeclared({ home: 0 }, RAT_ROUTES)),
+    'ratchet-missing-route',
+  );
+  add(
+    'a non-integer allowance fails rather than comparing false forever',
+    () => failureKind(() => assertRatchetDeclared({ home: 0, event: '3' }, RAT_ROUTES)),
+    'ratchet-bad-allowance',
+  );
+  add(
+    'a negative allowance fails the same way',
+    () => failureKind(() => assertRatchetDeclared({ home: 0, event: -1 }, RAT_ROUTES)),
+    'ratchet-bad-allowance',
   );
 
   // --- packagesFromMap / describeContents: the vendor-only fallback ---
