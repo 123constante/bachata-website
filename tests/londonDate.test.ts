@@ -12,6 +12,7 @@ import {
   isRealDateKey,
   clampRangeEndKey,
   formatKeyRange,
+  dateKeyInTz,
 } from '@/lib/londonDate';
 
 // All helpers must be independent of the machine timezone (they compute on
@@ -226,5 +227,35 @@ describe('formatKeyRange', () => {
   it('returns null for a missing or unreal start key', () => {
     expect(formatKeyRange(null, '2027-03-29', 'long')).toBeNull();
     expect(formatKeyRange('2027-02-30', '2027-03-01', 'long')).toBeNull();
+  });
+});
+
+describe('dateKeyInTz timezone fallback', () => {
+  // 22:30Z on 13 Jun 2026: London (BST, +1) is still the 13th, Sydney (+10) is
+  // already the 14th, New York (-4) is the 13th. Under the TZ matrix in this
+  // file's header, the Sydney leg is what makes the missing-tz case a REAL
+  // regression test rather than a tautology -- on a London runner, "fell back
+  // to London" and "used the runtime zone" are indistinguishable, which is
+  // exactly how the original defect passed review.
+  const instant = new Date('2026-06-13T22:30:00Z');
+
+  it('resolves a real zone on that zone calendar', () => {
+    expect(dateKeyInTz(instant, 'Europe/London')).toBe('2026-06-13');
+    expect(dateKeyInTz(instant, 'Australia/Sydney')).toBe('2026-06-14');
+  });
+
+  it('falls back to London for an INVALID zone (Intl throws, catch fires)', () => {
+    expect(dateKeyInTz(instant, 'Not/AZone')).toBe('2026-06-13');
+  });
+
+  it('falls back to London for a MISSING zone (Intl does NOT throw)', () => {
+    // The trap: `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })`
+    // resolves to the RUNTIME zone without throwing, so the catch never fires.
+    // Before the normalisation this asserts, a Sydney visitor got 2026-06-14 --
+    // today on their own browser calendar, from the module whose entire job is
+    // to stop that.
+    expect(dateKeyInTz(instant, undefined as unknown as string)).toBe('2026-06-13');
+    expect(dateKeyInTz(instant, null as unknown as string)).toBe('2026-06-13');
+    expect(dateKeyInTz(instant, '')).toBe('2026-06-13');
   });
 });

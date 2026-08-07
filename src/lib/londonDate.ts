@@ -63,19 +63,28 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
 const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>([[LONDON_TZ, londonKeyFormatter]]);
 
 export const dateKeyInTz = (d: Date, timeZone: string): string => {
-  let fmt = dateKeyFormatters.get(timeZone);
+  // A MISSING zone must be normalised here, not left to the try/catch below.
+  // `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })` does NOT throw --
+  // it resolves to the RUNTIME's zone -- so the catch never fires and the caller
+  // silently gets today on the VISITOR'S browser calendar: precisely the bug
+  // class this module exists to prevent. It reads as correct on a London
+  // machine, which is how it survived review. `strict: false` in
+  // tsconfig.app.json means nothing stops a nullable tz reaching here.
+  const tz = timeZone || LONDON_TZ;
+  let fmt = dateKeyFormatters.get(tz);
   if (!fmt) {
     try {
       fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone,
+        timeZone: tz,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       });
     } catch {
+      // An INVALID zone ('Not/AZone') does throw, and this is its fallback.
       fmt = londonKeyFormatter;
     }
-    dateKeyFormatters.set(timeZone, fmt);
+    dateKeyFormatters.set(tz, fmt);
   }
   return fmt.format(d);
 };

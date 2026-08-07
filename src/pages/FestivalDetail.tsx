@@ -1727,6 +1727,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // "Today" on the start day, "Happening now" mid-run, nothing after. Render
   // site is mount-gated (todayKey reads the clock: #418).
   const heroDayStatus = useMemo(() => {
+    // A cancelled festival makes no timing claim at all. Without this, a
+    // cancelled mid-run festival rendered "Happening now" in the hero directly
+    // above its own cancellation banner. The countdown this replaced hid itself
+    // once the start passed, so it never contradicted the banner; the day-status
+    // line runs through the whole event and does.
+    if (isCancelled) return null;
     // todayKey validated too: on a degraded-Intl runtime it can be malformed,
     // and the lexicographic compares below would sort it arbitrarily.
     if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
@@ -1741,7 +1747,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
       ? { label: "Happening now" }
       : null;
-  }, [startKey, endKey, todayKey]);
+  }, [startKey, endKey, todayKey, isCancelled]);
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
