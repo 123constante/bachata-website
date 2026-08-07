@@ -1353,6 +1353,19 @@ const splitTitleIntoLines = (name: string): string[] => {
 
 
 
+/**
+ * The raw event_view_p5 payload as read on a standalone /festival/:id mount
+ * (snake_case). Only the fields this page actually reads are named; the rest
+ * stays `unknown` rather than `any` so a new read has to declare itself here.
+ */
+type FestivalSnapshotPayload = {
+  occurrence_effective?: {
+    is_cancelled?: boolean | null;
+    cancellation_reason_label?: string | null;
+  } | null;
+  [key: string]: unknown;
+};
+
 const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProps) => {
 
   const { id } = useParams();
@@ -1422,7 +1435,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       if (rpcError) throw rpcError;
 
-      return data as Record<string, any> | null;
+      return data as FestivalSnapshotPayload | null;
 
     },
 
@@ -1705,9 +1718,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // Today's date key on the FESTIVAL's calendar (not the visitor's browser
   // zone and not London's): flips at the event's own midnight, re-anchors on
-  // visibility/focus, and survives long-lived tabs. Drives the today badges
-  // and the days-away figure. (The day-tab default reads its own clock inside
-  // pickDefaultDayIndex -- unifying the two is a follow-up.)
+  // visibility/focus, and survives long-lived tabs. THE page's single clock —
+  // it drives the today badges, the days-away figure and the default day tab.
   const todayKey = useTodayKey(eventTz);
 
   // The hero's timing cue, in whole calendar days on the event's calendar
@@ -1733,14 +1745,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
-  // later tab click or re-firing on unrelated re-renders.
+  // later tab click or re-firing on unrelated re-renders. `todayKey` is in the
+  // dep list because the effect reads it, but the same ref makes it inert after
+  // the first pick: a midnight rollover advances the badges and deliberately
+  // leaves the open tab where the user left it.
   const defaultedForRef = useRef<string | null>(null);
   useEffect(() => {
     const eid = festivalDetail?.eventId ?? null;
     if (!eid || days.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
-    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), festivalDetail?.dates.timezone ?? null));
-  }, [festivalDetail?.eventId, festivalDetail?.dates.timezone, days]);
+    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), todayKey));
+  }, [festivalDetail?.eventId, days, todayKey]);
 
 
 
