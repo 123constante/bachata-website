@@ -1460,6 +1460,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
       ? (snapshotPayload.occurrence_effective.cancellation_reason_label as string)
       : null);
 
+  // Has the cancellation fact actually ARRIVED? On the standalone /festival/:id
+  // mount it rides the festival-snapshot query, which can resolve after the
+  // detail query that supplies the dates. Derived as a boolean so the memo below
+  // can depend on it honestly: depending on `snapshotPayload` via a bare read
+  // inside the memo left it stale, and a non-cancelled festival then kept the
+  // "stay silent" result forever (the cancelled path recomputed because
+  // isCancelled itself flipped, so the bug hid in the common case).
+  const cancellationKnown = Boolean(propSnapshot) || snapshotPayload !== undefined;
+
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
   useSeo(
@@ -1741,7 +1750,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     // snapshot query fails outright, data stays undefined and the line stays
     // absent: no timing claim beats a possibly-wrong one.
     if (isCancelled) return null;
-    if (!propSnapshot && snapshotPayload === undefined) return null;
+    if (!cancellationKnown) return null;
     // todayKey validated too: on a degraded-Intl runtime it can be malformed,
     // and the lexicographic compares below would sort it arbitrarily.
     if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
@@ -1759,7 +1768,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
       ? { label: "Happening now" }
       : null;
-  }, [startKey, endKey, todayKey, isCancelled]);
+  }, [startKey, endKey, todayKey, isCancelled, cancellationKnown]);
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
