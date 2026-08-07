@@ -81,6 +81,7 @@ import {
   REPO_ROOT,
   enableScopeCache,
   resolveBaseRef,
+  resolveShipBase,
   tieredScope,
   deletedRiskyFiles,
   renamePairs,
@@ -302,11 +303,22 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
   let scope;
   let deleted;
   let renames = [];
+  let baseRef = null;
+  let narrowBase = null;
   try {
     // ONE base ref for all three halves: tieredScope(), deletedRiskyFiles() and
     // renamePairs() each default to resolveBaseRef(), and a ref that moved between
     // the calls would scope them against different ships.
-    const baseRef = resolveBaseRef();
+    //
+    // resolveShipBase(), NOT resolveBaseRef(). The narrow base is the branch's own
+    // upstream, which collapses to an EMPTY scope the moment the branch is pushed
+    // -- and this gate then answered "no risky files in ship scope", exit 0, having
+    // inspected nothing. resolveShipBase() falls back to the trunk exactly when the
+    // narrow base carries no risky content, so the scope can no longer empty
+    // BECAUSE A BRANCH GOT PUSHED. narrowBase is kept only to tell the operator
+    // when that widening fired. See review-scope.mjs resolveShipBase().
+    narrowBase = resolveBaseRef();
+    baseRef = resolveShipBase();
     scope = tieredScope(baseRef);
     deleted = byTier(deletedRiskyFiles(baseRef));
     renames = renamePairs(baseRef);
@@ -344,7 +356,7 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
     currentHashes[rel] = hashFile(path.join(REPO_ROOT, rel));
   }
 
-  return decide({
+  const verdict = decide({
     scope,
     deleted,
     currentHashes,
@@ -380,6 +392,13 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
           STAMP_PATH +
           " -- run /code-review from THIS working tree",
   });
+
+  /* The base is part of the VERDICT, not a debug aside: "0 risky file(s)" means
+   * two completely different things depending on what it was measured against,
+   * and the whole empty-scope bypass lived in that ambiguity. `widened` is true
+   * when the branch's own upstream contributed nothing risky and the trunk was
+   * used instead -- the case that used to print a vacuous green. */
+  return { ...verdict, baseRef, widened: baseRef !== narrowBase };
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
@@ -400,6 +419,22 @@ if (isMain) {
         ? "RED policy (exit 1)"
         : "RED infra (exit 2)";
     console.log("ship-gate: " + tag + (verdict.strictSoft ? "  [soft tier: STRICT]" : "  [soft tier: advisory]"));
+    /* NAME THE BASE, ALWAYS. Every count this gate prints is relative to it, and
+     * "0 risky file(s)" measured against an already-pushed branch used to mean
+     * "nothing was checked" while reading as "nothing needs checking". */
+    if (verdict.baseRef) {
+      console.log(
+        "  scope base: " +
+          verdict.baseRef +
+          (process.env.REVIEW_SCOPE_BASE
+            ? "  (named by REVIEW_SCOPE_BASE in the environment -- taken as final." +
+              " If you did not mean to set it, unset it and re-run)"
+            : verdict.widened
+            ? "  (WIDENED to the trunk -- the branch's own upstream carried no risky" +
+              " content, which is the shape that used to print a vacuous green)"
+            : "")
+      );
+    }
     for (const r of verdict.reasons) console.log("  - " + r);
     for (const w of verdict.warnings) console.log("  ! unreviewed app code (advisory): " + w);
     // Neutral label: a note EXPLAINS the lines above it. Printed under the

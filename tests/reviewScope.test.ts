@@ -20,6 +20,9 @@ import {
   riskyFilesInScope,
   deletedRiskyFiles,
   diffOrigin,
+  pickShipBase,
+  resolveShipBase,
+  TRUNK_BASE,
   blocksTheShip,
   DECLARED_ALWAYS_EXEMPT,
   classifySurface,
@@ -849,6 +852,58 @@ describe("pre-ship CHECKS covers the whole lint chain (anti-under-run)", () => {
       ".env",
     ]) {
       expect(decideSmoke({ files: [f], base: "origin/main" }).ran, f).toBe(true);
+    }
+  });
+});
+
+/* THE EMPTY-SCOPE BYPASS (supabase-defer P6).
+ *
+ * Found during P5's push: resolveBaseRef() returns the branch's OWN upstream, so
+ * once origin/<branch> equals HEAD the ship diff is a ref against itself, the
+ * risky scope comes back empty, and ship-gate printed "no risky files in ship
+ * scope" -- exit 0 -- while the branch carried risky files no reviewer had seen.
+ * Reproduced end-to-end against a real remote before the fix was written; these
+ * cases pin the POLICY that closes it, which is why pickShipBase() is split out
+ * of resolveShipBase() as a pure function.
+ *
+ * The load-bearing case is the FIRST one. The rest exist so a later "simplify
+ * this" cannot quietly turn the widening on permanently (which would re-scope
+ * every already-reviewed commit on a long branch, the exact cost resolveBaseRef()
+ * was introduced to avoid) or off again. */
+describe("pickShipBase() -- a pushed branch cannot empty its own ship scope", () => {
+  it("WIDENS to the trunk when the branch's upstream carries no risky content", () => {
+    // The bypass: HEAD == origin/feat/x, so the narrow base scopes in nothing.
+    expect(pickShipBase("origin/feat/x", 0)).toBe(TRUNK_BASE);
+  });
+
+  it("KEEPS the narrow base when the incremental ship has risky content", () => {
+    // The optimisation resolveBaseRef() exists for: a long-lived branch must not
+    // re-scope commits reviewed days ago just because it has many of them.
+    expect(pickShipBase("origin/feat/x", 1)).toBe("origin/feat/x");
+    expect(pickShipBase("origin/feat/x", 12)).toBe("origin/feat/x");
+  });
+
+  it("never widens past the trunk -- an empty trunk scope is a genuinely empty ship", () => {
+    // A docs-only ship must still not need a review receipt. Widening origin/main
+    // to origin/main is a no-op, so the honest empty case stays green.
+    expect(pickShipBase(TRUNK_BASE, 0)).toBe(TRUNK_BASE);
+    expect(pickShipBase(TRUNK_BASE, 3)).toBe(TRUNK_BASE);
+  });
+
+  it("takes an operator-named REVIEW_SCOPE_BASE as final, ABOVE this policy", () => {
+    /* Pinned because the two halves of the apparatus have to agree: review-stamp's
+     * empty-scope refusal instructs the operator to name the base, so the gate
+     * overriding that name would break its own printed remedy. Asserted on
+     * resolveShipBase(), not pickShipBase(), because the env var is handled before
+     * the policy is ever consulted -- and it short-circuits before any git call,
+     * so this stays a pure unit test. */
+    const prev = process.env.REVIEW_SCOPE_BASE;
+    process.env.REVIEW_SCOPE_BASE = "abc1234";
+    try {
+      expect(resolveShipBase()).toBe("abc1234");
+    } finally {
+      if (prev === undefined) delete process.env.REVIEW_SCOPE_BASE;
+      else process.env.REVIEW_SCOPE_BASE = prev;
     }
   });
 });

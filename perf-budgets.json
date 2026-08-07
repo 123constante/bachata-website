@@ -1,6 +1,6 @@
 {
   "//": "First-load JS budgets (gzip KB) enforced by scripts/check-bundle-budget.mjs (run via `npm run check:bundle-budget` after `npm run build`). Raise a budget only deliberately, in the same PR that grows the graph, with justification in the PR description. The bundle-budget job BLOCKS (continue-on-error was dropped in #187); it is not warn-only.",
-  "//home": "245 -> 255 on 2026-08-05. Measured 244.2, i.e. 0.8 KB of headroom, after #187's 53-package batch cost +5.0 KB. One more routine batch would breach it. The weight is vendor-supabase (43.3 KB gz): auth-js 46%, realtime-js 17%, storage-js 17% (storage is entirely unused -- zero `.storage.from(` in src/). None of it is separable: SupabaseClient's constructor eagerly builds every sub-client, so no bundler can drop realtime or storage while `createClient` is imported statically. The only real fix is deferring the client behind a dynamic import (~43 KB off home), which touches 82 import sites and moves when auth resolves on first paint -- an arc, not a budget tweak. 255 buys ~2 batches of room without hiding a genuine regression.",
+  "//home": "255 -> 215 on 2026-08-07 by P6, the closing phase of the supabase-defer arc. Measured 202.9 KB gz across 64 files with vendor-supabase NOT in first load and 0 direct pullers -- the arc's completion proof, and -41.3 KB against the pre-arc baseline. 12.1 KB of headroom, about 2.4 dependency batches at #187's observed +5.0 KB per 53-package batch, which is deliberately the SAME posture the old 255/244.2 pair carried (10.8 KB); the budget got tighter because the route got smaller, not because the tolerance changed. HISTORY, kept because it is the whole reason the arc existed: 245 -> 255 on 2026-08-05 at 244.2 measured, when vendor-supabase (43.3 KB gz) sat in home's first load -- auth-js 46%, realtime-js 17%, storage-js 17%, storage entirely unused (zero `.storage.from(` in src/). None of it was separable: SupabaseClient's constructor eagerly builds every sub-client, so no bundler can drop realtime or storage while `createClient` is imported statically. Deferring the client behind getSupabase() was the only lever, and it took six phases. BEFORE RAISING THIS AGAIN, read `pullerRatchet` below: weight and graph membership are different questions, and P5 measured a regression that read as a 43.8 KB WIN against its budget.",
   "//auth": "Added by P5 of the supabase-defer arc. This route is budgeted PRIMARILY so requiredFirstLoad below has somewhere to hang -- the auth pages (/auth, /auth/callback) are not framework routes, they live on the catchall, so the catchall's graph IS the auth path's graph. Measured 277.4 KB gz across 58 files at ebc67e8. Budget set to 310 deliberately generously (32.6 KB headroom, ~12%): #187's 53-package batch cost +5.0 KB, so that is roughly six routine dependency batches of room. The point is that this route must never red-light for drift unrelated to the edge it exists to guard -- a budget red here would be read as an auth-path failure and waste the reader's time. It is NOT a target to optimise against; the catchall deliberately carries vendor-supabase (see requiredFirstLoad).",
   "routes": {
     "home (/city/:slug)": {
@@ -9,7 +9,7 @@
         "app/root.tsx",
         "app/routes/home.tsx"
       ],
-      "maxFirstLoadGzipKB": 255
+      "maxFirstLoadGzipKB": 215
     },
     "event (/event/:id)": {
       "entries": [
@@ -36,6 +36,12 @@
       "why": "detectSessionInUrl parses the magic-link fragment at client construction; the auth path must construct eagerly, not behind getSupabase(). Held by src/integrations/supabase/eagerAuthClient.ts."
     }
   ],
+  "//pullerRatchet": "P6, the arc's closing guard. P0 built the puller count as an INSTRUMENT -- it printed, nothing enforced -- which was right while the number was still moving: home was being driven 3 -> 0 and a guard pinned to a number you are about to change is noise. The number has stopped moving, so it becomes a contract. WHY A RATCHET AND NOT A BUDGET: the KB budget cannot catch this class, and P5 proved it -- simulating the regression left the auth route at 233.6 KB against a 310 budget, so the defect read as a 43.8 KB WIN. Weight and graph membership are different questions and only one of them is what this arc bought. BOTH DIRECTIONS BLOCK. Over the allowance is a regression: vendor-supabase has re-entered a graph six phases removed it from, and the puller + module-edge lists printed by the guard name the exact import to route through getSupabase(). UNDER the allowance also fails, because an allowance nobody tightens stops describing the code -- it decays into a ceiling with slack and the next regression hides in the slack; the fix is a one-line edit in the PR that earned the win, which is when the number is best understood. Every budgeted route must have an entry: a budgeted route with no ratchet can take on unlimited pullers silently. home 0 is the arc's completion proof and the row that must never rise. event 3 and auth 2 are pins, not targets -- auth's edge is REQUIRED (see requiredFirstLoad above), so its allowance can never honestly reach 0.",
+  "pullerRatchet": {
+    "home (/city/:slug)": 0,
+    "event (/event/:id)": 3,
+    "auth (/auth/callback, via catchall)": 2
+  },
   "attribution": {
     "//": "Report-only, added by P0 of the supabase-defer arc (~/.claude/plans/arc-defer-supabase-client.md). Names one chunk whose FIRST-LOAD PULLERS each budgeted route reports: the chunks holding a direct static edge to it, a shortest path from a route entry, and the first-party modules each puller contains (from the sourcemap). The puller count is the arc's work-list -- it shrinks by one per phase, and 0 pullers on home is the completion proof. Nothing here is enforced; P6 turns the count into a ratchet.",
     "//trackedChunkName": "Matched against the manifest node's chunk `name`, i.e. the manualChunks group key in vite.config.ts -- NOT the hashed filename, which changes on every content edit. If that group is ever renamed the guard hard-fails rather than reporting a reassuring 0: a tracker that silently measures nothing is the failure mode rule R1 of check-script-conventions.mjs exists to catch.",
@@ -43,24 +49,23 @@
     "//trackedModule": "The first-party module that leads INTO trackedChunkName, and the target of the module-level edge report. A chunk name cannot serve: no import statement names a chunk, so the chunk-level puller list can say where the weight is but never which import to delete. That gap is why 'is this the last edge?' was answered by `grep -rl integrations/supabase/client` three times and was wrong three times -- grep sees direct importers of a string, not a barrel re-export (@/lib/seo -> useEntitySlugOrId), a provider three components deep (root -> SearchProvider -> SearchOverlay -> searchClickTelemetry), or a loader helper (home -> detailLoader -> resolvePublicEventRef). All three misses were of exactly those shapes, and two of them were recorded in the arc plan as out of scope on the strength of a grep. If this module stops being the way in (client.ts retired, or the client constructed somewhere else), repoint it -- the guard hard-fails if the path is not a file, rather than reporting 0 edges for every route.",
     "trackedModule": "src/integrations/supabase/client.ts",
     "baseline": {
-      "//": "Measured on 2026-08-05 in a clean worktree at 138390a (npm ci + npm run build + npm run check:bundle-budget). These figures CONFIRM the ones inherited from session-handover-2026-08-05, which had not been re-measured. Deltas printed by the guard are against this row; it is rewritten only by a phase that deliberately re-baselines, and never to paper over a regression.",
-      "commit": "138390a",
+      "//": "RE-BASELINED by P6 at the arc's close, 2026-08-07. Measured at afd7996 (P5's merge onto main) via npm run build + npm run check:bundle-budget, with only scripts/ and .claude/ edits applied on top -- neither is in the client bundle, so these ARE afd7996's figures. Deltas printed by the guard are against this row; it is rewritten only by a phase that deliberately re-baselines, and never to paper over a regression. WHY RE-BASELINE HERE, since that rule is otherwise strict: the previous row was 138390a, PRE-arc, and home has since dropped 41.3 KB. Leaving it would print '-41.3 KB' on every future run, where it reads as 'this PR saved 41 KB' -- a number meaning something other than what it says, which is the failure mode this file exists to prevent. All three rows now come from ONE commit, which also retires the split-measurement caveat the auth row carried (it was measured at ebc67e8, not 138390a, because it was not budgeted then). PRE-ARC FIGURES, kept so the arc's win stays legible: home 244.2 KB / 61 chunks / 3 pullers (138390a); event 363.5 / 89 / 4 (138390a); auth 277.4 / 58 / 2 (ebc67e8).",
+      "commit": "afd7996",
       "trackedChunkGzipKB": 43.3,
       "routes": {
         "home (/city/:slug)": {
-          "firstLoadGzipKB": 244.2,
-          "chunks": 61,
-          "pullers": 3
+          "firstLoadGzipKB": 202.9,
+          "chunks": 64,
+          "pullers": 0
         },
         "event (/event/:id)": {
-          "firstLoadGzipKB": 363.5,
-          "chunks": 89,
-          "pullers": 4
+          "firstLoadGzipKB": 365.8,
+          "chunks": 93,
+          "pullers": 3
         },
-        "//auth": "Measured at ebc67e8 (P5's base), NOT at 138390a like the two rows above -- this route was not budgeted then, so no figure from that commit exists. Recorded so the guard has something to diff against: without a row it prints a NO-baseline-row advisory on every run, and a blocking job that permanently carries a warning teaches its reader to skim the output it most needs read.",
         "auth (/auth/callback, via catchall)": {
-          "firstLoadGzipKB": 277.4,
-          "chunks": 58,
+          "firstLoadGzipKB": 278.7,
+          "chunks": 59,
           "pullers": 2
         }
       }
