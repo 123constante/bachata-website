@@ -25,13 +25,24 @@ import { dateKeyInTz } from '@/lib/londonDate';
  * London calendar.
  */
 export const useTodayKey = (timeZone: string, serverKey?: string): string => {
-  const [key, setKey] = useState(() => serverKey ?? dateKeyInTz(new Date(), timeZone));
+  const [state, setState] = useState(() => ({
+    tz: timeZone,
+    key: serverKey ?? dateKeyInTz(new Date(), timeZone),
+  }));
+
+  // A timezone change (e.g. a page's data resolving from a London default to
+  // the event's own zone) corrects during render, before paint -- React's
+  // adjust-state-on-prop-change pattern. Leaving it to the effect below would
+  // paint one frame with the previous calendar's key.
+  if (state.tz !== timeZone) {
+    setState({ tz: timeZone, key: dateKeyInTz(new Date(), timeZone) });
+  }
 
   useEffect(() => {
     const check = () =>
-      setKey((prev) => {
+      setState((prev) => {
         const next = dateKeyInTz(new Date(), timeZone);
-        return next === prev ? prev : next;
+        return prev.tz === timeZone && prev.key === next ? prev : { tz: timeZone, key: next };
       });
     check();
     const timer = setInterval(check, 60_000);
@@ -47,5 +58,5 @@ export const useTodayKey = (timeZone: string, serverKey?: string): string => {
     };
   }, [timeZone]);
 
-  return key;
+  return state.key;
 };

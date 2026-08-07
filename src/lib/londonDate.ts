@@ -157,6 +157,63 @@ export const weekdayOfKey = (key: string): number => new Date(keyToUtcNoon(key))
 export const addDaysToKey = (key: string, days: number): string =>
   new Date(keyToUtcNoon(key) + days * 86_400_000).toISOString().slice(0, 10);
 
+/**
+ * True only for a well-shaped, calendar-real YYYY-MM-DD key: the shape test
+ * catches a 13th month (2027-13-05, which safeKeyParts would degrade to the
+ * epoch fallback and render as 1 January 1970), and the round-trip through
+ * keyToUtcNoon catches an impossible day like 2027-02-30 (which Date.UTC
+ * silently rolls into March). Leap-day aware by construction.
+ */
+export const isRealDateKey = (key: string): boolean =>
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(key) &&
+  new Date(keyToUtcNoon(key)).toISOString().slice(0, 10) === key;
+
+/**
+ * Collapse a reversed or unreal end key to the start day, so a bad range
+ * renders as a single day instead of a reversed or garbage span.
+ */
+export const clampRangeEndKey = (startKey: string, endKey: string | null | undefined): string =>
+  endKey && isRealDateKey(endKey) && endKey >= startKey ? endKey : startKey;
+
+/**
+ * One date-range label for a pair of calendar keys, so every surface showing
+ * the same range agrees. 'long' spells out weekday + day + month + year
+ * ("Fri 26 to Mon 29 March 2027" with an en-dash separator; months and years
+ * appear on BOTH sides whenever the span crosses them); 'short' is the
+ * compact share form ("26 Mar to 29 Mar 2027"). The separator is written as
+ * an escape per the raw-Unicode source rule. Returns null for a missing or
+ * unreal start key; the end key is clamped via clampRangeEndKey. UTC-locked
+ * formatting off the UTC-noon anchor keeps SSR and every client timezone in
+ * agreement.
+ */
+export const formatKeyRange = (
+  startKey: string | null | undefined,
+  endKey: string | null | undefined,
+  style: 'long' | 'short',
+): string | null => {
+  if (!startKey || !isRealDateKey(startKey)) return null;
+  const safeEndKey = clampRangeEndKey(startKey, endKey);
+  const start = new Date(keyToUtcNoon(startKey));
+  const end = new Date(keyToUtcNoon(safeEndKey));
+  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
+    d.toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
+  const day = (d: Date) =>
+    style === 'long' ? `${fmt(d, { weekday: 'short' })} ${d.getUTCDate()}` : String(d.getUTCDate());
+  const month = (d: Date) => fmt(d, { month: style === 'long' ? 'long' : 'short' });
+  const tail = (d: Date) => `${day(d)} ${month(d)} ${d.getUTCFullYear()}`;
+  if (safeEndKey === startKey) return tail(start);
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  const startPart = [
+    day(start),
+    style === 'short' || !sameMonth ? month(start) : null,
+    sameYear ? null : String(start.getUTCFullYear()),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `${startPart} \u2013 ${tail(end)}`;
+};
+
 const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
 const wallClockMsInTz = (d: Date, timeZone: string): number => {
   let fmt = wallClockFormatters.get(timeZone);

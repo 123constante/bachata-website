@@ -9,6 +9,9 @@ import {
   addDaysToKey,
   londonDayRangeUtc,
   londonWallClockToInstant,
+  isRealDateKey,
+  clampRangeEndKey,
+  formatKeyRange,
 } from '@/lib/londonDate';
 
 // All helpers must be independent of the machine timezone (they compute on
@@ -16,7 +19,7 @@ import {
 // matrix (Europe/London, America/New_York, Australia/Sydney) to prove it —
 // every expectation below is an absolute value, not a relative one.
 
-// 2026-07-02 is a Thursday. BST (UTC+1) runs 29 Mar – 25 Oct 2026.
+// 2026-07-02 is a Thursday. BST (UTC+1) runs 29 Mar to 25 Oct 2026.
 const BST_MORNING = new Date('2026-07-02T06:27:00Z'); // 07:27 London
 const BST_AFTER_LONDON_MIDNIGHT = new Date('2026-07-01T23:30:00Z'); // 00:30 London, 2 Jul
 const GMT_EVENING = new Date('2026-01-15T23:30:00Z'); // 23:30 London, 15 Jan
@@ -40,7 +43,7 @@ describe('londonDaysFromTodayForKey', () => {
     expect(londonDaysFromTodayForKey('2026-07-09', BST_MORNING)).toBe(7);
   });
 
-  it('treats the 00:00–01:00 London BST window as the new day (UTC date is still yesterday)', () => {
+  it('treats the 00:00\u201301:00 London BST window as the new day (UTC date is still yesterday)', () => {
     // The regression that produced "in -1 days": a UTC-date-based diff says 1 here.
     expect(londonDaysFromTodayForKey('2026-07-02', BST_AFTER_LONDON_MIDNIGHT)).toBe(0);
     expect(londonDaysFromTodayForKey('2026-07-01', BST_AFTER_LONDON_MIDNIGHT)).toBe(-1);
@@ -168,5 +171,60 @@ describe('key-derivation input hardening (regression: BACHATA-WEBSITE-2W)', () =
     const { start } = londonDayRangeUtc('2026-01-15');
     expect(start.toISOString()).toBe('2026-01-15T00:00:00.000Z');
     expect(addDaysToKey('2026-07-31', 1)).toBe('2026-08-01');
+  });
+});
+
+describe('isRealDateKey', () => {
+  it('accepts real calendar keys, including leap days', () => {
+    expect(isRealDateKey('2027-03-26')).toBe(true);
+    expect(isRealDateKey('2028-02-29')).toBe(true); // 2028 is a leap year
+  });
+
+  it('rejects malformed shapes and impossible calendar dates', () => {
+    expect(isRealDateKey('not-a-date')).toBe(false);
+    expect(isRealDateKey('2027-13-05')).toBe(false); // 13th month
+    expect(isRealDateKey('2027-02-30')).toBe(false); // rolls into March
+    expect(isRealDateKey('2027-02-29')).toBe(false); // 2027 is not a leap year
+    expect(isRealDateKey('2027-03-28T00:00:00')).toBe(false); // timestamp, not a key
+  });
+});
+
+describe('clampRangeEndKey', () => {
+  it('keeps a valid forward end key', () => {
+    expect(clampRangeEndKey('2027-03-26', '2027-03-29')).toBe('2027-03-29');
+  });
+
+  it('collapses missing, reversed or unreal end keys to the start day', () => {
+    expect(clampRangeEndKey('2027-03-26', null)).toBe('2027-03-26');
+    expect(clampRangeEndKey('2027-03-26', '2027-03-20')).toBe('2027-03-26');
+    expect(clampRangeEndKey('2027-03-26', '2027-13-05')).toBe('2027-03-26');
+  });
+});
+
+describe('formatKeyRange', () => {
+  it('renders the long (hero) style across same-month, cross-month and cross-year spans', () => {
+    expect(formatKeyRange('2027-03-26', '2027-03-29', 'long')).toBe('Fri 26 \u2013 Mon 29 March 2027');
+    expect(formatKeyRange('2026-02-28', '2026-03-02', 'long')).toBe(
+      'Sat 28 February \u2013 Mon 2 March 2026',
+    );
+    expect(formatKeyRange('2026-12-30', '2027-01-02', 'long')).toBe(
+      'Wed 30 December 2026 \u2013 Sat 2 January 2027',
+    );
+  });
+
+  it('renders the short (share) style with the month on both sides', () => {
+    expect(formatKeyRange('2027-03-26', '2027-03-29', 'short')).toBe('26 Mar \u2013 29 Mar 2027');
+    expect(formatKeyRange('2026-12-30', '2027-01-02', 'short')).toBe('30 Dec 2026 \u2013 2 Jan 2027');
+  });
+
+  it('collapses single days, missing ends and bad end keys to one date', () => {
+    expect(formatKeyRange('2026-05-24', '2026-05-24', 'long')).toBe('Sun 24 May 2026');
+    expect(formatKeyRange('2026-05-24', null, 'short')).toBe('24 May 2026');
+    expect(formatKeyRange('2026-05-24', '2026-05-20', 'long')).toBe('Sun 24 May 2026');
+  });
+
+  it('returns null for a missing or unreal start key', () => {
+    expect(formatKeyRange(null, '2027-03-29', 'long')).toBeNull();
+    expect(formatKeyRange('2027-02-30', '2027-03-01', 'long')).toBeNull();
   });
 });

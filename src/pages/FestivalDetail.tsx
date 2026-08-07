@@ -33,7 +33,13 @@ import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledB
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
 
-import { dateKeyInTz, keyToUtcNoon, londonDaysBetweenKeys } from "@/lib/londonDate";
+import {
+  clampRangeEndKey,
+  dateKeyInTz,
+  formatKeyRange,
+  isRealDateKey,
+  londonDaysBetweenKeys,
+} from "@/lib/londonDate";
 
 import { useTodayKey } from "@/hooks/useTodayKey";
 
@@ -1266,83 +1272,10 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 
 
-// Shape AND calendar-plausibility (month 01-12, day 01-31): a well-shaped
-// garbage key like 2027-13-05 would otherwise fall through keyToUtcNoon's
-// epoch fallback and render as 1 January 1970.
-
-const DATE_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-
-// The regex can't catch an impossible day (2027-02-30), which Date.UTC would
-// silently roll into March and render as fact. Real keys round-trip.
-
-const isRealDateKey = (key: string): boolean =>
-  DATE_KEY_RE.test(key) && new Date(keyToUtcNoon(key)).toISOString().slice(0, 10) === key;
-
-// A reversed, malformed or absurdly long end key is bad data -- collapse to
-// the start day rather than render it as fact. The 30-day bound replaces the
-// old tile row's 7-day render cap as the only limit on a corrupt far-future
-// end date (no real festival approaches it), without silently truncating a
-// real span the way the cap did.
-
-const clampEndKey = (startKey: string, endKey: string | null | undefined): string =>
-  endKey &&
-  isRealDateKey(endKey) &&
-  endKey >= startKey &&
-  londonDaysBetweenKeys(startKey, endKey) <= 30
-    ? endKey
-    : startKey;
-
-// The one range formatter behind both the hero date line and the share
-// subtitle, so the two can never disagree on the same event. 'long' is the
-// hero form ("Fri 26 to Mon 29 March 2027" -- both months and years appear
-// whenever the span crosses them); 'short' is the share form ("26 Mar to
-// 29 Mar 2027"). The separator is an en dash, written as an escape per the
-// repo rule (raw Unicode punctuation in source mojibakes on the cp1252
-// round-trip). keyToUtcNoon is the calendar authority's hardened
-// parser; UTC-locked formatting keeps SSR (UTC) and every client timezone
-// in agreement.
-
-const formatKeyRange = (
-  startKey: string | null,
-  endKey: string | null | undefined,
-  style: "long" | "short",
-): string | null => {
-
-  if (!startKey || !isRealDateKey(startKey)) return null;
-
-  const safeEndKey = clampEndKey(startKey, endKey);
-
-  const start = new Date(keyToUtcNoon(startKey));
-
-  const end = new Date(keyToUtcNoon(safeEndKey));
-
-  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
-    d.toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });
-
-  const day = (d: Date) =>
-    style === "long" ? `${fmt(d, { weekday: "short" })} ${d.getUTCDate()}` : String(d.getUTCDate());
-
-  const month = (d: Date) => fmt(d, { month: style === "long" ? "long" : "short" });
-
-  const tail = (d: Date) => `${day(d)} ${month(d)} ${d.getUTCFullYear()}`;
-
-  if (safeEndKey === startKey) return tail(start);
-
-  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
-
-  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
-
-  const startPart = [
-    day(start),
-    style === "short" || !sameMonth ? month(start) : null,
-    sameYear ? null : String(start.getUTCFullYear()),
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return `${startPart} \u2013 ${tail(end)}`;
-
-};
+// The range formatting, key validation and end-key clamping all live in
+// src/lib/londonDate.ts (the calendar-time authority) -- this page only
+// chooses the styles ('long' for the hero, 'short' for the share subtitle)
+// and the live-window policy in heroDayStatus below.
 
 
 
@@ -1788,7 +1721,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
     if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
     if (daysUntil === 0) return { label: "Today" };
-    return todayKey <= clampEndKey(startKey, endKey) ? { label: "Happening now" } : null;
+    // Live window bounded at 30 days past the start: no real festival runs
+    // longer, and a corrupt far-future end date must not pin "Happening now"
+    // for years. The date line itself renders the stored end unclamped, so a
+    // data error stays visible to whoever can fix it.
+    return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
+      ? { label: "Happening now" }
+      : null;
   }, [startKey, endKey, todayKey]);
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
