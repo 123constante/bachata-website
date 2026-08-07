@@ -1732,12 +1732,24 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     // above its own cancellation banner. The countdown this replaced hid itself
     // once the start passed, so it never contradicted the banner; the day-status
     // line runs through the whole event and does.
+    //
+    // On the standalone /festival/:id mount the two facts arrive from DIFFERENT
+    // queries -- isCancelled from the festival-snapshot query, startKey/endKey
+    // from useFestivalDetailQuery -- so checking isCancelled alone still flashes
+    // "Happening now" in the window where the detail query has resolved and the
+    // snapshot has not. Stay silent until cancellation is actually KNOWN. If the
+    // snapshot query fails outright, data stays undefined and the line stays
+    // absent: no timing claim beats a possibly-wrong one.
     if (isCancelled) return null;
+    if (!propSnapshot && snapshotPayload === undefined) return null;
     // todayKey validated too: on a degraded-Intl runtime it can be malformed,
     // and the lexicographic compares below would sort it arbitrarily.
     if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
     const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
-    if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
+    // "Tomorrow", not "In 1 day": CalendarListView.tsx already special-cases the
+    // singular that way, and the site should not say both.
+    if (daysUntil === 1) return { label: "Tomorrow" };
+    if (daysUntil > 0) return { label: `In ${daysUntil} days` };
     if (daysUntil === 0) return { label: "Today" };
     // Live window bounded at 30 days past the start: no real festival runs
     // longer, and a corrupt far-future end date must not pin "Happening now"
