@@ -70,10 +70,14 @@ describe('pickDefaultDayIndex', () => {
     expect(pickDefaultDayIndex(DAYS, keyFor(now, 'Africa/Tunis'))).toBe(2);
   });
 
-  it('falls back to Europe/London when timezone is null', () => {
-    const now = new Date('2026-06-14T10:00:00Z');
-    expect(pickDefaultDayIndex(DAYS, keyFor(now, null))).toBe(2);
-  });
+  // DELIBERATELY NOT HERE: a "falls back to Europe/London when timezone is null"
+  // case. pickDefaultDayIndex no longer takes a timezone, so any such test would
+  // apply the `?? 'Europe/London'` in `keyFor` above and assert its own helper --
+  // vacuous, and green even if the real fallback were deleted. The two places
+  // that fallback actually lives are covered where they live: `dateKeyInTz(d, null)`
+  // in tests/londonDate.test.ts (under the CI TZ matrix), and `eventTz`'s
+  // `?? "Europe/London"` in FestivalDetail.tsx, which is part of the untested
+  // wiring called out in the caveat at the top of this file.
 
   it('falls back to the first day when no today key is available', () => {
     expect(pickDefaultDayIndex(DAYS, null)).toBe(0);
