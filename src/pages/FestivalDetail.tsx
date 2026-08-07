@@ -33,7 +33,15 @@ import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledB
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
 
-import { dateKeyInTz } from "@/lib/londonDate";
+import {
+  clampRangeEndKey,
+  dateKeyInTz,
+  formatKeyRange,
+  isRealDateKey,
+  londonDaysBetweenKeys,
+} from "@/lib/londonDate";
+
+import { useTodayKey } from "@/hooks/useTodayKey";
 
 import {
   asWallClock,
@@ -179,45 +187,14 @@ const CINEMATIC_CSS = `
 
 
 
-/* Date tiles */
+/* Date line + days-away (P2 -- replaces the date tiles). Full-opacity white
+   over the black hero ground -- the old 50%-alpha month label washed out over
+   light poster regions. Wraps rather than clips if it ever exceeds the
+   viewport (long month-boundary spans on narrow screens). */
 
-.cinematic-festival .hero-dates{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:24px;position:relative;z-index:1}
+.cinematic-festival .hero-dateline{font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,2.4vw,26px);line-height:1.3;letter-spacing:3px;color:#fff;margin-top:20px;position:relative;z-index:1;text-transform:uppercase}
 
-.cinematic-festival .date-row{display:flex;align-items:stretch;gap:0;position:relative}
-
-.cinematic-festival .day-tile{padding:14px 20px 12px;background:rgba(251,146,60,0.04);border:1px solid rgba(251,146,60,0.35);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:88px;position:relative;transition:all .25s ease}
-
-.cinematic-festival .day-tile + .day-tile{border-left:none}
-
-.cinematic-festival .day-tile.featured{background:rgba(251,146,60,0.1);border-color:#fb923c;box-shadow:inset 0 0 24px rgba(251,146,60,0.15)}
-
-.cinematic-festival .day-tile:hover{background:rgba(251,146,60,0.1)}
-
-.cinematic-festival .day-tile .dow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.3em;color:rgba(255,255,255,0.6);text-transform:uppercase}
-
-.cinematic-festival .day-tile .num{font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,68px);line-height:1;color:#fb923c;letter-spacing:-0.02em;text-shadow:0 0 24px rgba(251,146,60,0.55)}
-
-.cinematic-festival .day-tile .perf{position:absolute;width:8px;height:8px;background:#0a0a0a;border:1px solid rgba(251,146,60,0.35);border-radius:50%}
-
-.cinematic-festival .day-tile .perf.tl{top:-4px;left:-4px}
-
-.cinematic-festival .day-tile .perf.tr{top:-4px;right:-4px}
-
-.cinematic-festival .day-tile .perf.bl{bottom:-4px;left:-4px}
-
-.cinematic-festival .day-tile .perf.br{bottom:-4px;right:-4px}
-
-.cinematic-festival .date-row > .day-tile:not(:first-child) .perf.tl,
-
-.cinematic-festival .date-row > .day-tile:not(:first-child) .perf.bl,
-
-.cinematic-festival .date-row > .day-tile:not(:last-child) .perf.tr,
-
-.cinematic-festival .date-row > .day-tile:not(:last-child) .perf.br{display:none}
-
-.cinematic-festival .date-month{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.4em;color:rgba(255,255,255,0.5);text-transform:uppercase}
-
-.cinematic-festival .date-month b{color:#fff;font-weight:600}
+.cinematic-festival .hero-days-away{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#fb923c;margin-top:10px;position:relative;z-index:1}
 
 
 
@@ -264,18 +241,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .cal-menu a .cal-ico{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);color:#fb923c;font-family:'Bebas Neue',sans-serif;font-size:13px;font-weight:700;flex-shrink:0}
 
 .cinematic-festival .cal-menu a .cal-arr{margin-left:auto;color:rgba(255,255,255,0.4);transition:transform .15s ease}
-
-
-
-/* COUNTDOWN */
-
-.cinematic-festival .countdown{padding:32px 24px;display:flex;justify-content:center;gap:20px;background:#000;flex-wrap:wrap;border-top:1px solid rgba(251,146,60,0.15);border-bottom:1px solid rgba(251,146,60,0.15)}
-
-.cinematic-festival .cd-cell{text-align:center;min-width:80px}
-
-.cinematic-festival .cd-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,10vw,56px);line-height:1;color:#fb923c;text-shadow:0 0 40px rgba(251,146,60,0.6),0 0 80px rgba(251,146,60,0.3);letter-spacing:-0.02em}
-
-.cinematic-festival .cd-lbl{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#737373;margin-top:6px;font-family:'JetBrains Mono',monospace}
 
 
 
@@ -734,16 +699,6 @@ const CINEMATIC_CSS = `
 
 @media (min-width:901px){.cinematic-festival .day-mobile-tabs{display:none}}
 
-@media (max-width:760px){
-
-  .cinematic-festival .countdown{padding:36px 16px;gap:8px}
-
-  .cinematic-festival .cd-cell{min-width:0;flex:1 0 calc(25% - 8px)}
-
-  .cinematic-festival .cd-lbl{font-size:9px;letter-spacing:0.2em;margin-top:4px}
-
-}
-
 @media (max-width:480px){
 
   .cinematic-festival .hero{padding:0 16px 40px}
@@ -752,9 +707,7 @@ const CINEMATIC_CSS = `
 
   .cinematic-festival .hero-tag{font-size:14px;letter-spacing:6px}
 
-  .cinematic-festival .day-tile{min-width:72px;padding:10px 14px 8px}
-
-  .cinematic-festival .day-tile .dow{font-size:8px;letter-spacing:0.25em}
+  .cinematic-festival .hero-dateline{font-size:17px;letter-spacing:2px}
 
   .cinematic-festival .hero-cta{margin-top:28px;gap:8px;flex-direction:row;flex-wrap:nowrap}
 
@@ -765,29 +718,6 @@ const CINEMATIC_CSS = `
   .cinematic-festival .cal-wrap > summary{width:100%;justify-content:center}
 
   .cinematic-festival .cal-menu{min-width:0;width:calc(100vw - 32px)}
-
-}
-
-
-
-/* === P5 hero-inline countdown ============================ */
-
-.cinematic-festival .hero-countdown{display:inline-flex;justify-content:center;gap:5px;margin-top:18px;align-items:flex-end;position:relative;z-index:5;flex-wrap:nowrap;max-width:100%}
-
-.cinematic-festival .hero-countdown .cd-cell{text-align:center;min-width:38px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
-
-.cinematic-festival .hero-countdown .cd-num{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:#fb923c;text-shadow:0 0 24px rgba(251,146,60,0.5);letter-spacing:-0.02em}
-
-.cinematic-festival .hero-countdown .cd-lbl{font-size:8px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-top:4px;font-family:'JetBrains Mono',monospace}
-
-.cinematic-festival .hero-countdown .cd-sep{color:rgba(251,146,60,0.35);font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;align-self:flex-start;margin-top:3px;flex-shrink:0}
-
-@media (max-width:380px){
-
-
-  .cinematic-festival .hero-countdown .cd-num{font-size:26px}
-
-  .cinematic-festival .hero-countdown .cd-sep{font-size:22px}
 
 }
 
@@ -859,20 +789,6 @@ const CINEMATIC_CSS = `
 @media (min-width:901px){.cinematic-festival .all-days-toggle{display:none}}
 
 .cinematic-festival .day-mobile-tabs[hidden]{display:none}
-
-@media (max-width:480px){
-
-  .cinematic-festival .hero-countdown{gap:3px}
-
-  .cinematic-festival .hero-countdown .cd-cell{min-width:34px}
-
-  .cinematic-festival .hero-countdown .cd-num{font-size:22px}
-
-  .cinematic-festival .hero-countdown .cd-sep{font-size:17px}
-
-  .cinematic-festival .hero-countdown .cd-lbl{font-size:7px;letter-spacing:0.2em}
-
-}
 
 @media (max-width:900px){
 
@@ -1356,6 +1272,13 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 
 
+// The range formatting, key validation and end-key clamping all live in
+// src/lib/londonDate.ts (the calendar-time authority) -- this page only
+// chooses the styles ('long' for the hero, 'short' for the share subtitle)
+// and the live-window policy in heroDayStatus below.
+
+
+
 // P2: parse "What's included:" bullets from a description blob.
 
 const parseIncludedItems = (desc: string | null | undefined): string[] => {
@@ -1437,14 +1360,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   const navigate = useNavigate();
 
   const { pathname } = useLocation();
-
-  // The 1s heartbeat stores the CLOCK, not a bare counter: the countdown memo
-  // reads `now` directly, so its dependency is honest (no eslint suppression) and
-  // the memo is a pure function of its deps. Previously this was a discarded
-  // `[, setTick]` and the memo keyed off startInstant's fresh-Date identity -- a
-  // no-op memo that would have frozen the countdown the moment anyone memoized
-  // startInstant. Gated by `mounted`, so the server never renders it (#418).
-  const [now, setNow] = useState(() => Date.now());
 
   const [activeDayIdx, setActiveDayIdx] = useState(0);
 
@@ -1638,10 +1553,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Tick the countdown every second. `mounted` gates the countdown display so it
-  // is absent on the server + first client render (the countdown reads Date.now(),
-  // which differs build-vs-client → React #418 hydration mismatch on /festival/:id
-  // under SSR); it appears + ticks only after mount.
+  // `mounted` gates every clock-reading display (the days-away line, the
+  // schedule's today badges) so the server and first client render agree --
+  // the clock differs build-vs-client, a React #418 hydration mismatch on
+  // /event/<slug> under SSR.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -1651,10 +1566,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     // Post-mount: upgrade desktop viewports to the all-days grid. SSR-safe --
     // window is only read AFTER hydration (see the showAllDays seed above).
     if (typeof window !== "undefined" && window.innerWidth > 900) setShowAllDays(true);
-
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-
-    return () => clearInterval(interval);
 
   }, []);
 
@@ -1676,8 +1587,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // column mixes true instants with naive local-as-UTC stamps per row, so using
   // it read 1h late through BST on exactly the path nobody watches. When _v2 has
   // no instant, fall back to the event-tz midnight of events.date (a genuine
-  // date-only wall clock) so the countdown / JSON-LD / calendar links still
-  // carry a defensible value instead of a silently wrong one.
+  // date-only wall clock) so the days-away line / JSON-LD / calendar links
+  // still carry a defensible value instead of a silently wrong one.
   const startInstant =
     instantToDate(festivalDetail?.dates.startsAt ?? null) ??
     dateOnlyStartInstant(festival?.date ?? null);
@@ -1685,14 +1596,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   const endInstant = instantToDate(festivalDetail?.dates.endsAt ?? null);
 
   // Stable scalars for links/JSON-LD/memo deps. startInstant is a fresh Date on
-  // every render, so NOTHING may depend on its object identity (see countdown).
+  // every render, so NOTHING may depend on its object identity.
   const startIso = startInstant ? startInstant.toISOString() : null;
-
-  const startMs = startInstant ? startInstant.getTime() : null;
 
   const endIso = endInstant ? endInstant.toISOString() : null;
 
-  // Calendar-day keys for DISPLAY (tiles/labels/tabs): event-timezone date-only
+  // Calendar-day keys for DISPLAY (date line/labels/tabs): event-timezone date-only
   // wall clocks from _v2, then the legacy date column, then the instant read in
   // the event timezone. Never local-Date getters -- that was the wrong-day bug.
   const startKey =
@@ -1706,99 +1615,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Countdown
+  // The hero's single date line, complete in one read: weekday + day + month +
+  // year, with no day cap and both months/years spelled out across a boundary.
 
-  const countdown = useMemo(() => {
-
-    if (startMs === null) return { days: 0, hours: 0, mins: 0, secs: 0 };
-
-    const diff = startMs - now;
-
-    if (diff <= 0) return { days: 0, hours: 0, mins: 0, secs: 0 };
-
-    return {
-
-      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-
-      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-
-      mins: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-
-      secs: Math.floor((diff % (1000 * 60)) / 1000),
-
-    };
-
-    // Deps are both real values the body reads: a stable epoch-ms start and the
-    // 1s clock. NEVER startInstant -- it is a new Date object every render, so
-    // keying on its identity made this memo a no-op and left a trap: memoizing
-    // startInstant would have frozen the countdown with no test failing.
-
-  }, [startMs, now]);
-
-
-
-  // Date tiles -- each day from start to end, featured = middle day if odd count.
-  // UTC-noon anchor + UTC getters read the stored calendar day back out
-  // machine-timezone-independently (same technique as formatWallClockDate), so
-  // SSR (UTC) and every client timezone agree -- no #418 divergence.
-
-  const dateTiles = useMemo(() => {
-
-    if (!startKey) return [] as Array<{ dow: string; num: number; featured: boolean }>;
-
-    const cur = new Date(`${startKey}T12:00:00Z`);
-
-    const end = new Date(`${endKey ?? startKey}T12:00:00Z`);
-
-    if (Number.isNaN(cur.getTime()) || Number.isNaN(end.getTime())) return [];
-
-    const tiles: Array<{ dow: string; num: number; featured: boolean }> = [];
-
-    while (cur <= end && tiles.length < 7) {
-
-      tiles.push({
-
-        dow: cur.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" }).toUpperCase().slice(0, 3),
-
-        num: cur.getUTCDate(),
-
-        featured: false,
-
-      });
-
-      cur.setUTCDate(cur.getUTCDate() + 1);
-
-    }
-
-    if (tiles.length > 0) {
-
-      const featuredIdx = Math.floor(tiles.length / 2);
-
-      tiles[featuredIdx] = { ...tiles[featuredIdx], featured: true };
-
-    }
-
-    return tiles;
-
-  }, [startKey, endKey]);
-
-
-
-  const monthLabel = useMemo(() => {
-
-    if (!startKey) return null;
-
-    const d = new Date(`${startKey}T12:00:00Z`);
-
-    if (Number.isNaN(d.getTime())) return null;
-
-    const month = d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
-
-    const year = d.getUTCFullYear();
-
-    return { month, year };
-
-  }, [startKey]);
+  const heroDateLine = useMemo(() => formatKeyRange(startKey, endKey, "long"), [startKey, endKey]);
 
 
 
@@ -1883,12 +1703,33 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // Today's date key in the FESTIVAL's timezone (not the visitor's browser zone),
-  // used both to default the open day-tab and to badge today's tab/column.
-  const todayKey = useMemo(
-    () => dateKeyInTz(new Date(), festivalDetail?.dates.timezone ?? "Europe/London"),
-    [festivalDetail?.dates.timezone],
-  );
+  // Today's date key on the FESTIVAL's calendar (not the visitor's browser
+  // zone and not London's): flips at the event's own midnight, re-anchors on
+  // visibility/focus, and survives long-lived tabs. Drives the today badges
+  // and the days-away figure. (The day-tab default reads its own clock inside
+  // pickDefaultDayIndex -- unifying the two is a follow-up.)
+  const todayKey = useTodayKey(eventTz);
+
+  // The hero's timing cue, in whole calendar days on the event's calendar
+  // (midnight-to-midnight, matching CalendarListView): "In N days" before,
+  // "Today" on the start day, "Happening now" mid-run, nothing after. Render
+  // site is mount-gated (todayKey reads the clock: #418).
+  const heroDayStatus = useMemo(() => {
+    // todayKey validated too: on a degraded-Intl runtime it can be malformed,
+    // and the lexicographic compares below would sort it arbitrarily.
+    if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
+    const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
+    if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
+    if (daysUntil === 0) return { label: "Today" };
+    // Live window bounded at 30 days past the start: no real festival runs
+    // longer, and a corrupt far-future end date must not pin "Happening now"
+    // for years. The date line renders a real forward end date even when it
+    // is absurdly far out, so THAT error class stays visible to whoever can
+    // fix it (reversed/unreal ends still collapse to the start day there).
+    return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
+      ? { label: "Happening now" }
+      : null;
+  }, [startKey, endKey, todayKey]);
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
@@ -1928,19 +1769,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
   }, [festivalDetail]);
 
-  const shareSubtitle = useMemo(() => {
-    if (!startKey) return null;
-    // Stored calendar days via the UTC-noon anchor -- identical on server and
-    // in every client timezone (the old local-tz Date getters drifted a day).
-    const start = new Date(`${startKey}T12:00:00Z`);
-    const end = endKey ? new Date(`${endKey}T12:00:00Z`) : null;
-    if (Number.isNaN(start.getTime())) return null;
-    const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
-      d.toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
-    if (!end || Number.isNaN(end.getTime()) || endKey === startKey)
-      return fmt(start, { day: 'numeric', month: 'short', year: 'numeric' });
-    return `${fmt(start, { day: 'numeric', month: 'short' })} – ${fmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  }, [startKey, endKey]);
+  const shareSubtitle = useMemo(() => formatKeyRange(startKey, endKey, "short"), [startKey, endKey]);
 
   // Paid passes, ordered by the day they cover then by price. Free (£0) passes
   // are excluded from the "Reserve Your Pass" grid — there's nothing to book.
@@ -2314,41 +2143,22 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-        {/* Date tiles */}
+        {/* Date line + days-away (P2 -- the tile row is retired) */}
 
-        {dateTiles.length > 0 && (
+        {heroDateLine && (
 
-          <div className="hero-dates">
+          <>
 
-            <div className="date-row">
+            <div className="hero-dateline">{heroDateLine}</div>
 
-              {dateTiles.map((tile, i) => (
+            {/* Always-rendered line box: the label is clock-derived so it can
+                only fill in after mount (#418), but the box itself must be in
+                the server HTML or its pop-in shifts the Get Tickets CTA under
+                the tap. */}
 
-                <div key={i} className={`day-tile ${tile.featured ? "featured" : ""}`}>
+            <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
 
-                  <span className="perf tl" /><span className="perf tr" /><span className="perf bl" /><span className="perf br" />
-
-                  <span className="dow">{tile.dow}</span>
-
-                  <span className="num">{tile.num}</span>
-
-                </div>
-
-              ))}
-
-            </div>
-
-            {monthLabel && (
-
-              <div className="date-month">
-
-                <b>{monthLabel.month}</b> &middot; {monthLabel.year}
-
-              </div>
-
-            )}
-
-          </div>
+          </>
 
         )}
 
@@ -2413,19 +2223,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
         )}
 
         <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />
-
-        {/* Inline hero countdown (P5) — mount-gated (Date.now hydration safety) */}
-        {mounted && (countdown.days > 0 || countdown.hours > 0 || countdown.mins > 0 || countdown.secs > 0) && (
-          <div className="hero-countdown">
-            <div className="cd-cell"><div className="cd-num">{countdown.days}</div><div className="cd-lbl">Days</div></div>
-            <div className="cd-sep">:</div>
-            <div className="cd-cell"><div className="cd-num">{countdown.hours}</div><div className="cd-lbl">Hrs</div></div>
-            <div className="cd-sep">:</div>
-            <div className="cd-cell"><div className="cd-num">{countdown.mins}</div><div className="cd-lbl">Min</div></div>
-            <div className="cd-sep cd-sep-sec">:</div>
-            <div className="cd-cell cd-cell-sec"><div className="cd-num">{countdown.secs}</div><div className="cd-lbl">Sec</div></div>
-          </div>
-        )}
 
       </section>
 

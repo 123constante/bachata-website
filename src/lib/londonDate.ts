@@ -56,19 +56,28 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
 /**
  * YYYY-MM-DD for the given instant in an arbitrary IANA timezone (DST-safe).
  * Falls back to the London calendar if `timeZone` is missing or invalid, so a
- * bad value can never throw at a call site.
+ * bad value can never throw at a call site. Formatters are cached per timezone
+ * (same idiom as wallClockFormatters below) -- construction is the expensive
+ * part of the Intl API, and useTodayKey calls this on every 60s/focus check.
  */
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>([[LONDON_TZ, londonKeyFormatter]]);
+
 export const dateKeyInTz = (d: Date, timeZone: string): string => {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d);
-  } catch {
-    return londonKeyFormatter.format(d);
+  let fmt = dateKeyFormatters.get(timeZone);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+    } catch {
+      fmt = londonKeyFormatter;
+    }
+    dateKeyFormatters.set(timeZone, fmt);
   }
+  return fmt.format(d);
 };
 
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */
@@ -100,7 +109,13 @@ const safeKeyParts = (key: string): [number, number, number] => {
   return [y, m, d];
 };
 
-const keyToUtcNoon = (key: string): number => {
+/**
+ * UTC-noon epoch-ms anchor of a YYYY-MM-DD key: the standard way to read a
+ * stored calendar day back out machine-timezone-independently (noon survives
+ * DST and westward client zones where midnight shifts a day). Routed through
+ * safeKeyParts, so a malformed key degrades instead of producing NaN.
+ */
+export const keyToUtcNoon = (key: string): number => {
   const [y, m, d] = safeKeyParts(key);
   return Date.UTC(y, m - 1, d, 12);
 };
@@ -141,6 +156,77 @@ export const weekdayOfKey = (key: string): number => new Date(keyToUtcNoon(key))
 /** The YYYY-MM-DD key `days` calendar days after `key`. */
 export const addDaysToKey = (key: string, days: number): string =>
   new Date(keyToUtcNoon(key) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * True only for a well-shaped, calendar-real YYYY-MM-DD key. The round-trip
+ * through keyToUtcNoon is what does the calendar work: a 13th month degrades
+ * to safeKeyParts' fallback and an impossible day like 2027-02-30 rolls into
+ * March under Date.UTC -- either way the read-back differs from the input.
+ * Leap-day aware by construction. KEY_RE keeps shape knowledge in one place.
+ */
+export const isRealDateKey = (key: string): boolean =>
+  KEY_RE.test(key) && new Date(keyToUtcNoon(key)).toISOString().slice(0, 10) === key;
+
+/**
+ * Collapse a reversed or unreal end key to the start day, so a bad range
+ * renders as a single day instead of a reversed or garbage span.
+ * Precondition: startKey is itself a real key (isRealDateKey) -- both range
+ * consumers validate it first. A malformed startKey is returned as-is, which
+ * downstream falls into keyToUtcNoon's degrade path.
+ */
+export const clampRangeEndKey = (startKey: string, endKey: string | null | undefined): string =>
+  endKey && isRealDateKey(endKey) && endKey >= startKey ? endKey : startKey;
+
+/**
+ * One date-range label for a pair of calendar keys, so every surface showing
+ * the same range agrees. 'long' spells out weekday + day + month + year
+ * ("Fri 26 to Mon 29 March 2027" with an en-dash separator; months and years
+ * appear on BOTH sides whenever the span crosses them); 'short' is the
+ * compact share form ("26 Mar to 29 Mar 2027"). The separator is written as
+ * an escape per the raw-Unicode source rule. Returns null for a missing or
+ * unreal start key; the end key is clamped via clampRangeEndKey. UTC-locked
+ * formatting off the UTC-noon anchor keeps SSR and every client timezone in
+ * agreement.
+ */
+const keyLabelFormatters = new Map<string, Intl.DateTimeFormat>();
+const fmtKeyPart = (d: Date, opts: Intl.DateTimeFormatOptions): string => {
+  // Cached per option shape (three exist: short weekday, long month, short
+  // month) -- construction is the expensive part of the Intl API, and a list
+  // surface adopting formatKeyRange would otherwise pay it per card.
+  const cacheKey = JSON.stringify(opts);
+  let fmt = keyLabelFormatters.get(cacheKey);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...opts });
+    keyLabelFormatters.set(cacheKey, fmt);
+  }
+  return fmt.format(d);
+};
+
+export const formatKeyRange = (
+  startKey: string | null | undefined,
+  endKey: string | null | undefined,
+  style: 'long' | 'short',
+): string | null => {
+  if (!startKey || !isRealDateKey(startKey)) return null;
+  const safeEndKey = clampRangeEndKey(startKey, endKey);
+  const start = new Date(keyToUtcNoon(startKey));
+  const end = new Date(keyToUtcNoon(safeEndKey));
+  const day = (d: Date) =>
+    style === 'long' ? `${fmtKeyPart(d, { weekday: 'short' })} ${d.getUTCDate()}` : String(d.getUTCDate());
+  const month = (d: Date) => fmtKeyPart(d, { month: style === 'long' ? 'long' : 'short' });
+  const tail = (d: Date) => `${day(d)} ${month(d)} ${d.getUTCFullYear()}`;
+  if (safeEndKey === startKey) return tail(start);
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  const startPart = [
+    day(start),
+    style === 'short' || !sameMonth ? month(start) : null,
+    sameYear ? null : String(start.getUTCFullYear()),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `${startPart} \u2013 ${tail(end)}`;
+};
 
 const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
 const wallClockMsInTz = (d: Date, timeZone: string): number => {
