@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/arc-checkpoint.mjs --event=UserPromptSubmit"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/arc-checkpoint.mjs --event=UserPromptSubmit"
           }
         ]
       },
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook"
           }
         ]
       }
@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-lock.mjs acquire --warn-only --hook"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs acquire --warn-only --hook"
           }
         ]
       },
@@ -100,11 +100,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-boot.mjs"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-boot.mjs"
           },
           {
             "type": "command",
-            "command": "node scripts/hooks/arc-checkpoint.mjs --event=SessionStart"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/arc-checkpoint.mjs --event=SessionStart"
           }
         ]
       }
@@ -114,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-lock.mjs heartbeat --hook --quiet"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook --quiet"
           }
         ]
       }
@@ -124,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/session-lock.mjs release --hook"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs release --hook"
           }
         ]
       }
@@ -135,7 +135,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-write-block.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/pre-write-block.sh"
           }
         ]
       }
@@ -146,7 +146,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/post-write-check.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/post-write-check.sh"
           }
         ]
       },
@@ -155,7 +155,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/review-stamp.mjs"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/review-stamp.mjs"
           }
         ]
       }

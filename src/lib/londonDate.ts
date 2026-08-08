@@ -63,19 +63,35 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
 const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>([[LONDON_TZ, londonKeyFormatter]]);
 
 export const dateKeyInTz = (d: Date, timeZone: string): string => {
-  let fmt = dateKeyFormatters.get(timeZone);
+  // An `undefined` zone must be normalised HERE, because the try/catch below
+  // cannot catch it: `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })`
+  // does NOT throw, it resolves to the RUNTIME's zone. So the failure mode is
+  // silent and reads as correct on a London machine, while a Sydney visitor
+  // would get today on their own browser calendar -- precisely the bug class
+  // this module exists to prevent. (`null` and `''` DO throw RangeError, like
+  // any invalid zone, and are handled by the catch; only `undefined` slips past.)
+  //
+  // DEFENSE IN DEPTH, not a fix for a live defect: no current call site can
+  // deliver `undefined` here. The two useTodayKey callers pass the literal
+  // 'Europe/London' and FestivalDetail's `eventTz`, itself `?? "Europe/London"`.
+  // The guard stays because `strict: false` in tsconfig.app.json means the
+  // `timeZone: string` signature does not actually enforce that, so a future
+  // caller can reintroduce it without a type error.
+  const tz = timeZone || LONDON_TZ;
+  let fmt = dateKeyFormatters.get(tz);
   if (!fmt) {
     try {
       fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone,
+        timeZone: tz,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       });
     } catch {
+      // An INVALID zone ('Not/AZone') does throw, and this is its fallback.
       fmt = londonKeyFormatter;
     }
-    dateKeyFormatters.set(timeZone, fmt);
+    dateKeyFormatters.set(tz, fmt);
   }
   return fmt.format(d);
 };

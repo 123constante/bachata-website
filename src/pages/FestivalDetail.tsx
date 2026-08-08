@@ -32,13 +32,14 @@ import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-pa
 import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledBanner";
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
+import {
+  computeHeroDayStatus,
+  type CancellationState,
+} from "@/modules/event-page/utils/festivalHeroDayStatus";
 
 import {
-  clampRangeEndKey,
   dateKeyInTz,
   formatKeyRange,
-  isRealDateKey,
-  londonDaysBetweenKeys,
 } from "@/lib/londonDate";
 
 import { useTodayKey } from "@/hooks/useTodayKey";
@@ -1353,6 +1354,19 @@ const splitTitleIntoLines = (name: string): string[] => {
 
 
 
+/**
+ * The raw event_view_p5 payload as read on a standalone /festival/:id mount
+ * (snake_case). Only the fields this page actually reads are named; the rest
+ * stays `unknown` rather than `any` so a new read has to declare itself here.
+ */
+type FestivalSnapshotPayload = {
+  occurrence_effective?: {
+    is_cancelled?: boolean | null;
+    cancellation_reason_label?: string | null;
+  } | null;
+  [key: string]: unknown;
+};
+
 const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProps) => {
 
   const { id } = useParams();
@@ -1406,7 +1420,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  const { data: snapshotPayload } = useQuery({
+  const snapshotQueryEnabled = Boolean(festivalId) && !propSnapshot;
+
+  const {
+    data: snapshotPayload,
+    isSuccess: snapshotSucceeded,
+    isError: snapshotFailed,
+  } = useQuery({
 
     queryKey: ["festival-snapshot", festivalId],
 
@@ -1422,11 +1442,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
       if (rpcError) throw rpcError;
 
-      return data as Record<string, any> | null;
+      return data as FestivalSnapshotPayload | null;
 
     },
 
-    enabled: Boolean(festivalId) && !propSnapshot,
+    enabled: snapshotQueryEnabled,
 
   });
 
@@ -1446,6 +1466,26 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
     (typeof snapshotPayload?.occurrence_effective?.cancellation_reason_label === "string"
       ? (snapshotPayload.occurrence_effective.cancellation_reason_label as string)
       : null);
+
+  // How much do we know about cancellation? THREE states, not two -- see
+  // computeHeroDayStatus for why the distinction is load-bearing. Derived as a
+  // plain value so the memo below can depend on it honestly: depending on
+  // `snapshotPayload` via a bare read inside the memo left it stale, and a
+  // non-cancelled festival then kept the "stay silent" result forever (the
+  // cancelled path recomputed because isCancelled itself flipped, so the bug hid
+  // in the common case).
+  //
+  //   known       the fact arrived (prop snapshot, or the query succeeded).
+  //   unknowable  the query errored, or never ran at all (no festivalId). The
+  //               previous predicate treated this as "not yet" and held the hero
+  //               blank permanently on healthy festivals whose dates had loaded.
+  //   pending     still in flight.
+  const cancellationState: CancellationState =
+    Boolean(propSnapshot) || snapshotSucceeded
+      ? "known"
+      : snapshotFailed || !snapshotQueryEnabled
+        ? "unknowable"
+        : "pending";
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
@@ -1705,42 +1745,35 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
   // Today's date key on the FESTIVAL's calendar (not the visitor's browser
   // zone and not London's): flips at the event's own midnight, re-anchors on
-  // visibility/focus, and survives long-lived tabs. Drives the today badges
-  // and the days-away figure. (The day-tab default reads its own clock inside
-  // pickDefaultDayIndex -- unifying the two is a follow-up.)
+  // visibility/focus, and survives long-lived tabs. THE page's single clock —
+  // it drives the today badges, the days-away figure and the default day tab.
   const todayKey = useTodayKey(eventTz);
 
   // The hero's timing cue, in whole calendar days on the event's calendar
   // (midnight-to-midnight, matching CalendarListView): "In N days" before,
   // "Today" on the start day, "Happening now" mid-run, nothing after. Render
   // site is mount-gated (todayKey reads the clock: #418).
-  const heroDayStatus = useMemo(() => {
-    // todayKey validated too: on a degraded-Intl runtime it can be malformed,
-    // and the lexicographic compares below would sort it arbitrarily.
-    if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
-    const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
-    if (daysUntil > 0) return { label: `In ${daysUntil} ${daysUntil === 1 ? "day" : "days"}` };
-    if (daysUntil === 0) return { label: "Today" };
-    // Live window bounded at 30 days past the start: no real festival runs
-    // longer, and a corrupt far-future end date must not pin "Happening now"
-    // for years. The date line renders a real forward end date even when it
-    // is absurdly far out, so THAT error class stays visible to whoever can
-    // fix it (reversed/unreal ends still collapse to the start day there).
-    return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
-      ? { label: "Happening now" }
-      : null;
-  }, [startKey, endKey, todayKey]);
+  // The rules (and the three-state cancellation reasoning) live in the extracted
+  // pure predicate, where the unit gate can reach them. This predicate was wrong
+  // three commits running while it was inline here and untestable.
+  const heroDayStatus = useMemo(
+    () => computeHeroDayStatus({ startKey, endKey, todayKey, isCancelled, cancellationState }),
+    [startKey, endKey, todayKey, isCancelled, cancellationState],
+  );
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
-  // later tab click or re-firing on unrelated re-renders.
+  // later tab click or re-firing on unrelated re-renders. `todayKey` is in the
+  // dep list because the effect reads it, but the same ref makes it inert after
+  // the first pick: a midnight rollover advances the badges and deliberately
+  // leaves the open tab where the user left it.
   const defaultedForRef = useRef<string | null>(null);
   useEffect(() => {
     const eid = festivalDetail?.eventId ?? null;
     if (!eid || days.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
-    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), festivalDetail?.dates.timezone ?? null));
-  }, [festivalDetail?.eventId, festivalDetail?.dates.timezone, days]);
+    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), todayKey));
+  }, [festivalDetail?.eventId, days, todayKey]);
 
 
 
