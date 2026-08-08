@@ -11,6 +11,8 @@
     "check:wallclock-brand": "react-router typegen && node scripts/check-wallclock-brand.mjs",
     "check:rpc-typing": "node scripts/check-rpc-typing.mjs",
     "check:script-conventions": "node scripts/check-script-conventions.mjs",
+    "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
+    "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",
     "gen:types": "npx --yes supabase@2.109.1 gen types typescript --project-id stsdtacfauprzrdebmzg --schema public > src/integrations/supabase/types.ts",
     "build:dev": "vite build --mode development",
     "lint": "npm run check:integrity && npm run check:mojibake && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && npm run check:route-boundaries && npm run check:image-widths && npm run check:rpc-typing && npm run check:script-conventions && npm run check:wallclock-brand && eslint .",

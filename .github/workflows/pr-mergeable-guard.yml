@@ -1,0 +1,156 @@
+name: PR Mergeable Guard
+
+# Catches the state that looks green and is not: a PR GitHub cannot build a
+# merge ref for. Without a merge ref no `pull_request` workflow is ever QUEUED,
+# so every real gate silently stops existing while Vercel -- which deploys off
+# the head commit through its own App -- keeps reporting success. On 2026-08-08
+# that board read as four "skipping" entries and two Vercel passes on PR #217,
+# and the same trap had auto-closed #138 in July.
+#
+# THE TRIGGERS ARE THE POINT. This workflow must never be a `pull_request`
+# workflow: that is precisely the trigger that does not fire in the case being
+# guarded, and the guard would go silent exactly when it is needed.
+#   push to main    -- a squash-merge is what CREATES the conflict in every
+#                      sibling PR, so this is the earliest possible signal
+#   schedule        -- catches conflicts that appear without a push here, and
+#                      PRs that were too young to judge on the previous sweep
+#   workflow_dispatch -- on demand, optionally against one PR
+#
+# The guard needs no npm install: scripts/check-pr-mergeable.mjs uses only Node
+# built-ins and the GITHUB_TOKEN.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Single PR number to judge (blank = sweep every open PR)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  # write, not read: the verdict is published back onto each PR head as a
+  # commit status, so the red appears ON the board beside the skipped entries
+  # instead of only on this run. On #217 every surface a reader looked at said
+  # "fine" and the truth was one unopened tab away.
+  statuses: write
+
+concurrency:
+  group: pr-mergeable-guard
+  # NOT cancel-in-progress. Publishing is one status write per PR in sequence,
+  # so cancelling mid-sweep leaves some heads carrying this run's verdict and
+  # the rest the previous one -- an internally inconsistent board for up to an
+  # hour. Worse, a run that had already DECIDED to fail reports as "cancelled"
+  # rather than red, so a genuine verdict is dropped instead of surfaced. The
+  # sweep is short and idempotent; queueing it costs nothing worth that.
+  cancel-in-progress: false
+
+jobs:
+  mergeable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # The canary runs FIRST and on every invocation. A guard whose rules have
+      # quietly stopped matching reports a clean board forever, which is the
+      # failure mode this repo has shipped three times; proving both directions
+      # before the live sweep is what stops the sweep being trusted blindly.
+      - name: Prove the guard can fail (self-test, both directions)
+        # Through the npm alias, not a bare node call. An alias CI does not use
+        # is an alias that drifts: someone adds a flag to package.json, believes
+        # they have changed what CI runs, and has not.
+        run: npm run check:pr-mergeable:self-test
+
+      # The synthetic fixtures above are frozen copies of a payload shape. If
+      # GitHub renames a field -- checkSuite.app.slug, say -- they keep passing
+      # while the live guard quietly matches nothing, which is precisely how a
+      # guard stops working without anyone noticing. So the guard is also run
+      # against the REAL recorded incident and required to still fail on it.
+      #
+      # Exit 1 is the pass condition here. Exit 0 means the guard has gone blind;
+      # exit 2 means the fixture commit became unreachable (it is an unreferenced
+      # object, kept alive only by GitHub retention) -- a different problem with a
+      # different fix, so the two are reported apart rather than both as "red".
+      - name: Live canary -- the guard must still red on the real 217 board
+        id: canary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INCIDENT_SHA: b567c8a2a04cf124d74fcfc52f5dd7caebd8924d
+        run: |
+          set +e
+          node scripts/check-pr-mergeable.mjs --sha "$INCIDENT_SHA" > canary.log 2>&1
+          code=$?
+          set -e
+          cat canary.log
+          echo ""
+          if [ "$code" = "1" ]; then
+            echo "verdict=ok" >> "$GITHUB_OUTPUT"
+            echo "canary ok: the guard still detects the recorded incident board."
+          elif [ "$code" = "2" ]; then
+            echo "verdict=unreadable" >> "$GITHUB_OUTPUT"
+            echo "CANARY INFRASTRUCTURE FAILURE: the fixture commit could not be read."
+            echo "The fixture is meant to be held by refs/fixtures/pr-mergeable-guard/incident-217."
+            echo "If that ref is missing, restore it:"
+            echo "  SHIP_GATE_ALLOW_UNSCOPED_REF=1 git push origin $INCIDENT_SHA:refs/fixtures/pr-mergeable-guard/incident-217"
+            echo "If the object itself is gone, replace the fixture with a newer recorded case."
+            echo "The sweep still runs: an unreadable FIXTURE is not evidence of a blind GUARD."
+          else
+            echo "verdict=blind" >> "$GITHUB_OUTPUT"
+            echo "CANARY FAILED: expected exit 1 on the recorded incident, got $code."
+            echo "The guard has stopped detecting a board it is PROVEN to have caught."
+            echo "The sweep is SKIPPED: a green board published by a blind guard is worse"
+            echo "than no board at all, and publishing success here would write that lie"
+            echo "onto every open PR."
+          fi
+
+      # This step owns the red, so the canary step above can record a verdict
+      # without killing the steps after it. The two failure modes are genuinely
+      # different: a blind guard must not publish, an unreadable fixture is no
+      # reason to stop sweeping.
+      - name: Sweep open PRs
+        if: steps.canary.outputs.verdict != 'blind'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          if [ -n "$PR_NUMBER" ]; then
+            node scripts/check-pr-mergeable.mjs --pr "$PR_NUMBER" --publish-status 2>&1 | tee guard.log
+          else
+            node scripts/check-pr-mergeable.mjs --publish-status 2>&1 | tee guard.log
+          fi
+
+      - name: Fail the job when the canary was not healthy
+        if: always() && steps.canary.outputs.verdict != 'ok'
+        run: |
+          echo "Canary verdict: ${{ steps.canary.outputs.verdict }} -- see the canary step above."
+          exit 1
+
+      # Runs on failure too, so the reason is on the summary page rather than
+      # buried in a log the reader has to go looking for.
+      - name: Publish the board to the run summary
+        if: always()
+        run: |
+          {
+            echo '## PR mergeable guard'
+            echo ''
+            echo '```'
+            cat guard.log 2>/dev/null || echo '(the guard produced no output)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
