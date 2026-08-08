@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import { secondsUntilKeyRollsOver } from '@/lib/londonDate';
+import { EDGE_STORE_MARGIN_SECONDS } from '../app/detailLoader';
 
 const EVENT_UUID = '00000000-0000-4000-8000-0000000000f1';
 const SLUG = 'test-festival';
@@ -28,7 +29,7 @@ const SECONDS_LEFT_IN_PINNED_DAY = 40 * 60;
 // Lets a case advance the faked clock DURING the loader's og-card await, which
 // is the only way to exercise a request that straddles the festival's midnight.
 // vi.hoisted because the mock factory below is hoisted above this file's body.
-const clock = vi.hoisted(() => ({ ogCardAwaitMs: 0 }));
+const clock = vi.hoisted(() => ({ ogCardAwaitMs: 0, crossedMidnight: false }));
 
 // Only the entity/image lookups are replaced. taggedData + cacheHeaders come
 // through untouched from the real module.
@@ -40,7 +41,13 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
     resolveEntityInLoader: async () => ({ id: EVENT_UUID, slug: SLUG, arrivedViaUuid: false }),
     resolveOgCardImage: async () => {
       if (clock.ogCardAwaitMs > 0) {
+        // On the FESTIVAL's calendar, not UTC: 22:59:59Z to 23:00:02Z is the
+        // same UTC day and a different Tunis one, which is the whole point.
+        const key = () =>
+          new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tunis' }).format(new Date());
+        const before = key();
         vitest.setSystemTime(new Date(Date.now() + clock.ogCardAwaitMs));
+        clock.crossedMidnight = key() !== before;
       }
       return 'https://example.test/card.jpg';
     },
@@ -91,6 +98,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   clock.ogCardAwaitMs = 0;
+  clock.crossedMidnight = false;
   vi.setSystemTime(RENDERED_AT);
 });
 
@@ -108,7 +116,9 @@ describe('festival loader edge TTL', () => {
     // Exact, not a bound: the whole point is that neither directive may push
     // this generation past the festival's own midnight. Before the fix this
     // read s-maxage=3600, stale-while-revalidate=86400.
-    expect(await cdnHeaderOf(result)).toBe(`public, s-maxage=${SECONDS_LEFT_IN_PINNED_DAY}`);
+    expect(await cdnHeaderOf(result)).toBe(
+      `public, s-maxage=${SECONDS_LEFT_IN_PINNED_DAY - EDGE_STORE_MARGIN_SECONDS}`,
+    );
   });
 
   it('keeps the full fresh window when the pinned day has hours left', async () => {
@@ -117,26 +127,38 @@ describe('festival loader edge TTL', () => {
     // festival page rather than a correction near midnight.
     vi.setSystemTime(new Date('2026-09-06T09:00:00Z')); // 10:00 in Tunis
     const cdn = await cdnHeaderOf(await runLoader());
-    expect(cdn).toBe('public, s-maxage=3600, stale-while-revalidate=46800');
+    expect(cdn).toBe(
+      `public, s-maxage=3600, stale-while-revalidate=${50400 - EDGE_STORE_MARGIN_SECONDS - 3600}`,
+    );
   });
 
-  it('grants nothing when the loader crossed midnight mid-flight', async () => {
-    // `todayKey` is derived, THEN resolveOgCardImage awaits. Advance the clock
-    // past the festival's midnight during that await: the emitted document
-    // carries a key that is no longer today, so it must not be cached at all.
-    // A bound measured off a fresh `new Date()` at emission would hand this
-    // document a full fresh day instead.
+  it('pins the day it EMITTED on, not the day it started on', async () => {
+    // The loader enters at 23:59:59 and leaves after the festival's midnight,
+    // because resolveOgCardImage awaits. The document must carry the day it is
+    // actually being served on.
+    //
+    // THIS CASE PREVIOUSLY ASSERTED THE OPPOSITE. It pinned the OLD day and
+    // called the resulting s-maxage=0 "the rollover being honoured" -- encoding
+    // as correct a document that says "Happening now" about a festival that
+    // finished, and merely declines to cache it. Declining to cache does not
+    // unsay it: the requester, possibly the one crawl Googlebot makes, is still
+    // served the claim. Deriving the key last fixes the document AND restores a
+    // real bound.
     vi.setSystemTime(new Date('2026-09-06T22:59:59Z')); // 23:59:59 in Tunis
     clock.ogCardAwaitMs = 3000;
 
     const result = await runLoader();
 
-    // Non-vacuity: the pin really is the OLD day and the clock really did move
-    // past it, so the zero below is the rollover being honoured rather than the
-    // fixture failing to render.
-    expect(pinnedKeyOf(result)).toBe('2026-09-06');
-    expect(secondsUntilKeyRollsOver('2026-09-06', FESTIVAL_TZ)).toBe(0);
+    // Non-vacuity: the clock really did cross, so this is the late derivation
+    // working and not the fixture sitting on the old day.
+    expect(clock.crossedMidnight).toBe(true);
+    expect(pinnedKeyOf(result)).toBe('2026-09-07');
 
-    expect(await cdnHeaderOf(result)).toBe('public, s-maxage=0');
+    // ...and a full day's bound rather than the zero the stale pin forced.
+    const expected = secondsUntilKeyRollsOver('2026-09-07', FESTIVAL_TZ, new Date());
+    expect(expected).toBeGreaterThan(86000);
+    expect(await cdnHeaderOf(result)).toBe(
+      `public, s-maxage=3600, stale-while-revalidate=${expected - EDGE_STORE_MARGIN_SECONDS - 3600}`,
+    );
   });
 });
