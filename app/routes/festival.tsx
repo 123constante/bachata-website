@@ -1,9 +1,12 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
+import { dateKeyInTz } from "@/lib/londonDate";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
+// Aliased: the page component below is also called FestivalDetail.
+import type { FestivalDetail as FestivalDetailData } from "@/modules/event-page/types";
 import FestivalDetail from "@/pages/FestivalDetail";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -60,6 +63,19 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   if (!festival) throwDetailNotFound("Festival");
 
+  // "Today" on the FESTIVAL's own calendar, for the hero's days-away label.
+  //
+  // Derived here rather than in the component because the label is clock-read:
+  // rendered client-side only it can never appear in the crawled HTML, and
+  // rendered without a pinned key it straddles midnight between the server and
+  // hydration (#418). Reading the zone back off the prefetch above costs no
+  // extra request. The `?? "Europe/London"` mirrors FestivalDetail's own
+  // eventTz default EXACTLY -- if the two ever disagree the server and client
+  // derive different keys and the pin becomes the bug it exists to prevent.
+  // (dateKeyInTz also falls back to London on a missing/invalid zone.)
+  const detail = qc.getQueryData(festivalDetailQueryKey(eventId)) as FestivalDetailData | null;
+  const todayKey = dateKeyInTz(new Date(), detail?.dates?.timezone ?? "Europe/London");
+
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked festival card,
   // else a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
   // get a renderable JPEG instead of a raw (often WebP) poster URL. The schema.org
@@ -81,6 +97,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       entitySlug: ref.slug ?? params.id,
       cityDisplay: (festival.city as string | null) ?? undefined,
       ogImage,
+      todayKey,
     },
     // The same events.id is reachable at /event/:id AND /festival/:id, so tag
     // both surfaces — a single edit to that row purges both pages.
@@ -107,7 +124,7 @@ export default function FestivalRoute({ loaderData, params }: Route.ComponentPro
   return (
     <HydrationBoundary state={loaderData.dehydratedState}>
       <InitialVisiblePageTransition key={params.id}>
-        <FestivalDetail />
+        <FestivalDetail serverTodayKey={loaderData.todayKey} />
       </InitialVisiblePageTransition>
     </HydrationBoundary>
   );

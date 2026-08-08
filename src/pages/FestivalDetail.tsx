@@ -105,6 +105,22 @@ type FestivalDetailInnerProps = {
 
   snapshot?: EventPageSnapshot | null;
 
+  /**
+   * The date key ('YYYY-MM-DD') on the FESTIVAL's own calendar that the server
+   * rendered this document on. Supplied by the /festival/:id route loader.
+   *
+   * Load-bearing for two separate reasons:
+   *  1. It pins the first render (server + hydration) to one key, so the
+   *     days-away label can ship in the server HTML without a #418 mismatch.
+   *  2. Without it the label can only appear post-mount, so crawlers and
+   *     no-JS readers never see the festival's timing cue at all.
+   *
+   * Absent on the /event/<slug> mount (EventPage renders this component lazily
+   * inside a Suspense boundary and passes no key), and the days-away label
+   * stays mount-gated there -- see its render site.
+   */
+  serverTodayKey?: string;
+
 };
 
 
@@ -1367,7 +1383,7 @@ type FestivalSnapshotPayload = {
   [key: string]: unknown;
 };
 
-const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProps) => {
+const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: FestivalDetailInnerProps) => {
 
   const { id } = useParams();
 
@@ -1593,10 +1609,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  // `mounted` gates every clock-reading display (the days-away line, the
-  // schedule's today badges) so the server and first client render agree --
-  // the clock differs build-vs-client, a React #418 hydration mismatch on
-  // /event/<slug> under SSR.
+  // `mounted` is the fallback half of the clock-display gate: where no route
+  // loader pinned the day, a clock-reading display (the days-away line, the
+  // schedule's today badges) must wait for hydration or the server and first
+  // client render disagree -- the clock differs build-vs-client, a React #418
+  // mismatch on /event/<slug> under SSR. `canRenderClockDerived` below is the
+  // single predicate those DISPLAYS actually read; do not gate one on raw
+  // `mounted`, which is blind to the pin and hides the label needlessly.
+  //
+  // Non-display consumers are the other way round: the default-day effect below
+  // deliberately waits for raw `mounted`, because it LATCHES and so must not act
+  // on a pinned key that has not yet been checked against the client clock.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -1747,7 +1770,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // zone and not London's): flips at the event's own midnight, re-anchors on
   // visibility/focus, and survives long-lived tabs. THE page's single clock —
   // it drives the today badges, the days-away figure and the default day tab.
-  const todayKey = useTodayKey(eventTz);
+  //
+  // Seeded from the route loader's key where there is one, so the first render
+  // (server AND hydration) agrees on the day and the days-away label can ship
+  // in the server HTML. The hook re-checks against the real clock immediately
+  // on mount, so an edge-cached document generated before the festival's
+  // midnight self-corrects within a tick of hydration rather than showing a
+  // stale figure for up to a minute.
+  const todayKey = useTodayKey(eventTz, serverTodayKey);
+
+  // Whether a todayKey-derived display is safe to render on THIS render.
+  //
+  // With a `serverTodayKey` the loader pinned the day, so the server and the
+  // first client render derive the same answer from the same key: the text can
+  // ship in the crawled HTML. Without one -- the /event/<slug> mount, which
+  // renders this component lazily and passes no key -- `todayKey` comes from
+  // whichever clock ran first, so every such display must wait for `mounted`.
+  // Server and client can straddle midnight there, and that is exactly the
+  // React #418 mismatch the mount gate was added for.
+  //
+  // One name for one rule: the hero's days-away label and both schedule
+  // "today" badges are the same gate and drifted apart once already.
+  const canRenderClockDerived = Boolean(serverTodayKey) || mounted;
 
   // The hero's timing cue, in whole calendar days on the event's calendar
   // (midnight-to-midnight, matching CalendarListView): "In N days" before,
@@ -1767,13 +1811,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // dep list because the effect reads it, but the same ref makes it inert after
   // the first pick: a midnight rollover advances the badges and deliberately
   // leaves the open tab where the user left it.
+  //
+  // WAITING FOR `mounted` IS LOAD-BEARING, not a stray SSR guard. This pick
+  // latches, so it must not run against the SERVER's pinned key: that document
+  // is edge-cached (s-maxage + SWR) and can have been generated before the
+  // festival's midnight, and the latch would make the correction inert. The
+  // schedule would then open on yesterday's tab while the today badge, which
+  // does not latch, marked the right day. `mounted` is exactly the "the pin has
+  // been checked against the real client clock" signal: useTodayKey's mount
+  // check is an earlier effect in this same component, so both land in one
+  // batch and the first render with `mounted === true` already carries the
+  // corrected key. The effect never runs on the server, so nothing is lost.
   const defaultedForRef = useRef<string | null>(null);
   useEffect(() => {
     const eid = festivalDetail?.eventId ?? null;
-    if (!eid || days.length === 0 || defaultedForRef.current === eid) return;
+    if (!eid || !mounted || days.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
     setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), todayKey));
-  }, [festivalDetail?.eventId, days, todayKey]);
+    // `mounted` is a dep, not just a read: it is the edge this effect waits for.
+    // Without it the effect runs once with mounted === false, bails, and never
+    // re-runs when the flag flips (days and todayKey are typically unchanged in
+    // that commit) -- the schedule would never open on today at all.
+  }, [festivalDetail?.eventId, days, todayKey, mounted]);
 
 
 
@@ -2184,12 +2243,16 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
             <div className="hero-dateline">{heroDateLine}</div>
 
-            {/* Always-rendered line box: the label is clock-derived so it can
-                only fill in after mount (#418), but the box itself must be in
-                the server HTML or its pop-in shifts the Get Tickets CTA under
-                the tap. */}
+            {/* Always-rendered line box: the box itself must be in the server
+                HTML either way, or its pop-in shifts the Get Tickets CTA under
+                the tap.
 
-            <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
+                The LABEL is clock-derived, so it renders only when doing so is
+                safe on this render -- see `canRenderClockDerived`. */}
+
+            <div className="hero-days-away">
+              {(canRenderClockDerived && heroDayStatus?.label) || "\u00A0"}
+            </div>
 
           </>
 
@@ -2371,7 +2434,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                 const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
 
-                const isToday = mounted && wallClockDateKey(day) === todayKey;
+                const isToday = canRenderClockDerived && wallClockDateKey(day) === todayKey;
 
                 return (
 
@@ -2421,7 +2484,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
                   const monthShort = formatWallClockLocalIntl(day, { month: "short" }) ?? "";
 
-                  const isToday = mounted && wallClockDateKey(day) === todayKey;
+                  const isToday = canRenderClockDerived && wallClockDateKey(day) === todayKey;
 
                   return (
 
@@ -3098,11 +3161,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-const FestivalDetail = ({ snapshot }: FestivalDetailInnerProps) => (
+const FestivalDetail = ({ snapshot, serverTodayKey }: FestivalDetailInnerProps) => (
 
   <PageErrorBoundary>
 
-    <FestivalDetailInner snapshot={snapshot} />
+    <FestivalDetailInner snapshot={snapshot} serverTodayKey={serverTodayKey} />
 
   </PageErrorBoundary>
 
