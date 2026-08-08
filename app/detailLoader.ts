@@ -95,13 +95,22 @@ const BROWSER_NO_STORE = "public, max-age=0, must-revalidate";
 // so it never reaches the client.
 const EDGE_TTL_BOUND_HEADER = "X-Edge-Ttl-Bound";
 
+/** Slack between the loader measuring a bound and the CDN storing the response
+ *  (SSR streaming + transfer). Exported so a test asserts the real number
+ *  rather than restating it. A floor, not a guarantee: a genuinely cold
+ *  function can exceed it, which costs one early revalidation, not a stale
+ *  claim -- the error stays on the safe side either way. */
+export const EDGE_STORE_MARGIN_SECONDS = 5;
+
 // A zero stale window is spelled by OMITTING the directive, never by
-// `stale-while-revalidate=0`. Any layer that keys off the directive's presence
-// rather than parsing its value would read the explicit zero as "stale serving
-// enabled" -- and the request it would then serve stale is the one past the
-// boundary, i.e. exactly the crawler request this whole mechanism exists to
-// make revalidate. The failure would be invisible: the header looks right in a
-// curl and the page still says "Happening now" after midnight.
+// `stale-while-revalidate=0`, so that a layer keying off the directive's
+// PRESENCE rather than its value cannot read an explicit zero as "stale serving
+// enabled". Note what this does and does not buy: omission removes the explicit
+// permission, it is not a prohibition. RFC 7234 still lets a shared cache serve
+// a stale entry on origin error unless `must-revalidate` is present, which is
+// deliberately not set -- serving a slightly old festival page beats failing it
+// while Supabase is down. Vercel honours the value either way; this is belt to
+// the value's braces, not the guarantee on its own.
 const cacheControl = (sMaxAge: number, swr: number): string =>
   swr > 0
     ? `public, s-maxage=${sMaxAge}, stale-while-revalidate=${swr}`
@@ -143,15 +152,47 @@ const cacheControl = (sMaxAge: number, swr: number): string =>
 export function edgeCacheControl(boundSeconds?: number): string {
   // No bound asked for: an untouched route, byte-identical to the old policy.
   if (boundSeconds === undefined) return cacheControl(EDGE_S_MAXAGE, EDGE_SWR);
-  // Asked for a bound and it did not survive the trip. FAIL CLOSED -- "absent"
-  // and "corrupt" must not collapse into the same case, or a single typo in the
-  // side channel silently restores the 25-hour policy on the one route that
-  // declared it cannot tolerate it. The fresh hour is kept (the page is not
-  // wrong for an hour, only unverified) and the stale tail is dropped.
-  if (!Number.isFinite(boundSeconds)) return cacheControl(EDGE_S_MAXAGE, 0);
-  const bound = Math.min(EDGE_S_MAXAGE + EDGE_SWR, Math.max(0, Math.floor(boundSeconds)));
+  // Asked for a bound and it did not survive the trip. FAIL CLOSED to NO edge
+  // caching -- "absent" and "corrupt" must not collapse into the same case, or a
+  // single typo in the side channel silently restores the 25-hour policy on the
+  // one route that declared it cannot tolerate it. Keeping the fresh hour was
+  // the first instinct and it is wrong: an hour IS the defect window. The
+  // motivating example twenty lines up is a document rendered at 23:20 served at
+  // 00:40, and a corrupt bound near midnight reproduces it exactly. A broken
+  // bound means we do not know how long this content is true, so we cache none
+  // of it. Only /festival is bounded today, so the cost of the failure mode is
+  // one origin render per request on one route, not a site-wide storm.
+  if (!Number.isFinite(boundSeconds)) return cacheControl(0, 0);
+  // The bound was measured inside the loader; Vercel starts the s-maxage clock
+  // when it STORES the response, after React has streamed the whole tree to the
+  // edge. That gap is unmeasurable from here and always runs one way, so every
+  // entry would outlive its day by the render time. Floor and subtract.
+  const bound = Math.min(
+    EDGE_S_MAXAGE + EDGE_SWR,
+    Math.max(0, Math.floor(boundSeconds) - EDGE_STORE_MARGIN_SECONDS),
+  );
   const sMaxAge = Math.min(EDGE_S_MAXAGE, bound);
   return cacheControl(sMaxAge, bound - sMaxAge);
+}
+
+/**
+ * Read the side channel: `undefined` = this route never asked for a bound,
+ * `NaN` = it asked and the value did not survive (edgeCacheControl fails
+ * closed), a number = the bound.
+ *
+ * EXPORTED AND PURE so the empty-string case is assertable. `Number("")` is 0
+ * and 0 is FINITE, so without the explicit check an empty header slips past the
+ * fail-closed branch and is read as a deliberate "do not cache". That happens
+ * to emit the same header today -- which is exactly why it needs its own test:
+ * through cacheHeaders the two paths are indistinguishable, so a gate written
+ * there passes whether the check exists or not, and the day fail-closed stops
+ * meaning zero the empty case silently follows the wrong branch. tsconfig's
+ * `strict: false` means the parameter type does not stop a caller producing one.
+ */
+export function parseEdgeTtlBound(raw: string | null): number | undefined {
+  if (raw === null) return undefined;
+  if (raw.trim() === "") return Number.NaN;
+  return Number(raw);
 }
 
 /** Route `headers()` body: forward the loader's Vercel-Cache-Tag and set the
@@ -159,12 +200,11 @@ export function edgeCacheControl(boundSeconds?: number): string {
 export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
   const tag = loaderHeaders.get("Vercel-Cache-Tag");
   if (!tag) return { "Cache-Control": BROWSER_NO_STORE };
-  // Header absent = this route never asked for a bound. Header present but
-  // unparseable = it asked and the value broke; edgeCacheControl fails closed.
-  const rawBound = loaderHeaders.get(EDGE_TTL_BOUND_HEADER);
   return {
     "Cache-Control": BROWSER_NO_STORE,
-    "Vercel-CDN-Cache-Control": edgeCacheControl(rawBound === null ? undefined : Number(rawBound)),
+    "Vercel-CDN-Cache-Control": edgeCacheControl(
+      parseEdgeTtlBound(loaderHeaders.get(EDGE_TTL_BOUND_HEADER)),
+    ),
     "Vercel-Cache-Tag": tag,
   };
 }
@@ -173,19 +213,28 @@ export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
  *  carry a Vercel-Cache-Tag (comma-separated tags). The component and meta()
  *  still receive the unwrapped payload.
  *
- *  `edgeTtlBoundSeconds` caps how long the edge may serve this generation --
- *  pass it whenever the payload contains a value that expires on its own. For a
- *  pinned day key that is `secondsUntilKeyRollsOver(key, tz)` from
- *  @/lib/londonDate. See edgeCacheControl for what the cap means. */
-export function taggedData<T>(payload: T, tag: string, edgeTtlBoundSeconds?: number) {
+ *  `opts.edgeTtlBoundSeconds` caps how long the edge may serve this generation
+ *  -- pass it whenever the payload contains a value that expires on its own. For
+ *  a pinned day key that is `secondsUntilKeyRollsOver(key, tz)` from
+ *  @/lib/londonDate. See edgeCacheControl for what the cap means.
+ *
+ *  NAMED, not a third positional number, because `taggedData(payload, tag,
+ *  2400)` reads identically whether 2400 is seconds or milliseconds and nothing
+ *  -- not a type, not a test -- would catch the confusion. Cheap to spell out
+ *  now, with one caller; four more routes are queued to adopt it. */
+export function taggedData<T>(
+  payload: T,
+  tag: string,
+  opts?: { edgeTtlBoundSeconds?: number },
+) {
   const headers: Record<string, string> = { "Vercel-Cache-Tag": tag };
-  // Written whenever the caller passed anything, INCLUDING a nonsense value:
-  // the header's presence is how cacheHeaders tells "asked for a bound" from
-  // "never asked", and only the first may fail closed. Emitted unnormalised --
-  // edgeCacheControl is the single owner of the clamping rule, and a second
-  // copy here would let the header and the directive drift apart.
-  if (edgeTtlBoundSeconds !== undefined) {
-    headers[EDGE_TTL_BOUND_HEADER] = String(edgeTtlBoundSeconds);
+  // Written whenever the caller supplied the key AT ALL, including with a
+  // nonsense value: the header's presence is how cacheHeaders tells "asked for
+  // a bound" from "never asked", and only the first may fail closed. Emitted
+  // unnormalised -- edgeCacheControl is the single owner of the clamping rule,
+  // and a second copy here would let the header and the directive drift apart.
+  if (opts && "edgeTtlBoundSeconds" in opts) {
+    headers[EDGE_TTL_BOUND_HEADER] = String(opts.edgeTtlBoundSeconds);
   }
   return data(payload, { headers });
 }

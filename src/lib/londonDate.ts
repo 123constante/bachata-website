@@ -245,20 +245,36 @@ export const formatKeyRange = (
 };
 
 const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
+const buildWallClockFormatter = (timeZone: string): Intl.DateTimeFormat =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+
 const wallClockMsInTz = (d: Date, timeZone: string): number => {
-  let fmt = wallClockFormatters.get(timeZone);
+  // The invalid-zone degrade lives HERE, at the function that actually throws,
+  // rather than at each caller. Every zone-taking path in this module reaches
+  // the Intl constructor through this one line, so guarding it once covers
+  // zonedMidnightUtc and anything built on it -- including a future caller
+  // handed a DB-sourced `events.timezone` of 'Europe/Lonond', which would
+  // otherwise surface as a RangeError inside a loader and a 500 on a live page.
+  // Mirrors dateKeyInTz's fallback exactly, so both derive the same calendar
+  // from the same bad input.
+  const tz = timeZone || LONDON_TZ;
+  let fmt = wallClockFormatters.get(tz);
   if (!fmt) {
-    fmt = new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23',
-    });
-    wallClockFormatters.set(timeZone, fmt);
+    try {
+      fmt = buildWallClockFormatter(tz);
+    } catch {
+      fmt = buildWallClockFormatter(LONDON_TZ);
+    }
+    wallClockFormatters.set(tz, fmt);
   }
   const parts = fmt.formatToParts(d);
   const get = (type: Intl.DateTimeFormatPartTypes): number =>
@@ -290,32 +306,6 @@ export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Da
   start: zonedMidnightUtc(key, LONDON_TZ),
   end: zonedMidnightUtc(addDaysToKey(key, days), LONDON_TZ),
 });
-
-/**
- * A zone we can hand to zonedMidnightUtc without it throwing. dateKeyInTz
- * swallows an invalid/missing zone internally; zonedMidnightUtc does NOT, so a
- * bad `timezone` column would surface as a 500 in a loader rather than a
- * London-calendar fallback. Same degrade rule, applied one layer earlier.
- */
-const resolvedZones = new Map<string, string>();
-const safeZone = (timeZone: string): string => {
-  const tz = timeZone || LONDON_TZ;
-  const cached = resolvedZones.get(tz);
-  if (cached) return cached;
-  // Memoised per zone for the reason stated on dateKeyFormatters above:
-  // constructing the formatter is the expensive part of the Intl API, and this
-  // one is built only to be thrown away once its constructor has or has not
-  // raised. One construction per distinct zone, ever.
-  let resolved = LONDON_TZ;
-  try {
-    new Intl.DateTimeFormat('en-CA', { timeZone: tz });
-    resolved = tz;
-  } catch {
-    // Invalid zone: keep the London fallback, matching dateKeyInTz.
-  }
-  resolvedZones.set(tz, resolved);
-  return resolved;
-};
 
 /**
  * Seconds from `now` until `dayKey` stops being "today" on `timeZone`'s
@@ -357,10 +347,13 @@ export const secondsUntilKeyRollsOver = (
   timeZone: string,
   now: Date = new Date(),
 ): number => {
-  const zone = safeZone(timeZone);
-  const key = isRealDateKey(dayKey) ? dayKey : dateKeyInTz(now, zone);
-  const rollsOverAt = zonedMidnightUtc(addDaysToKey(key, 1), zone);
-  return Math.max(0, Math.ceil((rollsOverAt.getTime() - now.getTime()) / 1000));
+  const key = isRealDateKey(dayKey) ? dayKey : dateKeyInTz(now, timeZone);
+  const rollsOverAt = zonedMidnightUtc(addDaysToKey(key, 1), timeZone);
+  // FLOOR, not ceil. A caller sizing a cache TTL from this must never be handed
+  // a value that reaches past the rollover, and rounding up a fractional second
+  // does exactly that -- in the same direction as every other error here, which
+  // is the direction the "never once long" invariant above forbids.
+  return Math.max(0, Math.floor((rollsOverAt.getTime() - now.getTime()) / 1000));
 };
 
 /** Minutes since midnight on the London wall clock (0–1439). Pairs with the

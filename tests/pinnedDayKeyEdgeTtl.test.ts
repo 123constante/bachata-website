@@ -25,7 +25,13 @@
  * mid-run"); this file gates the lifetime half.
  */
 import { describe, it, expect } from 'vitest';
-import { cacheHeaders, edgeCacheControl, taggedData } from '../app/detailLoader';
+import {
+  cacheHeaders,
+  edgeCacheControl,
+  taggedData,
+  EDGE_STORE_MARGIN_SECONDS,
+  parseEdgeTtlBound,
+} from '../app/detailLoader';
 import { secondsUntilKeyRollsOver } from '@/lib/londonDate';
 
 /** Read one cache-control directive's seconds. Split rather than matched: a
@@ -125,6 +131,16 @@ describe('secondsUntilKeyRollsOver', () => {
     ).toBe(3600);
   });
 
+  it('floors a fractional second rather than rounding it up', () => {
+    // Every other case here sits on a whole second, where floor and ceil agree
+    // -- so without this one the rounding direction is untested and a change to
+    // ceil goes green. Ceil is the over-grant direction, which is the one the
+    // "never once long" invariant forbids: 2399.6s left must be 2399, not 2400.
+    expect(
+      secondsUntilKeyRollsOver('2026-09-06', 'Africa/Tunis', new Date('2026-09-06T22:20:00.400Z')),
+    ).toBe(2399);
+  });
+
   it('never returns a negative or absurd span', () => {
     for (const hour of [0, 1, 6, 12, 18, 23]) {
       const stamp = String(hour).padStart(2, '0');
@@ -141,50 +157,88 @@ describe('edgeCacheControl', () => {
     expect(edgeCacheControl()).toBe('public, s-maxage=3600, stale-while-revalidate=86400');
   });
 
-  it('FAILS CLOSED when a bound was asked for but did not arrive intact', () => {
+  it('FAILS CLOSED to no caching when a bound was asked for but did not arrive', () => {
     // Absent and corrupt must not collapse into the same case: a route that
     // declared it cannot tolerate the 25h policy must not silently get it back
-    // because one value broke in the side channel. The fresh hour survives (the
-    // page is not wrong for an hour, only unverified); the stale tail does not.
-    expect(edgeCacheControl(Number.NaN)).toBe('public, s-maxage=3600');
-    expect(totalServableSeconds(edgeCacheControl(Number.NaN))).toBe(3600);
+    // because one value broke in the side channel. Nor may it keep a fresh
+    // HOUR -- an hour IS the defect window; the motivating example is a
+    // document rendered at 23:20 and served at 00:40.
+    expect(edgeCacheControl(Number.NaN)).toBe('public, s-maxage=0');
+    expect(totalServableSeconds(edgeCacheControl(Number.NaN))).toBe(0);
     // The distinction itself, stated as the assertion:
     expect(edgeCacheControl(Number.NaN)).not.toBe(edgeCacheControl());
   });
 
-  it('caps TOTAL servability at the bound, not just the fresh window', () => {
+  it('caps TOTAL servability at the bound, less the store margin', () => {
     // The failing case: 40 minutes of the pinned day left. Before this fix the
     // edge granted 90000s here.
     const cc = edgeCacheControl(2400);
-    expect(totalServableSeconds(cc)).toBe(2400);
+    expect(totalServableSeconds(cc)).toBe(2400 - EDGE_STORE_MARGIN_SECONDS);
     // ...with NO stale directive at all, so the first request past the boundary
     // revalidates synchronously rather than being served the stale copy -- and
     // nothing downstream can read a presence-only `stale-while-revalidate` as
     // permission to serve it.
-    expect(cc).toBe('public, s-maxage=2400');
+    expect(cc).toBe(`public, s-maxage=${2400 - EDGE_STORE_MARGIN_SECONDS}`);
     expect(secondsOf(cc, 'stale-while-revalidate')).toBeNull();
+  });
+
+  it('never grants past the bound, because the CDN clock starts after the loader', () => {
+    // The bound is measured in the loader; Vercel starts counting when it
+    // STORES the response, after the tree has streamed. Every entry would
+    // otherwise outlive its day by the render time, and that error runs the
+    // same way as the DST one -- which is the direction the module forbids.
+    for (const bound of [30, 600, 2400, 50000, 86400]) {
+      expect(totalServableSeconds(edgeCacheControl(bound))).toBeLessThan(bound);
+    }
   });
 
   it('keeps the full fresh window when the day has hours left', () => {
     const cc = edgeCacheControl(50000);
     expect(sMaxAgeOf(cc)).toBe(3600);
-    expect(totalServableSeconds(cc)).toBe(50000);
+    expect(totalServableSeconds(cc)).toBe(50000 - EDGE_STORE_MARGIN_SECONDS);
   });
 
-  it('clamps a zero or negative bound to no caching rather than a malformed value', () => {
+  it('clamps a zero, negative or sub-margin bound to no caching', () => {
     expect(edgeCacheControl(0)).toBe('public, s-maxage=0');
     expect(edgeCacheControl(-5)).toBe('public, s-maxage=0');
+    // Less time left than the margin: the entry cannot be stored in time, so
+    // it must not be stored at all rather than wrapping to a huge number.
+    expect(edgeCacheControl(EDGE_STORE_MARGIN_SECONDS - 1)).toBe('public, s-maxage=0');
+  });
+});
+
+describe('parseEdgeTtlBound', () => {
+  // Asserted HERE rather than through cacheHeaders on purpose: a corrupt bound
+  // and a legitimate zero both emit `public, s-maxage=0`, so a gate written at
+  // the header is green whether or not the empty-string check exists. Only the
+  // parser can tell the two apart, so only the parser can gate it.
+  it('separates never-asked from asked-and-broke', () => {
+    expect(parseEdgeTtlBound(null)).toBeUndefined();
+    expect(parseEdgeTtlBound('2400')).toBe(2400);
+    for (const corrupt of ['', '   ', 'NaN', 'undefined', 'not-a-number']) {
+      expect(parseEdgeTtlBound(corrupt)).toBeNaN();
+    }
+  });
+
+  it('does not read an empty header as a deliberate zero', () => {
+    // Number("") is 0 and Number.isFinite(0) is true -- the whole trap.
+    expect(Number.isFinite(Number(''))).toBe(true);
+    expect(parseEdgeTtlBound('')).not.toBe(0);
   });
 });
 
 describe('cacheHeaders', () => {
+  const bounded = (seconds?: number) =>
+    loaderHeadersOf(taggedData({ ok: true }, 'festival:abc', { edgeTtlBoundSeconds: seconds }));
+
   it('honours a bound carried on the loader headers', () => {
-    const headers = loaderHeadersOf(taggedData({ ok: true }, 'festival:abc', 2400));
-    expect(totalServableSeconds(cacheHeaders(headers)['Vercel-CDN-Cache-Control'])).toBe(2400);
+    expect(totalServableSeconds(cacheHeaders(bounded(2400))['Vercel-CDN-Cache-Control'])).toBe(
+      2400 - EDGE_STORE_MARGIN_SECONDS,
+    );
   });
 
   it('does not leak the internal bound header to the client', () => {
-    const headers = loaderHeadersOf(taggedData({ ok: true }, 'festival:abc', 2400));
+    const headers = bounded(2400);
     // Non-vacuity: the loader really did set it, so its absence below is
     // cacheHeaders consuming it and not taggedData having skipped it.
     expect(headers.get('X-Edge-Ttl-Bound')).toBe('2400');
@@ -193,11 +247,24 @@ describe('cacheHeaders', () => {
 
   it('fails closed when the bound header is present but unparseable', () => {
     // The side channel breaking must not restore the 25h policy on a route that
-    // declared a bound. Both spellings a broken value actually takes.
-    for (const raw of ['undefined', 'NaN', 'not-a-number']) {
-      const out = cacheHeaders(new Headers({ 'Vercel-Cache-Tag': 'festival:abc', 'X-Edge-Ttl-Bound': raw }));
-      expect(out['Vercel-CDN-Cache-Control']).toBe('public, s-maxage=3600');
+    // declared a bound. The empty string is in this list on purpose: Number("")
+    // is 0 and 0 is FINITE, so without an explicit guard it slips past the
+    // fail-closed branch and lands on the right answer for the wrong reason.
+    for (const raw of ['undefined', 'NaN', 'not-a-number', '', '   ']) {
+      const out = cacheHeaders(
+        new Headers({ 'Vercel-Cache-Tag': 'festival:abc', 'X-Edge-Ttl-Bound': raw }),
+      );
+      expect(out['Vercel-CDN-Cache-Control']).toBe('public, s-maxage=0');
     }
+  });
+
+  it('treats an explicitly-passed undefined as having asked, and fails closed', () => {
+    // A caller who meant to supply a bound and computed nothing is NOT the same
+    // as a caller who passed no options at all -- the untouched-route case
+    // asserted at the end of this block.
+    expect(cacheHeaders(bounded(undefined))['Vercel-CDN-Cache-Control']).toBe(
+      'public, s-maxage=0',
+    );
   });
 
   it('leaves an untagged (404/500) response uncached, bound or not', () => {

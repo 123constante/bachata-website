@@ -75,7 +75,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // (dateKeyInTz also falls back to London on a missing/invalid zone.)
   const detail = qc.getQueryData(festivalDetailQueryKey(eventId)) as FestivalDetailData | null;
   const festivalTz = detail?.dates?.timezone ?? "Europe/London";
-  const todayKey = dateKeyInTz(new Date(), festivalTz);
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked festival card,
   // else a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
@@ -90,6 +89,19 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     request,
     fallbackImage: DEFAULT_OG_IMAGE,
   });
+
+  // Derived HERE, below every await, not beside the timezone above.
+  //
+  // resolveOgCardImage can take seconds, and a loader that entered at 23:59:50
+  // leaves after the festival's midnight. Deriving the key on the way IN pinned
+  // yesterday into a document emitted today: the hero then renders "Happening
+  // now" for a festival that has finished, and the reader -- or Googlebot,
+  // whose single crawl is the audience this whole mechanism exists for -- is
+  // served that claim. Declining to CACHE it, which is all the bound can do,
+  // does not unsay it. Derived last, the key is truthful and the bound is a
+  // full day rather than zero. Nothing between here and the loader's entry
+  // reads it, so late is free.
+  const todayKey = dateKeyInTz(new Date(), festivalTz);
 
   return taggedData(
     {
@@ -118,10 +130,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // errors: an "In 3 days" countdown off by one, and a schedule "today"
     // badge sitting on yesterday's tab.
     //
-    // Measured HERE, not beside the derivation above: resolveOgCardImage can
-    // await for seconds, and a bound measured before it would over-grant by
-    // however long it took.
-    secondsUntilKeyRollsOver(todayKey, festivalTz),
+    { edgeTtlBoundSeconds: secondsUntilKeyRollsOver(todayKey, festivalTz) },
   );
 }
 
