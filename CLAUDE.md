@@ -301,6 +301,23 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
 | `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
 | `workflow-lint.yml` | push/PR | Workflow file validation |
+| `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
+
+**The conflicting-PR trap.** GitHub cannot compute a merge ref for a conflicting
+PR, so it never queues that PR&rsquo;s `pull_request` workflows. The gates do not
+fail &mdash; they cease to exist, while Vercel (which deploys off the head commit
+through its own App) keeps reporting green. The board then reads as a few
+&ldquo;skipping&rdquo; entries plus Vercel passes, which looks fine. It bit #217 on
+2026-08-08 and auto-closed #138 in July; the usual cause is squash-merging a PR
+whose commits a sibling branch still carries individually. `check-pr-mergeable.mjs`
+asserts both halves independently, because a bad `paths:` filter or a disabled
+workflow empties the board with mergeability perfectly clean. &ldquo;A gate that
+ran&rdquo; is defined by INCLUSION (an Actions check run, not SKIPPED), never by
+excluding what we recognise &mdash; the exclusion form counted the guard&rsquo;s own
+published status as a gate and would have switched the check off after one sweep.
+Fixtures, both live:
+`--sha b567c8a2` (#217 pre-rebase, 4 skipped + 2 Vercel) reds the gates half;
+`--pr 138` reds the mergeable half. `npm run check:pr-mergeable`.
 
 **Key DB contract checks** (all in `scripts/check-*.mjs`, enforced by CI):
 - Venue / venue coords contract (#1, #16)
