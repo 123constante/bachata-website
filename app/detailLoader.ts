@@ -83,28 +83,111 @@ export function throwDetailNotFound(label: string): never {
 // data, so the per-entity tag is attached in the loader via taggedData() and
 // forwarded here. The tag id is the entity's public URL id (per
 // useEntitySlugOrId) — the same id the DB emit resolves.
-const EDGE_CACHE = "public, s-maxage=3600, stale-while-revalidate=86400";
+const EDGE_S_MAXAGE = 3600;
+const EDGE_SWR = 86400;
 // Browsers never pin a private stale copy the CDN purge can't reach; they
 // revalidate against the (fast, edge-cached) response every time.
 const BROWSER_NO_STORE = "public, max-age=0, must-revalidate";
+
+// Loader -> headers() side channel for the TTL bound below. headers() cannot
+// see loader DATA, but it does see loader HEADERS -- the same seam the cache
+// tag already travels on. cacheHeaders() consumes it and does not re-emit it,
+// so it never reaches the client.
+const EDGE_TTL_BOUND_HEADER = "X-Edge-Ttl-Bound";
+
+// A zero stale window is spelled by OMITTING the directive, never by
+// `stale-while-revalidate=0`. Any layer that keys off the directive's presence
+// rather than parsing its value would read the explicit zero as "stale serving
+// enabled" -- and the request it would then serve stale is the one past the
+// boundary, i.e. exactly the crawler request this whole mechanism exists to
+// make revalidate. The failure would be invisible: the header looks right in a
+// curl and the page still says "Happening now" after midnight.
+const cacheControl = (sMaxAge: number, swr: number): string =>
+  swr > 0
+    ? `public, s-maxage=${sMaxAge}, stale-while-revalidate=${swr}`
+    : `public, s-maxage=${sMaxAge}`;
+
+/**
+ * The edge cache-control for a document, optionally bounded by how long its
+ * CONTENT stays true.
+ *
+ * WHY A BOUND EXISTS. Some loaders bake a clock-read answer into the HTML --
+ * /festival/:id pins "today" on the festival's calendar so the hero's timing
+ * line ("Tomorrow", "In 3 days", "Happening now") ships in the crawled markup
+ * instead of appearing only after hydration. The default 3600 + 86400 lets the
+ * edge serve one generation for up to 25 HOURS, so a document rendered at 23:20
+ * on a festival's last day can be served, stale, at 00:40 the next morning --
+ * to a reader or to Googlebot -- still claiming "Happening now" about an event
+ * that has finished. Time passing is not a content edit, so the tag purge never
+ * fires. A JS client self-corrects a tick after hydration; the crawled document
+ * and the pre-hydration paint do not.
+ *
+ * WHAT THE BOUND DOES. `boundSeconds` caps TOTAL servability (s-maxage + SWR),
+ * not just the fresh window: under stale-while-revalidate the FIRST request
+ * after s-maxage is served the stale copy, and that request is exactly the one
+ * that matters for a crawler. Collapsing SWR to zero at the boundary makes that
+ * request revalidate synchronously and receive a correctly re-derived document.
+ *
+ * WHAT IT COSTS, HONESTLY. The 3600s fresh window is untouched, but total
+ * servability falls from a flat 90000s to whatever is left of the pinned day.
+ * A low-traffic page -- which a single festival page is -- previously landed
+ * inside the 24h stale window on nearly every hit: an instant HIT with
+ * revalidation running behind it. Now the entry is guaranteed dead at that
+ * page's midnight, so the first visitor of each day takes a full MISS and
+ * blocks on a cold render. A deliberate correctness-over-latency trade, not a
+ * free one, and worth re-weighing before adopting the bound on a busy route.
+ *
+ * An absent bound keeps the previous behaviour exactly, so untouched routes are
+ * byte-identical.
+ */
+export function edgeCacheControl(boundSeconds?: number): string {
+  // No bound asked for: an untouched route, byte-identical to the old policy.
+  if (boundSeconds === undefined) return cacheControl(EDGE_S_MAXAGE, EDGE_SWR);
+  // Asked for a bound and it did not survive the trip. FAIL CLOSED -- "absent"
+  // and "corrupt" must not collapse into the same case, or a single typo in the
+  // side channel silently restores the 25-hour policy on the one route that
+  // declared it cannot tolerate it. The fresh hour is kept (the page is not
+  // wrong for an hour, only unverified) and the stale tail is dropped.
+  if (!Number.isFinite(boundSeconds)) return cacheControl(EDGE_S_MAXAGE, 0);
+  const bound = Math.min(EDGE_S_MAXAGE + EDGE_SWR, Math.max(0, Math.floor(boundSeconds)));
+  const sMaxAge = Math.min(EDGE_S_MAXAGE, bound);
+  return cacheControl(sMaxAge, bound - sMaxAge);
+}
 
 /** Route `headers()` body: forward the loader's Vercel-Cache-Tag and set the
  *  cache layers. A response with no tag (a thrown 404/500) is NOT edge-cached. */
 export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
   const tag = loaderHeaders.get("Vercel-Cache-Tag");
   if (!tag) return { "Cache-Control": BROWSER_NO_STORE };
+  // Header absent = this route never asked for a bound. Header present but
+  // unparseable = it asked and the value broke; edgeCacheControl fails closed.
+  const rawBound = loaderHeaders.get(EDGE_TTL_BOUND_HEADER);
   return {
     "Cache-Control": BROWSER_NO_STORE,
-    "Vercel-CDN-Cache-Control": EDGE_CACHE,
+    "Vercel-CDN-Cache-Control": edgeCacheControl(rawBound === null ? undefined : Number(rawBound)),
     "Vercel-Cache-Tag": tag,
   };
 }
 
 /** Wrap a loader payload so the SSR document AND the client-nav `.data` response
  *  carry a Vercel-Cache-Tag (comma-separated tags). The component and meta()
- *  still receive the unwrapped payload. */
-export function taggedData<T>(payload: T, tag: string) {
-  return data(payload, { headers: { "Vercel-Cache-Tag": tag } });
+ *  still receive the unwrapped payload.
+ *
+ *  `edgeTtlBoundSeconds` caps how long the edge may serve this generation --
+ *  pass it whenever the payload contains a value that expires on its own. For a
+ *  pinned day key that is `secondsUntilKeyRollsOver(key, tz)` from
+ *  @/lib/londonDate. See edgeCacheControl for what the cap means. */
+export function taggedData<T>(payload: T, tag: string, edgeTtlBoundSeconds?: number) {
+  const headers: Record<string, string> = { "Vercel-Cache-Tag": tag };
+  // Written whenever the caller passed anything, INCLUDING a nonsense value:
+  // the header's presence is how cacheHeaders tells "asked for a bound" from
+  // "never asked", and only the first may fail closed. Emitted unnormalised --
+  // edgeCacheControl is the single owner of the clamping rule, and a second
+  // copy here would let the header and the directive drift apart.
+  if (edgeTtlBoundSeconds !== undefined) {
+    headers[EDGE_TTL_BOUND_HEADER] = String(edgeTtlBoundSeconds);
+  }
+  return data(payload, { headers });
 }
 
 /** If the URL arrived as a UUID but the entity has a canonical slug, 301 to the
