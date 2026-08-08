@@ -32,13 +32,14 @@ import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-pa
 import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledBanner";
 
 import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
+import {
+  computeHeroDayStatus,
+  type CancellationState,
+} from "@/modules/event-page/utils/festivalHeroDayStatus";
 
 import {
-  clampRangeEndKey,
   dateKeyInTz,
   formatKeyRange,
-  isRealDateKey,
-  londonDaysBetweenKeys,
 } from "@/lib/londonDate";
 
 import { useTodayKey } from "@/hooks/useTodayKey";
@@ -1419,7 +1420,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-  const { data: snapshotPayload } = useQuery({
+  const snapshotQueryEnabled = Boolean(festivalId) && !propSnapshot;
+
+  const {
+    data: snapshotPayload,
+    isSuccess: snapshotSucceeded,
+    isError: snapshotFailed,
+  } = useQuery({
 
     queryKey: ["festival-snapshot", festivalId],
 
@@ -1439,7 +1446,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
     },
 
-    enabled: Boolean(festivalId) && !propSnapshot,
+    enabled: snapshotQueryEnabled,
 
   });
 
@@ -1460,14 +1467,25 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
       ? (snapshotPayload.occurrence_effective.cancellation_reason_label as string)
       : null);
 
-  // Has the cancellation fact actually ARRIVED? On the standalone /festival/:id
-  // mount it rides the festival-snapshot query, which can resolve after the
-  // detail query that supplies the dates. Derived as a boolean so the memo below
-  // can depend on it honestly: depending on `snapshotPayload` via a bare read
-  // inside the memo left it stale, and a non-cancelled festival then kept the
-  // "stay silent" result forever (the cancelled path recomputed because
-  // isCancelled itself flipped, so the bug hid in the common case).
-  const cancellationKnown = Boolean(propSnapshot) || snapshotPayload !== undefined;
+  // How much do we know about cancellation? THREE states, not two -- see
+  // computeHeroDayStatus for why the distinction is load-bearing. Derived as a
+  // plain value so the memo below can depend on it honestly: depending on
+  // `snapshotPayload` via a bare read inside the memo left it stale, and a
+  // non-cancelled festival then kept the "stay silent" result forever (the
+  // cancelled path recomputed because isCancelled itself flipped, so the bug hid
+  // in the common case).
+  //
+  //   known       the fact arrived (prop snapshot, or the query succeeded).
+  //   unknowable  the query errored, or never ran at all (no festivalId). The
+  //               previous predicate treated this as "not yet" and held the hero
+  //               blank permanently on healthy festivals whose dates had loaded.
+  //   pending     still in flight.
+  const cancellationState: CancellationState =
+    Boolean(propSnapshot) || snapshotSucceeded
+      ? "known"
+      : snapshotFailed || !snapshotQueryEnabled
+        ? "unknowable"
+        : "pending";
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
@@ -1735,40 +1753,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // (midnight-to-midnight, matching CalendarListView): "In N days" before,
   // "Today" on the start day, "Happening now" mid-run, nothing after. Render
   // site is mount-gated (todayKey reads the clock: #418).
-  const heroDayStatus = useMemo(() => {
-    // A cancelled festival makes no timing claim at all. Without this, a
-    // cancelled mid-run festival rendered "Happening now" in the hero directly
-    // above its own cancellation banner. The countdown this replaced hid itself
-    // once the start passed, so it never contradicted the banner; the day-status
-    // line runs through the whole event and does.
-    //
-    // On the standalone /festival/:id mount the two facts arrive from DIFFERENT
-    // queries -- isCancelled from the festival-snapshot query, startKey/endKey
-    // from useFestivalDetailQuery -- so checking isCancelled alone still flashes
-    // "Happening now" in the window where the detail query has resolved and the
-    // snapshot has not. Stay silent until cancellation is actually KNOWN. If the
-    // snapshot query fails outright, data stays undefined and the line stays
-    // absent: no timing claim beats a possibly-wrong one.
-    if (isCancelled) return null;
-    if (!cancellationKnown) return null;
-    // todayKey validated too: on a degraded-Intl runtime it can be malformed,
-    // and the lexicographic compares below would sort it arbitrarily.
-    if (!startKey || !isRealDateKey(startKey) || !isRealDateKey(todayKey)) return null;
-    const daysUntil = londonDaysBetweenKeys(todayKey, startKey);
-    // "Tomorrow", not "In 1 day": CalendarListView.tsx already special-cases the
-    // singular that way, and the site should not say both.
-    if (daysUntil === 1) return { label: "Tomorrow" };
-    if (daysUntil > 0) return { label: `In ${daysUntil} days` };
-    if (daysUntil === 0) return { label: "Today" };
-    // Live window bounded at 30 days past the start: no real festival runs
-    // longer, and a corrupt far-future end date must not pin "Happening now"
-    // for years. The date line renders a real forward end date even when it
-    // is absurdly far out, so THAT error class stays visible to whoever can
-    // fix it (reversed/unreal ends still collapse to the start day there).
-    return daysUntil >= -30 && todayKey <= clampRangeEndKey(startKey, endKey)
-      ? { label: "Happening now" }
-      : null;
-  }, [startKey, endKey, todayKey, isCancelled, cancellationKnown]);
+  // The rules (and the three-state cancellation reasoning) live in the extracted
+  // pure predicate, where the unit gate can reach them. This predicate was wrong
+  // three commits running while it was inline here and untestable.
+  const heroDayStatus = useMemo(
+    () => computeHeroDayStatus({ startKey, endKey, todayKey, isCancelled, cancellationState }),
+    [startKey, endKey, todayKey, isCancelled, cancellationState],
+  );
 
   // Open the schedule on TODAY when the festival is live (else day 1). Runs once
   // per festival load — a ref keyed on eventId stops it from overriding a user's
