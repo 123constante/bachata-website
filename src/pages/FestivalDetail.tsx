@@ -105,6 +105,22 @@ type FestivalDetailInnerProps = {
 
   snapshot?: EventPageSnapshot | null;
 
+  /**
+   * The date key ('YYYY-MM-DD') on the FESTIVAL's own calendar that the server
+   * rendered this document on. Supplied by the /festival/:id route loader.
+   *
+   * Load-bearing for two separate reasons:
+   *  1. It pins the first render (server + hydration) to one key, so the
+   *     days-away label can ship in the server HTML without a #418 mismatch.
+   *  2. Without it the label can only appear post-mount, so crawlers and
+   *     no-JS readers never see the festival's timing cue at all.
+   *
+   * Absent on the /event/<slug> mount (EventPage renders this component lazily
+   * inside a Suspense boundary and passes no key), and the days-away label
+   * stays mount-gated there -- see its render site.
+   */
+  serverTodayKey?: string;
+
 };
 
 
@@ -1367,7 +1383,7 @@ type FestivalSnapshotPayload = {
   [key: string]: unknown;
 };
 
-const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProps) => {
+const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: FestivalDetailInnerProps) => {
 
   const { id } = useParams();
 
@@ -1747,7 +1763,14 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
   // zone and not London's): flips at the event's own midnight, re-anchors on
   // visibility/focus, and survives long-lived tabs. THE page's single clock —
   // it drives the today badges, the days-away figure and the default day tab.
-  const todayKey = useTodayKey(eventTz);
+  //
+  // Seeded from the route loader's key where there is one, so the first render
+  // (server AND hydration) agrees on the day and the days-away label can ship
+  // in the server HTML. The hook re-checks against the real clock immediately
+  // on mount, so an edge-cached document generated before the festival's
+  // midnight self-corrects within a tick of hydration rather than showing a
+  // stale figure for up to a minute.
+  const todayKey = useTodayKey(eventTz, serverTodayKey);
 
   // The hero's timing cue, in whole calendar days on the event's calendar
   // (midnight-to-midnight, matching CalendarListView): "In N days" before,
@@ -2184,12 +2207,22 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
             <div className="hero-dateline">{heroDateLine}</div>
 
-            {/* Always-rendered line box: the label is clock-derived so it can
-                only fill in after mount (#418), but the box itself must be in
-                the server HTML or its pop-in shifts the Get Tickets CTA under
-                the tap. */}
+            {/* Always-rendered line box: the box itself must be in the server
+                HTML either way, or its pop-in shifts the Get Tickets CTA under
+                the tap.
 
-            <div className="hero-days-away">{(mounted && heroDayStatus?.label) || "\u00A0"}</div>
+                The LABEL needs one of two things to be safe to render. With a
+                `serverTodayKey` the loader has pinned the day, so the server
+                and the first client render derive the same label from the same
+                key and the text ships in the crawled HTML. Without one (the
+                /event/<slug> mount, which passes no key) `todayKey` is read
+                from whichever clock renders first, so the label stays gated on
+                `mounted` there -- server and client can straddle midnight and
+                that is the #418 mismatch this gate was added for. */}
+
+            <div className="hero-days-away">
+              {((serverTodayKey || mounted) && heroDayStatus?.label) || "\u00A0"}
+            </div>
 
           </>
 
@@ -3098,11 +3131,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot }: FestivalDetailInnerProp
 
 
 
-const FestivalDetail = ({ snapshot }: FestivalDetailInnerProps) => (
+const FestivalDetail = ({ snapshot, serverTodayKey }: FestivalDetailInnerProps) => (
 
   <PageErrorBoundary>
 
-    <FestivalDetailInner snapshot={snapshot} />
+    <FestivalDetailInner snapshot={snapshot} serverTodayKey={serverTodayKey} />
 
   </PageErrorBoundary>
 
