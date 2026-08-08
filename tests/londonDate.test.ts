@@ -245,17 +245,27 @@ describe('dateKeyInTz timezone fallback', () => {
   });
 
   it('falls back to London for an INVALID zone (Intl throws, catch fires)', () => {
+    // `null` and `''` belong HERE, not with the undefined case below: both
+    // stringify to something Intl rejects, so they throw RangeError exactly like
+    // 'Not/AZone' and are caught by the same catch. Grouping them with `undefined`
+    // overstated that test's reach 3x -- two of its three legs passed even without
+    // the normalisation they claimed to cover.
     expect(dateKeyInTz(instant, 'Not/AZone')).toBe('2026-06-13');
-  });
-
-  it('falls back to London for a MISSING zone (Intl does NOT throw)', () => {
-    // The trap: `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })`
-    // resolves to the RUNTIME zone without throwing, so the catch never fires.
-    // Before the normalisation this asserts, a Sydney visitor got 2026-06-14 --
-    // today on their own browser calendar, from the module whose entire job is
-    // to stop that.
-    expect(dateKeyInTz(instant, undefined as unknown as string)).toBe('2026-06-13');
     expect(dateKeyInTz(instant, null as unknown as string)).toBe('2026-06-13');
     expect(dateKeyInTz(instant, '')).toBe('2026-06-13');
+  });
+
+  it('falls back to London for an UNDEFINED zone (Intl does NOT throw)', () => {
+    // The one leg the catch cannot save, and so the only one that actually
+    // exercises the `timeZone || LONDON_TZ` normalisation:
+    // `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })` resolves to the
+    // RUNTIME zone silently. Without the normalisation a Sydney visitor would get
+    // 2026-06-14 -- today on their own browser calendar, from the module whose
+    // entire job is to stop that.
+    //
+    // No call site can currently deliver `undefined` (both useTodayKey callers
+    // default it), so this guards the `strict: false` gap in the signature rather
+    // than a defect that shipped.
+    expect(dateKeyInTz(instant, undefined as unknown as string)).toBe('2026-06-13');
   });
 });
