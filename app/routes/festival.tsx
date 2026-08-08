@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
-import { dateKeyInTz } from "@/lib/londonDate";
+import { dateKeyInTz, secondsUntilKeyRollsOver } from "@/lib/londonDate";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
@@ -74,7 +74,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // derive different keys and the pin becomes the bug it exists to prevent.
   // (dateKeyInTz also falls back to London on a missing/invalid zone.)
   const detail = qc.getQueryData(festivalDetailQueryKey(eventId)) as FestivalDetailData | null;
-  const todayKey = dateKeyInTz(new Date(), detail?.dates?.timezone ?? "Europe/London");
+  const festivalTz = detail?.dates?.timezone ?? "Europe/London";
+  const todayKey = dateKeyInTz(new Date(), festivalTz);
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked festival card,
   // else a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
@@ -102,6 +103,25 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // The same events.id is reachable at /event/:id AND /festival/:id, so tag
     // both surfaces — a single edit to that row purges both pages.
     stampFestival(eventId),
+    // ...and this document may not outlive the day it just pinned.
+    //
+    // `todayKey` is baked into edge-cached HTML and the hero renders a CLAIM
+    // off it -- "Happening now" mid-run. The default edge policy (s-maxage
+    // 3600 + SWR 86400) lets ONE generation be served for 25 hours: a document
+    // rendered at 23:20 on a multi-day festival's last day, served stale at
+    // 00:40 the next morning, tells a reader -- or Googlebot, which indexes the
+    // raw HTML -- that a finished festival is running. Nothing evicts it: time
+    // passing is not a content edit, so the tag purge never fires, and the
+    // 04:30 UTC daily redeploy leaves the whole midnight-to-04:30 window open.
+    // Bounding the TTL at the festival's own rollover makes the first request
+    // of the new day revalidate and re-derive. Same fix covers the softer
+    // errors: an "In 3 days" countdown off by one, and a schedule "today"
+    // badge sitting on yesterday's tab.
+    //
+    // Measured HERE, not beside the derivation above: resolveOgCardImage can
+    // await for seconds, and a bound measured before it would over-grant by
+    // however long it took.
+    secondsUntilKeyRollsOver(todayKey, festivalTz),
   );
 }
 
