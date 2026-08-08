@@ -43,6 +43,29 @@ const LOCAL_END = '2026-09-06';
 
 const DAYS_AWAY_CLASS = 'hero-days-away';
 
+// The schedule's visible "today" marker, asserted as RENDERED MARKUP rather than
+// as the bare class name. The component inlines its stylesheet into the document,
+// so the string `tl-day-today` is in the HTML of every festival page whether or
+// not a badge rendered -- a `toContain('tl-day-today')` would be green against a
+// completely broken gate. The `<span ...>` form only exists if the element did.
+const TODAY_BADGE = '<span class="tl-day-today">Today</span>';
+
+// The mobile day-tab carries no text, only a class, so the marker is the class
+// LIST on a rendered button. Anchored to `class="day-tab` so the stylesheet's own
+// `.day-tab` / `.tl-day` rules cannot satisfy it either.
+const TODAY_TAB = /class="day-tab[^"]*\btoday\b[^"]*"/;
+
+// One session on each of the festival's three days. `days` is derived from the
+// schedule (not from local_start/local_end), and the timeline block is gated on
+// having both days AND hours -- so a badge cannot render without this.
+const SCHEDULE = [LOCAL_START, '2026-09-05', LOCAL_END].map((day, i) => ({
+  id: `sess-${i}`,
+  day,
+  title: `Session ${i}`,
+  start_time: '20:00:00',
+  type: 'class',
+}));
+
 let realFetch: typeof globalThis.fetch;
 
 beforeAll(() => {
@@ -70,7 +93,7 @@ afterAll(() => {
  * under us this fixture changes with it instead of silently describing a shape
  * that no longer exists.
  */
-async function seedClient(): Promise<QueryClient> {
+async function seedClient(schedule: unknown[] = []): Promise<QueryClient> {
   const { createQueryClient } = await import('@/App');
   const { parseFestivalDetail, festivalDetailQueryKey } = await import(
     '@/modules/event-page/useFestivalDetailQuery'
@@ -113,7 +136,7 @@ async function seedClient(): Promise<QueryClient> {
       event_id: EVENT_UUID,
       identity: { name: 'Test Festival' },
       dates: { local_start: LOCAL_START, local_end: LOCAL_END, timezone: TZ },
-      schedule: [],
+      schedule,
       passes: [],
     }),
   );
@@ -122,10 +145,10 @@ async function seedClient(): Promise<QueryClient> {
 }
 
 /** Server-render /festival/:id, optionally with the loader's pinned day key. */
-async function renderFestival(serverTodayKey?: string): Promise<string> {
+async function renderFestival(serverTodayKey?: string, schedule: unknown[] = []): Promise<string> {
   const { AppProviders } = await import('@/App');
   const { default: FestivalDetail } = await import('@/pages/FestivalDetail');
-  const client = await seedClient();
+  const client = await seedClient(schedule);
 
   return renderToString(
     <AppProviders client={client}>
@@ -189,6 +212,15 @@ describe('SSR: festival hero days-away label', { timeout: 20_000 }, () => {
     await expectLabelOnlyWithServerKey('2026-09-05', 'Happening now');
   });
 
+  it('leaves the schedule badges alone when there is no schedule', async () => {
+    // The hero cases above seed an EMPTY schedule, so the whole timeline block
+    // is unrendered. Stated as a case rather than assumed: it is what makes the
+    // badge suite below a genuinely separate fixture instead of an accident.
+    const html = await renderFestival(LOCAL_START);
+    expect(html).toContain(DAYS_AWAY_CLASS);
+    expect(html).not.toContain(TODAY_BADGE);
+  });
+
   it('makes no timing claim once the festival is over', async () => {
     // Past the end: the label is absent by design, so the WITH-key render must
     // look like the without-key one. Guards against a change that makes the
@@ -198,5 +230,47 @@ describe('SSR: festival hero days-away label', { timeout: 20_000 }, () => {
     expect(html).not.toContain('Happening now');
     expect(html).not.toContain('Today');
     expect(html).not.toMatch(/In \d+ days/);
+  });
+});
+
+/**
+ * The other two sites the same pin unblocks. The hero label was the visible one,
+ * but the schedule's day tabs and timeline header carry the SAME clock-derived
+ * "is this day today" question, and were gated on `mounted` for the same reason.
+ * They now share one predicate with the hero -- these cases are what stops the
+ * three drifting apart again.
+ */
+describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
+  it('renders both today markers server-side when the loader pins the day', async () => {
+    const withKey = await renderFestival('2026-09-05', SCHEDULE);
+    const withoutKey = await renderFestival(undefined, SCHEDULE);
+
+    // Non-vacuity: the timeline actually rendered in BOTH, so the difference
+    // below is the gate and not one render silently falling back to a skeleton.
+    expect(withKey).toContain('day-mobile-tabs');
+    expect(withoutKey).toContain('day-mobile-tabs');
+    expect(withKey).not.toContain('Festival not found');
+
+    // The timeline header's visible badge, and the mobile tab's class.
+    expect(withKey).toContain(TODAY_BADGE);
+    expect(withKey).toMatch(TODAY_TAB);
+    expect(withoutKey).not.toContain(TODAY_BADGE);
+    expect(withoutKey).not.toMatch(TODAY_TAB);
+  });
+
+  it('badges only the pinned day, not every day', async () => {
+    // Three days are rendered; exactly one may claim to be today. A gate that
+    // degraded to `true` would badge all three and still pass the case above.
+    const html = await renderFestival('2026-09-05', SCHEDULE);
+    expect(html.split(TODAY_BADGE).length - 1).toBe(1);
+  });
+
+  it('badges nothing when the pinned day falls outside the festival', async () => {
+    // The pin is not itself the trigger -- the day has to match. Without this a
+    // change that badged the first tab unconditionally would look correct.
+    const html = await renderFestival('2026-10-01', SCHEDULE);
+    expect(html).toContain('day-mobile-tabs');
+    expect(html).not.toContain(TODAY_BADGE);
+    expect(html).not.toMatch(TODAY_TAB);
   });
 });
