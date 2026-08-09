@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/sentry";
+import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { CityPicker } from "@/components/ui/city-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ const Onboarding = () => {
       profile: "We couldn't auto-create your profile yet. Complete onboarding to continue.",
       metadata: "A few account details are still missing. Complete onboarding to continue.",
       lookup: "We couldn't load your profile details. Complete onboarding to continue.",
+      incomplete: "We saved what we had, but your profile still needs a name and a city.",
     };
 
     toast({
@@ -72,43 +73,19 @@ const Onboarding = () => {
 
     setIsSubmitting(true);
     try {
-      // Duplicate protection: check if dancer already exists
-      const { data: existing } = await supabase
-        .from("dancer_profiles")
-        .select("id, meta_data")
-        .eq("created_by", user.id)
-        .maybeSingle();
-
-      const existingMeta = (existing?.meta_data && typeof existing.meta_data === "object")
-        ? (existing.meta_data as Record<string, unknown>)
-        : {};
-
-      if (existing?.id) {
-        const { error: updateError } = await supabase
-          .from("dancer_profiles")
-          .update({
-            first_name: trimmedFirst,
-            based_city_id: cityId,
-            meta_data: {
-              ...existingMeta,
-              onboarding_status: "completed",
-            },
-          })
-          .eq("id", existing.id);
-
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from("dancer_profiles").insert({
-          created_by: user.id,
-          first_name: trimmedFirst,
-          based_city_id: cityId,
-          meta_data: {
-            onboarding_status: "completed",
-          },
-        });
-
-        if (insertError) throw insertError;
-      }
+      // One call, no pre-read, no insert arm to choose. The direct-to-table
+      // write this replaces could never succeed from the client: `authenticated`
+      // holds no INSERT and no UPDATE on dancer_profiles, so every attempt was a
+      // 42501 and no new signup could get past this screen.
+      // `save_my_dancer_profile_v1` is SECURITY DEFINER and resolves the caller's
+      // own row itself, and the row is already there -- the signup trigger mints
+      // it. Deliberately writes NO meta_data: completion is INFERRED from
+      // first_name + based_city_id, and an explicit status stamp would latch,
+      // because the RPC cannot clear a field it can set.
+      await saveMyDancerProfile({
+        first_name: trimmedFirst,
+        based_city_id: cityId,
+      });
 
       // 1. Read pendingRole
       const pendingRole = localStorage.getItem("pending_profile_role");
@@ -130,7 +107,7 @@ const Onboarding = () => {
       localStorage.removeItem("auth_last_email");
       localStorage.removeItem("profile_last_active_role");
     } catch (err: any) {
-      captureException(err, { context: "Onboarding.insert" });
+      captureException(err, { context: "Onboarding.save" });
       toast({ title: "Something went wrong", description: err?.message || "Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);

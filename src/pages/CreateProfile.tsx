@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { captureException } from '@/lib/sentry';
+import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AvatarUpload } from '@/components/profile/AvatarUpload';
@@ -583,6 +584,8 @@ const CreateProfile = () => {
         const returnTo = `${location.pathname}${location.search}`;
         const [step, setStep] = useState(user ? 1 : 0);
                 const [pendingSubmit, setPendingSubmit] = useState(false);
+                /** The prefill is a one-shot: re-running it would overwrite the user's typing. */
+                const hasPrefilledRef = React.useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
     const [profileError, setProfileError] = useState<string | null>(null);
@@ -670,13 +673,20 @@ const CreateProfile = () => {
     // Pre-fill form with existing dancer data so the wizard doesn't overwrite it
     React.useEffect(() => {
         if (!user) return;
+        if (hasPrefilledRef.current) return;
+        hasPrefilledRef.current = true;
         const loadExisting = async () => {
             const { data } = await supabase
                 .from('dancer_profiles')
                 .select('*')
-                .eq('created_by', user.id)
+                // OWNERSHIP, not authorship -- the full note is on AuthGuard.
+                .eq('id', user.id)
                 .maybeSingle();
-            if (!data) return;
+            // Completeness, not existence. The signup trigger mints a row for
+            // every account, and resetting the wizard from a blank stub wipes the
+            // pre-auth draft just restored from localStorage -- the user watches
+            // their own answers vanish on sign-in.
+            if (!hasDancerProfileBasics(data)) return;
 
             const achievements = Array.isArray(data.achievements) ? data.achievements.filter(Boolean).join('\n') : '';
             const favSongs = Array.isArray(data.favorite_songs) ? data.favorite_songs.filter(Boolean).join('\n') : '';
@@ -700,12 +710,18 @@ const CreateProfile = () => {
                 instagram: data.instagram || '',
                 facebook: data.facebook || '',
                 whatsapp: data.whatsapp || '',
-                website: data.website || '',
+                // website_url is the writable column; `website` is only its mirror.
+                website: data.website_url || data.website || '',
                 claim_entity_id: '',
             });
         };
         loadExisting();
-    }, [user]);
+        // Keyed on the user ID and latched to run ONCE. `useAuth` mints a new user
+        // object on every auth event (a token refresh is enough), so a [user] dep
+        // re-fired this effect and form.reset() discarded everything typed since
+        // mount. It was invisible while the created_by query matched nothing and
+        // `if (!data) return` always fired.
+    }, [user?.id]);
 
   // Debounced search for existing dancer profiles (Step 3 Logic)
     React.useEffect(() => {
@@ -829,7 +845,8 @@ const CreateProfile = () => {
             const { data: existingDancer, error: existingDancerError } = await supabase
                 .from('dancer_profiles')
                 .select('id')
-                .eq('created_by', user.id)
+                // OWNERSHIP, not authorship -- the full note is on AuthGuard.
+                .eq('id', user.id)
                 .maybeSingle();
 
             if (existingDancerError) throw existingDancerError;

@@ -12,7 +12,7 @@ import type {
   VendorRowWithCity,
 } from "@/modules/vendor/types";
 import { normalizeProducts, normalizePromoDiscountType, normalizePromoDiscountValue } from "@/modules/vendor/utils";
-import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,7 @@ export const VendorDashboard = () => {
   const { user } = useAuth();
   const {
     dancerId,
+    dancerProfileComplete,
     organiserId,
     teacherId,
     videographerId,
@@ -91,13 +92,14 @@ export const VendorDashboard = () => {
 
   const roleIds = useMemo(
     () => ({
-      dancer: dancerId,
+      // A stub that exists is not a dancer profile you own -- see useUserIds.
+      dancer: dancerProfileComplete ? dancerId : null,
       organiser: organiserId,
       teacher: teacherId,
       videographer: videographerId,
       vendor: vendorId,
     }),
-    [dancerId, organiserId, teacherId, videographerId, vendorId]
+    [dancerId, dancerProfileComplete, organiserId, teacherId, videographerId, vendorId]
   );
 
   const existingSecondaryRoles = useMemo(
@@ -493,22 +495,8 @@ export const VendorDashboard = () => {
   };
 
   const navigateToCreateRole = async (role: SecondaryRole) => {
-    if (role !== "dancer" && user?.id) {
-      const metadata = (user.user_metadata || {}) as Record<string, unknown>;
-      const metadataFirstName = typeof metadata.first_name === "string" ? metadata.first_name : null;
-      const metadataCity = typeof metadata.city === "string" ? metadata.city : null;
-
-      try {
-        await ensureDancerProfile({
-          userId: user.id,
-          email: user.email || null,
-          firstName: metadataFirstName,
-          city: metadataCity,
-        });
-      } catch {
-        // Non-blocking: creation page can still proceed and retry.
-      }
-    }
+    // See ProfileEntryFlow: the signup trigger already guarantees the persona,
+    // so minting one here was a no-op wrapped around a call that could not work.
 
     navigate(PROFILE_ROLE_META[role].createRoute);
   };

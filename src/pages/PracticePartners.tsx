@@ -13,18 +13,20 @@ import { useNavigate } from "react-router-dom";
 import { buildFullName } from "@/lib/name-utils";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/sentry";
+import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
+import { hasDancerProfileBasics } from "@/lib/onboardingStatus";
 import { optimizedImageUrl } from "@/lib/imageCdn";
 
 type Dancer = {
   id: string;
   first_name: string;
   surname: string | null;
+  based_city_id: string | null;
   favorite_styles: string[] | null;
   dance_role: string | null;
   cities: { name: string } | null;
   avatar_url: string | null;
   looking_for_partner: boolean | null;
-  created_by: string | null;
 };
 
 const PracticePartners = () => {
@@ -44,7 +46,7 @@ const PracticePartners = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, favorite_styles, dance_role, avatar_url, looking_for_partner, created_by, cities!based_city_id(name)')
+          .select('id, first_name, surname, based_city_id, favorite_styles, dance_role, avatar_url, looking_for_partner, cities!based_city_id(name)')
           .eq('looking_for_partner', true)
           .order('created_at', { ascending: false });
         
@@ -67,7 +69,7 @@ const PracticePartners = () => {
       const { data } = await supabase
         .from('dancer_profiles')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('id', user.id)
         .maybeSingle();
       
       if (data) setCurrentUserProfile(data);
@@ -90,7 +92,10 @@ const PracticePartners = () => {
       return;
     }
 
-    if (!currentUserProfile) {
+    // Completeness, not mere existence: the signup trigger mints a stub for
+    // every account, so `!currentUserProfile` stopped being able to fire and
+    // this guard would have sent nobody to build a profile ever again.
+    if (!currentUserProfile || !hasDancerProfileBasics(currentUserProfile)) {
       navigate('/create-dancers-profile');
       return;
     }
@@ -105,12 +110,9 @@ const PracticePartners = () => {
 
     // Toggle on
     try {
-      const { error } = await supabase
-        .from('dancer_profiles')
-        .update({ looking_for_partner: true })
-        .eq('id', currentUserProfile.id);
-
-      if (error) throw error;
+      // looking_for_partner lives on the dancing_role_details sidecar and is
+      // mirrored back onto dancer_profiles by the function on every save.
+      await saveMyDancerProfile({ dancer_details: { looking_for_partner: true } });
 
       toast({
         title: "You are now listed!",
@@ -123,8 +125,13 @@ const PracticePartners = () => {
       window.location.reload(); // Simple reload to refresh list is safest for now
       
     } catch (error) {
+      // Was swallowed entirely. saveMyDancerProfile only self-reports the
+      // missing-stub case, so an UnresolvedPersonError, a residual 42501 or a
+      // network failure produced a four-word toast and nothing in Sentry.
+      captureException(error, { context: "PracticePartners.listSelf" });
       toast({
         title: "Error updating profile",
+        description: (error as Error)?.message,
         variant: "destructive"
       });
     }

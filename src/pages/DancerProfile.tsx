@@ -59,7 +59,7 @@ const DancerProfile = () => {
       if (!id) throw new Error("Dancer ID required");
       const { data, error } = await supabase
         .from("dancer_profiles")
-        .select("id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)")
+        .select("id, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -82,14 +82,19 @@ const DancerProfile = () => {
 
 
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
-  const dancerUserId = dancer?.created_by ?? null;
-  const isSelfView = Boolean(user?.id && dancerUserId && user.id === dancerUserId);
+  // OWNERSHIP, not authorship. This was keyed on `created_by`, which records who
+  // AUTHORED the row -- so for the one admin account that authored ten other
+  // people's profiles, isSelfView was true on ten strangers' public pages and
+  // rendered the admin's own attendance under their names. The owning key is
+  // `id`, matching `resolve_my_person_id_v1` on the write side.
+  const dancerOwnerId = dancer?.id ?? null;
+  const isSelfView = Boolean(user?.id && dancerOwnerId && user.id === dancerOwnerId);
 
   // Attendance is private: get_my_event_attendance_v1 only returns the caller's own
   // rows. Only fetch when the viewer is the profile owner, otherwise we'd render
   // the viewer's attendance under someone else's profile.
   const { data: attendanceRows = [] } = useQuery({
-    queryKey: ["dancer-public-attendance", dancerUserId, user?.id],
+    queryKey: ["dancer-public-attendance", dancerOwnerId, user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_my_event_attendance_v1");
       if (error) throw error;

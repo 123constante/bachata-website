@@ -2,12 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { captureException } from '@/lib/sentry';
+import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
 import type { Json } from '@/integrations/supabase/types';
 
 export type UserRole = 'dancer' | 'organiser' | 'dj' | 'teacher' | 'videographer' | 'vendor';
 
 export interface UserIds {
   dancerId: string | null;
+  /**
+   * Whether that persona is actually set up, as opposed to merely existing.
+   * Every signed-in user has a `dancer_profiles` row now (the signup trigger),
+   * so `dancerId` alone can no longer answer "is this person a dancer here".
+   */
+  dancerProfileComplete: boolean;
   organiserId: string | null;
   teacherId: string | null;
   videographerId: string | null;
@@ -19,6 +26,7 @@ export const useUserIds = () => {
   const { user } = useAuth();
   const [ids, setIds] = useState<UserIds>({
     dancerId: null,
+    dancerProfileComplete: false,
     organiserId: null,
     teacherId: null,
     videographerId: null,
@@ -40,13 +48,25 @@ export const useUserIds = () => {
       }
 
       try {
+        // OWNERSHIP, not authorship -- the full note is on AuthGuard. `id` is
+        // also the only link `resolve_my_person_id_v1` accepts, so a row this
+        // hook reports is a row the write path can actually save.
         const dancerRes = await supabase
           .from('dancer_profiles')
-          .select('id')
-          .eq('created_by', user.id)
+          .select('id, first_name, based_city_id')
+          .eq('id', user.id)
           .maybeSingle();
 
         const dancer = dancerRes.data;
+
+        // `trg_handle_new_dancer_profile` mints a stub for EVERY signup, so
+        // `dancer?.id` is non-null for every signed-in user now. dancerId stays
+        // truthful to the database; "is this persona actually set up" is a
+        // different question, and it gets a different field. The predicate is
+        // shared with the onboarding gate on purpose -- two copies would drift
+        // into a loop where one surface offers the dancer dashboard and the
+        // other bounces the same user back to /onboarding.
+        const dancerProfileComplete = hasDancerProfileBasics(dancer);
 
         // Teacher identity post phase4_drop_teacher_profiles_table_v1: teacherId is
         // the dancer profile id if (and only if) person_roles has an active 'teaching'
@@ -94,6 +114,12 @@ export const useUserIds = () => {
 
         // Vendor-claim in its own try/catch so failures don't wipe other IDs
         try {
+          // Deliberately NOT gated on dancerProfileComplete. Gating it there
+          // saves a 200-row scan for blank signups, but it also makes the VENDOR
+          // role unreachable for an operator who never filled in a dancer
+          // profile: the claim never runs, vendorId stays null, availableRoles
+          // comes back empty and Profile bounces them to /onboarding. A query is
+          // the cheaper thing to spend.
           if (!vendor?.id && dancer?.id) {
             const { data: unclaimedVendors } = await supabase
               .from('vendors')
@@ -121,10 +147,16 @@ export const useUserIds = () => {
                 { p_vendor_id: candidate.id }
               );
 
+              // Only a SUCCESSFUL claim grants the role. The else-arm used to
+              // adopt the candidate anyway, so an RLS refusal or a network
+              // failure still put the user in a vendor dashboard for a vendor
+              // they had just been refused. Harmless only while this block was
+              // unreachable -- `dancer?.id` was null for every account under the
+              // created_by key, and the ownership repoint makes it run.
               if (!claimError && claimedVendorId) {
                 vendor = { id: claimedVendorId };
-              } else {
-                vendor = { id: candidate.id };
+              } else if (claimError) {
+                captureException(claimError, { context: 'useUserIds.claimVendorProfile' });
               }
             }
           }
@@ -134,6 +166,7 @@ export const useUserIds = () => {
 
         setIds({
           dancerId: dancer?.id || null,
+          dancerProfileComplete,
           organiserId: organiser ? organiser.id : null,
           teacherId: teacher ? teacher.id : null,
           videographerId: videographer?.id || null,
