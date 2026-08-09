@@ -131,19 +131,34 @@ const setupMockDataApis = async (
     if (path.endsWith('/rest/v1/dancer_profiles')) {
       if (method === 'GET') {
         const select = queryValue(url, 'select');
-        if (select.includes('id') && queryValue(url, 'created_by').includes(userId)) {
+        // Keyed on `id`, not `created_by`: the owning link is
+        // dancer_profiles.id = auth.users.id, so the row's id IS the user id.
+        // The fixture also drops `city` / `city_id` (neither is a column on
+        // dancer_profiles) and the explicit onboarding_status stamp, so that
+        // completion is derived the way the app now derives it -- from
+        // first_name + based_city_id.
+        if (select.includes('id') && queryValue(url, 'id').includes(userId)) {
           return json(route, {
-            id: dancerId,
+            id: userId,
             first_name: 'Vendor',
             surname: 'Owner',
-            city: 'London',
-            city_id: londonCityId,
-            meta_data: { onboarding_status: 'completed' },
+            based_city_id: londonCityId,
+            meta_data: {},
           });
         }
         return json(route, []);
       }
-      if (method === 'PATCH' || method === 'POST') return json(route, { id: dancerId });
+      // `authenticated` holds no INSERT or UPDATE grant on this table, so a direct
+      // write is a guaranteed 42501 in production. Answering it with a 200 here
+      // would let a reintroduced direct write pass, while the sibling smoke spec
+      // 500s the same request. Guard by inclusion, and agree with each other.
+      if (method === 'PATCH' || method === 'POST') {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: `unexpected direct ${method} on dancer_profiles` }),
+        });
+      }
     }
 
     if (path.endsWith('/rest/v1/events')) {
@@ -256,8 +271,10 @@ const setupMockDataApis = async (
     const rpcName = url.pathname.split('/').pop() || '';
     const body = req.postDataJSON() as Record<string, unknown>;
 
-    if (rpcName === 'ensure_dancer_profile') {
-      return json(route, dancerId);
+    // ensure_dancer_profile is gone (it targeted a table that does not exist and
+    // 404'd for every user). Self-serve dancer writes go through this instead.
+    if (rpcName === 'save_my_dancer_profile_v1') {
+      return json(route, { id: userId, first_name: 'Vendor', based_city_id: londonCityId });
     }
 
     if (rpcName === 'resolve_city_id') {

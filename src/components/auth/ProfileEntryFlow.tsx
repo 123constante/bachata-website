@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, Sun, Calendar, GraduationCap, Camera, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
+
 import { AuthStepper } from "@/components/auth/AuthStepper";
 import { AuthFormProvider } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
@@ -114,22 +114,11 @@ export const ProfileEntryFlow = ({
     const next = roleOptions.find((role) => role.value === selectedRole);
     if (!next) return;
 
-    if (selectedRole !== "dancer" && user?.id) {
-      const metadata = (user.user_metadata || {}) as Record<string, unknown>;
-      const metadataFirstName = typeof metadata.first_name === "string" ? metadata.first_name : null;
-      const metadataCity = typeof metadata.city === "string" ? metadata.city : null;
-
-      try {
-        await ensureDancerProfile({
-          userId: user.id,
-          email: user.email || null,
-          firstName: metadataFirstName,
-          city: metadataCity,
-        });
-      } catch {
-        // Continue to destination; role pages can retry if needed.
-      }
-    }
+    // A persona used to be minted here so a non-dancer would have a `person` row
+    // to hang an organiser or vendor profile off. `trg_handle_new_dancer_profile`
+    // does that at sign-up for everyone, so the call was doing nothing but
+    // swallowing its own failure -- and the helper it called could not have
+    // succeeded anyway (its RPC 404'd; its fallback INSERT had no grant).
 
     localStorage.setItem("profile_entry_role", selectedRole);
     navigate(next.route);

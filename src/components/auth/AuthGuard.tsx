@@ -60,7 +60,13 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       const { data: dancer } = await supabase
         .from("dancer_profiles")
         .select("first_name, based_city_id, meta_data")
-        .eq("created_by", user.id)
+        // OWNERSHIP, not authorship. `created_by` records who AUTHORED the row:
+        // one admin account authored ten other people's profiles and none of its
+        // own, so this gate resolved to a stranger set for them and to nothing
+        // for all 18 other accounts -- bouncing every user to /onboarding.
+        // The owning key is `id` (= auth.users.id), which is also the only link
+        // `resolve_my_person_id_v1` accepts on the write side.
+        .eq("id", user.id)
         .maybeSingle();
 
       if (cancelled) return;

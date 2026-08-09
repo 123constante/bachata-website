@@ -71,7 +71,8 @@ export const ManageProfilesHub = ({ ids, onRefreshRoles, onSignOut, mode = "card
 
   const ownedRoleIds = useMemo(
     () => ({
-      dancer: ids.dancerId,
+      // A stub that exists is not a dancer profile you own -- see useUserIds.
+      dancer: ids.dancerProfileComplete ? ids.dancerId : null,
       organiser: ids.organiserId,
       teacher: ids.teacherId,
       videographer: ids.videographerId,

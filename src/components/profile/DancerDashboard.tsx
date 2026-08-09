@@ -39,7 +39,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { CityPicker } from '@/components/ui/city-picker';
-import { ExperiencePicker, calculateDuration } from '@/components/profile/ExperiencePicker';
+import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
+import { dateStringFromDanceStartedYear } from '@/lib/saveMyDancerProfile';
 import {
   FAVORITE_STYLE_OPTIONS,
   PARTNER_PRACTICE_GOAL_OPTIONS,
@@ -52,26 +53,37 @@ interface DancerProfile {
   id: string;
   first_name: string;
   surname: string | null;
-  city: string | null;
+  // The REAL columns. `city`, `city_id`, `years_dancing`, `dancing_start_date`
+  // and `partner_role` below are NOT columns on dancer_profiles -- reads of them
+  // are always undefined. They are kept, optional, only because this screen's
+  // write path still targets the table directly and is deferred to the
+  // dancer-editor arc; every READ here has been moved onto the real column.
+  based_city_id: string | null;
+  dance_role: string | null;
+  dance_started_year: number | null;
+  website_url?: string | null;
+  avatar_url?: string | null;
+  cities?: { name: string } | null;
+  city?: string | null;
   city_id?: string | null;
   nationality: string | null;
   favorite_styles: string[] | null;
   years_dancing?: string | null;
-  dancing_start_date: string | null;
+  dancing_start_date?: string | null;
   photo_url: string | null;
   instagram: string | null;
   facebook: string | null;
   whatsapp?: string | null;
   website: string | null;
   looking_for_partner: boolean | null;
-  partner_role: string | null;
+  partner_role?: string | null;
   achievements: string[] | null;
   favorite_songs: string[] | null;
   partner_search_role: string | null;
   partner_search_level: string[] | null;
   partner_practice_goals: string[] | null;
   partner_details: Json | null;
-  verified: boolean;
+  verified?: boolean;
 }
 
 type AttendanceKind = 'events' | 'festivals';
@@ -247,13 +259,14 @@ export const DancerDashboard = () => {
     setEditForm({
       first_name: dancer.first_name || '',
       surname: dancer.surname || '',
-      city: dancer.city || '',
+      // The city picker's value is a city ID, so based_city_id feeds it directly.
+      city: dancer.based_city_id || '',
       instagram: dancer.instagram || '',
       facebook: dancer.facebook || '',
       whatsapp: dancer.whatsapp || '',
-      website: dancer.website || '',
-      dancing_start_date: dancer.dancing_start_date || '',
-      partner_role: normalizePartnerRole(dancer.partner_role),
+      website: dancer.website_url || dancer.website || '',
+      dancing_start_date: dateStringFromDanceStartedYear(dancer.dance_started_year),
+      partner_role: normalizePartnerRole(dancer.dance_role),
       achievements: dancer.achievements || [],
       favorite_songs: dancer.favorite_songs || [],
       partner_search_role: normalizePartnerRole(dancer.partner_search_role),
@@ -286,8 +299,9 @@ export const DancerDashboard = () => {
       try {
         const { data: dancer } = await supabase
           .from('dancer_profiles')
-          .select('*')
-          .eq('created_by', user.id)
+          .select('*, cities!based_city_id(name)')
+          // OWNERSHIP, not authorship -- the full note is on AuthGuard.
+          .eq('id', user.id)
           .maybeSingle();
 
         if (!dancer) {
@@ -364,7 +378,7 @@ export const DancerDashboard = () => {
     fetchData();
   }, [citySlug, user]);
 
-  const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.city?.trim());
+  const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.based_city_id);
   const hasMedia = Boolean(profile?.photo_url?.trim());
   const allAttendance = useMemo(() => [...selectedEvents, ...selectedFestivals], [selectedEvents, selectedFestivals]);
   const eventCounts = useMemo(
@@ -384,16 +398,16 @@ export const DancerDashboard = () => {
   );
   const nextEvent = confirmedEvents[0] || null;
   const hasActivity = allAttendance.length > 0;
-  const hasEngagement = Boolean(profile?.looking_for_partner) || Boolean(profile?.partner_role);
+  const hasEngagement = Boolean(profile?.looking_for_partner) || Boolean(profile?.dance_role);
   const hasSocial = Boolean(profile?.instagram || profile?.facebook || profile?.whatsapp || profile?.website);
 
   const completionSteps = [hasIdentity, hasMedia, hasActivity, hasEngagement, hasSocial];
   const completionCount = completionSteps.filter(Boolean).length;
   const completionPercent = Math.round((completionCount / completionSteps.length) * 100);
   const momentumScore = Math.min(100, Math.round(((allAttendance.length + confirmedEvents.length) / 8) * 100));
-  const danceYears = profile?.dancing_start_date
-    ? calculateDuration(profile.dancing_start_date)?.years ?? 0
-    : Number(profile?.years_dancing || 0);
+  const danceYears = profile?.dance_started_year
+    ? Math.max(0, new Date().getFullYear() - profile.dance_started_year)
+    : 0;
 
   const metadataNames = normalizeUserMetadata((user?.user_metadata as Record<string, unknown> | undefined) || undefined);
   const fullName =
@@ -892,7 +906,7 @@ export const DancerDashboard = () => {
       key: 'identity',
       title: 'Identity',
       subtitle: hasIdentity ? 'Identity live' : 'Needs basics',
-      preview: profile?.city ? `${fullName} • ${profile.city}` : 'Add your name and city',
+      preview: profile?.cities?.name ? `${fullName} • ${profile.cities.name}` : 'Add your name and city',
       actionLabel: 'Edit identity',
       status: hasIdentity && hasMedia ? 'live' : 'attention',
       icon: UserRound,
@@ -1004,7 +1018,7 @@ export const DancerDashboard = () => {
                         Concept B command center
                       </div>
                       <h1 className="text-xl sm:text-2xl font-semibold text-white">{fullName}</h1>
-                      <p className="text-xs text-slate-300">{profile.city || 'City missing'} • {danceYears} year(s) dancing</p>
+                      <p className="text-xs text-slate-300">{profile.cities?.name || 'City missing'} • {danceYears} year(s) dancing</p>
                     </div>
                   </div>
                   <Badge className="border border-cyan-300/40 bg-cyan-500/15 text-cyan-100">{completionPercent}% ready</Badge>

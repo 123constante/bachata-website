@@ -20,6 +20,7 @@ const ROLE_CREATE_ROUTES: Record<string, string> = {
 
 interface ProfileEntryIds {
   dancerId: string | null;
+  dancerProfileComplete: boolean;
   organiserId: string | null;
   teacherId: string | null;
   videographerId: string | null;

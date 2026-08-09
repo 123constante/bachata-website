@@ -20,7 +20,7 @@ import type { Route } from "./+types/dancers";
 // Columns mirror DancerProfile's dancer-profile query byte-for-byte so the
 // dehydrated cache entry matches what the page reads (no client refetch).
 const DANCER_COLS =
-  "id, created_by, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)";
+  "id, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();

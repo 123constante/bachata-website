@@ -7,7 +7,6 @@ type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
 export type DancerPublicRecord = Pick<
   DancerRow,
   | "id"
-  | "created_by"
   | "first_name"
   | "surname"
   | "nationality"

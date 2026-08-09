@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/sentry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ensureDancerProfile } from "@/lib/ensureDancerProfile";
+import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
+import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } from "@/lib/authRouting";
-import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
+import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const VALID_ROLES: Record<string, string> = {
@@ -71,19 +72,22 @@ const AuthCallback = () => {
         const meta = user.user_metadata || {};
         const preferredRole = resolveRolePreference(pendingRole, meta.user_type);
 
-        const { data: dancer } = await supabase
+        // OWNERSHIP, not authorship -- the full note is on AuthGuard.
+        const { data: dancer, error: dancerError } = await supabase
           .from("dancer_profiles")
           .select("id, first_name, based_city_id, meta_data")
-          .eq("created_by", user.id)
+          .eq("id", user.id)
           .maybeSingle();
 
-        if (dancer?.id) {
-          const onboardingStatus = inferOnboardingStatusFromDancer(dancer);
-          if (onboardingStatus !== "completed") {
-            navigateToOnboardingFallback("incomplete");
-            return;
-          }
+        // A read that FAILED is not a row that is missing. Without this, a 5xx
+        // or a dropped connection told the user we could not create their
+        // profile -- a claim about the write path, made on the evidence of a
+        // broken read.
+        if (dancerError) throw dancerError;
 
+        // The routing tail, which used to be spelled out twice -- once per
+        // branch -- and had to be kept in step by hand.
+        const routeOnwards = () => {
           if (!isSignupFlow && safeReturnTo) {
             navigate(safeReturnTo, { replace: true });
             return;
@@ -102,72 +106,86 @@ const AuthCallback = () => {
             navigate("/profile", { replace: true });
           }
           localStorage.removeItem("pending_profile_role");
+        };
+
+        // `if (dancer?.id)` is no longer a useful question -- the signup trigger
+        // means the answer is always yes. Whether the profile is FILLED IN is
+        // the question that still discriminates.
+        if (inferOnboardingStatusFromDancer(dancer) === "completed") {
+          routeOnwards();
           return;
         }
 
-        const firstName = meta.first_name as string | undefined;
+        // Trimmed: '   ' is truthy, and the function's NULLIF only rejects the
+        // EMPTY string -- so whitespace would be stored, hasDancerProfileBasics
+        // would trim it back to false, and AuthGuard would bounce the user
+        // straight to /onboarding. Exactly what this block exists to avoid.
+        const firstName = (meta.first_name as string | undefined)?.trim() || undefined;
         const city = meta.city as string | undefined;
         const cityId = meta.city_id as string | undefined;
 
-        if (firstName && (city || cityId)) {
+        // The persona exists but is not filled in. `ensureDancerProfile` used to
+        // run here and is now deleted: its RPC had 404'd for every user since it
+        // was written -- it targeted `public.dancers`, which is not a table in
+        // this database -- and its fallback INSERT could never run without an
+        // INSERT grant. Creation belongs to the signup trigger; all that is left
+        // to do here is fill the stub in from what was collected at sign-up, so
+        // the user is not asked for it twice.
+        //
+        // The block this replaces also re-read the profile WITHOUT
+        // `.maybeSingle()` and then UPDATEd `[0]` of the result. Keyed on
+        // created_by, that was an unordered pick among ten strangers' rows for
+        // the one account that had authored any.
+        if (dancer?.id && firstName && (city || cityId)) {
           try {
-            await ensureDancerProfile({
-              userId: user.id,
-              email: user.email,
-              firstName,
-              city,
-              cityId,
+            // Both go through the resolver. user_metadata is attacker-shaped
+            // input from the sign-up payload, and it is never validated
+            // elsewhere: an unresolvable id would 22P02 the save, while a
+            // valid-but-stale one (a merged city) would stamp the wrong city AND
+            // mark onboarding complete, since completion only tests that
+            // based_city_id is non-null. resolveCanonicalCity already accepts a
+            // UUID and returns null for one it cannot find.
+            // Try the id, then fall back to the NAME. `cityId || city` alone
+            // short-circuits: a stale metadata city_id (a merged or deleted city)
+            // resolves to nothing and the name we also hold is never tried, so
+            // the user is re-asked for a city they already gave us.
+            const basedCityId =
+              (await resolveCanonicalCity(cityId))?.cityId ?? (await resolveCanonicalCity(city))?.cityId;
+            if (!basedCityId) {
+              navigateToOnboardingFallback("metadata");
+              return;
+            }
+
+            // No meta_data stamp: `inferOnboardingStatusFromDancer` derives
+            // completion from exactly the two fields written here, and the RPC
+            // has no meta_data arm to stamp with in any case.
+            const saved = await saveMyDancerProfile({
+              first_name: firstName,
+              based_city_id: basedCityId,
             });
 
-            const { data: ensuredDancer } = await supabase
-              .from("dancer_profiles")
-              .select("id, meta_data")
-              .eq("created_by", user.id);
-
-            const dancerRow = Array.isArray(ensuredDancer) ? ensuredDancer[0] : null;
-            const existingMeta = (dancerRow?.meta_data && typeof dancerRow.meta_data === "object")
-              ? (dancerRow.meta_data as Record<string, unknown>)
-              : {};
-
-            if (dancerRow?.id) {
-              await supabase
-                .from("dancer_profiles")
-                .update({
-                  meta_data: {
-                    ...existingMeta,
-                    onboarding_status: "completed",
-                  },
-                })
-                .eq("id", dancerRow.id);
-            }
-
-            if (!isSignupFlow && safeReturnTo) {
-              navigate(safeReturnTo, { replace: true });
+            // Do not route as if setup worked without checking that it did. The
+            // RPC reports success for a payload it decided to ignore, and the
+            // next gate re-reads the row -- so an unverified hop here becomes a
+            // bounce a moment later.
+            if (!hasDancerProfileBasics(saved as { first_name?: string | null; based_city_id?: string | null })) {
+              navigateToOnboardingFallback("incomplete");
               return;
             }
 
-            const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
-            if (pendingReturnTo) {
-              localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-              navigate(pendingReturnTo, { replace: true });
-              return;
-            }
-
-            if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
-              navigate(`/create-${preferredRole}-profile`, { replace: true });
-            } else {
-              navigate("/profile", { replace: true });
-            }
-            localStorage.removeItem("pending_profile_role");
+            routeOnwards();
             return;
           } catch (profileErr) {
-            captureException(profileErr, { context: "AuthCallback.autoCreateProfile" });
+            captureException(profileErr, { context: "AuthCallback.fillDancerProfile" });
             navigateToOnboardingFallback("profile");
             return;
           }
         }
 
-        navigateToOnboardingFallback("metadata");
+        // Either the signup metadata is too thin to fill the stub with, or there
+        // is no stub at all -- which is now a genuine failure, since nothing else
+        // creates one. Both land on onboarding, which asks for these two fields.
+        navigateToOnboardingFallback(dancer?.id ? "metadata" : "profile");
       } catch (err) {
         captureException(err, { context: "AuthCallback.dancerCheck" });
         navigateToOnboardingFallback("lookup");

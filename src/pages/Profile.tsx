@@ -16,19 +16,22 @@ const Profile = () => {
     const [searchParams] = useSearchParams();
     const { user, signOut } = useAuth();
     const { toast } = useToast();
-    const { dancerId, organiserId, teacherId, videographerId, vendorId, loading, refetch } = useUserIds();
+    const { dancerId, dancerProfileComplete, organiserId, teacherId, videographerId, vendorId, loading, refetch } = useUserIds();
     const [activeRole, setActiveRole] = useState<UserRole>('dancer');
     const [isSignOutOpen, setIsSignOutOpen] = useState(false);
     const [isSigningOut, setIsSigningOut] = useState(false);
     
-    // Determine available roles (Strictly defined by presence of ID)
+    // Determine available roles. The dancer slot is gated on the profile being
+    // SET UP, not merely present: the signup trigger mints a stub for everyone,
+    // so `dancerId` alone would route every brand-new user straight into the
+    // dancer dashboard with a blank profile and hide the "create one" path.
     const availableRoles: UserRole[] = useMemo(() => [
-        dancerId ? 'dancer' : null,
+        dancerProfileComplete ? 'dancer' : null,
         organiserId ? 'organiser' : null,
         teacherId ? 'teacher' : null,
         videographerId ? 'videographer' : null,
         vendorId ? 'vendor' : null
-    ].filter(Boolean) as UserRole[], [dancerId, organiserId, teacherId, videographerId, vendorId]);
+    ].filter(Boolean) as UserRole[], [dancerProfileComplete, organiserId, teacherId, videographerId, vendorId]);
 
     const requestedRole = searchParams.get('role') as UserRole | null;
     const availableRolesKey = availableRoles.join('|');
@@ -94,6 +97,7 @@ const Profile = () => {
 
     const ids = {
         dancerId,
+        dancerProfileComplete,
         organiserId,
         teacherId,
         videographerId,

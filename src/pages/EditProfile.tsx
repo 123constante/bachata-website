@@ -17,9 +17,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { CityPicker } from '@/components/ui/city-picker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { normalizePhotoValue, parsePartnerDetails, serializePartnerDetails, serializePhotoValue } from '@/lib/utils';
+import { normalizePhotoValue, parsePartnerDetails, serializePhotoValue } from '@/lib/utils';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
+// DANCE_STYLES was referenced here and DEFINED NOWHERE -- a standing tsc error
+// that never fired because the loader keyed on created_by matched nothing, so
+// this screen always returned its "no profile" card before reaching the form.
+// Repointing the read to `id` makes the form render, which would have turned a
+// dead type error into a ReferenceError white-screen for every signed-in user.
+// FAVORITE_STYLE_OPTIONS is the list the dashboard's identical picker uses.
+import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import {
+  saveMyDancerProfile,
+  danceStartedYearFromDateString,
+  dateStringFromDanceStartedYear,
+} from '@/lib/saveMyDancerProfile';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -30,29 +42,12 @@ const LEVELS = ['Beginner', 'Improver', 'Intermediate', 'Advanced', 'Professiona
 const GOALS = ['Social Dancing', 'Drills & Technique', 'Choreography', 'Competition', 'Teaching Prep'];
 
 
-interface DancerData {
-  id: string;
-  first_name: string;
-  surname: string | null;
-  city: string | null;
-  nationality: string | null;
-  years_dancing: string | null;
-  dancing_start_date: string | null;
-  favorite_styles: string[] | null;
-  partner_role: string | null;
-  looking_for_partner: boolean | null;
-  instagram: string | null;
-  facebook: string | null;
-
-  photo_url: string | string[] | null;
-  achievements: string[] | null;
-  favorite_songs: string[] | null;
-  partner_search_role: string | null;
-  partner_search_level: string[] | null;
-  partner_practice_goals: string[] | null;
-  partner_details: Record<string, unknown> | string | null;
-  website: string | null;
-}
+// NOTE: a `DancerData` interface used to sit here declaring `city`,
+// `years_dancing`, `partner_role` and `dancing_start_date` as if they were
+// columns on dancer_profiles. None of them are, it was referenced by nothing,
+// and the loader below was written against it -- which is why every save from
+// this screen aborted on the city check. Deleted rather than corrected: the
+// row's real shape comes from the generated Database types.
 
 const EditProfile = () => {
   const navigate = useNavigate();
@@ -68,7 +63,6 @@ const EditProfile = () => {
     surname: '',
     city: '',
     nationality: '',
-    years_dancing: '',
     dancing_start_date: '',
     favorite_styles: [] as string[],
     partner_role: '',
@@ -104,32 +98,41 @@ const EditProfile = () => {
         const { data, error } = await supabase
           .from('dancer_profiles')
           .select('*')
-          .eq('created_by', user.id)
+          .eq('id', user.id)
           .maybeSingle();
 
         if (error) throw error;
 
         if (data) {
+          // Every field below is read off a column that actually exists. Four of
+          // them did not: `city`, `years_dancing`, `partner_role` and
+          // `dancing_start_date` are not columns on dancer_profiles, so `city`
+          // loaded as '' for everyone and handleSave aborted on hasRequiredCity
+          // every single time -- nobody could edit their profile from this
+          // screen. The city picker takes a city ID as its value, so
+          // `based_city_id` feeds it directly.
           const loadedForm = {
             first_name: data.first_name || '',
             surname: data.surname || '',
-            city: data.city || '',
+            city: data.based_city_id || '',
             nationality: data.nationality || '',
-            years_dancing: data.years_dancing || '',
-            dancing_start_date: data.dancing_start_date || '',
+            dancing_start_date: dateStringFromDanceStartedYear(data.dance_started_year),
             favorite_styles: data.favorite_styles || [],
-            partner_role: data.partner_role || '',
+            partner_role: data.dance_role || '',
             looking_for_partner: data.looking_for_partner || false,
             instagram: data.instagram || '',
             facebook: data.facebook || '',
-            photo_url: normalizePhotoValue(data.photo_url),
+            // avatar_url is the writable column and photo_url only its mirror, so
+            // a row seeded outside this function can have one and not the other.
+            photo_url: normalizePhotoValue(data.avatar_url || data.photo_url),
             achievements: data.achievements || [],
             favorite_songs: data.favorite_songs || [],
             partner_search_role: data.partner_search_role || '',
             partner_search_level: data.partner_search_level || [],
             partner_practice_goals: data.partner_practice_goals || [],
             partner_details: parsePartnerDetails(data.partner_details as any),
-            website: data.website || '',
+            // website_url is the writable column; `website` is its mirror.
+            website: data.website_url || data.website || '',
           };
 
           setDancerId(data.id);
@@ -185,31 +188,43 @@ const EditProfile = () => {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('dancer_profiles')
-        .update({
-          first_name: form.first_name,
-          surname: form.surname || null,
-          city_id: canonicalCity.cityId,
-          nationality: form.nationality || null,
-          dancing_start_date: form.dancing_start_date || null,
-          favorite_styles: form.favorite_styles.length > 0 ? form.favorite_styles : null,
-          dance_role: form.partner_role || null,
-          looking_for_partner: form.looking_for_partner,
-          instagram: form.instagram || null,
-          facebook: form.facebook || null,
-          achievements: form.achievements.length > 0 ? form.achievements : null,
-          favorite_songs: form.favorite_songs.length > 0 ? form.favorite_songs : null,
-          partner_search_role: form.partner_search_role || null,
-          partner_search_level: form.partner_search_level || null,
-          website: form.website || null,
-          partner_practice_goals: form.partner_practice_goals || null,
-          avatar_url: serializePhotoValue(form.photo_url),
-          partner_details: serializePartnerDetails(form.partner_details) as any,
-        })
-        .eq('id', dancerId);
+      // The direct UPDATE this replaces could not succeed even with grants: it
+      // set `city_id` and `dancing_start_date`, neither of which is a column.
+      //
+      // Two mappings that are easy to get wrong and silent when you do:
+      // serializePhotoValue returns string[], but avatar_url is TEXT -- send the
+      // first entry, or the column takes the literal text of a JSON array. And
+      // the year is stored as an integer on the sidecar, not as a date.
+      //
+      // Known regression, accepted as debt (Ricky, 2026-08-08): the function
+      // treats '' as "leave unchanged", so instagram / facebook / website_url /
+      // nationality can no longer be CLEARED here. The save still succeeds, so
+      // nothing will fail loudly when someone tries.
+      const startYear = danceStartedYearFromDateString(form.dancing_start_date);
 
-      if (error) throw error;
+      await saveMyDancerProfile({
+        first_name: form.first_name,
+        surname: form.surname,
+        based_city_id: canonicalCity.cityId,
+        nationality: form.nationality,
+        dance_role: form.partner_role || null,
+        instagram: form.instagram,
+        facebook: form.facebook,
+        website_url: form.website,
+        avatar_url: serializePhotoValue(form.photo_url)?.[0],
+        dancer_details: {
+          favorite_styles: form.favorite_styles,
+          achievements: form.achievements,
+          favorite_songs: form.favorite_songs,
+          looking_for_partner: form.looking_for_partner,
+          partner_search_role: form.partner_search_role || null,
+          partner_search_level: form.partner_search_level,
+          partner_practice_goals: form.partner_practice_goals,
+          // TEXT column: send the text. See SaveMyDancerProfileInput.
+          partner_details: form.partner_details || null,
+          dance_started_year: startYear,
+        },
+      });
 
       toast({
         title: 'Profile saved',
@@ -218,6 +233,10 @@ const EditProfile = () => {
       setInitialFormSnapshot(JSON.stringify(form));
       navigate('/profile');
     } catch (error: any) {
+      // saveMyDancerProfile self-reports only the missing-stub case; an
+      // UnresolvedPersonError or a residual permission failure would otherwise
+      // reach the user as a toast and Sentry as nothing at all.
+      captureException(error, { context: 'EditProfile.save' });
       toast({
         title: 'Error saving',
         description: error.message,
@@ -419,7 +438,7 @@ const EditProfile = () => {
               <div>
                 <label className='text-xs text-muted-foreground mb-1.5 block'>Favorite Styles</label>
                 <div className='flex flex-wrap gap-1.5'>
-                  {DANCE_STYLES.map((style) => (
+                  {FAVORITE_STYLE_OPTIONS.map((style) => (
                     <Badge
                       key={style}
                       variant={form.favorite_styles.includes(style) ? 'default' : 'outline'}

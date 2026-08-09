@@ -5,6 +5,14 @@ type DancerRow = {
   user_id: string;
   first_name: string;
   surname: string | null;
+  // The REAL columns the dashboard now reads. `city`, `city_id`,
+  // `dancing_start_date`, `years_dancing` and `partner_role` are NOT columns on
+  // dancer_profiles; they stay only because this screen's WRITE path still
+  // targets the table directly and is deferred to the dancer-editor arc.
+  based_city_id: string | null;
+  dance_role: string | null;
+  dance_started_year: number | null;
+  cities: { name: string } | null;
   city: string | null;
   city_id: string | null;
   dancing_start_date: string | null;
@@ -98,10 +106,16 @@ const setupMockAuth = async (page: Page) => {
 
 test('concept-b dancer dashboard: role strip visible, identity modal saves, and tile partner toggle persists', async ({ page }) => {
   let dancer: DancerRow = {
-    id: dancerId,
+    // The owning link is dancer_profiles.id = auth.users.id, so the row's id IS
+    // the user id. It used to be a third, unrelated uuid.
+    id: userId,
     user_id: userId,
     first_name: 'Maya',
     surname: 'Flow',
+    based_city_id: londonCityId,
+    dance_role: 'Follower',
+    dance_started_year: 2020,
+    cities: { name: 'London' },
     city: 'London',
     city_id: londonCityId,
     dancing_start_date: '2020-01-01',
@@ -137,6 +151,10 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
 
     if (path.endsWith('/rest/v1/dancer_profiles')) {
       if (method === 'GET') {
+        // Honour the filter. Returning the row unconditionally meant a revert to
+        // `.eq('created_by', ...)` -- the regression this arc exists to prevent --
+        // still went green here while the real database returned nothing.
+        if (!queryValue(url, 'id').includes(userId)) return json(route, null);
         return json(route, dancer);
       }
 

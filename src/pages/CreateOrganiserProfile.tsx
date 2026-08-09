@@ -106,7 +106,7 @@ const CreateOrganiserProfile = () => {
       const { data: ownDancer } = await supabase
         .from('dancer_profiles')
         .select('first_name, based_city_id')
-        .eq('created_by', user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
       if (cancelled) return;
