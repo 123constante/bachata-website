@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
-import { dateKeyInTz, secondsUntilKeyRollsOver } from "@/lib/londonDate";
+import { pinDayAndBound } from "@/lib/londonDate";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
@@ -63,19 +63,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   if (!festival) throwDetailNotFound("Festival");
 
-  // "Today" on the FESTIVAL's own calendar, for the hero's days-away label.
+  // The FESTIVAL's own calendar -- the one "today" has to be answered on, since
+  // the hero's label is about the festival and not about London.
   //
-  // Derived here rather than in the component because the label is clock-read:
-  // rendered client-side only it can never appear in the crawled HTML, and
-  // rendered without a pinned key it straddles midnight between the server and
-  // hydration (#418). Reading the zone back off the prefetch above costs no
-  // extra request. The `?? "Europe/London"` mirrors FestivalDetail's own
-  // eventTz default EXACTLY -- if the two ever disagree the server and client
-  // derive different keys and the pin becomes the bug it exists to prevent.
-  // (dateKeyInTz also falls back to London on a missing/invalid zone.)
-  const detail = qc.getQueryData(festivalDetailQueryKey(eventId)) as FestivalDetailData | null;
+  // Read back off the prefetch above, so it costs no extra request. The
+  // `?? "Europe/London"` mirrors FestivalDetail's own eventTz default EXACTLY:
+  // if the two ever disagree, server and client derive different keys and the
+  // pin becomes the bug it exists to prevent. (dateKeyInTz also degrades to
+  // London on a missing/invalid zone.)
+  //
+  // But `prefetchQuery` SWALLOWS errors, so `undefined` here means that fetch
+  // FAILED -- which is not the same as a festival carrying no timezone. On that
+  // path the client's own query refetches and succeeds, so it holds the real
+  // zone while this document was pinned on London's: for an Asia/Tokyo festival
+  // the two calendars sit 9 hours apart and the crawled hero reads "In 1 day"
+  // where it should read "Today". Rendering on the fallback is still right --
+  // the detail prefetch is deliberately non-gating, a blip must not 500 the page
+  // -- but a GUESSED calendar must not also earn a cache TTL, so `zoneResolved`
+  // fails the bound closed below.
+  const detail = qc.getQueryData(festivalDetailQueryKey(eventId)) as
+    | FestivalDetailData
+    | null
+    | undefined;
+  const zoneResolved = detail !== undefined;
   const festivalTz = detail?.dates?.timezone ?? "Europe/London";
-  const todayKey = dateKeyInTz(new Date(), festivalTz);
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked festival card,
   // else a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
@@ -90,6 +101,31 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     request,
     fallbackImage: DEFAULT_OG_IMAGE,
   });
+
+  // "Today" on that calendar, for the hero's days-away label. Derived in the
+  // LOADER rather than the component because the label is clock-read: rendered
+  // client-side only it can never appear in the crawled HTML, and rendered
+  // without a pinned key it straddles midnight between server and hydration
+  // (#418).
+  //
+  // And derived HERE, below every await. resolveOgCardImage can take seconds,
+  // and a loader that entered at 23:59:50 leaves after the festival's midnight.
+  // Deriving the key on the way IN pinned yesterday into a document emitted
+  // today: the hero then renders "Happening now" for a festival that has
+  // finished, and the reader -- or Googlebot, whose single crawl is the audience
+  // this whole mechanism exists for -- is served that claim. Declining to CACHE
+  // it, which is all the bound can do, does not unsay it. Nothing between here
+  // and the loader's entry reads the key, so late is free.
+  //
+  // Key and bound together, so the gap between the two clock reads cannot leave
+  // a stale key in the emitted document -- see pinDayAndBound.
+  const { dayKey: todayKey, boundSeconds } = pinDayAndBound(festivalTz);
+
+  // `zoneResolved` overrides the bound entirely: with the detail prefetch failed
+  // the pin rests on a GUESSED calendar, and edgeCacheControl's own rule is that
+  // not knowing how long the content stays true means caching none of it. The
+  // document still renders on the London fallback; it just may not be stored.
+  const edgeTtlBoundSeconds = zoneResolved ? boundSeconds : 0;
 
   return taggedData(
     {
@@ -118,10 +154,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // errors: an "In 3 days" countdown off by one, and a schedule "today"
     // badge sitting on yesterday's tab.
     //
-    // Measured HERE, not beside the derivation above: resolveOgCardImage can
-    // await for seconds, and a bound measured before it would over-grant by
-    // however long it took.
-    secondsUntilKeyRollsOver(todayKey, festivalTz),
+    { edgeTtlBoundSeconds },
   );
 }
 

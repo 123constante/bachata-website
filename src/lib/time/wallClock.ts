@@ -27,7 +27,7 @@
 // string is confined to this file -- nothing else may cast a brand to string.
 
 import { format } from 'date-fns';
-import { parseUtcIso } from '@/lib/londonDate';
+import { parseUtcIso, zonedFormatterFactory } from '@/lib/londonDate';
 
 declare const _wallClockBrand: unique symbol;
 declare const _instantBrand: unique symbol;
@@ -237,13 +237,12 @@ const ZONED_OPTS: Intl.DateTimeFormatOptions = {
   year: 'numeric', month: '2-digit', day: '2-digit',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
 };
-const zonedFormatter = (tz: string): Intl.DateTimeFormat => {
-  try {
-    return new Intl.DateTimeFormat('en-US', { timeZone: tz, ...ZONED_OPTS });
-  } catch {
-    return new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/London', ...ZONED_OPTS });
-  }
-};
+// Shares londonDate's factory so this fallback and dateKeyInTz's cannot drift
+// into two different calendars for the same bad zone -- and so this one caches,
+// which the hand-rolled version did not.
+const zonedFormatter = zonedFormatterFactory((tz) =>
+  new Intl.DateTimeFormat('en-US', { timeZone: tz, ...ZONED_OPTS }),
+);
 
 /**
  * Convert a stored wall clock into the TRUE UTC instant it denotes, using the

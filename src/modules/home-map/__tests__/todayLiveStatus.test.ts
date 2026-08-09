@@ -47,6 +47,60 @@ describe('todayLiveStatus pinned-today argument', () => {
   });
 });
 
+// Split class/party times are the authority when present, and a party end past
+// midnight is the case the raw MAX in endMinutes got wrong: 02:00 reads as 120,
+// the 20:30 class end outranks it, and the badge goes dark at 20:31 with the
+// party five hours from closing. todayLiveStatus's own `end < start` wrap could
+// not recover it either -- 1230 is not less than the 19:00 start, so nothing
+// downstream looked wrong. It now sizes the homepage's edge TTL as well as the
+// badge, which is why it is pinned here rather than left as found.
+describe('todayLiveStatus split class/party times', () => {
+  const classAndParty = {
+    ...base,
+    class_start: '19:00',
+    class_end: '20:30',
+    party_start: '21:00',
+    party_end: '02:00',
+  } as MapEvent;
+
+  it('stays on-now through a party that runs past midnight', () => {
+    // 23:00 London: past every class time, deep inside the party.
+    expect(
+      todayLiveStatus(classAndParty, new Date('2026-06-08T23:00:00+01:00'), '2026-06-08'),
+    ).toBe('on-now');
+  });
+
+  it('does not wrap an end whose own half has no start', () => {
+    // THE REGRESSION THE PAIRED WRAP EXISTS FOR. Wrapping against the earliest
+    // start across both halves read this class end (20:30, no class start) as
+    // 20:30 TOMORROW, because the row's only start is the 21:00 party. It then
+    // outranked the real 23:00 end, the badge read "On now" at 23:30 with the
+    // party half an hour finished, and soonestLiveStatusChangeMs could not
+    // expire it: its end mark landed past 1440 and was left to the day bound.
+    // So the cache-correctness mechanism made the false claim MORE durable than
+    // it was before this file was touched.
+    const noClassStart = {
+      ...classAndParty,
+      class_start: null,
+      party_end: '23:00',
+    } as MapEvent;
+    expect(
+      todayLiveStatus(noClassStart, new Date('2026-06-08T23:30:00+01:00'), '2026-06-08'),
+    ).toBeNull();
+    // ...and it is still on at 22:00, so the row did not simply go dark early.
+    expect(
+      todayLiveStatus(noClassStart, new Date('2026-06-08T22:00:00+01:00'), '2026-06-08'),
+    ).toBe('on-now');
+  });
+
+  it('still ends at the split end when nothing wraps', () => {
+    // Non-vacuity: same shape, party dropped. The wrap must not extend a row
+    // whose latest end is genuinely in the evening.
+    const classOnly = { ...classAndParty, party_start: null, party_end: null } as MapEvent;
+    expect(todayLiveStatus(classOnly, new Date('2026-06-08T21:00:00+01:00'), '2026-06-08')).toBeNull();
+  });
+});
+
 // isTodayRow is the SINGLE definition of the day match: todayLiveStatus gates
 // on it, and so does the JSX deciding whether to mount a LiveBadge at all.
 // One definition so the two cannot drift -- when they were written separately,

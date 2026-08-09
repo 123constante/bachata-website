@@ -1,7 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
-import { londonDateKey } from "@/lib/londonDate";
-import { SEO_LANDING_WINDOWS, fetchSeoLandingEventsIntoCache } from "@/lib/seoLandingEvents";
+import { SEO_LANDING_WINDOWS, loadSeoLandingDay } from "@/lib/seoLandingEvents";
 import BachataInLondon, { SEO_INPUT } from "@/pages/seo/BachataInLondon";
 import { stampSeoLanding } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
@@ -21,14 +20,25 @@ export async function loader() {
 
   // The London day this document was rendered on. It ships to the client and
   // pins the first render's window -- see LiveEventsSectionProps.serverTodayKey.
-  const todayKey = londonDateKey(new Date());
+  // One helper: it derives that key, fills the cache via fetchQuery (NOT
+  // prefetchQuery -- a transient RPC error must THROW out of the loader, so the
+  // 500 carries no Vercel-Cache-Tag and cacheHeaders leaves it uncached rather
+  // than edge-caching an empty listing for an hour; mirrors /festivals), and
+  // reports how much of the pinned day is left.
+  const { todayKey, edgeTtlBoundSeconds } = await loadSeoLandingDay(
+    qc,
+    SEO_LANDING_WINDOWS.guide,
+  );
 
-  // fetchQuery (NOT prefetchQuery) so a transient RPC error THROWS out of the
-  // loader -> 500 with no Vercel-Cache-Tag -> cacheHeaders leaves it uncached,
-  // instead of edge-caching an empty listing for an hour. Mirrors /festivals.
-  await fetchSeoLandingEventsIntoCache(qc, todayKey, SEO_LANDING_WINDOWS.guide);
-
-  return taggedData({ dehydratedState: dehydrate(qc), todayKey }, stampSeoLanding());
+  // Cap how long the edge may serve THIS generation. Both `todayKey` and the
+  // event window it opens are frozen at render time, while the default policy
+  // keeps one generation servable for 25 hours -- so an unbounded document
+  // rendered at 23:50 is still served at 00:50 listing yesterday's window. See
+  // loadSeoLandingDay for why the key is derived above the fetch and the bound
+  // below it; the two cannot swap places here.
+  return taggedData({ dehydratedState: dehydrate(qc), todayKey }, stampSeoLanding(), {
+    edgeTtlBoundSeconds,
+  });
 }
 
 export const meta: Route.MetaFunction = () => seoInputToMeta(SEO_INPUT);
