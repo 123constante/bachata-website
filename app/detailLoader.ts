@@ -111,10 +111,31 @@ export const EDGE_STORE_MARGIN_SECONDS = 5;
 // deliberately not set -- serving a slightly old festival page beats failing it
 // while Supabase is down. Vercel honours the value either way; this is belt to
 // the value's braces, not the guarantee on its own.
-const cacheControl = (sMaxAge: number, swr: number): string =>
-  swr > 0
-    ? `public, s-maxage=${sMaxAge}, stale-while-revalidate=${swr}`
-    : `public, s-maxage=${sMaxAge}`;
+const cacheControl = (sMaxAge: number, swr: number): string => {
+  if (swr > 0) return `public, s-maxage=${sMaxAge}, stale-while-revalidate=${swr}`;
+  // s-maxage=0 with no stale window is the "not servable from cache" spelling,
+  // and omission alone does not get there. By the note above, a shared cache may
+  // still serve a stale entry on origin ERROR unless `must-revalidate` is set.
+  // That trade is right for a bounded entry -- an old festival page beats a 500
+  // while Supabase is down -- and inverts here: reaching zero means either the
+  // pinned day is already over or the bound did not survive the trip, so the
+  // premise is that we do NOT know this document is true. Serving it stale on an
+  // outage is precisely what the branch exists to prevent, so this one asks for
+  // the prohibition rather than merely withholding the permission.
+  //
+  // BELT, AND UNVERIFIED AT THE EDGE. Be honest about the strength of that ask:
+  // Vercel documents its CDN-Cache-Control handling for max-age / s-maxage /
+  // stale-while-revalidate / stale-if-error, and `must-revalidate` is not among
+  // the directives it states it honours. Nor is there an obvious way for it to
+  // matter -- at s-maxage=0 the edge has no stored entry to serve stale in the
+  // first place. So this is a directive we emit and assert against our own
+  // string builder; it has never been observed changing behaviour on a real
+  // deploy. Treat it as defence that costs nothing, NOT as a proven outage
+  // guarantee, and do not build a second mechanism on top of it without
+  // measuring the edge first.
+  if (sMaxAge === 0) return 'public, s-maxage=0, must-revalidate';
+  return `public, s-maxage=${sMaxAge}`;
+};
 
 /**
  * The edge cache-control for a document, optionally bounded by how long its
@@ -160,8 +181,35 @@ export function edgeCacheControl(boundSeconds?: number): string {
   // motivating example twenty lines up is a document rendered at 23:20 served at
   // 00:40, and a corrupt bound near midnight reproduces it exactly. A broken
   // bound means we do not know how long this content is true, so we cache none
-  // of it. Only /festival is bounded today, so the cost of the failure mode is
-  // one origin render per request on one route, not a site-wide storm.
+  // of it.
+  //
+  // SIZE THE FAILURE MODE HONESTLY, AND RE-SIZE IT WHEN ROUTES ADOPT THE BOUND.
+  // This read "only /festival is bounded today, so the cost is one origin render
+  // per request on one route, not a site-wide storm" while that was true. It no
+  // longer is: four route modules are bounded, covering nine URLs
+  // (/festival/:id, /london-bachata-guide, /learn-bachata-london and the seven
+  // /bachata-london-{weekday} pages), and the landing pages are precisely the
+  // ones whose crawl budget and TTFB the SSR arc was built for. So a side
+  // channel that breaks now takes all of them to 100% origin render at once.
+  // The trade still holds -- an hour of a false "Happening now" served to
+  // Googlebot is worse than an hour of slow-but-correct pages, and the channel
+  // is an internal header between two functions in this file, not user input --
+  // but it is now a real cost rather than a rounding error, and the next route
+  // to adopt the bound should re-weigh it rather than inherit this sentence.
+  //
+  // Infinity is the natural spelling of "this content has no expiry", and it is
+  // NOT the corrupt case -- it is a caller asking for the MOST permissive policy
+  // available. Falling into the branch below would hand it the least permissive
+  // one, which is the sort of inversion nothing at the call site would reveal.
+  // Answered with the unbounded default rather than a literal forever, because
+  // s-maxage is capped by EDGE_S_MAXAGE either way.
+  //
+  // Reachable ONLY from a direct caller, never from the side channel:
+  // parseEdgeTtlBound fails a non-finite parse closed, so a broken producer
+  // writing 'Infinity' or '9e999' into the header cannot use this branch to
+  // hand itself back the 25-hour policy. "No expiry" is a thing a caller means,
+  // not a thing a corrupt string gets to claim.
+  if (boundSeconds === Number.POSITIVE_INFINITY) return cacheControl(EDGE_S_MAXAGE, EDGE_SWR);
   if (!Number.isFinite(boundSeconds)) return cacheControl(0, 0);
   // The bound was measured inside the loader; Vercel starts the s-maxage clock
   // when it STORES the response, after React has streamed the whole tree to the
@@ -192,7 +240,17 @@ export function edgeCacheControl(boundSeconds?: number): string {
 export function parseEdgeTtlBound(raw: string | null): number | undefined {
   if (raw === null) return undefined;
   if (raw.trim() === "") return Number.NaN;
-  return Number(raw);
+  const parsed = Number(raw);
+  // A NON-FINITE parse is corrupt HERE, whatever it would mean from a caller.
+  // Number() maps 'Infinity', '1e400' and '9e999' to POSITIVE_INFINITY, and
+  // edgeCacheControl reads that as "no expiry" and restores the full 25-hour
+  // policy -- the exact fail-open the branch above exists to prevent, reachable
+  // by a single typo in a value a producer wrote as text. The escape hatch has
+  // to sit on the side of the channel where someone genuinely means it, so
+  // taggedData spells "no expiry" by OMITTING the header (byte-identical to
+  // unbounded, since edgeCacheControl(Infinity) === edgeCacheControl()) and
+  // nothing legitimate needs to smuggle it through the string.
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
 /** Route `headers()` body: forward the loader's Vercel-Cache-Tag and set the
@@ -221,7 +279,7 @@ export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
  *  NAMED, not a third positional number, because `taggedData(payload, tag,
  *  2400)` reads identically whether 2400 is seconds or milliseconds and nothing
  *  -- not a type, not a test -- would catch the confusion. Cheap to spell out
- *  now, with one caller; four more routes are queued to adopt it. */
+ *  when it had one caller; four route modules now pass it. */
 export function taggedData<T>(
   payload: T,
   tag: string,
@@ -234,7 +292,35 @@ export function taggedData<T>(
   // unnormalised -- edgeCacheControl is the single owner of the clamping rule,
   // and a second copy here would let the header and the directive drift apart.
   if (opts && "edgeTtlBoundSeconds" in opts) {
-    headers[EDGE_TTL_BOUND_HEADER] = String(opts.edgeTtlBoundSeconds);
+    const bound = opts.edgeTtlBoundSeconds;
+    // "No expiry", spelled by omission. This is the ONE normalisation done here
+    // rather than in edgeCacheControl, and it is not a clamp: an omitted header
+    // and Infinity produce the identical directive already
+    // (edgeCacheControl(Infinity) === edgeCacheControl()), so nothing about the
+    // response changes. What it buys is that the string 'Infinity' never has to
+    // be a legitimate side-channel value, which lets parseEdgeTtlBound fail
+    // every non-finite parse closed instead of honouring the most permissive
+    // policy on behalf of a producer that may simply be broken.
+    if (bound === Number.POSITIVE_INFINITY) return data(payload, { headers });
+
+    // Present but not a finite number -- `{ edgeTtlBoundSeconds: detail?.bound }`
+    // where the optional chain gave up, overwhelmingly. Still written, because
+    // failing closed is right: a caller who meant to compute a bound and did not
+    // must not be handed the 25-hour policy. But it is written LOUDLY, because
+    // the consequence is now severe and completely silent -- the header goes out
+    // as the text 'undefined', the parse NaNs, and every request to that route
+    // origin-renders forever with no throw, no red test, and a curl showing a
+    // perfectly plausible `s-maxage=0, must-revalidate`. Before the fail-closed
+    // rule this same slip cost only the stale tail; now it costs the whole
+    // route, so it gets a log line rather than a shrug.
+    if (typeof bound !== "number" || !Number.isFinite(bound)) {
+      console.warn(
+        `[taggedData] edgeTtlBoundSeconds for "${tag}" is ${String(bound)}, not a finite ` +
+          `number -- failing the edge TTL closed, so this route will origin-render every ` +
+          `request until the caller supplies a real bound or omits the option entirely.`,
+      );
+    }
+    headers[EDGE_TTL_BOUND_HEADER] = String(bound);
   }
   return data(payload, { headers });
 }

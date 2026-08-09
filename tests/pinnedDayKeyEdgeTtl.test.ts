@@ -32,7 +32,7 @@ import {
   EDGE_STORE_MARGIN_SECONDS,
   parseEdgeTtlBound,
 } from '../app/detailLoader';
-import { secondsUntilKeyRollsOver } from '@/lib/londonDate';
+import { pinDayAndBound, secondsUntilKeyRollsOver } from '@/lib/londonDate';
 
 /** Read one cache-control directive's seconds. Split rather than matched: a
  *  regex for `s-maxage` also matches inside `stale-while-revalidate`. */
@@ -152,6 +152,69 @@ describe('secondsUntilKeyRollsOver', () => {
   });
 });
 
+// A zero bound is not spelled `public, s-maxage=0`. Omitting the stale
+// directive withholds PERMISSION to serve stale, but RFC 7234 still lets a
+// shared cache serve a stale entry on origin error unless `must-revalidate` is
+// set -- and the whole premise of reaching zero is that we do not know this
+// document is true, so an outage is exactly when it must not be served.
+const NO_EDGE_CACHE = 'public, s-maxage=0, must-revalidate';
+
+describe('pinDayAndBound', () => {
+  // A clock that returns each instant in turn, so the gap between the key read
+  // and the bound read can be made to straddle midnight. That gap is two
+  // adjacent statements in real code, which no frozen clock can reproduce --
+  // which is exactly why the helper takes an injectable `now`.
+  const clockOf = (...instants: string[]) => {
+    let i = 0;
+    return () => new Date(instants[Math.min(i++, instants.length - 1)]);
+  };
+
+  it('re-derives when the key and the bound straddle midnight', () => {
+    // Key read at 23:59:59 London, bound read at 00:00:01 the next day.
+    const { dayKey, boundSeconds } = pinDayAndBound(
+      'Europe/London',
+      clockOf('2026-09-06T22:59:59Z', '2026-09-06T23:00:01Z'),
+    );
+
+    // The emitted key is the day it is NOW, not the day the read started on.
+    // Without the retry this is '2026-09-06' with a zero bound: a document
+    // asserting yesterday, merely uncached. Declining to cache does not unsay
+    // it, and for a crawler that one request is the whole audience.
+    expect(dayKey).toBe('2026-09-07');
+    // ...and a real day's servability rather than none.
+    expect(boundSeconds).toBeGreaterThan(86000);
+  });
+
+  it('leaves the ordinary case on ONE derivation', () => {
+    // Non-vacuity for the case above: mid-afternoon, no straddle, so the first
+    // answer stands and the bound is the remainder of the day.
+    const { dayKey, boundSeconds } = pinDayAndBound(
+      'Europe/London',
+      clockOf('2026-09-06T13:00:00Z'),
+    );
+    expect(dayKey).toBe('2026-09-06');
+    expect(boundSeconds).toBe(10 * 3600); // 14:00 to midnight BST
+  });
+
+  it('still reports zero when the SECOND read straddles too', () => {
+    // The retry is bounded at one. A pathological clock that crosses on both
+    // reads must degrade to an uncacheable answer, never loop and never hand
+    // back a fresh day for a key that is already stale.
+    // Four reads, because the helper makes four: key, bound, key again, bound
+    // again. Both PAIRS straddle -- 23:59:59 then 00:00:01, a day apart.
+    const { boundSeconds } = pinDayAndBound(
+      'Europe/London',
+      clockOf(
+        '2026-09-06T22:59:59Z',
+        '2026-09-06T23:00:01Z',
+        '2026-09-07T22:59:59Z',
+        '2026-09-07T23:00:01Z',
+      ),
+    );
+    expect(boundSeconds).toBe(0);
+  });
+});
+
 describe('edgeCacheControl', () => {
   it('is byte-identical to the previous policy when unbounded', () => {
     expect(edgeCacheControl()).toBe('public, s-maxage=3600, stale-while-revalidate=86400');
@@ -163,10 +226,47 @@ describe('edgeCacheControl', () => {
     // because one value broke in the side channel. Nor may it keep a fresh
     // HOUR -- an hour IS the defect window; the motivating example is a
     // document rendered at 23:20 and served at 00:40.
-    expect(edgeCacheControl(Number.NaN)).toBe('public, s-maxage=0');
+    expect(edgeCacheControl(Number.NaN)).toBe(NO_EDGE_CACHE);
     expect(totalServableSeconds(edgeCacheControl(Number.NaN))).toBe(0);
     // The distinction itself, stated as the assertion:
     expect(edgeCacheControl(Number.NaN)).not.toBe(edgeCacheControl());
+  });
+
+  it('prohibits stale-on-error at zero, rather than merely not permitting it', () => {
+    // Withholding stale-while-revalidate is not the same as forbidding a stale
+    // serve. Asserted separately from the string above so that a future rewrite
+    // of the zero spelling cannot drop the directive while still "passing" on a
+    // byte comparison someone updated to match.
+    expect(edgeCacheControl(Number.NaN)).toContain('must-revalidate');
+    expect(edgeCacheControl(0)).toContain('must-revalidate');
+    // ...and the BOUNDED path deliberately does not, because serving a slightly
+    // old festival page beats failing it while Supabase is down.
+    expect(edgeCacheControl(2400)).not.toContain('must-revalidate');
+    expect(edgeCacheControl()).not.toContain('must-revalidate');
+  });
+
+  it('treats Infinity as "no expiry" from a CALLER, and as corrupt from the wire', () => {
+    // Infinity is the natural spelling of content that never goes stale -- a
+    // caller asking for the MOST permissive policy. Failing it closed would hand
+    // that caller the least permissive one, and nothing at the call site would
+    // show it.
+    expect(edgeCacheControl(Number.POSITIVE_INFINITY)).toBe(edgeCacheControl());
+    // -Infinity is NOT that request, and stays on the fail-closed path.
+    expect(edgeCacheControl(Number.NEGATIVE_INFINITY)).toBe(NO_EDGE_CACHE);
+
+    // The side channel is a STRING some producer wrote, and Number() maps four
+    // different typos onto POSITIVE_INFINITY. Honouring it there would let one
+    // broken value hand itself back the whole 25-hour policy on a route that
+    // declared it cannot tolerate it -- the precise fail-open the branch exists
+    // to close, arriving through the branch meant to be its exception. So the
+    // permissive answer is available to a caller and to nothing else.
+    for (const raw of ['Infinity', '+Infinity', '1e400', '9e999']) {
+      expect(parseEdgeTtlBound(raw)).toBeNaN();
+      expect(edgeCacheControl(parseEdgeTtlBound(raw))).toBe(NO_EDGE_CACHE);
+      // Stated as the distinction, so a future rewrite cannot pass by making
+      // these two collapse back into each other:
+      expect(edgeCacheControl(parseEdgeTtlBound(raw))).not.toBe(edgeCacheControl());
+    }
   });
 
   it('caps TOTAL servability at the bound, less the store margin', () => {
@@ -199,25 +299,40 @@ describe('edgeCacheControl', () => {
   });
 
   it('clamps a zero, negative or sub-margin bound to no caching', () => {
-    expect(edgeCacheControl(0)).toBe('public, s-maxage=0');
-    expect(edgeCacheControl(-5)).toBe('public, s-maxage=0');
+    expect(edgeCacheControl(0)).toBe(NO_EDGE_CACHE);
+    expect(edgeCacheControl(-5)).toBe(NO_EDGE_CACHE);
     // Less time left than the margin: the entry cannot be stored in time, so
     // it must not be stored at all rather than wrapping to a huge number.
-    expect(edgeCacheControl(EDGE_STORE_MARGIN_SECONDS - 1)).toBe('public, s-maxage=0');
+    expect(edgeCacheControl(EDGE_STORE_MARGIN_SECONDS - 1)).toBe(NO_EDGE_CACHE);
   });
 });
 
 describe('parseEdgeTtlBound', () => {
   // Asserted HERE rather than through cacheHeaders on purpose: a corrupt bound
-  // and a legitimate zero both emit `public, s-maxage=0`, so a gate written at
+  // and a legitimate zero emit the SAME header, so a gate written at
   // the header is green whether or not the empty-string check exists. Only the
   // parser can tell the two apart, so only the parser can gate it.
   it('separates never-asked from asked-and-broke', () => {
     expect(parseEdgeTtlBound(null)).toBeUndefined();
     expect(parseEdgeTtlBound('2400')).toBe(2400);
-    for (const corrupt of ['', '   ', 'NaN', 'undefined', 'not-a-number']) {
+    for (const corrupt of ['', '   ', 'NaN', 'undefined', 'not-a-number', 'Infinity', '1e400']) {
       expect(parseEdgeTtlBound(corrupt)).toBeNaN();
     }
+  });
+
+  it('spells a caller Infinity by OMITTING the header, byte-identically', () => {
+    // The two halves of the rule have to meet. Since the parser now rejects
+    // 'Infinity' off the wire, taggedData must never put it there, or a caller
+    // legitimately asking for "no expiry" would be silently inverted into no
+    // caching at all. Omission is EXACT rather than approximate here, because
+    // edgeCacheControl(Infinity) and edgeCacheControl() are the same string.
+    const headers = loaderHeadersOf(
+      taggedData({ ok: true }, 'festival:abc', {
+        edgeTtlBoundSeconds: Number.POSITIVE_INFINITY,
+      }),
+    );
+    expect(headers.get('X-Edge-Ttl-Bound')).toBeNull();
+    expect(cacheHeaders(headers)['Vercel-CDN-Cache-Control']).toBe(edgeCacheControl());
   });
 
   it('does not read an empty header as a deliberate zero', () => {
@@ -254,7 +369,7 @@ describe('cacheHeaders', () => {
       const out = cacheHeaders(
         new Headers({ 'Vercel-Cache-Tag': 'festival:abc', 'X-Edge-Ttl-Bound': raw }),
       );
-      expect(out['Vercel-CDN-Cache-Control']).toBe('public, s-maxage=0');
+      expect(out['Vercel-CDN-Cache-Control']).toBe(NO_EDGE_CACHE);
     }
   });
 
@@ -262,9 +377,7 @@ describe('cacheHeaders', () => {
     // A caller who meant to supply a bound and computed nothing is NOT the same
     // as a caller who passed no options at all -- the untouched-route case
     // asserted at the end of this block.
-    expect(cacheHeaders(bounded(undefined))['Vercel-CDN-Cache-Control']).toBe(
-      'public, s-maxage=0',
-    );
+    expect(cacheHeaders(bounded(undefined))['Vercel-CDN-Cache-Control']).toBe(NO_EDGE_CACHE);
   });
 
   it('leaves an untagged (404/500) response uncached, bound or not', () => {

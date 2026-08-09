@@ -31,6 +31,10 @@ const SECONDS_LEFT_IN_PINNED_DAY = 40 * 60;
 // vi.hoisted because the mock factory below is hoisted above this file's body.
 const clock = vi.hoisted(() => ({ ogCardAwaitMs: 0, crossedMidnight: false }));
 
+// Lets a case make the festival-detail PREFETCH fail. prefetchQuery swallows
+// errors, so the loader carries on with no timezone -- see the zoneResolved case.
+const detailFetch = vi.hoisted(() => ({ shouldThrow: false }));
+
 // Only the entity/image lookups are replaced. taggedData + cacheHeaders come
 // through untouched from the real module.
 vi.mock('../app/detailLoader', async (importOriginal) => {
@@ -65,10 +69,13 @@ vi.mock('@/modules/event-page/festivalEventQuery', () => ({
 
 vi.mock('@/modules/event-page/useFestivalDetailQuery', () => ({
   festivalDetailQueryKey: (id: string) => ['festival-detail', id],
-  fetchFestivalDetail: async () => ({
-    eventId: EVENT_UUID,
-    dates: { local_start: '2026-09-04', local_end: '2026-09-06', timezone: FESTIVAL_TZ },
-  }),
+  fetchFestivalDetail: async () => {
+    if (detailFetch.shouldThrow) throw new Error('transient supabase blip');
+    return {
+      eventId: EVENT_UUID,
+      dates: { local_start: '2026-09-04', local_end: '2026-09-06', timezone: FESTIVAL_TZ },
+    };
+  },
 }));
 
 const runLoader = async () => {
@@ -99,6 +106,7 @@ beforeAll(() => {
 beforeEach(() => {
   clock.ogCardAwaitMs = 0;
   clock.crossedMidnight = false;
+  detailFetch.shouldThrow = false;
   vi.setSystemTime(RENDERED_AT);
 });
 
@@ -130,6 +138,25 @@ describe('festival loader edge TTL', () => {
     expect(cdn).toBe(
       `public, s-maxage=3600, stale-while-revalidate=${50400 - EDGE_STORE_MARGIN_SECONDS - 3600}`,
     );
+  });
+
+  it('caches nothing when the timezone could not be resolved', async () => {
+    // The detail prefetch is deliberately NON-gating -- a transient blip must
+    // not 500 a live festival page -- but prefetchQuery swallows the error, so
+    // the loader falls back to Europe/London. That fallback is a GUESS: the
+    // client's own query refetches and succeeds, so it holds Africa/Tunis while
+    // this document was pinned on London's calendar. For a festival further
+    // east the two are most of a day apart and the crawled hero reads the wrong
+    // label. Rendering on the guess is right; caching it is not.
+    detailFetch.shouldThrow = true;
+
+    const result = await runLoader();
+
+    // Non-vacuity: the page really did render, on the London fallback -- 23:20
+    // in Tunis is 22:20 in London, still the same date here, so the key alone
+    // would not reveal the failure. The HEADER is what changed.
+    expect(pinnedKeyOf(result)).toBe('2026-09-06');
+    expect(await cdnHeaderOf(result)).toBe('public, s-maxage=0, must-revalidate');
   });
 
   it('pins the day it EMITTED on, not the day it started on', async () => {

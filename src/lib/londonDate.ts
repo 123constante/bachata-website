@@ -19,7 +19,23 @@
 // - For a reactive "today" that survives long-lived tabs crossing midnight,
 //   use the useLondonToday() hook (src/hooks/useLondonToday.ts).
 
-const LONDON_TZ = 'Europe/London';
+/** Exported for the zone-TAKING helpers here, which need the caller to name a
+ *  calendar explicitly -- a loader bounding an edge TTL with
+ *  secondsUntilKeyRollsOver, say -- so those call sites share one string
+ *  instead of each spelling their own literal.
+ *
+ *  DELIBERATELY NOT A SITE-WIDE SWEEP, so read the export narrowly. Seven or so
+ *  other modules still write 'Europe/London' inline (venueOpenStatus's own
+ *  fallback, wallClock's default parameter, buildEventListJsonLd's private
+ *  LONDON const, useLondonToday, BentoPage's `?? `), and adopting this there is
+ *  a separate refactor that would pull half the tree into an import from this
+ *  module for a string that cannot drift in value. One of them must NOT be
+ *  converted piecemeal at all: app/routes/festival.tsx's `?? "Europe/London"`
+ *  is documented as mirroring FestivalDetail.tsx's eventTz default EXACTLY, and
+ *  changing one side alone makes the pair harder to eyeball for the typo that
+ *  would split server and client onto different calendars. Convert both or
+ *  neither. */
+export const LONDON_TZ = 'Europe/London';
 
 const londonKeyFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: LONDON_TZ,
@@ -54,47 +70,82 @@ export const parseUtcIso = (iso: string | null | undefined): Date | null => {
 };
 
 /**
+ * ONE cached, fail-soft formatter factory for every zone-taking path here and
+ * in wallClock.ts: build per zone, cache per zone, degrade an invalid zone to
+ * London rather than throw.
+ *
+ * It exists because that idiom had been written THREE times -- dateKeyInTz,
+ * wallClockMsInTz below, and wallClock.ts's zonedFormatter -- and the copies had
+ * already drifted: two cached the London fallback under the bad key, the third
+ * rebuilt it on every call. The correctness of a pinned day key rests on all of
+ * them degrading to the SAME calendar from the same bad `events.timezone`, and
+ * that agreement should not be three separate coincidences.
+ *
+ * Construction is the expensive part of the Intl API and useTodayKey reaches
+ * this on every 60s/focus check, hence the cache.
+ */
+export const zonedFormatterFactory = (
+  build: (timeZone: string) => Intl.DateTimeFormat,
+): ((timeZone: string) => Intl.DateTimeFormat) => {
+  const cache = new Map<string, Intl.DateTimeFormat>();
+  return (timeZone: string): Intl.DateTimeFormat => {
+    // An `undefined` zone must be normalised HERE, because the try/catch below
+    // cannot catch it: `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })`
+    // does NOT throw, it resolves to the RUNTIME's zone. So the failure mode is
+    // silent and reads as correct on a London machine, while a Sydney visitor
+    // would get today on their own browser calendar -- precisely the bug class
+    // this module exists to prevent. (`null` and `''` DO throw RangeError, like
+    // any invalid zone, and are handled by the catch; only `undefined` slips past.)
+    //
+    // DEFENSE IN DEPTH, not a fix for a live defect: no current call site can
+    // deliver `undefined`. The two useTodayKey callers pass the literal
+    // 'Europe/London' and FestivalDetail's `eventTz`, itself `?? "Europe/London"`.
+    // The guard stays because `strict: false` in tsconfig.app.json means a
+    // `timeZone: string` signature does not actually enforce it, so a future
+    // caller can reintroduce it without a type error.
+    const tz = timeZone || LONDON_TZ;
+    let fmt = cache.get(tz);
+    if (!fmt) {
+      try {
+        fmt = build(tz);
+      } catch {
+        // An INVALID zone ('Not/AZone') does throw, and this is its fallback.
+        // Cached under the BAD key, so a hot path pays the RangeError once.
+        //
+        // Yes, this line can itself throw, and no, it is not worth defending.
+        // `build(LONDON_TZ)` escaping the try needs a runtime where building
+        // the London formatter fails -- and on such a runtime `build(tz)` above
+        // has already failed for every zone including the valid ones, so there
+        // is no input that reaches a WORKING primary and a BROKEN fallback. The
+        // guard was never load-bearing in that world; the whole factory is
+        // unusable and the RangeError is the honest signal. Nor is there a safe
+        // last resort to degrade to: any formatter built with different options
+        // returns a differently-shaped string, and a silently wrong day key is
+        // strictly worse than a throw for every consumer here.
+        fmt = build(LONDON_TZ);
+      }
+      cache.set(tz, fmt);
+    }
+    return fmt;
+  };
+};
+
+/**
  * YYYY-MM-DD for the given instant in an arbitrary IANA timezone (DST-safe).
  * Falls back to the London calendar if `timeZone` is missing or invalid, so a
- * bad value can never throw at a call site. Formatters are cached per timezone
- * (same idiom as wallClockFormatters below) -- construction is the expensive
- * part of the Intl API, and useTodayKey calls this on every 60s/focus check.
+ * bad value can never throw at a call site.
  */
-const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>([[LONDON_TZ, londonKeyFormatter]]);
+const dateKeyFormatter = zonedFormatterFactory((timeZone) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }),
+);
 
-export const dateKeyInTz = (d: Date, timeZone: string): string => {
-  // An `undefined` zone must be normalised HERE, because the try/catch below
-  // cannot catch it: `new Intl.DateTimeFormat('en-CA', { timeZone: undefined })`
-  // does NOT throw, it resolves to the RUNTIME's zone. So the failure mode is
-  // silent and reads as correct on a London machine, while a Sydney visitor
-  // would get today on their own browser calendar -- precisely the bug class
-  // this module exists to prevent. (`null` and `''` DO throw RangeError, like
-  // any invalid zone, and are handled by the catch; only `undefined` slips past.)
-  //
-  // DEFENSE IN DEPTH, not a fix for a live defect: no current call site can
-  // deliver `undefined` here. The two useTodayKey callers pass the literal
-  // 'Europe/London' and FestivalDetail's `eventTz`, itself `?? "Europe/London"`.
-  // The guard stays because `strict: false` in tsconfig.app.json means the
-  // `timeZone: string` signature does not actually enforce that, so a future
-  // caller can reintroduce it without a type error.
-  const tz = timeZone || LONDON_TZ;
-  let fmt = dateKeyFormatters.get(tz);
-  if (!fmt) {
-    try {
-      fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: tz,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-    } catch {
-      // An INVALID zone ('Not/AZone') does throw, and this is its fallback.
-      fmt = londonKeyFormatter;
-    }
-    dateKeyFormatters.set(tz, fmt);
-  }
-  return fmt.format(d);
-};
+export const dateKeyInTz = (d: Date, timeZone: string): string =>
+  dateKeyFormatter(timeZone).format(d);
 
 /** YYYY-MM-DD for the given instant, in London (DST-safe). */
 export const londonDateKey = (d: Date): string => londonKeyFormatter.format(d);
@@ -244,7 +295,6 @@ export const formatKeyRange = (
   return `${startPart} \u2013 ${tail(end)}`;
 };
 
-const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
 const buildWallClockFormatter = (timeZone: string): Intl.DateTimeFormat =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -257,26 +307,15 @@ const buildWallClockFormatter = (timeZone: string): Intl.DateTimeFormat =>
     hourCycle: 'h23',
   });
 
+// The invalid-zone degrade is the factory's, not this function's: every
+// zone-taking path in this module reaches the Intl constructor through it, so
+// zonedMidnightUtc and everything built on it are covered -- including a caller
+// handed a DB-sourced `events.timezone` of 'Europe/Lonond', which would
+// otherwise surface as a RangeError inside a loader and a 500 on a live page.
+const wallClockFormatter = zonedFormatterFactory(buildWallClockFormatter);
+
 const wallClockMsInTz = (d: Date, timeZone: string): number => {
-  // The invalid-zone degrade lives HERE, at the function that actually throws,
-  // rather than at each caller. Every zone-taking path in this module reaches
-  // the Intl constructor through this one line, so guarding it once covers
-  // zonedMidnightUtc and anything built on it -- including a future caller
-  // handed a DB-sourced `events.timezone` of 'Europe/Lonond', which would
-  // otherwise surface as a RangeError inside a loader and a 500 on a live page.
-  // Mirrors dateKeyInTz's fallback exactly, so both derive the same calendar
-  // from the same bad input.
-  const tz = timeZone || LONDON_TZ;
-  let fmt = wallClockFormatters.get(tz);
-  if (!fmt) {
-    try {
-      fmt = buildWallClockFormatter(tz);
-    } catch {
-      fmt = buildWallClockFormatter(LONDON_TZ);
-    }
-    wallClockFormatters.set(tz, fmt);
-  }
-  const parts = fmt.formatToParts(d);
+  const parts = wallClockFormatter(timeZone).formatToParts(d);
   const get = (type: Intl.DateTimeFormatPartTypes): number =>
     Number(parts.find((p) => p.type === type)?.value ?? 0);
   return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
@@ -333,11 +372,19 @@ export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Da
  * local 00:00 does not exist -- for which it lands an hour early.
  *
  * Swept over 15 zones x 730 days (10950 cases): exact 10946 times, an hour
- * SHORT 4 times, and never once long. Short is the harmless direction here --
- * it costs an extra cache miss, never an extra hour of a stale claim -- so the
- * bound stays sound and the exotic case is documented rather than chased. If a
- * caller ever needs the true instant in such a zone, this is the note to read
- * first: fix the fixed point, do not paper over it here.
+ * SHORT 4 times, and never once long. Short is the SAFE direction -- it can
+ * only under-grant a cache, never buy an extra hour of a stale claim -- so the
+ * bound stays sound and the exotic case is documented rather than chased.
+ *
+ * Be precise about what short COSTS, though, because "an hour short" undersells
+ * it: this returns 0 for the whole of that hour, and edgeCacheControl turns a
+ * zero bound into no edge caching at all. So it is not one extra miss, it is
+ * every request for a festival in such a zone origin-rendering for an hour, at
+ * most twice a year. Cheap enough to accept, expensive enough that a future
+ * caller sizing this trade-off should not read "an extra cache miss" and plan
+ * around the wrong order of magnitude. If a caller ever needs the true instant
+ * in such a zone, this is the note to read first: fix the fixed point, do not
+ * paper over it here.
  *
  * Never negative; never throws on a missing/invalid zone or a malformed key
  * (which degrades to today's, matching safeKeyParts).
@@ -354,6 +401,41 @@ export const secondsUntilKeyRollsOver = (
   // does exactly that -- in the same direction as every other error here, which
   // is the direction the "never once long" invariant above forbids.
   return Math.max(0, Math.floor((rollsOverAt.getTime() - now.getTime()) / 1000));
+};
+
+/**
+ * Pin "today" on `timeZone`'s calendar AND size how long that pin stays true,
+ * as one answer.
+ *
+ * WHY THE PAIR IS ONE FUNCTION. A loader that derives the key and then sizes the
+ * bound makes TWO clock reads. That order is deliberate -- measuring the bound
+ * second can only ever under-grant, which is the safe direction, where sharing
+ * one `now` would over-grant by however long the work between them takes. The
+ * cost is a gap, and a pair straddling midnight leaves a stale key in an emitted
+ * document: the defect the bound exists to prevent, reintroduced by the
+ * measurement. A zero bound is exactly that signal, so re-derive once and
+ * measure again. Bounded at one retry -- a second straddle would need a whole
+ * day between two adjacent statements, and would still emit 0, which is
+ * uncacheable rather than wrong.
+ *
+ * A zero that is NOT a straddle -- the DST case documented above, where this
+ * returns 0 for an hour -- yields the same key and the same zero, one cheap
+ * call later.
+ *
+ * `now` is injectable so that the straddle can actually be tested: it is the gap
+ * between two adjacent statements, which a frozen clock cannot reproduce.
+ */
+export const pinDayAndBound = (
+  timeZone: string,
+  now: () => Date = () => new Date(),
+): { dayKey: string; boundSeconds: number } => {
+  let dayKey = dateKeyInTz(now(), timeZone);
+  let boundSeconds = secondsUntilKeyRollsOver(dayKey, timeZone, now());
+  if (boundSeconds === 0) {
+    dayKey = dateKeyInTz(now(), timeZone);
+    boundSeconds = secondsUntilKeyRollsOver(dayKey, timeZone, now());
+  }
+  return { dayKey, boundSeconds };
 };
 
 /** Minutes since midnight on the London wall clock (0–1439). Pairs with the

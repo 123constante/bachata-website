@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { getCalendarEvents, type CalendarEventRow } from '@/integrations/supabase/eventRpcs';
-import { londonDayRangeUtc } from '@/lib/londonDate';
+import {
+  LONDON_TZ,
+  londonDateKey,
+  londonDayRangeUtc,
+  secondsUntilKeyRollsOver,
+} from '@/lib/londonDate';
 
 /**
  * The single calendar-events fetch seam for the SEO landing pages, in the shape
@@ -91,6 +96,81 @@ export function fetchSeoLandingEventsIntoCache(
     queryFn: () => fetchSeoLandingEvents(todayKey, windowDays),
     staleTime: SEO_LANDING_STALE_TIME,
   });
+}
+
+/**
+ * The whole loader-side sequence for an SEO landing route: pin the London day,
+ * fill `qc` with the entry the page will read, and report how long that pin
+ * stays true so the caller can bound its edge TTL.
+ *
+ * ONE helper rather than three copies because the ORDER is load-bearing and is
+ * not self-evident at a call site. `todayKey` must be derived BEFORE the fetch
+ * -- it is an INPUT to it and it seeds the dehydrated query key -- while the
+ * bound must be measured AFTER it, at emission. /festival/:id fixed the same
+ * defect by moving its derivation below its awaits; that option does not exist
+ * here, and a route that "tidied" the derivation downward would ship a key the
+ * dehydrated entry is not filed under, hydrating against a miss and re-fetching
+ * over server HTML that already had events -- the failure useSeoLandingEvents
+ * warns about below. Sharing the sequence makes that mistake unavailable, which
+ * is the argument this module already makes for sharing ONE key builder.
+ *
+ * WHY A BOUND AT ALL. These documents are edge-cached at s-maxage=3600 +
+ * stale-while-revalidate=86400 -- 25 hours of servability for one generation,
+ * with nothing evicting on a clock tick, since the tag purge fires on content
+ * edits and time passing is not one. A page rendered at 23:50 is otherwise
+ * still served at 00:50, to a reader or to Googlebot, listing a window that
+ * opened yesterday. See edgeCacheControl in app/detailLoader.ts for what the
+ * cap buys and what it costs.
+ *
+ * THE MIDNIGHT STRADDLE. A fetch that spans London midnight leaves the pin
+ * stale before the document is even emitted. /festival/:id settles this by
+ * deriving its key last, on the ground that declining to CACHE a false claim
+ * does not unsay it -- the requester, possibly the single crawl Googlebot
+ * makes, is still served it. Deriving last is unavailable here, so the
+ * equivalent is to re-derive and re-fetch: at most one extra RPC, in a window
+ * as wide as one fetch out of a day, in exchange for never emitting a listing
+ * whose window opened yesterday.
+ *
+ * The retry is bounded at one, and `secondsUntilKeyRollsOver` -- keyed on the
+ * PIN, not on `now` -- backstops it: were the second fetch to straddle midnight
+ * too, the bound reads 0 and that document is served but never cached.
+ */
+export async function loadSeoLandingDay(qc: QueryClient, windowDays: number) {
+  let todayKey = londonDateKey(new Date());
+  await fetchSeoLandingEventsIntoCache(qc, todayKey, windowDays);
+
+  const keyAtEmission = londonDateKey(new Date());
+  if (keyAtEmission !== todayKey) {
+    const supersededKey = todayKey;
+    todayKey = keyAtEmission;
+    await fetchSeoLandingEventsIntoCache(qc, todayKey, windowDays);
+    // Evict yesterday's entry before dehydrate() sees it. The client only ever
+    // reads the key this function returns, so leaving it would not be WRONG --
+    // but dehydrate serialises every entry in the cache, and on /learn and the
+    // weekday pages one entry is a 28-day London window, which in a busy month
+    // is hundreds of event rows. Shipping that array twice would double the
+    // dehydrated payload of exactly the documents whose SSR weight is the SEO
+    // product, to buy a cache entry nothing reads.
+    qc.removeQueries({ queryKey: seoLandingEventsKey(supersededKey, windowDays) });
+  }
+
+  // MEASURED OFF THE PIN, WHICH IS WHY THIS NEEDS NO THIRD STRADDLE CHECK.
+  // `secondsUntilKeyRollsOver` is keyed on `todayKey`, not on `now`, so if the
+  // SECOND fetch also crossed midnight it returns 0 on its own and
+  // edgeCacheControl declines to cache the document. That is the same backstop
+  // the one-retry bound rests on above, not a second unguarded clock read.
+  //
+  // NOT pinDayAndBound, despite the family resemblance. That helper detects a
+  // straddle between two ADJACENT statements, where the only evidence is a zero
+  // bound. Here the straddle spans an awaited fetch and the evidence is the key
+  // itself changing -- and, unlike there, the pin is an INPUT to work already
+  // done, so recovering means re-fetching rather than re-reading. Two different
+  // straddles with two different signals; collapsing them would need the weaker
+  // signal to stand in for the stronger one.
+  return {
+    todayKey,
+    edgeTtlBoundSeconds: secondsUntilKeyRollsOver(todayKey, LONDON_TZ),
+  };
 }
 
 /**
