@@ -3,12 +3,25 @@
 // The homepage feed server-renders, and several of its cells are functions of
 // "now": the On now / Soon badge (todayLiveStatus), the "Added 2h ago" freshness
 // stamp (relativeShort / freshnessHeat) and the New pill (isFreshNew). Each of
-// those calls Date.now() during render. The homepage HTML is edge-cached
-// (s-maxage=3600, stale-while-revalidate=86400), so the document a browser
-// hydrates can easily have been rendered an hour -- or a day -- earlier. Left
-// alone, the client's first render would compute different text from the same
-// data and React would throw away the server tree it was supposed to be
+// those calls Date.now() during render. The homepage HTML is edge-cached, so the
+// document a browser hydrates can easily have been rendered an hour earlier.
+// Left alone, the client's first render would compute different text from the
+// same data and React would throw away the server tree it was supposed to be
 // adopting.
+//
+// It used to be able to have been rendered a DAY earlier: the flat
+// s-maxage=3600 + stale-while-revalidate=86400 policy kept one generation
+// servable for 25 hours, and the On now badge below is a claim about an event
+// that a stale document states as fact to Googlebot. app/routes/home.tsx now
+// caps that generation at the SOONEST of London midnight and the next ON-NOW
+// transition -- the moment a row starts, or stops, being on.
+//
+// Be exact about which half that leaves open, because it is the thing a
+// maintainer will come here to explain: the null -> "Soon" edge is NOT bounded,
+// so a cached document CAN show no badge for an event 30 minutes out. That is
+// the deliberate trade (soonestLiveStatusChangeMs says why) and it is an
+// omission rather than a false claim. Nothing here changed for any of it; the
+// whole mechanism is in the loader.
 //
 // So: the loader stamps the instant it rendered at, and every clock read below
 // returns THAT instant for the server render and the hydration render -- making
