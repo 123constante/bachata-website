@@ -20,8 +20,13 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { triggerGlobalConfetti, triggerMicroConfetti } from '@/lib/confetti';
-import { serializePartnerDetails, serializePhotoValue } from '@/lib/utils';
-import type { Json } from '@/integrations/supabase/types';
+import {
+  buildCreateProfilePayload,
+  EXPERIENCE_LEVEL_OPTIONS,
+  mergeStoredDancerIntoWizardForm,
+  normalizeSocialUrl,
+} from '@/lib/dancerEditorPayloads';
+import { saveMyDancerProfile } from '@/lib/saveMyDancerProfile';
 import { buildFullName, getInitials, normalizeUserMetadata } from '@/lib/name-utils';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -42,28 +47,7 @@ import {
 } from '@/components/profile/dancerConstants';
 
 // --- MOCK DATA FOR "SPOTIFY" SEARCH ---
-const EXPERIENCE_LEVEL_OPTIONS = ['Beginner', 'Improver', 'Intermediate', 'Advanced', 'Professional'];
 
-const normalizeSocialUrl = (kind: 'instagram' | 'facebook' | 'website', value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return '';
-
-    if (kind === 'instagram') {
-        const withoutAt = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
-        if (!withoutAt.includes('/') && !withoutAt.includes('.') && !withoutAt.startsWith('http://') && !withoutAt.startsWith('https://')) {
-            return `https://instagram.com/${withoutAt}`;
-        }
-        if (!withoutAt.startsWith('http://') && !withoutAt.startsWith('https://')) {
-            return `https://${withoutAt}`;
-        }
-        return withoutAt;
-    }
-
-    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-        return `https://${trimmed}`;
-    }
-    return trimmed;
-};
 
 
 const GamifiedSongSelector = ({ value, onChange }: { value?: string, onChange: (val: string) => void }) => {
@@ -525,22 +509,6 @@ const AchievementWall = ({ value, onChange }: { value?: string, onChange: (val: 
   )
 }
 
-const normalizePartnerRole = (value?: string | null) => {
-    const normalized = (value || '').trim().toLowerCase();
-    if (!normalized) return null;
-    if (normalized === 'lead' || normalized === 'leader') return 'Leader';
-    if (normalized === 'follow' || normalized === 'follower') return 'Follower';
-    if (normalized === 'both') return 'Both';
-    return null;
-};
-
-const EXPERIENCE_LEVEL_YEARS: Record<string, string> = {
-    Beginner: '1',
-    Improver: '2',
-    Intermediate: '4',
-    Advanced: '7',
-    Professional: '10',
-};
 
 const formSchema = z.object({
     photo_url: z.string().optional(),
@@ -586,6 +554,8 @@ const CreateProfile = () => {
                 const [pendingSubmit, setPendingSubmit] = useState(false);
                 /** The prefill is a one-shot: re-running it would overwrite the user's typing. */
                 const hasPrefilledRef = React.useRef(false);
+                /** Resolves when the stored row has been merged into the form. */
+                const prefillPromiseRef = React.useRef<Promise<void> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
     const [profileError, setProfileError] = useState<string | null>(null);
@@ -650,14 +620,20 @@ const CreateProfile = () => {
                 nationality?: string;
                 experience_level?: string;
             };
+            // shouldDirty, because a restored draft IS the user's answer. The
+            // prefill merge below keys on dirtyFields to decide what it may
+            // overwrite, and setValue does not mark a field dirty by default --
+            // so without this the merge would treat the whole restored draft as
+            // untouched and replace it with the stored row, which is the exact
+            // vanishing-answers bug the merge exists to prevent.
             if (parsed.city && !form.getValues('city')) {
-                form.setValue('city', parsed.city);
+                form.setValue('city', parsed.city, { shouldDirty: true });
             }
             if (parsed.nationality && !form.getValues('nationality')) {
-                form.setValue('nationality', parsed.nationality);
+                form.setValue('nationality', parsed.nationality, { shouldDirty: true });
             }
             if (parsed.experience_level && !form.getValues('experience_level')) {
-                form.setValue('experience_level', parsed.experience_level);
+                form.setValue('experience_level', parsed.experience_level, { shouldDirty: true });
             }
         } catch {
             // Ignore invalid stored data
@@ -676,46 +652,53 @@ const CreateProfile = () => {
         if (hasPrefilledRef.current) return;
         hasPrefilledRef.current = true;
         const loadExisting = async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('dancer_profiles')
                 .select('*')
                 // OWNERSHIP, not authorship -- the full note is on AuthGuard.
                 .eq('id', user.id)
                 .maybeSingle();
-            // Completeness, not existence. The signup trigger mints a row for
-            // every account, and resetting the wizard from a blank stub wipes the
-            // pre-auth draft just restored from localStorage -- the user watches
-            // their own answers vanish on sign-in.
-            if (!hasDancerProfileBasics(data)) return;
+            // THROW, never swallow. Discarding this error made maybeSingle's
+            // `data: null` indistinguishable from "no row", so the promise
+            // RESOLVED and the auto-submit went ahead and sent a blank wizard --
+            // whose unconditional [] and "" sidecar values are real values to the
+            // function, so one transient 5xx deleted a returning user's styles,
+            // songs, achievements, levels, goals and blurb. Unlatch too, so the
+            // next attempt actually re-reads instead of reusing the failure.
+            if (error) {
+                hasPrefilledRef.current = false;
+                throw error;
+            }
+            if (!data) return;
 
-            const achievements = Array.isArray(data.achievements) ? data.achievements.filter(Boolean).join('\n') : '';
-            const favSongs = Array.isArray(data.favorite_songs) ? data.favorite_songs.filter(Boolean).join('\n') : '';
-
-            form.reset({
-                photo_url: Array.isArray(data.avatar_url) ? (data.avatar_url[0] || '') : (data.avatar_url || ''),
-                is_public: true,
-                city: data.based_city_id || '',
-                nationality: data.nationality || '',
-                experience_level: '',
-                dancing_start_date: data.dancing_start_date || '',
-                favorite_styles: Array.isArray(data.favorite_styles) ? data.favorite_styles : [],
-                partner_role: data.dance_role || '',
-                favorite_songs_text: favSongs,
-                achievements_text: achievements,
-                looking_for_partner: data.looking_for_partner ?? false,
-                partner_search_role: data.partner_search_role || '',
-                partner_search_level: Array.isArray(data.partner_search_level) ? data.partner_search_level : [],
-                partner_practice_goals: Array.isArray(data.partner_practice_goals) ? data.partner_practice_goals : [],
-                partner_details: typeof data.partner_details === 'string' ? data.partner_details : '',
-                instagram: data.instagram || '',
-                facebook: data.facebook || '',
-                whatsapp: data.whatsapp || '',
-                // website_url is the writable column; `website` is only its mirror.
-                website: data.website_url || data.website || '',
-                claim_entity_id: '',
+            // MERGE, field by field -- never a blanket reset. The reset this
+            // replaces had to be gated on completeness, because resetting from a
+            // blank stub wiped the pre-auth draft just restored from localStorage.
+            // That gate is what left a row carrying sidecar content but no basics
+            // UNHYDRATED: the wizard showed empty lists, and because an empty list
+            // is a real value to the sidecar arm, submitting DELETED the stored
+            // styles, songs, achievements and blurb. Merging needs no gate, and it
+            // lives in the payload module so it can actually be tested.
+            // dirtyFields is the touched-set: keepDirty preserves it, and without
+            // keepDirty the reset would mark the whole form pristine and silently
+            // disarm useUnsavedChangesGuard, which is gated on isDirty. The reset
+            // this replaces was gated on completeness, so it never ran for an
+            // incomplete profile; this one runs for every account, because the
+            // signup trigger mints a stub for all of them.
+            const touched = new Set(Object.keys(form.formState.dirtyFields));
+            form.reset(mergeStoredDancerIntoWizardForm(form.getValues(), data, touched), {
+                keepDirty: true,
             });
         };
-        loadExisting();
+        // Held so the submit path can AWAIT it. Submitting before the read lands
+        // means submitting a form that cannot see what it is about to clear -- the
+        // same defect as the unhydrated partner tile, one screen over.
+        const prefill = loadExisting();
+        // Logged HERE and kept rejected for the awaiting path. Nothing awaits this
+        // on the ordinary signed-in visit, so a throw would otherwise surface as a
+        // context-free unhandled rejection rather than a labelled prefill failure.
+        prefill.catch((error) => captureException(error, { context: 'CreateProfile.prefill' }));
+        prefillPromiseRef.current = prefill;
         // Keyed on the user ID and latched to run ONCE. `useAuth` mints a new user
         // object on every auth event (a token refresh is enough), so a [user] dep
         // re-fired this effect and form.reset() discarded everything typed since
@@ -769,101 +752,83 @@ const CreateProfile = () => {
             return;
         }
 
+        // BOTH submit paths pass through here, which is why the guard lives here
+        // and not in the auto-submit effect: after a failed prefill the user is
+        // still on the form and can press the button themselves, and that manual
+        // submit would send exactly the same blind payload. Refusing is the whole
+        // point -- we do not write when we cannot see what we would overwrite.
+        try {
+            await prefillPromiseRef.current;
+        } catch (error) {
+            captureException(error, { context: 'CreateProfile.prefillBeforeSubmit' });
+            toast({
+                title: 'Could not load your profile',
+                description: 'We could not read your existing profile, so nothing has been saved. Please try again.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
     setIsSubmitting(true);
     setProfileError(null);
+    // Whether we handed the page over decides whether the wizard unlocks again.
+    let navigated = false;
     try {
-      // Process TextAreas into Arrays
-      const achievements = data.achievements_text 
-        ? data.achievements_text.split('\n').filter(line => line.trim().length > 0)
-        : null;
-        
-      const favorite_songs = data.favorite_songs_text
-        ? data.favorite_songs_text.split('\n').filter(line => line.trim().length > 0)
-        : null;
+      const trimmedFirstName = derivedFirstName.trim();
+      const trimmedSurname = derivedSurname.trim();
 
-            const trimmedFirstName = derivedFirstName.trim();
-            const trimmedSurname = derivedSurname.trim();
+      if (!trimmedFirstName) {
+        toast({
+          title: 'Missing name',
+          description: 'Please complete your name in the sign-up form.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-            if (!trimmedFirstName) {
-                toast({
-                    title: 'Missing name',
-                    description: 'Please complete your name in the sign-up form.',
-                    variant: 'destructive',
-                });
-                return;
-            }
-            const trimmedCity = normalizeRequiredCity(data.city);
-            const canonicalCity = await resolveCanonicalCity(trimmedCity);
-            if (!canonicalCity) {
-                toast({
-                    title: 'Select a valid city',
-                    description: 'Please choose your city from the city picker list.',
-                    variant: 'destructive',
-                });
-                return;
-            }
-            const experienceKey = typeof data.experience_level === 'string' ? data.experience_level : '';
-            const experienceYears = experienceKey ? EXPERIENCE_LEVEL_YEARS[experienceKey] : null;
-            const resolvedYears = data.dancing_start_date ? null : experienceYears;
-            const canonicalPartnerRole = normalizePartnerRole(data.partner_role) || null;
-            const canonicalPartnerSearchRole = normalizePartnerRole(data.partner_search_role);
-            const normalizedInstagram = normalizeSocialUrl('instagram', data.instagram || '');
-            const normalizedFacebook = normalizeSocialUrl('facebook', data.facebook || '');
-            const normalizedWebsite = normalizeSocialUrl('website', data.website || '');
+      const canonicalCity = await resolveCanonicalCity(normalizeRequiredCity(data.city));
+      if (!canonicalCity) {
+        toast({
+          title: 'Select a valid city',
+          description: 'Please choose your city from the city picker list.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-            // 1. Create or update Dancer Profile
-            const dancerPayload = {
-                first_name: trimmedFirstName,
-                surname: trimmedSurname || null,
-                
-        avatar_url: serializePhotoValue(data.photo_url),
-        based_city_id: canonicalCity.cityId,
-        nationality: data.nationality || null,
-        dancing_start_date: data.dancing_start_date || null,
-        dance_started_year: resolvedYears,
-        favorite_styles: data.favorite_styles?.length ? data.favorite_styles : null,
-        dance_role: canonicalPartnerRole,
-        
-        achievements: achievements,
-        favorite_songs: favorite_songs,
+      // First profile, or an edit? Answered by a READ, before the save. The
+      // prefill effect that used to answer it has NOT resolved on the pre-auth
+      // path -- the wizard submits the instant the session appears -- so a
+      // returning user got congratulated on joining.
+      const { data: existing, error: existingError } = await supabase
+        .from('dancer_profiles')
+        .select('first_name, based_city_id')
+        // OWNERSHIP, not authorship -- the full note is on AuthGuard.
+        .eq('id', user.id)
+        .maybeSingle();
 
-        looking_for_partner: data.looking_for_partner || false,
-        partner_search_role: canonicalPartnerSearchRole === 'Leader' || canonicalPartnerSearchRole === 'Follower' ? canonicalPartnerSearchRole : null,
-        partner_search_level: data.partner_search_level || null,
-        partner_practice_goals: data.partner_practice_goals || null,
-        partner_details: serializePartnerDetails(data.partner_details) as unknown as Json | null,
-        
-        instagram: normalizedInstagram || null,
-        facebook: normalizedFacebook || null,
-        whatsapp: data.whatsapp || null,
-        website: normalizedWebsite || null,
-        
-        created_by: user.id,
-            };
+      if (existingError) {
+        captureException(existingError, { context: 'CreateProfile.readExistingBasics' });
+      }
+      // A failed read must not celebrate. It never blocks the save either: this
+      // decides a toast headline and nothing else.
+      const didUpdate = existingError ? true : hasDancerProfileBasics(existing);
 
-            let didUpdate = false;
-            const { data: existingDancer, error: existingDancerError } = await supabase
-                .from('dancer_profiles')
-                .select('id')
-                // OWNERSHIP, not authorship -- the full note is on AuthGuard.
-                .eq('id', user.id)
-                .maybeSingle();
+      // The direct INSERT/UPDATE this replaces could not succeed from the client:
+      // `authenticated` holds neither grant, and granting them only moves the
+      // error, because dancer_profiles.id has no default and a BEFORE trigger
+      // mints public.person from it. The row is already there -- the signup
+      // trigger minted it -- so there is nothing here to create.
+      await saveMyDancerProfile(
+        buildCreateProfilePayload(data, {
+          firstName: trimmedFirstName,
+          surname: trimmedSurname,
+          cityId: canonicalCity.cityId,
+          currentYear: new Date().getFullYear(),
+        })
+      );
 
-            if (existingDancerError) throw existingDancerError;
-
-            if (existingDancer?.id) {
-                const { error: dancerUpdateError } = await supabase
-                    .from('dancer_profiles')
-                    .update(dancerPayload)
-                    .eq('id', existingDancer.id);
-                if (dancerUpdateError) throw dancerUpdateError;
-                didUpdate = true;
-            } else {
-                const { error: dancerInsertError } = await supabase.from('dancer_profiles').insert(dancerPayload);
-                if (dancerInsertError) throw dancerInsertError;
-            }
-
-            // 2. Claim Dancer profile if selected
+      // 2. Claim Dancer profile if selected
       if (data.claim_entity_id) {
         const { error: claimError } = await supabase.rpc('claim_dancer_profile' as any, {
           p_dancer_id: data.claim_entity_id,
@@ -873,32 +838,53 @@ const CreateProfile = () => {
           captureException(claimError, { context: 'CreateProfile.claimEntity' });
         }
       }
-      
-    localStorage.removeItem(preAuthKey);
-    triggerGlobalConfetti();
+
+      localStorage.removeItem(preAuthKey);
+      triggerGlobalConfetti();
       toast({
-                title: didUpdate ? 'Profile updated' : 'Welcome to the community!',
-                description: didUpdate ? 'Your latest details are saved.' : 'Your profile has been successfully created.',
+        title: didUpdate ? 'Profile updated' : 'Welcome to the community!',
+        description: didUpdate ? 'Your latest details are saved.' : 'Your profile has been successfully created.',
       });
-      
-    navigate('/profile');
-      
+
+      navigated = true;
+      navigate('/profile');
     } catch (error: any) {
+      captureException(error, { context: 'CreateProfile.save' });
       toast({
         title: 'Error creating profile',
         description: error.message || 'Something went wrong.',
         variant: 'destructive',
       });
-            setProfileError(error.message || 'Something went wrong while creating your profile.');
-      setIsSubmitting(false);
-    } 
+      setProfileError(error.message || 'Something went wrong while creating your profile.');
+    } finally {
+      // Only the catch used to reset this, so BOTH validation early-returns above
+      // left the wizard disabled forever -- and useUnsavedChangesGuard is gated on
+      // `!isSubmitting`, so the user could then walk away from a full form with no
+      // warning at all. Deliberately NOT reset on the navigating path: re-enabling
+      // the guard for even one render pushes a junk history entry over the page we
+      // are in the middle of leaving.
+      if (!navigated) setIsSubmitting(false);
+    }
   };
 
     React.useEffect(() => {
-        if (user && pendingSubmit) {
-            setPendingSubmit(false);
-            form.handleSubmit(onSubmit)();
-        }
+        if (!user || !pendingSubmit) return;
+        setPendingSubmit(false);
+        // Both effects fire on the same null -> object auth commit, and this one
+        // used to submit immediately -- racing the prefill it depends on. Awaiting
+        // it removes the race in both directions: the submit can no longer send a
+        // form blind to the stored row, and the merge can no longer land on top of
+        // a user mid-submit. No cancellation on cleanup: this effect re-runs the
+        // moment setPendingSubmit(false) commits, so a cleanup flag would abort the
+        // very submit it was meant to protect.
+        void (async () => {
+            // Swallowed HERE on purpose: onSubmit awaits the same promise and is
+            // the one place that decides what a failed prefill means. Awaiting it
+            // first still matters, because handleSubmit VALIDATES against current
+            // values, and validating before the merge lands fails on an empty city.
+            await prefillPromiseRef.current?.catch(() => undefined);
+            await form.handleSubmit(onSubmit)();
+        })();
     }, [form, onSubmit, pendingSubmit, user]);
 
     useUnsavedChangesGuard({ enabled: form.formState.isDirty && !isSubmitting });

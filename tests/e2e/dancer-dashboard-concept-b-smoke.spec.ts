@@ -5,25 +5,22 @@ type DancerRow = {
   user_id: string;
   first_name: string;
   surname: string | null;
-  // The REAL columns the dashboard now reads. `city`, `city_id`,
-  // `dancing_start_date`, `years_dancing` and `partner_role` are NOT columns on
-  // dancer_profiles; they stay only because this screen's WRITE path still
-  // targets the table directly and is deferred to the dancer-editor arc.
+  // Real columns only. `city`, `city_id`, `dancing_start_date`, `years_dancing`,
+  // `partner_role` and `verified` used to sit here too, none of them columns,
+  // kept alive only by the direct-to-table write. A fixture carrying a field the
+  // schema does not have is a fixture that can agree with a payload the database
+  // would reject -- which is exactly what this spec did before the reroute.
   based_city_id: string | null;
   dance_role: string | null;
   dance_started_year: number | null;
   cities: { name: string } | null;
-  city: string | null;
-  city_id: string | null;
-  dancing_start_date: string | null;
-  years_dancing: string | null;
+  avatar_url: string | null;
   photo_url: string | null;
   instagram: string | null;
   facebook: string | null;
   whatsapp: string | null;
   website: string | null;
   looking_for_partner: boolean;
-  partner_role: string | null;
   favorite_styles: string[] | null;
   favorite_songs: string[] | null;
   achievements: string[] | null;
@@ -32,7 +29,6 @@ type DancerRow = {
   partner_practice_goals: string[] | null;
   partner_details: unknown;
   gallery_urls: string[] | null;
-  verified: boolean;
   meta_data: Record<string, unknown>;
 };
 
@@ -116,30 +112,45 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
     dance_role: 'Follower',
     dance_started_year: 2020,
     cities: { name: 'London' },
-    city: 'London',
-    city_id: londonCityId,
-    dancing_start_date: '2020-01-01',
-    years_dancing: '4',
-    photo_url: null,
+    // avatar_url is the writable column; photo_url is its MIRROR, and the
+    // dashboard stores it as a display value. They are deliberately DIFFERENT
+    // here so the fixture can tell them apart: seeding the identity form from the
+    // mirror sends the stale one back into the authoritative column, and with
+    // photo_url null (as it was first written) that mistake would merely drop the
+    // key, so the case would have passed for the wrong reason.
+    avatar_url: 'dancers/maya.jpg',
+    photo_url: 'https://cdn.example/stale-mirror.jpg',
+
     instagram: null,
     facebook: null,
     whatsapp: null,
     website: null,
     looking_for_partner: false,
-    partner_role: 'Follower',
     favorite_styles: ['Sensual'],
     favorite_songs: ['Song A'],
     achievements: null,
-    partner_search_role: null,
-    partner_search_level: null,
-    partner_practice_goals: null,
-    partner_details: null,
+    // Stored partner answers the user has NOT re-entered this session. The tile
+    // switch lives OUTSIDE the editor and saves the whole partner section, so an
+    // unhydrated form sends blanks for these -- and an empty list is what CLEARS
+    // a sidecar list. They were all null here before, which is why the spec could
+    // not tell a hydrated save from a wipe.
+    // Deliberately OUTSIDE the role codec's map. partner_search_role is free text
+    // on the sidecar with no CHECK and no DB normaliser, so hydrating it through
+    // dancerRoleFromStored maps anything unrecognised to "" -- and "" now clears.
+    // 'Leader' round-tripped through the codec unharmed and could not catch it.
+    partner_search_role: 'Any',
+    partner_search_level: ['Improver'],
+    partner_practice_goals: ['Socials'],
+    partner_details: 'Weeknights in Angel',
     gallery_urls: null,
-    verified: true,
     meta_data: { onboarding_status: 'completed' },
   };
 
-  const patchPayloads: Record<string, unknown>[] = [];
+  const savePayloads: Record<string, unknown>[] = [];
+  /** Flipped at the end of the test to exercise the optimistic-rollback path. */
+  let failSaves = false;
+  /** Counts ATTEMPTS, including the failed ones savePayloads never sees. */
+  let saveAttempts = 0;
 
   await setupMockAuth(page);
 
@@ -158,15 +169,10 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
         return json(route, dancer);
       }
 
-      if (method === 'PATCH') {
-        const payload = req.postDataJSON() as Record<string, unknown>;
-        patchPayloads.push(payload);
-        dancer = {
-          ...dancer,
-          ...payload,
-          city: payload.city_id ? 'London' : dancer.city,
-        };
-        return json(route, [dancer]);
+      // No PATCH arm on purpose. `authenticated` holds no UPDATE grant on this
+      // table, so a client PATCH reaching here at all is the regression.
+      if (method === 'PATCH' || method === 'POST') {
+        return json(route, { message: 'permission denied for table dancer_profiles' }, 403);
       }
     }
 
@@ -218,6 +224,32 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
       return json(route, vendorId);
     }
 
+    if (rpcName === 'save_my_dancer_profile_v1') {
+      saveAttempts += 1;
+      if (failSaves) return json(route, { message: 'permission denied' }, 403);
+      const payload = (route.request().postDataJSON() as { p_payload: Record<string, unknown> }).p_payload;
+      savePayloads.push(payload);
+      const details = (payload.dancer_details || {}) as Record<string, unknown>;
+      // The real function returns the canonical row, and the screen repaints from
+      // it rather than from a locally assembled guess.
+      dancer = {
+        ...dancer,
+        first_name: (payload.first_name as string) || dancer.first_name,
+        based_city_id: (payload.based_city_id as string) || dancer.based_city_id,
+        looking_for_partner:
+          typeof details.looking_for_partner === 'boolean' ? details.looking_for_partner : dancer.looking_for_partner,
+      };
+      // dancer_profiles COLUMNS ONLY. The live function ends
+      // `RETURN (SELECT to_jsonb(dp.*) ...)`, so it can carry neither the `cities`
+      // join nor `user_id` -- and applySavedProfile exists precisely BECAUSE the
+      // join is absent. Handing back the whole fixture made the mocked response
+      // richer than production, so a regression that started reading saved.cities,
+      // or that dropped the explicit carry-forward, would have passed here and
+      // blanked the city label on the real site.
+      const { cities: _cities, user_id: _userId, ...columnsOnly } = dancer;
+      return json(route, columnsOnly);
+    }
+
     return json(route, null);
   });
 
@@ -227,25 +259,91 @@ test('concept-b dancer dashboard: role strip visible, identity modal saves, and 
   await expect(page.getByRole('button', { name: 'Vendor' })).toBeVisible();
 
   await expect(page.getByText('Concept B command center')).toBeVisible();
-  await page.getByRole('button', { name: 'Edit identity' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Edit identity' })).toBeVisible();
 
-  await page.getByPlaceholder('First name').fill('Maya Updated');
-  await page.getByRole('button', { name: 'Save changes' }).click();
-
-  await expect.poll(() => patchPayloads.length).toBeGreaterThan(0);
-  const identityPayload = patchPayloads.find((payload) => Object.prototype.hasOwnProperty.call(payload, 'first_name'));
-  expect(identityPayload).toBeTruthy();
-  expect(identityPayload?.first_name).toBe('Maya Updated');
-  expect(identityPayload?.city_id).toBe(londonCityId);
-
+  // The partner toggle goes FIRST, with no editor ever opened, because that is
+  // the state in which the form has never been hydrated -- and this switch saves
+  // the whole partner section.
   const searchingLabel = page.getByText('Searching').first();
   const partnerSwitch = searchingLabel.locator('..').getByRole('switch');
   await partnerSwitch.click();
 
   await expect(page.getByText('Looking for role').first()).toBeVisible();
 
-  await expect.poll(() => patchPayloads.some((payload) => Object.prototype.hasOwnProperty.call(payload, 'looking_for_partner'))).toBeTruthy();
-  const togglePayload = patchPayloads.find((payload) => Object.prototype.hasOwnProperty.call(payload, 'looking_for_partner'));
-  expect(togglePayload?.looking_for_partner).toBe(true);
+  await expect.poll(() => savePayloads.length).toBeGreaterThan(0);
+  const partnerPayload = savePayloads[0];
+  const partnerDetails = (partnerPayload.dancer_details || {}) as Record<string, unknown>;
+  expect(partnerDetails.looking_for_partner).toBe(true);
+  // The stored answers must survive a toggle the user never typed into.
+  expect(partnerDetails.partner_search_level).toEqual(['Improver']);
+  expect(partnerDetails.partner_practice_goals).toEqual(['Socials']);
+  expect(partnerDetails.partner_search_role).toBe('Any');
+  // TEXT, not the serialised { text: ... } object.
+  expect(partnerDetails.partner_details).toBe('Weeknights in Angel');
+  // A section save must not carry fields its editor never showed.
+  expect(partnerPayload).not.toHaveProperty('first_name');
+  // The function's return value carries no `cities` join, so the city label can
+  // only still be on screen because applySavedProfile carried it forward. It
+  // renders 'City missing' the moment that stops being true.
+  await expect(page.getByText('City missing')).toHaveCount(0);
+
+  // Type a blurb, then open an editor INSIDE the 600ms debounce window.
+  // openEditor is the one place that throws editForm away, so without a
+  // flush-and-carry the pending text is written and then reverted: the next
+  // partner save rebuilds from the reverted form and puts the old text back.
+  await page.getByPlaceholder('Availability', { exact: false }).fill('Tuesdays at Angel');
+  await page.getByRole('button', { name: 'Edit identity' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Edit identity' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit identity' })).toBeHidden();
+
+  // Deselect a stored level, which forces ANOTHER partner save built from the
+  // editForm openEditor just rewrote. Waiting on the payload COUNT first is the
+  // point: the first draft polled only the last payload, so when the badge click
+  // silently missed its target the debounce timer's own save satisfied the
+  // assertion and the case passed against the very mutation it was written for.
+  const beforeBadge = savePayloads.length;
+  await page.getByText('Improver', { exact: true }).first().click();
+  await expect.poll(() => savePayloads.length).toBeGreaterThan(beforeBadge);
+
+  const badgeSave = (savePayloads[savePayloads.length - 1].dancer_details || {}) as Record<string, unknown>;
+  expect(badgeSave.partner_search_level).toEqual([]);
+  expect(badgeSave.partner_details).toBe('Tuesdays at Angel');
+
+  await page.getByRole('button', { name: 'Edit identity' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Edit identity' })).toBeVisible();
+
+  await page.getByPlaceholder('First name').fill('Maya Updated');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+
+  await expect.poll(() => savePayloads.some((payload) => Object.prototype.hasOwnProperty.call(payload, 'first_name'))).toBeTruthy();
+  const identityPayload = savePayloads.find((payload) => Object.prototype.hasOwnProperty.call(payload, 'first_name'));
+  expect(identityPayload).toBeTruthy();
+  expect(identityPayload?.first_name).toBe('Maya Updated');
+  // `based_city_id` is the column. `city_id` -- which this spec used to assert --
+  // is not one, so the old expectation agreed with a payload the database would
+  // have rejected outright.
+  expect(identityPayload?.based_city_id).toBe(londonCityId);
+  expect(identityPayload).not.toHaveProperty('city_id');
+  expect(identityPayload).not.toHaveProperty('dancing_start_date');
+  // The WRITABLE column goes back exactly as stored. Seeded from the mirror it
+  // would come back as 'https://cdn.example/stale-mirror.jpg' instead.
+  expect(identityPayload?.avatar_url).toBe('dancers/maya.jpg');
+
+  // The switch and the inline editor render OPTIMISTICALLY. A failed save used to
+  // fire its toast and leave them showing the new state anyway, so the switch sat
+  // ON over a row that still said false, every later badge tap saved against a
+  // state the server never accepted, and a reload silently undid all of it.
+  await expect(partnerSwitch).toBeChecked();
+  failSaves = true;
+  const attemptsBeforeRollback = saveAttempts;
+  await partnerSwitch.click();
+
+  // The final state is the SAME state the switch was already in, so on its own
+  // `toBeChecked()` would pass if the click never landed or the handler bailed --
+  // the vacuous shape the badge assertion above was rewritten to avoid. Pin that
+  // a save was attempted and that it visibly failed, THEN that the switch came
+  // back, so the assertion can only be satisfied by an actual rollback.
+  await expect.poll(() => saveAttempts).toBeGreaterThan(attemptsBeforeRollback);
+  await expect(page.getByText('Error saving').first()).toBeVisible();
+  await expect(partnerSwitch).toBeChecked();
 });
