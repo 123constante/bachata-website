@@ -125,8 +125,17 @@ export const CHECK_SKIPS = {
  *
  * tsc cannot be scoped to a file list the way eslint can -- the type graph is
  * project-wide -- so counting is the only honest scoping available.
+ *
+ * 106 -> 95 on 2026-08-09, taking the ledger up on its own offer: the dancer
+ * profile funnel fix (#222) removed 11 pre-existing errors on its way past.
+ * Banked in a SEPARATE ship, deliberately -- lowering it inside #222 would have
+ * pinned main to a count main did not yet measure, so every unrelated branch cut
+ * before that merge would have red on errors it never introduced. The same
+ * merge-base-vs-tip mistake the eslint ratchet in that PR exists to fix, one
+ * constant to the left. A ratchet may only tighten to a number the base ref
+ * actually reports.
  */
-export const TYPECHECK_BASELINE = 106;
+export const TYPECHECK_BASELINE = 95;
 
 const TSC_FILE_ERROR = /^[^\s(].*\([0-9]+,[0-9]+\): error TS[0-9]+/gm;
 const TSC_ANY_ERROR = /error TS[0-9]+/g;
