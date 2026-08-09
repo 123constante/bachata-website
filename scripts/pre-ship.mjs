@@ -49,6 +49,8 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  diffOrigin,
+  renamePairs,
   resolveBaseRef,
   resolveDeclaredScope,
   scopeDrift,
@@ -197,8 +199,18 @@ export function decideTypecheck({
  * workflow runs eslint at all (architecture-guard.yml runs the individual
  * check:* scripts and lint:architecture). A gate that is red on a clean
  * checkout is not a gate -- it teaches you to pass --no-verify, and then it
- * guards nothing. So pre-ship lints only the files THIS ship touches: clean
- * today, and it blocks the moment you introduce a new error.
+ * guards nothing. So pre-ship lints only the files THIS ship touches, and
+ * compares each against its OWN count on the base ref: a file may carry the
+ * debt it already had, but not one error more.
+ *
+ * The honest limit of a COUNT ratchet, written down because an earlier draft of
+ * this docstring promised more than the code delivers ("it blocks the moment you
+ * introduce a new error"): swapping one error for a DIFFERENT one leaves the
+ * count level and passes. Keying the ratchet on rule ids would catch that -- and
+ * would also red the gate on rule churn from an eslint upgrade. Since pre-ship
+ * is the only place eslint runs at all, a gate that reds on an upgrade is a gate
+ * that teaches the bypass this whole design exists to avoid, so the weaker
+ * promise is the one worth keeping. Say what it does, not what you wish it did.
  *
  * PRE_SHIP_ESLINT_ALL=1 runs the whole tree when you want the full picture.
  *
@@ -313,19 +325,339 @@ export function decideSmoke({ files = [], base = "(unknown)", anyFailed = false,
   return { ran: true, reason: "app code in this ship's diff (vs " + base + ")" };
 }
 
-/** Run eslint over an explicit file list, bypassing the shell entirely so a
- *  path with a space cannot be split. Returns true on exit 0. */
-function runEslintScoped(files) {
-  process.stdout.write("\n> pre-ship: eslint (" + files.length + " file(s) in this ship)\n");
+const ESLINT_BIN = () => path.join(REPO_ROOT, "node_modules", "eslint", "bin", "eslint.js");
+
+/* eslint's JSON reporter embeds each offending file's ENTIRE source in a
+ * `source` key, so the report is roughly the size of the code it lints, not the
+ * size of the findings. Measured on the dancer-profile ship: 23 files => 331,405
+ * bytes, already a third of execFileSync's 1 MiB default. Overflow does not fail
+ * legibly -- node raises ENOBUFS and hands back a TRUNCATED stdout, which parses
+ * as garbage and reds the gate with no way to tell a broken ship from a broken
+ * buffer. The same ceiling applies to `git show` on a large source file, where
+ * the failure is worse: it lands in the catch that means "absent from the base
+ * ref" and silently baselines that file at zero. */
+const MAX_BUFFER = 64 * 1024 * 1024;
+
+/** stdout from a thrown child-process error, however node attached it.
+ *  (runTypecheck keeps its own capture(): tsc reports through stderr as well, so
+ *  it wants both streams joined. The two eslint call sites want stdout ALONE --
+ *  joining stderr in would corrupt the JSON they are about to parse.) */
+function capturedStdout(err) {
+  if (!err) return "";
+  const out = err.stdout != null ? err.stdout : Array.isArray(err.output) ? err.output[1] : null;
+  return String(out || "");
+}
+
+/** stderr from a thrown child-process error. Every child below runs with stderr
+ *  PIPED rather than inherited, because execFileSync's default sends it straight
+ *  to the operator's terminal: one bare `fatal: path ... exists on disk, but not
+ *  in origin/main` per new file in the ship, mid-ledger, in a run that then
+ *  reports PASS. Captured here so it can be printed deliberately, on the paths
+ *  where it is the diagnosis rather than noise. */
+function capturedStderr(err) {
+  if (!err) return "";
+  const out = err.stderr != null ? err.stderr : Array.isArray(err.output) ? err.output[2] : null;
+  return String(out || "");
+}
+
+/** Indent a captured child message so it reads as quoted evidence in the ledger
+ *  rather than as pre-ship's own voice. */
+function indentBlock(text, prefix = "     | ") {
+  return text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => prefix + line)
+    .join("\n");
+}
+
+/** A merge-base sha is 40 hex chars of noise in a one-line verdict; a symbolic
+ *  ref is already short. Shorten only the former. */
+function shortRev(rev) {
+  return /^[0-9a-f]{40}$/.test(rev) ? rev.slice(0, 12) : rev;
+}
+
+/** Parse eslint's JSON reporter into { posixPath: errorCount }. Warnings are
+ *  deliberately ignored: the ratchet has only ever blocked on errors. */
+export function parseEslintJson(text, repoRoot = REPO_ROOT) {
+  let report;
   try {
-    execFileSync(process.execPath, [path.join(REPO_ROOT, "node_modules", "eslint", "bin", "eslint.js"), ...files], {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-    });
-    return true;
+    report = JSON.parse(text);
   } catch {
-    return false;
+    return null; // unparseable output must NOT be read as "no errors"
   }
+  if (!Array.isArray(report)) return null;
+  const counts = {};
+  for (const entry of report) {
+    const rel = toPosix(path.relative(repoRoot, entry.filePath || ""));
+    counts[rel] = (counts[rel] || 0) + (entry.errorCount || 0);
+  }
+  return counts;
+}
+
+/**
+ * Pure verdict, so all THREE directions are testable without running eslint.
+ *
+ * A file blocks when it carries more errors than the same file on the base ref.
+ * A file the base ref genuinely does not contain has a baseline of 0, so any
+ * error in a brand-new file blocks.
+ *
+ * THE THIRD DIRECTION, which the first cut got backwards: a baseline that could
+ * not be MEASURED is neither zero nor infinity -- it is an unanswered question,
+ * and it blocks. Recording it as Infinity made that file permanently ungateable
+ * (0 -> 500 errors returned ok), and it poisoned `improved` into printing the
+ * literal line "Infinity pre-existing error(s) removed" at the exact moment the
+ * gate had stopped measuring. Blocking is also what the now-side already does
+ * when eslint's own report is unparseable; the two halves of one gate must not
+ * disagree about what "I don't know" means.
+ *
+ * Unmeasured is decided by INCLUSION of what can be compared, not exclusion of
+ * what cannot: only a finite, non-negative count is a baseline, so undefined,
+ * null, NaN and Infinity all block. eslintBaseCounts populates every key it is
+ * asked about, so a missing one means the caller and the measurer disagree about
+ * the file list -- not a state to guess through.
+ */
+export function decideEslintRatchet({ now = {}, base = {} } = {}) {
+  const regressions = [];
+  const unmeasured = [];
+  let improved = 0;
+  for (const [file, count] of Object.entries(now)) {
+    const was = base[file];
+    if (!Number.isFinite(was) || was < 0) {
+      unmeasured.push(file);
+      continue;
+    }
+    if (count > was) regressions.push({ file, was, now: count });
+    else if (count < was) improved += was - count;
+  }
+  return {
+    ok: regressions.length === 0 && unmeasured.length === 0,
+    regressions,
+    unmeasured,
+    improved,
+  };
+}
+
+/**
+ * Error counts for the BASE versions of the given files, obtained by piping the
+ * base blob through eslint's --stdin. --stdin-filename keeps config resolution
+ * anchored to a real path, so the same rules apply as they do in-tree.
+ *
+ * Three corrections, each of which had the ratchet answering a question nobody
+ * asked:
+ *
+ * 1. THE MERGE BASE, NOT THE REF TIP. shipFiles() routes `base` through
+ *    diffOrigin() before diffing, so the ship's file list is computed against
+ *    merge-base(base, HEAD). Reading baselines from the TIP compared the two
+ *    halves of one ratchet at different commits: a cleanup landing on main after
+ *    your branch cut reads here as YOUR regression -- precisely the false block
+ *    this ratchet exists to remove -- while errors main GAINS after the cut
+ *    inflate the baseline and absorb real new ones. review-scope.mjs already
+ *    exports diffOrigin for this trap; #149 paid for it once ("a stale base, 12
+ *    commits behind main").
+ *
+ * 2. RENAMES. git names a rename by its DESTINATION only, so `git show
+ *    base:<new path>` finds nothing and the moved file baselines at zero: a pure
+ *    `git mv` with no content change would block the ship for errors it
+ *    inherited verbatim. renamePairs() exists for exactly this hole.
+ *
+ * 3. "ABSENT" AND "COULD NOT ASK" ARE DIFFERENT ANSWERS. One catch-all around
+ *    `git show` gave both a baseline of zero, so an unfetched origin/main, a
+ *    shallow clone, or a stale REVIEW_SCOPE_BASE left exported in the shell
+ *    baselined EVERY file at zero, turned all pre-existing debt into regressions,
+ *    and left --no-verify as the only way through. Presence now comes from the
+ *    base TREE LISTING, so it is data rather than a parsed error string, and a
+ *    read that fails on a path the tree says is there is reported as a
+ *    measurement failure instead of being laundered into "new file".
+ *
+ * Only files that CURRENTLY carry errors get a baseline, so a file cleaned all
+ * the way to zero earns no "removed" credit in the ledger. Deliberate: at a
+ * process per file (~1.5-3s of eslint startup each, on a FUSE/NTFS mount) that
+ * would add tens of seconds to every ship in order to improve a congratulation.
+ *
+ * @returns {{rev: string, counts: Record<string, number|null>}} null == unmeasured.
+ */
+export function eslintBaseCounts(files, base) {
+  const rev = diffOrigin(base);
+  const counts = {};
+  if (!files.length) return { rev, counts };
+
+  const renamedFrom = new Map();
+  try {
+    for (const { from, to } of renamePairs(base)) renamedFrom.set(to, from);
+  } catch {
+    /* Best-effort. Missing a pair costs one false block on a moved file, which
+     * is loud and recoverable; failing the whole gate over it is not. */
+  }
+  const basePathOf = (file) => renamedFrom.get(file) || file;
+
+  let present;
+  try {
+    const listed = execFileSync(
+      "git",
+      ["ls-tree", "-r", "--name-only", "-z", rev, "--", ...files.map(basePathOf)],
+      { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: MAX_BUFFER, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    present = new Set(listed.split("\0").filter(Boolean).map(toPosix));
+  } catch (err) {
+    // The REF itself is unusable, so every baseline is unknown. Say that once,
+    // in git's own words, rather than N identical mysteries.
+    process.stdout.write("   base ref " + shortRev(rev) + " could not be read -- every baseline is unknown\n");
+    const said = capturedStderr(err).trim();
+    if (said) process.stdout.write(indentBlock(said) + "\n");
+    for (const file of files) counts[file] = null;
+    return { rev, counts };
+  }
+
+  for (const file of files) {
+    const basePath = basePathOf(file);
+    if (!present.has(basePath)) {
+      counts[file] = 0; // genuinely new in this ship: no debt to inherit
+      continue;
+    }
+    let content;
+    try {
+      content = execFileSync("git", ["show", rev + ":" + basePath], {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        maxBuffer: MAX_BUFFER,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch {
+      // The listing says this path IS in the base tree, so a failed read is a
+      // measurement failure (ENOBUFS, a corrupt object) and never a new file.
+      counts[file] = null;
+      continue;
+    }
+    let out = "";
+    try {
+      out = execFileSync(
+        process.execPath,
+        [ESLINT_BIN(), "--stdin", "--stdin-filename", basePath, "-f", "json"],
+        {
+          cwd: REPO_ROOT,
+          encoding: "utf8",
+          input: content,
+          maxBuffer: MAX_BUFFER,
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+    } catch (err) {
+      out = capturedStdout(err);
+    }
+    const parsed = parseEslintJson(out);
+    counts[file] = parsed === null ? null : Object.values(parsed).reduce((a, b) => a + b, 0);
+  }
+  return { rev, counts };
+}
+
+/**
+ * Run eslint over an explicit file list, bypassing the shell entirely so a path
+ * with a space cannot be split.
+ *
+ * COUNT RATCHET, matching the typecheck gate directly below rather than the
+ * absolute pass/fail this used to be. It is scoped to touched files on the
+ * premise that they are "clean today". That premise is false for the older parts
+ * of this tree -- the dancer-profile screens alone carry 29 pre-existing
+ * no-explicit-any errors -- so as an absolute gate it blocked a ship that
+ * measurably IMPROVED the count, 30 -> 29, and left no way through but a bypass.
+ * Comparing each file against its own count on the base ref is what "do not make
+ * it worse" actually means.
+ *
+ * Returns {ok, reason}, and the reason is load-bearing. The end-of-run ledger
+ * used to reprint decideEslint's PLAN ("23 file(s) in this ship"), computed
+ * before anything ran, so a reader who scrolled to the summary saw a green tick
+ * over 29 tolerated errors with the words "ratchet" and "base" appearing
+ * nowhere. The typecheck line one row above has always carried its verdict text;
+ * this one now does too.
+ */
+function runEslintScoped(files, base) {
+  process.stdout.write("\n> pre-ship: eslint (" + files.length + " file(s) in this ship)\n");
+  let out = "";
+  let stderr = "";
+  try {
+    out = execFileSync(process.execPath, [ESLINT_BIN(), ...files, "-f", "json"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      maxBuffer: MAX_BUFFER,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    out = capturedStdout(err);
+    stderr = capturedStderr(err);
+  }
+
+  const now = parseEslintJson(out);
+  if (now === null) {
+    // Print what eslint actually SAID. stderr is piped rather than inherited, so
+    // this is the only place the operator can learn why: a broken
+    // eslint.config.js, a missing node_modules/eslint and a report truncated at
+    // maxBuffer are otherwise indistinguishable from one another and from a
+    // genuine failure. A gate whose stated purpose is to remove the incentive to
+    // bypass must never hand back an unexplained red.
+    process.stdout.write("   eslint produced no parseable report -- treating as FAILED\n");
+    const said = (stderr || out).trim();
+    if (said) process.stdout.write(indentBlock(said.slice(0, 2000)) + "\n");
+    return { ok: false, reason: "eslint produced no parseable report -- see the quoted output above" };
+  }
+
+  const offenders = Object.fromEntries(Object.entries(now).filter(([, c]) => c > 0));
+  if (!Object.keys(offenders).length) {
+    process.stdout.write("   0 errors in the ship's files\n");
+    return { ok: true, reason: files.length + " file(s) in this ship, 0 errors" };
+  }
+
+  // Only the files that currently have errors need a baseline measured.
+  const { rev, counts: baseCounts } = eslintBaseCounts(Object.keys(offenders), base);
+  const verdict = decideEslintRatchet({ now: offenders, base: baseCounts });
+  const against = shortRev(rev);
+
+  for (const [file, count] of Object.entries(offenders)) {
+    const was = baseCounts[file];
+    process.stdout.write(
+      "   " + file + ": " + count + " error(s), base " + (Number.isFinite(was) ? was : "UNKNOWN") + "\n"
+    );
+  }
+  if (verdict.improved) process.stdout.write("   " + verdict.improved + " pre-existing error(s) removed\n");
+  for (const file of verdict.unmeasured) {
+    process.stdout.write("   UNMEASURED " + file + ": no baseline from " + against + " -- the ratchet cannot answer\n");
+  }
+  for (const r of verdict.regressions) {
+    process.stdout.write("   REGRESSION " + r.file + ": " + r.was + " -> " + r.now + "\n");
+  }
+
+  if (verdict.ok) {
+    const total = Object.values(offenders).reduce((a, b) => a + b, 0);
+    const removed = verdict.improved ? ", " + verdict.improved + " removed" : "";
+    return {
+      ok: true,
+      reason:
+        total +
+        " pre-existing error(s) in " +
+        Object.keys(offenders).length +
+        " file(s), held level against " +
+        against +
+        removed,
+    };
+  }
+
+  const parts = [];
+  if (verdict.regressions.length) {
+    parts.push(
+      "gained errors vs " +
+        against +
+        ": " +
+        verdict.regressions.map((r) => r.file + " " + r.was + "->" + r.now).join(", ")
+    );
+    // Quote each path. This function's own premise is that a path with a space
+    // must not be split, and this line exists to be pasted into a shell.
+    process.stdout.write(
+      "\n   Re-run to see them: npx eslint " + verdict.regressions.map((r) => JSON.stringify(r.file)).join(" ") + "\n"
+    );
+  }
+  if (verdict.unmeasured.length) {
+    parts.push("no baseline could be measured for " + verdict.unmeasured.join(", "));
+  }
+  return { ok: false, reason: parts.join("; ") };
 }
 
 /** Run typecheck, CAPTURING output so the error count can be parsed. tsc exits
@@ -441,7 +773,11 @@ function main(argv = process.argv.slice(2)) {
   // -- eslint (ship-scoped ratchet) -------------------------------------------
   const eslintPlan = decideEslint({ files, all: process.env.PRE_SHIP_ESLINT_ALL === "1", diffError });
   let eslintOk = null;
-  if (!dryRun && eslintPlan.mode === "scoped") eslintOk = runEslintScoped(eslintPlan.files);
+  let eslintVerdict = null;
+  if (!dryRun && eslintPlan.mode === "scoped") {
+    eslintVerdict = runEslintScoped(eslintPlan.files, base);
+    eslintOk = eslintVerdict.ok;
+  }
   if (!dryRun && eslintPlan.mode === "all") eslintOk = runCheck("lint:eslint");
 
   const eslintFailed = eslintOk === false && eslintPlan.blocking;
@@ -475,9 +811,12 @@ function main(argv = process.argv.slice(2)) {
   } else {
     const tick = eslintOk ? "[PASS]" : eslintPlan.blocking ? "[FAIL]" : "[WARN]";
     const mark = dryRun ? "   -  " : "   " + tick + " ";
-    out.push(
-      mark + "eslint (" + eslintPlan.mode + ") -- " + (dryRun ? "WOULD RUN" : "RAN") + ": " + eslintPlan.reason
-    );
+    // The VERDICT where there is one, not the plan. eslintPlan.reason is computed
+    // before anything runs, so a scoped run reported its file count and said
+    // nothing about how much pre-existing debt the ratchet had just tolerated --
+    // a green tick over unmentioned errors, in the summary this file exists for.
+    const said = !dryRun && eslintVerdict ? eslintVerdict.reason : eslintPlan.reason;
+    out.push(mark + "eslint (" + eslintPlan.mode + ") -- " + (dryRun ? "WOULD RUN" : "RAN") + ": " + said);
     if (eslintPlan.mode === "scoped") {
       out.push("           whole-tree eslint is NOT a gate here (189 pre-existing errors on main,");
       out.push("           no CI enforcement). PRE_SHIP_ESLINT_ALL=1 for the full picture.");

@@ -27,6 +27,8 @@
     "src/lib/ensureDancerProfile.ts",
     "src/lib/saveMyDancerProfile.ts",
     "tests/saveMyDancerProfile.test.ts",
+    "scripts/pre-ship.mjs",
+    "tests/preShipEslintRatchet.test.ts",
     "tests/e2e/vendor-city-normalization-smoke.spec.ts",
     "tests/e2e/dancer-dashboard-concept-b-smoke.spec.ts"
   ],
