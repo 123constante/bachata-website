@@ -24,7 +24,7 @@
  * tests/ssr/festivalDaysAwaySsr.test.tsx ("renders 'Happening now' server-side
  * mid-run"); this file gates the lifetime half.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   cacheHeaders,
   edgeCacheControl,
@@ -298,12 +298,74 @@ describe('edgeCacheControl', () => {
     expect(totalServableSeconds(cc)).toBe(50000 - EDGE_STORE_MARGIN_SECONDS);
   });
 
+  it('never grants MORE than the unbounded policy, however large the bound', () => {
+    // The other half of the clamp, and it was untested: every bound exercised
+    // anywhere in this repo was <= 86400, and for all of those
+    // min(90000, bound - 5) === bound - 5, so deleting the outer
+    // `Math.min(EDGE_S_MAXAGE + EDGE_SWR, ...)` was a fully-green mutation
+    // (verified: 44/44 still passed). A bound is a CAP on the default policy,
+    // never a licence to exceed it, and four route modules now pass one --
+    // the first to compute a multi-day span (a festival running a week is
+    // 604800) would have been handed eight days of edge servability against an
+    // intended 25-hour ceiling, with no test moving.
+    const UNBOUNDED = totalServableSeconds(edgeCacheControl());
+    // Values that overshoot the ceiling by MORE than the store margin, so the
+    // clamp is the only thing that can produce the answer. EDGE_S_MAXAGE +
+    // EDGE_SWR itself is NOT such a value -- the margin is subtracted before
+    // the min, so edgeCacheControl(90000) is 89995 either way and would have
+    // made this case look green while testing nothing. That is the same
+    // fixture-not-assertion trap this describe block was just fixed for.
+    for (const bound of [604_800, Number.MAX_SAFE_INTEGER]) {
+      expect(totalServableSeconds(edgeCacheControl(bound))).toBe(UNBOUNDED);
+    }
+    // Distinct from the Infinity branch above, which is an explicit "no expiry"
+    // from a caller; these are finite numbers that merely overshoot. The
+    // distinction is carried by the loop above and by the separate Infinity
+    // case -- an assertion over the literal would restate the fixture and could
+    // never fail.
+  });
+
   it('clamps a zero, negative or sub-margin bound to no caching', () => {
     expect(edgeCacheControl(0)).toBe(NO_EDGE_CACHE);
     expect(edgeCacheControl(-5)).toBe(NO_EDGE_CACHE);
     // Less time left than the margin: the entry cannot be stored in time, so
     // it must not be stored at all rather than wrapping to a huge number.
     expect(edgeCacheControl(EDGE_STORE_MARGIN_SECONDS - 1)).toBe(NO_EDGE_CACHE);
+  });
+});
+
+describe('taggedData option shape', () => {
+  it('does not throw when handed a positional number instead of an options object', () => {
+    // The seconds-or-milliseconds confusion the named option exists to prevent.
+    // tsc rejects it, but no workflow gates on general tsc output, so this is
+    // the only thing standing between that slip and a TypeError thrown inside
+    // the loader on every request -- a hard 500, not a wrong TTL.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const call = () => taggedData({ ok: true }, 'tag', 2400 as never);
+      expect(call).not.toThrow();
+      // ...and it FAILS CLOSED. Skipping silently was the first answer and it is
+      // the worse of the two: no header means cacheHeaders reads "never asked"
+      // and the route keeps the 25-hour policy, which is edgeCacheControl's own
+      // forbidden collapse of "absent" into "corrupt" -- on a route that
+      // declared it cannot tolerate it. An earlier revision of THIS case
+      // asserted that fail-open as the contract.
+      const headers = new Headers(
+        (call() as { init: { headers: Record<string, string> } }).init.headers,
+      );
+      expect(headers.get('X-Edge-Ttl-Bound')).toBe('NaN');
+      expect(edgeCacheControl(parseEdgeTtlBound(headers.get('X-Edge-Ttl-Bound')))).toBe(
+        NO_EDGE_CACHE,
+      );
+      // NaN, not '2400': a positional number must not be honoured as seconds,
+      // because seconds-or-milliseconds is the whole ambiguity being refused.
+      expect(headers.get('X-Edge-Ttl-Bound')).not.toBe('2400');
+      // ...and it is loud. The consequence (every request origin-renders) is
+      // otherwise completely silent at the call site.
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

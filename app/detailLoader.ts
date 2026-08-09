@@ -165,7 +165,19 @@ const cacheControl = (sMaxAge: number, swr: number): string => {
  * revalidation running behind it. Now the entry is guaranteed dead at that
  * page's midnight, so the first visitor of each day takes a full MISS and
  * blocks on a cold render. A deliberate correctness-over-latency trade, not a
- * free one, and worth re-weighing before adopting the bound on a busy route.
+ * free one.
+ *
+ * THE BUSY-ROUTE RE-WEIGH, DONE. This paragraph used to end "worth re-weighing
+ * before adopting the bound on a busy route", and /city/:slug has since adopted
+ * it -- so the sentence is spent and must not be inherited a sixth time. Two
+ * things changed with that adoption. The bound there is not the day but the
+ * next ON-NOW transition, so its expiries are many per evening rather than one
+ * per day, and they cluster in the busiest hours; and the miss it forces is on
+ * the site's most-requested document rather than a crawler tail. What did NOT
+ * change is the direction of the trade: a document asserting an event is on
+ * after it finished is worse than a cold render. A future adopter should size
+ * BOTH -- boundary density and request volume -- rather than reading either of
+ * these two precedents as the general answer.
  *
  * An absent bound keeps the previous behaviour exactly, so untouched routes are
  * byte-identical.
@@ -186,11 +198,13 @@ export function edgeCacheControl(boundSeconds?: number): string {
   // SIZE THE FAILURE MODE HONESTLY, AND RE-SIZE IT WHEN ROUTES ADOPT THE BOUND.
   // This read "only /festival is bounded today, so the cost is one origin render
   // per request on one route, not a site-wide storm" while that was true. It no
-  // longer is: four route modules are bounded, covering nine URLs
-  // (/festival/:id, /london-bachata-guide, /learn-bachata-london and the seven
-  // /bachata-london-{weekday} pages), and the landing pages are precisely the
-  // ones whose crawl budget and TTFB the SSR arc was built for. So a side
-  // channel that breaks now takes all of them to 100% origin render at once.
+  // longer is: FIVE route modules are bounded, covering ten URLs (/festival/:id,
+  // /london-bachata-guide, /learn-bachata-london, the seven
+  // /bachata-london-{weekday} pages, and now /city/:slug), and the landing pages
+  // are precisely the ones whose crawl budget and TTFB the SSR arc was built
+  // for. So a side channel that breaks now takes all of them to 100% origin
+  // render at once -- INCLUDING the homepage, which is no longer a tail of
+  // crawler traffic but the document most human visitors load first.
   // The trade still holds -- an hour of a false "Happening now" served to
   // Googlebot is worse than an hour of slow-but-correct pages, and the channel
   // is an internal header between two functions in this file, not user input --
@@ -291,7 +305,35 @@ export function taggedData<T>(
   // a bound" from "never asked", and only the first may fail closed. Emitted
   // unnormalised -- edgeCacheControl is the single owner of the clamping rule,
   // and a second copy here would let the header and the directive drift apart.
-  if (opts && "edgeTtlBoundSeconds" in opts) {
+  // PRESENT BUT NOT AN OPTIONS OBJECT -- `taggedData(payload, tag, 2400)`, the
+  // seconds-or-milliseconds confusion the named option exists to prevent. tsc
+  // rejects the call (TS2345) and that is the whole of the static protection:
+  // NO workflow gates on general tsc output. typecheck.yml runs it but is
+  // message-scoped to the WallClock/Instant brand, and CLAUDE.md records that
+  // no workflow runs eslint either. So a positional number reaches production
+  // on a green board.
+  //
+  // It has to be handled BEFORE the `in` below, which would throw a TypeError
+  // on a primitive -- a hard 500 on every request to the route. But merely
+  // skipping is the wrong exit, and was the first answer here: no header gets
+  // written, cacheHeaders reads "never asked", and the route silently keeps the
+  // 25-hour policy. That collapses "absent" into "corrupt" in the one direction
+  // edgeCacheControl's own rule forbids, on the routes that declared they
+  // cannot tolerate it. So it fails CLOSED and says so, like every other bound
+  // that did not survive the trip.
+  //
+  // Written as NaN rather than String(opts) deliberately: '2400' would PARSE,
+  // and honouring a positional number is precisely the ambiguity being refused.
+  if (opts !== undefined && (typeof opts !== "object" || opts === null)) {
+    console.warn(
+      `[taggedData] third argument for "${tag}" is ${typeof opts} (${String(opts)}), not ` +
+        `an { edgeTtlBoundSeconds } object -- failing the edge TTL closed, so this route ` +
+        `will origin-render every request until the call site is fixed.`,
+    );
+    headers[EDGE_TTL_BOUND_HEADER] = String(Number.NaN);
+    return data(payload, { headers });
+  }
+  if (typeof opts === "object" && opts !== null && "edgeTtlBoundSeconds" in opts) {
     const bound = opts.edgeTtlBoundSeconds;
     // "No expiry", spelled by omission. This is the ONE normalisation done here
     // rather than in edgeCacheControl, and it is not a clamp: an omitted header

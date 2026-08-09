@@ -20,10 +20,22 @@ import { EDGE_STORE_MARGIN_SECONDS } from '../app/detailLoader';
 
 const EVENT_UUID = '00000000-0000-4000-8000-0000000000f1';
 const SLUG = 'test-festival';
-const FESTIVAL_TZ = 'Africa/Tunis';
+// ASIA/TOKYO, AND THE CHOICE IS THE POINT. This was Africa/Tunis, which is UTC+1
+// year-round -- the same offset Europe/London runs at all BST season. Every
+// instant in this file rendered an IDENTICAL wall clock in both zones, so the
+// timezone half of the wiring was untested: replacing the loader's
+// `detail?.dates?.timezone ?? 'Europe/London'` with the bare London literal left
+// all four cases green. The file exists because the first version "was testing
+// cacheHeaders twice and the wiring never"; the same blindness had survived one
+// layer in. Tokyo is UTC+9 with no DST, so it disagrees with London by nine
+// hours on every fixture below and by a whole DAY on the straddle -- see the
+// discriminating-fixture guard at the top of the describe block, which fails if
+// a future edit picks a zone that collapses back onto London.
+const FESTIVAL_TZ = 'Asia/Tokyo';
 
 // 23:20 on the festival's own calendar: 40 minutes of the pinned day left.
-const RENDERED_AT = new Date('2026-09-06T22:20:00Z');
+// (15:20 in London, which has 8h40m left -- the gap that makes this assertable.)
+const RENDERED_AT = new Date('2026-09-06T14:20:00Z');
 const SECONDS_LEFT_IN_PINNED_DAY = 40 * 60;
 
 // Lets a case advance the faked clock DURING the loader's og-card await, which
@@ -45,10 +57,14 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
     resolveEntityInLoader: async () => ({ id: EVENT_UUID, slug: SLUG, arrivedViaUuid: false }),
     resolveOgCardImage: async () => {
       if (clock.ogCardAwaitMs > 0) {
-        // On the FESTIVAL's calendar, not UTC: 22:59:59Z to 23:00:02Z is the
-        // same UTC day and a different Tunis one, which is the whole point.
+        // On the FESTIVAL's calendar, not UTC: 14:59:59Z to 15:00:02Z is the
+        // same UTC day (and the same LONDON day) and a different Tokyo one,
+        // which is the whole point. Reads FESTIVAL_TZ rather than restating the
+        // zone -- the hardcoded copy that used to sit here would have gone on
+        // measuring Tunis after the constant moved, silently reporting
+        // crossedMidnight against a calendar the loader was no longer using.
         const key = () =>
-          new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tunis' }).format(new Date());
+          new Intl.DateTimeFormat('en-CA', { timeZone: FESTIVAL_TZ }).format(new Date());
         const before = key();
         vitest.setSystemTime(new Date(Date.now() + clock.ogCardAwaitMs));
         clock.crossedMidnight = key() !== before;
@@ -115,6 +131,29 @@ afterAll(() => {
 });
 
 describe('festival loader edge TTL', () => {
+  // THE FIXTURES MUST DISCRIMINATE. Everything below asserts that the bound is
+  // measured on the FESTIVAL's calendar, and every one of those assertions is
+  // vacuous if the chosen zone happens to match London's offset -- which is
+  // exactly how this file shipped, on a zone that matched all BST season. This
+  // is the guard that cannot be satisfied by luck: if a future edit picks a zone
+  // that collapses back onto London, this reds first and names why, instead of
+  // four green cases quietly testing nothing.
+  it('uses fixture instants where the festival calendar and London DISAGREE', () => {
+    const day = (tz: string, d: Date) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
+    const clockOf = (tz: string, d: Date) =>
+      new Intl.DateTimeFormat('en-GB', { timeZone: tz, timeStyle: 'medium' }).format(d);
+    for (const instant of [RENDERED_AT, new Date('2026-09-06T01:00:00Z')]) {
+      expect(clockOf(FESTIVAL_TZ, instant)).not.toBe(clockOf('Europe/London', instant));
+    }
+    // The straddle case leans harder: it needs the two calendars on different
+    // DAYS, not merely different clocks, or "pins the day it EMITTED on" passes
+    // whichever calendar the loader read.
+    const afterStraddle = new Date('2026-09-06T15:00:02Z');
+    expect(day(FESTIVAL_TZ, afterStraddle)).toBe('2026-09-07');
+    expect(day('Europe/London', afterStraddle)).toBe('2026-09-06');
+  });
+
   it('caps servability at the festival calendar rollover, not 25 hours', async () => {
     const result = await runLoader();
 
@@ -133,7 +172,7 @@ describe('festival loader edge TTL', () => {
     // Early in the festival's day: the bound must not cost the normal 1h fresh
     // window, or this fix would quietly become a cache regression on every
     // festival page rather than a correction near midnight.
-    vi.setSystemTime(new Date('2026-09-06T09:00:00Z')); // 10:00 in Tunis
+    vi.setSystemTime(new Date('2026-09-06T01:00:00Z')); // 10:00 in Tokyo (02:00 London)
     const cdn = await cdnHeaderOf(await runLoader());
     expect(cdn).toBe(
       `public, s-maxage=3600, stale-while-revalidate=${50400 - EDGE_STORE_MARGIN_SECONDS - 3600}`,
@@ -144,17 +183,17 @@ describe('festival loader edge TTL', () => {
     // The detail prefetch is deliberately NON-gating -- a transient blip must
     // not 500 a live festival page -- but prefetchQuery swallows the error, so
     // the loader falls back to Europe/London. That fallback is a GUESS: the
-    // client's own query refetches and succeeds, so it holds Africa/Tunis while
-    // this document was pinned on London's calendar. For a festival further
-    // east the two are most of a day apart and the crawled hero reads the wrong
-    // label. Rendering on the guess is right; caching it is not.
+    // client's own query refetches and succeeds, so it holds Asia/Tokyo while
+    // this document was pinned on London's calendar -- nine hours and, at other
+    // instants, a whole day apart, so the crawled hero reads the wrong label.
+    // Rendering on the guess is right; caching it is not.
     detailFetch.shouldThrow = true;
 
     const result = await runLoader();
 
     // Non-vacuity: the page really did render, on the London fallback -- 23:20
-    // in Tunis is 22:20 in London, still the same date here, so the key alone
-    // would not reveal the failure. The HEADER is what changed.
+    // in Tokyo is 15:20 in London, still the same DATE at this instant, so the
+    // key alone would not reveal the failure. The HEADER is what changed.
     expect(pinnedKeyOf(result)).toBe('2026-09-06');
     expect(await cdnHeaderOf(result)).toBe('public, s-maxage=0, must-revalidate');
   });
@@ -171,7 +210,7 @@ describe('festival loader edge TTL', () => {
     // unsay it: the requester, possibly the one crawl Googlebot makes, is still
     // served the claim. Deriving the key last fixes the document AND restores a
     // real bound.
-    vi.setSystemTime(new Date('2026-09-06T22:59:59Z')); // 23:59:59 in Tunis
+    vi.setSystemTime(new Date('2026-09-06T14:59:59Z')); // 23:59:59 in Tokyo
     clock.ogCardAwaitMs = 3000;
 
     const result = await runLoader();
