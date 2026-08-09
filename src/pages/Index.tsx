@@ -39,8 +39,13 @@ const NO_EVENTS: MapEvent[] = [];
  *
  * `todayKey` / `serverNowMs` come from the route loader (app/routes/home.tsx).
  * They pin every time-derived value on the FIRST render to the instant the
- * server rendered at. This route is edge-cached (s-maxage=3600, SWR a day), so
- * without them a browser hydrating hour-old HTML would compute a different
+ * server rendered at. This route is edge-cached -- for the SOONEST of London
+ * midnight and the next ON-NOW transition, which the loader sizes; the "Soon"
+ * edge is deliberately outside that cap, so a served document may omit a Soon
+ * badge but never claims an event is on when it is not. It used to be a flat
+ * hour fresh plus a day stale, i.e. 25 hours of servability for one clock read
+ * -- so without them a browser hydrating
+ * hour-old HTML would compute a different
  * "today" group or a different "Added 2h ago" stamp from the same data, and
  * React would throw the server tree away. They are optional: the legacy SPA
  * router (AnimatedRoutes) renders this page with no loader, and then the live

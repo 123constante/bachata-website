@@ -7,7 +7,13 @@
 import { haversineKm } from '@/lib/geo/haversineKm';
 import { isFestivalByFormat } from '@/lib/eventFormat';
 import { eventHref } from '@/lib/seo/eventHref';
-import { londonDateKey, londonMinutesOfDay, normalisePostgrestTimestamp } from '@/lib/londonDate';
+import {
+  instantToLondonWallClockStamp,
+  londonDateKey,
+  londonMinutesOfDay,
+  londonWallClockToInstant,
+  normalisePostgrestTimestamp,
+} from '@/lib/londonDate';
 
 export type MapCategory = 'class' | 'party' | 'mix' | 'fest' | 'social';
 export type MapFilter = 'all' | 'parties' | 'classes' | 'festivals';
@@ -358,15 +364,39 @@ export function startMinutes(e: MapEvent): number | null {
   return split.length ? Math.min(...split) : hhmmToMinutes(e.start_time);
 }
 
-/** Latest end of an event in minutes-from-midnight (split ends, else end_time). */
+/** Latest end of an event in minutes-from-midnight (split ends, else end_time).
+ *  MAY EXCEED 1440: a split end past midnight is wrapped BEFORE the max, so a
+ *  Class & Party row (class 19:00-20:30, party 21:00-02:00) returns 1560 and not
+ *  1230. Taking the raw max let the class end outrank the party end, and
+ *  todayLiveStatus's own `end < start` wrap could not recover it -- 1230 is not
+ *  less than the 19:00 start, so nothing looked wrong and the "On now" badge
+ *  went dark at 20:31 with the party still five hours from closing. */
 export function endMinutes(e: MapEvent): number | null {
-  const split = [hhmmToMinutes(e.class_end), hhmmToMinutes(e.party_end)].filter(
-    (n): n is number => n != null,
-  );
+  // PAIRED, not global. Each end is wrapped against ITS OWN start, because only
+  // that comparison means "this end is on the following day". Wrapping against
+  // the earliest start across both halves reads a class ending 20:30 on a row
+  // whose only start is a 21:00 party as 20:30 TOMORROW, which outranks the real
+  // 23:00 party end by 21 hours -- a false "On now" all evening, and one the
+  // marks cannot expire because a mark past 1440 is left to the day bound. An
+  // end whose own start is absent is not wrapped: nothing on the row says it
+  // belongs to the next day.
+  const split = [
+    [hhmmToMinutes(e.class_start), hhmmToMinutes(e.class_end)],
+    [hhmmToMinutes(e.party_start), hhmmToMinutes(e.party_end)],
+  ]
+    .map(([s, end]) => (end == null ? null : s != null && end < s ? end + 1440 : end))
+    .filter((n): n is number => n != null);
   return split.length ? Math.max(...split) : hhmmToMinutes(e.end_time);
 }
 
 export type LiveStatus = 'on-now' | 'soon' | null;
+
+/** How long before its start an event reads 'soon'. Named rather than inline
+ *  because it is the width of a claim the edge cache is NOT bounded on: see
+ *  soonestLiveStatusChangeMs, which tracks the on-now window only and says why.
+ *  NOT exported: nothing outside this file consumes it, and an export whose
+ *  documented link lives only in prose is API surface bought for nothing. */
+const SOON_WINDOW_MINUTES = 90;
 
 /** Real-time status for a TODAY row: 'on-now' while inside the window, 'soon'
  *  when it starts within 90 min, else null. Cancelled / non-today rows return
@@ -394,6 +424,118 @@ export function todayLiveStatus(
   // minutes shift the on-now/soon window by the visitor's offset.
   const nowMin = londonMinutesOfDay(now);
   if (nowMin >= start && (end == null || nowMin <= end)) return 'on-now';
-  if (start > nowMin && start - nowMin <= 90) return 'soon';
+  if (start > nowMin && start - nowMin <= SOON_WINDOW_MINUTES) return 'soon';
   return null;
+}
+
+/**
+ * The next instant at which `todayLiveStatus` would open or close an ON-NOW
+ * window for ANY of these rows -- or null if none does again today.
+ *
+ * WHY IT EXISTS. The homepage loader pins its clock and the feed server-renders
+ * the badge from it, so "On now" ships in the crawled HTML rather than
+ * appearing after hydration. That document is edge-cached, and time passing is
+ * not a content edit, so nothing evicts it: a document rendered at 22:55 while
+ * a social was running is otherwise still served at 23:30, to a reader or to
+ * Googlebot, claiming the social is on. The DAY bound (secondsUntilKeyRollsOver)
+ * does not reach this -- 23:30 is the same calendar day as 22:55 -- which is why
+ * home needs a second, tighter bound and the SEO landings do not.
+ *
+ * DERIVED FROM THE SAME PREDICATE IT BOUNDS. The edges are read off
+ * `startMinutes`/`endMinutes` -- the inputs todayLiveStatus itself branches on
+ * -- so a change to the split-time precedence moves the badge and its expiry
+ * together. Anything less would be a second copy of the rule, silently
+ * outliving the first.
+ *
+ * THE 'SOON' DECORATION IS NOT BOUNDED, and this is the difference between a
+ * usable TTL and a punitive one. Three marks a row rather than two, all of them
+ * 90 minutes ahead of a start, is what collapses the busiest document's edge TTL
+ * to minutes through the exact hours it is busiest -- and what it buys is
+ * precision on the one transition where a stale document does not make a false
+ * claim. Missing a "Soon" is an omitted advance warning; showing "Soon" while an
+ * event runs, or "On now" after it finished, is a statement about the present
+ * that is untrue, and those are the two edges below. Same line the freshness
+ * stamps are excluded on in app/routes/home.tsx: bound what can be WRONG, not
+ * everything that can be DIFFERENT.
+ *
+ * ONLY MARKS INSIDE THE PINNED DAY. A start before 00:00, or an on-now window
+ * running past midnight, is left to the caller's day bound, which is tighter
+ * than either. Inside the day one wall-clock hour a year is still
+ * ambiguous and one does not exist at all; the conversion below resolves both
+ * downwards, never upwards.
+ *
+ * `pinnedNowMs` is the instant the BADGE was computed at, not the instant this
+ * is called at. Marks at or before it have already been spent, and a caller
+ * measuring seconds-until from a later clock read gets a non-positive answer for
+ * a mark the pin has passed but emission has not -- which is the honest one: the
+ * document is already wrong and must not be cached.
+ *
+ * Returns epoch ms so the caller owns the "how long from now" reading; see
+ * app/routes/home.tsx for why that has to be measured at emission.
+ */
+export function soonestLiveStatusChangeMs(
+  events: MapEvent[],
+  today: string,
+  pinnedNowMs: number,
+): number | null {
+  const marks = new Set<number>();
+  for (const e of events) {
+    // Same two gates todayLiveStatus opens with: a cancelled or non-today row
+    // never shows a badge, so it never expires one either.
+    if (e.is_cancelled || !isTodayRow(e, today)) continue;
+    const start = startMinutes(e);
+    if (start == null) continue;
+    let end = endMinutes(e);
+    if (end != null && end < start) end += 1440;
+    // The two edges of the ON-NOW window, and deliberately not the null ->
+    // 'soon' edge at start - SOON_WINDOW_MINUTES (see the note above).
+    marks.add(start); //                       -> 'on-now'
+    // on-now holds while nowMin <= end, so the FIRST minute it does not is
+    // end + 1. Off-by-one here would expire the badge a minute early, which is
+    // merely wasteful, or a minute late, which is the defect.
+    if (end != null) marks.add(end + 1); //    'on-now' -> null
+  }
+
+  // SELECT IN MINUTE SPACE, CONVERT ONCE. Minutes are totally ordered inside the
+  // pinned day and todayLiveStatus decides in exactly this space, so converting
+  // every mark would pay two Intl passes each -- dozens of them on a busy
+  // evening -- on the SSR path of the busiest document, to produce one number.
+  //
+  // The precondition that makes it sound is the one todayLiveStatus is already
+  // called under: `today` is the London day `pinnedNowMs` falls in. home.tsx
+  // holds it by reading both from a single Date.now(), on the straddle path too.
+  const nowMin = londonMinutesOfDay(new Date(pinnedNowMs));
+  let soonestMin: number | null = null;
+  for (const minute of marks) {
+    if (minute < 0 || minute >= 1440) continue;
+    if (minute <= nowMin) continue; // already spent at the pin
+    if (soonestMin === null || minute < soonestMin) soonestMin = minute;
+  }
+  if (soonestMin === null) return null;
+
+  const hh = String(Math.floor(soonestMin / 60)).padStart(2, '0');
+  const mm = String(soonestMin % 60).padStart(2, '0');
+  const stamp = `${today} ${hh}:${mm}:00+00`;
+  // The row times are London wall-clock, so the mark is too; convert to a true
+  // instant rather than treating the stamp as UTC (an hour out all BST).
+  const at = londonWallClockToInstant(stamp);
+  if (!at) return null;
+  const ms = at.getTime();
+  // THE TWO DAYS A YEAR THE WALL CLOCK IS NOT A FUNCTION. In October 01:00-01:59
+  // happens twice and londonWallClockToInstant's fixed point lands on the SECOND
+  // (GMT) pass, an hour LATE; in March it does not happen at all and the fixed
+  // point lands after the jump, up to an hour late again. Late is the one
+  // direction a cache bound must never err in -- it buys servability for a claim
+  // that is already false -- which is why secondsUntilKeyRollsOver carries its
+  // own "never once long" invariant. Round-trip the instant: if it does not
+  // reproduce the stamp (the March gap) or the PREVIOUS hour also reproduces it
+  // (the October repeat), the honest mark is an hour earlier. Two extra Intl
+  // passes, on one mark, never in the loop.
+  const earlier = ms - 3_600_000;
+  const roundTrips = instantToLondonWallClockStamp(at.toISOString()) === stamp;
+  const earlierAlsoTrips = instantToLondonWallClockStamp(new Date(earlier).toISOString()) === stamp;
+  // Inside the repeated hour itself this can land at or before `pinnedNowMs`,
+  // and the caller reads that as a non-positive bound and declines to cache --
+  // which is the right answer while the badge's own minute is ambiguous.
+  return roundTrips && !earlierAlsoTrips ? ms : earlier;
 }
