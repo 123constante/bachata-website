@@ -21,13 +21,30 @@
 //
 // Exit 1 if any sampled page fails a hard assertion.
 
-import { bypassHeaders, skipIfWalledPreview } from './lib/previewProbe.mjs';
+import { bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
 // Preview PR coverage: send the Vercel protection-bypass headers when pointed at
 // a protected preview; null against public prod (default).
-const BYPASS = bypassHeaders({ required: false });
+//
+// REQUIRED when the base is a *.vercel.app preview. With no secret at all the
+// run is unauthenticated: at best skipIfWalledPreview proves the wall and
+// green-skips, at worst the wall bounces /sso-api -> /login until fetch dies
+// with "redirect count exceeded" -- an error naming neither SEO nor the bypass,
+// which once sent a real investigation chasing the wrong cause. Demanding the
+// secret makes previewProbe throw its actionable message instead (Vercel ->
+// Settings -> Deployment Protection -> Protection Bypass for Automation)
+// before any network I/O -- IN CI ONLY: bypassHeaders deliberately does not
+// throw without process.env.CI, so a local run against a preview with no
+// secret still goes unauthenticated and can still hit that redirect death.
+// A PRESENT-but-rejected secret normally lands on skipIfWalledPreview's
+// proven wall instead (same split check-lighthouse.mjs runs with
+// required: !EXPLICIT_BASE) -- though a protection mode that loops rather
+// than parks on vercel.com is indistinguishable from a missing header on the
+// wire, so a redirect death does not prove which. Prod stays bypass-free: it
+// is public.
+const BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
 const UA = 'Mozilla/5.0 (compatible; BachataCalendarSeoCheck/1.0)';
 const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing pages must NOT use it
 

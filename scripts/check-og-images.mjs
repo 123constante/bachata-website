@@ -14,7 +14,7 @@
 //
 // Exit 1 if any sampled page would show no preview.
 
-import { assertMeasured, bypassHeaders, skipIfWalledPreview } from './lib/previewProbe.mjs';
+import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
@@ -24,7 +24,14 @@ const STRICT = process.env.OG_CHECK_STRICT === '1';
 const MIN_OG_PAGES = 4;
 // When pointed at a protected Vercel preview (PR coverage), send the bypass
 // headers; null (no secret) against public prod, where they are not needed.
-const BYPASS = bypassHeaders({ required: false });
+// REQUIRED on a *.vercel.app base: with no secret the run is unauthenticated,
+// which is either a green skip that measured nothing or a misleading redirect
+// death. The demand throws IN CI ONLY (bypassHeaders is deliberately lax
+// without process.env.CI, so local no-secret runs still go unauthenticated).
+// Full rationale at check-seo.mjs's BYPASS; same split as
+// check-lighthouse.mjs (required: !EXPLICIT_BASE). A present-but-rejected
+// secret is normally skipIfWalledPreview's case, not this one.
+const BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
 
