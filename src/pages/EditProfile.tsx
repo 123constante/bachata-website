@@ -18,6 +18,7 @@ import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { CityPicker } from '@/components/ui/city-picker';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { normalizePhotoValue, parsePartnerDetails, serializePhotoValue } from '@/lib/utils';
+import { dancerRoleFromStored } from '@/lib/dancerEditorPayloads';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 // DANCE_STYLES was referenced here and DEFINED NOWHERE -- a standing tsc error
 // that never fired because the loader keyed on created_by matched nothing, so
@@ -118,7 +119,9 @@ const EditProfile = () => {
             nationality: data.nationality || '',
             dancing_start_date: dateStringFromDanceStartedYear(data.dance_started_year),
             favorite_styles: data.favorite_styles || [],
-            partner_role: data.dance_role || '',
+            // The DB spells "Both" as "Lead and Follow", which matches no badge,
+            // so the raw read left the role looking unset on a profile that had one.
+            partner_role: dancerRoleFromStored(data.dance_role),
             looking_for_partner: data.looking_for_partner || false,
             instagram: data.instagram || '',
             facebook: data.facebook || '',
@@ -220,8 +223,11 @@ const EditProfile = () => {
           partner_search_role: form.partner_search_role || null,
           partner_search_level: form.partner_search_level,
           partner_practice_goals: form.partner_practice_goals,
-          // TEXT column: send the text. See SaveMyDancerProfileInput.
-          partner_details: form.partner_details || null,
+          // TEXT column: send the text. See SaveMyDancerProfileInput. "" rather
+          // than null on purpose -- the sidecar arm has no NULLIF, so "" is a
+          // real value there and CLEARS the blurb, while null reads as "leave
+          // unchanged" and made deleting it a save that silently did nothing.
+          partner_details: form.partner_details,
           dance_started_year: startYear,
         },
       });

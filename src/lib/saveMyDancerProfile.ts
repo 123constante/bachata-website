@@ -34,6 +34,15 @@ import { captureException } from "@/lib/sentry";
  *    which the COALESCE then falls back from). `dance_role` is the sole
  *    exception: the function key-tests it, so null blanks the column.
  *
+ *    The sidecar is NOT uniformly clearable either, and the split runs by TYPE,
+ *    not by location. Its lists and its TEXT fields have no NULLIF, so [] and ''
+ *    are real values there and do clear -- but `dance_started_year` is a sidecar
+ *    SCALAR under the same COALESCE as the identity columns
+ *    (NULLIF(x,'')::integer), so it belongs with the unclearable set: emptying
+ *    the identity editor's start date is a silent no-op that still reports
+ *    success. This list read as "identity unclearable, sidecar clearable", and a
+ *    caller trusting that shape would get the year wrong.
+ *
  * 3. `website_url` and `avatar_url` are the writable columns. `website` and
  *    `photo_url` are MIRRORED from them on every save, so sending the mirrored
  *    names is a silent no-op. So is a top-level `favorite_styles` or `roles`:

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -25,7 +25,7 @@ import { setAttendanceRpc } from '@/hooks/useAttendance';
 import { supabase } from '@/integrations/supabase/client';
 import { captureException } from '@/lib/sentry';
 import type { Json } from '@/integrations/supabase/types';
-import { getPhotoUrl, parsePartnerDetails, serializePartnerDetails, type PartnerDetailsValue } from '@/lib/utils';
+import { getPhotoUrl, parsePartnerDetails, type PartnerDetailsValue } from '@/lib/utils';
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
@@ -40,7 +40,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { CityPicker } from '@/components/ui/city-picker';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
-import { dateStringFromDanceStartedYear } from '@/lib/saveMyDancerProfile';
+import { dateStringFromDanceStartedYear, saveMyDancerProfile } from '@/lib/saveMyDancerProfile';
+import {
+  buildDashboardSectionPayload,
+  dancerRoleFromStored,
+  type DancerEditorForm,
+} from '@/lib/dancerEditorPayloads';
 import {
   FAVORITE_STYLE_OPTIONS,
   PARTNER_PRACTICE_GOAL_OPTIONS,
@@ -53,37 +58,30 @@ interface DancerProfile {
   id: string;
   first_name: string;
   surname: string | null;
-  // The REAL columns. `city`, `city_id`, `years_dancing`, `dancing_start_date`
-  // and `partner_role` below are NOT columns on dancer_profiles -- reads of them
-  // are always undefined. They are kept, optional, only because this screen's
-  // write path still targets the table directly and is deferred to the
-  // dancer-editor arc; every READ here has been moved onto the real column.
+  // Every field here is a real column on dancer_profiles. `city`, `city_id`,
+  // `years_dancing`, `dancing_start_date`, `partner_role` and `verified` used to
+  // sit alongside them, none of them columns, kept alive only so the deferred
+  // direct-to-table write kept compiling. That write is gone, so they are too.
   based_city_id: string | null;
   dance_role: string | null;
   dance_started_year: number | null;
   website_url?: string | null;
   avatar_url?: string | null;
   cities?: { name: string } | null;
-  city?: string | null;
-  city_id?: string | null;
   nationality: string | null;
   favorite_styles: string[] | null;
-  years_dancing?: string | null;
-  dancing_start_date?: string | null;
   photo_url: string | null;
   instagram: string | null;
   facebook: string | null;
   whatsapp?: string | null;
   website: string | null;
   looking_for_partner: boolean | null;
-  partner_role?: string | null;
   achievements: string[] | null;
   favorite_songs: string[] | null;
   partner_search_role: string | null;
   partner_search_level: string[] | null;
   partner_practice_goals: string[] | null;
   partner_details: Json | null;
-  verified?: boolean;
 }
 
 type AttendanceKind = 'events' | 'festivals';
@@ -106,26 +104,11 @@ interface AttendanceSearchResult {
   type: string | null;
 }
 
-interface EditFormData {
-  first_name: string;
-  surname: string;
-  city: string;
-  instagram: string;
-  facebook: string;
-  whatsapp: string;
-  website: string;
-  dancing_start_date: string;
-  partner_role: string;
-  achievements: string[];
-  favorite_songs: string[];
-  partner_search_role: string;
-  partner_search_level: string[];
-  partner_practice_goals: string[];
-  partner_details: string;
-  favorite_styles: string[];
-  looking_for_partner: boolean;
-  photo_url: string;
-}
+/**
+ * The form shape lives with the payload builders, so the mapping and the form it
+ * maps from cannot drift apart.
+ */
+type EditFormData = DancerEditorForm;
 
 type TileStatus = 'live' | 'attention';
 type EditorSection = 'identity' | 'career' | 'partner' | 'social';
@@ -163,35 +146,13 @@ const emptyEditForm: EditFormData = {
   photo_url: '',
 };
 
-const normalizePartnerRole = (value?: string | null) => {
-  const normalized = (value || '').trim().toLowerCase();
-  if (!normalized) return '';
-  if (normalized === 'lead' || normalized === 'leader') return 'Leader';
-  if (normalized === 'follow' || normalized === 'follower') return 'Follower';
-  if (normalized === 'both') return 'Both';
-  return '';
-};
-
-const normalizeSocialUrl = (kind: 'instagram' | 'facebook' | 'website', value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-
-  if (kind === 'instagram') {
-    const withoutAt = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
-    if (!withoutAt.includes('/') && !withoutAt.includes('.') && !withoutAt.startsWith('http://') && !withoutAt.startsWith('https://')) {
-      return `https://instagram.com/${withoutAt}`;
-    }
-    if (!withoutAt.startsWith('http://') && !withoutAt.startsWith('https://')) {
-      return `https://${withoutAt}`;
-    }
-    return withoutAt;
-  }
-
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
-};
+/**
+ * How long the partner textarea waits before it saves. It used to write once PER
+ * KEYSTROKE: a 200-character blurb was 200 SECURITY DEFINER round trips, and the
+ * responses are unordered, so an old one landing last repainted the profile from
+ * a stale row.
+ */
+const PARTNER_AUTOSAVE_DEBOUNCE_MS = 600;
 
 const isValidDateString = (value?: string | null) => {
   if (!value) return true;
@@ -253,35 +214,139 @@ export const DancerDashboard = () => {
   const [newFavoriteSong, setNewFavoriteSong] = useState('');
   const [newAchievement, setNewAchievement] = useState('');
 
+  // Autosave plumbing. A monotonic ticket per save, so a response that a later
+  // save has already superseded cannot repaint the profile from a stale row; plus
+  // the pending debounced form, which ANY immediate save supersedes -- it is built
+  // from the same editForm, so it already carries whatever the pending one held.
+  const partnerSaveSeqRef = useRef(0);
+  const partnerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPartnerFormRef = useRef<EditFormData | null>(null);
+  const partnerSaveChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const isMountedRef = useRef(true);
+
+  /**
+   * editForm plus a ref that always mirrors it, and the ONLY way to set it.
+   *
+   * The partner handlers have to read the form and save it in the same tick. They
+   * cannot read the `editForm` closure: React batches, so two badge taps landing
+   * in one batch both see the pre-first-tap value, the second overwrites the
+   * first, and the save writes the whole partner section -- undoing the first tap
+   * in the DATABASE, not just on screen. They cannot compute inside a setState
+   * updater either: React double-runs updaters in development, which is two
+   * SECURITY DEFINER writes per tap. Computing from the ref does both jobs, and
+   * returning the next form lets the caller save exactly what it just set.
+   */
+  const editFormRef = useRef<EditFormData>(emptyEditForm);
+  const applyEditForm = (
+    updater: EditFormData | ((prev: EditFormData) => EditFormData)
+  ): EditFormData => {
+    const next =
+      typeof updater === 'function'
+        ? (updater as (prev: EditFormData) => EditFormData)(editFormRef.current)
+        : updater;
+    editFormRef.current = next;
+    setEditForm(next);
+    return next;
+  };
+
   const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/';
 
-  const hydrateEditForm = (dancer: DancerProfile) => {
-    setEditForm({
-      first_name: dancer.first_name || '',
-      surname: dancer.surname || '',
-      // The city picker's value is a city ID, so based_city_id feeds it directly.
-      city: dancer.based_city_id || '',
-      instagram: dancer.instagram || '',
-      facebook: dancer.facebook || '',
-      whatsapp: dancer.whatsapp || '',
-      website: dancer.website_url || dancer.website || '',
-      dancing_start_date: dateStringFromDanceStartedYear(dancer.dance_started_year),
-      partner_role: normalizePartnerRole(dancer.dance_role),
-      achievements: dancer.achievements || [],
-      favorite_songs: dancer.favorite_songs || [],
-      partner_search_role: normalizePartnerRole(dancer.partner_search_role),
-      partner_search_level: dancer.partner_search_level || [],
-      partner_practice_goals: dancer.partner_practice_goals || [],
-      partner_details: parsePartnerDetails(dancer.partner_details as PartnerDetailsValue),
-      favorite_styles: dancer.favorite_styles || [],
-      looking_for_partner: dancer.looking_for_partner || false,
-      photo_url: dancer.photo_url || '',
-    });
+  /**
+   * Stored row -> form. PURE, because the partner tile must build a hydrated form
+   * and use it in the same tick: it saves the whole partner section, and a
+   * setEditForm would not have landed by then. Reading the unhydrated editForm
+   * there was the round-1 defect -- every badge rendered unselected, a lie about
+   * stored state, and the first tap wrote those blanks over the real values.
+   */
+  const buildEditForm = (dancer: DancerProfile): EditFormData => ({
+    first_name: dancer.first_name || '',
+    surname: dancer.surname || '',
+    // The city picker's value is a city ID, so based_city_id feeds it directly.
+    city: dancer.based_city_id || '',
+    instagram: dancer.instagram || '',
+    facebook: dancer.facebook || '',
+    whatsapp: dancer.whatsapp || '',
+    website: dancer.website_url || dancer.website || '',
+    dancing_start_date: dateStringFromDanceStartedYear(dancer.dance_started_year),
+    partner_role: dancerRoleFromStored(dancer.dance_role),
+    achievements: dancer.achievements || [],
+    favorite_songs: dancer.favorite_songs || [],
+    // RAW, unlike dance_role. partner_search_role is free text on the sidecar --
+    // no CHECK, and no DB helper normalises it -- so routing it through the role
+    // codec maps anything outside that map to "", and "" CLEARS the column. A
+    // value written by any other surface would then be deleted by nothing more
+    // than flipping the Partner Mode switch, which saves the whole section.
+    partner_search_role: dancer.partner_search_role || '',
+    partner_search_level: dancer.partner_search_level || [],
+    partner_practice_goals: dancer.partner_practice_goals || [],
+    partner_details: parsePartnerDetails(dancer.partner_details as PartnerDetailsValue),
+    favorite_styles: dancer.favorite_styles || [],
+    looking_for_partner: dancer.looking_for_partner || false,
+    // The WRITABLE column, not the MIRROR. `photo_url` is maintained by the
+    // function from avatar_url, and this screen additionally stores it as the
+    // getPhotoUrl display value -- so seeding the form from it round-trips a
+    // derived, possibly stale value back into the authoritative column on the
+    // next identity save.
+    //
+    // An earlier version of this comment said getPhotoUrl rewrites non-http
+    // values onto a hardcoded `events` bucket. It does not: it unwraps arrays and
+    // JSON-array strings and otherwise returns the string unchanged (lib/utils).
+    // The change is still right; the reason recorded here was not.
+    photo_url: dancer.avatar_url || '',
+  });
+
+  /**
+   * Hydrates from the row WITHOUT discarding partner edits that are still in
+   * flight. Hydrating replaces editForm wholesale, and a debounced save holding
+   * the user's latest blurb has not landed yet -- so `profile` would hand back
+   * the older text, the timer would save the newer one, and the next partner
+   * save would build from the reverted form and write the old text back over it.
+   * The pending form was itself built from a hydrated editForm, so its partner
+   * fields are the newer of the two by construction.
+   */
+  const hydrateEditForm = (dancer: DancerProfile, pending: EditFormData | null) => {
+    const hydrated = buildEditForm(dancer);
+    applyEditForm(
+      pending
+        ? {
+            ...hydrated,
+            looking_for_partner: pending.looking_for_partner,
+            partner_search_role: pending.partner_search_role,
+            partner_search_level: pending.partner_search_level,
+            partner_practice_goals: pending.partner_practice_goals,
+            partner_details: pending.partner_details,
+          }
+        : hydrated
+    );
+  };
+
+  /**
+   * Repaint from the row the function RETURNED, not from a locally assembled
+   * guess. The guess is what drifts: it used to write `city`, `city_id`,
+   * `dancing_start_date` and `partner_role` into local state, none of them
+   * columns, so the city label under the avatar stayed stale after every save.
+   */
+  const applySavedProfile = (saved: Record<string, unknown>, cities?: { name: string } | null) => {
+    const normalized = normalizeDancerRecord(saved) as unknown as DancerProfile;
+    setProfile((prev) =>
+      prev
+        ? {
+            ...normalized,
+            // `undefined` means "the caller did not resolve a city", which is not
+            // the same as "the city was removed".
+            cities: cities === undefined ? prev.cities : cities,
+            photo_url: getPhotoUrl(normalized.photo_url) || '',
+          }
+        : prev
+    );
   };
 
   const openEditor = (section: EditorSection) => {
     if (!profile) return;
-    hydrateEditForm(profile);
+    // This is the one place that throws editForm away, so a debounced partner
+    // save has to be sent before it goes -- and carried, because it will not
+    // have landed in `profile` by the time we read it.
+    hydrateEditForm(profile, flushPendingPartnerAutosave());
     setNewFavoriteSong('');
     setNewAchievement('');
     if (section === 'partner') {
@@ -423,65 +488,134 @@ export const DancerDashboard = () => {
     const styles = editForm.favorite_styles.includes(style)
       ? editForm.favorite_styles.filter((item) => item !== style)
       : [...editForm.favorite_styles, style];
-    setEditForm((prev) => ({ ...prev, favorite_styles: styles }));
+    applyEditForm((prev) => ({ ...prev, favorite_styles: styles }));
   };
 
-  const persistPartnerAutosave = async (
+  /**
+   * Drops any pending debounced save and hands it back. EVERY immediate save
+   * calls this: the pending form is built from the same editForm, so the
+   * immediate payload already carries it -- while letting the older timer fire
+   * afterwards would write a form captured BEFORE the toggle, silently reverting
+   * it in the database while the UI keeps showing the new value.
+   */
+  const cancelPendingPartnerAutosave = (): EditFormData | null => {
+    if (partnerDebounceRef.current) {
+      clearTimeout(partnerDebounceRef.current);
+      partnerDebounceRef.current = null;
+    }
+    const pending = pendingPartnerFormRef.current;
+    pendingPartnerFormRef.current = null;
+    return pending;
+  };
+
+  /**
+   * Deliberately closes over NO render state. Every caller has already checked
+   * that a profile is loaded, and the unmount flush below runs the FIRST render's
+   * copy of this function -- a `profile` closure would have pinned that copy to
+   * null and made the flush a silent no-op.
+   */
+  const persistPartnerAutosave = (
     nextForm: EditFormData,
-    options?: { toastTitle?: string; toastDescription?: string; showErrorToast?: boolean }
+    options?: { toastTitle?: string; toastDescription?: string; onError?: () => void }
   ) => {
-    if (!profile) return;
+    cancelPendingPartnerAutosave();
+    const ticket = (partnerSaveSeqRef.current += 1);
 
-    const canonicalPartnerSearchRole = normalizePartnerRole(nextForm.partner_search_role);
-    const serializedPartnerDetails = serializePartnerDetails(nextForm.partner_details) as unknown as Json | null;
-
-    const payload = {
-      looking_for_partner: nextForm.looking_for_partner,
-      partner_search_role: canonicalPartnerSearchRole || null,
-      partner_search_level: nextForm.partner_search_level.length ? nextForm.partner_search_level : null,
-      partner_practice_goals: nextForm.partner_practice_goals.length ? nextForm.partner_practice_goals : null,
-      partner_details: serializedPartnerDetails,
+    const run = async () => {
+      try {
+        const saved = await saveMyDancerProfile(buildDashboardSectionPayload('partner', nextForm));
+        // A response a later save has already superseded must not repaint anything.
+        if (ticket !== partnerSaveSeqRef.current) return;
+        applySavedProfile(saved);
+        // Not after unmount: the flush below deliberately completes its write on
+        // the way out, and its toast would otherwise land on whatever page the
+        // user navigated to, with no context and nothing to act on.
+        if (options?.toastTitle && isMountedRef.current) {
+          toast({ title: options.toastTitle, description: options.toastDescription });
+        }
+      } catch (error: any) {
+        // Was swallowed unless the caller opted in, so a failing autosave looked
+        // exactly like a successful one -- the failure mode this arc exists to end.
+        captureException(error, { context: 'DancerDashboard.persistPartnerAutosave' });
+        // The success arm checks the ticket and this one did not, so a stale
+        // failure rolled back state a LATER save had already committed: toggle on
+        // during a blip, tap a badge, and run 1's onError closed the editor and
+        // set looking_for_partner false while run 2's success repainted it true --
+        // leaving an error toast for a write the database accepted.
+        if (ticket !== partnerSaveSeqRef.current || !isMountedRef.current) return;
+        toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
+        options?.onError?.();
+      }
     };
 
-    try {
-      const { error } = await supabase.from('dancer_profiles').update(payload).eq('id', profile.id);
-      if (error) throw error;
-
-      setProfile((prev) => (prev ? { ...prev, ...payload } : prev));
-      if (options?.toastTitle) {
-        toast({ title: options.toastTitle, description: options.toastDescription });
-      }
-    } catch (error: any) {
-      if (options?.showErrorToast) {
-        toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
-      }
-    }
+    // SERIALISED, one save at a time. The ticket above orders the REPAINTS, not
+    // the writes: two badge taps 100ms apart issue overlapping POSTs, HTTP/2
+    // guarantees no ordering, and if the first UPDATE commits last the sidecar
+    // keeps the older value while the ticket makes the screen confidently show
+    // the newer one. Chaining on both settlement paths so one failure does not
+    // wedge every later save.
+    partnerSaveChainRef.current = partnerSaveChainRef.current.then(run, run);
+    return partnerSaveChainRef.current;
   };
 
+  const schedulePartnerAutosave = (nextForm: EditFormData) => {
+    cancelPendingPartnerAutosave();
+    pendingPartnerFormRef.current = nextForm;
+    partnerDebounceRef.current = setTimeout(() => {
+      partnerDebounceRef.current = null;
+      const pending = pendingPartnerFormRef.current;
+      pendingPartnerFormRef.current = null;
+      if (pending) void persistPartnerAutosave(pending);
+    }, PARTNER_AUTOSAVE_DEBOUNCE_MS);
+  };
+
+  /**
+   * Sends a pending debounced save NOW and hands its form back, for the callers
+   * that are about to discard editForm. Returning it matters: the save is async,
+   * so re-hydrating from `profile` in the same tick would still read the row as
+   * it was BEFORE this save lands.
+   */
+  const flushPendingPartnerAutosave = (): EditFormData | null => {
+    const pending = cancelPendingPartnerAutosave();
+    if (pending) void persistPartnerAutosave(pending);
+    return pending;
+  };
+
+  // Leaving the page mid-sentence must not discard the sentence.
+  useEffect(
+    () => () => {
+      // Flush FIRST, then mark unmounted: the write still goes, its UI does not.
+      void flushPendingPartnerAutosave();
+      isMountedRef.current = false;
+    },
+    []
+  );
+
+  // The save used to sit INSIDE the setEditForm updater, which React double-runs
+  // in development -- two SECURITY DEFINER writes per tap.
+  //
+  // Both handlers used to guard the save on `isInlinePartnerEditorOpen`, which
+  // is necessarily TRUE wherever their badges render: a reader had to prove the
+  // guard vacuous before concluding these behave like the role badge and the
+  // textarea beside them, which save unconditionally.
   const togglePartnerSearchLevel = (level: string) => {
-    setEditForm((prev) => {
-      const levels = prev.partner_search_level.includes(level)
+    const next = applyEditForm((prev) => ({
+      ...prev,
+      partner_search_level: prev.partner_search_level.includes(level)
         ? prev.partner_search_level.filter((item) => item !== level)
-        : [...prev.partner_search_level, level];
-      const next = { ...prev, partner_search_level: levels };
-      if (isInlinePartnerEditorOpen) {
-        void persistPartnerAutosave(next);
-      }
-      return next;
-    });
+        : [...prev.partner_search_level, level],
+    }));
+    void persistPartnerAutosave(next);
   };
 
   const togglePartnerPracticeGoal = (goal: string) => {
-    setEditForm((prev) => {
-      const goals = prev.partner_practice_goals.includes(goal)
+    const next = applyEditForm((prev) => ({
+      ...prev,
+      partner_practice_goals: prev.partner_practice_goals.includes(goal)
         ? prev.partner_practice_goals.filter((item) => item !== goal)
-        : [...prev.partner_practice_goals, goal];
-      const next = { ...prev, partner_practice_goals: goals };
-      if (isInlinePartnerEditorOpen) {
-        void persistPartnerAutosave(next);
-      }
-      return next;
-    });
+        : [...prev.partner_practice_goals, goal],
+    }));
+    void persistPartnerAutosave(next);
   };
 
   const addArrayItem = (key: 'favorite_songs' | 'achievements', rawValue: string, reset: () => void) => {
@@ -491,12 +625,12 @@ export const DancerDashboard = () => {
       reset();
       return;
     }
-    setEditForm((prev) => ({ ...prev, [key]: [...prev[key], value] }));
+    applyEditForm((prev) => ({ ...prev, [key]: [...prev[key], value] }));
     reset();
   };
 
   const removeArrayItem = (key: 'favorite_songs' | 'achievements', index: number) => {
-    setEditForm((prev) => ({
+    applyEditForm((prev) => ({
       ...prev,
       [key]: prev[key].filter((_, currentIndex) => currentIndex !== index),
     }));
@@ -505,26 +639,32 @@ export const DancerDashboard = () => {
   const handlePartnerTileToggle = () => {
     if (!profile) return;
 
-    if (profile.looking_for_partner) {
-      const nextForm = { ...editForm, looking_for_partner: false };
-      setEditForm(nextForm);
-      setProfile((prev) => (prev ? { ...prev, looking_for_partner: false } : prev));
-      setIsInlinePartnerEditorOpen(false);
-      void persistPartnerAutosave(nextForm, {
-        toastTitle: 'Partner search paused',
-        showErrorToast: true,
-      });
-      return;
-    }
+    // This switch sits OUTSIDE the editor, so editForm may never have been
+    // hydrated -- and the save it triggers sends the whole partner section.
+    // Rebuild from the loaded row unless the editor is already open, in which
+    // case editForm holds live edits that the profile row does not have yet.
+    const baseForm = isInlinePartnerEditorOpen ? editFormRef.current : buildEditForm(profile);
+    const previousLookingForPartner = Boolean(profile.looking_for_partner);
+    const nextLookingForPartner = !previousLookingForPartner;
+    const nextForm = { ...baseForm, looking_for_partner: nextLookingForPartner };
 
-    const nextForm = { ...editForm, looking_for_partner: true };
-    setEditForm(nextForm);
-    setProfile((prev) => (prev ? { ...prev, looking_for_partner: true } : prev));
-    setIsInlinePartnerEditorOpen(true);
+    applyEditForm(nextForm);
+    setProfile((prev) => (prev ? { ...prev, looking_for_partner: nextLookingForPartner } : prev));
+    setIsInlinePartnerEditorOpen(nextLookingForPartner);
     void persistPartnerAutosave(nextForm, {
-      toastTitle: 'Partner search enabled',
-      toastDescription: 'Complete role and preferred levels to be fully active.',
-      showErrorToast: true,
+      toastTitle: nextLookingForPartner ? 'Partner search enabled' : 'Partner search paused',
+      toastDescription: nextLookingForPartner
+        ? 'Complete role and preferred levels to be fully active.'
+        : undefined,
+      // The switch and the inline editor render optimistically. Without this the
+      // error toast fired and the UI kept the new state anyway, so the switch sat
+      // ON over a row that still said false, every later badge tap saved against
+      // a state the server never accepted, and a reload silently undid all of it.
+      onError: () => {
+        setProfile((prev) => (prev ? { ...prev, looking_for_partner: previousLookingForPartner } : prev));
+        applyEditForm((prev) => ({ ...prev, looking_for_partner: previousLookingForPartner }));
+        setIsInlinePartnerEditorOpen(previousLookingForPartner);
+      },
     });
   };
 
@@ -726,14 +866,10 @@ export const DancerDashboard = () => {
 
     setIsSaving(true);
     try {
-      const trimmedFirstName = editForm.first_name.trim();
-      const trimmedSurname = editForm.surname.trim();
-      const canonicalPartnerRole = normalizePartnerRole(editForm.partner_role);
-      const canonicalPartnerSearchRole = normalizePartnerRole(editForm.partner_search_role);
-      const serializedPartnerDetails = serializePartnerDetails(editForm.partner_details) as unknown as Json | null;
-
-      let payload: Record<string, unknown> = {};
-      let nextLocalProfile: DancerProfile = { ...profile };
+      let cityId: string | undefined;
+      // `undefined` means "this save did not resolve a city", which applySavedProfile
+      // reads as "keep the one already on screen".
+      let savedCity: { name: string } | undefined;
 
       if (activeEditor === 'identity') {
         const city = normalizeRequiredCity(editForm.city);
@@ -753,90 +889,27 @@ export const DancerDashboard = () => {
           return;
         }
 
-        payload = {
-          first_name: trimmedFirstName,
-          surname: trimmedSurname || null,
-          city_id: canonicalCity.cityId,
-          dancing_start_date: editForm.dancing_start_date || null,
-          partner_role: canonicalPartnerRole || null,
-          photo_url: editForm.photo_url || null,
-        };
-
-        nextLocalProfile = {
-          ...nextLocalProfile,
-          first_name: trimmedFirstName,
-          surname: trimmedSurname || null,
-          city: canonicalCity.cityName,
-          city_id: canonicalCity.cityId,
-          dancing_start_date: editForm.dancing_start_date || null,
-          partner_role: canonicalPartnerRole || null,
-          photo_url: editForm.photo_url || null,
-        };
+        cityId = canonicalCity.cityId;
+        savedCity = { name: canonicalCity.cityName };
       }
 
-      if (activeEditor === 'career') {
-        payload = {
-          favorite_styles: editForm.favorite_styles.length ? editForm.favorite_styles : null,
-          favorite_songs: editForm.favorite_songs.length ? editForm.favorite_songs : null,
-          achievements: editForm.achievements.length ? editForm.achievements : null,
-        };
-
-        nextLocalProfile = {
-          ...nextLocalProfile,
-          favorite_styles: editForm.favorite_styles,
-          favorite_songs: editForm.favorite_songs,
-          achievements: editForm.achievements,
-        };
-      }
-
-      if (activeEditor === 'partner') {
-        payload = {
-          looking_for_partner: editForm.looking_for_partner,
-          partner_search_role: canonicalPartnerSearchRole || null,
-          partner_search_level: editForm.partner_search_level.length ? editForm.partner_search_level : null,
-          partner_practice_goals: editForm.partner_practice_goals.length ? editForm.partner_practice_goals : null,
-          partner_details: serializedPartnerDetails,
-        };
-
-        nextLocalProfile = {
-          ...nextLocalProfile,
-          looking_for_partner: editForm.looking_for_partner,
-          partner_search_role: canonicalPartnerSearchRole || null,
-          partner_search_level: editForm.partner_search_level,
-          partner_practice_goals: editForm.partner_practice_goals,
-          partner_details: serializedPartnerDetails,
-        };
-      }
-
-      if (activeEditor === 'social') {
-        const normalizedInstagram = normalizeSocialUrl('instagram', editForm.instagram);
-        const normalizedFacebook = normalizeSocialUrl('facebook', editForm.facebook);
-        const normalizedWebsite = normalizeSocialUrl('website', editForm.website);
-
-        payload = {
-          instagram: normalizedInstagram || null,
-          facebook: normalizedFacebook || null,
-          whatsapp: editForm.whatsapp || null,
-          website: normalizedWebsite || null,
-        };
-
-        nextLocalProfile = {
-          ...nextLocalProfile,
-          instagram: normalizedInstagram || null,
-          facebook: normalizedFacebook || null,
-          whatsapp: editForm.whatsapp || null,
-          website: normalizedWebsite || null,
-        };
-      }
-
-      const { error } = await supabase.from('dancer_profiles').update(payload).eq('id', profile.id);
-      if (error) throw error;
+      // The direct UPDATE this replaces could not have succeeded even with the
+      // grant: its identity payload set `city_id`, `dancing_start_date`,
+      // `partner_role` and `photo_url`, and only the last of those exists -- as a
+      // MIRROR the function maintains, never a column a client should write.
+      // There is no `partner` arm here on purpose: openEditor routes that section
+      // to the inline editor and never sets activeEditor, so the branch that used
+      // to sit here was unreachable, and a second unreachable write path is
+      // exactly where the next silent divergence would have grown.
+      const saved = await saveMyDancerProfile(
+        buildDashboardSectionPayload(activeEditor, editForm, { cityId })
+      );
 
       if (activeEditor === 'identity') {
         const { error: metadataError } = await supabase.auth.updateUser({
           data: {
-            first_name: trimmedFirstName,
-            surname: trimmedSurname || null,
+            first_name: editForm.first_name.trim(),
+            surname: editForm.surname.trim() || null,
           },
         });
 
@@ -845,12 +918,11 @@ export const DancerDashboard = () => {
         }
       }
 
-      setProfile(nextLocalProfile);
-      if (activeEditor !== 'partner') {
-        setActiveEditor(null);
-      }
+      applySavedProfile(saved, savedCity);
+      setActiveEditor(null);
       toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
     } catch (error: any) {
+      captureException(error, { context: 'DancerDashboard.saveEditor' });
       toast({ title: 'Error saving profile', description: error.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
@@ -928,13 +1000,13 @@ export const DancerDashboard = () => {
       key: 'engagement',
       title: 'Partner Mode',
       subtitle: profile?.looking_for_partner
-        ? (normalizePartnerRole(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'Active' : 'Needs setup')
+        ? (dancerRoleFromStored(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'Active' : 'Needs setup')
         : 'Paused',
       preview: profile?.partner_search_role
-        ? `${normalizePartnerRole(profile.partner_search_role)} • ${(profile.partner_search_level || []).slice(0, 2).join(', ') || 'All levels'}`
+        ? `${dancerRoleFromStored(profile.partner_search_role)} • ${(profile.partner_search_level || []).slice(0, 2).join(', ') || 'All levels'}`
         : 'Set role, levels, and goals',
       actionLabel: 'Open editor',
-      status: profile?.looking_for_partner && normalizePartnerRole(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'live' : 'attention',
+      status: profile?.looking_for_partner && dancerRoleFromStored(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'live' : 'attention',
       icon: Users,
       sizeClass: 'col-span-12 lg:col-span-8 lg:row-span-1',
       onAction: () => openEditor('partner'),
@@ -1130,11 +1202,9 @@ export const DancerDashboard = () => {
                                   variant={editForm.partner_search_role === role ? 'default' : 'outline'}
                                   className="cursor-pointer"
                                   onClick={() => {
-                                    setEditForm((prev) => {
-                                      const next = { ...prev, partner_search_role: role };
-                                      void persistPartnerAutosave(next);
-                                      return next;
-                                    });
+                                    void persistPartnerAutosave(
+                                      applyEditForm((prev) => ({ ...prev, partner_search_role: role }))
+                                    );
                                   }}
                                 >
                                   {role}
@@ -1181,11 +1251,9 @@ export const DancerDashboard = () => {
                               value={editForm.partner_details}
                               onChange={(event) => {
                                 const value = event.target.value;
-                                setEditForm((prev) => {
-                                  const next = { ...prev, partner_details: value };
-                                  void persistPartnerAutosave(next);
-                                  return next;
-                                });
+                                schedulePartnerAutosave(
+                                  applyEditForm((prev) => ({ ...prev, partner_details: value }))
+                                );
                               }}
                               placeholder="Availability, preferred practice rhythm, or expectations..."
                               className="bg-slate-900/80 border-slate-700"
@@ -1427,32 +1495,32 @@ export const DancerDashboard = () => {
               <Input
                 placeholder="First name"
                 value={editForm.first_name}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, first_name: event.target.value }))}
+                onChange={(event) => applyEditForm((prev) => ({ ...prev, first_name: event.target.value }))}
                 className="bg-slate-900/80 border-slate-700"
               />
               <Input
                 placeholder="Surname"
                 value={editForm.surname}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, surname: event.target.value }))}
+                onChange={(event) => applyEditForm((prev) => ({ ...prev, surname: event.target.value }))}
                 className="bg-slate-900/80 border-slate-700"
               />
               <CityPicker
                 value={editForm.city}
-                onChange={(city) => setEditForm((prev) => ({ ...prev, city }))}
+                onChange={(city) => applyEditForm((prev) => ({ ...prev, city }))}
                 placeholder="Select city..."
                 className="bg-slate-900/80 border-slate-700"
               />
               <Input
                 placeholder="Photo URL"
                 value={editForm.photo_url}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, photo_url: event.target.value }))}
+                onChange={(event) => applyEditForm((prev) => ({ ...prev, photo_url: event.target.value }))}
                 className="bg-slate-900/80 border-slate-700"
               />
               <div className="space-y-1">
                 <p className="text-xs text-slate-400">Started dancing</p>
                 <ExperiencePicker
                   value={editForm.dancing_start_date}
-                  onChange={(date) => setEditForm((prev) => ({ ...prev, dancing_start_date: date }))}
+                  onChange={(date) => applyEditForm((prev) => ({ ...prev, dancing_start_date: date }))}
                   showLabel={false}
                 />
               </div>
@@ -1464,7 +1532,7 @@ export const DancerDashboard = () => {
                       key={role}
                       variant={editForm.partner_role === role ? 'default' : 'outline'}
                       className="cursor-pointer"
-                      onClick={() => setEditForm((prev) => ({ ...prev, partner_role: role }))}
+                      onClick={() => applyEditForm((prev) => ({ ...prev, partner_role: role }))}
                     >
                       {role}
                     </Badge>
@@ -1548,7 +1616,7 @@ export const DancerDashboard = () => {
                 <Input
                   placeholder="@username"
                   value={editForm.instagram}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, instagram: event.target.value }))}
+                  onChange={(event) => applyEditForm((prev) => ({ ...prev, instagram: event.target.value }))}
                   className="bg-slate-900/80 border-slate-700"
                 />
               </div>
@@ -1557,20 +1625,20 @@ export const DancerDashboard = () => {
                 <Input
                   placeholder="facebook.com/username"
                   value={editForm.facebook}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, facebook: event.target.value }))}
+                  onChange={(event) => applyEditForm((prev) => ({ ...prev, facebook: event.target.value }))}
                   className="bg-slate-900/80 border-slate-700"
                 />
               </div>
               <Input
                 placeholder="+44 7XXX XXX XXX"
                 value={editForm.whatsapp}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
+                onChange={(event) => applyEditForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
                 className="bg-slate-900/80 border-slate-700"
               />
               <Input
                 placeholder="https://your-site.com"
                 value={editForm.website}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, website: event.target.value }))}
+                onChange={(event) => applyEditForm((prev) => ({ ...prev, website: event.target.value }))}
                 className="bg-slate-900/80 border-slate-700"
               />
             </div>
