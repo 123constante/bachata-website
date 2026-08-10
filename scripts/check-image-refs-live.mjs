@@ -49,13 +49,26 @@
  *         node scripts/check-image-refs-live.mjs --self-test   (no DB, no network)
  * CI:     .github/workflows/db-contract-check.yml, check #65.
  *
+ * UNMEASURED IS TOLERATED IN SMALL DOSES. Failing on a single transient 503, or
+ * on a 429 this sweep provoked itself, reds an unrelated PR whose only available
+ * fix is "re-run CI" -- the habit that teaches people to stop reading reds. Up to
+ * max(5, 2% of the sweep) unmeasured refs therefore pass with a NOTE naming them;
+ * beyond that it is systemic and fails. The NOTE prints on every such run, because
+ * a tolerance that reports nothing is indistinguishable from a check that quietly
+ * stopped looking.
+ *
  * Exit: 0 pass, 1 contract violated (dead refs, malformed refs, a shrunken or
  *       empty inventory, a missing RPC), 2 the check could not run or could not
- *       measure (bad creds, unreachable DB, stalled CDN).
+ *       measure (bad creds, unreachable DB, a systemic CDN stall).
  */
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { createClient } from '@supabase/supabase-js';
+// @supabase/supabase-js is imported DYNAMICALLY inside main(), not statically: a
+// static import throws at MODULE LOAD, before any handler exists, so a broken or
+// missing dependency would surface as an uncaught exception and exit 1 -- which
+// this file's header defines as "contract violated", sending the operator to
+// edit live rows over a bad node_modules. Same reasoning as
+// check-festival-detail-span.mjs.
 
 const RPC_TIMEOUT_MS = 20_000;
 const REQ_TIMEOUT_MS = 10_000;
@@ -162,13 +175,62 @@ export function inventoryVerdict(rowCount, minRows) {
   return 'ok';
 }
 
-// dead/malformed are contract violations (1); anything we merely failed to
-// measure is infrastructure (2). Violations win so a real dead ref is never
-// downgraded by a CDN wobble in the same run.
-export function decideExit({ dead, invalid, indeterminate, unprobed }) {
+// Tolerance for refs we could not measure. An indeterminate URL means the probe
+// could not judge it, NOT that the object is broken -- and failing the whole
+// check on one transient 503, or on a 429 this sweep provoked itself, reds an
+// unrelated PR whose only available fix is "re-run CI". That is the habit that
+// teaches people to stop reading reds. So a small number passes with a warning
+// while anything systemic still fails.
+//
+// Floor AND ratio, because either alone is wrong: a bare ratio fails a small
+// inventory on a single blip (2% of 30 URLs is 0), and a bare floor lets a large
+// one hide 50 stalls under a fixed 5.
+const UNMEASURED_FLOOR = 5;
+const UNMEASURED_RATIO = 0.02;
+
+// One definition, used by BOTH the decision and every message that quotes it.
+// Written out separately in each place, the enforced allowance and the reported
+// one drift apart on the first edit -- a run failing while announcing it was
+// within tolerance.
+export function unmeasuredAllowance(totalUrls, floor, ratio) {
+  return Math.max(floor, Math.ceil(totalUrls * ratio));
+}
+
+export function unmeasuredVerdict(unmeasured, totalUrls, floor, ratio) {
+  if (unmeasured <= 0) return 'none';
+  // Nothing was verified at all: tolerance is meaningless here. Without this,
+  // an inventory at or below the floor (five distinct URLs -- a shared
+  // placeholder cover plus a few city heroes) could go 100% unmeasured during a
+  // total CDN outage, count 5 <= 5, and exit GREEN having probed nothing. That
+  // is rule R1's exact failure mode, and R1's own detector keys on
+  // `process.exit(0)`, which this file does not use -- so the ratchet could not
+  // have caught it either.
+  if (unmeasured >= totalUrls) return 'systemic';
+  return unmeasured > unmeasuredAllowance(totalUrls, floor, ratio) ? 'systemic' : 'tolerated';
+}
+
+// dead/malformed are contract violations (1); a systemic failure to measure is
+// infrastructure (2). Violations win, so a real dead ref is never downgraded by
+// a CDN wobble in the same run.
+export function decideExit({ dead, invalid, unmeasured }) {
   if (dead > 0 || invalid > 0) return 1;
-  if (indeterminate > 0 || unprobed > 0) return 2;
+  // By INCLUSION, never by exclusion. Testing `=== 'systemic'` meant an
+  // unrecognised value -- a typo, a stale caller still passing the old numeric
+  // shape -- fell through to 0, so a run with 200 unprobed URLs would report
+  // green and log nothing. Only the two verdicts known to be clean pass.
+  if (unmeasured !== 'none' && unmeasured !== 'tolerated') return 2;
   return 0;
+}
+
+// Keyed on the error CODE, not on prose. A message regex was wrong in both
+// directions: it missed 42501 (`permission denied for function`) -- the revoked
+// anon EXECUTE this branch exists for -- and matched 42703/42P01, so a dropped
+// column inside the RPC body was reported as the function being missing, sending
+// the operator to re-grant EXECUTE on a function that was already executable.
+// Mirrors isFunctionMissing() in check-festival-detail-span.mjs, whose canary
+// asserts these same codes.
+export function isFunctionMissing(err) {
+  return err?.code === 'PGRST202' || err?.code === '42883';
 }
 
 // ---------------------------------------------------------------------------
@@ -258,15 +320,46 @@ function selfTest() {
   eq('the floor itself is ok', inventoryVerdict(100, 100), 'ok');
   eq('the measured population is ok', inventoryVerdict(321, 100), 'ok');
 
+  // unmeasuredVerdict -- one blip is tolerated, a systemic stall is not.
+  const um = (n, total) => unmeasuredVerdict(n, total, UNMEASURED_FLOOR, UNMEASURED_RATIO);
+  eq('nothing unmeasured is none', um(0, 227), 'none');
+  eq('a single blip is tolerated, not systemic', um(1, 227), 'tolerated');
+  eq('the floor itself is tolerated', um(5, 227), 'tolerated');
+  eq('just past the floor is systemic', um(6, 227), 'systemic');
+  eq('a whole-CDN stall is systemic', um(227, 227), 'systemic');
+  eq('the ratio governs a large inventory', um(20, 5000), 'tolerated');
+  eq('the ratio still fails a large inventory', um(101, 5000), 'systemic');
+  eq('the floor protects a tiny inventory from one blip', um(3, 30), 'tolerated');
+  // Measuring NOTHING must never be tolerated, at any inventory size -- the
+  // green-having-probed-nothing hole.
+  eq('a tiny inventory fully unmeasured is systemic', um(5, 5), 'systemic');
+  eq('a 2-URL inventory fully unmeasured is systemic', um(2, 2), 'systemic');
+  eq('a 1-URL inventory fully unmeasured is systemic', um(1, 1), 'systemic');
+  eq('4 of 5 unmeasured is still tolerated', um(4, 5), 'tolerated');
+
+  // isFunctionMissing -- codes, not prose, and wrong in EITHER direction misleads.
+  eq('PGRST202 is a missing function', isFunctionMissing({ code: 'PGRST202' }), true);
+  eq('42883 is a missing function', isFunctionMissing({ code: '42883' }), true);
+  eq('42501 permission denied is NOT function-missing', isFunctionMissing({ code: '42501' }), false);
+  eq('42703 undefined column is NOT function-missing', isFunctionMissing({ code: '42703' }), false);
+  eq('42P01 undefined table is NOT function-missing', isFunctionMissing({ code: '42P01' }), false);
+  eq('57014 statement timeout is NOT function-missing', isFunctionMissing({ code: '57014' }), false);
+  eq('a codeless error is NOT function-missing', isFunctionMissing({ message: 'boom' }), false);
+  eq('undefined is NOT function-missing', isFunctionMissing(undefined), false);
+
   // decideExit -- the 0/1/2 contract this file's header promises.
-  const ex = (d, i, ind, u) => decideExit({ dead: d, invalid: i, indeterminate: ind, unprobed: u });
-  eq('all clear exits 0', ex(0, 0, 0, 0), 0);
-  eq('a dead ref exits 1', ex(1, 0, 0, 0), 1);
-  eq('a malformed ref exits 1', ex(0, 1, 0, 0), 1);
-  eq('indeterminate alone exits 2, not 1', ex(0, 0, 1, 0), 2);
-  eq('unprobed alone exits 2, not 1', ex(0, 0, 0, 1), 2);
-  eq('a dead ref outranks a stall in the same run', ex(1, 0, 0, 5), 1);
-  eq('a stall does not invent a violation', ex(0, 0, 3, 200), 2);
+  const ex = (d, i, um2) => decideExit({ dead: d, invalid: i, unmeasured: um2 });
+  eq('all clear exits 0', ex(0, 0, 'none'), 0);
+  eq('a dead ref exits 1', ex(1, 0, 'none'), 1);
+  eq('a malformed ref exits 1', ex(0, 1, 'none'), 1);
+  eq('a systemic stall exits 2, not 1', ex(0, 0, 'systemic'), 2);
+  eq('a TOLERATED stall exits 0, not 2', ex(0, 0, 'tolerated'), 0);
+  // Fail CLOSED on anything unrecognised, rather than sliding to green.
+  eq('an unrecognised verdict exits 2, not 0', ex(0, 0, 'SYSTEMIC'), 2);
+  eq('a missing verdict exits 2, not 0', ex(0, 0, undefined), 2);
+  eq('a stale numeric caller shape exits 2, not 0', ex(0, 0, 7), 2);
+  eq('a dead ref outranks a systemic stall in the same run', ex(1, 0, 'systemic'), 1);
+  eq('a dead ref still fails alongside a tolerated stall', ex(1, 0, 'tolerated'), 1);
 
   if (failed > 0) {
     console.error(`\nSELF-TEST FAILED -- ${failed} of ${ran} case(s).`);
@@ -287,6 +380,7 @@ async function main() {
     return 2;
   }
 
+  const { createClient } = await import('@supabase/supabase-js');
   const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
   // The inventory call is bounded too. It was the one unbounded await left in
@@ -306,16 +400,15 @@ async function main() {
     // why it was deleted -- but collapsing both into 2 lost a real distinction:
     // this repo has revoked anon EXECUTE on a public RPC before (admin
     // 20260709080000), and that must read as a contract break, not a blip.
-    const missing = /does not exist|PGRST202|schema cache/i.test(error.message || '');
     if (rpcAbort.signal.aborted) {
       console.error(
         `FAIL: list_public_image_refs_v1 did not answer within ${RPC_TIMEOUT_MS}ms: ${error.message}`,
       );
       return 2;
     }
-    console.error(`FAIL: list_public_image_refs_v1 errored: ${error.message}`);
-    if (missing) {
-      console.error('  The RPC is missing or anon EXECUTE was revoked -- contract broken.');
+    console.error(`FAIL: list_public_image_refs_v1 errored (${error.code ?? 'no code'}): ${error.message}`);
+    if (isFunctionMissing(error)) {
+      console.error('  The RPC is missing from the schema cache -- contract broken.');
       return 1;
     }
     return 2;
@@ -341,8 +434,11 @@ async function main() {
   const byInvalid = new Map();
   for (const r of rows) {
     const ref = `${r.source}#${r.ref_id}`;
-    const target = isProbeableUrl(r.url) ? byUrl : byInvalid;
-    const k = isProbeableUrl(r.url) ? r.url.trim() : String(r.url);
+    // Evaluated ONCE: called twice it parsed every URL twice, and the two
+    // ternaries could be edited out of step with each other.
+    const probeable = isProbeableUrl(r.url);
+    const target = probeable ? byUrl : byInvalid;
+    const k = probeable ? r.url.trim() : String(r.url);
     if (!target.has(k)) target.set(k, []);
     target.get(k).push(ref);
   }
@@ -352,7 +448,7 @@ async function main() {
   const dead = [];
   const indeterminate = [];
   let cursor = 0;
-  let unprobed = 0;
+  const unprobed = [];
   let bodyCancelFailures = 0;
 
   // Whole-sweep cap, on top of the per-request one. The per-request cap bounds
@@ -415,7 +511,10 @@ async function main() {
     while (cursor < urls.length) {
       const u = urls[cursor++];
       const { verdict, label } = await probe(u);
-      if (verdict === 'unprobed') unprobed += 1;
+      // Recorded, not just counted: both operator messages say the unmeasured
+      // refs are "named above", and a bare counter made that a lie -- the
+      // operator was sent to look at URLs nothing had printed.
+      if (verdict === 'unprobed') unprobed.push({ url: u, refs: byUrl.get(u) });
       else if (verdict === 'dead') dead.push({ url: u, status: label, refs: byUrl.get(u) });
       else if (verdict === 'indeterminate')
         indeterminate.push({ url: u, status: label, refs: byUrl.get(u) });
@@ -430,11 +529,18 @@ async function main() {
 }
 
 function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancelFailures, sweepMs }) {
+  const allowed = unmeasuredAllowance(urls.length, UNMEASURED_FLOOR, UNMEASURED_RATIO);
+  const unmeasured = indeterminate.length + unprobed.length;
+  const unmeasuredClass = unmeasuredVerdict(
+    unmeasured,
+    urls.length,
+    UNMEASURED_FLOOR,
+    UNMEASURED_RATIO,
+  );
   const exitCode = decideExit({
     dead: dead.length,
     invalid: invalid.length,
-    indeterminate: indeterminate.length,
-    unprobed,
+    unmeasured: unmeasuredClass,
   });
 
   console.log(
@@ -449,7 +555,10 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
         dead_count: dead.length,
         invalid_count: invalid.length,
         indeterminate_count: indeterminate.length,
-        unprobed_count: unprobed,
+        unprobed_count: unprobed.length,
+        unprobed,
+        unmeasured_class: unmeasuredClass,
+        unmeasured_allowed: allowed,
         body_cancel_failures: bodyCancelFailures,
         // dead and invalid are NOT truncated: the operator works through them one
         // by one, and slicing to 20 made the "each is named above" claim a lie --
@@ -481,12 +590,24 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
     );
   }
 
-  if (indeterminate.length > 0 || unprobed > 0) {
+  if (unmeasuredClass === 'systemic') {
     console.error(
       `\nIMAGE REFS UNMEASURED: ${indeterminate.length} URL(s) answered with a transient status or ` +
-        `transport error after a retry, and ${unprobed} were cut off by the ${SWEEP_BUDGET_MS / 1000}s ` +
-        `sweep budget. That points at CDN reachability, NOT at those rows -- investigate before ` +
-        `touching any data.`,
+        `transport error after a retry, and ${unprobed.length} were cut off by the ${SWEEP_BUDGET_MS / 1000}s ` +
+        `sweep budget -- ${unmeasured} of ${urls.length}, past the tolerance of ` +
+        `${allowed}. That points at CDN ` +
+        `reachability, NOT at those rows -- investigate before touching any data.`,
+    );
+  } else if (unmeasuredClass === 'tolerated') {
+    // Deliberately not a failure: see UNMEASURED_FLOOR. Still printed every time,
+    // because a tolerance that reports nothing is indistinguishable from a check
+    // that stopped looking -- and this line is the only trace that some of the
+    // inventory went unverified on an otherwise green run.
+    console.error(
+      `\nNOTE: ${unmeasured} of ${urls.length} URL(s) could not be measured (${indeterminate.length} ` +
+        `transient, ${unprobed.length} cut off by the sweep budget). Within the tolerance of ` +
+        `${allowed}, so this did not by ` +
+        `itself fail the run -- but those refs were NOT verified. Named above.`,
     );
   }
 
@@ -501,8 +622,15 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
   }
 
   if (exitCode === 0) {
+    // "all reachable" is only true when nothing went unmeasured. On a tolerated
+    // run it directly contradicts the NOTE printed just above, and a green line
+    // that overstates what was checked is the failure this file is about.
+    const verified = urls.length - unmeasured;
     console.log(
-      `\nLive image refs: ok (${urls.length} distinct public URLs, all reachable, ${sweepMs}ms).`,
+      unmeasured === 0
+        ? `\nLive image refs: ok (${urls.length} distinct public URLs, all reachable, ${sweepMs}ms).`
+        : `\nLive image refs: ok (${verified} of ${urls.length} distinct public URLs verified reachable, ` +
+            `${unmeasured} unverified but within tolerance, ${sweepMs}ms).`,
     );
   }
   return exitCode;
@@ -528,6 +656,15 @@ if (IS_CLI) {
   } else if (argv.includes('--self-test')) {
     process.exitCode = selfTest();
   } else {
-    process.exitCode = await main();
+    // Anything that escapes main() is infrastructure, not a contract violation.
+    // Uncaught, Node exits 1, which this file's own contract reads as "dead or
+    // malformed refs" -- the operator would be sent to edit live data over a
+    // malformed VITE_SUPABASE_URL or a broken dependency.
+    try {
+      process.exitCode = await main();
+    } catch (e) {
+      console.error(`FAIL: the check could not run: ${e?.stack || e?.message || e}`);
+      process.exitCode = 2;
+    }
   }
 }
