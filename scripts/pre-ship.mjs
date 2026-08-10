@@ -134,8 +134,15 @@ export const CHECK_SKIPS = {
  * merge-base-vs-tip mistake the eslint ratchet in that PR exists to fix, one
  * constant to the left. A ratchet may only tighten to a number the base ref
  * actually reports.
+ *
+ * 95 -> 91 on 2026-08-10, same offer taken again: #224 (8dbf85c) removed four
+ * more on its way past, and main MEASURED 91 after that merge, before this
+ * constant moved. Measured with the authoritative command -- a bare
+ * "npx tsc --noEmit" reads a different tsconfig and reports 0, the false-green
+ * this file's own header warns about; the ratchet's own
+ * "react-router typegen && tsc -p tsconfig.app.json --noEmit" is what said 91.
  */
-export const TYPECHECK_BASELINE = 95;
+export const TYPECHECK_BASELINE = 91;
 
 const TSC_FILE_ERROR = /^[^\s(].*\([0-9]+,[0-9]+\): error TS[0-9]+/gm;
 const TSC_ANY_ERROR = /error TS[0-9]+/g;
