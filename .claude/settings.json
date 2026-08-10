@@ -178,6 +178,15 @@
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/pre-write-block.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/pre-exec-guard.mjs"
+          }
+        ]
       }
     ],
     "PostToolUse": [
