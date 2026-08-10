@@ -54,9 +54,6 @@
   "scripts/check-guest-entries-contract.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-image-refs-live.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-latest-events.mjs": {
     "R4:no-canary": 1
   },
