@@ -49,6 +49,13 @@
  *         node scripts/check-image-refs-live.mjs --self-test   (no DB, no network)
  * CI:     .github/workflows/db-contract-check.yml, check #65.
  *
+ * A WHOLE DEAD INVENTORY IS A DIAGNOSIS, NOT N DEFECTS. 404 and 403 are
+ * deliberately not transient, so a removed bucket binding or a changed route rule
+ * scores every URL dead. Past 90% of the sweep (and at least 10 URLs) the failure
+ * text says so and points at the edge, instead of instructing an operator to fix
+ * or re-upload hundreds of rows that were never broken. It still exits 1 -- a
+ * whole dead inventory IS a contract violation -- only the remediation changes.
+ *
  * UNMEASURED IS TOLERATED IN SMALL DOSES. Failing on a single transient 503, or
  * on a 429 this sweep provoked itself, reds an unrelated PR whose only available
  * fix is "re-run CI" -- the habit that teaches people to stop reading reds. Up to
@@ -83,12 +90,12 @@ const CONCURRENCY = 10;
 // as check-upcoming-event-cover.mjs's MIN_ROWS.
 const MIN_ROWS = 100;
 
-// How many indeterminate refs to print. Unlike dead refs -- which an operator
+// How many refs to print for a list that is a diagnosis rather than a worklist. Unlike dead refs -- which an operator
 // fixes one by one, so truncating that list would be a lie -- an indeterminate
 // list is not worked through: its entire actionable content is "the CDN is
 // unhappy". A CDN-wide stall would otherwise dump the whole inventory into the
 // CI log.
-const INDETERMINATE_PRINT_CAP = 20;
+const LIST_PRINT_CAP = 20;
 
 function loadEnv() {
   const env = { ...process.env };
@@ -115,7 +122,15 @@ function loadEnv() {
 // Statuses that mean "ask again later", not "this object is gone". A CDN blip, a
 // rate limit triggered by our own CONCURRENCY, or a 5xx during a deploy must
 // never be reported as a dead row on an unrelated PR.
-const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+// 520-527 and 530 are Cloudflare EDGE-generated: origin unreachable, origin
+// handshake failed, origin timed out, invalid SSL cert. Every URL in this
+// inventory is served from a Cloudflare-fronted R2 bucket (see
+// src/lib/imageCdn.ts), so these are the shape a real origin wobble takes here
+// -- and being >= 400 and absent from this set, they scored "dead" and told the
+// operator to re-upload objects that exist.
+const TRANSIENT_STATUSES = new Set([
+  408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530,
+]);
 
 export function statusVerdict(status) {
   if (status < 400) return 'ok';
@@ -168,10 +183,39 @@ export function isProbeableUrl(u) {
   }
 }
 
-// An inventory that shrank is a broken read path, not a clean site.
-export function inventoryVerdict(rowCount, minRows) {
+// PostgREST caps an unbounded select at 1000 rows and says nothing about it, so
+// a full page is indistinguishable from a complete one -- the inventory would
+// silently stop at the cap and the tail would never be probed. Same tripwire as
+// check-upcoming-event-cover.mjs, whose floor discipline this file copied only
+// half of.
+const ROW_CAP = 1000;
+
+// A floor on the DISTINCT URLs actually probed, not just on rows. MIN_ROWS
+// guards the row count, but the probed population is the deduped URL set: if the
+// RPC's url expression regresses to a shared placeholder (a changed COALESCE, a
+// wrong column in a UNION arm) it can return a healthy 321 rows that collapse to
+// ONE distinct URL, and the run would report green having probed one object.
+// That is the same green-having-probed-nothing hole the MIN_ROWS comment claims
+// to close, one level down.
+const MIN_DISTINCT_URLS = 50;
+
+// An inventory that shrank -- or that got silently truncated -- is a broken read
+// path, not a clean site.
+export function inventoryVerdict(rowCount, minRows, rowCap) {
   if (rowCount === 0) return 'empty';
   if (rowCount < minRows) return 'shrunken';
+  // rowCap is REQUIRED. Guarding this on `rowCap !== undefined` made the
+  // truncation tripwire opt-in, so a caller that omitted the argument silently
+  // disabled it and a 1000-row truncated inventory scored 'ok' -- an absent
+  // input read as "no constraint" instead of blocking.
+  if (typeof rowCap !== 'number') return 'unusable';
+  if (rowCount >= rowCap) return 'capped';
+  return 'ok';
+}
+
+export function probeSetVerdict(distinctCount, minDistinct) {
+  if (distinctCount === 0) return 'empty';
+  if (distinctCount < minDistinct) return 'shrunken';
   return 'ok';
 }
 
@@ -222,6 +266,30 @@ export function decideExit({ dead, invalid, unmeasured }) {
   return 0;
 }
 
+// When essentially the WHOLE inventory scores dead, that is a diagnosis about
+// the CDN -- a removed bucket binding, a changed route rule, an expired origin
+// cert -- not N independent broken rows. 404 and 403 are deliberately excluded
+// from TRANSIENT_STATUSES (a genuinely missing object must stay loud), so a
+// bucket-wide failure lands here rather than in the unmeasured bucket, and
+// without this it printed "227 of 227 unreachable -- fix the row (or re-upload
+// the object)". That is the same "go and edit live data over a probe problem"
+// this file guards hardest against, arriving through the dead door.
+//
+// Still exits 1: a whole dead inventory IS a contract violation. Only the
+// remediation text changes, because the remediation is completely different.
+//
+// Ratio AND floor: a 2-URL inventory that is fully dead is far more likely to be
+// two genuinely broken rows than a CDN outage, so a bare ratio would misdiagnose
+// every small inventory.
+const DEAD_SYSTEMIC_RATIO = 0.9;
+const DEAD_SYSTEMIC_FLOOR = 10;
+
+export function deadVerdict(deadCount, totalUrls, floor, ratio) {
+  if (deadCount <= 0) return 'none';
+  if (deadCount >= floor && deadCount / totalUrls >= ratio) return 'systemic';
+  return 'rows';
+}
+
 // Keyed on the error CODE, not on prose. A message regex was wrong in both
 // directions: it missed 42501 (`permission denied for function`) -- the revoked
 // anon EXECUTE this branch exists for -- and matched 42703/42P01, so a dropped
@@ -231,6 +299,15 @@ export function decideExit({ dead, invalid, unmeasured }) {
 // asserts these same codes.
 export function isFunctionMissing(err) {
   return err?.code === 'PGRST202' || err?.code === '42883';
+}
+
+// A revoked grant is NOT "function missing" -- the function is right there --
+// but it IS a broken contract, and the distinction matters because the fixes are
+// different (re-create vs re-grant). Kept separate rather than folded into
+// isFunctionMissing so the sibling's canary semantics still hold, and because
+// the branch below has to print different remediation for each.
+export function isGrantRevoked(err) {
+  return err?.code === '42501';
 }
 
 // ---------------------------------------------------------------------------
@@ -314,11 +391,42 @@ function selfTest() {
   eq('an embedded space is not probeable', isProbeableUrl('https://exa mple.com/a.jpg'), false);
 
   // inventoryVerdict -- zero is not the only broken inventory.
-  eq('an empty inventory is empty', inventoryVerdict(0, 100), 'empty');
-  eq('one row where 321 are expected is shrunken', inventoryVerdict(1, 100), 'shrunken');
-  eq('just under the floor is shrunken', inventoryVerdict(99, 100), 'shrunken');
-  eq('the floor itself is ok', inventoryVerdict(100, 100), 'ok');
-  eq('the measured population is ok', inventoryVerdict(321, 100), 'ok');
+  eq('an empty inventory is empty', inventoryVerdict(0, 100, 1000), 'empty');
+  eq('one row where 321 are expected is shrunken', inventoryVerdict(1, 100, 1000), 'shrunken');
+  eq('just under the floor is shrunken', inventoryVerdict(99, 100, 1000), 'shrunken');
+  eq('the floor itself is ok', inventoryVerdict(100, 100, 1000), 'ok');
+  eq('the measured population is ok', inventoryVerdict(321, 100, 1000), 'ok');
+  // A full PostgREST page is indistinguishable from a complete one.
+  eq('exactly the row cap is capped, not ok', inventoryVerdict(1000, 100, 1000), 'capped');
+  eq('past the row cap is capped', inventoryVerdict(1200, 100, 1000), 'capped');
+  eq('one below the row cap is ok', inventoryVerdict(999, 100, 1000), 'ok');
+  // An absent cap must BLOCK, not silently disable the tripwire.
+  eq('a missing row cap is unusable, not ok', inventoryVerdict(500, 100), 'unusable');
+  eq('a null row cap is unusable, not ok', inventoryVerdict(500, 100, null), 'unusable');
+
+  // probeSetVerdict -- rows can stay healthy while the deduped URL set collapses.
+  eq('no distinct URLs is empty', probeSetVerdict(0, 60), 'empty');
+  eq('321 rows collapsing to 1 URL is shrunken', probeSetVerdict(1, 60), 'shrunken');
+  eq('just under the distinct floor is shrunken', probeSetVerdict(59, 60), 'shrunken');
+  eq('the distinct floor itself is ok', probeSetVerdict(60, 60), 'ok');
+  eq('the measured distinct population is ok', probeSetVerdict(227, 60), 'ok');
+
+  // Cloudflare edge codes: these buckets sit behind Cloudflare, so an origin
+  // wobble arrives as 52x/530 and must not read as a missing object.
+  eq('520 is transient, NOT dead', statusVerdict(520), 'transient');
+  eq('521 origin down is transient', statusVerdict(521), 'transient');
+  eq('522 connection timed out is transient', statusVerdict(522), 'transient');
+  eq('524 origin timeout is transient', statusVerdict(524), 'transient');
+  eq('525 SSL handshake failed is transient', statusVerdict(525), 'transient');
+  eq('530 is transient', statusVerdict(530), 'transient');
+  eq('520 does not fall back to GET', shouldTryGet(520), false);
+  eq('510 is still dead (not a Cloudflare edge code)', statusVerdict(510), 'dead');
+
+  // isGrantRevoked -- a revoked grant is a contract break, not infrastructure.
+  eq('42501 is a revoked grant', isGrantRevoked({ code: '42501' }), true);
+  eq('42883 is NOT a revoked grant', isGrantRevoked({ code: '42883' }), false);
+  eq('57014 is NOT a revoked grant', isGrantRevoked({ code: '57014' }), false);
+  eq('undefined is NOT a revoked grant', isGrantRevoked(undefined), false);
 
   // unmeasuredVerdict -- one blip is tolerated, a systemic stall is not.
   const um = (n, total) => unmeasuredVerdict(n, total, UNMEASURED_FLOOR, UNMEASURED_RATIO);
@@ -336,6 +444,23 @@ function selfTest() {
   eq('a 2-URL inventory fully unmeasured is systemic', um(2, 2), 'systemic');
   eq('a 1-URL inventory fully unmeasured is systemic', um(1, 1), 'systemic');
   eq('4 of 5 unmeasured is still tolerated', um(4, 5), 'tolerated');
+
+  // deadVerdict -- a whole dead inventory is a CDN diagnosis, a few are rows.
+  const dv = (n, total) => deadVerdict(n, total, DEAD_SYSTEMIC_FLOOR, DEAD_SYSTEMIC_RATIO);
+  eq('no dead refs is none', dv(0, 227), 'none');
+  eq('one dead ref is a row, not a CDN outage', dv(1, 227), 'rows');
+  eq('a third of the inventory is still rows', dv(75, 227), 'rows');
+  eq('just under the ratio is still rows', dv(204, 227), 'rows');
+  eq('just over the ratio is systemic', dv(205, 227), 'systemic');
+  // EXACTLY on the ratio. Without this the >= / > boundary is untested: every
+  // other case clears it by a margin, and a mutation to `>` survived the whole
+  // canary until this line existed.
+  eq('exactly at the ratio is systemic', dv(90, 100), 'systemic');
+  eq('one below the exact ratio is rows', dv(89, 100), 'rows');
+  eq('the whole inventory dead is systemic', dv(227, 227), 'systemic');
+  eq('a tiny inventory fully dead is rows, not a CDN outage', dv(3, 3), 'rows');
+  eq('the floor itself, fully dead, is systemic', dv(10, 10), 'systemic');
+  eq('just under the floor, fully dead, is rows', dv(9, 9), 'rows');
 
   // isFunctionMissing -- codes, not prose, and wrong in EITHER direction misleads.
   eq('PGRST202 is a missing function', isFunctionMissing({ code: 'PGRST202' }), true);
@@ -390,6 +515,11 @@ async function main() {
   // cap here exists to close. Same shape as check-festival-detail-span.mjs.
   const rpcAbort = new AbortController();
   const rpcTimer = setTimeout(() => rpcAbort.abort(), RPC_TIMEOUT_MS);
+  // unref'd like sweepTimer: if sb.rpc() THROWS rather than resolving to
+  // { error }, clearTimeout below is skipped and a live 20s timer would hold the
+  // event loop open long after the exit code was set -- the hang this file's
+  // header claims cannot happen.
+  rpcTimer.unref();
   const { data, error } = await sb.rpc('list_public_image_refs_v1').abortSignal(rpcAbort.signal);
   clearTimeout(rpcTimer);
 
@@ -411,17 +541,26 @@ async function main() {
       console.error('  The RPC is missing from the schema cache -- contract broken.');
       return 1;
     }
+    if (isGrantRevoked(error)) {
+      console.error('  anon EXECUTE on the RPC has been revoked -- contract broken. Re-grant it.');
+      return 1;
+    }
     return 2;
   }
 
   const rows = data ?? [];
-  const inventory = inventoryVerdict(rows.length, MIN_ROWS);
+  const inventory = inventoryVerdict(rows.length, MIN_ROWS, ROW_CAP);
   if (inventory !== 'ok') {
-    console.error(
-      inventory === 'empty'
-        ? 'FAIL: list_public_image_refs_v1 returned 0 rows. The site has public images, so this means the RPC or its predicates are broken.'
-        : `FAIL: list_public_image_refs_v1 returned only ${rows.length} rows, below the floor of ${MIN_ROWS} (prod measured 321 on 2026-08-10). The read path has narrowed -- this check would otherwise report green having probed almost nothing.`,
-    );
+    const why = {
+      empty:
+        'FAIL: list_public_image_refs_v1 returned 0 rows. The site has public images, so this means the RPC or its predicates are broken.',
+      shrunken: `FAIL: list_public_image_refs_v1 returned only ${rows.length} rows, below the floor of ${MIN_ROWS} (prod measured 321 on 2026-08-10). The read path has narrowed -- this check would otherwise report green having probed almost nothing.`,
+      capped: `FAIL: list_public_image_refs_v1 returned exactly ${rows.length} rows, at or above the PostgREST page cap of ${ROW_CAP}. A full page is indistinguishable from a complete one, so the tail of the inventory would go unprobed while this reported green. Paginate the RPC (or raise the cap) before trusting this check again.`,
+    }[inventory];
+    // By INCLUSION: an unrecognised verdict must not print the literal string
+    // "undefined" as its entire diagnosis. inventoryVerdict already grew from
+    // two outcomes to three in this diff.
+    console.error(why ?? `FAIL: inventory verdict '${inventory}' is not recognised by this check.`);
     return 1;
   }
 
@@ -445,6 +584,30 @@ async function main() {
 
   const urls = [...byUrl.keys()];
   const invalid = [...byInvalid.entries()].map(([value, refs]) => ({ url: value, refs }));
+
+  // The floor that actually matters: rows can stay healthy while the deduped
+  // probe set collapses. Checked AFTER dedupe, because that is the population
+  // this check really covers.
+  const probeSet = probeSetVerdict(urls.length, MIN_DISTINCT_URLS);
+  if (probeSet !== 'ok') {
+    console.error(
+      `FAIL: ${rows.length} rows deduped to only ${urls.length} distinct probeable URL(s), below the ` +
+        `floor of ${MIN_DISTINCT_URLS} (prod measured 227 on 2026-08-10). The rows look healthy but the ` +
+        `url expression has collapsed -- this check would otherwise report green having probed a handful ` +
+        `of objects.`,
+    );
+    // Name them. This gate returns before report(), and an early return that
+    // prints only counts drops the one thing this check exists to provide: the
+    // table.column#id of every broken ref.
+    console.log(
+      JSON.stringify(
+        { check: 'image_refs_live', status: 'probe_set_collapsed', rows_returned: rows.length, distinct_urls: urls.length, invalid_count: invalid.length, invalid, probeable: urls },
+        null,
+        2,
+      ),
+    );
+    return 1;
+  }
   const dead = [];
   const indeterminate = [];
   let cursor = 0;
@@ -496,6 +659,14 @@ async function main() {
         }
         const verdict = statusVerdict(status);
         if (verdict === 'ok') return { verdict: 'ok' };
+        // Dead is reported on FIRST observation, deliberately. Giving it a second
+        // look was tried and REVERTED: `last` holds whatever the last attempt
+        // said, so a 404 followed by a 503 or a timeout overwrote the dead
+        // verdict with 'indeterminate', which the unmeasured tolerance then
+        // absorbed -- a genuinely deleted object exiting GREEN with a NOTE. That
+        // is the precise 14-hour regression this check exists to catch. The dead
+        // bucket has zero tolerance on purpose; the cost of a transient 404
+        // producing one red is far below the cost of a real one passing.
         if (verdict === 'dead') return { verdict: 'dead', label: String(status) };
         last = { verdict: 'indeterminate', label: `HTTP ${status}` };
       } catch (e) {
@@ -511,7 +682,7 @@ async function main() {
     while (cursor < urls.length) {
       const u = urls[cursor++];
       const { verdict, label } = await probe(u);
-      // Recorded, not just counted: both operator messages say the unmeasured
+      // Recorded, not just counted: the tolerated NOTE says the unmeasured
       // refs are "named above", and a bare counter made that a lie -- the
       // operator was sent to look at URLs nothing had printed.
       if (verdict === 'unprobed') unprobed.push({ url: u, refs: byUrl.get(u) });
@@ -530,7 +701,37 @@ async function main() {
 
 function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancelFailures, sweepMs }) {
   const allowed = unmeasuredAllowance(urls.length, UNMEASURED_FLOOR, UNMEASURED_RATIO);
+  // Ratio against the population actually MEASURED, not the whole inventory. A
+  // real edge incident is mixed -- some 404, some 503, some stalls -- so with
+  // urls.length as the denominator 200 dead of 227 with 27 stalled scores 0.881
+  // and falls back to "fix the row" for 200 rows that were never broken. Against
+  // the 200 that were actually judged it is 1.0, which is the truth.
   const unmeasured = indeterminate.length + unprobed.length;
+  // Denominator is the WHOLE inventory. Using the measured subset (urls minus
+  // unmeasured) was tried and REVERTED: with 217 of 227 stalled, 10 genuinely
+  // dead rows scored 10-of-10 = 'systemic' and the operator was told "do not
+  // start editing or re-uploading rows", leaving 10 real broken images live. The
+  // two error directions are not symmetric -- over-reporting 'rows' costs a
+  // wasted look, under-reporting costs broken images nobody fixes -- so this
+  // leans to 'rows'. The cost is that a genuinely mixed edge incident reads as
+  // per-row, which is the safe way to be wrong, and every ref is still named.
+  const deadClass = deadVerdict(dead.length, urls.length, DEAD_SYSTEMIC_FLOOR, DEAD_SYSTEMIC_RATIO);
+  const deadShown = deadClass === 'systemic' ? dead.slice(0, LIST_PRINT_CAP) : dead;
+  const indeterminateShown = indeterminate.slice(0, LIST_PRINT_CAP);
+  const unprobedShown = unprobed.slice(0, LIST_PRINT_CAP);
+  // "Named above" is only honest when nothing was cut. Any capped list appends
+  // its own count instead of silently claiming completeness.
+  const namedAbove = (shown, all) =>
+    shown.length === all.length ? 'Named above.' : `First ${shown.length} of ${all.length} named above.`;
+  // One clause covering both unmeasured buckets. Emitting namedAbove() per bucket
+  // printed "Named above. Named above." whenever both were complete.
+  const unmeasuredNaming =
+    [
+      indeterminate.length > 0 ? namedAbove(indeterminateShown, indeterminate) : null,
+      unprobed.length > 0 ? namedAbove(unprobedShown, unprobed) : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
   const unmeasuredClass = unmeasuredVerdict(
     unmeasured,
     urls.length,
@@ -553,20 +754,27 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
         sweep_ms: sweepMs,
         sweep_budget_ms: SWEEP_BUDGET_MS,
         dead_count: dead.length,
+        dead_class: deadClass,
         invalid_count: invalid.length,
         indeterminate_count: indeterminate.length,
         unprobed_count: unprobed.length,
-        unprobed,
         unmeasured_class: unmeasuredClass,
         unmeasured_allowed: allowed,
         body_cancel_failures: bodyCancelFailures,
-        // dead and invalid are NOT truncated: the operator works through them one
-        // by one, and slicing to 20 made the "each is named above" claim a lie --
-        // they would fix 20, re-run, and get another red with no sign of a cut.
-        dead,
+        // A list prints IN FULL when it is a worklist and is CAPPED when it is a
+        // diagnosis. Dead rows and malformed refs are worked through one at a
+        // time, so truncating them made the "each is named above" claim a lie.
+        // But a wholly-dead inventory is one CDN fact rather than N rows, and
+        // unmeasured refs are never a worklist, so those are capped -- otherwise
+        // a CDN-wide stall dumps the entire inventory into the CI log through
+        // whichever field happens to hold it. Every cap reports what it cut.
+        dead: deadShown,
+        dead_truncated: dead.length - deadShown.length,
         invalid,
-        indeterminate: indeterminate.slice(0, INDETERMINATE_PRINT_CAP),
-        indeterminate_truncated: Math.max(0, indeterminate.length - INDETERMINATE_PRINT_CAP),
+        indeterminate: indeterminateShown,
+        indeterminate_truncated: indeterminate.length - indeterminateShown.length,
+        unprobed: unprobedShown,
+        unprobed_truncated: unprobed.length - unprobedShown.length,
       },
       null,
       2,
@@ -583,7 +791,15 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
     );
   }
 
-  if (dead.length > 0) {
+  if (deadClass === 'systemic') {
+    console.error(
+      `\nIMAGE REFS FAIL: ${dead.length} of ${urls.length} public image URL(s) are unreachable -- ` +
+        `that is essentially the whole inventory, which points at a CDN or bucket misconfiguration ` +
+        `(a removed binding, a changed route rule, an expired origin cert), NOT at ${dead.length} ` +
+        `independently broken rows. Check the bucket and the edge FIRST; do not start editing or ` +
+        `re-uploading rows. ${namedAbove(deadShown, dead)}`,
+    );
+  } else if (deadClass === 'rows') {
     console.error(
       `\nIMAGE REFS FAIL: ${dead.length} of ${urls.length} public image URL(s) are unreachable. ` +
         `Each is named with its table.column#id above -- fix the row (or re-upload the object), do not weaken this check.`,
@@ -607,7 +823,7 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
       `\nNOTE: ${unmeasured} of ${urls.length} URL(s) could not be measured (${indeterminate.length} ` +
         `transient, ${unprobed.length} cut off by the sweep budget). Within the tolerance of ` +
         `${allowed}, so this did not by ` +
-        `itself fail the run -- but those refs were NOT verified. Named above.`,
+        `itself fail the run -- but those refs were NOT verified. ${unmeasuredNaming}`,
     );
   }
 

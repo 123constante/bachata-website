@@ -1192,14 +1192,19 @@ jobs:
       # thread with a comment trail, not seven issues that train you to close them
       # unread. It auto-closes on the next green nightly.
       #
-      # `cancelled()` is included deliberately. A job killed by its own
-      # timeout-minutes is CANCELLED, not FAILED, so `failure()` alone is false and
-      # the nightly that overran would announce nothing -- the same silence this
-      # step exists to end, arriving through a different door. That matters more
-      # now that the outbound image check runs last and is therefore the step a job
-      # timeout is most likely to cut off.
+      # `cancelled()` is included deliberately, but ONLY for `schedule`. A job
+      # killed by its own timeout-minutes is CANCELLED, not FAILED, so `failure()`
+      # alone is false and the nightly that overran would announce nothing -- the
+      # same silence this step exists to end, arriving through a different door.
+      # That matters more now that the outbound image check runs last and is
+      # therefore the step a job timeout is most likely to cut off.
+      #
+      # Not extended to workflow_dispatch: there, a cancellation is almost always
+      # a human clicking Cancel, and filing "the nightly failed -- open the run and
+      # read which step(s) are red" against a run with no red steps is exactly the
+      # noise that trains people to close these issues unread.
       - name: Announce failure
-        if: (failure() || cancelled()) && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) || (cancelled() && github.event_name == 'schedule')
         uses: actions/github-script@v9
         with:
           script: |
