@@ -95,8 +95,7 @@
     "R4:no-canary": 1
   },
   "scripts/check-og-images.mjs": {
-    "R1:walled-preview": 1,
-    "R4:no-canary": 1
+    "R1:walled-preview": 1
   },
   "scripts/check-organiser-link-contract.mjs": {
     "R4:no-canary": 1
