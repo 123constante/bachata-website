@@ -13,6 +13,7 @@
 //   OG_CHECK_STRICT  '1' => transient network errors fail instead of warn
 //
 // Exit 1 if any sampled page would show no preview.
+// --self-test runs the network-free canary (see selfTest at the bottom).
 
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 
@@ -34,6 +35,11 @@ const MIN_OG_PAGES = 4;
 const BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
+// Scope predicate for "this og:image is served by our /api/og/ pipeline",
+// used by the dead-card rule and the neither-baked-nor-card shape clause.
+// checkPage's isCard stays separate ON PURPOSE: it asserts the narrower
+// /api/og/card?query FORM that the v= and occ= assertions key off.
+const OG_API_RE = /\/api\/og\//i;
 
 // A few URLs per page type so a regression in any fetcher gets caught.
 //
@@ -76,7 +82,13 @@ async function fetchText(url, opts = {}) {
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     const r = await fetch(url, { ...opts, headers: { ...(bypassFor(url) ?? {}), ...(opts.headers ?? {}) }, signal: ctrl.signal });
-    return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
+    if (!r.ok) {
+      // Unconsumed undici bodies keep the event loop alive for minutes
+      // (measured -- see previewProbe.mjs); the !ok arm never reads the text.
+      await r.body?.cancel();
+      return { ok: false, status: r.status, text: '' };
+    }
+    return { ok: true, status: r.status, text: await r.text() };
   } finally {
     clearTimeout(t);
   }
@@ -91,7 +103,13 @@ async function headImage(url) {
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     let bytes = Number(r.headers.get('content-length') || 0);
     if (!bytes && r.ok) bytes = (await r.arrayBuffer()).byteLength;
-    return { ok: r.ok, status: r.status, contentType: ct, bytes };
+    // content-length trusted / !ok: the body is never read -- cancel it, same
+    // event-loop leak note as fetchText.
+    else await r.body?.cancel();
+    // r.redirected / r.url expose WHERE the bytes came from. Without them a
+    // 302 is invisible: the card fallback serves a perfectly valid 200
+    // image/jpeg from production and every size/type assertion passes.
+    return { ok: r.ok, status: r.status, contentType: ct, bytes, redirected: r.redirected, finalUrl: r.url };
   } finally {
     clearTimeout(t);
   }
@@ -146,6 +164,34 @@ function eventHasEnded(html, nowMs = Date.now()) {
   return Number.isFinite(t) && t < nowMs - PAST_EVENT_GRACE_HOURS * 60 * 60 * 1000;
 }
 
+/**
+ * A card og:image must be served INLINE: a crawler that meets a redirect on
+ * og:image shows no preview, and every redirect answering an /api/og/ request
+ * is one of the endpoint's degrade paths (api.og.card.tsx 302s to prod's
+ * static og-image.jpg for a renderer error, a missing/unresolvable id, or a
+ * missing/unfetchable source image). Without this rule the response still
+ * reads 200 image/jpeg under 300KB, because headImage measured the REDIRECT
+ * TARGET, and both og-preview and the daily prod run stay green. The meta-tag
+ * shape assertions in checkPage cannot catch it: the og:image URL still looks
+ * like a healthy card.
+ *
+ * ONE message, naming what was OBSERVED and listing the possible causes
+ * rather than diagnosing one: from response metadata alone a dead renderer,
+ * a stale id and a dead source image are indistinguishable (every degrade
+ * path shares the same 302). SCOPE: /api/og/ URLs only, and only the
+ * redirect-shaped death. A redirected BAKED image (R2 or /og/event/) also
+ * breaks previews, and a renderer death that serves an inline 200 generic
+ * fallback card is invisible here entirely -- both are queued as separate
+ * rules in plans/queued-seo-og-guard-review-findings.md, not silently
+ * claimed. Pure (URL + response metadata in, failure string or null out) so
+ * --self-test proves it without a network.
+ */
+function cardRedirectFailure(ogImage, img) {
+  if (!OG_API_RE.test(ogImage)) return null;
+  if (!img.redirected) return null;
+  return `og card redirected instead of serving inline -- crawlers show no preview: ${ogImage} -> ${img.finalUrl || '(final URL unknown)'} (possible causes: renderer error, stale/unresolvable id, dead source image -- see api.og.card.tsx)`;
+}
+
 async function checkPage(pathOrUrl) {
   const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${BASE}${pathOrUrl}`;
   const failures = [];
@@ -178,27 +224,39 @@ async function checkPage(pathOrUrl) {
     if (/[?&]occurrenceId=/i.test(url) && isCard && !/[?&]occ=/.test(ogImage)) {
       failures.push(`occurrence URL but og:image card drops occ=: ${ogImage}`);
     }
-    if (!isCard && !isBaked && !/\/api\/og\//i.test(ogImage)) {
+    if (!isCard && !isBaked && !OG_API_RE.test(ogImage)) {
       failures.push(`event/festival og:image is neither a baked R2 image nor an og card: ${ogImage}`);
     }
   }
 
   try {
     const img = await headImage(ogImage);
+    const deadCard = cardRedirectFailure(ogImage, img);
+    if (deadCard) failures.push(deadCard);
     if (!img.ok) failures.push(`og:image HTTP ${img.status}`);
-    else {
+    else if (!deadCard) {
+      // Skipped after a redirect verdict: these numbers would describe the
+      // FALLBACK asset, not the card, and read as facts about the wrong object.
       if (/webp/.test(img.contentType)) failures.push(`og:image is WebP (${img.contentType}) — WhatsApp won't render`);
       else if (!/jpeg|jpg|png/.test(img.contentType)) failures.push(`og:image unexpected type: ${img.contentType}`);
       if (img.bytes > MAX_BYTES) failures.push(`og:image ${Math.round(img.bytes / 1024)}KB > 300KB`);
     }
   } catch (e) {
-    return { url, soft: true, failures: [`og:image fetch error: ${e.message}`] };
+    // APPEND rather than replace, so failures found before the throw stay
+    // visible in the warn. The page itself stays soft: a transient fetch
+    // error must not decide hard-vs-warn (an early hard return here would
+    // preempt the past-event downgrade below and escalate on a network blip).
+    return { url, soft: true, failures: [...failures, `og:image fetch error: ${e.message}`] };
   }
   // Scope the VERDICT, not the check: a finished event is still fetched and
   // still asserted, but its failures warn instead of redding. Deliberately
   // applied at the end so it downgrades every failure kind uniformly (a 404
   // image on a past page is as harmless as a fallback one) rather than
-  // special-casing the one shape rule that happened to fire first.
+  // special-casing the one shape rule that happened to fire first. That
+  // includes the dead-card verdict: a pipeline death sampled ONLY on past
+  // events warns rather than reds -- known residual, queued rather than
+  // patched with a verdict-class split that round-2 review showed
+  // misclassifies (a stale id and a dead renderer share one response shape).
   if (failures.length > 0 && /\/(event|festival)\//.test(url) && eventHasEnded(html)) {
     return { url, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
   }
@@ -241,7 +299,51 @@ async function main() {
   }
 
   console.log(`\n${hardFailures} failed, ${softFailures} warned, ${urls.length} checked.`);
-  if (hardFailures > 0) process.exit(1);
+  // process.exitCode, not process.exit(1): the bare exit truncates piped
+  // stdout in Linux CI (repo-measured: 904 printed lines became 194), which
+  // would eat exactly the FAIL lines above that name the cause.
+  if (hardFailures > 0) process.exitCode = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Canary (conventions rule R4): proof this guard can fail. Network-free --
+// it exercises the pure dead-card rule in BOTH directions, with cases ON the
+// boundary: the live failure shape (a card 302ing to the static fallback)
+// must fire, while a healthy inline card and a baked image -- whose path
+// contains /og/event/ but not /api/og/ -- must stay silent.
+// ---------------------------------------------------------------------------
+function selfTest() {
+  const PROD = 'https://www.bachatacalendar.co.uk';
+  const STATIC_FALLBACK = `${PROD}/og-image.jpg`;
+  const served = (finalUrl) => ({ redirected: true, finalUrl });
+  const inline = (finalUrl) => ({ redirected: false, finalUrl });
+  const cases = [
+    ['fires: a card 302 to the static fallback, message naming the final URL',
+      (cardRedirectFailure(`${PROD}/api/og/card?kind=event&id=x&v=1`, served(STATIC_FALLBACK)) ?? '').includes(STATIC_FALLBACK)],
+    ['fires: any /api/og/ endpoint, matched case-insensitively',
+      cardRedirectFailure(`${PROD}/API/OG/bake?kind=event&id=x`, served(STATIC_FALLBACK)) !== null],
+    ['fires: a missing final URL reported as unknown, not interpolated as undefined',
+      (cardRedirectFailure(`${PROD}/api/og/card?kind=event&id=x`, { redirected: true, finalUrl: undefined }) ?? '').includes('(final URL unknown)')],
+    ['silent: a healthy card served inline',
+      cardRedirectFailure(`${PROD}/api/og/card?kind=event&id=x&v=1`, inline(`${PROD}/api/og/card?kind=event&id=x&v=1`)) === null],
+    ['silent BY DESIGN: a redirected baked image (/og/event/, not /api/og/) is a queued separate rule',
+      cardRedirectFailure('https://pub-abc.r2.dev/og/event/abc-v3.jpg', served('https://cdn.example/og/event/abc-v3.jpg')) === null],
+    ['silent BY DESIGN: a redirected non-og image is outside this rule (queued widening)',
+      cardRedirectFailure('https://images.example.com/flyer.jpg', served('https://cdn.example.com/flyer.jpg')) === null],
+    ['silent: a baked same-origin /og/event/ path served inline',
+      cardRedirectFailure(`${PROD}/og/event/abc-v3.jpg`, inline(`${PROD}/og/event/abc-v3.jpg`)) === null],
+  ];
+  let failed = 0;
+  for (const [name, ok] of cases) {
+    if (!ok) failed += 1;
+    console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}`);
+  }
+  if (failed > 0) {
+    console.error(`\nFAIL self-test -- ${failed} of ${cases.length} case(s).`);
+    return 1;
+  }
+  console.log(`\nPASS self-test -- ${cases.length} cases, the rule proven in both directions.`);
+  return 0;
 }
 
 // A CRASH is always a hard failure -- the same strict form check-seo.mjs,
@@ -260,4 +362,19 @@ async function main() {
 // reads a crash in node instead of the sitemap failure that caused it. This is
 // rule (1) of the arc-close check-script-conventions.mjs candidate, and
 // pre-ship.mjs already documents the class.
-main().catch((err) => { console.error(err); process.exitCode = 1; });
+// No IS_CLI guard, deliberately: nothing imports this file, and the guard was
+// measured failing OPEN here -- invoked through a junction (mklink /J), the
+// argv[1]-vs-import.meta.url compare mispredicts and the script exits 0
+// having run NOTHING, a vacuous green of the OG guard itself. If a spec ever
+// needs cardRedirectFailure, extract it to scripts/lib/ instead.
+const argv = process.argv.slice(2);
+const KNOWN_FLAGS = ['--self-test'];
+const unknownFlags = argv.filter((a) => !KNOWN_FLAGS.includes(a));
+if (unknownFlags.length > 0) {
+  console.error(`Unknown flag(s): ${unknownFlags.join(', ')}. Known: ${KNOWN_FLAGS.join(', ')}`);
+  process.exitCode = 2;
+} else if (argv.includes('--self-test')) {
+  process.exitCode = selfTest();
+} else {
+  main().catch((err) => { console.error(err); process.exitCode = 1; });
+}

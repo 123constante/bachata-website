@@ -29,6 +29,7 @@
     "lock:self-test": "node scripts/hooks/session-lock.mjs --self-test",
     "check:no-social-word": "node scripts/check-no-social-word.mjs",
     "check:og": "node scripts/check-og-images.mjs",
+    "check:og:self-test": "node scripts/check-og-images.mjs --self-test",
     "check:seo": "node scripts/check-seo.mjs",
     "check:gsc": "node scripts/check-gsc.mjs",
     "check:images": "node scripts/audit-images.mjs",
