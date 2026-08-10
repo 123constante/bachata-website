@@ -306,6 +306,27 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-program-schema-contract.mjs
 
+      - name: Run added-session room contract check
+        # The third room-scoping projection to get a daily counterpart, after
+        # check_occurrence_venue_contract_v1 and the section-rooms arm above.
+        # Admin migration 20260809150000 refuses an added-session room that is
+        # not at the occurrence's effective per-date venue and proved 0 foreign
+        # rows ONCE, at install; two routes can still produce one without the
+        # guard firing (a venue_rooms.venue_id move, a calendar_occurrences
+        # .venue_id write with no P5 override row) and the first symptom is an
+        # admin's save aborting. The RPC asks the guard's own decision owners,
+        # not the stricter bare predicates. Anon-callable; no Docker.
+        #
+        # --self-test first, same as the conventions step: the canary proves the
+        # verdict logic can still fail before its green is trusted.
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-added-session-room-contract.mjs --self-test
+          node scripts/check-added-session-room-contract.mjs
+
       - name: Run program save (Phase 1 v2) idempotency contract check
         if: always()
         env:
