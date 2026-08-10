@@ -27,10 +27,12 @@
 // honest limits on that invariant, so this comment does not overclaim as the
 // previous one did:
 //   - It is NOT enforced on the script side. previewProbe's assertMeasured() is an
-//     opt-in helper, not a structural guarantee -- only check-doc-weight,
-//     check-lighthouse and check-og-images call it; check-seo.mjs consumes
-//     previewProbe yet asserts no measurement. The fail-loud contract is a
-//     convention where invoked, not a repo-wide guarantee.
+//     opt-in helper, not a structural guarantee -- check-doc-weight,
+//     check-lighthouse, check-og-images, check-sourcemap-debugids and check-seo
+//     call it (5); any new deployed-URL check can still skip it. Counting by
+//     grep overcounts: check-bundle-budget defines its OWN local assertMeasured
+//     with a different signature and does not consume this one. The fail-loud
+//     contract is a convention where invoked, not a repo-wide guarantee.
 //   - There is ONE sanctioned case where an UNMEASURED check still goes green: a
 //     positively-proven Deployment Protection wall on a PR preview skips with a
 //     ::warning:: (perf-budget.yml documents this; no code change can open a wall).
