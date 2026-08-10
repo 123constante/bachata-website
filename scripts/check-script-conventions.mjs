@@ -18,7 +18,7 @@
  * The repo had already written both remedies down and then applied them almost
  * nowhere. This script promotes them from convention to contract:
  *   - scripts/lib/previewProbe.mjs :: assertMeasured() -- "a check must not
- *     report success without measuring what it promised" (4 consumers).
+ *     report success without measuring what it promised" (5 consumers).
  *   - scripts/check-plan-hygiene.mjs self-test -- every rule proven in BOTH
  *     directions against tmpdir fixtures (1 consumer).
  *

@@ -38,6 +38,13 @@ jobs:
         with:
           node-version: 22
 
+      # Canary first: prove the guard CAN fail before trusting its green -- a
+      # self-test nobody runs proves nothing. Network-free, and deliberately
+      # given no SEO_CHECK_BASE: module scope demands the bypass secret when
+      # pointed at a preview host, which the canary never needs.
+      - name: Canary (self-test)
+        run: npm run check:seo:self-test
+
       - name: Run SEO guard
         env:
           SEO_CHECK_BASE: https://www.bachatacalendar.co.uk
@@ -59,6 +66,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      # Canary first, same rationale as the production job; no SEO_CHECK_BASE
+      # on purpose.
+      - name: Canary (self-test)
+        run: npm run check:seo:self-test
 
       - name: Resolve preview URL
         id: preview

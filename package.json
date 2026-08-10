@@ -31,6 +31,7 @@
     "check:og": "node scripts/check-og-images.mjs",
     "check:og:self-test": "node scripts/check-og-images.mjs --self-test",
     "check:seo": "node scripts/check-seo.mjs",
+    "check:seo:self-test": "node scripts/check-seo.mjs --self-test",
     "check:gsc": "node scripts/check-gsc.mjs",
     "check:images": "node scripts/audit-images.mjs",
     "check:upcoming-event-cover": "node scripts/check-upcoming-event-cover.mjs",

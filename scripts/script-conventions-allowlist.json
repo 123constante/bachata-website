@@ -186,8 +186,7 @@
     "R4:no-canary": 1
   },
   "scripts/check-seo.mjs": {
-    "R1:walled-preview": 1,
-    "R4:no-canary": 1
+    "R1:walled-preview": 1
   },
   "scripts/check-series-materialisation.mjs": {
     "R4:no-canary": 1
