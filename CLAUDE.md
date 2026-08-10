@@ -361,12 +361,16 @@ Fixtures, both live:
 - Per-occurrence override identity sync (#44)
 - Reverse-orphan occurrence guard (#45)
 - Venue publish-state visibility gate / venue_is_public consistency (#46)
-- Live image references (#47) &mdash; HEAD-checks every image URL reachable from a
+- Live image references (#65) &mdash; HEAD-checks every image URL reachable from a
   public surface via `list_public_image_refs_v1` (admin `20260729120956`). Added
   after a cover override pointed at an R2 object that was never uploaded and an
-  event page served a 404 image for ~14 hours. Unlike the other checks it makes
-  outbound CDN requests. Scoped to live/slugged/published records on purpose: a
-  dead image on an archived row breaks no page and must not red-light CI.
+  event page served a 404 image for ~14 hours. Scoped to live/slugged/published
+  records on purpose: a dead image on an archived row breaks no page and must not
+  red-light CI. It shipped labelled #47, which is the Public-RPC latency budget;
+  renumbered 2026-08-10. Unlike every other check it makes outbound CDN requests,
+  so it runs LAST and is double-bounded &mdash; 10s per request, 120s per sweep &mdash;
+  because the job is `timeout-minutes: 5` and undici would otherwise wait 300s on
+  a stalled edge, killing every check behind it with no named failure.
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 

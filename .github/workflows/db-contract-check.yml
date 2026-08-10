@@ -735,19 +735,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-p5-materialised-canonical.mjs
 
-      # Check #47 -- live image references. HEAD-checks every image URL reachable
-      # from a public surface (list_public_image_refs_v1, admin migration
-      # 20260729120956). Added after a per-occurrence cover override pointed at an
-      # R2 object that was never uploaded and /event/bachata-night served a 404
-      # image for ~14 hours, caught only because Prod Smoke happened to open that
-      # one page. Makes outbound requests to the CDN, unlike the DB-only checks.
-      - name: Run live image-reference check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-image-refs-live.mjs
-
       # 44. Per-occurrence override identity sync (P5 typed columns -> legacy
       #     override_payload), 2026-06-22. calendar_occurrences.override_payload is
       #     the legacy shape the public event-detail read consumes; its identity keys
@@ -1103,7 +1090,7 @@ jobs:
       #     events to warnings and this moves detection to the data layer, where it
       #     fires while the event is still UPCOMING and the organiser can fix it.
       #     Scoped to upcoming on purpose -- a past event's stale preview breaks no
-      #     live journey, the same reasoning #47 applies to archived image refs.
+      #     live journey, the same reasoning #65 applies to archived image refs.
       #     No new RPC: reads the already-anon-callable get_calendar_events_v2.
       #     Window is bounded by PostgREST's 1000-row cap (180d = 735 rows measured
       #     2026-08-03); the script reds rather than silently truncating if the site
@@ -1143,6 +1130,48 @@ jobs:
           node scripts/check-script-conventions.mjs --self-test
           node scripts/check-script-conventions.mjs
 
+      # 65. Live image references (2026-07-29). HEAD-checks every image URL
+      #     reachable from a public surface (list_public_image_refs_v1, admin
+      #     migration 20260729120956). Added after a per-occurrence cover override
+      #     pointed at an R2 object that was never uploaded and
+      #     /event/bachata-night served a 404 image for ~14 hours, caught only
+      #     because Prod Smoke happened to open that one page.
+      #
+      #     NUMBERED 65, NOT 47. It shipped labelled #47, which is the Public-RPC
+      #     latency budget further up -- two different checks answering to one
+      #     number. 62/63/64 were taken in the interim, so 65 is the next free slot.
+      #
+      #     LAST ON PURPOSE, AND BOUNDED FOUR WAYS. This is the ONLY step here
+      #     that makes outbound CDN requests; every other one talks to the DB. The
+      #     job is timeout-minutes: 5 for the whole suite, and undici defaults
+      #     headersTimeout/bodyTimeout to 300s each, so one edge that accepts a
+      #     connection and never answers could burn the entire budget and take
+      #     every check queued behind it down with a bare job timeout and no named
+      #     failure. `if: always()` is no help -- it guards a step FAILING, not the
+      #     job timing out.
+      #
+      #     So: the inventory RPC is capped at 20s, each probe at 10s, the whole
+      #     sweep at 120s, and `timeout-minutes: 3` below is the backstop that
+      #     makes THIS step fail BY NAME if any of those is ever bypassed by a
+      #     future edit. The step timeout is the only one of the four that cannot
+      #     be defeated from inside the script. Running last additionally means a
+      #     stall here cannot starve the DB-only checks.
+      #
+      #     The trade-off of running last is accepted deliberately: if the DB half
+      #     overruns, this is the step the job timeout cancels. That is the right
+      #     way round -- the DB contracts as a body matter more than one image
+      #     sweep, and a cancelled job now announces itself (see the notification
+      #     step's `cancelled()` condition) rather than passing in silence.
+      - name: Run live image-reference check
+        if: always()
+        timeout-minutes: 3
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-image-refs-live.mjs --self-test
+          node scripts/check-image-refs-live.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
@@ -1162,8 +1191,15 @@ jobs:
       # ONE ISSUE, REUSED. A guard that stays red for a week should produce a single
       # thread with a comment trail, not seven issues that train you to close them
       # unread. It auto-closes on the next green nightly.
+      #
+      # `cancelled()` is included deliberately. A job killed by its own
+      # timeout-minutes is CANCELLED, not FAILED, so `failure()` alone is false and
+      # the nightly that overran would announce nothing -- the same silence this
+      # step exists to end, arriving through a different door. That matters more
+      # now that the outbound image check runs last and is therefore the step a job
+      # timeout is most likely to cut off.
       - name: Announce failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: (failure() || cancelled()) && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v9
         with:
           script: |

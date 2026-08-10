@@ -24,7 +24,7 @@
  * fire while the event is still upcoming and the organiser can still fix it.
  *
  * SCOPED TO UPCOMING ON PURPOSE, and that is the whole point of the check: a past
- * event with no cover breaks no live journey (the same reasoning CI check #47
+ * event with no cover breaks no live journey (the same reasoning CI check #65
  * applies to dead image refs on archived rows, and the same reasoning that keeps
  * og-preview green on exactly this row). Redding CI over last May's flyer is the
  * alarm fatigue this arc exists to drain.
