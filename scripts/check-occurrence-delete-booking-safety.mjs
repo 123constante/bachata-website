@@ -457,7 +457,7 @@ async function main() {
 // can lose the `blind FAILS` case, the unknown-status case and the two
 // zero-population cases and still print PASS. Add a case, update this number --
 // that is the point.
-const EXPECTED_CASES = 39;
+const EXPECTED_CASES = 42;
 
 export function selfTest(log = console.log) {
   const cases = [];
@@ -510,22 +510,61 @@ export function selfTest(log = console.log) {
   };
   const blind = { ...clean, status: 'blind', chokepoints_not_deleting: ['_cmd_series_remove_date_p5'] };
 
+  // ASSERT AGAINST THE RENDERED TEXT, NOT out[0]. out[0] is a verbatim JSON echo
+  // of the payload, so "the output mentions <a value the payload contains>" is
+  // satisfied by the echo whether or not the branch rendered anything -- and on
+  // the err side the static remediation prose names arms and functions, which
+  // does the same job. Four cases here were inert for exactly those two reasons,
+  // and EXPECTED_CASES cannot catch it: it counts cases, it cannot tell a case
+  // that must pass from one that measures. The sentinels below appear in no
+  // literal in this file, so only real rendering can produce them.
+  const rendered = (v) => v.out.slice(1).join('\n');
+  const SENT_KNOWN = 'ZZ_SENTINEL_KNOWN_LABEL';
+  const SENT_DORMANT = 'ZZ_SENTINEL_DORMANT_LABEL';
+  const SENT_FN = 'zz_sentinel_delete_path_v1';
+  const SENT_ARM = 'zz_sentinel_arm_added_later';
+
   // --- evaluate(), both directions ---
   add('a clean payload passes', () => evaluate(clean).code, 0);
   add('degraded PASSES (the ruled-open hole must not red the job)', () => evaluate(degraded).code, 0);
-  add('degraded says so loudly rather than reading as ok', () => evaluate(degraded).out.join('\n').includes('DEGRADED'), true);
-  add('degraded names the known hole', () => evaluate(degraded).out.join('\n').includes('replace_or_patch_occurrences'), true);
-  add('degraded labels the dormant path too, and does not name it', () => {
-    const o = evaluate(degraded).out.join('\n');
-    return o.includes('DORMANT_PRUNE_PENDING_RETIREMENT') && !o.includes('calendar_occurrences_prune');
+  add('degraded says so loudly rather than reading as ok', () => rendered(evaluate(degraded)).includes('DEGRADED'), true);
+  // Both halves, or it is not a measurement: the label the payload carries IS
+  // rendered, and a payload carrying none does NOT render one.
+  add('degraded RENDERS the known-hole label it was given', () => rendered(evaluate({ ...degraded, known_unguarded_present: [SENT_KNOWN] })).includes(SENT_KNOWN), true);
+  add('degraded renders no known-hole label when there is none', () => rendered(evaluate({ ...degraded, known_unguarded_present: [] })).includes(SENT_KNOWN), false);
+  add('degraded RENDERS the dormant label it was given', () => rendered(evaluate({ ...degraded, dormant_exemptions_present: [SENT_DORMANT] })).includes(SENT_DORMANT), true);
+  add('degraded renders no dormant label when there is none', () => rendered(evaluate({ ...degraded, dormant_exemptions_present: [] })).includes(SENT_DORMANT), false);
+  // The labels exist so the ANON-CALLABLE RPC does not publish a standing list
+  // of guard-free ways to destroy occurrences. This file runs in private CI, so
+  // its static prose naming replace_or_patch_occurrences is fine and useful --
+  // what would NOT be fine is this file holding a label-to-function lookup,
+  // because then the indirection would be decorative and any future consumer
+  // could resolve it. Measured as: the real function names present in the
+  // rendering do not vary with the labels the payload carries.
+  add('the rendering holds no label-to-function lookup', () => {
+    const REAL = ['replace_or_patch_occurrences', 'calendar_occurrences_prune'];
+    const namesIn = (t) => REAL.filter((n) => t.includes(n)).join(',');
+    const withLabels = rendered(evaluate({
+      ...degraded,
+      known_unguarded_present: [SENT_KNOWN],
+      dormant_exemptions_present: [SENT_DORMANT],
+    }));
+    const withNone = rendered(evaluate({
+      ...degraded,
+      known_unguarded_present: [],
+      dormant_exemptions_present: [],
+    }));
+    return namesIn(withLabels) === namesIn(withNone);
   }, true);
   add('a dormant path is not listed as a red arm', () => failingArms(degraded).length, 0);
   add('the shape failure still shows the payload it rejected', () => evaluate({ ...clean, delete_path_summary: undefined }).out.join('\n').includes('"status"'), true);
   add('a violation FAILS with exit 1', () => evaluate(violation).code, 1);
-  add('the violation names the offending function', () => evaluate(violation).err.join('\n').includes('purge_stale_dates_v1'), true);
-  add('the violation names the arm it came from', () => evaluate(violation).err.join('\n').includes('unruled_delete_paths'), true);
+  add('the violation names the offending function', () => evaluate({ ...violation, unruled_delete_paths: [SENT_FN] }).err.join('\n').includes(SENT_FN), true);
+  // The ARM name is read off the payload KEY, so a sentinel key proves the
+  // reporting is derived rather than matching this file's own prose.
+  add('the violation names the arm it came from', () => evaluate({ ...violation, [SENT_ARM]: ['x'] }).err.join('\n').includes(SENT_ARM), true);
   add('blind FAILS -- an unwatched guard is not a green one', () => evaluate(blind).code, 1);
-  add('blind explains which arm went blind', () => evaluate(blind).err.join('\n').includes('chokepoints_not_deleting'), true);
+  add('blind explains which arm went blind', () => evaluate({ ...blind, chokepoints_not_deleting: [], [SENT_ARM]: ['x'] }).err.join('\n').includes(SENT_ARM), true);
   add('malformed FAILS', () => evaluate({ ...clean, status: 'malformed' }).code, 1);
   add('a NULL payload is a contract violation (1), not a pass', () => evaluate(null).code, 1);
 
