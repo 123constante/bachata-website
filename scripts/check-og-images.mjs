@@ -28,6 +28,9 @@ const STRICT = process.env.OG_CHECK_STRICT === '1';
 // individual entity types legitimately come and go, so this is a "the sitemap
 // clearly worked" floor, not a per-prefix assertion.
 const MIN_OG_PAGES = 4;
+// How many sampled pages must serve a pre-baked R2 object for the baked-key
+// rule (bakedDegradedFailure) to count as having MEASURED anything.
+const MIN_BAKED_PAGES = 2;
 // When pointed at a protected Vercel preview (PR coverage), send the bypass
 // headers; null (no secret) against public prod, where they are not needed.
 // REQUIRED on a *.vercel.app base: with no secret the run is unauthenticated,
@@ -252,15 +255,16 @@ const FALLBACK_STILL_A_REAL_CARD = new Set(['cover-unfetchable']);
  * carries the marker through would be forgiven for the shape of its path).
  *
  * SCOPE, stated because it is narrower than it looks: this only observes
- * entities whose og:image is still the LIVE card. api.og.bake.tsx renders the
- * same degraded fallback through the same helpers, uploads it to R2 under a
- * cover-keyed immutable object name and records status 'ready'; once that has
- * happened resolveOgCardImage prefers the baked URL, /api/og/card is never
- * fetched for that entity, and no marker exists on an R2 object to read. A
- * poisoned bake is therefore invisible here BY CONSTRUCTION -- queued as
- * finding 1f in ~/.claude/plans/queued-seo-og-guard-review-findings.md (NOT a
- * path in this repo -- there is no plans/ directory here), because fixing
- * it means changing what bake persists and re-baking what it already did.
+ * entities whose og:image is still the LIVE card. A header cannot exist on an
+ * R2 object, so once an entity is BAKED this rule sees nothing at all -- and
+ * api.og.bake.tsx used to persist the same degraded fallback under a
+ * cover-keyed immutable name with status 'ready', which made that blindness
+ * permanent for the entity (finding 1f). The bake side is now closed at the
+ * source (bake refuses to persist a card not built from real cover bytes --
+ * app/lib/ogBakePolicy.ts) and observed here by bakedDegradedFailure below,
+ * which reads the object KEY because it is the only marker an R2 URL can
+ * carry. The two rules cover different artefacts and neither subsumes the
+ * other.
  *
  * Pure -- response metadata in, failure string or null out -- so --self-test
  * proves it in both directions without a network.
@@ -270,6 +274,68 @@ function cardFallbackFailure(img) {
   if (!reason) return null;
   if (FALLBACK_STILL_A_REAL_CARD.has(reason)) return null;
   return `og card served a DEGRADED fallback inline (X-OG-Fallback: ${reason}) -- a valid 200 JPEG, but not this entity's card: shares show a generic image (see api.og.card.tsx)`;
+}
+
+// The bake path's artefact is an R2 object, and an object carries no headers.
+// The only thing about it a crawler-visible og:image can tell us is its NAME,
+// so api.og.bake.tsx makes the name load-bearing: it now persists ONLY a card
+// built from fetched cover bytes, keyed <entityId>-<occId|default>-<sha1 of
+// the cover URL, 16 hex>.jpg. A key of any other shape was not built from a
+// cover -- the retired "fallback" tag is the shape that existed, and 5 such
+// objects were live when this rule was written.
+//
+// INCLUSION-SHAPED, like the forgiveness set above and for the same reason:
+// the healthy key is spelled out and everything else fails, so a degrade tag
+// invented after this line is written still reds. The exclusion form (fail
+// keys ending -fallback.jpg) would have gone quiet on the next one.
+//
+// Measured against every og_render row on 2026-08-11 before shipping: 253
+// rows, 248 match this shape, and the 5 that do not are exactly the 5
+// persisted fallback cards. Zero false positives on the live corpus.
+const BAKED_OBJECT_RE = /\/og\/(?:event|festival)\/([^/]+)$/i;
+const UUID_SEG = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+// [.] not an escaped dot, deliberately. Written as `\.jpg` inside this
+// template literal it arrived as `.jpg` -- one backslash eaten in transit
+// through the FUSE mount -- which quietly turned the extension into "any
+// character followed by jpg" and let `<key>Xjpg` pass as healthy. A character
+// class needs no escape and so cannot be silently downgraded by transport.
+const HEALTHY_BAKED_KEY_RE = new RegExp(`^${UUID_SEG}-(?:default|${UUID_SEG})-[0-9a-f]{16}[.]jpg$`, 'i');
+
+/**
+ * A baked OG object whose key is not the shape a real-cover bake produces.
+ *
+ * Pure -- a URL in, a failure string or null out -- so --self-test proves it
+ * without a network, and it runs BEFORE the image fetch so a page whose
+ * og:image will not load still reports this verdict rather than losing it in
+ * the catch.
+ *
+ * WHAT THIS RULE IS, measured rather than assumed (round-2 review, 2026-08-11).
+ * It is a NAMING-INVARIANT TRIPWIRE, not a detector for the 1f poison, and it
+ * has NO reachable true positive against today's data:
+ *   - the retired "fallback" tag was written only when the cover URL was
+ *     ABSENT, so set_og_image_v1 stored cover_hash = NULL for those rows, and
+ *     get_og_image_v1 matches only when the page's (non-null) cover token IS
+ *     NOT DISTINCT FROM cover_hash. Such an object can therefore never be
+ *     selected as a page's og:image. Confirmed live: the one flyer-less active
+ *     event of 67 serves /og-image.jpg.
+ *   - the poisoning that WAS served -- cover present, fetch timed out -- baked
+ *     the branded card under a well-formed cover-keyed name that this rule
+ *     passes. api.og.bake.tsx refusing to persist it is the whole of that
+ *     defence; this rule is not a backstop that makes the refusal optional.
+ * What it does earn: any future bake that writes an unrecognised key shape
+ * reds here, inclusion-shaped, before it can be served to anyone.
+ */
+function isBakedObject(ogImage) {
+  return BAKED_OBJECT_RE.test(String(ogImage).split('#')[0].split('?')[0]);
+}
+
+function bakedDegradedFailure(ogImage) {
+  const path = String(ogImage).split('#')[0].split('?')[0];
+  const m = BAKED_OBJECT_RE.exec(path);
+  if (!m) return null;
+  const key = m[1];
+  if (HEALTHY_BAKED_KEY_RE.test(key)) return null;
+  return `baked og:image object key is not a real-cover bake: "${key}" -- a card built from something other than this entity's cover was persisted to R2 as healthy, and no header can mark it (see app/lib/ogBakePolicy.ts): ${ogImage}`;
 }
 
 async function checkPage(pathOrUrl) {
@@ -299,6 +365,13 @@ async function checkPage(pathOrUrl) {
   // the object key, so it needs no query param.
   if (/\/(event|festival)\//.test(url)) {
     const isCard = /\/api\/og\/card\?/i.test(ogImage);
+    // Deliberately NOT isBakedObject(). The two answer different questions and
+    // both are wanted: this one asks "is this on a host we bake to", loosely,
+    // to decide whether the og:image is one of the three shapes an event page
+    // may legitimately emit; isBakedObject asks "is the last path segment a
+    // bake OBJECT KEY", strictly, to decide a naming verdict and a liveness
+    // count. Merging them would narrow THIS existing gate, which is a
+    // behaviour change to a shipped rule and outside what this PR measured.
     const isBaked = /\.r2\.dev\//i.test(ogImage) || /\/og\/(event|festival)\//i.test(ogImage);
     if (isCard && !/[?&]v=/.test(ogImage)) failures.push(`og:image card missing cover version (v=): ${ogImage}`);
     if (/[?&]occurrenceId=/i.test(url) && isCard && !/[?&]occ=/.test(ogImage)) {
@@ -308,6 +381,20 @@ async function checkPage(pathOrUrl) {
       failures.push(`event/festival og:image is neither a baked R2 image nor an og card: ${ogImage}`);
     }
   }
+
+  // OUTSIDE the try, and before the fetch, on purpose. This rule needs no
+  // network, so running it here means a page whose og:image will not load
+  // still reports a poisoned bake instead of losing the verdict to the catch
+  // below (which downgrades to a soft warn). Not scoped to /event|/festival
+  // pages either: the key shape is OUR artefact, and a URL scope could only
+  // add a blind spot.
+  const bakedDegrade = bakedDegradedFailure(ogImage);
+  if (bakedDegrade) failures.push(bakedDegrade);
+  // Reported so main() can floor it. A rule that returns null for every live
+  // /api/og/card URL contributes nothing on a run where nothing is baked, and
+  // "no failures" would be indistinguishable from "never looked" -- the exact
+  // vacuous green PR #233 added floors to check-seo for.
+  const baked = isBakedObject(ogImage);
 
   try {
     const img = await headImage(ogImage);
@@ -347,7 +434,7 @@ async function checkPage(pathOrUrl) {
     // visible in the warn. The page itself stays soft: a transient fetch
     // error must not decide hard-vs-warn (an early hard return here would
     // preempt the past-event downgrade below and escalate on a network blip).
-    return { url, soft: true, failures: [...failures, `og:image fetch error: ${e.message}`] };
+    return { url, baked, soft: true, failures: [...failures, `og:image fetch error: ${e.message}`] };
   }
   // Scope the VERDICT, not the check: a finished event is still fetched and
   // still asserted, but its failures warn instead of redding. Deliberately
@@ -362,9 +449,9 @@ async function checkPage(pathOrUrl) {
   // by NAME, which is the precondition 1e was waiting on; splitting the
   // downgrade is its own change, not a silent rider on this one.
   if (failures.length > 0 && /\/(event|festival)\//.test(url) && eventHasEnded(html)) {
-    return { url, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
+    return { url, baked, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
   }
-  return { url, failures };
+  return { url, baked, failures };
 }
 
 async function main() {
@@ -387,8 +474,10 @@ async function main() {
 
   let hardFailures = 0;
   let softFailures = 0;
+  let bakedSeen = 0;
   for (const u of urls) {
     const r = await checkPage(u);
+    if (r.baked) bakedSeen += 1;
     if (r.failures.length === 0) {
       console.log(`  PASS  ${r.url}`);
     } else if (r.soft && !STRICT) {
@@ -402,7 +491,25 @@ async function main() {
     }
   }
 
-  console.log(`\n${hardFailures} failed, ${softFailures} warned, ${urls.length} checked.`);
+  console.log(`\n${hardFailures} failed, ${softFailures} warned, ${urls.length} checked, ${bakedSeen} baked og:image(s) inspected.`);
+  // A BAKE-PIPELINE LIVENESS floor. Named for what it actually proves, after a
+  // first draft sold it as proof that the key rule had exercised anything --
+  // which it is not, because that rule has no reachable true positive (see
+  // bakedDegradedFailure). What it does prove is that entities are still being
+  // SERVED from R2: a dropped get_og_image_v1 grant, an emptied og_render, or
+  // a cover-token mismatch silently moves the whole site onto live rendering,
+  // and every page still passes every assertion while the pre-bake pipeline is
+  // dead. Nothing else in this guard can tell that apart from health.
+  //
+  // Floored AFTER the page loop and after the failure report, so real defects
+  // are always printed before this throws -- including on the runs where it
+  // will throw ALONGSIDE them, e.g. a cover-host outage that both reds pages
+  // and empties the baked count.
+  //
+  // The number: measured 2026-08-11 against prod, 6 of the 10 sampled pages
+  // served a baked R2 object. Set to 2 so ordinary sitemap churn cannot red
+  // it, with the failure direction still reachable.
+  assertMeasured(bakedSeen, MIN_BAKED_PAGES, 'baked og:image objects');
   // process.exitCode, not process.exit(1): the bare exit truncates piped
   // stdout in Linux CI (repo-measured: 904 printed lines became 194), which
   // would eat exactly the FAIL lines above that name the cause.
@@ -425,6 +532,11 @@ async function main() {
 // ---------------------------------------------------------------------------
 function selfTest() {
   const PROD = 'https://www.bachatacalendar.co.uk';
+  // The real R2 public host baked objects live on, so the baked-key fixtures
+  // below are whole live URLs rather than paths -- the rule strips the query
+  // and reads the last path segment, and both of those are worth exercising
+  // against the shape production actually serves.
+  const R2 = 'https://pub-07f606224cac4f2596903c44df723644.r2.dev';
   const STATIC_FALLBACK = `${PROD}/og-image.jpg`;
   const served = (finalUrl) => ({ redirected: true, finalUrl });
   const inline = (finalUrl) => ({ redirected: false, finalUrl });
@@ -465,6 +577,43 @@ function selfTest() {
       cardFallbackFailure(marked('   ')) === null],
     ['silent BY DESIGN: cover-unfetchable still carries the real title/date/venue (CI #65 owns that gap)',
       cardFallbackFailure(marked('cover-unfetchable')) === null],
+    // --- bakedDegradedFailure: the R2 half, which carries no header at all.
+    // Fixtures are the REAL keys measured in og_render on 2026-08-11, not
+    // invented shapes, so a rule that drifted from what bake writes reds here.
+    ['silent: a real live baked key -- <uuid>-<uuid>-<16 hex>.jpg',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-ca6f93da-765f-4f82-842d-67a6b05c4480-9ee0e92173641fdb.jpg`) === null],
+    ['silent: a real live baked key with no occurrence -- the "default" tag',
+      bakedDegradedFailure(`${R2}/events/og/festival/e8af3f11-59f3-4d70-b22f-d0644ea4dbff-default-9ee0e92173641fdb.jpg`) === null],
+    ['FIRES: the live poisoned shape -- the retired "fallback" cover tag',
+      (bakedDegradedFailure(`${R2}/events/og/festival/e8af3f11-59f3-4d70-b22f-d0644ea4dbff-default-fallback.jpg`) ?? '').includes('fallback')],
+    ['FIRES: a degrade tag invented after this rule was written (inclusion-shaped)',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-placeholder.jpg`) !== null],
+    // The mutation that motivated [.] over an escaped dot: one backslash eaten
+    // in transit makes the extension "any character + jpg". The fixture is
+    // otherwise a PERFECTLY healthy key -- id, "default", 16 hex -- and differs
+    // only in that one character, because the first version of this case also
+    // broke the separator and so survived the mutant it was written to catch
+    // while its name claimed otherwise.
+    ['FIRES: the extension is literal -- <key>Xjpg is not <key>.jpg',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdbXjpg`) !== null],
+    // 15 hex EXACTLY, on the boundary. The first version of this case said 15
+    // and used 14, so a {15,16} widening -- the likeliest accidental
+    // relaxation, and the one this case advertises itself as guarding -- would
+    // have sailed past it while the name claimed otherwise.
+    ['FIRES: a truncated cover tag (15 hex, not 16) is not the shape bake writes',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fd.jpg`) !== null],
+    ['silent: a query string is stripped before the key is read, not treated as part of it',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb.jpg?v=2`) === null],
+    ['silent BY DESIGN: a LIVE /api/og/card URL is the other rule\'s artefact, not an R2 object',
+      bakedDegradedFailure(`${PROD}/api/og/card?kind=event&id=x&v=1`) === null],
+    ['silent BY DESIGN: a non-og image is outside this rule entirely',
+      bakedDegradedFailure('https://images.example.com/flyer.jpg') === null],
+    // The redirect-rule fixtures above use a shorthand key that predates this
+    // rule. Asserted rather than quietly left inconsistent: they are fine for
+    // the rule they exercise and would be a FAILING bake key here.
+    ['FIRES: the shorthand key used by the redirect-rule fixtures above',
+      bakedDegradedFailure('https://pub-abc.r2.dev/og/event/abc-v3.jpg') !== null],
+
     // The rules OVERLAP, they are not disjoint. Replaced a case that claimed
     // disjointness by passing served() -- which omits fallbackReason, so it
     // was a duplicate of the no-marker case above and asserted nothing. A
