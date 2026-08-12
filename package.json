@@ -11,6 +11,8 @@
     "check:wallclock-brand": "react-router typegen && node scripts/check-wallclock-brand.mjs",
     "check:rpc-typing": "node scripts/check-rpc-typing.mjs",
     "check:script-conventions": "node scripts/check-script-conventions.mjs",
+    "check:ci-budget": "node scripts/check-ci-budget.mjs",
+    "check:ci-budget:self-test": "node scripts/check-ci-budget.mjs --self-test",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
     "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",
     "gen:types": "npx --yes supabase@2.109.1 gen types typescript --project-id stsdtacfauprzrdebmzg --schema public > src/integrations/supabase/types.ts",

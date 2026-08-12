@@ -1,0 +1,44 @@
+{
+  "//": "CI SPEND BUDGETS -- enforced by scripts/check-ci-budget.mjs, run daily by .github/workflows/ci-budget-guard.yml. Written by phase P2 of the ci-spend-never-silent arc (~/.claude/plans/arc-ci-spend-never-silent.md). This repo guards 66 DB contracts, source integrity, bundle size, SEO, OG cards and PR mergeability -- and until this file existed it guarded nothing about what running all of that COSTS. A nightly in the sibling admin repo burned 858 MB of artifact storage and ~630 min/month for four months in full view of every gate, and the first detector to fire was an email from GitHub at 90% of the allowance.",
+  "//home": "This file and its guard live in bachata-website, which is PUBLIC and therefore never metered, DELIBERATELY. A spend guard living in the private repo would be switched off by the $0 Actions budget at exactly the moment of overage -- fail-open, at the only moment it matters. Public Actions minutes and storage are free and keep running when private repos are paused.",
+  "//leading-vs-lagging": "The pool is guarded, NOT the accrued percentage. GitHub bills storage by hourly accrual (GB-hours -> GB-months) and its alert fires on the accrued figure, which is LAGGING: by the time it reads 90% the allowance is already spent and deleting refunds nothing. The HELD POOL is the leading indicator -- it crossed 500 MB days before the email and is readable at any instant from one API call. A guard thresholded on accrued % would have fired the same day GitHub's email did, which is worth nothing.",
+
+  "//requiredRepos": "The measurement FLOOR, not a filter -- PROVIDED the PAT is scoped to ALL REPOSITORIES (see ci-budget-guard.yml). A fine-grained PAT scoped to a picked list returns only those repos, so a newly created private repo would be invisible to the enumeration AND undeclared here, and the guard would be blind to it twice over. One caveat that no scope fixes: the enumeration asks for affiliation=owner, so a private repo owned by an ORG this account merely belongs to is not measured; that spend bills the org, not this account. The guard enumerates every private repo the token can see and measures all of them -- a new private repo with a runaway workflow is caught without editing this file. What this list adds is the inclusion assertion: if any of these is NOT in what the token returned, the guard exits 2 rather than summing the repos it did see. That is the whole reason this guard cannot invert: an auth failure returns an empty repo list, which sums to 0 bytes, which reads as wonderfully under budget. Only PRIVATE repos are metered by GitHub, so only private repos are listed and only private repos count toward these numbers. If a repo here is deleted or made public, delete its line in the same PR -- a stale entry is a permanent exit 2, and that is the intended direction to fail.",
+  "requiredRepos": [
+    "123constante/bachata-admin",
+    "123constante/hostal-rixs-michael"
+  ],
+
+  "//artifactPool": "Held, non-expired artifact bytes summed across every metered repo, in DECIMAL MB (bytes / 1000000). Decimal deliberately: GitHub's included 500 MB is decimal, so measuring in MiB would compare against 476.8 MiB of real allowance and quietly turn the 80% fail line into 84% -- and every number printed here would disagree with the billing page the operator cross-checks it against. The arc's own earlier measurements were in MiB; multiply them by 1.049 to compare. MEASURED CALIBRATION, 2026-08-12: the account held 127.8 MB, all of it one playwright-report from the last nightly run before that workflow was disabled; every other repo held zero. The incident's steady state was 903 MB (7 x ~128 MB at retention-days 7), which these thresholds FAIL by more than double -- that is the calibration proof, not the green reading. Warn at 50% of the allowance, fail at 80%: both sit far above a healthy account and neither is reachable by ordinary CI noise.",
+  "artifactPool": {
+    "includedMB": 500,
+    "warnMB": 250,
+    "failMB": 400
+  },
+
+  "//minutes": "The meter GitHub's storage email does not mention: 2,000 free minutes per cycle, private repos only. ESTIMATED, and the estimate is deliberate. The billing REST endpoints need a token permission beyond Actions:read, and the per-run /timing endpoint -- which does need only Actions:read -- was measured on 2026-08-12 returning billable.UBUNTU.total_ms = 0 on 6 of 6 completed private runs while reporting real run_duration_ms. A guard built on it would have reported 0 minutes used and called that under budget: the exact inversion this arc exists to close. So minutes are summed from JOB wall clock instead (completed_at - started_at per job, rounded UP to the minute with a 1-minute floor, times the runner multiplier), which is how GitHub itself bills. Skipped jobs are not billed and are not counted. It is an ESTIMATE of the invoice, never the invoice -- which is why the thresholds sit at 70% and 85% and why the pool, not this, is the load-bearing meter.",
+  "//projection": "usedWarn/usedFail gate the ACTUAL cycle-to-date figure and are always enforced. projectedWarn/projectedFail gate the projection, and are enforced ONLY once projectionMinDays have elapsed: on day one a single 10-minute run projects to thousands of minutes and would red-light the account every month. That window is NOT a silent hole -- the guard prints the projection as NOT ENFORCED with the reason, and the actual-minutes rule gates throughout it.",
+  "//rateWindowDays": "The enforced projection is minutes ALREADY SPENT (a fact, never re-estimated) plus the remaining days charged at the burn rate of this trailing window. It is deliberately NOT a cycle average, and the difference is the same leading-vs-lagging distinction the pool rule turns on: a cycle average keeps charging the rest of the month at a rate a fix has already stopped, so the guard stays red for weeks after the cause is gone and gets ignored. MEASURED THE DAY THIS SHIPPED: 293 of bachata-admin's 545 cycle minutes were the nightly retired in phase P1, and the cycle average would have projected them forward to 2026-09-01 regardless. 7 days is short enough to notice a fix and long enough that one heavy Tuesday does not read as a crisis. The cycle-average figure is still printed beside the enforced one -- when the two disagree sharply, the gap IS the signal.",
+  "minutes": {
+    "includedPerCycle": 2000,
+    "usedWarn": 1400,
+    "usedFail": 1700,
+    "projectedWarn": 1400,
+    "projectedFail": 1700,
+    "projectionMinDays": 5,
+    "rateWindowDays": 7,
+    "reRunLookbackDays": 45
+  },
+  "//reRunLookbackDays": "How far BEFORE the cycle start the run list reaches. GitHub's created>= filter reads created_at, which does NOT move when a run is re-run -- so a run created in July and re-run in August burns August minutes while being invisible to a created>=1-Aug list. The guard lists back this far, prunes to runs whose updated_at falls inside the cycle (so the extra reach costs list pages, not one job call per stale run), and then counts a job only if it STARTED inside the cycle -- which is the timestamp GitHub bills against, and what stops the widened list from dragging July's original attempts into August's total. 45 days covers a re-run of anything from the previous cycle; GitHub's own re-run button expires at 30 days.",
+
+  "//escalateWarnToFailure": "TRUE, deliberately. A warn that exits 0 is delivered nowhere: GitHub emails on a FAILED scheduled run only, so a green nightly produces no notification and no board change -- and the 250 MiB warning tier is the LEADING indicator this whole arc was built around. Left un-escalated it would fire into exactly the silence the incident already proved nobody watches, and the first thing to reach a human would be the 400 MiB hard ceiling. The two tiers still read differently in the report; what they no longer differ in is whether anyone finds out. Set it false only if the warn line starts firing on healthy weeks, and lower the line in the same PR rather than muting the channel.",
+  "escalateWarnToFailure": true,
+
+  "//runnerMultipliers": "GitHub's per-minute price multipliers, matched case-insensitively as SUBSTRINGS of a job's runner labels. A label matching none of these is a hard exit 2 naming the label, NOT a default of 1: an unknown runner silently priced at the cheapest rate is the fail-open shape this whole file exists to prevent. Add the new runner here in the PR that introduces it.",
+  "runnerMultipliers": {
+    "ubuntu": 1,
+    "linux": 1,
+    "windows": 2,
+    "macos": 10
+  }
+}

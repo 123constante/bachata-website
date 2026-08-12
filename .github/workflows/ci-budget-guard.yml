@@ -1,0 +1,105 @@
+name: CI Budget Guard
+
+# Guards what this account's CI COSTS, the way db-contract-check.yml guards the
+# schema. Phase P2 of the ci-spend-never-silent arc.
+#
+# WHY IT LIVES IN THE PUBLIC REPO. bachata-website is public, so its Actions
+# minutes and storage are never metered -- this job keeps running when a $0
+# Actions budget pauses the private repos, i.e. at exactly the moment it
+# matters. The same guard living in bachata-admin would be switched off by the
+# overage it exists to catch.
+#
+# IT UPLOADS NO ARTIFACTS, DELIBERATELY. It reads the held artifact pool; a
+# guard that joined the pool it measures would be reporting on itself. There is
+# no upload-artifact step here and there must never be one. The P3 workflow
+# policy lint asserts that from the outside.
+#
+# NOT a pull_request workflow: this measures ACCOUNT state, not a diff. The
+# push trigger is scoped to the guard's own files so a change to the rules is
+# exercised by the PR that makes it.
+#
+# Requires the repo secret CI_BUDGET_GITHUB_TOKEN: a fine-grained PAT with
+# Actions: read-only (plus the default Metadata: read-only), scoped to
+# ALL REPOSITORIES.
+#
+# All repositories, not a hand-picked list, and this is load-bearing rather than
+# convenience. A fine-grained PAT returns ONLY the repos in its explicit grant,
+# so under a picked list a NEWLY CREATED private repo is invisible to
+# /user/repos -- and being undeclared it never trips assertMeasured either. The
+# guard would then be silently blind to exactly the case ci-budgets.json
+# advertises coverage of: a new repo with a runaway workflow. With the all-repos
+# scope, the config's requiredRepos stays a floor rather than becoming the whole
+# measurement.
+#
+# Without the secret the measure job exits 2 and goes RED -- never green over an
+# empty reading.
+
+on:
+  schedule:
+    - cron: '45 5 * * *'   # daily, 15 min before db-contract-check
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/check-ci-budget.mjs'
+      - 'ci-budgets.json'
+      - '.github/workflows/ci-budget-guard.yml'
+      # previewProbe.mjs supplies assertMeasured -- the load-bearing assertion.
+      # Weakening it there would leave the four measured-shortfall canary cases
+      # unrun, because this workflow would never queue. CLAUDE.md already records
+      # what a bad paths: filter costs: the board empties and nothing says so.
+      - 'scripts/lib/previewProbe.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+# NOTE: serialisation is set on the `measure` job, not here. A workflow-level
+# group would also queue the canary -- and GitHub keeps only ONE run pending per
+# group, so a three-commit push series would CANCEL the middle commit's canary
+# rather than run it. A gate that ceases to exist rather than failing is the
+# exact trap CLAUDE.md records for conflicting PRs.
+
+jobs:
+  # The canary needs no secret and no network, so it still reports when the
+  # token is the thing that broke -- and it is the R4 proof that the rules below
+  # can actually fail.
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove the budget rules can fail
+        run: node scripts/check-ci-budget.mjs --self-test
+
+  measure:
+    # The live sweep runs on the schedule, on demand, and on main -- NOT on
+    # every branch push. The canary above still runs on every push, which is
+    # what actually exercises a change to the rules; a full account sweep per
+    # branch commit would spend PAT rate limit on the same answer.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One sweep at a time, and ONLY this job. Every call is authenticated against
+    # a single PAT rate limit and the sweep makes one call per workflow run, so
+    # two overlapping sweeps do not merely waste minutes -- they produce the 403
+    # that reads like a dead token. pr-mergeable-guard.yml serialises for the
+    # same reason. The canary above is deliberately outside this group: it needs
+    # no token and must run on every commit.
+    concurrency:
+      group: ci-budget-measure
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # No npm install: check-ci-budget.mjs imports only node built-ins and
+      # scripts/lib/previewProbe.mjs.
+      - name: Measure the account against ci-budgets.json
+        env:
+          CI_BUDGET_GITHUB_TOKEN: ${{ secrets.CI_BUDGET_GITHUB_TOKEN }}
+        run: node scripts/check-ci-budget.mjs
