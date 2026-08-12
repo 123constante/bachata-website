@@ -302,6 +302,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
 | `workflow-lint.yml` | push/PR | Workflow file validation |
 | `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
+| `ci-budget-guard.yml` | daily + dispatch (+ push on its own files) | What this account's CI **costs**: held Actions artifact pool and minutes, account-wide. Lives here because this repo is public and therefore never metered, so it keeps running when a $0 budget pauses the private repos. Needs the `CI_BUDGET_GITHUB_TOKEN` secret; a missing or expired one is **exit 2, never a green 0-byte report** |
 
 **The conflicting-PR trap.** GitHub cannot compute a merge ref for a conflicting
 PR, so it never queues that PR&rsquo;s `pull_request` workflows. The gates do not
@@ -373,6 +374,48 @@ Fixtures, both live:
   a stalled edge, killing every check behind it with no named failure.
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
+
+### Writing a new guard &mdash; the five rules `check-script-conventions.mjs` enforces
+
+`npm run check:script-conventions` scans the `scripts/check-*.mjs` and
+`lint-*.mjs` files &mdash; 89 of the 90 that match, since `NOT_A_GUARD` exempts the
+scanner itself (it would flag its own rule patterns as violations). That
+exemption is from the SCAN, not from the rules: the scanner is held to R1&ndash;R5 by
+hand-written canary cases instead. It exists because the worst failure a CI suite has is a check that
+reports green without having checked anything: a red check gets fixed, a falsely
+green one is trusted for months.
+
+| Rule | A guard fails it when |
+|------|-----------------------|
+| R1 silent-skip | a green exit is reachable from a missing secret, a walled URL, an undeployed RPC or an empty sample, with no escalation env and no `assertMeasured()` floor |
+| R2 swallowed-error | it has an empty `catch`, or a `.catch(() => default)` &mdash; an unreadable file then scans clean |
+| R3 exit-drift | it breaks 0 pass / 1 contract violated / 2 infrastructure. Missing creds are **2** |
+| R4 no-canary | it carries no `--self-test` proving it can fail |
+| R5 unproven-exit | its canary proves the RULES but never drives the function whose return value becomes `process.exitCode` &mdash; so the rules are measured and the CODES are merely asserted |
+
+**It is a ratchet, not a gate you can satisfy by editing the allowlist.** Today's
+violations are frozen in `scripts/script-conventions-allowlist.json`; the guard
+fails on a new violation, on a count increase, and deliberately on a **stale**
+entry, so the list can only shrink. Re-baseline with
+`node scripts/check-script-conventions.mjs --write` **after** fixing something,
+never to make a new script pass. An allowlisted script is still lying to you.
+
+**The reference implementation is `check-ci-budget.mjs`.** It was the only
+script satisfying R5 when the rule landed (`check-script-conventions.mjs` was
+changed in the same commit to satisfy it too); its `main(argv, deps)` seam plus
+the "THE EXIT-CODE CONTRACT ITSELF" block in its canary are the shape to copy: the
+collaborators are injected so the canary can drive `main()` with no token, no
+network and no filesystem (the `if (IS_CLI)` dispatch itself stays undriven &mdash;
+R5 proves the exit OWNER is driven, not the line that invokes it), and each case pins WHICH branch produced its code.
+That last part is not decoration &mdash; four branches there return 2, so a case
+asserting only "it returned 2" passes for the wrong reason.
+
+**What R5 cannot see.** It is static: it proves the canary CALLS the exit owner,
+not that it asserts anything useful about the answer. Branch-pinning is still
+yours to do. And note the deliberate interaction with R4 &mdash; a script with no
+canary is R4 debt only, so **fixing R4 by adding a rules-only canary turns that
+script into an R5 violation**. That is the rule asking for the other half of the
+job, not a bug.
 
 ---
 
