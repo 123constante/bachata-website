@@ -42,6 +42,7 @@
 // --self-test runs the network-free canary (see selfTest at the bottom).
 
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
@@ -647,19 +648,32 @@ async function selfTest() {
 // assertion instead of the cause (measured 2026-08-03 -- full notes at
 // check-og-images.mjs's tail). It also makes fetchText's body.cancel()
 // load-bearing rather than merely tidy: nothing kills the process early now.
-// No IS_CLI guard, deliberately: nothing imports this file, and the guard was
-// measured failing OPEN in check-og-images.mjs -- invoked through a junction
-// (mklink /J), the argv[1]-vs-import.meta.url compare mispredicts and the
-// script exits 0 having run NOTHING. Plain flag dispatch instead. If a spec
-// ever needs auditHtml, extract it to scripts/lib/.
-const argv = process.argv.slice(2);
-const KNOWN_FLAGS = ['--self-test'];
-const unknownFlags = argv.filter((a) => !KNOWN_FLAGS.includes(a));
-if (unknownFlags.length > 0) {
-  console.error(`Unknown flag(s): ${unknownFlags.join(', ')}. Known: ${KNOWN_FLAGS.join(', ')}`);
-  process.exitCode = 2;
-} else if (argv.includes('--self-test')) {
-  process.exitCode = await selfTest();
-} else {
-  main().catch((err) => { console.error(err); process.exitCode = 1; });
+// The guard is back, and realpath-aware. It was removed from here because the
+// argv[1]-vs-import.meta.url compare was measured failing OPEN in
+// check-og-images.mjs -- through a junction (mklink /J) the script exited 0
+// having run NOTHING. Bare top-level dispatch fixed that by making the file
+// unimportable, which is a different defect wearing the same coat.
+//
+// isEntryPoint() compares REALPATH to REALPATH (scripts/lib/entry-point.mjs);
+// scripts/prove-entry-point-dispatch.mjs invokes this file through a junction
+// and asserts it still runs, and R6 in check-script-conventions.mjs refuses the
+// raw compare at author time.
+//
+// What that buys, stated exactly rather than aspirationally: `await import()`
+// from node is safe, and the harness's import arm proves it on every run. A
+// VITEST spec would additionally need an `export` here (there are none) and no
+// shebang -- check-rpc-typing.mjs records that a `#!/usr/bin/env node` line
+// makes a file unparseable when vitest inlines it.
+if (isEntryPoint(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  const KNOWN_FLAGS = ['--self-test'];
+  const unknownFlags = argv.filter((a) => !KNOWN_FLAGS.includes(a));
+  if (unknownFlags.length > 0) {
+    console.error(`Unknown flag(s): ${unknownFlags.join(', ')}. Known: ${KNOWN_FLAGS.join(', ')}`);
+    process.exitCode = 2;
+  } else if (argv.includes('--self-test')) {
+    process.exitCode = await selfTest();
+  } else {
+    main().catch((err) => { console.error(err); process.exitCode = 1; });
+  }
 }

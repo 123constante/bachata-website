@@ -46,6 +46,7 @@
 
 import { execFileSync, execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isEntryPoint } from "./lib/entry-point.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -1084,12 +1085,15 @@ async function main(argv = process.argv.slice(2)) {
   process.exitCode = ok ? 0 : 1;
 }
 
-const invokedDirectly =
-  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). Resolving BOTH sides with
+// path.resolve still compares two non-canonical spellings: it makes a path
+// absolute without following a junction or symlink. Invoked through one, the
+// whole pre-ship gate printed nothing and exited 0 -- which reads as a pass.
+//
 // awaited, and its rejection surfaced rather than becoming an unhandled one:
 // main() is async now (the smoke env is read with a dynamic import so a
 // node_modules-less worktree does not die at module load).
-if (invokedDirectly) {
+if (isEntryPoint(import.meta.url)) {
   main().catch((error) => {
     process.stderr.write("\npre-ship: crashed -- " + (error && error.stack ? error.stack : error) + "\n");
     process.exitCode = 1;

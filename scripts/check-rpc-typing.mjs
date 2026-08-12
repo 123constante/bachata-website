@@ -37,7 +37,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const ROOT = process.cwd();
 
@@ -211,8 +211,13 @@ export async function run({ write = false, root = ROOT } = {}) {
 // CLI entry — guarded so importing this module (e.g. from a test) does not run it.
 // No shebang: a `#!/usr/bin/env node` first line makes the file unparseable when
 // Vitest inlines it for an import (see #117 / wallClockBrandGate.test.ts).
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
-if (invokedPath && fileURLToPath(import.meta.url) === invokedPath) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). This file is why the R6
+// header no longer claims the bound-to-a-local spelling is hypothetical: it
+// bound the entry to `invokedPath` first, which put the two halves of the
+// compare in different statements and hid it from the shape rule. Measured
+// 2026-08-12 through a junction: 0 bytes, exit 0 -- and this guard runs in
+// `npm run lint`, in pre-ship and in typecheck.yml, so that read as a pass.
+if (isEntryPoint(import.meta.url)) {
   run({ write: process.argv.includes('--write') })
     .then((result) => process.exit(result.ok ? 0 : 1))
     .catch((error) => {

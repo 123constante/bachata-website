@@ -74,7 +74,7 @@
  * Exit: 0 pass, 1 contract violated, 2 the guard could not run.
  */
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const API = 'https://api.github.com/graphql';
 const NL = String.fromCharCode(10);
@@ -1068,8 +1068,6 @@ export async function run({
   return { ok: true };
 }
 
-const IS_CLI = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
 /**
  * Every path returns a code; NOTHING here calls process.exit().
  *
@@ -1155,7 +1153,9 @@ async function main(argv) {
   return result.ok ? 0 : result.infra ? 2 : 1;
 }
 
-if (IS_CLI) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare it
+// replaces mispredicted through a junction and skipped the whole guard, exit 0.
+if (isEntryPoint(import.meta.url)) {
   // process.exitCode, NOT process.exit(). Calling process.exit() after the
   // async run aborted the process with a libuv assertion (UV_HANDLE_CLOSING,
   // src/win/async.c) and reported 127 instead of the 1 the guard had correctly

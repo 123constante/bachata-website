@@ -35,7 +35,8 @@
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isEntryPoint } from "./lib/entry-point.mjs";
 
 // Verbatim from the owner doc (modulo joining its wrapped line). Do not edit without
 // editing the owner doc first - a copy that drifts from the pinned recipe stops being
@@ -318,10 +319,10 @@ function selfTest() {
 // Only when RUN, never when imported. Without this guard the test file's `import` would
 // fire a live gh call and print the whole section into the vitest log -- an import with a
 // network side effect is the kind of thing that turns a unit suite flaky months later.
-const invokedDirectly =
-  process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-
-if (invokedDirectly) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs) -- path.resolve() does not
+// follow a junction or symlink, so the compare it replaces could report
+// "imported" for a direct invocation and print nothing at all.
+if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
   const unknown = argv.filter((a) => a !== "--markdown" && a !== "--self-test");
   // exitCode, never process.exit(): on Windows an immediate exit can discard a pending

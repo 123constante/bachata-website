@@ -273,6 +273,12 @@
     "R1:empty-sample": 1,
     "R4:no-canary": 1
   },
+  "scripts/hooks/arc-checkpoint.mjs": {
+    "R6:raw-entry-point-guard": 1
+  },
+  "scripts/hooks/session-lock.mjs": {
+    "R6:raw-entry-point-guard": 1
+  },
   "scripts/lint-runtime-architecture.mjs": {
     "R4:no-canary": 1
   },

@@ -69,7 +69,7 @@
  *       measure (bad creds, unreachable DB, a systemic CDN stall).
  */
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 // @supabase/supabase-js is imported DYNAMICALLY inside main(), not statically: a
 // static import throws at MODULE LOAD, before any handler exists, so a broken or
 // missing dependency would surface as an uncaught exception and exit 1 -- which
@@ -857,10 +857,9 @@ function report({ rows, urls, dead, invalid, indeterminate, unprobed, bodyCancel
 // above would fire the RPC, make hundreds of outbound CDN requests, and then set
 // the test runner's exit code. Four specs in this repo already import check
 // scripts; both sibling guards carry this same guard for the same reason.
-const IS_CLI =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (IS_CLI) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare it
+// replaces made this entire sweep a silent exit 0 through a junction.
+if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
   const KNOWN_FLAGS = ['--self-test'];
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));

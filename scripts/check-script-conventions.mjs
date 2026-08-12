@@ -22,7 +22,7 @@
  *   - scripts/check-plan-hygiene.mjs self-test -- every rule proven in BOTH
  *     directions against tmpdir fixtures (1 consumer).
  *
- * FIVE RULE CLASSES (the four queued from admin docs/open-loops.md, plus R5):
+ * SIX RULE CLASSES (the four queued from admin docs/open-loops.md, plus R5-R6):
  *   R1 silent-skip     a green exit reachable from a missing secret, a walled
  *                      URL, an undeployed RPC, or an empty sample, with no
  *                      escalation env and no assertMeasured floor.
@@ -36,6 +36,25 @@
  *   R5 unproven-exit   a canary that proves the RULES but never drives the
  *                      function whose return value becomes the exit code. The
  *                      rules are then measured and the CODES are asserted.
+ *   R6 raw-entry-point import.meta compared against process.argv[1] by hand.
+ *                      Node realpaths one side and not the other, so through a
+ *                      junction or symlink the script exits 0 having run
+ *                      NOTHING -- its canary included. Use isEntryPoint().
+ *
+ * R6 IS THE ONE RULE NO CANARY COULD HAVE REPLACED, and it is R5's blind spot
+ * stated as a rule. Every canary case calls main() directly; the dispatch that
+ * decides whether main() is reached at all is the one line no case drives, so a
+ * guard could satisfy R1-R5 completely and still be a script that never runs.
+ * Measured 2026-08-12: through a junction, this very file printed 0 bytes and
+ * exited 0, under both the scan and --self-test.
+ *
+ * R6 also scans a WIDER corpus than R1-R5 -- every .mjs (and .js) under
+ * scripts/ and bin/, recursively, not the flat "check- or lint- prefixed, top
+ * level only" guard list -- because the two worst instances were
+ * ship-gate.mjs and hooks/review-stamp.mjs, and a rule blind to those two would
+ * have been decoration. The live proof that every converted dispatch still runs
+ * is scripts/prove-entry-point-dispatch.mjs (local, not CI: it needs to make a
+ * junction).
  *
  * WHY R5 IS A RULE AND NOT A NOTE. R3 is the rule that CLAIMS to own the 0/1/2
  * contract, and it has zero allowlist entries -- which reads as universal
@@ -90,7 +109,8 @@
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 // R5 only. R1-R4 stay on regex -- see the note above the R5 block for why this
 // one rule earns a parser. Already a direct dependency, and already used this
 // way by scripts/check-wallclock-brand.mjs.
@@ -808,6 +828,200 @@ export function findUnprovenExitContract(src) {
   ];
 }
 
+// ---------------------------------------------------------------------------
+// R6 -- an entry-point guard must compare REALPATHS.
+//
+// The idiom every CLI in this tree reached for independently was some spelling of
+//
+//     import.meta.url === pathToFileURL(process.argv[1]).href
+//
+// and it FAILS OPEN. Node resolves import.meta.url to the file's realpath;
+// process.argv[1] is left as typed. Invoke the script through a Windows
+// junction, a POSIX symlink or a mapped drive and the two disagree, the guard
+// decides it was imported, and the module body ends. Measured 2026-08-12 on
+// this very file: through a junction it printed 0 bytes and exited 0 -- and so
+// did --self-test, so the canary attested to a run that never happened.
+//
+// R5 CANNOT SEE THIS, which is why it is a separate rule rather than a case.
+// Every canary drives main() directly; the dispatch deciding whether anything
+// runs at all is the one line no case reaches. A rule is the only instrument
+// left once the canary is structurally blind.
+//
+// AST, not text, for a reason measured rather than assumed: the census that
+// scoped this work grepped for `pathToFileURL(process.argv[1])` and found 9
+// files. It missed scripts/_serve-build.mjs, which spells the same defect
+// `resolve(process.argv[1]) === fileURLToPath(import.meta.url)` -- reordered,
+// different helpers, identical fail-open. A shape rule catches all of them; a
+// text rule catches the spellings its author happened to think of.
+//
+// TWO BLIND SPOTS, both measured rather than reasoned about, and both stated
+// here because the first draft of this paragraph got one of them wrong.
+//
+// (1) BINDING THE ENTRY TO A LOCAL FIRST. `const entry = process.argv[1]` on
+// one line and `pathToFileURL(entry)` on another puts the two halves in
+// different statements, and R6 -- a single-expression shape rule -- cannot see
+// it. This paragraph originally went on to call that "a shape nobody in this
+// repo has ever written". A review opened the tree and falsified it in one
+// grep: scripts/check-rpc-typing.mjs carried exactly that spelling, and it is
+// a gate in `npm run lint`, in pre-ship and in typecheck.yml. Measured through
+// a junction it printed 0 bytes and exited 0 -- a lint gate reporting green
+// having scanned nothing. It is converted in this same change, by hand, since
+// the rule that was meant to find it could not. Closing the class properly
+// needs R5's binding resolution; until then this is a known hole, not an
+// argument that the hole is empty.
+//
+// (2) THE endsWith(basename) FAMILY. Six files dispatch on a suffix test
+// rather than an equality compare -- check-added-session-room-contract.mjs,
+// check-festival-detail-span.mjs, check-image-widths.mjs,
+// check-sourcemap-debugids.mjs, check-upcoming-event-cover.mjs and
+// hooks/pre-exec-guard.mjs. R6 never mentions them because they never mention
+// import.meta. They are junction-SAFE (a suffix survives any path spelling),
+// so they are not this arc's defect and are deliberately left alone here --
+// but they fail open in the MIRROR direction, running on import whenever the
+// importing process's argv[1] ends in the same basename. That is a different
+// defect and wants its own change.
+//
+// So: R6 is a ratchet against the realpath-compare spelling and its obvious
+// neighbours. It is not a proof that every dispatch in this repo is correct,
+// and the two paragraphs above are the specific ways it is not.
+// ---------------------------------------------------------------------------
+
+const EQUALITY_TOKENS = new Set([
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsToken,
+]);
+
+/** Does any node in `node`'s subtree satisfy `predicate`? */
+function subtreeHas(node, predicate) {
+  let found = false;
+  const visit = (n) => {
+    if (found) return;
+    if (predicate(n)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(node);
+  return found;
+}
+
+/** `import.meta` -- a MetaProperty, so it cannot be confused with a variable
+ *  called `importMeta` or with the string "import.meta" in a comment. */
+const isImportMeta = (n) =>
+  ts.isMetaProperty(n) && n.keywordToken === ts.SyntaxKind.ImportKeyword;
+
+/** `process.argv[1]` exactly. argv[0] is the node binary and argv[2..] are the
+ *  script's own flags; neither has anything to do with entry-point identity. */
+const isProcessArgv1 = (n) =>
+  ts.isElementAccessExpression(n) &&
+  ts.isPropertyAccessExpression(n.expression) &&
+  ts.isIdentifier(n.expression.expression) &&
+  n.expression.expression.text === 'process' &&
+  n.expression.name.text === 'argv' &&
+  n.argumentExpression !== undefined &&
+  ts.isNumericLiteral(n.argumentExpression) &&
+  n.argumentExpression.text === '1';
+
+export function findRawEntryPointGuards(src) {
+  const source = parse(src);
+  // FAIL CLOSED ON SOURCE THAT DOES NOT PARSE -- the same reasoning as R5's.
+  // TypeScript's parser recovers rather than throwing, so an unparseable file
+  // would otherwise yield an empty hit list indistinguishable from a clean one.
+  // Its own allowlist KIND, so a file that cannot be parsed is never recorded
+  // as though it carried a raw guard.
+  if ((source.parseDiagnostics ?? []).length > 0) {
+    const first = source.parseDiagnostics[0];
+    return [
+      {
+        rule: 'R6',
+        kind: 'unparseable',
+        line: 0,
+        why: 'unparseable',
+        detail:
+          'the source does not parse (' +
+          ts.flattenDiagnosticMessageText(first.messageText, ' ') +
+          '), so nothing can be concluded about its entry-point guard',
+      },
+    ];
+  }
+
+  const hits = [];
+  const visit = (n) => {
+    if (ts.isBinaryExpression(n) && EQUALITY_TOKENS.has(n.operatorToken.kind)) {
+      const importMetaLeft = subtreeHas(n.left, isImportMeta);
+      const importMetaRight = subtreeHas(n.right, isImportMeta);
+      const argvLeft = subtreeHas(n.left, isProcessArgv1);
+      const argvRight = subtreeHas(n.right, isProcessArgv1);
+      if ((importMetaLeft && argvRight) || (importMetaRight && argvLeft)) {
+        hits.push({
+          rule: 'R6',
+          kind: 'raw-entry-point-guard',
+          line: source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1,
+          why: 'raw-compare',
+          detail:
+            'import.meta is compared against process.argv[1] directly; that ' +
+            'mispredicts through a junction or symlink and the module silently ' +
+            'does nothing. Use isEntryPoint() from scripts/lib/entry-point.mjs',
+        });
+        // One comparison is one violation: do not descend and count the halves
+        // of a nested compare twice.
+        return;
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(source);
+  return hits;
+}
+
+/**
+ * R6's corpus is WIDER than R1-R5's.
+ *
+ * scanTree's guard list is a flat readdir of scripts/ filtered to
+ * check-*.mjs / lint-*.mjs, which is right for rules about guards. But the two
+ * worst instances of this defect were not guards: scripts/ship-gate.mjs and
+ * scripts/hooks/review-stamp.mjs -- one a subdirectory away, the other not
+ * matching the name pattern. If ship-gate's own dispatch mispredicts, the
+ * review gate does not run and the push sails through. A rule that could not
+ * see those two files would have been theatre.
+ */
+// bin/ currently holds only .sh and .cjs, so it contributes nothing today. It
+// stays in the list deliberately -- an entry point added there later should be
+// covered without anyone remembering to widen this -- but the header should not
+// be read as saying bin/ is where any of the hits came from. .cjs is excluded
+// because CommonJS answers this question with `require.main === module`, an
+// identity comparison that no path spelling can fool.
+const ENTRY_POINT_DIRS = ['scripts', 'bin'];
+const ENTRY_POINT_SKIP_DIRS = new Set(['node_modules', '.git', 'fixtures', '__snapshots__']);
+
+export async function entryPointCorpus(root, readdir = fs.readdir) {
+  const out = [];
+  const walk = async (relDir) => {
+    let entries;
+    try {
+      entries = await readdir(path.join(root, relDir), { withFileTypes: true });
+    } catch (error) {
+      // bin/ is not present in every checkout, and a missing optional directory
+      // is not a failure. Anything else is -- and must never read as "no files
+      // here", which is R2's whole point.
+      if (error.code === 'ENOENT') return;
+      throw error;
+    }
+    for (const entry of [...entries].sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isDirectory()) {
+        if (!ENTRY_POINT_SKIP_DIRS.has(entry.name)) await walk(relDir + '/' + entry.name);
+      } else if (/\.(mjs|js)$/.test(entry.name)) {
+        out.push(relDir + '/' + entry.name);
+      }
+    }
+  };
+  for (const dir of ENTRY_POINT_DIRS) await walk(dir);
+  return out;
+}
+
 export function scanSource(src) {
   return [
     ...findSilentSkips(src),
@@ -842,17 +1056,43 @@ async function scanTree(root) {
   // key, so a script moving between R5 shapes mid-refactor does not land as a
   // stale entry plus an addition. See the note above the rule.
   const diagnosis = new Map();
+  // R6's corpus is a strict SUPERSET of the guard list, so a guard read here is
+  // a guard that must not be read again below. The first draft ran the two
+  // passes independently and re-read + re-parsed all 89 guards -- measured at
+  // 17% of the R6 pass, which is precisely the redundant second parse the note
+  // above brags about having deleted. Recording what has been covered lets the
+  // corpus loop skip it, and keeps the double-counting the old comment worried
+  // about impossible by construction rather than by separation.
+  const r6Covered = new Set();
   for (const name of names) {
+    const rel = 'scripts/' + name;
     const src = await fs.readFile(path.join(dir, name), 'utf8');
-    const hits = scanSource(src);
+    const hits = [...scanSource(src), ...findRawEntryPointGuards(src)];
+    r6Covered.add(rel);
     const counts = tally(hits);
     if (Object.keys(counts).length > 0) actual['scripts/' + name] = counts;
+    const r6hit = hits.find((h) => h.rule === 'R6');
+    if (r6hit) diagnosis.set('R6 ' + rel, r6hit.why + ': ' + r6hit.detail);
     // Read off the HIT rather than calling diagnoseExitContract again. The
     // second call re-parsed every file to recompute an answer scanSource had
     // just thrown away -- measured at ~15% of scan time, and on a green run
     // the result is never even read.
     const r5hit = hits.find((h) => h.rule === 'R5');
-    if (r5hit) diagnosis.set('scripts/' + name, r5hit.why + ': ' + r5hit.detail);
+    // Keyed by RULE and file, not file alone: a script can carry both an R5 and
+    // an R6 hit, and a single-key map made whichever ran second overwrite the
+    // other -- printing an entry-point diagnosis beside an exit-contract hit.
+    if (r5hit) diagnosis.set('R5 scripts/' + name, r5hit.why + ': ' + r5hit.detail);
+  }
+
+  // R6 over the REST of its wider corpus -- see entryPointCorpus. Still not
+  // folded into scanSource, which is the R1-R5 bundle and is called on the
+  // guard list only; R6 is added alongside it above and finished off here.
+  for (const rel of await entryPointCorpus(root)) {
+    if (r6Covered.has(rel)) continue;
+    const hits = findRawEntryPointGuards(await fs.readFile(path.join(root, rel), 'utf8'));
+    if (hits.length === 0) continue;
+    actual[rel] = { ...(actual[rel] ?? {}), ...tally(hits) };
+    diagnosis.set('R6 ' + rel, hits[0].why + ': ' + hits[0].detail);
   }
   return { actual, diagnosis };
 }
@@ -1350,6 +1590,196 @@ async function selfTest() {
     'clean',
   );
 
+  // --- R6 raw entry-point guard: positive ---
+  //
+  // Each fixture below is a spelling that EXISTED in this repo on 2026-08-12,
+  // not an invented one. The last two are why the rule is an AST shape rather
+  // than a grep: the census that scoped the conversion searched for the first
+  // spelling and missed them.
+  const r6 = (code) => findRawEntryPointGuards(code).map((h) => h.kind).join(',');
+
+  add(
+    'R6 fires: the canonical two-line IS_CLI compare',
+    () =>
+      r6(
+        src(
+          'const IS_CLI =',
+          '  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;',
+          'if (IS_CLI) { main(); }',
+        ),
+      ),
+    'raw-entry-point-guard',
+  );
+  add(
+    'R6 fires: the truthy one-line isMain compare',
+    () => r6('const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;'),
+    'raw-entry-point-guard',
+  );
+  add(
+    'R6 fires: bare, with no undefined arm at all',
+    () => r6('if (import.meta.url === pathToFileURL(process.argv[1]).href) { main(); }'),
+    'raw-entry-point-guard',
+  );
+  add(
+    'R6 fires REVERSED -- argv on the left, import.meta on the right (scripts/_serve-build.mjs)',
+    () => r6('const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);'),
+    'raw-entry-point-guard',
+  );
+  add(
+    'R6 fires on !== too: negating the compare does not make it realpath-aware',
+    () => r6('if (import.meta.url !== pathToFileURL(process.argv[1]).href) return;'),
+    'raw-entry-point-guard',
+  );
+  add(
+    'R6 fires through an UNSEEN helper: the rule is a shape, not a list of spellings',
+    () => r6('if (canonicalise(process.argv[1]) == someFutureHelper(import.meta.url)) { main(); }'),
+    'raw-entry-point-guard',
+  );
+  // Non-vacuity: the count is asserted, not merely "it found something". Two
+  // dispatches in one file must read as two violations, or the ratchet cannot
+  // tell a partial conversion from a complete one.
+  add(
+    'R6: two raw compares in one file count as two',
+    () =>
+      findRawEntryPointGuards(
+        src(
+          'const a = import.meta.url === pathToFileURL(process.argv[1]).href;',
+          'const b = import.meta.url === pathToFileURL(process.argv[1]).href;',
+        ),
+      ).length,
+    2,
+  );
+
+  // --- R6: negative ---
+  add(
+    'R6 silent: the fixed form, isEntryPoint(import.meta.url)',
+    () =>
+      r6(
+        src(
+          "import { isEntryPoint } from './lib/entry-point.mjs';",
+          'if (isEntryPoint(import.meta.url)) { process.exitCode = await main(process.argv.slice(2)); }',
+        ),
+      ),
+    '',
+  );
+  add(
+    'R6 silent: a COMMENT describing the old idiom is not a call site',
+    () =>
+      r6(
+        src(
+          '// import.meta.url === pathToFileURL(process.argv[1]).href used to live here',
+          'if (isEntryPoint(import.meta.url)) { main(); }',
+        ),
+      ),
+    '',
+  );
+  add(
+    'R6 silent: the idiom quoted as a STRING (this file quotes it, and its own canary does)',
+    () => r6(`const fixture = "import.meta.url === pathToFileURL(process.argv[1]).href";`),
+    '',
+  );
+  add(
+    'R6 silent: reading process.argv[1] without comparing it to import.meta',
+    () => r6('const entry = process.argv[1]; console.log(entry);'),
+    '',
+  );
+  add(
+    'R6 silent: import.meta.url used for a path with no argv compare in sight',
+    () => r6("const ROOT = path.dirname(fileURLToPath(import.meta.url));"),
+    '',
+  );
+  add(
+    'R6 silent: argv[0] and argv[2] are not entry-point identity',
+    () =>
+      r6(
+        src(
+          'if (import.meta.url === pathToFileURL(process.argv[0]).href) {}',
+          'if (import.meta.url === pathToFileURL(process.argv[2]).href) {}',
+        ),
+      ),
+    '',
+  );
+  add(
+    'R6 silent: a variable merely NAMED importMeta is not import.meta',
+    () => r6('const importMeta = { url: 1 }; if (importMeta.url === process.argv[1]) {}'),
+    '',
+  );
+  add(
+    'R6 silent: an ASSIGNMENT is not a comparison',
+    () => r6('let x; x = process.argv[1]; const y = import.meta.url;'),
+    '',
+  );
+  // The blind spot, asserted rather than described. If someone later teaches R6
+  // binding resolution, this case goes RED and tells them to update the header
+  // that currently promises it does not see this shape.
+  add(
+    'R6 KNOWN BLIND SPOT: the entry bound to a local first is not seen (documented, not fixed)',
+    () =>
+      r6(
+        src(
+          'const entry = process.argv[1];',
+          'if (import.meta.url === pathToFileURL(entry).href) { main(); }',
+        ),
+      ),
+    '',
+  );
+  // Fail-closed, same contract as R5's. An unparseable file must not read as
+  // clean, and must not be recorded as a raw guard either -- hence its own kind.
+  add(
+    'R6: source that does not PARSE concludes nothing rather than reporting clean',
+    () => r6(src('function broken() {', '  if (a) {', 'const x = 1;')),
+    'unparseable',
+  );
+  // The two cases that run against REAL source. A rule proven only against its
+  // own fixtures is proven against nothing -- and these are the two files where
+  // a mispredicted dispatch does the most damage.
+  add(
+    'R6 shipped: ship-gate.mjs carries no raw guard',
+    () => r6(readFileSync(path.join(ROOT, 'scripts/ship-gate.mjs'), 'utf8')),
+    '',
+  );
+  add(
+    'R6 shipped: hooks/review-stamp.mjs carries no raw guard',
+    () => r6(readFileSync(path.join(ROOT, 'scripts/hooks/review-stamp.mjs'), 'utf8')),
+    '',
+  );
+  // The corpus is the other half of the rule: a detector that works over a file
+  // list which omits the file is still a green guard on a broken repo. These
+  // pin the two paths the flat guard-list walk could never have reached.
+  add(
+    'R6 corpus: reaches a SUBDIRECTORY (scripts/hooks/) and a non check-* name (ship-gate.mjs)',
+    async () => {
+      const files = await entryPointCorpus(ROOT);
+      return [
+        files.includes('scripts/hooks/review-stamp.mjs'),
+        files.includes('scripts/ship-gate.mjs'),
+        files.includes('scripts/_serve-build.mjs'),
+        files.includes('scripts/lib/entry-point.mjs'),
+      ].join(',');
+    },
+    'true,true,true,true',
+  );
+  add(
+    'R6 corpus: a missing optional directory is skipped, a real read error is NOT swallowed',
+    async () => {
+      const enoent = Object.assign(new Error('nope'), { code: 'ENOENT' });
+      const eacces = Object.assign(new Error('denied'), { code: 'EACCES' });
+      const skipped = await entryPointCorpus(ROOT, async () => {
+        throw enoent;
+      });
+      let raised = 'no';
+      try {
+        await entryPointCorpus(ROOT, async () => {
+          throw eacces;
+        });
+      } catch (error) {
+        raised = error.code;
+      }
+      return skipped.length + ',' + raised;
+    },
+    '0,EACCES',
+  );
+
   // --- Canaries for the three scanner defects found in review ---
   add(
     'stripNoise: a quote inside a regex class does not blank the line',
@@ -1636,11 +2066,18 @@ export async function run({ write = false, root = ROOT } = {}) {
     console.error('  R5 unproven-exit   the canary must CALL the function whose return value');
     console.error('                     becomes process.exitCode. See check-ci-budget.mjs:');
     console.error('                     main(argv, deps) returns the code, the CLI assigns it,');
-    console.error('                     and the canary drives it with injected collaborators.\n');
+    console.error('                     and the canary drives it with injected collaborators.');
+    console.error('  R6 raw-entry-point never compare import.meta against process.argv[1] yourself --');
+    console.error('                     it mispredicts through a junction/symlink and the script');
+    console.error('                     exits 0 having run NOTHING, canary included. Use');
+    console.error('                     isEntryPoint(import.meta.url) from scripts/lib/entry-point.mjs.\n');
     for (const v of additions) {
-      // R5 keeps one allowlist kind on purpose, so the diagnosis is printed
-      // here rather than encoded in the key -- see the note above the rule.
-      const why = v.rule.startsWith('R5:') ? (diagnosis.get(v.file) ?? '') : '';
+      // R5 and R6 each keep one allowlist kind on purpose, so the diagnosis is
+      // printed here rather than encoded in the key -- see the notes above the
+      // rules. The map is keyed by rule AND file; see scanTree.
+      const why = /^R[56]:/.test(v.rule)
+        ? (diagnosis.get(v.rule.slice(0, 2) + ' ' + v.file) ?? '')
+        : '';
       console.error('  + ' + v.file + '  ' + v.rule + '  (x' + v.actual + ')' + (why ? '  -- ' + why : ''));
     }
   }
@@ -1746,11 +2183,11 @@ export async function main(argv = [], deps = {}) {
 // Only act as a CLI when actually invoked as one. Unguarded, the top-level
 // scan plus process.exit ran on mere `import`, so a spec that pulled in one of
 // the exports above scanned all 83 guards and then killed the test runner.
-const IS_CLI =
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (IS_CLI) {
+// The comparison is realpath-to-realpath (see scripts/lib/entry-point.mjs);
+// the argv[1]-vs-import.meta.url string compare this used to do reported 0
+// bytes and exit 0 through a junction -- including for --self-test, so the
+// canary attested to a run that never happened. R6 keeps it that way.
+if (isEntryPoint(import.meta.url)) {
   // process.exitCode, never process.exit(): a bare exit discards whatever is
   // still buffered on stdout, and the block this guard prints when it fails is
   // the longest thing it ever says. Measured on a sibling guard in Linux CI:

@@ -55,7 +55,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { isEntryPoint } from "./lib/entry-point.mjs";
 
 /** The status enum, compared case-insensitively. Anything else is a hard error. */
 export const STATUSES = ["live", "superseded", "shipped", "scratch"];
@@ -782,8 +782,11 @@ export function main(argv) {
   return 0;
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-if (invokedDirectly) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). path.resolve() makes a
+// path absolute; it does NOT follow a junction or symlink, so this spelling
+// carried the same fail-open as its siblings -- and hid from the grep census
+// that found them, because the argv read is wrapped rather than bare.
+if (isEntryPoint(import.meta.url)) {
   try {
     process.exitCode = main(process.argv.slice(2));
   } catch (e) {

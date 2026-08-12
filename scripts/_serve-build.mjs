@@ -29,6 +29,7 @@ import { createReadStream, existsSync, readFileSync, readdirSync, statSync } fro
 import { createServer } from 'node:http';
 import { join, resolve, extname, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 import { Readable, pipeline } from 'node:stream';
 import zlib from 'node:zlib';
 
@@ -450,8 +451,11 @@ export async function startServer({ port = 4173, verbose = false } = {}) {
 
 // --- CLI ---------------------------------------------------------------------
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). resolve() normalises a
+// path but does not follow a junction or symlink, so this compare had the same
+// fail-open as the pathToFileURL spelling its eleven siblings used -- and being
+// spelled differently is exactly why the census that found them missed it.
+if (isEntryPoint(import.meta.url)) {
   // Re-exec under the production export condition (see startServer's comment)
   // -- resolution conditions cannot be added to a running process.
   if (!process.execArgv.includes('--conditions=production')) {

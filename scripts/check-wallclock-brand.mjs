@@ -50,7 +50,7 @@
 import ts from 'typescript';
 import path from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const ROOT = process.cwd();
 const TSCONFIG = path.join(ROOT, 'tsconfig.app.json');
@@ -268,6 +268,11 @@ function main() {
 
 // Run only when invoked directly, so tests can import the predicate above
 // without loading (and exiting on) the whole app program.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+//
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). This call site was the
+// worst of the eleven: with no `process.argv[1] !== undefined` arm it did not
+// merely mispredict through a junction, it THREW on any invocation where node
+// leaves argv[1] unset (--eval, --print, the REPL, a loader worker).
+if (isEntryPoint(import.meta.url)) {
   main();
 }
