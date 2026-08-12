@@ -3127,20 +3127,27 @@ function selfTest(out = console.log, err = console.error) {
   // of this repo's guards once did exactly that under a junctioned working
   // directory, because the ESM loader realpaths `import.meta.url` while
   // `process.argv[1]` is left as typed.
-  const junction = (p) => p.split('C:/junction/').join('C:/real/');
+  // Built from ROOT with path.join, and the canonicalisation is a rename rather
+  // than a drive-letter trick. An earlier draft simulated the Windows drive
+  // case with /^c:/ and passed locally while failing on Linux CI, where `c:/x`
+  // is a RELATIVE path and the anchor never matches. A canary case that only
+  // holds on the author's OS is worse than none: it goes red on the first
+  // machine that matters.
+  const asPath = (base) => path.join(ROOT, 'scripts', base);
+  const canonicalise = (p) => p.split('shadow').join('canonical');
   add(
-    'cli: a path reached through a junction still counts as the CLI entry point',
-    () => isCliInvocation('C:/junction/scripts/g.mjs', pathToFileURL('C:/real/scripts/g.mjs').href, junction),
+    'cli: an entry point reached by a shadow path still counts as the CLI run',
+    () => isCliInvocation(asPath('shadow.mjs'), pathToFileURL(asPath('canonical.mjs')).href, canonicalise),
     true,
   );
   add(
-    'cli: without realpathing, that same invocation is missed -- which exits 0 in silence',
-    () => isCliInvocation('C:/junction/scripts/g.mjs', pathToFileURL('C:/real/scripts/g.mjs').href, (p) => p),
+    'cli: without canonicalising, that same invocation is missed -- which exits 0 in silence',
+    () => isCliInvocation(asPath('shadow.mjs'), pathToFileURL(asPath('canonical.mjs')).href, (p) => p),
     false,
   );
   add(
     'cli: a genuinely different entry point is still not this module',
-    () => isCliInvocation('C:/real/scripts/other.mjs', pathToFileURL('C:/real/scripts/g.mjs').href, junction),
+    () => isCliInvocation(asPath('other.mjs'), pathToFileURL(asPath('canonical.mjs')).href, canonicalise),
     false,
   );
   add('cli: no argv[1] at all is not a CLI run', () => isCliInvocation(undefined, 'file:///x'), false);
@@ -3149,21 +3156,25 @@ function selfTest(out = console.log, err = console.error) {
   // ordinary absolute invocation stop matching -- and the guard then printed
   // nothing and exited 0. Found by mutation, where every mutant abruptly
   // "produced no verdict".
-  const upperDrive = (p) => p.replace(/^c:/, 'C:');
+  // THE DISCRIMINATING CASE: the MODULE side is the one needing canonicalisation
+  // here, so it fails if only argv[1] is realpathed. That is the shape that
+  // shipped and broke Windows -- realpath canonicalises the drive letter, so
+  // `node c:/dev/...` stopped matching the loader's `file:///c:/...`, IS_CLI
+  // came out false, and the guard printed nothing and exited 0.
   add(
-    'cli: a drive letter canonicalised on ONE side must not lose the match',
-    () => isCliInvocation('c:/dev/w/scripts/g.mjs', pathToFileURL('c:/dev/w/scripts/g.mjs').href, upperDrive),
+    'cli: the MODULE side needs canonicalising too -- doing only argv[1] loses the match',
+    () => isCliInvocation(asPath('canonical.mjs'), pathToFileURL(asPath('shadow.mjs')).href, canonicalise),
     true,
   );
   add(
-    'cli: and the real module URL matches its own realpathed argv',
-    () => isCliInvocation('c:/dev/w/scripts/g.mjs', pathToFileURL('C:/dev/w/scripts/g.mjs').href, upperDrive),
+    'cli: and an already-canonical pair matches without either side moving',
+    () => isCliInvocation(asPath('canonical.mjs'), pathToFileURL(asPath('canonical.mjs')).href, canonicalise),
     true,
   );
   add('cli: a non-file URL matches nothing on disk', () => isCliInvocation('C:/x.mjs', 'data:text/javascript,0'), false);
   add(
     'cli: a path that cannot be realpathed falls back rather than deciding no',
-    () => isCliInvocation('C:/real/scripts/g.mjs', pathToFileURL('C:/real/scripts/g.mjs').href, () => { throw new Error('ENOENT'); }),
+    () => isCliInvocation(asPath('canonical.mjs'), pathToFileURL(asPath('canonical.mjs')).href, () => { throw new Error('ENOENT'); }),
     true,
   );
 
