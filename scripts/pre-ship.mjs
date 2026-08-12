@@ -66,7 +66,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first ELEVEN are exactly the npm-run links of the "lint" chain (which
+ * The first TWELVE are exactly the npm-run links of the "lint" chain (which
  * also ends in a bare `eslint .`, run by the chain and not listed here),
  * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
  * membership, so this comment is the only thing marking where the chain prefix
@@ -88,6 +88,7 @@ export const CHECKS = [
   ["check:rpc-typing", "no rpc(x as never) escapes"],
   ["check:script-conventions", "no guard script reports green without checking"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
+  ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to

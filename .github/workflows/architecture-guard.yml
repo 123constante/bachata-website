@@ -76,6 +76,26 @@ jobs:
       - name: Plan-hygiene rules (canary only -- the lint is pre-ship-local)
         run: npm run check:plan-hygiene:self-test
 
+      # Workflow artifact policy: what an upload in .github/workflows is
+      # allowed to cost. Phase P3 of the ci-spend-never-silent arc, and the
+      # author-time half of it -- check-ci-budget.mjs measures the bill daily,
+      # this refuses the shapes that run it up, on the PR that adds them.
+      #
+      # The incident it exists for: an `if: failure()` upload on a nightly that
+      # never went green. That reads as a bound on cost and is one only if the
+      # job sometimes succeeds; on 15-of-15 failures it was an unconditional
+      # 122 MB upload wearing a conditional's clothes, holding 858 MB against a
+      # 500 MB allowance for four months while every gate on this board stayed
+      # green. Nothing here was measuring what CI cost.
+      #
+      # Canary first, same rule as the guards above: a self-test with no caller
+      # proves nothing, and this guard's whole job is to not be silently blind.
+      # Static -- no network, no secrets, no DB.
+      - name: Workflow artifact policy (canary, then the guard)
+        run: |
+          npm run check:workflow-artifact-policy:self-test
+          npm run check:workflow-artifact-policy
+
       # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
       # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was
