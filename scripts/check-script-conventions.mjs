@@ -22,7 +22,7 @@
  *   - scripts/check-plan-hygiene.mjs self-test -- every rule proven in BOTH
  *     directions against tmpdir fixtures (1 consumer).
  *
- * FOUR RULE CLASSES (the four queued from admin docs/open-loops.md):
+ * FIVE RULE CLASSES (the four queued from admin docs/open-loops.md, plus R5):
  *   R1 silent-skip     a green exit reachable from a missing secret, a walled
  *                      URL, an undeployed RPC, or an empty sample, with no
  *                      escalation env and no assertMeasured floor.
@@ -33,6 +33,43 @@
  *   R4 no-canary       a guard with no proof it can fail. Every script without
  *                      one is recorded in the allowlist, so retrofitting stays
  *                      a burn-down -- but a NEW script must carry one to pass.
+ *   R5 unproven-exit   a canary that proves the RULES but never drives the
+ *                      function whose return value becomes the exit code. The
+ *                      rules are then measured and the CODES are asserted.
+ *
+ * WHY R5 IS A RULE AND NOT A NOTE. R3 is the rule that CLAIMS to own the 0/1/2
+ * contract, and it has zero allowlist entries -- which reads as universal
+ * compliance. Measured on this tree (2026-08-12, 90 check-/lint- scripts) AS IT
+ * STOOD BEFORE THIS COMMIT -- stated that way because this commit's own edit to
+ * this file moves the last figure: the 13 becomes 12, since this file stopped
+ * being one of the violators. The other five are unchanged by it (re-measured
+ * after the edit; this file carries no credential guard, so it never joins the
+ * 6, and a first draft of this sentence claiming otherwise was wrong):
+ *   - 66 scripts carry the literal `if (!url || !key)` shape R3 matches. 62 of
+ *     them pair it with process.exit(2) and are genuinely measured compliant.
+ *   - The other 4 spell the code as `return 2`. R3 pairs its shape with
+ *     process.exit(N) only, so it sees the `if` and then no exit call at all,
+ *     and declines to hit. Those 4 are not compliant-and-counted; they are
+ *     unlooked-at, and so are 2 more that spell the guard itself differently --
+ *     6 scripts in total return their codes rather than exiting them.
+ *   - 14 scripts carry a canary; 13 of them never call the function that owns
+ *     their exit code, so flipping a `return 2` to `return 0` leaves every one
+ *     of their rule cases green.
+ * So R3's zero is evidence about 62 scripts, not 90, and nothing distinguishes
+ * that from evidence about all of them. R3 checks a SHAPE and can be spelled
+ * around. R5 checks that the contract is DRIVEN, which is spelling-independent:
+ * it asks whether the canary can observe the code at all. Only
+ * check-ci-budget.mjs passed it when it was written -- its own header records
+ * what that cost -- and this file was changed in the same commit to pass it
+ * too, because a rule its author is exempt from is not a rule.
+ *
+ * WHAT R5 CANNOT SEE, said plainly. It is a static rule, so it proves the
+ * canary CALLS the exit owner -- not that it asserts anything useful about what
+ * came back. A canary that calls main() and ignores the result satisfies it.
+ * The judgement it cannot make is the one check-ci-budget.mjs documents at
+ * length: when four branches all return 2, a case that does not pin WHICH
+ * branch fired passes for the wrong reason. R5 buys the seam that makes that
+ * judgement possible; it does not make it for you.
  *
  * RATCHET. Today violations are frozen in
  * scripts/script-conventions-allowlist.json. The guard fails on a NEW
@@ -51,8 +88,13 @@
  * Exit: 0 pass, 1 convention violated, 2 the guard could not run.
  */
 import fs from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+// R5 only. R1-R4 stay on regex -- see the note above the R5 block for why this
+// one rule earns a parser. Already a direct dependency, and already used this
+// way by scripts/check-wallclock-brand.mjs.
+import ts from 'typescript';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ALLOWLIST_PATH = 'scripts/script-conventions-allowlist.json';
@@ -76,11 +118,16 @@ const NOT_A_GUARD = new Set([
 // ---------------------------------------------------------------------------
 // Rule detection
 //
-// Regex-based, not AST-based. The scripts are formulaic (~55 share a
+// R1-R4 are regex-based, not AST-based. The scripts are formulaic (~55 share a
 // copy-pasted skeleton), the patterns are distinctive, and a regex guard that
 // ships beats an AST guard that does not. The cost is false positives, which
 // the allowlist absorbs -- and every rule is proven in BOTH directions by the
 // self-test, so a rule that silently stops matching is itself a failure.
+//
+// R5 IS THE EXCEPTION and parses. It is the only rule that asks a question
+// about SCOPE rather than about a shape, and the note above its block records
+// what answering that with text scanning cost: six defects over two review
+// rounds, one of them fail-open and live in this tree.
 //
 // stripNoise below is a hand-rolled character scanner, NOT a regex, for two
 // measured reasons. (1) The obvious regex for a quoted literal,
@@ -356,12 +403,409 @@ export function findExitDrift(src) {
   return hits;
 }
 
+/** A canary is present. R4 and R5 must agree on this or R5 would fire on the
+ *  scripts R4 has already recorded, double-charging the same debt. */
+const HAS_CANARY = /selfTest|SELF_?TEST/;
+
 export function findMissingCanary(src) {
   // Identifiers, against STRIPPED source. Tested against the raw text a script
   // that merely mentions "self-test" in a comment or a --help string satisfied
   // the rule without carrying a canary at all.
-  if (/selfTest|SELF_?TEST/.test(stripNoise(src))) return [];
+  if (HAS_CANARY.test(stripNoise(src))) return [];
   return [{ rule: 'R4', kind: 'no-canary', line: 0 }];
+}
+
+// ---------------------------------------------------------------------------
+// R5 -- the canary drives the exit contract.
+//
+// The rule is one question: does the canary CALL the function whose return
+// value becomes process.exitCode? Three shapes answer no, and they are three
+// stages of the same refactor rather than three different defects:
+//
+//   1. No function owns the code -- the CLI computes it inline from literals
+//      (`process.exit(result.ok ? 0 : 2)`), or main() sets process.exitCode as
+//      a side effect and returns nothing. Nothing is drivable.
+//   2. A function owns it, but the canary never calls it. Every rule case is
+//      green; flip the `return 2` to `return 0` and they stay green.
+//   3. There is no locatable canary body to look in.
+//
+// ONE ALLOWLIST KIND FOR ALL THREE, DELIBERATELY. The obvious design records
+// which shape a script is in. It is wrong here: fixing R5 is a multi-step
+// refactor (make main() return the code, give it a seam, then drive it), and a
+// kind that changes mid-refactor lands as one STALE entry plus one ADDITION --
+// and an addition prints "a NEW guard script can report green without
+// checking". A ratchet that reds on progress is a ratchet people route around.
+// The diagnosis is printed in the failure block instead, where a blocked human
+// is actually reading.
+//
+// SCRIPTS WITH NO CANARY ARE R4's, NOT R5's. Recording the same script under
+// both inflates the burn-down and says nothing new. The consequence is
+// deliberate and worth stating: fixing R4 by adding a rules-only canary turns
+// that script into an R5 addition. Adding a canary that cannot see the exit
+// codes is half the job, and this is where the other half gets asked for.
+// ---------------------------------------------------------------------------
+
+/** A declaration whose NAME says it is the canary. */
+const CANARY_NAME = /^self_?test/i;
+const CANARY_NAME_EXACT = /^self_?test$/i;
+
+/**
+ * R5 IS ANSWERED ON AN AST, NOT BY SCANNING TEXT, and the reason is measured
+ * rather than stylistic.
+ *
+ * The first draft answered "does the canary call the exit owner" with a
+ * hand-rolled scanner layered on stripNoise. Two review rounds found six
+ * defects in it, and the sixth was fail-OPEN and live in this tree: with no
+ * keyword denylist, `if (` in the statement after a semicolon-free
+ * `process.exitCode = code` was collected as an exit owner -- and since nearly
+ * every canary body contains an `if (`, the rule reported CLEAN on a canary
+ * that drove nothing. check-sourcemap-debugids.mjs already yields owners
+ * ['if', 'main'] today and fires only because `main` happens to land in the
+ * same window. That is precisely the "reports green without checking" failure
+ * this whole file exists to end, inside the rule added to end it.
+ *
+ * The other five were the same shape: a brace-less arrow canary borrowing the
+ * CLI tail, an unclosed body falling back to the rest of the file, a
+ * prettier-wrapped assignment reading as "not drivable", a scope-blind binding
+ * table resolving the wrong `const code`, and a `selfTestHelper` declared above
+ * the real canary hijacking the scan. Each patch closed an instance and left
+ * the class, because text scanning cannot answer a question about SCOPE.
+ *
+ * R1-R4 stay on regex, and the header's defence of that still holds: they match
+ * distinctive SHAPES, and a regex guard that ships beats an AST guard that does
+ * not. R5 is the first rule that needs binding resolution, so it is the first
+ * that earns a parser. typescript is a direct dependency and is already used
+ * this way in scripts/check-wallclock-brand.mjs, so this adds no dependency and
+ * no new precedent.
+ */
+function parse(src) {
+  return ts.createSourceFile('guard.mjs', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+}
+
+/** Names invoked as a bare `name(...)` anywhere inside `node`. A keyword is not
+ *  a CallExpression and a method call has a PropertyAccess callee, so both drop
+ *  out here for free rather than needing a denylist that can be incomplete. */
+function calledNames(node) {
+  const names = new Set();
+  const visit = (n) => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) names.add(n.expression.text);
+    ts.forEachChild(n, visit);
+  };
+  visit(node);
+  return names;
+}
+
+/** Every `name` declared directly inside `node` -- a local that SHADOWS an
+ *  outer one of the same name. A canary satisfying R5 with a two-line local
+ *  stub called `main` is driving a literal, not the CLI's exit owner. */
+function declaredNames(node) {
+  const names = new Set();
+  const visit = (n) => {
+    // Do NOT descend into a nested function: a local called `run` inside a
+    // helper the canary defines does not shadow the canary's own view of the
+    // owner, and treating it as one fired R5 on a canary that does drive it.
+    if (ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n)) {
+      if (ts.isFunctionDeclaration(n) && n.name) names.add(n.name.text);
+      return;
+    }
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name)) names.add(n.name.text);
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(node, visit);
+  return names;
+}
+
+/** The nearest enclosing initialiser for `name`, walking OUT from `from`.
+ *  Real scope resolution: an unrelated `const code = 2` earlier in the file no
+ *  longer shadows the CLI's `const code = await main(argv)`. */
+function resolveInitializer(from, name) {
+  for (let scope = from; scope; scope = scope.parent) {
+    const statements = scope.statements ?? scope.body?.statements;
+    if (!statements) continue;
+    for (const statement of statements) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const decl of statement.declarationList.declarations) {
+        if (!decl.initializer) continue;
+        if (ts.isIdentifier(decl.name) && decl.name.text === name) return decl.initializer;
+        // `const { code } = await main();` -- the name is bound by a pattern,
+        // not an identifier, and reading only the identifier form reported
+        // "no function returns the exit code" for a compliant script.
+        if (
+          ts.isObjectBindingPattern(decl.name) &&
+          decl.name.elements.some((el) => ts.isIdentifier(el.name) && el.name.text === name)
+        ) {
+          return decl.initializer;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * `main(argv).then((code) => { process.exitCode = code })` -- the identifier is
+ * a PARAMETER, not a declaration, so resolveInitializer cannot see it. Walk out
+ * to the callback's own `.then(...)` call and take the receiver of the chain.
+ *
+ * Without this the shape reports "exit-not-drivable" on a script whose main()
+ * plainly returns the code, which is the misleading-diagnosis failure that
+ * parks a compliant script in the allowlist and never lets it out.
+ */
+function promiseChainOwners(identifier) {
+  for (let node = identifier; node; node = node.parent) {
+    const isCallback = ts.isArrowFunction(node) || ts.isFunctionExpression(node);
+    if (!isCallback) continue;
+    const names = node.parameters.map((p) => (ts.isIdentifier(p.name) ? p.name.text : null));
+    if (!names.includes(identifier.text)) continue;
+    const call = node.parent;
+    if (
+      call &&
+      ts.isCallExpression(call) &&
+      ts.isPropertyAccessExpression(call.expression) &&
+      ['then', 'catch', 'finally'].includes(call.expression.name.text)
+    ) {
+      return calledNames(call.expression.expression);
+    }
+  }
+  return new Set();
+}
+
+/**
+ * The functions whose value BECOMES the exit code.
+ *
+ * Structural, not "every call in the expression", and the difference is a
+ * defect a third review round found in the first AST draft: the CLI tail
+ * `await main(argv).catch((e) => ... String(e) ...)` collected `String` as an
+ * exit owner, and this very file passed R5 only because a canary helper happens
+ * to call String(). "Fires only by luck" is what the header criticises the old
+ * text scanner for; it had been reproduced here.
+ *
+ * So the walk visits only value-producing positions and NEVER an argument:
+ * `main(parseArgs(argv))` owns `main`, not `parseArgs`.
+ */
+function valueOwners(expr) {
+  if (ts.isAwaitExpression(expr) || ts.isParenthesizedExpression(expr)) {
+    return valueOwners(expr.expression);
+  }
+  if (ts.isConditionalExpression(expr)) {
+    return new Set([...valueOwners(expr.whenTrue), ...valueOwners(expr.whenFalse)]);
+  }
+  // `a ?? b`, `a || b` -- either side can be the value that lands.
+  if (ts.isBinaryExpression(expr)) {
+    const kind = expr.operatorToken.kind;
+    if (
+      kind === ts.SyntaxKind.QuestionQuestionToken ||
+      kind === ts.SyntaxKind.BarBarToken ||
+      kind === ts.SyntaxKind.AmpersandAmpersandToken
+    ) {
+      return new Set([...valueOwners(expr.left), ...valueOwners(expr.right)]);
+    }
+    return new Set();
+  }
+  if (ts.isCallExpression(expr)) {
+    if (ts.isIdentifier(expr.expression)) return new Set([expr.expression.text]);
+    // `main(argv).then(...)` / `.catch(...)` -- the code still comes from the
+    // head of the chain, so follow the receiver and ignore the callback.
+    if (
+      ts.isPropertyAccessExpression(expr.expression) &&
+      ['then', 'catch', 'finally'].includes(expr.expression.name.text)
+    ) {
+      return valueOwners(expr.expression.expression);
+    }
+    return new Set();
+  }
+  if (ts.isIdentifier(expr)) {
+    const init = resolveInitializer(expr, expr.text);
+    if (init) return valueOwners(init);
+    return promiseChainOwners(expr);
+  }
+  return new Set();
+}
+
+/**
+ * The functions whose return values become the exit code, by name and line.
+ *
+ * Read off the CLI's own assignment rather than by looking for a function
+ * called `main`. That distinction is the lesson SKIP_TRIGGERS records above --
+ * a rule keyed on a NAME is only as durable as the name -- and it is load
+ * bearing already: check-mojibake.mjs spells its owner `runScan`, and a
+ * main-only rule would have called it compliant without looking.
+ *
+ * A canary-named function is never an owner: `process.exitCode = selfTest() ? 0
+ * : 1` says only that the canary reports itself, which every canary does.
+ */
+export function exitOwners(code) {
+  const source = parse(code);
+  const owners = new Map();
+  const record = (expr) => {
+    const at = source.getLineAndCharacterOfPosition(expr.getStart(source)).line + 1;
+    for (const name of valueOwners(expr)) {
+      if (CANARY_NAME.test(name)) continue;
+      if (!owners.has(name)) owners.set(name, at);
+    }
+  };
+
+  const visit = (node) => {
+    // process.exitCode = <expr>
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isPropertyAccessExpression(node.left) &&
+      ts.isIdentifier(node.left.expression) &&
+      node.left.expression.text === 'process' &&
+      node.left.name.text === 'exitCode'
+    ) {
+      record(node.right);
+    }
+    // process.exit(<expr>)
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === 'process' &&
+      node.expression.name.text === 'exit' &&
+      node.arguments.length > 0
+    ) {
+      record(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return owners;
+}
+
+/**
+ * The canary's body node, or null when no declaration whose name says "canary"
+ * can be found. An EXACT `selfTest` wins over a merely prefixed one: a helper
+ * called selfTestHelper or selfTestCase declared above the real canary used to
+ * hijack the scan, and if that helper mentioned the owner the rule passed a
+ * canary that drove nothing.
+ */
+function canaryNode(source) {
+  const found = [];
+  const visit = (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name && node.body) {
+      found.push([node.name.text, node.body]);
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
+    ) {
+      found.push([node.name.text, node.initializer.body]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  const named = found.filter(([name]) => CANARY_NAME.test(name));
+  const exact = named.find(([name]) => CANARY_NAME_EXACT.test(name));
+  return (exact ?? named[0])?.[1] ?? null;
+}
+
+/** True when `name` is CALLED in `region`. Kept as a string-in API because the
+ *  canary drives it directly on fragments. */
+export function callsFunction(region, name) {
+  return calledNames(parse(region)).has(name);
+}
+
+/** The canary's body, as source text, or null. */
+function canaryBody(code) {
+  const node = canaryNode(parse(code));
+  return node ? node.getText() : null;
+}
+
+/**
+ * Does the canary drive `owner`? Directly, or through ONE module-scope helper.
+ *
+ * The helper hop is not indulgence: factoring `const runMain = (argv, extra) =>
+ * main(argv, {...sealed, ...extra})` out of the canary is the natural next step
+ * once several cases share it, and without this the rule would fire on it --
+ * pinning a code layout rather than the property it claims to measure. The
+ * reference implementation avoids it only by keeping that helper inline.
+ */
+function canaryDrives(source, body, owner) {
+  // A local of the same name shadows the real owner, so calling it proves
+  // nothing about the CLI's contract.
+  if (declaredNames(body).has(owner)) return false;
+  const called = calledNames(body);
+  if (called.has(owner)) return true;
+  for (const helper of called) {
+    const init = resolveInitializer(body, helper);
+    if (init && calledNames(init).has(owner)) return true;
+    for (const statement of source.statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === helper && statement.body) {
+        if (calledNames(statement.body).has(owner)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** The diagnosis behind an R5 hit -- printed, never keyed. See the block note. */
+export function diagnoseExitContract(src) {
+  const code = stripNoise(src);
+  if (!HAS_CANARY.test(code)) return null;
+  const source = parse(src);
+  // FAIL CLOSED ON SOURCE THAT DOES NOT PARSE. TypeScript's parser is
+  // error-TOLERANT: an unclosed canary body does not throw, it RECOVERS by
+  // swallowing the rest of the file into that body -- so callsFunction then
+  // finds the CLI's own `main(` inside the "canary" and reports clean. That is
+  // the same borrowed-CLI-tail fail-open the text scanner had, arriving by a
+  // different road. Measured before trusting it: 0 of the 90 real scripts
+  // produce a parse diagnostic, so this cannot fire on healthy source.
+  if ((source.parseDiagnostics ?? []).length > 0) {
+    const first = source.parseDiagnostics[0];
+    return {
+      why: 'unparseable',
+      detail:
+        'the source does not parse (' +
+        ts.flattenDiagnosticMessageText(first.messageText, ' ') +
+        '), so nothing can be concluded about its exit contract',
+      line: 0,
+    };
+  }
+  const owners = exitOwners(src);
+  if (owners.size === 0) {
+    return {
+      why: 'exit-not-drivable',
+      detail:
+        'no function returns the exit code -- the CLI computes it inline, or ' +
+        'sets process.exitCode as a side effect',
+      line: 0,
+    };
+  }
+  const body = canaryNode(source);
+  if (body === null) {
+    return {
+      why: 'canary-body-not-found',
+      detail: 'no locatable canary function body to look in',
+      line: 0,
+    };
+  }
+  const undriven = [...owners.keys()].filter((name) => !canaryDrives(source, body, name));
+  if (undriven.length > 0) {
+    return {
+      why: 'canary-skips-exit',
+      detail: 'the canary never calls ' + undriven.map((n) => n + '()').join(', '),
+      line: owners.get(undriven[0]) ?? 0,
+    };
+  }
+  return null;
+}
+
+export function findUnprovenExitContract(src) {
+  const found = diagnoseExitContract(src);
+  if (found === null) return [];
+  return [
+    {
+      rule: 'R5',
+      kind: 'unproven-exit-contract',
+      line: found.line,
+      why: found.why,
+      detail: found.detail,
+    },
+  ];
 }
 
 export function scanSource(src) {
@@ -370,6 +814,7 @@ export function scanSource(src) {
     ...findSwallowedErrors(src),
     ...findExitDrift(src),
     ...findMissingCanary(src),
+    ...findUnprovenExitContract(src),
   ];
 }
 
@@ -393,13 +838,23 @@ async function scanTree(root) {
     .sort();
 
   const actual = {};
+  // R5's diagnosis, kept beside the counts rather than inside the allowlist
+  // key, so a script moving between R5 shapes mid-refactor does not land as a
+  // stale entry plus an addition. See the note above the rule.
+  const diagnosis = new Map();
   for (const name of names) {
     const src = await fs.readFile(path.join(dir, name), 'utf8');
     const hits = scanSource(src);
     const counts = tally(hits);
     if (Object.keys(counts).length > 0) actual['scripts/' + name] = counts;
+    // Read off the HIT rather than calling diagnoseExitContract again. The
+    // second call re-parsed every file to recompute an answer scanSource had
+    // just thrown away -- measured at ~15% of scan time, and on a green run
+    // the result is never even read.
+    const r5hit = hits.find((h) => h.rule === 'R5');
+    if (r5hit) diagnosis.set('scripts/' + name, r5hit.why + ': ' + r5hit.detail);
   }
-  return actual;
+  return { actual, diagnosis };
 }
 
 export function diffAgainstAllowlist(actual, allow) {
@@ -433,9 +888,31 @@ export function diffAgainstAllowlist(actual, allow) {
 // one either. Each case asserts a violating source DOES trip it and a clean
 // source does NOT.
 // ---------------------------------------------------------------------------
-function selfTest() {
+/** The canary could not be RUN. Infrastructure, so exit 2 -- not a failed case,
+ *  which is exit 1 and means a convention was actually violated. */
+export class CannotSelfTest extends Error {}
+
+// async since the exit-contract cases at the bottom drive main(), which is.
+async function selfTest() {
   const cases = [];
   const add = (name, fn, expected) => cases.push({ name, fn, expected });
+
+  // Read UP FRONT, not lazily inside the case that uses it. Read there, a
+  // renamed or deleted reference file becomes a THROWN case, which the runner
+  // scores as a failure, which exits 1 -- "a convention was violated" -- for
+  // what is plainly infrastructure. This file's own R3 puts that at 2, and a
+  // guard that misreports its own inability to run is the fail-open shape the
+  // whole file is about.
+  const REFERENCE_IMPL = 'scripts/check-ci-budget.mjs';
+  let referenceSource;
+  try {
+    referenceSource = readFileSync(path.join(ROOT, REFERENCE_IMPL), 'utf8');
+  } catch (error) {
+    throw new CannotSelfTest(
+      'cannot read ' + REFERENCE_IMPL + ', the reference implementation the R5 ' +
+        'shipped case measures against: ' + error.message,
+    );
+  }
   const src = (...lines) => lines.join('\n');
 
   // --- R1 silent-skip: positive ---
@@ -525,6 +1002,354 @@ function selfTest() {
     1,
   );
 
+  // --- R5 the canary drives the exit contract: both directions ---
+  //
+  // The shape every case is built against, spelled once. `owner` is what the
+  // CLI takes its code from; `drives` is what the canary body does about it.
+  const script = (owner, drives) =>
+    src(
+      'async function main(argv, deps) {',
+      '  if (bad) return 2;',
+      '  return 0;',
+      '}',
+      'function selfTest() {',
+      '  ' + drives,
+      '  return true;',
+      '}',
+      owner,
+    );
+  const REFERENCE = 'process.exitCode = await main(process.argv.slice(2));';
+  // The DIAGNOSIS, not merely the count. A review found that swapping the three
+  // branch bodies of diagnoseExitContract left every case green, because they
+  // all asserted `.length` -- and that diagnosis is the only actionable line a
+  // blocked author is shown. It is the same "pin WHICH branch spoke" law this
+  // file applies to main()'s exit codes, which it was not applying to its own
+  // new rule. `clean` rather than a null so a wrong answer prints readably.
+  const r5 = (source) => findUnprovenExitContract(source)[0]?.why ?? 'clean';
+
+  add(
+    'R5 fires: a canary that proves the rules but never calls the exit owner',
+    () => r5(script(REFERENCE, 'check(rules());')),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: the CLI computes its code inline, so nothing is drivable at all',
+    () => r5(script('process.exit(result.ok ? 0 : result.infra ? 2 : 1);', 'main([]);')),
+    'exit-not-drivable',
+  );
+  add(
+    'R5 fires: main() sets process.exitCode as a side effect and returns nothing',
+    () =>
+      r5(
+        src(
+          'async function main() { if (bad) process.exitCode = 1; }',
+          'function selfTest() { main(); return true; }',
+          'main().catch(() => { process.exitCode = 2; });',
+        ),
+      ),
+    'exit-not-drivable',
+  );
+  add(
+    'R5 fires: a canary with no locatable body cannot be driving anything',
+    () => r5(src('const SELF_TEST = true;', 'process.exitCode = await main(argv);')),
+    'canary-body-not-found',
+  );
+  // The two near-misses a substring test accepts. Both were real risks in the
+  // scanner, not hypotheticals: the first is how every `deps.main` reference
+  // would read as a call, the second is how `mainLoop` would satisfy `main`.
+  add(
+    'R5 fires: naming the owner as a PROPERTY is not calling it',
+    () => r5(script(REFERENCE, 'const f = deps.main(); f();')),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: calling mainLoop() does not satisfy an owner called main',
+    () => r5(script(REFERENCE, 'mainLoop();')),
+    'canary-skips-exit',
+  );
+  // --- The two FALSE NEGATIVES a review found in the first draft ---
+  //
+  // Both made canaryBody() hand back a region containing the CLI tail, where
+  // `main(` always appears -- so R5 passed a canary that drives nothing. A
+  // guard's lost-scanner branch has to fail CLOSED.
+  add(
+    'R5 fires: a brace-less arrow canary does not get to borrow the CLI tail',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'const selfTest = () => runCases(CASES);',
+          'if (IS_CLI) { process.exitCode = await main(process.argv.slice(2)); }',
+        ),
+      ),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: a destructured parameter does not open the scan on the wrong brace',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest({ log } = {}) { runCases(CASES); }',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'canary-skips-exit',
+  );
+  // --- The fail-open a SECOND review found, and the class it belongs to ---
+  //
+  // The text scanner collected `if` as an exit owner whenever the exit line had
+  // no semicolon, and since nearly every canary body contains an `if (`, the
+  // rule reported CLEAN on a canary that drove nothing. This fixture is the
+  // measured shape: semicolon-free, with a control-flow statement after it.
+  add(
+    'R5 fires: a semicolon-free CLI tail does not let a KEYWORD stand in for the owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0 }',
+          'function selfTest() { if (bad) return false; return checkRules() }',
+          'const code = await main(process.argv.slice(2))',
+          'process.exitCode = code',
+          'if (VERBOSE) { logSummary() }',
+        ),
+      ),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: a LOCAL stub named like the owner shadows it and proves nothing',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() { const main = () => 0; return main() === 0; }',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: a selfTest-PREFIXED helper does not get to answer for the real canary',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'const selfTestCase = (n) => ({ drive: () => main([n]) });',
+          'function selfTest() { return checkRules(); }',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'canary-skips-exit',
+  );
+  add(
+    'R5 fires: source that does not PARSE concludes nothing, rather than borrowing the CLI tail',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() {',
+          '  runCases(CASES);',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'unparseable',
+  );
+  // --- What a THIRD review round found in the AST draft ---
+  //
+  // An exit owner is the call whose VALUE becomes the code, not every call in
+  // the expression. This file's own CLI tail once made `String` an owner (from
+  // String(error) in a .catch formatter) and passed only because a canary
+  // helper happened to call String() -- "fires only by luck", which is exactly
+  // what the header criticises the old text scanner for.
+  add(
+    'R5: an argument is not an exit owner, however it is spelled',
+    () =>
+      [...exitOwners('process.exitCode = await main(parseArgs(argv));').keys()].join(','),
+    'main',
+  );
+  add(
+    'R5: a .catch formatter does not donate its helpers to the owner list',
+    () =>
+      [
+        ...exitOwners(
+          'process.exitCode = await main(argv).catch((e) => { log(String(e)); return 2; });',
+        ).keys(),
+      ].join(','),
+    'main',
+  );
+  add(
+    'R5 silent: an owner bound by a DESTRUCTURED declaration is still an owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return { code: 0 }; }',
+          'function selfTest() { return main([]).code === 0; }',
+          'const { code } = await main(process.argv.slice(2));',
+          'process.exit(code);',
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5 silent: a local inside a NESTED helper is not a shadow of the owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() {',
+          '  const build = () => { const main = 1; return main; };',
+          '  build();',
+          '  return main([]) === 0;',
+          '}',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'clean',
+  );
+
+  // --- The two FALSE POSITIVES the same review found ---
+  add(
+    'R5 silent: a canary driving main() through a module-scope helper still drives it',
+    () =>
+      r5(
+        src(
+          'async function main(argv, deps) { return 0; }',
+          'const runMain = (argv, extra) => main(argv, { ...sealed, ...extra });',
+          'function selfTest() { return runMain([], {}) === 0; }',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5 silent: a canary spelled as a function EXPRESSION is still a canary',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'const selfTest = async function () { return (await main([])) === 0; };',
+          'process.exitCode = await main(process.argv.slice(2));',
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5 silent: an owner reached through .then() is still an owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() { return main([]) === 0; }',
+          'main(process.argv.slice(2)).then((c) => { process.exitCode = c; });',
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5 silent: a prettier-wrapped assignment still names its owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() { return main([]) === 0; }',
+          'process.exitCode =',
+          '  await main(process.argv.slice(2));',
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5 silent: an owner reached through a variable is still an owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() { return main([]) === 0; }',
+          'const code = await main(process.argv.slice(2));',
+          'process.exit(code);',
+        ),
+      ),
+    'clean',
+  );
+  // --- R5: negative ---
+  add(
+    'R5 silent: the reference shape -- the canary drives main() and reads its code',
+    () =>
+      r5(script(REFERENCE, "const code = await main(['--x'], {});")),
+    'clean',
+  );
+  add(
+    'R5 silent: a script with NO canary is R4 debt, not R5 debt, and is never double-charged',
+    () => r5(src('const x = 1;', 'process.exit(2);')),
+    'clean',
+  );
+  add(
+    'R5 silent: reporting the CANARY exit does not by itself make selfTest an owner',
+    () =>
+      r5(
+        src(
+          'async function main(argv) { return 0; }',
+          'function selfTest() { return main([]) === 0; }',
+          'if (flag) process.exitCode = selfTest() ? 0 : 1;',
+          'else process.exitCode = await main(argv);',
+        ),
+      ),
+    'clean',
+  );
+  // The rule is NOT keyed on the name `main`: check-mojibake.mjs really does
+  // call its owner runScan(), and a main-only rule would pass it unlooked-at.
+  add(
+    'R5 silent: an owner named something other than main, driven by the canary',
+    () =>
+      r5(
+        src(
+          'function runScan() { return 1; }',
+          'function selfTest() { return runScan() === 1; }',
+          "process.exitCode = argv.includes('--self-test') ? selfTest() : runScan();",
+        ),
+      ),
+    'clean',
+  );
+  // .includes() sits between the CLI and its code in a real script
+  // (check-upcoming-event-cover.mjs). Read as an owner it is one no canary can
+  // ever call, so the rule would fire on a compliant file forever.
+  add(
+    'R5 silent: a method call on the way to the code is not an exit owner',
+    () =>
+      r5(
+        src(
+          'async function main() { return 0; }',
+          'function selfTest() { return main(); }',
+          "process.exitCode = process.argv.includes('--self-test') ? (selfTest() ? 0 : 1) : await main();",
+        ),
+      ),
+    'clean',
+  );
+  add(
+    'R5: exitOwners reads the owner off the CLI, whatever it is called',
+    () => [...exitOwners('process.exitCode = await sweep(argv);').keys()].join(','),
+    'sweep',
+  );
+  add(
+    'R5: callsFunction rejects a property and a longer name, accepts a call',
+    () =>
+      [
+        callsFunction('deps.main();', 'main'),
+        callsFunction('mainLoop();', 'main'),
+        callsFunction('await main( x );', 'main'),
+      ].join(','),
+    'false,false,true',
+  );
+  // The one case that runs against REAL source rather than a 10-line fixture.
+  // check-ci-budget.mjs is the shape R5 was generalised from, so if it ever
+  // stops satisfying the rule, either it regressed or the detector did --
+  // and a rule proven only against its own fixtures is proven against nothing.
+  add(
+    'R5 shipped: check-ci-budget.mjs -- the reference implementation -- satisfies the rule',
+    () => r5(referenceSource),
+    'clean',
+  );
+
   // --- Canaries for the three scanner defects found in review ---
   add(
     'stripNoise: a quote inside a regex class does not blank the line',
@@ -585,11 +1410,151 @@ function selfTest() {
   add('self: stripNoise blanks a block comment', () => stripNoise('/* x */a').trim(), 'a');
   add('self: stripNoise keeps real code', () => stripNoise('exit(0);'), 'exit(0);');
 
+  // --- THE EXIT-CODE CONTRACT ITSELF (R5), driven through main() ---
+  //
+  // R5 is the rule this file added, and NOT_A_GUARD exempts this file from the
+  // scan that enforces it. The exemption is right -- a scanner that scanned
+  // itself would report its own SKIP_TRIGGERS patterns as violations -- but it
+  // is an exemption from the SCAN, not from the rule. These cases are the rule
+  // applied by hand, and they are what stops "do as I say" from being the
+  // literal shape of this file.
+  //
+  // Two branches return 2 (an unknown flag, and a check that could not run), so
+  // a case asserting the integer alone would pass for the wrong reason. Each
+  // pins its branch: the flag case by the message it prints, the infra case by
+  // being run with a VALID flag so the flag branch cannot be what answered.
+  const SILENT = () => {};
+  // The base refuses to do real work. Without this, a case that stops reaching
+  // its injected collaborator falls through to a real 90-script scan and a real
+  // allowlist read -- slow, and green for the wrong reason.
+  const sealedDeps = {
+    err: SILENT,
+    check: () => {
+      throw new Error('the canary reached the real tree scan -- inject check');
+    },
+    canary: () => {
+      throw new Error('the canary re-entered itself -- inject canary');
+    },
+  };
+  const runMain = (argv = [], extra = {}) => main(argv, { ...sealedDeps, ...extra });
+  /** The code beside the branch that spoke, so 2-vs-2 is never ambiguous. */
+  const mainOutcome = async (argv, extra = {}) => {
+    const said = [];
+    const code = await runMain(argv, { ...extra, err: (line) => said.push(String(line)) });
+    return code + '|' + (said.join('\n').includes('Unknown flag(s)') ? 'bad-flag' : 'silent');
+  };
+
+  add(
+    'exit: a clean tree is 0',
+    () => runMain([], { check: async () => ({ ok: true }) }),
+    0,
+  );
+  add(
+    'exit: a convention violation is 1, not a warning nobody acts on',
+    () => runMain([], { check: async () => ({ ok: false }) }),
+    1,
+  );
+  add(
+    'exit: a guard that COULD NOT RUN is 2, and not from the flag branch',
+    () => mainOutcome([], { check: async () => ({ ok: false, infra: true }) }),
+    '2|silent',
+  );
+  // The crash path lived in the `if (IS_CLI)` tail until a review pointed out
+  // no case could reach it -- and a tail handler that stops returning an
+  // integer sets process.exitCode = undefined, so node exits 0 and a crashed
+  // guard reports GREEN. It moved into main() so this case can exist.
+  add(
+    'exit: a check that CRASHES is 2, not 1, and says so rather than swallowing it',
+    async () => {
+      const said = [];
+      const code = await runMain([], {
+        check: () => {
+          throw new Error('ENOENT: no such file or directory');
+        },
+        err: (line) => said.push(String(line)),
+      });
+      return code + '|' + (said.join('\n').includes('COULD NOT RUN') ? 'reported' : 'silent');
+    },
+    '2|reported',
+  );
+  add(
+    'exit: an unknown flag is 2, proven with a check that would have answered 0',
+    () => mainOutcome(['--nope'], { check: async () => ({ ok: true }) }),
+    '2|bad-flag',
+  );
+  // The third sub-assertion is here because of a MUTATION, not a reading:
+  // dropping the `await` in main() left this case green while the two canaries
+  // it injected were synchronous. The real canary -- selfTest itself -- is
+  // async, so unawaited it returns a Promise, which is truthy, which makes a
+  // FAILING self-test exit 0. That is the guard reporting green having just
+  // proved it was broken, and nothing else in this file would have noticed.
+  add(
+    'exit: --self-test reports the canary, 0 for pass and 1 for fail -- including an ASYNC one',
+    async () => {
+      const pass = await runMain(['--self-test'], { canary: () => true });
+      const fail = await runMain(['--self-test'], { canary: () => false });
+      const asyncFail = await runMain(['--self-test'], { canary: async () => false });
+      return pass + ',' + fail + ',' + asyncFail;
+    },
+    '0,1,1',
+  );
+  add(
+    'exit: a canary that could not RUN is 2, and an ordinary crash is NOT swallowed into one',
+    async () => {
+      const infra = await runMain(['--self-test'], {
+        canary: () => {
+          throw new CannotSelfTest('reference implementation missing');
+        },
+      });
+      const crashed = await runMain(['--self-test'], {
+        canary: () => {
+          throw new TypeError('x is not a function');
+        },
+      }).then(
+        (code) => 'returned ' + code,
+        (error) => 'rethrew ' + error.name,
+      );
+      return infra + '|' + crashed;
+    },
+    '2|rethrew TypeError',
+  );
+  add(
+    'exit: a canary whose verdict is not a boolean is 2, never a truthy pass',
+    async () => {
+      // A canary refactored into returning a count, and one that forgot to
+      // return at all. Both are truthy-or-falsy by accident; neither is a
+      // verdict. (A canary returning a Promise OF a boolean is fine and
+      // answers 0/1 -- it is awaited above. The bad case is the unawaited
+      // Promise OBJECT, which is what the missing-await mutant produces.)
+      const counted = await runMain(['--self-test'], { canary: () => 0 });
+      const nothing = await runMain(['--self-test'], { canary: () => undefined });
+      return counted + ',' + nothing;
+    },
+    '2,2',
+  );
+  add(
+    'exit: --write reaches the re-baseline path rather than being swallowed as a flag',
+    async () => {
+      let saw = null;
+      await runMain(['--write'], {
+        check: async (opts) => {
+          saw = opts.write;
+          return { ok: true, written: true };
+        },
+      });
+      return saw;
+    },
+    true,
+  );
+
   let failed = 0;
   for (const c of cases) {
     let got;
     try {
-      got = c.fn();
+      // Awaited: a case that returns a Promise would otherwise be compared as
+      // an object and fail with an unreadable diff -- or, worse, be compared
+      // against a truthy expectation and pass without ever resolving.
+      got = await c.fn();
     } catch (error) {
       got = 'threw: ' + error.message;
     }
@@ -610,7 +1575,7 @@ function selfTest() {
 // ---------------------------------------------------------------------------
 
 export async function run({ write = false, root = ROOT } = {}) {
-  const actual = await scanTree(root);
+  const { actual, diagnosis } = await scanTree(root);
   const allowlistAbs = path.join(root, ALLOWLIST_PATH);
 
   if (write) {
@@ -645,6 +1610,21 @@ export async function run({ write = false, root = ROOT } = {}) {
     return { ok: true };
   }
 
+  // A script that just gained its first canary lands as an R5 ADDITION plus an
+  // R4 STALE, and the additions banner then accuses its author of adding a new
+  // dishonest guard for having paid down debt. Naming the promotion is the
+  // difference between a ratchet people work with and one they route around.
+  const promoted = additions
+    .filter((a) => a.rule.startsWith('R5:'))
+    .map((a) => a.file)
+    .filter((file) => stale.some((s) => s.file === file && s.rule.startsWith('R4:')));
+  if (promoted.length > 0) {
+    console.error('\nR4 -> R5 PROMOTION (progress, not a new defect):\n');
+    for (const file of promoted) {
+      console.error('  ~ ' + file + '  gained a canary (R4 paid) that does not yet drive its');
+      console.error('    exit owner (R5 owed). Finish the job, or record the step with --write.');
+    }
+  }
   if (additions.length > 0) {
     console.error('\nScript-conventions guard FAILED: a NEW guard script can report green without checking.\n');
     console.error('  R1 silent-skip     add an escalation env (REQUIRE_*/*_ENFORCE) or assertMeasured(),');
@@ -652,8 +1632,17 @@ export async function run({ write = false, root = ROOT } = {}) {
     console.error('  R2 swallowed-error rethrow, exit 2, or record the failure. A file that could not');
     console.error('                     be read has not been checked.');
     console.error('  R3 exit-drift      0 pass / 1 contract violated / 2 infrastructure.');
-    console.error('  R4 no-canary       prove it fails: see check-plan-hygiene.mjs.\n');
-    for (const v of additions) console.error('  + ' + v.file + '  ' + v.rule + '  (x' + v.actual + ')');
+    console.error('  R4 no-canary       prove it fails: see check-plan-hygiene.mjs.');
+    console.error('  R5 unproven-exit   the canary must CALL the function whose return value');
+    console.error('                     becomes process.exitCode. See check-ci-budget.mjs:');
+    console.error('                     main(argv, deps) returns the code, the CLI assigns it,');
+    console.error('                     and the canary drives it with injected collaborators.\n');
+    for (const v of additions) {
+      // R5 keeps one allowlist kind on purpose, so the diagnosis is printed
+      // here rather than encoded in the key -- see the note above the rule.
+      const why = v.rule.startsWith('R5:') ? (diagnosis.get(v.file) ?? '') : '';
+      console.error('  + ' + v.file + '  ' + v.rule + '  (x' + v.actual + ')' + (why ? '  -- ' + why : ''));
+    }
   }
   if (increases.length > 0) {
     console.error('\nScript-conventions guard FAILED: more violations than the allowlist permits.\n');
@@ -672,6 +1661,88 @@ export async function run({ write = false, root = ROOT } = {}) {
   return { ok: false };
 }
 
+/**
+ * The CLI, and the 0/1/2 exit contract it owns: 0 pass, 1 a convention was
+ * violated, 2 the guard could not run.
+ *
+ * THIS FUNCTION EXISTS BECAUSE OF R5, WHICH THIS FILE ADDED. Before it, the
+ * mapping from a result to a code lived inline in the `if (IS_CLI)` block --
+ * unreachable from the canary, so a guard that demands every other script prove
+ * its exit codes could not prove its own. NOT_A_GUARD exempts this file from
+ * its own SCAN, which is right (it is the scanner), but that exemption was
+ * quietly covering the rule as well. Two branches below return 2, so each
+ * carries a case that pins WHICH one spoke; asserting only "it returned 2" is
+ * the inert subset-relation assert the ratchet cases 400 lines up warn about.
+ *
+ * The collaborators are injected for one reason: without them a canary case
+ * would have to scan all 90 scripts and read the real allowlist off disk to
+ * reach a single return statement.
+ */
+export async function main(argv = [], deps = {}) {
+  const {
+    root = ROOT,
+    err = console.error,
+    check = run,
+    canary = selfTest,
+  } = deps ?? {};
+  const KNOWN_FLAGS = ['--write', '--self-test'];
+  const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));
+  if (unknown.length > 0) {
+    err('Unknown flag(s): ' + unknown.join(', ') + '. Known: ' + KNOWN_FLAGS.join(', '));
+    return 2;
+  }
+
+  if (argv.includes('--self-test')) {
+    let passed;
+    try {
+      passed = await canary();
+    } catch (error) {
+      // Only THIS class becomes a code. A blanket catch here would turn a
+      // genuine crash in the canary into a tidy exit 2, which is the swallowed
+      // error rule R2 forbids everywhere else in this tree.
+      if (!(error instanceof CannotSelfTest)) throw error;
+      err('The canary could not RUN: ' + error.message);
+      err('Exit 2, not 1: nothing was measured, so nothing was proven violated.');
+      return 2;
+    }
+    // A BOOLEAN, not a truthy value. Found by mutation: drop the `await` above
+    // and canary() answers a Promise, which is truthy, which exits 0 -- so the
+    // canary printed "FAIL self-test -- 1 of 46" and the CI step went GREEN.
+    // A guard reporting success from a run that had just proved it was broken
+    // is the exact failure this whole file exists to catch, and it was one
+    // keyword away in the file that catches it. Truthiness is not a verdict.
+    if (typeof passed !== 'boolean') {
+      err(
+        'The canary returned ' + Object.prototype.toString.call(passed) + ' rather than a ' +
+          'boolean, so its verdict cannot be read. This is exit 2: the self-test may ' +
+          'well have failed, and a truthy non-boolean would have been reported as a pass.',
+      );
+      return 2;
+    }
+    return passed ? 0 : 1;
+  }
+
+  // INSIDE main(), not in the CLI tail, so a canary case can drive it. Left in
+  // the tail it was unreachable from every case -- and a handler that stops
+  // returning an integer sets process.exitCode = undefined, so node exits 0 and
+  // a crashed guard reports GREEN. That is the rules-measured/codes-asserted
+  // gap R5 exists to close, in R5's own file.
+  //
+  // Not a swallowed error (R2): the stack is printed in full. What changes is
+  // only the CODE -- scanTree's fs reads are unguarded, so an unreadable
+  // scripts/ dir used to land as an unhandled rejection and exit 1, "a
+  // convention was violated", for a guard that measured nothing at all.
+  let result;
+  try {
+    result = await check({ write: argv.includes('--write'), root });
+  } catch (error) {
+    err('The guard COULD NOT RUN: ' + (error?.stack ?? String(error)));
+    err('Exit 2, not 1: nothing was measured, so nothing was proven violated.');
+    return 2;
+  }
+  return result.ok ? 0 : result.infra ? 2 : 1;
+}
+
 // Only act as a CLI when actually invoked as one. Unguarded, the top-level
 // scan plus process.exit ran on mere `import`, so a spec that pulled in one of
 // the exports above scanned all 83 guards and then killed the test runner.
@@ -680,18 +1751,13 @@ const IS_CLI =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (IS_CLI) {
-  const argv = process.argv.slice(2);
-  const KNOWN_FLAGS = ['--write', '--self-test'];
-  const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));
-  if (unknown.length > 0) {
-    console.error('Unknown flag(s): ' + unknown.join(', ') + '. Known: ' + KNOWN_FLAGS.join(', '));
-    process.exit(2);
-  }
-
-  if (argv.includes('--self-test')) {
-    process.exit(selfTest() ? 0 : 1);
-  }
-
-  const result = await run({ write: argv.includes('--write') });
-  process.exit(result.ok ? 0 : result.infra ? 2 : 1);
+  // process.exitCode, never process.exit(): a bare exit discards whatever is
+  // still buffered on stdout, and the block this guard prints when it fails is
+  // the longest thing it ever says. Measured on a sibling guard in Linux CI:
+  // 904 lines became 194.
+  //
+  // Nothing else lives here. main() owns every code including the crash path,
+  // precisely so the canary can drive all of them; a mapping that sits in this
+  // block is one no case can reach.
+  process.exitCode = await main(process.argv.slice(2));
 }
