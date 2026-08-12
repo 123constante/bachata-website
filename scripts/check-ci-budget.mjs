@@ -1967,6 +1967,200 @@ function selfTest() {
     1,
   );
 
+  // --- THE EXIT-CODE CONTRACT ITSELF (R3), driven through main() ---
+  //
+  // Every case above proves a RULE, by calling runCheck() directly; none proved
+  // a CODE, because nothing above called main(). The rationale for making main()
+  // drivable lives on its JSDoc -- one owner, not two.
+  //
+  // What belongs HERE is how these cases are built, because the first draft got
+  // it wrong in three separate ways and every one of them was measured:
+  //
+  //   1. THE BASE IS SEALED. Each case starts with no token, no network and no
+  //      output, and opts in to exactly what it is proving. The first draft let
+  //      three cases default `makeApi` to the real makeGitHubApi -- they were
+  //      network-free only because control returned before it was read. Deleting
+  //      the branch under test then sent the canary to api.github.com, from a
+  //      job ci-budget-guard.yml documents as needing no secret and no network,
+  //      and the case stayed green because a 401 also returns 2.
+  //   2. A CASE MUST PIN WHICH BRANCH FIRED. With an empty env, an unknown flag
+  //      returns 2 from the flag branch AND from the missing-token branch below
+  //      it, so deleting the flag branch outright left the case green. That is
+  //      the subset-relation inert assert this file's own canary header warns
+  //      about 900 lines up. Every case now closes off the paths it is not
+  //      testing.
+  //   3. THE CONFIG IS READ LAZILY, INSIDE THE CLOSURES. Read at this level, a
+  //      malformed ci-budgets.json throws out of selfTest() itself: ZERO cases
+  //      run and the canary dies on a raw stack instead of reporting. That is
+  //      the opposite of what the two `shipped:` cases above exist for, and it
+  //      matters precisely because ci-budgets.json is a `push:` path of this
+  //      guard's own workflow -- the PR most likely to break it is the one
+  //      editing it.
+  //
+  // Thresholds are DERIVED from the shipped file, never pinned: raising failMB
+  // in ci-budgets.json must not quietly turn the over-budget case green.
+  const SILENT = () => {};
+  /** No token, no network, no output. A case adds only what it is proving. */
+  const sealed = {
+    out: SILENT,
+    err: SILENT,
+    env: {},
+    makeApi: () => {
+      throw new Error('the canary reached the real GitHub API -- inject makeApi');
+    },
+  };
+  const LIVE = { CI_BUDGET_GITHUB_TOKEN: 'live' };
+  /** `extra` REPLACES a sealed collaborator wholesale -- including `env`, so a
+   *  case that wants a token says so and cannot inherit one by accident. */
+  const runMain = (argv = [], extra = {}) => main(argv, { ...sealed, ...extra });
+  const shippedCfg = () => JSON.parse(readFileSync(BUDGETS_PATH, 'utf8'));
+
+  // The fixture carries a dated ubuntu job, so the SHIPPED runnerMultipliers and
+  // minutes thresholds are walked rather than bypassed. Without it every job
+  // list was empty, minutes were 0, and deleting `ubuntu` from ci-budgets.json
+  // -- which makes the live sweep a permanent exit 2 -- left the canary green.
+  const JOB_START = '2026-08-01T00:00:00Z';
+  const shippedApi = (mb, minutes) => (opts) => {
+    if (opts?.token !== 'live') {
+      throw new Error('main() did not pass the token through: ' + JSON.stringify(opts));
+    }
+    const cfg = shippedCfg();
+    const repo = cfg.requiredRepos[0];
+    return makeFixtureApi({
+      repos: cfg.requiredRepos.map((full_name) => ({ full_name, private: true })),
+      artifacts: { [repo]: artifactsOf(mb) },
+      runs: { [repo]: [{ id: 1 }] },
+      jobs: {
+        [repo + '#1']: [
+          completedJob(
+            ['ubuntu-latest'],
+            JOB_START,
+            new Date(Date.parse(JOB_START) + minutes * MS_PER_MINUTE).toISOString(),
+          ),
+        ],
+      },
+    });
+  };
+  // Day 19 leaves the JOB_START burn OUTSIDE the trailing rate window; day 5
+  // leaves it inside. Same fixture, two verdicts -- which is what makes the
+  // injected clock load-bearing rather than decorative.
+  const AT_DAY_19 = () => new Date('2026-08-20T00:00:00Z');
+  const AT_DAY_5 = () => new Date('2026-08-06T00:00:00Z');
+  const SMALL_POOL = () => shippedCfg().artifactPool.warnMB / 2;
+
+  // FOUR branches return 2, so the integer alone cannot say which one fired --
+  // and a case that does not pin the branch passes for the wrong reason. Not
+  // theory: with the sealed base but a code-only assertion, deleting the token's
+  // .trim() left the blank-token case GREEN, because '   ' stopped being falsy,
+  // sailed past the gate and scored its 2 from could-not-measure instead. The
+  // needle is the same device the rule cases use via classifyFailure() above.
+  const NEEDLES = [
+    ['CI_BUDGET_GITHUB_TOKEN is not set', 'no-token'],
+    ['Unknown flag(s)', 'bad-flag'],
+    ['Cannot read ci-budgets.json', 'bad-config'],
+    ['COULD NOT MEASURE', 'cannot-measure'],
+  ];
+  /** The exit code beside the name of the branch that spoke. */
+  const mainOutcome = async (argv, extra) => {
+    const said = [];
+    const code = await runMain(argv, { ...extra, err: (line) => said.push(String(line)) });
+    const text = said.join('\n');
+    const hit = NEEDLES.find(([needle]) => text.includes(needle));
+    return code + '|' + (hit ? hit[1] : 'silent');
+  };
+
+  add('exit: a MISSING token is 2, never 0', () => mainOutcome(), '2|no-token');
+  add(
+    'exit: a BLANK token is 2, from the TOKEN branch -- a secret that exists but is empty',
+    () => mainOutcome([], { env: { CI_BUDGET_GITHUB_TOKEN: '   ' } }),
+    '2|no-token',
+  );
+  add(
+    'exit: an unknown flag is 2, proven with a VALID token so only the flag can produce it',
+    () =>
+      mainOutcome(['--nope'], {
+        env: LIVE,
+        makeApi: shippedApi(SMALL_POOL(), 5),
+        clock: AT_DAY_19,
+      }),
+    '2|bad-flag',
+  );
+  add(
+    'exit: an UNREADABLE ci-budgets.json is 2, not a green "within budget"',
+    () =>
+      mainOutcome([], {
+        env: LIVE,
+        readCfg: () => {
+          throw new Error('ENOENT: no such file or directory');
+        },
+      }),
+    '2|bad-config',
+  );
+  add(
+    'exit: a MALFORMED ci-budgets.json is 2 -- the parse is inside the try too',
+    () => mainOutcome([], { env: LIVE, readCfg: () => '{ "requiredRepos": [' }),
+    '2|bad-config',
+  );
+  add(
+    'exit: an account that CANNOT be measured is 2, not a number',
+    () =>
+      mainOutcome([], {
+        env: LIVE,
+        makeApi: () =>
+          makeFixtureApi({
+            reposThrows: 'GitHub API /user/repos -> HTTP 401. Token expired.',
+          }),
+      }),
+    '2|cannot-measure',
+  );
+  add(
+    'exit: a HEALTHY account is 0 -- the contract is not merely "always 2"',
+    () => runMain([], { env: LIVE, makeApi: shippedApi(SMALL_POOL(), 800), clock: AT_DAY_19 }),
+    0,
+  );
+  add(
+    'exit: the SAME account is 1 when that burn sits inside the rate window',
+    () => runMain([], { env: LIVE, makeApi: shippedApi(SMALL_POOL(), 800), clock: AT_DAY_5 }),
+    1,
+  );
+  add(
+    'exit: a BLOWN pool is 1, and the verdict goes to STDERR where CI annotates it',
+    async () => {
+      const errLines = [];
+      const code = await runMain([], {
+        env: LIVE,
+        makeApi: shippedApi(shippedCfg().artifactPool.failMB * 2, 5),
+        clock: AT_DAY_19,
+        err: (line) => errLines.push(String(line)),
+      });
+      const toStderr = errLines.some((l) => l.includes('CI BUDGET EXCEEDED'));
+      return code + '|' + (toStderr ? 'stderr' : 'stdout');
+    },
+    '1|stderr',
+  );
+  add(
+    'exit: the CI step summary is written, and a failure to write it cannot rewrite the verdict',
+    async () => {
+      const written = [];
+      const ok = await runMain([], {
+        env: { ...LIVE, GITHUB_STEP_SUMMARY: '/step-summary' },
+        makeApi: shippedApi(SMALL_POOL(), 5),
+        clock: AT_DAY_19,
+        appendSummary: (path, body) => written.push(path + '::' + body.slice(0, 11)),
+      });
+      const broke = await runMain([], {
+        env: { ...LIVE, GITHUB_STEP_SUMMARY: '/step-summary' },
+        makeApi: shippedApi(SMALL_POOL(), 5),
+        clock: AT_DAY_19,
+        appendSummary: () => {
+          throw new Error('ENOSPC: no space left on device');
+        },
+      });
+      return written.join('') + '|' + ok + '|' + broke;
+    },
+    '/step-summary::## CI spend|0|0',
+  );
+
   return runCases(cases);
 }
 
@@ -2002,13 +2196,40 @@ async function runCases(cases) {
 // CLI
 // ---------------------------------------------------------------------------
 
-export async function main(argv) {
+/**
+ * The CLI, and the 0/1/2 exit contract it owns: 0 pass, 1 a budget is exceeded,
+ * 2 the guard could not measure.
+ *
+ * FOUR branches below return 2 -- an unknown flag, a missing or blank token, an
+ * unreadable ci-budgets.json, and an account that could not be measured. From
+ * outside they are one integer, so each carries its own canary case that pins
+ * WHICH branch produced it. Asserting only "it returned 2" is how three of the
+ * four stayed unproven through the first draft of this section: every case
+ * reached the code it expected down a path it did not mean to test.
+ *
+ * The collaborators are injectable so the canary can drive this function at all.
+ * That was not cosmetic. Until it could, flipping the missing-token or the
+ * could-not-measure `return 2` to `return 0` left every rule case green, because
+ * they all call runCheck() directly and nothing called main(). "A missing or
+ * expired PAT is 2, never 0" is the contract this guard was commissioned on, and
+ * it is now measured rather than asserted. `readCfg` and `appendSummary` are
+ * injected for the same reason and no other: the branches behind them are
+ * otherwise unreachable without writing to a real filesystem.
+ */
+export async function main(argv = [], deps = {}) {
+  const {
+    env = process.env,
+    makeApi = makeGitHubApi,
+    clock = () => new Date(),
+    readCfg = () => readFileSync(BUDGETS_PATH, 'utf8'),
+    appendSummary = appendFileSync,
+    out = console.log,
+    err = console.error,
+  } = deps ?? {};
   const KNOWN_FLAGS = ['--self-test'];
   const unknown = argv.filter((arg) => !KNOWN_FLAGS.includes(arg));
   if (unknown.length > 0) {
-    console.error(
-      'Unknown flag(s): ' + unknown.join(', ') + '. Known: ' + KNOWN_FLAGS.join(', '),
-    );
+    err('Unknown flag(s): ' + unknown.join(', ') + '. Known: ' + KNOWN_FLAGS.join(', '));
     return 2;
   }
   if (argv.includes('--self-test')) {
@@ -2016,14 +2237,14 @@ export async function main(argv) {
     return passed ? 0 : 1;
   }
 
-  const token = (process.env.CI_BUDGET_GITHUB_TOKEN ?? '').trim();
+  const token = (env.CI_BUDGET_GITHUB_TOKEN ?? '').trim();
   if (!token) {
     // Deliberately no fallback to GITHUB_TOKEN. The workflow token is scoped to
     // THIS repo, which is public and therefore never metered: it would return a
     // repo list with no metered repos in it. The guard would still exit 2 -- but
     // with a confusing message about a missing repo instead of a missing secret.
     // An explicit name fails in the place the reader has to fix.
-    console.error(
+    err(
       'CI_BUDGET_GITHUB_TOKEN is not set. This guard reads account-wide Actions ' +
         'state and cannot run unauthenticated -- an unauthenticated read returns ' +
         'an empty repo list, sums to 0 bytes, and reads as under budget. Create a ' +
@@ -2037,19 +2258,23 @@ export async function main(argv) {
 
   let cfg;
   try {
-    cfg = JSON.parse(readFileSync(BUDGETS_PATH, 'utf8'));
+    // Read AND parse inside the try: an unreadable file and a malformed one are
+    // different upstream mistakes with the same consequence -- the guard has no
+    // rules to enforce -- and both must be 2. A corrupt ci-budgets.json that
+    // exited 0 would report "within budget" having read nothing.
+    cfg = JSON.parse(readCfg());
   } catch (error) {
-    console.error('Cannot read ci-budgets.json: ' + error.message);
+    err('Cannot read ci-budgets.json: ' + error.message);
     return 2;
   }
 
   let result;
   try {
-    result = await runCheck({ cfg, api: makeGitHubApi({ token }), now: new Date() });
+    result = await runCheck({ cfg, api: makeApi({ token }), now: clock(), log: out });
   } catch (error) {
-    console.error('');
-    console.error('CI budget guard COULD NOT MEASURE: ' + error.message);
-    console.error(
+    err('');
+    err('CI budget guard COULD NOT MEASURE: ' + error.message);
+    err(
       'This is exit 2 on purpose. A spend guard that cannot see the account must ' +
         'not report a number -- an empty reading is indistinguishable from a ' +
         'perfectly clean one.',
@@ -2058,15 +2283,23 @@ export async function main(argv) {
   }
 
   const report = verdictReport(result, cfg);
-  console.log('');
+  out('');
   for (const line of report) {
-    if (result.code === 1) console.error(line);
-    else console.log(line);
+    if (result.code === 1) err(line);
+    else out(line);
   }
 
-  if (process.env.GITHUB_STEP_SUMMARY) {
+  if (env.GITHUB_STEP_SUMMARY) {
     const summary = ['## CI spend', '', '```', ...result.lines, '```', '', ...report, ''];
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
+    try {
+      appendSummary(env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
+    } catch (error) {
+      // A summary that cannot be written must not rewrite the verdict. This was
+      // an unguarded call: an ENOSPC or a clobbered summary path threw out of
+      // main(), became an unhandled rejection at the CLI boundary, and exited 1
+      // -- "a budget is exceeded" -- for an account that had just measured 0.
+      err('Could not write the CI step summary: ' + error.message);
+    }
   }
   return result.code;
 }
