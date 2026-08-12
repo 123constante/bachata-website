@@ -17,7 +17,7 @@
     "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",
     "gen:types": "npx --yes supabase@2.109.1 gen types typescript --project-id stsdtacfauprzrdebmzg --schema public > src/integrations/supabase/types.ts",
     "build:dev": "vite build --mode development",
-    "lint": "npm run check:integrity && npm run check:mojibake && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && npm run check:route-boundaries && npm run check:image-widths && npm run check:rpc-typing && npm run check:script-conventions && npm run check:wallclock-brand && eslint .",
+    "lint": "npm run check:integrity && npm run check:mojibake && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && npm run check:route-boundaries && npm run check:image-widths && npm run check:rpc-typing && npm run check:script-conventions && npm run check:wallclock-brand && npm run check:workflow-artifact-policy && eslint .",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
     "lint:eslint": "eslint .",
     "pre-ship": "node scripts/pre-ship.mjs",
@@ -45,7 +45,7 @@
     "check:legacy-tables": "node scripts/check-no-legacy-tables.mjs",
     "check:legacy-program-rpcs": "node scripts/check-no-legacy-program-rpcs.mjs",
     "preview": "vite preview",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --exclude \"**/*EdgeTtl.test.ts\"",
     "test:e2e": "playwright test tests/e2e/auth-stepper-email-routing.spec.ts tests/e2e/auth-stepper-smoke.spec.ts tests/e2e/auth-magic-link-returnto.spec.ts tests/e2e/vendor-city-normalization-smoke.spec.ts tests/e2e/dancer-dashboard-concept-b-smoke.spec.ts --project=chromium",
     "test:e2e:all": "playwright test",
     "synthetic:ssr": "playwright test --config playwright.synthetic.config.ts",
@@ -60,7 +60,10 @@
     "perf:ab": "node scripts/perf-ab.mjs",
     "check:doc-weight": "node scripts/check-doc-weight.mjs",
     "postinstall": "node bin/install-hooks.cjs",
-    "repair:corrupt": "bin/repair-corrupt.sh"
+    "repair:corrupt": "bin/repair-corrupt.sh",
+    "check:workflow-artifact-policy": "node scripts/check-workflow-artifact-policy.mjs",
+    "check:workflow-artifact-policy:self-test": "node scripts/check-workflow-artifact-policy.mjs --self-test",
+    "test:unit:timing": "vitest run EdgeTtl --no-file-parallelism"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -157,6 +160,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "yaml": "^2.6.0"
   }
 }

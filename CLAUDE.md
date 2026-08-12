@@ -296,7 +296,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
 | `db-contract-check.yml` | push/PR/daily 06:00 UTC | 66 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) |
-| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, mojibake). **Does NOT run eslint** |
+| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, mojibake). **Does NOT run eslint** |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
 | `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
@@ -459,7 +459,8 @@ npm run lint
 Chains: `check:integrity` → `check:mojibake` → `check:legacy-tables` →
 `check:legacy-program-rpcs` → `check:no-social-word` → `lint:architecture` →
 `check:route-boundaries` → `check:image-widths` → `check:rpc-typing` →
-`check:script-conventions` → `check:wallclock-brand` → `eslint .`.
+`check:script-conventions` → `check:wallclock-brand` →
+`check:workflow-artifact-policy` → `eslint .`.
 
 If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
 reference to a table or RPC that has been retired from the DB. Fix the call
