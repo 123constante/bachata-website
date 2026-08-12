@@ -72,5 +72,12 @@ jobs:
             npm run test:unit
             npm run test:unit:timing
           else
-            npx vitest run tests/londonDate.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
+            # --no-file-parallelism for the same reason the London leg splits:
+            # four of these eight files assert real wall-clock bounds and lose
+            # races against sibling workers. These legs have been green, but
+            # green is not evidence of absence when the failure is load-
+            # dependent -- it reproduced locally only once the machine was
+            # loaded, and a busier runner would surface it here as an
+            # unexplained red on an unrelated PR.
+            npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
           fi
