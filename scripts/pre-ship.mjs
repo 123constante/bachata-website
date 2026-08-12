@@ -95,6 +95,13 @@ export const CHECKS = [
   // have that directory. It also RE-RENDERS PLANS-INDEX.md on a passing lint.
   ["check:plan-hygiene", "arc-plan frontmatter + arc-state cross-check (lint-only)"],
   ["test:unit", "vitest unit + contract suite", ["--reporter=dot"]],
+  // The timing-sensitive edge-TTL specs, in their own pass with file
+  // parallelism off. They assert real wall-clock bounds (~5s) and lost races
+  // against other workers: at 24 workers on 12 cores the combined run failed 5
+  // tests, ALL of them in that family and none anywhere else, while the split
+  // passed 995 + 56 under the same contention. Separated rather than given
+  // longer timeouts, because the bound is part of what they assert.
+  ["test:unit:timing", "edge-TTL specs (serial -- they measure wall clock)", ["--reporter=dot"]],
 ];
 
 /**
@@ -325,6 +332,18 @@ export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line", 
 const SMOKE_WORKFLOW = ".github/workflows/e2e-smoke.yml";
 
 /**
+ * The URL Playwright probes, READ from playwright.config.ts rather than copied,
+ * for the same reason the env is read from the workflow: two copies of a value
+ * whose only job is to match is a drift waiting to happen. Returns null when it
+ * cannot be found, and the caller says so rather than silently skipping.
+ */
+export function smokeServerUrlFrom(text) {
+  const webServer = text.slice(text.indexOf("webServer:"));
+  const m = webServer.match(/url:\s*['"]([^'"]+)['"]/);
+  return m ? m[1] : null;
+}
+
+/**
  * The Supabase env the smoke suite is BUILT for, lifted out of e2e-smoke.yml.
  *
  * WHY THIS EXISTS. This gate was red on a clean tree -- 6 failed / 1 skipped --
@@ -410,6 +429,60 @@ async function smokeEnv() {
     return { env: smokeEnvFrom(text, (t) => YAML.parse(t)), error: null };
   } catch (error) {
     return { env: null, error: error.message };
+  }
+}
+
+/**
+ * Refuse to believe the injected env if a dev server is ALREADY serving the
+ * port Playwright targets.
+ *
+ * playwright.config.ts sets `reuseExistingServer: true` explicitly, so when
+ * something answers on 4173 Playwright spawns nothing -- and the placeholder
+ * env resolved above is handed to a child that is never created. The suite then
+ * runs against whatever that server was started with, which is usually .env's
+ * REAL project, and the gate reds exactly as it did before this fix while the
+ * ledger asserts the env half is handled. A red gate that contradicts its own
+ * explanation is the thing this whole function exists to remove, so this is
+ * detected and reported rather than left to be rediscovered.
+ *
+ * Returns a reason string when the reuse would happen, or null.
+ */
+export function detectReusedServer() {
+  let url = null;
+  try {
+    url = smokeServerUrlFrom(fs.readFileSync(path.join(REPO_ROOT, "playwright.config.ts"), "utf8"));
+  } catch {
+    url = null;
+  }
+  if (!url) {
+    return "could not read webServer.url out of playwright.config.ts, so the " +
+      "reused-server check did not run -- if the smoke suite reds, check for a " +
+      "stray dev server before believing the failure.";
+  }
+  try {
+    const probe = execFileSync(
+      process.execPath,
+      [
+        "-e",
+        "const u=new URL(process.argv[1]);" +
+          "const r=require('node:net').connect(u.port,u.hostname);" +
+          "r.on('connect',()=>{console.log('open');r.destroy()});" +
+          "r.on('error',()=>console.log('closed'));" +
+          "setTimeout(()=>{console.log('closed');process.exit(0)},1500);",
+        url,
+      ],
+      { encoding: "utf8", timeout: 5000 },
+    );
+    if (!probe.includes("open")) return null;
+    return (
+      "a server is already listening on " + url + ", and playwright.config.ts sets " +
+      "reuseExistingServer: true -- Playwright will NOT spawn a fresh one, so the " +
+      "placeholder Supabase env this gate injects would be ignored and the suite " +
+      "would run against whatever that server was started with. Stop it and re-run."
+    );
+  } catch {
+    // A failed probe is not evidence of reuse; say nothing rather than block.
+    return null;
   }
 }
 
@@ -918,8 +991,15 @@ async function main(argv = process.argv.slice(2)) {
     // the difference between "here is what went wrong" and a bare stack trace
     // after ten minutes of passing checks.
     const resolved = await smokeEnv();
+    const reused = detectReusedServer();
     if (resolved.error) {
       smokeEnvError = resolved.error;
+      smokeOk = false;
+    } else if (reused) {
+      // Not run at all. Running it would produce a red whose stated cause
+      // (the placeholder env) is not the actual cause, which is worse than
+      // not running: it is the unexplained red this gate was fixed to stop.
+      smokeEnvError = reused;
       smokeOk = false;
     } else {
       smokeOk = runCheck(SMOKE[0], SMOKE[2], resolved.env);

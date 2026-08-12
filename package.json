@@ -45,7 +45,7 @@
     "check:legacy-tables": "node scripts/check-no-legacy-tables.mjs",
     "check:legacy-program-rpcs": "node scripts/check-no-legacy-program-rpcs.mjs",
     "preview": "vite preview",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --exclude \"**/*EdgeTtl.test.ts\"",
     "test:e2e": "playwright test tests/e2e/auth-stepper-email-routing.spec.ts tests/e2e/auth-stepper-smoke.spec.ts tests/e2e/auth-magic-link-returnto.spec.ts tests/e2e/vendor-city-normalization-smoke.spec.ts tests/e2e/dancer-dashboard-concept-b-smoke.spec.ts --project=chromium",
     "test:e2e:all": "playwright test",
     "synthetic:ssr": "playwright test --config playwright.synthetic.config.ts",
@@ -62,7 +62,8 @@
     "postinstall": "node bin/install-hooks.cjs",
     "repair:corrupt": "bin/repair-corrupt.sh",
     "check:workflow-artifact-policy": "node scripts/check-workflow-artifact-policy.mjs",
-    "check:workflow-artifact-policy:self-test": "node scripts/check-workflow-artifact-policy.mjs --self-test"
+    "check:workflow-artifact-policy:self-test": "node scripts/check-workflow-artifact-policy.mjs --self-test",
+    "test:unit:timing": "vitest run EdgeTtl --no-file-parallelism"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

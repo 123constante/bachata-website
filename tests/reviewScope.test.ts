@@ -48,6 +48,7 @@ import {
   hasConfigLevelTscError,
   smokeEnvFrom,
   runCheck,
+  smokeServerUrlFrom,
 } from "../scripts/pre-ship.mjs";
 
 const BS = String.fromCharCode(92); // a literal backslash
@@ -798,6 +799,71 @@ describe("smokeEnvFrom -- the placeholder env the smoke suite is built for", () 
     // The key must be a PLACEHOLDER. If someone ever puts a real one in the
     // workflow, this fails -- which is the right place to find out.
     expect(env.VITE_SUPABASE_PUBLISHABLE_KEY).toContain("placeholder");
+  });
+});
+
+describe("smokeServerUrlFrom -- the port is read, not copied", () => {
+  // playwright.config.ts sets reuseExistingServer: true, so a dev server already
+  // on that port makes Playwright spawn nothing and the injected placeholder env
+  // is silently ignored -- the gate reds exactly as before while claiming the env
+  // half is handled. pre-ship probes for that, and reads the URL from the config
+  // so there is one copy of it.
+  it("reads webServer.url out of the real config", () => {
+    const url = smokeServerUrlFrom(
+      fs.readFileSync(path.join(REPO_ROOT, "playwright.config.ts"), "utf8"),
+    );
+    expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\//);
+  });
+
+  it("takes webServer's url, not an unrelated url elsewhere in the file", () => {
+    const url = smokeServerUrlFrom(
+      [
+        "export default defineConfig({",
+        "  use: { baseURL: 'http://127.0.0.1:9999' },",
+        "  webServer: {",
+        "    command: 'npm run dev',",
+        "    url: 'http://127.0.0.1:4173/auth',",
+        "  },",
+        "});",
+      ].join("\n"),
+    );
+    expect(url).toBe("http://127.0.0.1:4173/auth");
+  });
+
+  it("returns null when there is no webServer block, so the caller can say so", () => {
+    expect(smokeServerUrlFrom("export default defineConfig({ use: {} });")).toBeNull();
+  });
+});
+
+describe("the unit suite is split in two, and the halves are complementary", () => {
+  // The timing-sensitive edge-TTL specs lose races against other vitest workers
+  // -- reproduced deterministically at 24 workers on 12 cores: 5 failures, all
+  // in that family, zero elsewhere. They now run in their own pass. The two
+  // halves are defined by the SAME token so a new *EdgeTtl.test.ts file cannot
+  // be excluded from one half without being picked up by the other; an explicit
+  // file list would have orphaned it silently, which is the failure this repo
+  // already documents for the e2e spec list.
+  const pkg = () => JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
+
+  it("the exclude pattern and the timing filter name the same token", () => {
+    const scripts = pkg().scripts;
+    const m = scripts["test:unit"].match(/--exclude\s+"\*\*\/\*([A-Za-z]+)\.test\.ts"/);
+    expect(m, "test:unit must exclude the timing family by glob").not.toBeNull();
+    expect(scripts["test:unit:timing"]).toContain(m![1]);
+  });
+
+  it("the timing half runs without file parallelism -- that is the whole point", () => {
+    expect(pkg().scripts["test:unit:timing"]).toContain("--no-file-parallelism");
+  });
+
+  it("at least one file matches, so neither half is silently empty", () => {
+    const scripts = pkg().scripts;
+    const token = scripts["test:unit"].match(/--exclude\s+"\*\*\/\*([A-Za-z]+)\.test\.ts"/)![1];
+    const matched = fs
+      .readdirSync(path.join(REPO_ROOT, "tests"))
+      .filter((f) => f.endsWith(token + ".test.ts"));
+    // A floor, not an exact count: adding a timing spec is ordinary work.
+    expect(matched.length).toBeGreaterThan(0);
   });
 });
 

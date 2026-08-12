@@ -62,7 +62,15 @@ jobs:
         # timezone-inert and runs once under Europe/London.
         run: |
           if [ "${{ matrix.scope }}" = "full" ]; then
+            # TWO passes, and the second is not optional. `test:unit` now
+            # EXCLUDES the *EdgeTtl.test.ts family, which run in their own
+            # serial pass because they assert real wall-clock bounds and lost
+            # races against other vitest workers (reproduced at 24 workers on
+            # 12 cores: 5 failures, all in that family). Without the second
+            # line those specs would silently stop running under London, which
+            # is a coverage loss wearing a green tick.
             npm run test:unit
+            npm run test:unit:timing
           else
             npx vitest run tests/londonDate.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
           fi
