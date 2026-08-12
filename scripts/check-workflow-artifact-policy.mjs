@@ -145,10 +145,25 @@ const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
  * db-contract-check.yml alone is 76 of the 221 steps, so deleting that single
  * file takes the count to 145. A step floor of 180 -- which this had, derived
  * from "well below 221" -- therefore reddened on one perfectly ordinary
- * deletion. 120 absorbs losing the two largest workflows and still catches the
- * traversal regression the floors exist for: dropping every job after the
- * first in each file leaves about 90 steps, and dropping every step after the
- * first leaves 28.
+ * deletion.
+ *
+ * WHAT THESE FLOORS DO NOT CATCH, measured, because a draft of this comment
+ * claimed the opposite and a canary case pinned the claim: a JOB-LEVEL
+ * traversal bug. If parseWorkflow walked only the first job of each file, this
+ * repo yields 21 files / 21 jobs / 190 steps / 4 uploads -- every floor
+ * cleared, "policy passed" printed. FOURTEEN of the 21 workflows have exactly
+ * one job, so only 31 of the 221 steps live outside a first job; the earlier
+ * comment guessed "about 90" and was wrong by a hundred. A scenario appeared to
+ * prove the catch, but it truncated the file TEXT after the first job, which
+ * also removes the steps -- it measured a different bug from the one it named.
+ *
+ * So these floors honestly guard only the DIRECTORY read -- too few files, or a
+ * total collapse. The per-file walk needs a declared-versus-walked assertion
+ * (count the jobs the document contains, then assert the loop visited them
+ * all), which is a real invariant rather than a calibrated number and is
+ * QUEUED. Until it lands, do not read a passing floor as proof the traversal
+ * is intact. Recording that is the point: an overclaimed gate is worse than an
+ * absent one, because it is the reason nobody looks.
  *
  * A drop through one means the guard broke far more often than it means three
  * workflows were deleted at once, and the failure message says so, in those
@@ -1610,8 +1625,17 @@ function selfTest(out = console.log, err = console.error) {
   // 145 and reddened the guard on a perfectly normal change. These two cases
   // are what stop the next edit re-tightening it out of the same instinct.
   add('floors: the step floor leaves room to delete the largest workflow (221 - 76)', () => FLOORS.steps <= 145, true);
-  add('floors: but not so much room that a first-job-only traversal clears it (~90)', () => FLOORS.steps > 90, true);
   add('floors: the file floor absorbs losing two workflows', () => FLOORS.workflowFiles <= 19, true);
+  // The case that stood here asserted `FLOORS.steps > 90` and called it proof
+  // that a first-job-only traversal bug is caught. MEASURED: that regression
+  // leaves 190 steps in this repo, not 90 -- fourteen of the 21 workflows have
+  // a single job -- so no step floor below 190 catches it, and this case was
+  // certifying a property that is false. Deleted rather than re-tuned: raising
+  // the floor to 190 would red on deleting one ordinary workflow, which is the
+  // opposite mistake. The real invariant is declared-versus-walked, and it is
+  // queued. A canary case that pins a wrong number is worse than no case: it
+  // reads as coverage and argues against looking again.
+  add('floors: no floor pretends to catch a per-file traversal bug (that is queued)', () => FLOORS.steps < 190, true);
   add(
     'inclusion: a MISSING floor key is a blocker, not a free pass',
     () =>

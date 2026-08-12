@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
+import YAML from "yaml";
 import path from "node:path";
 import {
   REPO_ROOT,
@@ -45,6 +46,8 @@ import {
   decideTypecheck,
   countTscErrors,
   hasConfigLevelTscError,
+  smokeEnvFrom,
+  runCheck,
 } from "../scripts/pre-ship.mjs";
 
 const BS = String.fromCharCode(92); // a literal backslash
@@ -644,6 +647,194 @@ describe("mergeReviewStamp -- additive across reviews (both directions)", () => 
     const s3 = mergeReviewStamp(s2, { hashes: { "a.mjs": "HA2" }, findings: [], nowIso: iso(t2), now: t2 });
     expect(values(s3).has("HA")).toBe(false);
     expect(s3.hashes["a.mjs"]).toBe("HA2");
+  });
+});
+
+describe("smokeEnvFrom -- the placeholder env the smoke suite is built for", () => {
+  // The parser is injected so pre-ship.mjs can import yaml LAZILY: a module-scope
+  // import would kill the pre-push gate on a worktree with no node_modules.
+  const readEnv = (t: string) => smokeEnvFrom(t, (x: string) => YAML.parse(x));
+  // This gate was red on a clean tree while CI was green on every run, because
+  // the suite is designed for a PLACEHOLDER Supabase key (playwright.config.ts
+  // says so: with a real one every SSR route 500s by design) and a local run
+  // picks up .env's real project instead. The values are READ from
+  // e2e-smoke.yml rather than copied, so there is one copy of the thing whose
+  // only job is to match CI.
+  const wf = (stepLines: string[]) =>
+    [
+      "name: E2E Smoke",
+      "on:",
+      "  pull_request:",
+      "jobs:",
+      "  e2e-smoke:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      ...stepLines,
+    ].join("\n");
+
+  const goodStep = [
+    "      - name: Run smoke",
+    "        env:",
+    "          VITE_SUPABASE_URL: https://example.supabase.co",
+    "          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-not-a-real-key",
+    "        run: npm run test:e2e",
+  ];
+
+  it("lifts both VITE_ names out of the workflow", () => {
+    const env = readEnv(wf(goodStep));
+    expect(env.VITE_SUPABASE_URL).toBe("https://example.supabase.co");
+    expect(env.VITE_SUPABASE_PUBLISHABLE_KEY).toBe("placeholder-not-a-real-key");
+  });
+
+  it("ignores env on steps that do not run the smoke suite", () => {
+    const env = readEnv(
+      wf([
+        "      - name: Something else",
+        "        env:",
+        "          VITE_SUPABASE_URL: https://WRONG.supabase.co",
+        "        run: npm run build",
+        ...goodStep,
+      ]),
+    );
+    expect(env.VITE_SUPABASE_URL).toBe("https://example.supabase.co");
+  });
+
+  // The failure direction is the one that matters: returning {} would put the
+  // gate straight back to red-on-a-clean-tree with no explanation, so a moved
+  // block or a renamed key has to THROW. Blocking by inclusion, not exclusion.
+  // GitHub honours workflow < job < step. Reading only step-level env made
+  // hoisting the block to the job -- an ordinary refactor once a second step
+  // needs the same values -- look like drift and hard-fail the ship gate.
+  it("reads JOB-level env, which GitHub honours just as much", () => {
+    const env = readEnv(
+      [
+        "name: E2E Smoke",
+        "on:",
+        "  pull_request:",
+        "jobs:",
+        "  e2e-smoke:",
+        "    runs-on: ubuntu-latest",
+        "    env:",
+        "      VITE_SUPABASE_URL: https://job-level.supabase.co",
+        "      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder",
+        "    steps:",
+        "      - run: npm run test:e2e",
+      ].join("\n"),
+    );
+    expect(env.VITE_SUPABASE_URL).toBe("https://job-level.supabase.co");
+  });
+
+  it("reads WORKFLOW-level env too", () => {
+    const env = readEnv(
+      [
+        "name: E2E Smoke",
+        "on:",
+        "  pull_request:",
+        "env:",
+        "  VITE_SUPABASE_URL: https://wf-level.supabase.co",
+        "  VITE_SUPABASE_PUBLISHABLE_KEY: placeholder",
+        "jobs:",
+        "  e2e-smoke:",
+        "    runs-on: ubuntu-latest",
+        "    steps:",
+        "      - run: npm run test:e2e",
+      ].join("\n"),
+    );
+    expect(env.VITE_SUPABASE_URL).toBe("https://wf-level.supabase.co");
+  });
+
+  it("lets the STEP win over the job, as GitHub's precedence does", () => {
+    const env = readEnv(
+      [
+        "name: E2E Smoke",
+        "on:",
+        "  pull_request:",
+        "jobs:",
+        "  e2e-smoke:",
+        "    runs-on: ubuntu-latest",
+        "    env:",
+        "      VITE_SUPABASE_URL: https://job.supabase.co",
+        "      VITE_SUPABASE_PUBLISHABLE_KEY: placeholder",
+        "    steps:",
+        "      - env:",
+        "          VITE_SUPABASE_URL: https://step.supabase.co",
+        "        run: npm run test:e2e",
+      ].join("\n"),
+    );
+    expect(env.VITE_SUPABASE_URL).toBe("https://step.supabase.co");
+  });
+
+  it("THROWS when the key is renamed, rather than returning an empty env", () => {
+    expect(() =>
+      readEnv(
+        wf([
+          "      - name: Run smoke",
+          "        env:",
+          "          VITE_SUPABASE_URL: https://example.supabase.co",
+          "          VITE_SUPABASE_ANON_KEY: renamed-away",
+          "        run: npm run test:e2e",
+        ]),
+      ),
+    ).toThrow(/VITE_SUPABASE_PUBLISHABLE_KEY/);
+  });
+
+  it("THROWS when the step no longer runs the smoke suite", () => {
+    expect(() =>
+      readEnv(
+        wf([
+          "      - name: Run smoke",
+          "        env:",
+          "          VITE_SUPABASE_URL: https://example.supabase.co",
+          "          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder",
+          "        run: npm run test:something-else",
+        ]),
+      ),
+    ).toThrow(/could not read/);
+  });
+
+  it("reads the REAL workflow in this repo, so the lookup cannot rot unnoticed", () => {
+    const env = readEnv(fs.readFileSync(path.join(REPO_ROOT, ".github/workflows/e2e-smoke.yml"), "utf8"));
+    expect(env.VITE_SUPABASE_URL).toMatch(/^https:\/\/.+\.supabase\.co$/);
+    // The key must be a PLACEHOLDER. If someone ever puts a real one in the
+    // workflow, this fails -- which is the right place to find out.
+    expect(env.VITE_SUPABASE_PUBLISHABLE_KEY).toContain("placeholder");
+  });
+});
+
+describe("runCheck -- the env actually reaches the child process", () => {
+  // Reading the workflow is not the fix; DELIVERING the values is. Without
+  // this, deleting runCheck's `env:` property leaves every smokeEnvFrom case
+  // green while the smoke suite silently goes back to .env's real project.
+  type ExecOpts = { env?: NodeJS.ProcessEnv; cwd?: string; stdio?: string };
+  const capture = () => {
+    const seen: Array<{ cmd: string; opts: ExecOpts }> = [];
+    return { seen, exec: (cmd: string, opts: ExecOpts) => { seen.push({ cmd, opts }); } };
+  };
+
+  it("merges extraEnv over process.env and hands it to the child", () => {
+    const { seen, exec } = capture();
+    runCheck("test:e2e", ["--retries=1"], { VITE_SUPABASE_URL: "https://placeholder.co" }, exec);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].opts.env?.VITE_SUPABASE_URL).toBe("https://placeholder.co");
+    // and it is a MERGE, not a replacement -- npm needs PATH
+    expect(seen[0].opts.env?.PATH ?? seen[0].opts.env?.Path).toBeDefined();
+    expect(seen[0].cmd).toContain("test:e2e");
+    expect(seen[0].cmd).toContain("--retries=1");
+  });
+
+  it("passes process.env unchanged when there is no extraEnv", () => {
+    const { seen, exec } = capture();
+    runCheck("check:mojibake", [], null, exec);
+    expect(seen[0].opts.env).toBe(process.env);
+  });
+
+  it("reports a thrown check as false rather than propagating", () => {
+    const boom = () => { throw new Error("check failed"); };
+    expect(runCheck("check:whatever", [], null, boom)).toBe(false);
+  });
+
+  it("reports a passing check as true", () => {
+    expect(runCheck("check:whatever", [], null, () => {})).toBe(true);
   });
 });
 

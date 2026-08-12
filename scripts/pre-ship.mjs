@@ -321,6 +321,98 @@ export const APP_PATHS = [
 // comment was right to fear, reached from the other direction.
 export const SMOKE = ["test:e2e", "playwright smoke specs", ["--reporter=line", "--retries=1"]];
 
+/** Where CI declares the env this suite is designed to run under. */
+const SMOKE_WORKFLOW = ".github/workflows/e2e-smoke.yml";
+
+/**
+ * The Supabase env the smoke suite is BUILT for, lifted out of e2e-smoke.yml.
+ *
+ * WHY THIS EXISTS. This gate was red on a clean tree -- 6 failed / 1 skipped --
+ * while CI's E2E Smoke was green on main on every run, which is the shape that
+ * teaches you to reach for --no-verify (and that also drops the review stamp).
+ * The cause is not a defect in either place: playwright.config.ts says outright
+ * that with a PLACEHOLDER key every SSR route 500s by design and the specs
+ * therefore visit only client-only routes, where their page.route() mocks
+ * actually apply. CI supplies that placeholder inline. A local run instead
+ * picks up .env with the REAL project, so the pages render a different state
+ * and locator.fill times out. The retries half was already handled here
+ * (--retries=1 above); the env half was not.
+ *
+ * READ, NOT COPIED, and that is the point. Writing the placeholder key out
+ * again here would make two copies of the thing whose whole job is to match --
+ * and the drift would show up as this gate diverging from CI again, silently.
+ * The workflow is the source of truth; this follows it.
+ *
+ * Fails LOUDLY rather than returning {}: an empty env would put us straight
+ * back to the red-on-a-clean-tree state with no explanation, which is the
+ * failure this function exists to remove. Blocking by INCLUSION -- both names
+ * must be found -- because a renamed key or a moved block otherwise reads as
+ * "nothing to set".
+ */
+export function smokeEnvFrom(text, parseYaml) {
+  const doc = parseYaml(text);
+  const found = {};
+  const lift = (block) => {
+    if (!block || typeof block !== "object") return;
+    for (const [k, v] of Object.entries(block)) {
+      if (k.startsWith("VITE_") && typeof v === "string") found[k] = v;
+    }
+  };
+  // Workflow < job < step, which is GitHub's own precedence order. Reading only
+  // step-level env made an ordinary refactor -- hoisting the block to the job so
+  // a second step can use it -- look like drift and hard-fail the ship gate,
+  // for values sitting in the file at a location GitHub honours.
+  const jobs = doc && doc.jobs && typeof doc.jobs === "object" ? Object.values(doc.jobs) : [];
+  for (const job of jobs) {
+    const steps = job && Array.isArray(job.steps) ? job.steps : [];
+    const runsSmoke = steps.some(
+      (s) => s && typeof s.run === "string" && s.run.includes("test:e2e"),
+    );
+    if (!runsSmoke) continue;
+    lift(doc.env);
+    lift(job.env);
+    for (const step of steps) {
+      if (step && typeof step.run === "string" && step.run.includes("test:e2e")) lift(step.env);
+    }
+  }
+  const REQUIRED = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"];
+  const missing = REQUIRED.filter((k) => !found[k]);
+  if (missing.length > 0) {
+    throw new Error(
+      "pre-ship: could not read " + missing.join(" and ") + " from " + SMOKE_WORKFLOW +
+        " (looked for a step whose `run` mentions test:e2e). The smoke suite is built for the " +
+        "PLACEHOLDER Supabase key that workflow declares; running it against .env's real project " +
+        "reds the gate on a clean tree. Fix the lookup rather than dropping the env.",
+    );
+  }
+  return found;
+}
+
+/**
+ * Resolve the smoke env, or return null with the reason recorded.
+ *
+ * `yaml` is imported HERE, not at module scope, and that is not style. This file
+ * had only node: builtins as module-level imports, so a fresh `git worktree` --
+ * which starts with no node_modules, a trap this repo has hit twice -- would
+ * have died at module load with ERR_MODULE_NOT_FOUND before a single check ran,
+ * reporting a failure with no relation to the diff. Same shape as the problem
+ * this whole function exists to remove.
+ *
+ * It NEVER throws. Thrown from its old call site at the end of main(), a lookup
+ * failure discarded the entire ledger -- fourteen checks, the typecheck ratchet
+ * and scoped eslint, ten-plus minutes of work -- and printed a raw stack instead
+ * of the summary.
+ */
+async function smokeEnv() {
+  try {
+    const YAML = await import("yaml");
+    const text = fs.readFileSync(path.join(REPO_ROOT, SMOKE_WORKFLOW), "utf8");
+    return { env: smokeEnvFrom(text, (t) => YAML.parse(t)), error: null };
+  } catch (error) {
+    return { env: null, error: error.message };
+  }
+}
+
 /**
  * The smoke decision, pure so both directions are unit-testable without a
  * browser. `diffError` is the message from a failed diff computation, or null.
@@ -699,13 +791,29 @@ function runTypecheck() {
 }
 
 /** Run an npm script, inheriting stdio. Returns true on exit 0. */
-function runCheck(id, args = []) {
+/**
+ * `exec` is injectable and this function is exported for ONE reason: proving
+ * that extraEnv reaches the child. The five cases covering smokeEnvFrom prove
+ * the workflow can be READ; deleting the `env:` property below left every one of
+ * them green while the smoke suite went back to running against .env's real
+ * project. The sibling guard's docstring records the identical lesson -- 88 rule
+ * cases stayed green when a `return 2` became `return 0`, because none of them
+ * called the function that owned the behaviour.
+ */
+export function runCheck(id, args = [], extraEnv = null, exec = execSync) {
   process.stdout.write("\n> pre-ship: " + id + "\n");
   try {
     // execSync uses a shell, so `npm` resolves to npm.cmd on Windows and npm on
     // POSIX. `id` and `args` are fixed literals from CHECKS -- no injection surface.
     const suffix = args.length ? " -- " + args.join(" ") : "";
-    execSync("npm run --silent " + id + suffix, { cwd: REPO_ROOT, stdio: "inherit" });
+    exec("npm run --silent " + id + suffix, {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+      // Passed through the environment, never interpolated into the command
+      // string: these values contain a JWT-shaped key and dots, and a shell is
+      // the wrong place for either.
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+    });
     return true;
   } catch {
     return false;
@@ -730,7 +838,7 @@ function changedFiles() {
   return { base, files: shipFiles(base) };
 }
 
-function main(argv = process.argv.slice(2)) {
+async function main(argv = process.argv.slice(2)) {
   const dryRun = argv.includes("--dry-run");
   const strictScope = process.env.PRE_SHIP_STRICT_SCOPE === "1";
 
@@ -803,7 +911,20 @@ function main(argv = process.argv.slice(2)) {
   // -- smoke ------------------------------------------------------------------
   const smokeDecision = decideSmoke({ files, base, anyFailed, diffError });
   let smokeOk = null;
-  if (!dryRun && smokeDecision.ran) smokeOk = runCheck(SMOKE[0], SMOKE[2]);
+  let smokeEnvError = null;
+  if (!dryRun && smokeDecision.ran) {
+    // Resolved and reported through the LEDGER, never thrown past it: a failed
+    // lookup becomes a named smoke failure beside every other result, which is
+    // the difference between "here is what went wrong" and a bare stack trace
+    // after ten minutes of passing checks.
+    const resolved = await smokeEnv();
+    if (resolved.error) {
+      smokeEnvError = resolved.error;
+      smokeOk = false;
+    } else {
+      smokeOk = runCheck(SMOKE[0], SMOKE[2], resolved.env);
+    }
+  }
 
   // -- ledger -----------------------------------------------------------------
   const out = [];
@@ -851,6 +972,11 @@ function main(argv = process.argv.slice(2)) {
   if (smokeDecision.ran) {
     const mark = dryRun ? "   -  " : "   " + (smokeOk ? "[PASS]" : "[FAIL]") + " ";
     out.push(mark + SMOKE[0] + " -- " + (dryRun ? "WOULD RUN" : "RAN") + ": " + smokeDecision.reason);
+    if (smokeEnvError) {
+      out.push("           NOT RUN: could not resolve the placeholder Supabase env that this");
+      out.push("           suite is built for -- " + smokeEnvError);
+      out.push("           Fix the lookup in smokeEnvFrom, or the env block in " + SMOKE_WORKFLOW + ".");
+    }
   } else {
     out.push("   [SKIP] " + SMOKE[0] + " -- SKIPPED: " + smokeDecision.reason);
   }
@@ -880,6 +1006,14 @@ function main(argv = process.argv.slice(2)) {
 
 const invokedDirectly =
   process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
-if (invokedDirectly) main();
+// awaited, and its rejection surfaced rather than becoming an unhandled one:
+// main() is async now (the smoke env is read with a dynamic import so a
+// node_modules-less worktree does not die at module load).
+if (invokedDirectly) {
+  main().catch((error) => {
+    process.stderr.write("\npre-ship: crashed -- " + (error && error.stack ? error.stack : error) + "\n");
+    process.exitCode = 1;
+  });
+}
 
 export { main };
