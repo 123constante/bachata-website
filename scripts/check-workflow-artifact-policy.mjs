@@ -10,7 +10,7 @@
  * bill in the first place. A daily meter tells you a nightly burned 858 MB over
  * four months; this tells you at review time that it could.
  *
- * FOUR RULES, each earned by the incident:
+ * FIVE RULES, each earned by the incident:
  *
  *   A1 retention-missing     an upload with no `retention-days` inherits the
  *                            ACCOUNT default (90 days until P4 lowers it), so
@@ -43,6 +43,32 @@
  *                            from OUTSIDE that file, because a guard that
  *                            polices itself is the thing it is meant to catch
  *                            (proving_a_guard_can_break_it).
+ *   A5 fan-out              how many copies ONE RUN produces: the
+ *                            `strategy.matrix` behind the upload, multiplied
+ *                            along every call edge that reaches it. This is the
+ *                            second multiplier the header below used to name as
+ *                            a gap and not read. Eight shards uploading at 14
+ *                            days holds 112 copies against the incident's 7,
+ *                            from a single nightly run -- with no conditional
+ *                            anywhere for A3 to read, every `retention-days` in
+ *                            the file impeccable, and the whole of it inside one
+ *                            job. A fan-out this guard cannot read STATICALLY is
+ *                            refused exactly as an unreadable retention is: a
+ *                            bound nobody can read is not a bound.
+ *                            It prices only what the document states outright --
+ *                            a product of axes, or an include-only matrix.
+ *                            `include` beside axes, and `exclude`, are DECLINED:
+ *                            counted, named in the report, never made into a
+ *                            violation. Reproducing GitHub's matching rules for
+ *                            those was attempted three times and disagreed with
+ *                            GitHub three different ways, always upwards, always
+ *                            into a red build on a compliant workflow. A
+ *                            declared gap beats a number this file cannot
+ *                            defend. Unlike A3
+ *                            this rule is not scoped to `schedule:` -- a matrix
+ *                            multiplies on whatever trigger fires it, and there
+ *                            is no frequency term here to make the trigger
+ *                            matter.
  *
  * HOW IT REFUSES TO GO BLIND. P2's failure mode was an empty API reading that
  * summed to 0 bytes and read as wonderfully under budget. A static guard's
@@ -102,18 +128,34 @@
  *   retention         the upload step's `with:` and nowhere else -- GitHub has
  *                     no job-level or workflow-level retention default, so
  *                     this one genuinely has a single level
+ *   fan-out           the uploading job's `strategy.matrix` | the matrix on a
+ *                     job that CALLS this workflow | transitively, every
+ *                     calling job on the path, which MULTIPLY | and expressly
+ *                     NOT across an `on: workflow_run` edge, which fires once
+ *                     per upstream RUN whatever the upstream's matrix contains
  *   the upload itself a job's steps | a called workflow's steps (covered, by
  *                     parsing that file) | a composite action (NOT covered,
- *                     named in the report) | a matrix leg (NOT covered, named
- *                     above)
+ *                     named in the report) | a matrix leg (covered by A5 as of
+ *                     this rule -- it was NOT covered, and this row said so)
  *
- * The first three are handled by carrying a CONTEXT along each call edge --
- * propagateScheduleArrival below -- rather than by three more special cases,
- * because a special case per level is what produced four rounds of this.
+ * The first four are handled by carrying a CONTEXT along each call edge --
+ * propagateArrival below -- rather than by four more special cases, because a
+ * special case per level is what produced four rounds of this.
+ *
+ * The fan-out row was written BEFORE the fan-out code, and that order is the
+ * point. The first attempt at this rule read the matrix on step-bearing jobs
+ * only, so a `strategy.matrix` on a job that CALLS a reusable workflow -- 12
+ * legs x 14 days = 168 copies -- scored perfectly clean: the same one-level-up
+ * miss, for the third time, and the reason that attempt was reverted rather
+ * than patched. Every level above is asserted by a canary case of its own,
+ * including the one whose answer is "no" (workflow_run), because a level nobody
+ * wrote a case for is a level nobody checked.
  *
  * WHAT IT DOES NOT BOUND, stated because a pass line that reads as total
  * coverage is its own kind of silence. Held storage is retention x FREQUENCY x
- * size, and only retention is checked. A scheduled `if: always()` upload at the
+ * fan-out x size. Retention is A1/A2, fan-out is A5 for the shapes it will
+ * price, and FREQUENCY is not read at all. A scheduled `if: always()` upload at
+ * the
  * budget's own maximum is arithmetically WORSE than the shape A3 refuses: the
  * incident held 7 copies; gsc-health-check.yml (daily, always(), 14 days) holds
  * 14, and prod-smoke.yml (every 6h plus every production deployment, always(),
@@ -121,19 +163,25 @@
  * burning -- but swap one `path:` to a directory of traces and the incident is
  * back with this check green.
  *
- * The same gap has a second multiplier INSIDE a single job: a `strategy.matrix`
- * of 8 shards uploading `if: always()` at 14 days holds 112 copies against the
- * incident's 7, from one nightly run. Frequency and fan-out are the two terms
- * this guard does not read, and naming both is the price of the pass line
- * meaning anything.
+ * That second multiplier INSIDE a single job -- the `strategy.matrix` of 8
+ * shards holding 112 copies from one nightly run -- is what A5 now reads, and
+ * the paragraph here used to name it as a gap. FREQUENCY is what is left.
+ *
+ * Frequency was the other half of a copies rule that was built, reviewed and
+ * REVERTED. Reading a cron into runs-per-day put NINE of that draft's fifteen
+ * findings inside the arithmetic alone, and the worst of them was an unreadable
+ * cron (`@daily`, a four-field typo) becoming a rate of ZERO -- a fail-open, in
+ * the rule written to close one. A5 ships as the half that needs no arithmetic:
+ * a matrix leg count is a number the document states, where a run rate is one
+ * this file would have to compute from an expression it may not be able to
+ * read. That is the same distinction A2 draws about `retention-days`, and it is
+ * why one half shipped and the other did not.
  *
  * A3 is deliberately not widened to always(): flagging two shipped, honest
  * workflows would buy two allowlist entries by reflex, which is how an
- * exception stops being a decision. The real rule is a bound on COPIES
- * (frequency x retention), it needs the cron read out of each trigger, and it
- * is queued rather than smuggled in here. Meanwhile P2's daily meter is what
- * catches a payload that grows, and it caught nothing for four months because
- * it did not exist -- so this caveat is a promise outstanding, not a shrug.
+ * exception stops being a decision. Meanwhile P2's daily meter is what catches
+ * a payload that grows, and it caught nothing for four months because it did
+ * not exist -- so the frequency caveat is a promise outstanding, not a shrug.
  *
  * Local:  node scripts/check-workflow-artifact-policy.mjs
  *         node scripts/check-workflow-artifact-policy.mjs --self-test
@@ -177,6 +225,101 @@ const WORKFLOW_DIR = '.github/workflows';
  * way, and becomes belt-and-braces once P4 lands.
  */
 const RETENTION_CAP_DAYS = 14;
+
+/**
+ * The most copies of an artifact ONE RUN may produce -- the `strategy.matrix`
+ * behind an upload, multiplied along every call edge that reaches it.
+ *
+ * SEVEN, and the number is the incident's own rather than a taste. The retired
+ * nightly held 858 MB of playwright reports in steady state, which is SEVEN
+ * copies of a 122 MB report (7 days retention, once a day). A single run that
+ * produces more than seven artifacts therefore out-holds, in one run, what four
+ * months of the incident held in total -- and it does it with no conditional to
+ * disguise it and nothing in the file that reads as a bound. Eight shards is
+ * the case the header names, and eight is the first value that fires.
+ *
+ * MEASURED on this repository 2026-08-12: the only `strategy.matrix` here is
+ * unit-tests.yml's three timezone legs; that job neither uploads nor calls a
+ * workflow that does; and no upload sits in a matrix job at all. The largest
+ * fan-out A5 can see today is therefore 1, against a budget of 7.
+ *
+ * A first draft of this paragraph turned that into "the timezone matrix could
+ * more than double before this fires", which is false in a way worth keeping
+ * as a warning: that matrix could go to eighty legs and A5 would stay silent
+ * forever, because A5 reaches a matrix only through an upload's own job or
+ * through a call edge, and unit-tests.yml has neither. The headroom in that
+ * particular dimension is not 2.3x, it is unbounded. A number described wrongly
+ * is what kept the last gap in this file invisible, and this one had been
+ * written and re-read three times.
+ *
+ * The measurement has a consequence worth stating plainly: A5 has NO LIVE
+ * SUBJECT, so the repo run proves nothing about whether it works. The only
+ * thing standing behind it is the SELF-PROBE -- which is why the probe carries
+ * the fan-out rule twice over, once by the uploading job's own matrix and once
+ * by a calling job's, and why those two are expected by file rather than by
+ * kind. This is bachata-admin's zero-upload argument arriving a rule early.
+ *
+ * NO EXCEPTION PATH, and that is a decision rather than an omission -- one the
+ * narrowing above is what makes affordable. The shapes that would most have
+ * needed an exception are the ones this rule now declines to price at all, so
+ * the remaining verdicts are a leg count the document states and a matrix
+ * nobody can read. A3 has an
+ * allowlist because its verdict rests on an unmeasured claim about run history
+ * ("this job sometimes succeeds") that only a human can make. A5's two verdicts
+ * do not: a leg count is stated by the document, and both remedies are changes
+ * to the workflow the author controls -- pin the matrix, or upload once per run
+ * instead of once per leg. If a fan-out ever arrives that is genuinely
+ * unreadable and genuinely correct -- a `fromJSON` matrix whose real size is
+ * small -- the answer is to add an A5 allowlist entry with a reason, in the
+ * shape SCHEDULE_FAILURE_ALLOWLIST already has. It is NOT to raise this budget,
+ * which is a repo-wide policy change bought to settle one case: the exact
+ * reflex that docstring calls "how an exception stops being a decision".
+ *
+ * It is a POLICY budget, like RETENTION_CAP_DAYS and unlike FLOORS. The floors
+ * are calibrated against what this repository CONTAINS and rot when it changes;
+ * this is a decision about what may be spent. So the canary pins its BEHAVIOUR
+ * -- at the cap silent, one past it flagged, both derived from the constant --
+ * and not its calibration against a live reading.
+ */
+const FANOUT_CAP_LEGS = 7;
+
+/**
+ * What the incident actually held in steady state, as a fact rather than as a
+ * budget: 858 MB of playwright reports is SEVEN copies of a 122 MB report.
+ *
+ * It is separate from FANOUT_CAP_LEGS even though the two are equal today, and
+ * they are equal because the budget was derived FROM this. The message that
+ * cites it read the budget instead at first, so overriding the cap -- which the
+ * self-probe does on every single run -- would have had the guard telling its
+ * reader the incident held four copies. A measured number that moves when a
+ * policy number moves has stopped being a measurement.
+ */
+const INCIDENT_STEADY_STATE_COPIES = 7;
+
+/**
+ * GitHub schedules at most 256 jobs from ONE MATRIX, so 256 is legal and 257 is
+ * a workflow that cannot run. Past it, a leg count is not a quantity this file
+ * should be pricing at all, and it comes back as `fanout-not-static`.
+ *
+ * PER MATRIX, and only there. A first draft also applied it to the product
+ * along a call path, so a 16-leg caller of a 17-leg caller -- two perfectly
+ * legal matrices, 272 runs GitHub will happily schedule -- was reported as
+ * unreadable, citing a limit that applies to neither of them. The honest
+ * verdict there is `fanout-over-cap` with the number, which is what a path
+ * product now gets: nothing bounds it except the cycle detection, and nothing
+ * needs to.
+ *
+ * The comparison is strictly ABOVE this, and the first draft had it at or
+ * above -- so a perfectly legal, perfectly readable 256-leg matrix was reported
+ * as one the guard could not read, and told it was past a limit it was exactly
+ * at. Wrong kind, wrong claim, and the sort of off-by-one that only shows up in
+ * the message somebody eventually reads.
+ *
+ * It is a SATURATION point, not a threshold: nothing is judged against it, and
+ * every value it admits is already far past FANOUT_CAP_LEGS, so an over-large
+ * matrix is flagged either way. Its whole job is to keep the arithmetic finite.
+ */
+const MATRIX_MAX_LEGS = 256;
 
 /** ci-budget-guard.yml must upload nothing. Asserted from outside that file. */
 const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
@@ -399,6 +542,108 @@ export function readTriggers(doc) {
 }
 
 /**
+ * How many times one run of a JOB executes: the size of its `strategy.matrix`.
+ *
+ * Returns 1 for a job with no matrix, a whole number for one this file can
+ * read, and NULL for one it cannot -- an expression, a non-list axis, an empty
+ * axis, a shape not anticipated. Null is not 1, and that is the whole rule: a
+ * fan-out nobody can read is not a bound, for precisely the reason
+ * `retention-days: ${{ inputs.d }}` is not one.
+ *
+ * The reverted draft of this function returned 1 whenever `job.strategy` was
+ * not a mapping -- so `strategy: ${{ fromJSON(...) }}`, the one shape it
+ * advertised reporting, priced at a single leg. A fail-open in the function
+ * whose docstring is about not failing open.
+ *
+ * TWO APPROXIMATIONS, and both lean towards MORE legs:
+ *   include  an entry is read as GitHub reads it: it adds a leg unless every
+ *            axis key it names carries a value that axis already lists, in
+ *            which case it extends an existing combination and adds nothing.
+ *            Counting every entry instead -- which a first draft did, calling
+ *            the over-count safe -- reported a six-job matrix as eight, over
+ *            the budget, on a workflow with nothing wrong with it. An
+ *            over-count is only "the safe direction" while it stays below the
+ *            line somebody is judged against.
+ *   exclude  an entry removes every combination it MATCHES, which may be
+ *            several; counted as removing exactly one. It therefore usually
+ *            under-removes, which again reads high. The single exception is an
+ *            entry matching nothing at all, which understates by one leg -- and
+ *            a dead exclude entry is a defect in the workflow rather than a
+ *            shape this file should be quietly pricing around.
+ */
+export function matrixFanOut(job) {
+  // A job that is not a mapping is UNREADABLE, not one leg. parseWorkflow
+  // refuses that shape before it gets here, so nothing today can reach this --
+  // but the function is exported, and "safe because of what my caller does" is
+  // not the contract its own docstring states. Returning 1 here would be the
+  // very fail-open the paragraph above is about, waiting for a second caller.
+  // A RECORD, not a bare number, because there are three answers and not two:
+  // a leg count, a shape that cannot be READ (an expression, an empty axis --
+  // a defect the author can fix, and A5 says so), and a shape this file
+  // declines to PRICE at all (see the narrowing below). A bare number with null
+  // for "no answer" collapsed the last two, which meant the only way to report
+  // the second was to red-light the first.
+  const unreadable = () => ({ legs: null, why: 'unreadable' });
+  if (!job || typeof job !== 'object' || Array.isArray(job)) return unreadable();
+  const strategy = job.strategy;
+  // ABSENT is one leg; PRESENT-BUT-EMPTY is unreadable. `strategy:` with a
+  // `fail-fast:` and no matrix is an ordinary single-leg job, but `strategy:`
+  // or `matrix:` written as a bare key with nothing under it is a typo GitHub
+  // rejects, and pricing it at one leg is the same mistake as reading
+  // `retention-days: "  "` as a zero the author never wrote. The two cases
+  // arrive here as undefined and null respectively, and a first draft handled
+  // them with one comparison.
+  if (strategy === undefined) return { legs: 1, why: null };
+  if (typeof strategy !== 'object' || strategy === null || Array.isArray(strategy)) return unreadable();
+  const matrix = strategy.matrix;
+  if (matrix === undefined) return { legs: 1, why: null };
+  if (typeof matrix !== 'object' || matrix === null || Array.isArray(matrix)) return unreadable();
+  const axisKeys = Object.keys(matrix).filter((k) => k !== 'include' && k !== 'exclude');
+  // NOT PRICED, and this is the narrowing that ended three review rounds.
+  //
+  // `include` combined with axes, and `exclude` in any form, are where GitHub's
+  // expansion stops being arithmetic and becomes a matching algorithm: an
+  // include entry ADDS a combination or merely EXTENDS an existing one
+  // depending on whether the values it names already appear, and comparing
+  // those values means reproducing GitHub's own scalar equality (18 and '18' are
+  // one value to YAML's reader and two to ===). An exclude entry removes every
+  // combination it MATCHES, which is a whole row, not one leg.
+  //
+  // Three successive attempts to reproduce that here were each reviewed and
+  // each found to disagree with GitHub in a new way -- always upwards, always
+  // producing a `fanout-over-cap` on a compliant workflow, and A5 has no
+  // allowlist to accept one with. So it is not reproduced. These matrices are
+  // NOT PRICED: they are counted, named in the report beside the other
+  // uncovered surfaces, and never made into a violation. A declared gap this
+  // file can defend beats a number it cannot.
+  //
+  // What is left is what the document states outright, and both shapes are
+  // exact: a product of axes, and an include-only matrix -- which is how
+  // unit-tests.yml writes its timezone legs, and the only matrix in this
+  // repository.
+  if ('exclude' in matrix || ('include' in matrix && axisKeys.length > 0)) {
+    return { legs: null, why: 'approximate' };
+  }
+  if (axisKeys.length === 0) {
+    const include = matrix.include;
+    // No axes and no readable include list is an empty matrix: unreadable, not
+    // one leg. GitHub will not run it either.
+    if (!Array.isArray(include) || include.length === 0) return unreadable();
+    return include.length > MATRIX_MAX_LEGS ? unreadable() : { legs: include.length, why: null };
+  }
+  let product = 1;
+  for (const key of axisKeys) {
+    const value = matrix[key];
+    // An axis that is not a list, or is an EMPTY list, is not a leg count.
+    // GitHub refuses to run the empty case, and calling it one leg would be
+    // this file inventing a number the document does not state.
+    if (!Array.isArray(value) || value.length === 0) return unreadable();
+    product *= value.length;
+  }
+  return product > MATRIX_MAX_LEGS ? unreadable() : { legs: product, why: null };
+}
+
+/**
  * The jobs and steps a document DECLARES, counted by a second read that shares
  * no code with the walk.
  *
@@ -482,9 +727,11 @@ export function parseWorkflow(name, text, deps = {}) {
     declaredJobs: 0,
     declaredSteps: 0,
     reusableJobs: 0,
-    // Each entry is { target, job, jobIf }: the file called, the job that
-    // calls it, and THAT job's condition. The condition used to be dropped
-    // here, which is what made a `failure()` gate on a calling job invisible.
+    // Each entry is { target, job, jobIf, fanOut }: the file called, the job
+    // that calls it, THAT job's condition, and THAT job's matrix. Each of the
+    // last two was dropped here once -- the condition made a `failure()` gate
+    // on a calling job invisible, and the legs made a matrix on one invisible,
+    // which is the same miss twice on the same structure.
     calls: [],
     problems: [],
   };
@@ -558,6 +805,13 @@ export function parseWorkflow(name, text, deps = {}) {
     // one-level-up miss; see the enumeration at the top of this file. It is
     // carried on the call edge now, so every level shares one mechanism.
     const jobIf = typeof job.if === 'string' ? job.if : null;
+    // The job's MATRIX, read here for exactly the reason `if:` is read here:
+    // BEFORE the shape branches, so a job that CALLS a reusable workflow keeps
+    // it. A `strategy.matrix` on a calling job multiplies every upload in the
+    // called file, and reading it only on the step-bearing path is the miss
+    // that reverted the first attempt at this rule -- the same one-level-up
+    // class the enumeration at the top of this file exists to stop repeating.
+    const legs = matrixFanOut(job);
 
     // A reusable-workflow call has no steps of its own. That is a shape this
     // guard KNOWS it cannot see into, which is different from one it failed to
@@ -568,7 +822,7 @@ export function parseWorkflow(name, text, deps = {}) {
     // gets a named caveat rather than a clean bill.
     if (typeof job.uses === 'string') {
       result.reusableJobs += 1;
-      result.calls.push({ target: calledWorkflowName(job.uses), job: jobId, jobIf });
+      result.calls.push({ target: calledWorkflowName(job.uses), job: jobId, jobIf, fanOut: legs });
       if (job.steps === undefined) continue;
       // BOTH `uses:` and `steps:`. GitHub rejects the combination outright, so
       // this is never a real workflow -- but the guard used to treat it as an
@@ -641,6 +895,11 @@ export function parseWorkflow(name, text, deps = {}) {
         uses: step.uses,
         ifExpr: typeof step.if === 'string' ? step.if : null,
         jobIf,
+        // How many times THIS job runs per run of its workflow. The other
+        // multiplier -- how many times the workflow itself runs per run of
+        // whatever calls it -- is carried on the arrival, because it is a
+        // property of the path rather than of this step.
+        fanOut: legs,
         retention: withBlock['retention-days'],
       });
     }
@@ -848,6 +1107,132 @@ export function classifyRetention(value) {
 const allowKey = (o) => o.file + ' :: ' + o.job + ' :: ' + o.step;
 
 /**
+ * WHY a fan-out could not be read, in words, naming a file the author can open.
+ *
+ * A message that says "unreadable matrix" over a file whose text contains no
+ * `strategy:` at all sends the reader looking for something that is not there.
+ * The gate messages learned this two rounds ago (see `gatedBy`); the same rule
+ * applies to the multiplier, which can equally come from another file.
+ */
+function fanOutBlame(up, arrivedBy) {
+  const ownWhy = uploadSelectsLegs(up) ? null : up.fanOut.why;
+  // The remedy covers every cause that reaches it, which is more than one: an
+  // expression, an axis that is not a list, an EMPTY list, and a literal matrix
+  // larger than GitHub will schedule all arrive here. "Pin a literal list" is
+  // no help to somebody whose list is already literal and merely empty, so the
+  // sentence names the shape wanted rather than the mistake assumed.
+  const pin = ' Give the matrix a literal, non-empty list of legs, within the ' +
+    MATRIX_MAX_LEGS + ' GitHub will schedule -- or move the upload out of the leg.';
+  if (ownWhy === 'unreadable') {
+    // "a `strategy` this file cannot read as a leg count", not "a
+    // `strategy.matrix`": a bare `strategy:` key and `strategy: ${{ ... }}`
+    // both land here and neither contains a `matrix:` line for the author to
+    // go and look at.
+    return 'job `' + up.job + '` carries a `strategy` this file cannot read as a leg count.' + pin;
+  }
+  // Every path below has named the edge that carried the unknown -- see
+  // computeFanOut, which sets `from` in the same statement that sets `why` --
+  // so there is no null arm here to write. A fallback that cannot fire is a
+  // place a future mistake hides, and this file has removed two already.
+  const from = arrivedBy.legsFrom;
+  const via = ' (through the job `' + from.job + '` in ' + from.file + ')';
+  // The REMEDY belongs to the cause, not to the rule. A first draft appended
+  // the pin-a-literal sentence to all three, so the author of a call cycle --
+  // who has no matrix to pin and no leg to move out of -- was handed the one
+  // instruction that could not be followed. Review found it; the canary case
+  // only asserted the blame half of the sentence and could not see the tail.
+  if (arrivedBy.legsWhy === 'cycle') {
+    // "REACHED THROUGH", not "sits on". A file merely downstream of a cycle is
+    // poisoned by it too, and telling that author their workflow is in a cycle
+    // sends them looking through a file that is not in one. This wording is
+    // true of both, and `via` names the cycle's own edge rather than the
+    // nearest one, so the place to go is the same in both cases.
+    return 'this workflow is reached through a `uses:` call CYCLE' + via +
+      ', so how many times it runs is not a number at all -- and GitHub refuses the cycle outright. Break the cycle.';
+  }
+  return 'the calling job `' + from.job + '` in ' + from.file +
+    ' carries a `strategy` this file cannot read as a leg count.' + pin;
+}
+
+/**
+ * Whether an upload's own condition SELECTS LEGS -- `if: matrix.shard == 1`,
+ * the documented way to upload once from a matrixed job.
+ *
+ * A5 declines to judge these, and the decision is finely balanced enough to
+ * write down. Counting them at the full leg count is a FALSE POSITIVE on the
+ * shape the rule's own remedy recommends: an upload conditioned on the leg
+ * produces one copy, A5 was reporting nine, and with no allowlist the only way
+ * to green was to delete the matrix. Counting them at one would be a guess --
+ * `if: matrix.os == 'linux'` on a 3-os x 4-node matrix selects four legs, not
+ * one -- and a guess in the permissive direction is what this file refuses.
+ *
+ * So it is neither: the upload is not judged and it is NAMED on the pass path,
+ * beside reusable jobs and composite actions. A declared gap is the one thing
+ * this file will accept in place of a verdict; a silent skip is not.
+ */
+export function uploadSelectsLegs(up) {
+  // Anchored so `matrix.` must start a reference rather than merely end one.
+  // A word boundary matches after a DOT, so `needs.build.outputs.matrix.count`
+  // qualified -- and because this exemption surrenders a term with no allowlist
+  // and no residual check, that was a one-token way to make any upload invisible
+  // to the rule.
+  return typeof up.ifExpr === 'string' && /(^|[^.\w])matrix\./.test(up.ifExpr);
+}
+
+/**
+ * The largest number of copies any one upload here produces per run, plus what
+ * could NOT be counted.
+ *
+ * A record rather than a number, because the alternative is a sentinel: a first
+ * draft returned null for "some fan-out here is unreadable", and the canary
+ * case reading it compared `null <= 7`, which is TRUE in JavaScript. The
+ * measurement reported the repository comfortably under budget on precisely the
+ * day it stopped being measurable. Counting the unreadable ones separately
+ * makes that arithmetically impossible rather than merely watched for.
+ */
+export function maxUploadFanOut(parsed) {
+  const arrival = propagateArrival(parsed);
+  let max = 0;
+  let unreadable = 0;
+  let notPriced = 0;
+  let legSelected = 0;
+  for (const wf of parsed) {
+    for (const up of wf.uploads) {
+      const arrivedBy = arrival.get(wf.name);
+      // The same two terms the rule reads, and the same treatment of a
+      // leg-conditioned upload: its own term is surrendered, the path term is
+      // not. A measurement that scoped an upload out differently from the rule
+      // that judges it would be a second opinion nobody asked for.
+      if (uploadSelectsLegs(up)) legSelected += 1;
+      const ownTerm = uploadSelectsLegs(up) ? { legs: 1, why: null } : up.fanOut;
+      const reasons = [ownTerm.why, arrivedBy.legsWhy].filter(Boolean);
+      if (reasons.includes('unreadable') || reasons.includes('cycle')) {
+        unreadable += 1;
+        continue;
+      }
+      if (reasons.includes('approximate')) {
+        notPriced += 1;
+        continue;
+      }
+      max = Math.max(max, ownTerm.legs * arrivedBy.legs);
+    }
+  }
+  return { max, unreadable, notPriced, legSelected };
+}
+
+/**
+ * The arithmetic behind a fan-out, printed so the number is CHECKABLE against
+ * the files rather than merely asserted at the reader.
+ */
+function fanOutFactors(up, arrivedBy) {
+  const from = arrivedBy.legsFrom;
+  const path = arrivedBy.legs > 1 && from
+    ? arrivedBy.legs + ' run(s) of this file, driven by the calling job `' + from.job + '` in ' + from.file
+    : arrivedBy.legs + ' run(s) of this file';
+  return up.fanOut + ' matrix leg(s) in job `' + up.job + '` x ' + path;
+}
+
+/**
  * The file a LOCAL `uses: ./.github/workflows/x.yml` job call points at, or
  * null when the call leaves this repository.
  *
@@ -872,7 +1257,176 @@ function calledWorkflowName(uses) {
 }
 
 /**
- * How a SCHEDULE run arrives at each workflow, if it arrives at all.
+ * How many times each workflow's jobs run, per run of whatever reaches them.
+ *
+ * This is the PATH half of A5; the other half is the uploading job's own
+ * matrix, read at parse time. A file's own count is 1 -- it runs once when it
+ * is triggered -- plus, for every job that CALLS it, that caller's own count
+ * multiplied by the calling job's matrix legs. Two calls into the same file ADD.
+ *
+ * WHY THIS IS A DFS OVER REVERSE EDGES rather than another turn of the arrival
+ * loop below. The arrival propagation carries booleans, which only ever go
+ * false -> true, so its pass bound is provably sufficient. A SUM has no such
+ * ceiling: iterated in place it re-adds every contribution on every pass, and
+ * even recomputed cleanly a `uses:` cycle grows without limit and exhausts the
+ * bound -- turning an illegal-but-harmless workflow into exit 2 with a message
+ * about pass counts. Walking up the call graph answers each file exactly once
+ * and names the cycle for what it is.
+ *
+ * THE QUANTITY IS "PER ONE RUN", and getting that from a call graph took three
+ * goes, each wrong in a way the next one's fixture exposed. It is worth the
+ * space, because the two failed shapes are the obvious ones:
+ *
+ *   ADD EVERY IN-EDGE. Eight ordinary one-leg callers of a shared reusable
+ *   workflow -- the ordinary reason to HAVE a reusable workflow -- came out as
+ *   "one run produces 8 copies", which no run does. That folds FREQUENCY into
+ *   the fan-out term, and frequency is exactly what this guard's header says it
+ *   does not read. Caught in review, not by a case.
+ *   SUM WITHIN A CALLER, MAXIMUM ACROSS CALLERS. Better, and still wrong: it
+ *   assumes two caller FILES never share a run. They do whenever one calls the
+ *   other. A root with a 4-leg job calling this file directly and a second
+ *   4-leg job calling it through a middle file runs it EIGHT times in one run,
+ *   and this reported four -- an under-count, which is the direction that fails
+ *   open. Caught in the next review round, on the fix for the round before.
+ *
+ * What is actually being asked is: over every workflow that could start a run,
+ * what is the most executions of this file ONE of those runs can produce? So
+ * the count is computed once per starting workflow -- summing all paths from
+ * that start, which handles the diamond by construction -- and the answer is
+ * the largest of them. Adding and maxing are then not competing policies; they
+ * are simply what happens within one run and across separate runs.
+ *
+ * NULL IS STICKY and means "not a number this file can state": an unreadable
+ * matrix anywhere on the path, or a call cycle. Both are reported, never
+ * treated as one leg.
+ *
+ * A file that nothing in THIS repository calls is still costed at one run, and
+ * that falls out of trying every file as a start rather than out of a floor
+ * bolted on afterwards. It matters: "nobody calls it as far as I can see" is
+ * not "it never runs" -- the caller may be in another repository, or in the
+ * next commit -- and pricing it at zero copies would be an unknown recorded as
+ * the most permissive value, which is this arc's own failure mode.
+ */
+export function computeFanOut(parsed) {
+  const inEdges = new Map(parsed.map((w) => [w.name, []]));
+  for (const wf of parsed) {
+    for (const call of wf.calls ?? []) {
+      const edges = inEdges.get(call.target);
+      // A call this scan cannot resolve -- another repository, a typo -- has
+      // nothing to propagate to. The report names reusable jobs as the
+      // uncovered surface they are.
+      if (!edges) continue;
+      edges.push({ caller: wf.name, job: call.job, fanOut: call.fanOut });
+    }
+  }
+  // How many times `name` executes per ONE run of `start`, summed over every
+  // path from `start` to it -- memoised per starting workflow, because the
+  // answer is a different number for each one.
+  const executionsFrom = (start) => {
+    const memo = new Map();
+    const onStack = new Set();
+    const visit = (name) => {
+      const done = memo.get(name);
+      if (done) return done;
+      // Re-entered while still being computed: this file is its own ancestor.
+      // Provisional and deliberately not memoised -- the answer belongs to the
+      // caller that detected it, which memoises null for the whole cycle.
+      if (onStack.has(name)) return { count: null, from: null, why: 'cycle' };
+      onStack.add(name);
+      let count = name === start ? 1 : 0;
+      let from = null;
+      let why = null;
+      let largest = 0;
+      for (const edge of inEdges.get(name)) {
+        const up = visit(edge.caller);
+        if (up.count === null || edge.fanOut.legs === null) {
+          // Null is terminal -- no other edge can make an unreadable path
+          // readable -- so this stops here and names the edge that carried the
+          // unknown. When the unknown came from FURTHER UP, the upstream has
+          // already named the real culprit and that name is carried down
+          // rather than overwritten with this edge: a first draft overwrote
+          // it, and blamed a middle file whose text contains no `strategy:`.
+          count = null;
+          // The edge's OWN reason, not a single catch-all: an edge this file
+          // declines to price and one it cannot read are different verdicts
+          // downstream, and flattening them here would make every unpriceable
+          // matrix a violation somewhere below it.
+          why = up.count === null ? up.why : edge.fanOut.why;
+          from = up.count === null && up.from ? up.from : { file: edge.caller, job: edge.job };
+          break;
+        }
+        const contribution = up.count * edge.fanOut.legs;
+        count += contribution;
+        // The single edge contributing most, so the message names the job that
+        // actually drives the number. Keyed on the CONTRIBUTION, not on the
+        // edge's own legs: a one-leg edge below a matrixed caller is exactly as
+        // responsible, and the first draft's `edges[0]` named whichever job
+        // happened to come first in the file -- routinely one with no matrix.
+        if (contribution > largest) {
+          largest = contribution;
+          from = { file: edge.caller, job: edge.job };
+        }
+      }
+      onStack.delete(name);
+      const value = count === null
+        ? { count: null, from, why }
+        : { count, from: count > 1 ? from : null, why: null };
+      memo.set(name, value);
+      return value;
+    };
+    return visit;
+  };
+
+  // Every file is tried as a starting point, and the answer is the largest.
+  // Trying only the independently-triggerable ones would be tidier and would
+  // stop a `uses:`-only subgraph being costed at all -- including its cycles,
+  // which would then go undetected. It also cannot inflate the maximum: a run
+  // that starts halfway down a chain reaches no more than one that starts
+  // above it.
+  const starts = parsed.map((w) => w.name).map((name) => executionsFrom(name));
+  const result = new Map();
+  for (const wf of parsed) {
+    let legs = 0;
+    let from = null;
+    let why = null;
+    let unreadable = false;
+    for (const visit of starts) {
+      const v = visit(wf.name);
+      if (v.count === null) {
+        unreadable = true;
+        from = v.from;
+        why = v.why;
+        break;
+      }
+      if (v.count > legs) {
+        legs = v.count;
+        from = v.from;
+      }
+    }
+    // No floor of 1 here, and its absence is load-bearing rather than tidy.
+    // One stood here, to stop a called file that nothing in this repository
+    // starts being priced at zero copies -- "no caller I can see" is not "it
+    // never runs". Trying every file as a start already guarantees it: the pass
+    // where a file IS the start counts it once. So the floor could not fire,
+    // mutation showed exactly that by deleting it with every case still green,
+    // and an unfirable branch in a guard is where the next mistake hides.
+    result.set(wf.name, unreadable
+      ? { legs: null, from, why }
+      : { legs, from: legs > 1 ? from : null, why: null });
+  }
+  return result;
+}
+
+/**
+ * How a SCHEDULE run arrives at each workflow, if it arrives at all -- and, on
+ * the same record, HOW MANY TIMES the file runs when it does.
+ *
+ * It was `propagateScheduleArrival` while the record held only the first half.
+ * The two halves are computed differently (booleans to a fixed point here, a
+ * walk up the call graph in computeFanOut) but they answer questions about the
+ * same edges, and keeping them in one record is what stops a future rule
+ * reading one and forgetting the other -- which is the shape of every
+ * one-level-up miss this file has had to fix.
  *
  * This replaces a plain trigger propagation, and the replacement is the fix for
  * the fourth one-level-up miss rather than a refactor. Triggers alone answered
@@ -925,7 +1479,7 @@ function calledWorkflowName(uses) {
  * whole arc exists to refuse. Nothing today can exhaust the bound; the point is
  * that the next edge kind added here cannot do it silently.
  */
-export function propagateScheduleArrival(parsed, opts = {}) {
+export function propagateArrival(parsed, opts = {}) {
   const maxPasses = opts.maxPasses ?? parsed.length + 1;
   const arrival = new Map(
     parsed.map((w) => [
@@ -944,6 +1498,16 @@ export function propagateScheduleArrival(parsed, opts = {}) {
       },
     ]),
   );
+  // The fan-out half of the same record. Stamped on here rather than returned
+  // separately so that a rule asking "does a run reach this file" and a rule
+  // asking "how many times" read one object and cannot drift apart.
+  const fanOut = computeFanOut(parsed);
+  for (const [name, entry] of arrival) {
+    const f = fanOut.get(name);
+    entry.legs = f.legs;
+    entry.legsFrom = f.from;
+    entry.legsWhy = f.why;
+  }
   // workflow_run names its upstreams by the workflow's `name:`, not its file.
   // Name -> EVERY file with that name, not the first. Two workflows may legally
   // share a display name, and GitHub fires workflow_run for both; keeping only
@@ -1003,6 +1567,14 @@ export function propagateScheduleArrival(parsed, opts = {}) {
     // propagates like any other. Direction is inverted from a `uses:` call --
     // the DOWNSTREAM file names its upstreams -- which is why it is a separate
     // loop rather than another branch inside the one above.
+    //
+    // FAN-OUT DOES NOT TRAVEL DOWN THIS EDGE, and the omission is a decision
+    // rather than an oversight: workflow_run fires once per upstream RUN,
+    // whatever that run's matrix contained, so a collector behind a 20-leg
+    // nightly still runs once. computeFanOut reads `calls` only, which is what
+    // makes that true structurally -- and a canary case asserts the "no" in
+    // both directions, because an enumerated level whose answer is "no" is
+    // still a level somebody has to have checked.
     for (const wf of parsed) {
       const watch = wf.watch;
       if (!watch || !watch.present) continue;
@@ -1067,6 +1639,8 @@ export const VIOLATION_KINDS = Object.freeze([
   'retention-unreadable',
   'retention-invalid',
   'schedule-failure-upload',
+  'fanout-not-static',
+  'fanout-over-cap',
   'allowlist-ambiguous',
   'allowlist-stale',
   'budget-guard-uploads',
@@ -1093,6 +1667,13 @@ function violation(rule, kind, where, detail) {
 export function findViolations(parsed, cfg = {}) {
   const allowlist = cfg.allowlist ?? SCHEDULE_FAILURE_ALLOWLIST;
   const noUpload = cfg.noUploadWorkflows ?? NO_UPLOAD_WORKFLOWS;
+  // Overridable for ONE reason: the self-probe must pin its own cap. Left
+  // reading CONFIG, raising FANOUT_CAP_LEGS above the fixture's fan-out would
+  // stop the probe seeing its own planted violation, and every run after that
+  // would be exit 2 blaming the detector for a change to a budget. That is not
+  // hypothetical -- it is one of the fifteen findings on the reverted draft,
+  // whose probe was pinned under the live budget in exactly this way.
+  const fanOutCap = cfg.fanOutCap ?? FANOUT_CAP_LEGS;
   const violations = [];
   const allowedHit = new Set();
   const flagged = [];
@@ -1102,7 +1683,7 @@ export function findViolations(parsed, cfg = {}) {
   // did: the file was reported on as though covered with its one cost-shape
   // rule dead. And the arrival carries the caller's condition, so a `failure()`
   // gate on the CALLING job is read at the level it is written at.
-  const arrival = propagateScheduleArrival(parsed);
+  const arrival = propagateArrival(parsed);
 
   for (const wf of parsed) {
     // No `??` default. The map is built from this very array, so the lookup
@@ -1127,6 +1708,60 @@ export function findViolations(parsed, cfg = {}) {
       } else if (retention.kind === 'invalid') {
         violations.push(violation('A2', 'retention-invalid', up,
           'retention-days ' + retention.days + ' is not a valid retention (1-' + RETENTION_CAP_DAYS + ')'));
+      }
+
+      // A5, the multiplier no condition is involved in. Two terms: how many
+      // times this JOB runs per run of its file (its own matrix, read at parse
+      // time) and how many times the FILE runs per run of whatever calls it
+      // (the arrival). Either being unreadable makes the product unreadable.
+      //
+      // Deliberately INDEPENDENT of everything around it. It is not scoped to
+      // `schedule:` the way A3 is -- a matrix multiplies on whatever trigger
+      // fires it, and with no frequency term here the trigger changes nothing.
+      // It does not wait for the retention to be `ok` either: the reverted
+      // draft required that, which quietly made its own docstring's second
+      // worked example impossible to reach. An upload can be unbounded in two
+      // ways at once, and it should be told about both.
+      // TWO TERMS, and an upload conditioned on the leg surrenders only ONE of
+      // them. `if: matrix.shard == 1` can only select among the job's OWN legs;
+      // how many times the WORKFLOW runs is still fully readable from the call
+      // graph. A first pass exempted the whole upload, so a 12-leg calling job
+      // over a leg-conditioned upload -- twelve copies, every one of them
+      // counted from static text -- scored silent. The surrendered term is
+      // taken as 1, which is a floor rather than a guess: the condition cannot
+      // make the job run FEWER times than once.
+      const ownTerm = uploadSelectsLegs(up) ? { legs: 1, why: null } : up.fanOut;
+      const fanOut = ownTerm.legs === null || arrivedBy.legs === null ? null : ownTerm.legs * arrivedBy.legs;
+      // NOT PRICED beats UNREADABLE only when nothing on the path is unreadable:
+      // an unreadable matrix is a defect the author can fix and should be told
+      // about, so it is reported even beside a shape this file declines to
+      // price.
+      const reasons = [ownTerm.why, arrivedBy.legsWhy].filter(Boolean);
+      if (reasons.includes('unreadable') || reasons.includes('cycle')) {
+        violations.push(violation('A5', 'fanout-not-static', up,
+          'the number of copies one run produces cannot be read: ' + fanOutBlame(up, arrivedBy) +
+          ' A fan-out nobody can read is not a bound, for the same reason an expression in retention-days is not one.'));
+      // A DECLINED shape (`approximate`) falls through to here and has no
+      // number to compare, so it produces nothing -- which is the whole point
+      // of declining. It is counted in stats and named in the report instead.
+      // There was an explicit empty branch above for it until mutation showed
+      // the branch could be deleted with every case still green: `null` cannot
+      // exceed a budget, so the branch documented rather than did. The explicit
+      // `!== null` here is what makes that reasoning visible without pretending
+      // a comparison against null is a decision.
+      } else if (fanOut !== null && fanOut > fanOutCap) {
+        violations.push(violation('A5', 'fanout-over-cap', up,
+          'one run of this workflow produces ' + fanOut + ' copies of this artifact (' +
+          fanOutFactors(up, arrivedBy) + '), against a budget of ' + fanOutCap +
+          '. For scale: the incident that produced this guard held ' + INCIDENT_STEADY_STATE_COPIES +
+          ' copies in steady state, over four months, from a run a day' +
+          // Only when it is TRUE. The sentence was unconditional, and the
+          // guard's own self-probe judges at a cap of 4 -- so it was already
+          // telling its fixture that five copies is "more than" seven. Any
+          // tightening of the budget below the incident's own count would have
+          // shipped the same false clause to real authors.
+          (fanOut > INCIDENT_STEADY_STATE_COPIES ? ', and this holds more than that from a SINGLE run' : '') +
+          '. Upload once per run instead of once per leg -- merge the legs into one artifact, or upload from one designated leg with `if: matrix...` -- or cut the matrix.'));
       }
 
       // THREE levels, and the third is why this reads an arrival rather than a
@@ -1276,6 +1911,18 @@ export function findViolations(parsed, cfg = {}) {
  * porting this file cannot break its own positive control.
  */
 const PROBE_NO_UPLOAD_FILE = 'zz-probe-budget-guard.yml';
+/**
+ * The fan-out budget the FIXTURE is judged against, which is deliberately not
+ * FANOUT_CAP_LEGS.
+ *
+ * The probe is a control for the DETECTOR, so it must not move when a POLICY
+ * number moves. Reading CONFIG here would mean that raising the real budget
+ * above the fixture's fan-out stops the fixture provoking anything, and the
+ * next run is exit 2 telling its reader the detector is blind -- when all that
+ * happened is somebody changed a budget. It is the same reasoning that made the
+ * A4 fixture stop naming this repository's real ci-budget-guard.yml.
+ */
+const PROBE_FANOUT_CAP = 4;
 const SELF_PROBE = [
   {
     name: 'zz-self-probe.yml',
@@ -1417,6 +2064,140 @@ const SELF_PROBE = [
       '          retention-days: 7',
     ].join('\n'),
   },
+  // MECHANISM 4: A5's two kinds, by the uploading job's OWN matrix. Nothing in
+  // this repository provokes A5 -- no upload sits in a matrix job -- so unlike
+  // A1-A4 the rule has no live subject and this fixture is the only thing that
+  // ever exercises it. Both kinds are here: a readable matrix over the fixture
+  // budget, and one that cannot be read at all.
+  {
+    name: 'zz-probe-fanout.yml',
+    text: [
+      'name: Self Probe Fanout',
+      'on:',
+      '  push:',
+      'jobs:',
+      '  shards:',
+      '    strategy:',
+      '      matrix:',
+      '        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: one artifact per leg',
+      '        uses: actions/upload-artifact@v7',
+      '        with:',
+      '          retention-days: 7',
+      '  unreadable:',
+      '    strategy:',
+      '      matrix: ${{ fromJSON(inputs.shards) }}',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: a fan-out this file cannot read',
+      '        uses: actions/upload-artifact@v7',
+      '        with:',
+      '          retention-days: 7',
+    ].join('\n'),
+  },
+  // MECHANISM 5: the same kind by the OTHER route -- a matrix on the job that
+  // CALLS a reusable workflow, with the upload in the called file carrying no
+  // matrix of its own. This is the exact shape that reverted the first attempt
+  // at A5, so it is a route in its own right and expected by file, not folded
+  // into the kind above. If the call edge stops carrying legs, this one goes
+  // quiet while the fixture above keeps reporting the rule alive.
+  {
+    name: 'zz-probe-fanout-caller.yml',
+    text: [
+      'name: Self Probe Fanout Caller',
+      'on:',
+      '  push:',
+      'jobs:',
+      '  spread:',
+      '    strategy:',
+      '      matrix:',
+      '        shard: [1, 2, 3, 4, 5]',
+      '    uses: ./.github/workflows/zz-probe-fanout-called.yml',
+    ].join('\n'),
+  },
+  // MECHANISM 6: `fanout-not-static` by the CYCLE arm, and MECHANISM 7 by an
+  // unreadable matrix ONE LEVEL UP. Both are separate arms of computeFanOut,
+  // and both were covered only by the sibling route -- the uploading job's own
+  // matrix -- which keeps producing the kind all by itself. That is the same
+  // shape that made this file key `schedule-failure-upload` by FILE across
+  // three routes: covering a kind once let two of its three mechanisms regress
+  // in silence.
+  {
+    name: 'zz-probe-fanout-cycle-a.yml',
+    text: [
+      'name: Self Probe Fanout Cycle A',
+      'on:',
+      '  push:',
+      'jobs:',
+      '  j:',
+      '    uses: ./.github/workflows/zz-probe-fanout-cycle-b.yml',
+    ].join('\n'),
+  },
+  {
+    name: 'zz-probe-fanout-cycle-b.yml',
+    text: [
+      'name: Self Probe Fanout Cycle B',
+      'on:',
+      '  workflow_call:',
+      'jobs:',
+      '  j:',
+      '    uses: ./.github/workflows/zz-probe-fanout-cycle-a.yml',
+      '  collect:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: an upload with no countable number of runs',
+      '        uses: actions/upload-artifact@v7',
+      '        with:',
+      '          retention-days: 7',
+    ].join('\n'),
+  },
+  {
+    name: 'zz-probe-fanout-blind-caller.yml',
+    text: [
+      'name: Self Probe Fanout Blind Caller',
+      'on:',
+      '  push:',
+      'jobs:',
+      '  spread:',
+      '    strategy:',
+      '      matrix: ${{ fromJSON(inputs.shards) }}',
+      '    uses: ./.github/workflows/zz-probe-fanout-blind-called.yml',
+    ].join('\n'),
+  },
+  {
+    name: 'zz-probe-fanout-blind-called.yml',
+    text: [
+      'name: Self Probe Fanout Blind Called',
+      'on:',
+      '  workflow_call:',
+      'jobs:',
+      '  collect:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: an upload behind a fan-out nobody can read',
+      '        uses: actions/upload-artifact@v7',
+      '        with:',
+      '          retention-days: 7',
+    ].join('\n'),
+  },
+  {
+    name: 'zz-probe-fanout-called.yml',
+    text: [
+      'name: Self Probe Fanout Called',
+      'on:',
+      '  workflow_call:',
+      'jobs:',
+      '  collect:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: one artifact per calling leg',
+      '        uses: actions/upload-artifact@v7',
+      '        with:',
+      '          retention-days: 7',
+    ].join('\n'),
+  },
 ];
 
 /**
@@ -1450,6 +2231,16 @@ const SELF_PROBE_EXPECTS = [
   'schedule-failure-upload::zz-self-probe.yml',
   'schedule-failure-upload::zz-probe-called.yml',
   'schedule-failure-upload::zz-probe-collector.yml',
+  // A5, by BOTH routes, for the same reason: the calling-job route is the one
+  // that reverted the first attempt at this rule, and it is invisible to any
+  // expectation keyed on the kind alone.
+  'fanout-over-cap::zz-probe-fanout.yml',
+  'fanout-not-static::zz-probe-fanout.yml',
+  'fanout-over-cap::zz-probe-fanout-called.yml',
+  // The two OTHER arms that produce fanout-not-static: a call cycle, and an
+  // unreadable matrix one level up. Keyed by file for the reason above.
+  'fanout-not-static::zz-probe-fanout-cycle-b.yml',
+  'fanout-not-static::zz-probe-fanout-blind-called.yml',
 ];
 
 /**
@@ -1481,6 +2272,7 @@ export function probeKeys(parsed) {
   return findViolations(parsed, {
     allowlist: SELF_PROBE_ALLOWLIST,
     noUploadWorkflows: [PROBE_NO_UPLOAD_FILE],
+    fanOutCap: PROBE_FANOUT_CAP,
   }).map((v) => v.kind + '::' + v.file);
 }
 
@@ -1617,12 +2409,26 @@ export function analyse(files, cfg = {}) {
     declaredSteps: parsed.reduce((n, p) => n + (p.declaredSteps ?? 0), 0),
     uploadSteps: parsed.reduce((n, p) => n + p.uploads.length, 0),
     reusableJobs: parsed.reduce((n, p) => n + p.reusableJobs, 0),
+    // A5's measurement is attached AFTER the blockers below, not here. It walks
+    // the call graph, which can throw on a pathological document -- and doing
+    // that during stats construction put the throw AHEAD of the named blocker
+    // list, so a repo with parse or floor problems got a raw stack trace where
+    // the exit-2 path had a diagnostic ready. It is also pure waste on that
+    // path: the whole traversal runs and is discarded.
     seenFiles: parsed.map((p) => p.name),
   };
 
   blockers.push(...assertInclusion(stats, cfg));
 
   if (blockers.length > 0) return { code: 2, blockers, violations: [], stats, parsed };
+
+  // Past the blockers, so the traversal runs once and only on a document set
+  // that has already been shown to be readable. A rule with no live subject
+  // here -- which A5 is -- otherwise leaves a green run looking exactly the
+  // same whether it read every call edge or none of them, and this file's whole
+  // argument about the declared-versus-walked numbers is that the reader should
+  // be given the figure rather than the assurance.
+  stats.fanOut = maxUploadFanOut(parsed);
 
   const violations = findViolations(parsed, cfg);
   const allowlist = cfg.allowlist ?? SCHEDULE_FAILURE_ALLOWLIST;
@@ -1635,6 +2441,10 @@ export function analyse(files, cfg = {}) {
     parsed,
     allowlist,
     noUploadWorkflows,
+    // Carried for the legend, which must print the budget it actually judged
+    // against rather than the module constant -- they differ whenever a caller
+    // overrides it, which is exactly when a reader needs to be told.
+    fanOutCap: cfg.fanOutCap ?? FANOUT_CAP_LEGS,
   };
 }
 
@@ -1672,6 +2482,27 @@ function report(result, out, err) {
       out('  allowed exception: ' + a.file + ' / ' + a.job + ' / ' + a.step);
       out('      because ' + a.reason);
     }
+    if (stats && stats.uploadSteps > 0 && stats.fanOut) {
+      // `max` is 0 when nothing here could be priced, and printing "produces 0
+      // copy(s)" over a repository that uploads is a false statement of the
+      // same kind the incident comparison was made conditional for. Every
+      // upload produces at least one copy; if none was priced, say that.
+      if (stats.fanOut.max > 0) {
+        out('  fan-out: the largest upload here produces ' + stats.fanOut.max +
+          ' copy(s) per run, against a budget of ' + (result.fanOutCap ?? FANOUT_CAP_LEGS) + '.');
+      } else {
+        out('  fan-out: not measured -- no upload here could be priced (budget ' +
+          (result.fanOutCap ?? FANOUT_CAP_LEGS) + ').');
+      }
+      if (stats.fanOut.notPriced > 0) {
+        out('  NOT covered: ' + stats.fanOut.notPriced + ' upload(s) behind a matrix using `include:` with axes, or');
+        out('      `exclude:` -- shapes this guard declines to price rather than guess at.');
+      }
+      if (stats.fanOut.legSelected > 0) {
+        out('  NOT covered: ' + stats.fanOut.legSelected + ' upload(s) conditioned on the matrix leg (`if: matrix...`).');
+        out('      Their own leg count is taken as 1; the calling path is still counted.');
+      }
+    }
     if (stats && stats.reusableJobs > 0) {
       out('  NOT covered: ' + stats.reusableJobs + ' reusable-workflow job(s), whose steps live in the called file.');
       out('      Composite actions under .github/actions are outside this scan for the same reason.');
@@ -1700,6 +2531,22 @@ function report(result, out, err) {
   err('         construct is gone rather than renamed.');
   err('  A4     ' + (result.noUploadWorkflows ?? NO_UPLOAD_WORKFLOWS).join(', ') +
     ' upload nothing; they read the pool they would join.');
+  // The counts the pass path prints belong here too. A reader looking at a red
+  // build needs to know how much of the surface was priced at all -- and
+  // `unreadable` is the number that makes this measurement sentinel-free, so
+  // reaching nobody outside the canary was most of the point of having it.
+  if (stats && stats.fanOut && (stats.fanOut.unreadable > 0 || stats.fanOut.notPriced > 0)) {
+    err('  Of the ' + stats.uploadSteps + ' upload(s) here, ' + stats.fanOut.unreadable +
+      ' could not be priced at all and ' + stats.fanOut.notPriced + ' were declined as unpriceable shapes.');
+    err('');
+  }
+  err('  A5     one run may produce at most ' + (result.fanOutCap ?? FANOUT_CAP_LEGS) +
+    ' copies of an artifact: the strategy.matrix behind the');
+  err('         upload, multiplied along every call edge that reaches it.');
+  err('         fanout-not-static: a matrix (or a call cycle) this guard cannot read. A fan-out');
+  err('         nobody can read is not a bound, exactly as with retention-days.');
+  err('         A matrix using `include:` beside axes, or `exclude:`, is DECLINED rather than');
+  err('         priced -- counted and named on a passing run, never a violation.');
   // The accepted exceptions belong on the FAILURE path too, and leaving them
   // only on the pass path was backwards: the reader who needs to compare their
   // flagged step against the ones already accepted, and with what reason, is by
@@ -2429,7 +3276,7 @@ function selfTest(out = console.log, err = console.error) {
   );
   /** How a schedule arrives at `name`, as a word, for readable expectations. */
   const arrivalAt = (files, name) => {
-    const a = propagateScheduleArrival(files.map((f) => parseWorkflow(f.name, f.text))).get(name);
+    const a = propagateArrival(files.map((f) => parseWorkflow(f.name, f.text))).get(name);
     if (!a) return 'absent';
     return (a.plain ? 'plain' : '') + (a.plain && a.gated ? '+' : '') + (a.gated ? 'gated' : '') || 'none';
   };
@@ -2445,7 +3292,7 @@ function selfTest(out = console.log, err = console.error) {
     'arrival: running out of passes THROWS instead of returning a partial map',
     () => {
       try {
-        propagateScheduleArrival(calledIncident.map((f) => parseWorkflow(f.name, f.text)), { maxPasses: 1 });
+        propagateArrival(calledIncident.map((f) => parseWorkflow(f.name, f.text)), { maxPasses: 1 });
         return 'no throw';
       } catch (error) {
         return error.message.includes('did not settle') ? 'threw, saying so' : 'threw';
@@ -2527,7 +3374,7 @@ function selfTest(out = console.log, err = console.error) {
   add(
     'arrival: a gated arrival always carries the edge that gated it',
     () => {
-      const a = propagateScheduleArrival(callerGated('failure()').map((f) => parseWorkflow(f.name, f.text))).get('called.yml');
+      const a = propagateArrival(callerGated('failure()').map((f) => parseWorkflow(f.name, f.text))).get('called.yml');
       return a.gated && a.gatedBy !== null && a.gatedBy.file === 'nightly.yml' && a.gatedBy.job === 'go';
     },
     true,
@@ -2718,6 +3565,615 @@ function selfTest(out = console.log, err = console.error) {
     },
     '1/2/1',
   );
+
+  // --- A5: fan-out, at every level it can live at, in ONE pass -------------
+  //
+  // The rule the header's property table gained a row for BEFORE any of this
+  // was written. The first attempt at it read the matrix on step-bearing jobs
+  // only and was reverted for missing the calling-job level -- the third time
+  // this file had shipped a fix aimed one indentation level too low -- so the
+  // levels are enumerated up there and every one of them is asserted here,
+  // including the one whose answer is "no".
+  //
+  // Every leg count is derived from FANOUT_CAP_LEGS rather than written as a
+  // literal, so the pair of cases either side of the budget stays a pair when
+  // the budget moves. Written as literals, raising the cap would have left a
+  // silent case asserting silence about a value that is now under it -- a case
+  // passing for a reason that has nothing to do with the rule.
+
+  /** A matrix axis of exactly n legs, as the YAML a workflow would carry. */
+  const shards = (n) => '        shard: [' + Array.from({ length: n }, (_, i) => i + 1).join(', ') + ']';
+  /**
+   * matrixFanOut for a job written as YAML rather than hand-built as an object.
+   * Through the real parser on purpose: a hand-built `{ strategy: { matrix: 'x' } }`
+   * proves the function against a state nobody has shown a document can reach,
+   * and this file has already been caught defending one of those.
+   */
+  const fanOutOfJob = (jobYaml) => matrixFanOut(YAML.parse('jobs:\n  j:\n' + jobYaml).jobs.j).legs;
+  /** The same, but the REASON -- null priced, 'unreadable', or 'approximate'. */
+  const whyOfJob = (jobYaml) => matrixFanOut(YAML.parse('jobs:\n  j:\n' + jobYaml).jobs.j).why;
+  const M = '    strategy:\n      matrix:\n';
+
+  add('fanout: no strategy at all is one leg', () => fanOutOfJob('    runs-on: ubuntu-latest\n'), 1);
+  add('fanout: a strategy with no matrix is one leg', () => fanOutOfJob('    strategy:\n      fail-fast: false\n'), 1);
+  add('fanout: a single axis counts its legs', () => fanOutOfJob(M + shards(8)), 8);
+  add('fanout: two axes MULTIPLY', () => fanOutOfJob(M + '        a: [1, 2]\n        b: [1, 2, 3]\n'), 6);
+  // unit-tests.yml's real shape -- the only matrix in this repository.
+  add('fanout: an include-only matrix counts its entries', () => fanOutOfJob(M + '        include:\n          - tz: a\n          - tz: b\n'), 2);
+  // NOT PRICED, and deliberately so. `include` beside axes and `exclude` in any
+  // form are where GitHub's expansion becomes a matching algorithm rather than
+  // arithmetic, and three attempts to reproduce it were each found to disagree
+  // with GitHub in a new way -- always upwards, always producing an unappealable
+  // `fanout-over-cap` on a compliant workflow. These are declined and named, not
+  // guessed. Both the answer and the REASON are pinned, because "no number" and
+  // "no number, and here is why" reach the author as different verdicts.
+  add('fanout: include beside axes is not priced', () => fanOutOfJob(M + '        a: [1, 2]\n        include:\n          - a: 3\n'), null);
+  add('fanout: and it says it declined rather than failed to read', () => whyOfJob(M + '        a: [1, 2]\n        include:\n          - a: 3\n'), 'approximate');
+  add('fanout: exclude is not priced either', () => fanOutOfJob(M + '        a: [1, 2]\n        b: [1, 2]\n        exclude:\n          - a: 1\n'), null);
+  add('fanout: nor is exclude on an include-only matrix', () => whyOfJob(M + '        include:\n          - tz: a\n        exclude:\n          - tz: a\n'), 'approximate');
+  // An UNREADABLE shape is a different verdict from a declined one: the author
+  // can fix it, and A5 tells them so.
+  add('fanout: an expression IS a defect the author can fix', () => whyOfJob(M.trimEnd() + ' ${{ fromJSON(inputs.s) }}\n'), 'unreadable');
+  add('fanout: and a plain axis product is priced, with no reason to give', () => whyOfJob(M + shards(3)), null);
+  // An include entry that REFINES an existing combination adds no job. GitHub
+  // runs six here, and counting both entries as new legs made it eight -- over
+  // the budget, on a compliant workflow.
+  // The two shapes that cost three review rounds, kept as cases precisely
+  // because they LOOK countable. GitHub runs six jobs for the first (both
+  // include entries refine existing combinations) and seven for the second
+  // (one new combination); successive drafts here said eight and seven, then
+  // six and seven, and the difference between them is GitHub's own scalar
+  // equality. Neither is priced now.
+  add(
+    'fanout: a refining include is not priced rather than guessed at',
+    () => fanOutOfJob(M + '        os: [a, b, c]\n        node: [18, 20]\n        include:\n          - os: a\n            node: 18\n            extra: 1\n'),
+    null,
+  );
+  add(
+    'fanout: and neither is one that adds a combination',
+    () => fanOutOfJob(M + '        os: [a, b, c]\n        node: [18, 20]\n        include:\n          - os: d\n            node: 22\n'),
+    null,
+  );
+  // A present-but-empty key is a typo GitHub rejects, not a single leg.
+  add('fanout: a bare strategy: key with nothing under it is unreadable', () => fanOutOfJob('    strategy:\n'), null);
+  // ...and the message for it must not name a `strategy.matrix`, because there
+  // is no `matrix:` line in that job for the author to go and look at.
+  add(
+    'A5 message: a bare strategy: is not called a strategy.matrix',
+    () => {
+      const files = [{ name: 'x.yml', text: ['name: X', 'on:', '  push:', 'jobs:', '  j:', '    strategy:', '    runs-on: ubuntu-latest', '    steps:', ...fixtureUpload('up', { retention: 7 })].join('\n') }];
+      const d = findViolations(files.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail;
+      return d.includes('carries a `strategy` this file cannot read') && !d.includes('strategy.matrix');
+    },
+    true,
+  );
+  add('fanout: a bare matrix: key is unreadable too', () => fanOutOfJob('    strategy:\n      matrix:\n'), null);
+  add('fanout: but a strategy with other keys and no matrix is one leg', () => fanOutOfJob('    strategy:\n      fail-fast: false\n'), 1);
+  // NULL, not 1, everywhere the document does not state a number. Each of these
+  // returned 1 in the reverted draft or in a first pass of this one, and each
+  // is a fan-out priced at a single copy while the workflow runs many.
+  add('fanout: a matrix behind an expression cannot be bounded', () => fanOutOfJob(M.trimEnd() + ' ${{ fromJSON(inputs.s) }}\n'), null);
+  add('fanout: a STRATEGY behind an expression cannot be bounded either', () => fanOutOfJob('    strategy: ${{ fromJSON(inputs.s) }}\n'), null);
+  add('fanout: an axis that is not a list cannot be bounded', () => fanOutOfJob(M + '        shard: 8\n'), null);
+  add('fanout: an EMPTY axis is not one leg', () => fanOutOfJob(M + '        shard: []\n'), null);
+  add('fanout: an include: that is not a list is not priced either', () => fanOutOfJob(M + '        a: [1, 2]\n        include: ${{ inputs.extra }}\n'), null);
+  add('fanout: an include-ONLY matrix that is not a list cannot be read', () => whyOfJob(M + '        include: ${{ inputs.extra }}\n'), 'unreadable');
+  add('fanout: an empty matrix mapping is not one leg', () => fanOutOfJob(M + '        {}\n'), null);
+  // BOTH EDGES of GitHub's own limit. 256 legs is legal and readable, so it is
+  // a number and gets flagged as one; 257 cannot run and is not a quantity to
+  // price. The first draft saturated AT 256 and told the author of a legal
+  // matrix that the guard could not read it.
+  add('fanout: the largest matrix GitHub will schedule is still a number', () => fanOutOfJob(M + shards(MATRIX_MAX_LEGS)), MATRIX_MAX_LEGS);
+  add('fanout: one leg past it is not a quantity to price', () => fanOutOfJob(M + shards(MATRIX_MAX_LEGS + 1)), null);
+  add('fanout: a PRODUCT past it is refused the same way', () => fanOutOfJob(M + '        a: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]\n        b: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]\n'), null);
+  // A job that is not a mapping at all is unreadable, not one leg. parseWorkflow
+  // refuses the shape first, so this pins the exported function's own contract.
+  add('fanout: a job that is not a mapping cannot be bounded', () => matrixFanOut('not a job').legs, null);
+  add('fanout: nor can a missing one', () => matrixFanOut(null).legs, null);
+  add('fanout: nor a list', () => matrixFanOut([]).why, 'unreadable');
+
+  // LEVEL 1: the uploading job's own matrix, both sides of the budget.
+  /** A one-job workflow whose job carries the given matrix and one upload. */
+  const matrixJob = (matrixLines, opts = {}) => [{
+    name: 'x.yml',
+    text: [
+      'name: X', 'on:', '  ' + (opts.trigger ?? 'push') + ':', 'jobs:', '  j:',
+      ...matrixLines,
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      ...fixtureUpload('up', { retention: opts.retention === undefined ? 7 : opts.retention, ...(opts.if ? { if: opts.if } : {}) }),
+    ].join('\n'),
+  }];
+  const overBudget = [M + shards(FANOUT_CAP_LEGS + 1)];
+  const atBudget = [M + shards(FANOUT_CAP_LEGS)];
+  const unreadableMatrix = [M.trimEnd() + ' ${{ fromJSON(inputs.s) }}\n'];
+  const unreadableMatrixFiles = matrixJob(unreadableMatrix);
+  // A cfg with no A4 subject, for the fixtures that are a single file: the
+  // inclusion gate would otherwise make them exit 2 for a missing workflow and
+  // they would never reach the pass path some of these cases are about. Built
+  // INSIDE a closure because `tinyFloors` is declared further down the block,
+  // and the cases run after every declaration while the block itself runs here.
+  const legCfg = () => ({ floors: tinyFloors, allowlist: [], noUploadWorkflows: [] });
+
+  add('A5 fires: a matrix one leg past the budget, in the uploading job', () => kindsOf(matrixJob(overBudget)), 'fanout-over-cap');
+  // The message cites the budget it judged against AND the incident's own
+  // count, and the two must not be the same variable. They are equal today
+  // because the budget was derived from the incident -- so a case that judged
+  // at the live budget could never tell them apart. Judged at 3, the budget
+  // moves and the history does not.
+  add(
+    'A5 message: the budget moves with cfg, the incident it cites does not',
+    () => {
+      const detail = findViolations(matrixJob(overBudget).map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [], fanOutCap: 3 })[0].detail;
+      return detail.includes('against a budget of 3') && detail.includes('held 7 copies in steady state');
+    },
+    true,
+  );
+  add('A5 silent: the same job at EXACTLY the budget', () => kindsOf(matrixJob(atBudget)), '');
+  add('A5 fires: a matrix the file cannot read at all', () => kindsOf(unreadableMatrixFiles), 'fanout-not-static');
+  // A shape the guard DECLINES to price is not a violation, and it is not
+  // silence either: it is counted and printed. This is the narrowing that
+  // ended three review rounds -- see matrixFanOut.
+  const notPricedFiles = matrixJob([M + '        a: [1, 2]\n        exclude:\n          - a: 1\n']);
+  add('A5 silent: a shape the guard declines to price is not a violation', () => kindsOf(notPricedFiles), '');
+  add('A5 declining is COUNTED there too', () => analyse(notPricedFiles, legCfg()).stats.fanOut.notPriced, 1);
+  // And declining SURVIVES a big calling path: the shape is unpriceable however
+  // many times the file runs, so nine callers do not turn it into a number. It
+  // is the one case that can tell "declined" from "priced at one leg".
+  const notPricedUnderCaller = [
+    { name: 'caller.yml', text: ['name: Caller', 'on:', '  push:', 'jobs:', '  spread:', M + shards(FANOUT_CAP_LEGS + 2), '    uses: ./.github/workflows/called.yml'].join('\n') },
+    {
+      name: 'called.yml',
+      text: [
+        'name: Called', 'on:', '  workflow_call:', 'jobs:', '  collect:',
+        M + '        a: [1, 2]\n        exclude:\n          - a: 1',
+        '    runs-on: ubuntu-latest', '    steps:', ...fixtureUpload('up', { retention: 7 }),
+      ].join('\n'),
+    },
+  ];
+  add('A5 silent: a declined shape stays declined under a matrixed caller', () => kindsOf(notPricedUnderCaller), '');
+  add(
+    'report: and a passing run names those shapes as not covered',
+    () => captured(notPricedFiles, legCfg()).includes('NOT covered: 1 upload(s) behind a matrix using `include:` with axes, or'),
+    true,
+  );
+  // With nothing priceable at all, the pass line must not claim a maximum of
+  // zero copies. Every upload produces at least one.
+  add(
+    'report: a run that priced nothing says so instead of printing zero',
+    () => {
+      const text = captured(notPricedFiles, legCfg());
+      return text.includes('fan-out: not measured') && !text.includes('produces 0 copy(s)');
+    },
+    true,
+  );
+  add('A5 silent: an ordinary job with no matrix', () => kindsOf(matrixJob([])), '');
+  // A5 answers to nothing else. It is not scoped to schedule the way A3 is,
+  // and it does not wait for the retention to be readable -- the reverted draft
+  // required `retention.kind === 'ok'`, which made one of its own documented
+  // examples unreachable. An upload can be unbounded twice over.
+  add('A5 fires: on a SCHEDULE workflow too, with no gate anywhere', () => kindsOf(matrixJob(overBudget, { trigger: 'schedule' })), 'fanout-over-cap');
+  add('A5 fires: alongside a missing retention rather than instead of it', () => kindsOf(matrixJob(overBudget, { retention: null })), 'fanout-over-cap,retention-missing');
+  add('A5 fires: alongside A3, when the upload is failure-gated on a schedule', () => kindsOf(matrixJob(overBudget, { trigger: 'schedule', if: 'failure()' })), 'fanout-over-cap,schedule-failure-upload');
+
+  // AN UPLOAD CONDITIONED ON THE LEG. A5 declines it -- see uploadSelectsLegs
+  // -- because judging it at the full leg count is a false positive on the very
+  // shape A5's own remedy recommends, and there is no allowlist to buy it off
+  // with. Found in review, against a nine-leg job uploading `if: matrix.shard
+  // == 1`, which produces exactly one copy and was being told it produced nine.
+  const legSelected = matrixJob(overBudget, { if: "matrix.shard == 1" });
+  add('A5 silent: an upload conditioned on the leg is not judged', () => kindsOf(legSelected), '');
+  // Declining is only acceptable because the run SAYS it declined. A silent
+  // skip is the shape this whole file is written against, so the count is
+  // carried and printed.
+
+
+  add('A5 declining is COUNTED, not passed over', () => analyse(legSelected, legCfg()).stats.fanOut.legSelected, 1);
+  add(
+    'report: and a passing run names those uploads as not covered',
+    () => captured(legSelected, legCfg()).includes('NOT covered: 1 upload(s) conditioned on the matrix leg'),
+    true,
+  );
+  // Both directions: an ordinary condition on the same job is NOT leg-selecting
+  // and does not buy an exemption.
+  add('A5 fires: an ordinary condition on the upload buys nothing', () => kindsOf(matrixJob(overBudget, { if: "github.ref == 'refs/heads/main'" })), 'fanout-over-cap');
+  add('A5: a condition naming matrix is leg-selecting', () => uploadSelectsLegs({ ifExpr: '${{ matrix.shard == 1 }}' }), true);
+  add('A5: one that merely contains the word is not', () => uploadSelectsLegs({ ifExpr: "inputs.matrixed == 'yes'" }), false);
+  add('A5: and a missing condition is not', () => uploadSelectsLegs({ ifExpr: null }), false);
+  // A DOTTED property called matrix is not the matrix context. `\b` matches
+  // after a dot, so this qualified -- and since the exemption surrenders a term
+  // with nothing to appeal to, it was a one-token way to hide any upload.
+  add('A5: a dotted property named matrix is NOT the matrix context', () => uploadSelectsLegs({ ifExpr: 'needs.build.outputs.matrix.count > 0' }), false);
+  add('A5: and neither is an inputs.matrix.x', () => uploadSelectsLegs({ ifExpr: 'github.event.inputs.matrix.x' }), false);
+
+  // The leg condition surrenders the job's OWN term and nothing else. Twelve
+  // calling legs over a leg-conditioned upload is twelve copies, every one of
+  // them readable from static text, and a first pass exempted the whole upload
+  // and scored it silent.
+  const legSelectedUnderCaller = [
+    {
+      name: 'caller.yml',
+      text: ['name: Caller', 'on:', '  push:', 'jobs:', '  spread:', M + shards(FANOUT_CAP_LEGS + 1), '    uses: ./.github/workflows/called.yml'].join('\n'),
+    },
+    {
+      name: 'called.yml',
+      text: [
+        'name: Called', 'on:', '  workflow_call:', 'jobs:', '  collect:', M + shards(3),
+        '    runs-on: ubuntu-latest', '    steps:',
+        ...fixtureUpload('up', { retention: 7, if: 'matrix.shard == 1' }),
+      ].join('\n'),
+    },
+  ];
+  add('A5 fires: a leg condition surrenders its own term, not the calling path', () => kindsOf(legSelectedUnderCaller), 'fanout-over-cap');
+  add(
+    'A5 message: and the count is the path alone, not the job matrix it gave up',
+    () => findViolations(legSelectedUnderCaller.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('produces ' + (FANOUT_CAP_LEGS + 1) + ' copies'),
+    true,
+  );
+
+  // LEVEL 2: a matrix on the job that CALLS a reusable workflow. The callee
+  // carries no matrix at all, and this is the level whose absence reverted the
+  // first attempt at the rule.
+  const spreadCaller = (legs, opts = {}) => [
+    {
+      name: 'caller.yml',
+      text: [
+        'name: Caller', 'on:', '  push:', 'jobs:', '  spread:',
+        ...(opts.matrixLines ?? [M + shards(legs)]),
+        '    uses: ./.github/workflows/called.yml',
+      ].join('\n'),
+    },
+    { name: 'called.yml', text: fixtureWorkflow(['workflow_call'], fixtureUpload('up', { retention: 7 }), 'collect') },
+  ];
+  add('A5 fires: a matrix on the CALLING job, upload in the called file', () => kindsOf(spreadCaller(FANOUT_CAP_LEGS + 1)), 'fanout-over-cap');
+  add('A5 silent: the same calling job at exactly the budget', () => kindsOf(spreadCaller(FANOUT_CAP_LEGS)), '');
+  add(
+    'A5 message: names the calling job and its file, not the file that has no matrix',
+    () => {
+      const v = findViolations(spreadCaller(FANOUT_CAP_LEGS + 1).map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] });
+      return v[0].file === 'called.yml' && v[0].detail.includes('the calling job `spread` in caller.yml');
+    },
+    true,
+  );
+  add(
+    'A5 fires: an UNREADABLE matrix on the calling job, naming that job',
+    () => {
+      const files = spreadCaller(0, { matrixLines: [M.trimEnd() + ' ${{ fromJSON(inputs.s) }}\n'] });
+      const v = findViolations(files.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] });
+      return v.length === 1 && v[0].kind === 'fanout-not-static' && v[0].detail.includes('the calling job `spread` in caller.yml');
+    },
+    true,
+  );
+
+  /** The fan-out computed for one file, so the NUMBER is pinned and not just the kind. */
+  const legsAt = (files, name) => computeFanOut(files.map((f) => parseWorkflow(f.name, f.text))).get(name);
+  const upload7 = fixtureUpload('up', { retention: 7 });
+
+  // LEVEL 3: transitively. Two calling jobs on the path, each with a matrix,
+  // and the two MULTIPLY. A rule that read only the nearest caller would put
+  // this at 3 and stay silent.
+  const legChain = [
+    { name: 'a.yml', text: ['name: A', 'on:', '  push:', 'jobs:', '  go:', M + shards(3), '    uses: ./.github/workflows/b.yml'].join('\n') },
+    { name: 'b.yml', text: ['name: B', 'on:', '  workflow_call:', 'jobs:', '  mid:', M + shards(3), '    uses: ./.github/workflows/c.yml'].join('\n') },
+    { name: 'c.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add('A5 fires: two matrixed calls up the chain multiply to 9', () => kindsOf(legChain), 'fanout-over-cap');
+  add('fanout: and the number really is the product, not the nearest edge', () => legsAt(legChain, 'c.yml').legs, 9);
+
+  // LEVEL 4: two calling jobs in ONE caller, both calling the same file. One
+  // run of that caller runs the callee 4 + 4 times, so these ADD. Taking the
+  // maximum -- which is what the reverted draft's rate propagation did -- reads
+  // 4, sits under the budget, and reports a file holding 8 copies as clean.
+  const twoEdges = [
+    {
+      name: 'caller.yml',
+      text: [
+        'name: Caller', 'on:', '  push:', 'jobs:',
+        '  one:', M + shards(4), '    uses: ./.github/workflows/called.yml',
+        '  two:', M + shards(4), '    uses: ./.github/workflows/called.yml',
+      ].join('\n'),
+    },
+    { name: 'called.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add('A5 fires: two matrixed edges into one file ADD rather than max', () => kindsOf(twoEdges), 'fanout-over-cap');
+  add('fanout: and the sum is 8, which a maximum would have reported as 4', () => legsAt(twoEdges, 'called.yml').legs, 8);
+
+  // The OTHER half of that rule, and the half a first pass got wrong: edges
+  // from DIFFERENT caller files do not share a run, so they take the maximum.
+  // Adding them turned eight ordinary one-leg callers of a shared reusable
+  // workflow -- the ordinary reason to have one -- into "one run produces 8
+  // copies", which no run does, with no allowlist to accept it. Found in
+  // review, not by a case: `twoEdges` covers two jobs in one FILE, and nothing
+  // covered two files.
+  const manyCallers = (n) => [
+    ...Array.from({ length: n }, (_, i) => ({
+      name: 'caller' + (i + 1) + '.yml',
+      text: ['name: Caller ' + (i + 1), 'on:', '  push:', 'jobs:', '  go:', '    uses: ./.github/workflows/shared.yml'].join('\n'),
+    })),
+    { name: 'shared.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'build') },
+  ];
+  add('A5 silent: many ordinary callers of one shared workflow are not a fan-out', () => kindsOf(manyCallers(FANOUT_CAP_LEGS + 1)), '');
+  // THE DIAMOND, which is what makes "maximum across caller files" wrong as
+  // well: two caller files DO share a run when one of them calls the other.
+  // One run of root here runs leaf 4 + 4 times. A per-caller maximum reported
+  // four and stayed silent -- an under-count, the direction that fails open --
+  // and it was the fix for the finding directly above that introduced it.
+  const diamond = [
+    {
+      name: 'root.yml',
+      text: [
+        'name: Root', 'on:', '  push:', 'jobs:',
+        '  direct:', M + shards(4), '    uses: ./.github/workflows/leaf.yml',
+        '  viaMid:', M + shards(4), '    uses: ./.github/workflows/mid.yml',
+      ].join('\n'),
+    },
+    { name: 'mid.yml', text: ['name: Mid', 'on:', '  workflow_call:', 'jobs:', '  pass:', '    uses: ./.github/workflows/leaf.yml'].join('\n') },
+    { name: 'leaf.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  // Six cases below pin round-2 FIXES that shipped without one. Each was found
+  // by mutation after the fix, not before it: the fix was right and nothing
+  // asserted it, which is the state a later edit walks straight back out of.
+
+  // The blame for an unreadable matrix TWO edges up belongs to the file that
+  // has the matrix, not to the middle file that merely passes it on.
+  const unreadableTwoUp = [
+    { name: 'root.yml', text: ['name: Root', 'on:', '  push:', 'jobs:', '  spread:', M.trimEnd() + ' ${{ fromJSON(inputs.s) }}', '    uses: ./.github/workflows/mid.yml'].join('\n') },
+    { name: 'mid.yml', text: ['name: Mid', 'on:', '  workflow_call:', 'jobs:', '  pass:', '    uses: ./.github/workflows/leaf.yml'].join('\n') },
+    { name: 'leaf.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add(
+    'A5 message: an unreadable matrix two edges up names the file that has it',
+    () => {
+      const d = findViolations(unreadableTwoUp.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail;
+      return d.includes('`spread` in root.yml') && !d.includes('mid.yml');
+    },
+    true,
+  );
+
+  // The job NAMED is the one driving the count, not whichever call edge the
+  // caller happens to declare first. `small` is declared before `big` here.
+  const firstEdgeIsSmall = [
+    {
+      name: 'caller.yml',
+      text: [
+        'name: Caller', 'on:', '  push:', 'jobs:',
+        '  small:', '    uses: ./.github/workflows/called.yml',
+        '  big:', M + shards(FANOUT_CAP_LEGS + 1), '    uses: ./.github/workflows/called.yml',
+      ].join('\n'),
+    },
+    { name: 'called.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add(
+    'A5 message: it names the job with the matrix, not the first one declared',
+    () => findViolations(firstEdgeIsSmall.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('calling job `big`'),
+    true,
+  );
+
+  // A subgraph nothing in this repository triggers is still costed. Counting
+  // only independently-triggered files as starting points would price this at
+  // one -- and would stop cycles inside such a subgraph being found at all.
+  const untriggeredSubgraph = [
+    { name: 'mid.yml', text: ['name: Mid', 'on:', '  workflow_call:', 'jobs:', '  spread:', M + shards(FANOUT_CAP_LEGS + 1), '    uses: ./.github/workflows/leaf.yml'].join('\n') },
+    { name: 'leaf.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add('A5 fires: a subgraph nothing here triggers is still costed', () => kindsOf(untriggeredSubgraph), 'fanout-over-cap');
+
+  // A file merely DOWNSTREAM of a cycle is not on it, and must not be told it
+  // is: the author would go looking through a file that contains no cycle.
+  const belowCycle = [
+    { name: 'a.yml', text: 'name: A\non:\n  push:\njobs:\n  j:\n    uses: ./.github/workflows/b.yml\n' },
+    { name: 'b.yml', text: ['name: B', 'on:', '  workflow_call:', 'jobs:', '  j:', '    uses: ./.github/workflows/a.yml', '  k:', '    uses: ./.github/workflows/leaf.yml'].join('\n') },
+    { name: 'leaf.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add(
+    'A5 message: a file below a cycle is REACHED THROUGH one, not sitting on it',
+    () => {
+      const d = findViolations(belowCycle.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail;
+      return d.includes('reached through a `uses:` call CYCLE') && !d.includes('sits on');
+    },
+    true,
+  );
+
+  // The incident comparison is a claim about arithmetic and must only appear
+  // when the arithmetic holds. Judged at a budget of 3, a fan-out of 4 is over
+  // budget and is NOT more than the incident's seven.
+  add(
+    'A5 message: below the incident count, it does not claim to be above it',
+    () => {
+      const d = findViolations(matrixJob([M + shards(4)]).map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [], fanOutCap: 3 })[0].detail;
+      return d.includes('held 7 copies') && !d.includes('holds more than that');
+    },
+    true,
+  );
+  add(
+    'A5 message: and above it, it does',
+    () => findViolations(matrixJob([M + shards(9)]).map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('holds more than that from a SINGLE run'),
+    true,
+  );
+
+  add('A5 fires: a diamond counts BOTH paths through the same run', () => kindsOf(diamond), 'fanout-over-cap');
+  add('fanout: and that count is 8, where a per-caller maximum said 4', () => legsAt(diamond, 'leaf.yml').legs, 8);
+  add('fanout: each of those callers runs it once, so the answer is one', () => legsAt(manyCallers(FANOUT_CAP_LEGS + 1), 'shared.yml').legs, 1);
+  // And the maximum really is a maximum rather than "always the first caller":
+  // one matrixed caller among many plain ones sets the number.
+  const mixedCallers = () => {
+    const files = manyCallers(3);
+    files[0] = {
+      name: 'caller1.yml',
+      text: ['name: Caller 1', 'on:', '  push:', 'jobs:', '  go:', M + shards(FANOUT_CAP_LEGS + 1), '    uses: ./.github/workflows/shared.yml'].join('\n'),
+    };
+    return files;
+  };
+  // A ONE-LEG edge from a caller that is itself fanned out. The multiplier is
+  // real -- nine runs reach the leaf -- but nothing on the last edge says so,
+  // and a message keyed on that edge's own legs would name nobody and leave the
+  // author reading a file with no matrix in it. Review found the message half
+  // of this; the count was right all along.
+  const passThrough = [
+    { name: 'root.yml', text: ['name: Root', 'on:', '  push:', 'jobs:', '  spread:', M + shards(9), '    uses: ./.github/workflows/mid.yml'].join('\n') },
+    { name: 'mid.yml', text: ['name: Mid', 'on:', '  workflow_call:', 'jobs:', '  pass:', '    uses: ./.github/workflows/leaf.yml'].join('\n') },
+    { name: 'leaf.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') },
+  ];
+  add('A5 fires: a plain edge below a matrixed one still carries the nine', () => kindsOf(passThrough), 'fanout-over-cap');
+  add('fanout: and the count survives the pass-through unchanged', () => legsAt(passThrough, 'leaf.yml').legs, 9);
+  add(
+    'A5 message: it names the file that actually drives the count',
+    () => findViolations(passThrough.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('driven by the calling job `pass` in mid.yml'),
+    true,
+  );
+  add('A5 fires: one matrixed caller among plain ones still sets the count', () => kindsOf(mixedCallers()), 'fanout-over-cap');
+  add('fanout: and that count is the matrixed caller, not the sum of all three', () => legsAt(mixedCallers(), 'shared.yml').legs, FANOUT_CAP_LEGS + 1);
+
+  // LEVEL 5, and its answer is NO. workflow_run fires once per upstream RUN,
+  // whatever that run's matrix contained, so a collector behind a 9-leg nightly
+  // still runs once. Enumerated because a level nobody wrote a case for is a
+  // level nobody checked -- and asserted in both directions, since "it does not
+  // propagate" and "nothing propagates at all" look identical from one side.
+  //
+  // WHY THE ANSWER IS NO, in GitHub's terms rather than this file's: a reusable
+  // workflow invoked with `uses:` runs as JOBS INSIDE THE CALLER'S RUN. It has
+  // no run of its own, so it emits no workflow_run event at all. The only runs
+  // of `upstream.yml` that can fire this collector are its own standalone ones
+  // -- and those are not fanned out by anybody. The collector therefore runs
+  // once whatever the calling matrix says.
+  //
+  // The fixture took two goes to make that a real claim. The first gave the
+  // UPSTREAM a nine-leg matrix on its own job, which is a property of that job
+  // and never becomes a fan-out of the FILE -- so there was nothing to travel
+  // down the edge and the case would have passed against a guard that carried
+  // fan-out down it enthusiastically. Mutation caught that one. The second
+  // fanned the upstream out through a matrixed caller but left it
+  // `workflow_call`-only, which is a configuration GitHub cannot produce: the
+  // very thing that gives a file a fan-out is the thing that stops it emitting
+  // workflow_run. Review caught that one. The upstream is now BOTH callable and
+  // independently triggered, which is the only shape in which this level exists
+  // at all -- and it is a shape a repository can really be in.
+  const collectorPair = (collectorMatrix = []) => [
+    {
+      name: 'root.yml',
+      text: ['name: Root', 'on:', '  schedule:', 'jobs:', '  spread:', M + shards(9), '    uses: ./.github/workflows/upstream.yml'].join('\n'),
+    },
+    {
+      name: 'upstream.yml',
+      text: ['name: Upstream', 'on:', '  workflow_call:', '  schedule:', 'jobs:', '  work:', '    runs-on: ubuntu-latest', '    steps:', '      - run: echo'].join('\n'),
+    },
+    {
+      name: 'collector.yml',
+      text: [
+        'name: Collector', 'on:', '  workflow_run:', "    workflows: ['Upstream']", '    types: [completed]',
+        'jobs:', '  collect:', ...collectorMatrix, '    runs-on: ubuntu-latest', '    steps:', ...upload7,
+      ].join('\n'),
+    },
+  ];
+  add('A5 silent: an upstream fan-out does NOT multiply its workflow_run collector', () => kindsOf(collectorPair()), '');
+  add('fanout: the collector runs once, whatever the upstream fanned out to', () => legsAt(collectorPair(), 'collector.yml').legs, 1);
+  // The other half of that claim: the upstream really IS fanned out to nine, so
+  // the silence above is the edge declining to carry it rather than there being
+  // nothing to carry.
+  add('fanout: and the upstream it watches really is nine runs wide', () => legsAt(collectorPair(), 'upstream.yml').legs, 9);
+  // ...and it is independently triggerable, which is what makes it capable of
+  // emitting the workflow_run event in the first place. Without this the whole
+  // level is hypothetical: a workflow_call-only file never fires one.
+  add(
+    'fanout: the watched upstream can actually run on its own, or there is no event',
+    () => parseWorkflow('upstream.yml', collectorPair()[1].text).triggers.some((t) => t !== 'workflow_call'),
+    true,
+  );
+  add('A5 fires: but the collector carrying its OWN matrix is judged like any job', () => kindsOf(collectorPair([M + shards(9)])), 'fanout-over-cap');
+
+  // A `uses:` CYCLE has no fan-out fixed point at all. GitHub refuses it, and
+  // the honest answer is the same one an unreadable matrix gets -- reported,
+  // never priced at one leg, and never a throw that reads as the guard breaking.
+  const callCycle = [
+    { name: 'a.yml', text: 'name: A\non:\n  push:\njobs:\n  j:\n    uses: ./.github/workflows/b.yml\n' },
+    { name: 'b.yml', text: ['name: B', 'on:', '  workflow_call:', 'jobs:', '  j:', '    uses: ./.github/workflows/a.yml'].join('\n') },
+    { name: 'c.yml', text: ['name: C', 'on:', '  workflow_call:', 'jobs:', '  collect:', '    runs-on: ubuntu-latest', '    steps:', ...upload7].join('\n') },
+  ];
+  const cycleWithUpload = [
+    callCycle[0],
+    { name: 'b.yml', text: ['name: B', 'on:', '  workflow_call:', 'jobs:', '  j:', '    uses: ./.github/workflows/a.yml', '  collect:', '    runs-on: ubuntu-latest', '    steps:', ...upload7].join('\n') },
+  ];
+  add('A5 fires: an upload on a call CYCLE is unbounded, not one leg', () => kindsOf(cycleWithUpload), 'fanout-not-static');
+  add('fanout: a cycle answers null rather than hanging or throwing', () => legsAt(callCycle, 'b.yml').legs, null);
+  add('fanout: and says which kind of unknown it is', () => legsAt(callCycle, 'b.yml').why, 'cycle');
+  add('fanout: a file off the cycle is unaffected by it', () => legsAt(callCycle, 'c.yml').legs, 1);
+  add(
+    'A5 message: a cycle names itself rather than blaming a matrix nobody wrote',
+    () => findViolations(cycleWithUpload.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('call CYCLE'),
+    true,
+  );
+  // And the REMEDY matches the cause. The blame half was asserted above while
+  // the sentence went on to tell the author of a cycle to pin a matrix they do
+  // not have -- the one instruction that cannot be followed, which is what the
+  // allowlist-ambiguous message was fixed for two rounds ago.
+  add(
+    'A5 message: a cycle is told to break the cycle, not to pin a matrix',
+    () => {
+      const d = findViolations(cycleWithUpload.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail;
+      return d.includes('Break the cycle.') && !d.includes('Pin the matrix');
+    },
+    true,
+  );
+  add(
+    'A5 message: an unreadable matrix IS told what shape to give it',
+    () => findViolations(unreadableMatrixFiles.map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('literal, non-empty list of legs'),
+    true,
+  );
+  // The remedy has to fit the causes it is given to, and there are four. An
+  // EMPTY literal list is already literal, so being told to write a literal one
+  // is the same unfollowable instruction the cycle case was fixed for.
+  add(
+    'A5 message: an EMPTY axis gets the same shape advice, which fits it too',
+    () => findViolations(matrixJob([M + '        shard: []\n']).map((f) => parseWorkflow(f.name, f.text)), { allowlist: [], noUploadWorkflows: [] })[0].detail.includes('non-empty'),
+    true,
+  );
+
+  // A workflow_call file nobody in THIS repository calls is priced at one run,
+  // not zero. Zero would make every upload in it cost nothing -- an unknown
+  // recorded as the most permissive value, which is this arc's own failure mode
+  // -- and "no caller I can see" is not "no caller".
+  add(
+    'fanout: an uncalled workflow_call file is one run, never zero',
+    () => legsAt([{ name: 'lonely.yml', text: fixtureWorkflow(['workflow_call'], upload7, 'collect') }], 'lonely.yml').legs,
+    1,
+  );
+
+  // A5 against the REPOSITORY -- the one case in this block that touches disk.
+  // It is not a calibration: the cap is a policy budget and the cases above pin
+  // its behaviour. It guards the one thing behaviour cases cannot see, which is
+  // a budget that reds this repository the day it ships, or a port arriving at
+  // a repo it reds -- the same arrival failure the CONFIG block describes for
+  // the floors. It cannot red on ordinary work, because the only way past it is
+  // the rule genuinely firing, and then the guard is red anyway and names the
+  // upload.
+  // Through the SHIPPED measurement, not a copy of it. The canary carried its
+  // own reimplementation until review, and the copy disagreed with the guard
+  // about what an unreadable fan-out means -- it returned null, and the case
+  // compared `null <= 7`, which is TRUE in JavaScript. The repository read as
+  // comfortably under budget on precisely the day it stopped being measurable.
+  // maxUploadFanOut returns a RECORD now, so there is no sentinel to compare.
+  const fanOutOf = (files) => maxUploadFanOut(files.map((f) => parseWorkflow(f.name, f.text)));
+  add(
+    'measured: no upload in this repository exceeds the fan-out budget',
+    () => {
+      const live = fanOutOf(readWorkflowsFromDisk(ROOT));
+      return live.unreadable === 0 && live.max <= FANOUT_CAP_LEGS;
+    },
+    true,
+  );
+  add(
+    'measured: and an unreadable reading is NOT under budget',
+    () => {
+      const live = fanOutOf(unreadableMatrixFiles);
+      return live.unreadable === 0 && live.max <= FANOUT_CAP_LEGS;
+    },
+    false,
+  );
+  add('measured: an unreadable one is COUNTED, not folded into the maximum', () => fanOutOf(unreadableMatrixFiles).unreadable, 1);
+  // And that reading is capable of moving, so the green above is a measurement
+  // rather than a 1 arriving by construction. Today the live answer is 1: no
+  // upload here sits in a matrix job at all.
+  add('measured: the same reading rises with a real matrix', () => fanOutOf(matrixJob(overBudget)).max, FANOUT_CAP_LEGS + 1);
 
   // --- GATE 1: declared versus walked ------------------------------------
   //
@@ -2949,6 +4405,7 @@ function selfTest(out = console.log, err = console.error) {
   // measurement rather than a tautology like the `MEASURED.steps > 0` it
   // replaced.
   add('measured: the drift test is capable of failing', () => drifted(MEASURED.steps * 2, MEASURED.steps), true);
+
   // Deliberately no lower edge on uploadSteps: 0 is correct in bachata-admin,
   // where this same file is the enforcement copy over a repo with no upload
   // steps at all. Asserting >= 1 here would make the shared file un-portable to
@@ -3030,6 +4487,55 @@ function selfTest(out = console.log, err = console.error) {
   // `schedule` inside a collector whose event is always `workflow_run` -- and
   // without it the fixture still fires, so nothing else would notice it being
   // quietly weakened.
+  // A5 has NO live subject in this repository -- no upload sits in a matrix job
+  // -- so unlike A1-A4 the repo run proves nothing about it and the probe is
+  // the whole of its cover. Both routes are expected by FILE for the reason the
+  // gate routes are: the calling-job route is the one that reverted the first
+  // attempt at this rule, and it is invisible to any expectation keyed on the
+  // kind, which the job's own matrix keeps producing all by itself.
+  add(
+    'self-probe: the fan-out rule is covered by the uploading job own matrix',
+    () => SELF_PROBE_EXPECTS.includes('fanout-over-cap::zz-probe-fanout.yml'),
+    true,
+  );
+  add(
+    'self-probe: and separately by a matrix on the CALLING job',
+    () => SELF_PROBE_EXPECTS.includes('fanout-over-cap::zz-probe-fanout-called.yml'),
+    true,
+  );
+  // fanout-not-static arrives by THREE arms, and covering it once let two of
+  // them regress behind the one that still fires.
+  add(
+    'self-probe: the unreadable kind is covered by the cycle arm too',
+    () => SELF_PROBE_EXPECTS.includes('fanout-not-static::zz-probe-fanout-cycle-b.yml'),
+    true,
+  );
+  add(
+    'self-probe: and by an unreadable matrix one level up',
+    () => SELF_PROBE_EXPECTS.includes('fanout-not-static::zz-probe-fanout-blind-called.yml'),
+    true,
+  );
+  // The probe's budget is the FIXTURE's, not CONFIG's. Both directions, because
+  // one alone cannot tell a pinned budget from a coincidence: with the budget
+  // relaxed the fixture must stop provoking the kind (so the parameter is
+  // genuinely read), and probeKeys must go on provoking it anyway (so the probe
+  // pins its own). Left reading CONFIG, raising FANOUT_CAP_LEGS would turn
+  // every subsequent run into exit 2 blaming the detector for a budget change.
+  add(
+    'self-probe: a relaxed budget really does stop the fixture provoking A5',
+    () =>
+      findViolations(SELF_PROBE.map((f) => parseWorkflow(f.name, f.text)), {
+        allowlist: SELF_PROBE_ALLOWLIST,
+        noUploadWorkflows: [PROBE_NO_UPLOAD_FILE],
+        fanOutCap: 1000,
+      }).some((v) => v.kind === 'fanout-over-cap'),
+    false,
+  );
+  add(
+    'self-probe: and the probe provokes it regardless, on its own budget',
+    () => probeKeys(SELF_PROBE.map((f) => parseWorkflow(f.name, f.text))).some((k) => k.startsWith('fanout-over-cap::')),
+    true,
+  );
   add(
     'self-probe: the collector fixture keeps the conjunct that makes it a control',
     () => SELF_PROBE.find((f) => f.name === 'zz-probe-collector.yml').text.includes("github.event_name == 'workflow_run'"),
@@ -3293,6 +4799,36 @@ function selfTest(out = console.log, err = console.error) {
   );
   // The legend names the A4 subject from CONFIG rather than as a literal, so a
   // port does not print another repository's filename at its authors.
+  // The legend must explain every rule the run can emit. The reverted draft
+  // added a rule and left it out of the legend entirely, so its reader met a
+  // violation kind the report did not acknowledge existed.
+  // The pass path must print A5's measurement. It is the only rule here with no
+  // live subject in this repository, so without a number a green run looks the
+  // same whether it read every call edge or none of them.
+  add(
+    'report: a passing run prints the fan-out it measured and the budget',
+    () => captured(cleanFiles, anCfg).includes('fan-out: the largest upload here produces 1 copy(s) per run, against a budget of'),
+    true,
+  );
+  // The failure path states how much of the surface could not be priced. That
+  // is the number which makes the measurement sentinel-free, and it reached
+  // nobody outside the canary until review said so.
+  add(
+    'report: a failing run says how many uploads it could not price',
+    () => captured(unreadableMatrixFiles, legCfg()).includes('could not be priced at all'),
+    true,
+  );
+  add(
+    'report: and a run with nothing unpriceable does not print that line',
+    () => captured(cleanFiles, anCfg).includes('could not be priced at all'),
+    false,
+  );
+  add(
+    'report: the legend explains A5, printing the budget it actually judged against',
+
+    () => captured(ambiguousFiles, { ...anCfg, fanOutCap: 3 }).includes('A5     one run may produce at most 3 copies'),
+    true,
+  );
   add(
     'report: the A4 legend names the configured subject, not a hardcoded file',
     () => captured(ambiguousFiles, { ...anCfg, noUploadWorkflows: ['ci-budget-guard.yml'] }).includes('  A4     ci-budget-guard.yml upload nothing'),
