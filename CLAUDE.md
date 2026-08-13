@@ -378,10 +378,15 @@ Fixtures, both live:
 ### Writing a new guard &mdash; the six rules `check-script-conventions.mjs` enforces
 
 `npm run check:script-conventions` runs **two** scans. R1&ndash;R5 cover the
-`scripts/check-*.mjs` and `lint-*.mjs` files &mdash; 89 of the 90 that match, since
+`scripts/check-*.mjs` and `lint-*.mjs` files &mdash; all of them but one, since
 `NOT_A_GUARD` exempts the scanner itself (it would flag its own rule patterns as
 violations). That exemption is from the SCAN, not from the rules: the scanner is
 held to R1&ndash;R5 by hand-written canary cases instead.
+
+No count is pinned here on purpose. This sentence read "89 of the 90" until #240
+added a 91st guard, and nothing went red &mdash; a number copied into prose has no
+writer maintaining it. Count them when you need the figure:
+`ls scripts/ | grep -E '^(check|lint)-.*\.mjs$' | wc -l`.
 
 **R6 has its own, wider corpus**: every `.mjs` under `scripts/` and `bin/`,
 recursively, and `NOT_A_GUARD` does not apply to it. That is deliberate &mdash; the
