@@ -4,7 +4,9 @@
  * each repo's own convention -- their safe-write.py copies differ on that point).
  * Edit both or neither; the twin-parity unit test enforces it when the sibling
  * checkout is present. All parse/verdict logic lives in ../lib/arc-state.mjs
- * (shared with scripts/statusline-arc.mjs) -- fix rules THERE, not here.
+ * (shared with scripts/statusline-arc.mjs) -- fix rules THERE, not here. Its
+ * entry-point dependency ../lib/entry-point.mjs is vendored into both repos on
+ * the same terms and is in both parity lists.
  *
  * Reads <repo>/.claude/arc-state.json and, while an arc phase is open, injects
  * that phase's REQUIRED model + effort into every prompt. The injected text is
@@ -44,8 +46,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { loadArcState, arcLabel, staleness, compareModel, isBareFamily, parseModelId, clip } from "../lib/arc-state.mjs";
+import { isEntryPoint } from "../lib/entry-point.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -166,10 +169,22 @@ function build(payload) {
 // with a non-TTY stdin that never closes (a vitest worker) would block forever
 // inside readPayload's readFileSync(0) at module load. Every sibling script in
 // this set is import-safe; this one silently wasn't (review finding).
-const invokedDirectly =
-  process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-
-if (invokedDirectly) {
+//
+// REALPATH TO REALPATH -- see scripts/lib/entry-point.mjs. The raw
+// `import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href` that
+// stood here fails open the way every raw compare in this repo did: node resolves
+// import.meta.url to the realpath and leaves argv[1] as typed, so any
+// junction/symlink spelling made this hook conclude it was imported and exit 0
+// having emitted nothing -- a checkpoint that had silently stopped checkpointing.
+//
+// No byte count is pinned here on purpose. This hook emits nothing at all unless
+// .claude/arc-state.json holds an OPEN arc, so a figure measured against one
+// afternoon's arc-state cannot be re-derived from the tree -- the committed one is
+// closed, and both arms then read 0, which would leave a reader unable to tell the
+// fix from the defect. The reproducible instrument is `npm run prove:entry-point`,
+// which probes this file canonically, through a junction and on a plain import, and
+// reports the predicate's own verdict for each.
+if (isEntryPoint(import.meta.url)) {
   try {
     const payload = readPayload();
     const context = build(payload);

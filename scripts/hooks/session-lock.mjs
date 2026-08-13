@@ -3,10 +3,17 @@
  *
  * TWIN COPY in both repos (Website scripts/hooks/ and admin scripts/hooks/) - it derives
  * the repo name from the checkout, so keep the copies content-identical MODULO LINE
- * ENDINGS; if one grows a rule the other must follow, change BOTH.
+ * ENDINGS; if one grows a rule the other must follow, change BOTH. Its entry-point
+ * dependency ../lib/entry-point.mjs is vendored into both repos on the same terms
+ * and is in both parity lists.
  *
- * Not "byte-equal": each repo's safe-write.py writes that repo's own convention, so the
- * admin copy is LF and the Website copy is CRLF and their sha256s have never matched.
+ * Compared MODULO LINE ENDINGS rather than by hash, because the working-tree bytes
+ * differ by CHECKOUT AGE, not by repo. Both repos' .gitattributes carry
+ * `* text=auto eol=crlf`, so git stores one normalised LF blob for this file in both
+ * (measured 2026-08-13: the two repos' committed blobs for this path are the same
+ * object), while a checkout predating that rule still has LF on disk and a fresh one
+ * has CRLF. A byte-equality assert would therefore go red or green on when each
+ * checkout was made -- a permanent, ignorable red rather than a drift signal.
  * The header said byte-equal anyway, and used that false claim to argue the Website's
  * tests/sessionLock.test.ts extended its proof here -- which it never did: that suite
  * runs selfTest() on the WEBSITE copy only, and (measured 2026-07-31) NO test in either
@@ -63,7 +70,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isEntryPoint } from "../lib/entry-point.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STALE_MINUTES_HOOK = 90; // refreshed per turn; older = crashed session
@@ -560,10 +568,15 @@ function parseArgv(argv) {
   return out;
 }
 
-const invokedDirectly =
-  process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-
-if (invokedDirectly) {
+// REALPATH TO REALPATH -- see scripts/lib/entry-point.mjs. The raw
+// `import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href` that
+// stood here fails open: node realpaths one side and not the other, so through a
+// junction or symlink this file exited 0 having done NOTHING. Measured 2026-08-13
+// in BOTH repos: `--self-test` printed its OK line by the canonical path and 0
+// bytes through a junction, and so did `status`. For an advisory lock that is the
+// worst available silence -- the collision warning this file exists to raise never
+// arrives, and the symptom of the collision it was watching for is lost work.
+if (isEntryPoint(import.meta.url)) {
   const args = parseArgv(process.argv.slice(2));
 
   if (args.error) {

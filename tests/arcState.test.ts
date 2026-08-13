@@ -41,7 +41,21 @@ function mkTree(arcState: unknown): string {
   fs.mkdirSync(path.join(t, "scripts", "hooks"), { recursive: true });
   fs.mkdirSync(path.join(t, "scripts", "lib"), { recursive: true });
   fs.mkdirSync(path.join(t, ".claude"), { recursive: true });
-  for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs", "scripts/hooks/session-lock.mjs"]) {
+  // What the temp tree needs to RUN -- a different question from the twin list below,
+  // so the two stay separate. This is arc-checkpoint.mjs (the only thing runHook ever
+  // spawns) plus its import closure: arc-state.mjs, and now entry-point.mjs, because
+  // the dispatch was converted to isEntryPoint() and ../lib/entry-point.mjs must
+  // resolve in the temp tree or every spawn below dies at import with
+  // ERR_MODULE_NOT_FOUND (proven by removing it: all 7 spawn cases go red).
+  //
+  // session-lock.mjs used to be copied here too and never was spawned or imported by
+  // this file -- dead setup that a first draft of this comment certified as needed.
+  // Dropped: if a session-lock spawn case is ever added, add it back WITH the case.
+  for (const rel of [
+    "scripts/hooks/arc-checkpoint.mjs",
+    "scripts/lib/arc-state.mjs",
+    "scripts/lib/entry-point.mjs",
+  ]) {
     fs.copyFileSync(path.join(REPO_ROOT, rel), path.join(t, rel));
   }
   if (arcState !== null) {
@@ -231,14 +245,45 @@ describe("arc-checkpoint hook (spawned)", () => {
   });
 });
 
+/**
+ * The message a drift failure carries. It has to name the cross-repo landing rule,
+ * because the commonest cause of a red here is NOT drift: it is that this compares
+ * two WORKING TREES, so the verdict depends on which branch the neighbouring checkout
+ * happens to be on. During a change that spans both repos the honest pair lives in two
+ * worktrees, and ADMIN_REPO_DIR is how you point the gate at the pair actually under
+ * review -- which runs the whole comparison rather than skipping it, and is not a
+ * bypass. Left unexplained, this red reads as "the twin drifted" and invites someone
+ * to resync by copying one repo's hooks over the other's, which lands a hook whose
+ * ../lib/entry-point.mjs does not exist there.
+ */
+const TWIN_DRIFT_HINT = (rel: string, sibling: string) =>
+  `${rel} has drifted between the two repos (compared against ${sibling}). ` +
+  "If a cross-repo change is mid-flight, set ADMIN_REPO_DIR to the checkout holding the paired commit.";
+
 describe("twin parity (skips when the admin checkout is absent, e.g. CI)", () => {
   const sibling = process.env.ADMIN_REPO_DIR || path.resolve(REPO_ROOT, "..", "bachata-admin-11april");
   const present = fs.existsSync(path.join(sibling, "scripts", "hooks", "arc-checkpoint.mjs"));
   const lf = (p: string) => fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 
   it.skipIf(!present)("hook + lib content-identical modulo line endings", () => {
-    for (const rel of ["scripts/hooks/arc-checkpoint.mjs", "scripts/lib/arc-state.mjs", "scripts/hooks/session-lock.mjs"]) {
-      expect(lf(path.join(sibling, rel)), rel).toBe(lf(path.join(REPO_ROOT, rel)));
+    // entry-point.mjs joined this list when the two hooks were converted to
+    // dispatch through it: a vendored dependency that can drift silently is
+    // exactly what this block exists to catch, and both hooks' behaviour now
+    // turns on its contents.
+    for (const rel of [
+      "scripts/hooks/arc-checkpoint.mjs",
+      "scripts/lib/arc-state.mjs",
+      "scripts/lib/entry-point.mjs",
+      "scripts/hooks/session-lock.mjs",
+    ]) {
+      const there = path.join(sibling, rel);
+      // Existence and a length floor BEFORE the compare, matching the admin twin of
+      // this block (tests/hookSelfTests.test.ts). Without them a sibling that simply
+      // has not received a twin yet dies inside lf() with a bare ENOENT that names no
+      // file and reads as a broken spec -- and two empty reads would compare equal.
+      expect(fs.existsSync(there), `${rel} is missing from the admin checkout at ${sibling}`).toBe(true);
+      expect(lf(there).length, `${rel} read as empty from ${sibling}`).toBeGreaterThan(500);
+      expect(lf(there), TWIN_DRIFT_HINT(rel, sibling)).toBe(lf(path.join(REPO_ROOT, rel)));
     }
   });
 });

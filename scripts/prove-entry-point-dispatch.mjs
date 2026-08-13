@@ -107,6 +107,21 @@ const TRACE_LINE_RE = /\[entry-point-trace\] (true|false) (.+)/;
  * one had already drifted on its first day: it omitted THIS FILE, which
  * dispatches through isEntryPoint like everything it proves. The instrument
  * that proves the class was not proving itself.
+ *
+ * THERE IS NO `deferred` FACILITY ANY MORE, deliberately. The last two deferrals
+ * were the twin hooks; converting them left the DEFERRED / DEFERRAL-STALE arms
+ * with no input AND no canary -- selfTest() drives isEntryPoint's branches and
+ * never main()'s verdict ladder, so those arms would have run for the first time
+ * on the day someone trusted them. A draft of this change kept them "for the next
+ * deferral"; review pointed out that an unreachable satisfied state is not a gate,
+ * which is this repo's own rule, so they were deleted instead. Re-add them WITH a
+ * selfTest case that drives both arms and asserts WHICH fired.
+ *
+ * The live writer for "this file went back to the raw compare" is R6 in
+ * check-script-conventions.mjs, which runs in `npm run lint`. Known gap, stated
+ * rather than papered over: an un-converted target reads here as INCONCLUSIVE
+ * (exit 2, "could not measure") rather than being named as a regression, because
+ * a file that does not call the predicate emits no marker to judge.
  */
 const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
@@ -121,33 +136,13 @@ const TARGETS = [
   { rel: 'scripts/check-script-conventions.mjs' },
   { rel: 'scripts/check-seo.mjs' },
   { rel: 'scripts/check-wallclock-brand.mjs' },
+  { rel: 'scripts/hooks/arc-checkpoint.mjs' },
   { rel: 'scripts/hooks/review-stamp.mjs' },
+  { rel: 'scripts/hooks/session-lock.mjs' },
   { rel: 'scripts/pre-ship.mjs' },
   { rel: 'scripts/prove-entry-point-dispatch.mjs' },
   { rel: 'scripts/rework-share.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
-  // THE TWO DEFERRED TWINS. tests/arcState.test.ts asserts these two files are
-  // byte-identical (modulo line endings) with the copies in the sibling admin
-  // checkout, and that suite's mkTree() copies a fixed file list into a temp
-  // dir before spawning the hook -- so a converted twin importing ../lib/
-  // entry-point.mjs would fail to resolve there. Converting them means editing
-  // two repos and that copy list in one change; this one is scoped to the
-  // Website repo, so they stay raw and are recorded as R6 debt in
-  // script-conventions-allowlist.json.
-  //
-  // `deferred` is not an exemption. They are still probed, and the assertion is
-  // that they emit NO marker -- i.e. they still do not use the predicate. The
-  // day someone converts them a marker appears and this reports DEFERRAL-STALE,
-  // because a deferral with no writer is how a permanently-red guard becomes a
-  // muted one.
-  {
-    rel: 'scripts/hooks/arc-checkpoint.mjs',
-    deferred: 'twin-maintained with the admin repo (tests/arcState.test.ts)',
-  },
-  {
-    rel: 'scripts/hooks/session-lock.mjs',
-    deferred: 'twin-maintained with the admin repo (tests/arcState.test.ts)',
-  },
 ];
 
 /** Generous: nothing here runs a target's real work, so this only catches hangs. */
@@ -595,10 +590,6 @@ export async function main() {
         // Its own verdict, never FAIL-OPEN. Conflating "it stayed silent" with
         // "it ran out of time" is how a slow machine gets reported as a bug.
         verdict = 'TIMEOUT';
-      } else if (target.deferred) {
-        // Unconverted by record: it must emit NO marker. A marker means someone
-        // converted it and the deferral is stale.
-        verdict = control.marker === null ? 'DEFERRED' : 'DEFERRAL-STALE';
       } else if (control.marker === null) {
         verdict = 'INCONCLUSIVE';
       } else if (control.marker !== 'true') {
@@ -614,7 +605,7 @@ export async function main() {
       }
 
       rows.push({ ...target, control, linked, imported, verdict });
-      const ok = verdict === 'PASS' || verdict === 'DEFERRED';
+      const ok = verdict === 'PASS';
       console.log(
         (ok ? 'ok  ' : 'FAIL') +
           '  ' +
@@ -627,9 +618,7 @@ export async function main() {
           ' / import ' +
           (imported.marker ?? '-'),
       );
-      if (verdict === 'DEFERRED') {
-        console.log('        deferred: ' + target.deferred);
-      } else if (!ok) {
+      if (!ok) {
         console.log('        direct: ' + (control.sample || '(silence)') + '  [' + control.outcome + ']');
         console.log('        link  : ' + (linked.sample || '(silence)') + '  [' + linked.outcome + ']');
         console.log('        import: ' + (imported.sample || '(silence)') + '  [' + imported.outcome + ']');
@@ -649,12 +638,8 @@ export async function main() {
   const timedOut = rows.filter((r) => r.verdict === 'TIMEOUT');
   const inconclusive = rows.filter((r) => r.verdict === 'INCONCLUSIVE');
   const failed = rows.filter(
-    (r) =>
-      r.verdict === 'FAIL-OPEN' ||
-      r.verdict === 'RUNS-ON-IMPORT' ||
-      r.verdict === 'DEFERRAL-STALE',
+    (r) => r.verdict === 'FAIL-OPEN' || r.verdict === 'RUNS-ON-IMPORT',
   );
-  const deferred = rows.filter((r) => r.verdict === 'DEFERRED');
 
   console.log('');
   if (!linkRemoved) {
@@ -690,27 +675,18 @@ export async function main() {
       const why =
         r.verdict === 'FAIL-OPEN'
           ? 'reported itself the entry by its canonical path but NOT through the link -- the dispatch mispredicts.'
-          : r.verdict === 'RUNS-ON-IMPORT'
-            ? 'reported itself the entry on a plain import -- it would fire its CLI inside an importing test runner.'
-            : 'is recorded as DEFERRED but now uses isEntryPoint. It has been converted: drop its ' +
-              '`deferred` note here and its R6 entry from script-conventions-allowlist.json.';
+          : 'reported itself the entry on a plain import -- it would fire its CLI inside an importing test runner.';
       console.error('  x ' + r.rel + '  ' + why);
     }
     return 1;
   }
   console.log(
-    'Entry-point proof PASSED -- ' +
-      (rows.length - deferred.length) +
-      ' of ' +
+    'Entry-point proof PASSED -- all ' +
       rows.length +
       ' entry point(s) proven to RUN through a ' +
       (IS_WINDOWS ? 'junction' : 'symlink') +
       ' and to stay silent on a plain import.',
   );
-  if (deferred.length > 0) {
-    console.log('  ' + deferred.length + ' DEFERRED and still unconverted, by record rather than by omission:');
-    for (const r of deferred) console.log('    - ' + r.rel + '  (' + r.deferred + ')');
-  }
   return 0;
 }
 

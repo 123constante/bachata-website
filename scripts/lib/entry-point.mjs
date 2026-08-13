@@ -47,6 +47,37 @@
 // inside whatever imported it and sets that process's exit code -- the exact
 // test-runner kill above. So the undecidable case returns false and SAYS SO on
 // stderr. The one thing this module refuses to do is decide wrongly in silence.
+//
+// VENDORED TWIN -- and the admin side is covered far more thinly than this one, so
+// the difference is stated rather than glossed. scripts/hooks/arc-checkpoint.mjs and
+// scripts/hooks/session-lock.mjs are content-identical across this repo and
+// bachata-admin-11april, so this file -- the dependency their dispatch resolves --
+// is vendored into both on the same terms: edit both or neither. Both parity suites
+// list it (Website tests/arcState.test.ts, admin tests/hookSelfTests.test.ts).
+//
+// WHAT ACTUALLY COVERS THE ADMIN COPY: the parity comparison, and nothing else. R6,
+// the allowlist and prove-entry-point-dispatch.mjs are WEBSITE-SIDE ONLY; the admin
+// repo has none of them. A draft of this paragraph also claimed session-lock's
+// --self-test covered it. It does not, and cannot: --self-test calls selfTest()
+// directly by the canonical path, so it never drives the dispatch line -- which is
+// the argument this file makes 30 lines above about canaries in general. Measured
+// 2026-08-13: revert the admin dispatch to the raw compare and --self-test still
+// prints "session-lock --self-test: OK". Both parity suites also skip when the
+// sibling checkout is absent, i.e. always in CI, on both sides. So the admin copies
+// rest on a comparison a human runs with two checkouts present. That is thin; it is
+// recorded as thin, and it is the argument for keeping the files identical rather
+// than letting the admin copy evolve its own way.
+//
+// CALLED FROM HOOKS, which changes two things worth saying once here rather than
+// twice at the call sites. (1) This is an ESM import, resolved BEFORE the caller's
+// try/catch exists -- so if it is missing or unparseable, a hook whose contract is to
+// print nothing instead exits 1 with a stack trace. That is the standing price of
+// sharing the predicate rather than inlining it, and it is why both parity suites'
+// temp-tree copy lists must carry this file. (2) warn() and trace() write to stderr,
+// so a hook's silence contract yields to this module's refusal to decide wrongly in
+// silence -- deliberately, in that order. ENTRY_POINT_TRACE is read from the
+// inherited environment, so exporting it globally makes every hook invocation speak;
+// it is a debugging switch, not something to leave set.
 
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
