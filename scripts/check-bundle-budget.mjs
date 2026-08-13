@@ -76,7 +76,7 @@
 import { readFileSync, existsSync, statSync, appendFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const ROOT = process.cwd();
 const CLIENT_DIR = path.join(ROOT, 'build', 'client');
@@ -1953,10 +1953,9 @@ function selfTest() {
 // same reason, as check-script-conventions.mjs. This module exports its graph
 // helpers; unguarded, merely importing one of them runs the whole budget check
 // as a side effect and sets process.exitCode, reddening the importing process.
-const IS_CLI =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (IS_CLI) {
+// Realpath-to-realpath via scripts/lib/entry-point.mjs: the string compare this
+// replaces made the guard exit 0 having run nothing through a junction.
+if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
   const KNOWN_FLAGS = ['--self-test'];
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));

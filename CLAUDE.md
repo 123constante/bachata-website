@@ -375,13 +375,21 @@ Fixtures, both live:
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
-### Writing a new guard &mdash; the five rules `check-script-conventions.mjs` enforces
+### Writing a new guard &mdash; the six rules `check-script-conventions.mjs` enforces
 
-`npm run check:script-conventions` scans the `scripts/check-*.mjs` and
-`lint-*.mjs` files &mdash; 89 of the 90 that match, since `NOT_A_GUARD` exempts the
-scanner itself (it would flag its own rule patterns as violations). That
-exemption is from the SCAN, not from the rules: the scanner is held to R1&ndash;R5 by
-hand-written canary cases instead. It exists because the worst failure a CI suite has is a check that
+`npm run check:script-conventions` runs **two** scans. R1&ndash;R5 cover the
+`scripts/check-*.mjs` and `lint-*.mjs` files &mdash; 89 of the 90 that match, since
+`NOT_A_GUARD` exempts the scanner itself (it would flag its own rule patterns as
+violations). That exemption is from the SCAN, not from the rules: the scanner is
+held to R1&ndash;R5 by hand-written canary cases instead.
+
+**R6 has its own, wider corpus**: every `.mjs` under `scripts/` and `bin/`,
+recursively, and `NOT_A_GUARD` does not apply to it. That is deliberate &mdash; the
+two worst instances of the defect it catches were `ship-gate.mjs` and
+`scripts/hooks/review-stamp.mjs`, one a subdirectory away and the other not
+matching the name pattern, and a rule blind to those two would have been
+decoration. So a new file under `scripts/hooks/` is held to R6 even though
+R1&ndash;R5 never look at it. It exists because the worst failure a CI suite has is a check that
 reports green without having checked anything: a red check gets fixed, a falsely
 green one is trusted for months.
 
@@ -392,6 +400,7 @@ green one is trusted for months.
 | R3 exit-drift | it breaks 0 pass / 1 contract violated / 2 infrastructure. Missing creds are **2** |
 | R4 no-canary | it carries no `--self-test` proving it can fail |
 | R5 unproven-exit | its canary proves the RULES but never drives the function whose return value becomes `process.exitCode` &mdash; so the rules are measured and the CODES are merely asserted |
+| R6 raw-entry-point | it compares `import.meta` against `process.argv[1]` by hand. Node realpaths one side and not the other, so through a junction or symlink the script exits 0 having run NOTHING &mdash; canary included. Use `isEntryPoint(import.meta.url)` from `scripts/lib/entry-point.mjs`; prove it with `npm run prove:entry-point` |
 
 **It is a ratchet, not a gate you can satisfy by editing the allowlist.** Today's
 violations are frozen in `scripts/script-conventions-allowlist.json`; the guard
@@ -405,8 +414,9 @@ script satisfying R5 when the rule landed (`check-script-conventions.mjs` was
 changed in the same commit to satisfy it too); its `main(argv, deps)` seam plus
 the "THE EXIT-CODE CONTRACT ITSELF" block in its canary are the shape to copy: the
 collaborators are injected so the canary can drive `main()` with no token, no
-network and no filesystem (the `if (IS_CLI)` dispatch itself stays undriven &mdash;
-R5 proves the exit OWNER is driven, not the line that invokes it), and each case pins WHICH branch produced its code.
+network and no filesystem (the entry-point dispatch itself stays undriven &mdash;
+R5 proves the exit OWNER is driven, not the line that invokes it, which is
+exactly the gap R6 and `scripts/prove-entry-point-dispatch.mjs` now close), and each case pins WHICH branch produced its code.
 That last part is not decoration &mdash; four branches there return 2, so a case
 asserting only "it returned 2" passes for the wrong reason.
 

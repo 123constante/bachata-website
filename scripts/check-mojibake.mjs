@@ -24,7 +24,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 // '.claude' is in scope because .claude/settings.local.json is REWRITTEN by the
 // harness on every permission grant, and that rewrite re-encodes untouched
@@ -237,10 +237,9 @@ function selfTest() {
 // Only act as a CLI when invoked as one -- the same guard, and for the same
 // reason, as check-script-conventions.mjs. This module exports its helpers now;
 // unguarded, merely importing one would scan the tree and set process.exitCode.
-const IS_CLI =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (IS_CLI) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare it
+// replaces made the scan exit 0 having read no files at all through a junction.
+if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
   const KNOWN_FLAGS = ['--self-test'];
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));

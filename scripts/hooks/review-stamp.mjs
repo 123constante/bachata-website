@@ -48,7 +48,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { isEntryPoint } from "../lib/entry-point.mjs";
 import {
   STAMP_PATH,
   recordMintAttempt,
@@ -322,8 +322,11 @@ export function runHook({
 // mirrors ship-gate.mjs. Without this guard, importing the module to unit-test
 // runHook would fire the hook (read real fd 0, possibly mint a stamp) as an
 // import side effect.
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isMain) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare it
+// replaces mispredicted through a junction or symlink, and this file is one of
+// the two where that is worst: a receipt writer that silently does not run
+// leaves the ship gate to judge an absent stamp.
+if (isEntryPoint(import.meta.url)) {
   // Safe here for the same reason as in ship-gate.mjs: a one-shot CLI process that
   // does not mutate the tree between scope queries. --manual asks four times.
   enableScopeCache();

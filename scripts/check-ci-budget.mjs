@@ -57,8 +57,9 @@
  */
 import { readFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { assertMeasured } from './lib/previewProbe.mjs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const BUDGETS_PATH = path.join(ROOT, 'ci-budgets.json');
@@ -2304,10 +2305,10 @@ export async function main(argv = [], deps = {}) {
   return result.code;
 }
 
-const IS_CLI =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (IS_CLI) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare this
+// replaces mispredicted through a junction or symlink and the whole guard --
+// including its canary -- printed nothing and exited 0.
+if (isEntryPoint(import.meta.url)) {
   // process.exitCode, never process.exit() after printing: on Linux CI a
   // process.exit truncates buffered stdout (904 lines became 194, measured).
   process.exitCode = await main(process.argv.slice(2));

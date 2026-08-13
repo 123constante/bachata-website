@@ -76,7 +76,7 @@
  */
 
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { isEntryPoint } from "./lib/entry-point.mjs";
 import {
   REPO_ROOT,
   enableScopeCache,
@@ -401,8 +401,12 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
   return { ...verdict, baseRef, widened: baseRef !== narrowBase };
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isMain) {
+// Realpath-to-realpath (scripts/lib/entry-point.mjs), and nowhere does it
+// matter more than here. The string compare it replaces mispredicted through a
+// junction or symlink, and a ship gate that prints nothing and exits 0 is
+// indistinguishable from a ship gate that passed: the review tier would not be
+// evaluated and the push would sail through.
+if (isEntryPoint(import.meta.url)) {
   // A one-shot CLI process that does not mutate the tree between queries -- the
   // only situation where memoising the scope is safe. Library callers (tests,
   // pre-ship, anything importing this module) stay uncached and always correct.

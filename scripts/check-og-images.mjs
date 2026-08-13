@@ -21,6 +21,7 @@
 // --self-test runs the network-free canary (see selfTest at the bottom).
 
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
@@ -40,7 +41,16 @@ const MIN_BAKED_PAGES = 2;
 // Full rationale at check-seo.mjs's BYPASS; same split as
 // check-lighthouse.mjs (required: !EXPLICIT_BASE). A present-but-rejected
 // secret is normally skipIfWalledPreview's case, not this one.
-const BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
+//
+// RESOLVED INSIDE main(), NOT AT MODULE SCOPE -- the same split check-seo.mjs
+// already makes, and now for a second reason. bypassHeaders THROWS when the
+// secret is missing in CI, and a module-scope throw fires before anything
+// else: before the banner, and before the entry-point guard restored at the
+// tail of this file. That would make the file unimportable again in exactly
+// the CI environment it runs in, defeating the point of restoring the guard,
+// and it would make the import arm of prove-entry-point-dispatch.mjs read a
+// module that threw as a module whose CLI fired.
+let BYPASS = null;
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
 // Scope predicate for "this og:image is served by our /api/og/ pipeline",
@@ -462,6 +472,7 @@ async function main() {
   // Anything else (timeout, DNS, broken preview) is NOT walled and the real
   // check runs and fails loud. The isPreviewHost gate is inside the helper, so
   // this never short-circuits the public production run.
+  BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
   if (await skipIfWalledPreview(BASE, { bypass: BYPASS, label: 'OG preview skipped', subject: 'OG cards could not be checked' })) {
     return;
   }
@@ -651,19 +662,37 @@ function selfTest() {
 // reads a crash in node instead of the sitemap failure that caused it. This is
 // rule (1) of the arc-close check-script-conventions.mjs candidate, and
 // pre-ship.mjs already documents the class.
-// No IS_CLI guard, deliberately: nothing imports this file, and the guard was
-// measured failing OPEN here -- invoked through a junction (mklink /J), the
-// argv[1]-vs-import.meta.url compare mispredicts and the script exits 0
-// having run NOTHING, a vacuous green of the OG guard itself. If a spec ever
-// needs cardRedirectFailure, extract it to scripts/lib/ instead.
-const argv = process.argv.slice(2);
-const KNOWN_FLAGS = ['--self-test'];
-const unknownFlags = argv.filter((a) => !KNOWN_FLAGS.includes(a));
-if (unknownFlags.length > 0) {
-  console.error(`Unknown flag(s): ${unknownFlags.join(', ')}. Known: ${KNOWN_FLAGS.join(', ')}`);
-  process.exitCode = 2;
-} else if (argv.includes('--self-test')) {
-  process.exitCode = selfTest();
-} else {
-  main().catch((err) => { console.error(err); process.exitCode = 1; });
+// THIS FILE IS WHERE THE ENTRY-POINT FAIL-OPEN WAS FIRST MEASURED. Invoked
+// through a junction (mklink /J), the old argv[1]-vs-import.meta.url compare
+// mispredicted and the script exited 0 having run NOTHING -- a vacuous green of
+// the OG guard itself. The response at the time was to DELETE the guard and
+// dispatch at top level, which fixed the fail-open by making the file
+// unimportable: any spec pulling in cardRedirectFailure would fire the whole
+// live check and set the runner's exit code.
+//
+// Neither horn was necessary. isEntryPoint() compares REALPATH to REALPATH
+// (scripts/lib/entry-point.mjs), so the guard is back and the junction case is
+// covered by scripts/prove-entry-point-dispatch.mjs, which invokes this file
+// through a junction and asserts it still runs. R6 in
+// check-script-conventions.mjs keeps the raw compare from coming back.
+//
+// Precisely what "importable" now buys, since the last version of this comment
+// overclaimed it: `await import()` from node is safe -- proven on every run of
+// that harness, whose import arm loads this file and asserts the CLI does not
+// fire. A VITEST spec needs two more things this file does not yet have: an
+// `export` (nothing here is exported) and no shebang, because a
+// `#!/usr/bin/env node` first line makes the file unparseable when vitest
+// inlines it (see check-rpc-typing.mjs, which records that measurement).
+if (isEntryPoint(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  const KNOWN_FLAGS = ['--self-test'];
+  const unknownFlags = argv.filter((a) => !KNOWN_FLAGS.includes(a));
+  if (unknownFlags.length > 0) {
+    console.error(`Unknown flag(s): ${unknownFlags.join(', ')}. Known: ${KNOWN_FLAGS.join(', ')}`);
+    process.exitCode = 2;
+  } else if (argv.includes('--self-test')) {
+    process.exitCode = selfTest();
+  } else {
+    main().catch((err) => { console.error(err); process.exitCode = 1; });
+  }
 }

@@ -11,6 +11,8 @@
     "check:wallclock-brand": "react-router typegen && node scripts/check-wallclock-brand.mjs",
     "check:rpc-typing": "node scripts/check-rpc-typing.mjs",
     "check:script-conventions": "node scripts/check-script-conventions.mjs",
+    "prove:entry-point": "node scripts/prove-entry-point-dispatch.mjs",
+    "prove:entry-point:self-test": "node scripts/prove-entry-point-dispatch.mjs --self-test",
     "check:ci-budget": "node scripts/check-ci-budget.mjs",
     "check:ci-budget:self-test": "node scripts/check-ci-budget.mjs --self-test",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
