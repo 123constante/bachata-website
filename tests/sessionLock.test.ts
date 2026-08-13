@@ -5,10 +5,13 @@
  * WHY THIS EXISTS: the lock guards the write-corruption incident class named in
  * its own header, and before this file its 10-group --self-test was wired into
  * nothing -- an edit to the release guard or the staleness logic would have
- * shipped green everywhere. The admin repo carries a byte-equal twin of the
- * script (modulo CRLF) and no test infrastructure; this file is the proof for
- * both copies, which is exactly why the script must stay byte-equal across
- * repos.
+ * shipped green everywhere. It runs that matrix on the WEBSITE copy only. The
+ * sentence that used to stand here -- that the admin repo has no test
+ * infrastructure and that this file is therefore the proof for both copies -- was
+ * wrong, and session-lock.mjs's own header already records why: since 2026-07-31
+ * the admin repo has tests/hookSelfTests.test.ts, which invokes --self-test on its
+ * own copy and asserts twin parity. Cross-repo drift is caught by the two parity
+ * suites, not by this file.
  *
  * SINGLE RULE MATRIX: behavioural fixtures live ONLY in the script's selfTest();
  * this file runs that matrix in-process and at spawn level, and adds the

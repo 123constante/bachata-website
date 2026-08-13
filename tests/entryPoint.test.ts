@@ -8,11 +8,13 @@ import { isEntryPoint } from '../scripts/lib/entry-point.mjs';
 import { selfTest } from '../scripts/prove-entry-point-dispatch.mjs';
 
 /**
- * isEntryPoint decides whether ~17 CLI scripts in this repo run at all --
- * including ship-gate.mjs, pre-ship.mjs and the review-stamp writer. Before
- * this spec its only proof was `prove-entry-point-dispatch.mjs --self-test`,
- * which nothing was obliged to run, so an edit to the predicate could have
- * disarmed every one of them with nothing going red.
+ * isEntryPoint decides whether the CLI scripts in this repo run at all --
+ * including ship-gate.mjs, pre-ship.mjs, the review-stamp writer and both
+ * session hooks. (No count here: scripts/prove-entry-point-dispatch.mjs's
+ * TARGETS is the instrument, and a number copied into prose drifts off it.)
+ * Before this spec its only proof was `prove-entry-point-dispatch.mjs
+ * --self-test`, which nothing was obliged to run, so an edit to the predicate
+ * could have disarmed every one of them with nothing going red.
  *
  * The full sweep (junction arms, spawned processes) stays out of the unit gate
  * -- it needs link-creation rights and takes seconds. The canary does not: it
