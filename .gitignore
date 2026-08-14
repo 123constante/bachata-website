@@ -99,3 +99,16 @@ whatson-shipped.md
 # tests/integrityControlBytes.test.ts writes poisoned fixtures here and removes
 # them in afterAll; a crashed run must not leave litter that reds other guards.
 /.integrity-canary/
+# scripts/mutate-workflow-artifact-policy.mjs writes a deliberately-broken copy
+# of a guard next to the original and unlinks it in a finally; Ctrl-C or a
+# timeout in between leaves one behind.
+#
+# THIS RULE ONLY KEEPS IT OUT OF `git add -A`. An earlier version of this comment
+# claimed it stopped the scanners too, and that is false: check-script-conventions
+# walks the filesystem with readdir and consults no gitignore, so leftover litter
+# still reds `npm run lint` -- and now under a name `git status` will not show
+# you, which is worse than not ignoring it. What actually clears it is the
+# startup sweep in the harness itself. (check-integrity.sh was measured and does
+# NOT flag one, so that half of the old comment was wrong in the other
+# direction.)
+/scripts/.mutant-*.mjs

@@ -185,31 +185,235 @@
  *
  * Local:  node scripts/check-workflow-artifact-policy.mjs
  *         node scripts/check-workflow-artifact-policy.mjs --self-test
- * CI:     .github/workflows/architecture-guard.yml, every push and PR.
+ * CI:     .github/workflows/architecture-guard.yml, every push and PR -- the
+ *         canary first, then the guard, which is why a stale MEASURED block
+ *         takes the check offline rather than merely warning.
+ * Mutate: npm run mutate:workflow-artifact-policy. Named here because several
+ *         arms below are unreachable on this repository's own numbers, so the
+ *         harness is the only thing proving they can fail; a reader who does
+ *         not know it exists will read those arms as untested.
  *
- * Exit: 0 pass, 1 policy violated, 2 the guard could not run.
+ * Exit: 0 pass, 1 the policy was violated OR this file's own MEASURED block has
+ *       gone stale, 2 the guard could not run.
+ *
+ *       The 1 covers two things deliberately, and the widening is recorded here
+ *       rather than left for a reader to infer from an exit code. A stale
+ *       measurement is not a broken guard -- the policy verdict is reached,
+ *       printed FIRST, and stands -- so it is not a 2; and it is not a clean
+ *       run either, because a warn tier that exits 0 is the silence this guard
+ *       exists to end. The two are told apart by the report, never by the code:
+ *       drift prints a block headed THE MEASUREMENTS IN THIS FILE ARE STALE.
+ *       See measuredDrift() for why this is judged in the guard and not, as it
+ *       was until this change, in the canary that gates it.
  */
 import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import YAML from 'yaml';
+import { createRequire } from 'node:module';
 import { assertMeasured } from './lib/previewProbe.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW_DIR = '.github/workflows';
 
+/**
+ * `yaml` is loaded LAZILY, and the reason is an exit code rather than a load
+ * time.
+ *
+ * As a static `import`, a missing dependency kills the process during module
+ * evaluation -- before main() exists to have an opinion -- and node exits 1.
+ * One is this guard's code for POLICY VIOLATED. So in any checkout without
+ * node_modules (a fresh `git worktree add` is the normal way to get one here,
+ * and this repo's memory already records worktrees false-redding twice for
+ * exactly that) the guard announced an unbounded artifact upload, and the
+ * workflow's failure notice would have told its reader to go and find the
+ * offending file. Measured on this repository, not theorised: before this
+ * change, from a checkout with no node_modules, both `--self-test` and the
+ * ordinary run exited 1.
+ *
+ * Behind an accessor the failure happens on FIRST PARSE instead, and comes back
+ * as 2 -- the guard could not run.
+ *
+ * BY WHICH ROUTE, precisely, because a first draft of this paragraph said "inside
+ * the try that main() already wraps everything in" and that is NOT what happens.
+ * Traced rather than assumed: the throw is caught by parseWorkflow's own catch
+ * and recorded as a `parse` problem reading "YAML will not parse: the `yaml`
+ * package is not installed...", the self-probe then cannot prove the detector
+ * alive against its own fixture, and THAT blocker is what returns 2. main()'s
+ * catch never sees it.
+ *
+ * The distinction is load-bearing rather than pedantic. The exit code is right
+ * today because of the self-probe, so anything that reorders the probe after the
+ * file scan, or downgrades `parse` problems, would let a missing dependency fall
+ * through to the floors instead -- and the comment claiming main() was the
+ * backstop would have sent the next reader to inspect the wrong wrapper. It is
+ * also why the operator is told their YAML is malformed when the real cause is
+ * an uninstalled package; the message below carries the true cause into that
+ * text so the report stays actionable even though its label is wrong. Making
+ * parseWorkflow re-raise dependency errors is the real repair and is a
+ * behaviour change to the shared parse path, so it is named here and queued
+ * rather than smuggled into a portability backport.
+ *
+ * createRequire rather than a dynamic `await import`, so the call sites stay
+ * synchronous. MEASURED rather than asserted, because the count is the whole
+ * argument for not reaching for `await import`: this file has FOURTEEN
+ * YAML.parse call sites, one of them in parseWorkflow and the other thirteen in
+ * the canary -- and "thirteen cases" would itself be wrong, since two of the
+ * thirteen are the fanOutOfJob/whyOfJob helpers that many separate cases share.
+ * Making all fourteen async to fix an exit code would be a rewrite in search of
+ * a one-line defect. The shim below keeps every one of them unchanged.
+ */
+const requireFromHere = createRequire(import.meta.url);
+let yamlModule = null;
+let yamlError = null;
+function loadYaml() {
+  if (yamlModule) return yamlModule;
+  // The FAILURE is remembered too. Node does not cache a failed resolution, so
+  // without this the require and the Error construction ran once per PARSE
+  // rather than once per run -- every workflow on an ordinary run, and every
+  // parsing case in the canary. Harmless in wall-clock terms, but it also made
+  // the docstring's "first parse" framing untrue a second way: there was no
+  // single first parse, there were hundreds of identical ones. Deliberately not
+  // given a count here -- the canary's size moves with every case this diff
+  // adds, and a stale number in a comment is the thing two other comments in
+  // this file are already apologising for.
+  if (yamlError) throw yamlError;
+  try {
+    yamlModule = requireFromHere('yaml');
+  } catch (error) {
+    yamlError = new Error(
+      'the `yaml` package is not installed, so no workflow could be parsed. This is exit 2 ' +
+        '(the guard could not run), NOT a policy violation: run `npm install` in this checkout. ' +
+        'Original: ' + (error && error.message ? error.message : String(error)),
+    );
+    throw yamlError;
+  }
+  return yamlModule;
+}
+// FORWARDED WHOLE, via a Proxy over the loaded module rather than a hand-listed
+// method. Written as `{ parse: (text, options) => ... }` the shim silently
+// narrowed `yaml` to one two-argument function, and both halves of that bite:
+// YAML.parseDocument or YAML.stringify would throw "is not a function" with
+// nothing pointing at the shim, and yaml v2's real signature is
+// parse(str, reviver, options) -- so a later call passing a reviver would have
+// compiled, run, and DISCARDED its options object inside a guard whose entire
+// subject is parsing workflows. A dropped argument that still returns a plausible
+// value is the shape this file exists to catch.
+// Reflect with the MODULE as receiver, plus the enumeration traps. A get/has
+// pair alone forwards reads and nothing else: `Object.keys(YAML)` came back
+// empty against a module with 29 of them, `{ ...YAML }` spread to {}, and any
+// export that is method-like would have run with `this` bound to this proxy
+// rather than to yaml. All three are silent wrong answers with nothing pointing
+// at the shim -- which is the same complaint that retired the hand-listed
+// `{ parse }` version, arriving in its replacement. The functions actually used
+// here ignore `this`, so this is correctness for the next call site rather than
+// a live defect.
+const YAML = new Proxy({}, {
+  get: (_target, prop) => Reflect.get(loadYaml(), prop, loadYaml()),
+  has: (_target, prop) => Reflect.has(loadYaml(), prop),
+  ownKeys: () => Reflect.ownKeys(loadYaml()),
+  getOwnPropertyDescriptor: (_target, prop) => {
+    const d = Reflect.getOwnPropertyDescriptor(loadYaml(), prop);
+    // Spread and Object.keys walk ownKeys and then ask for each descriptor, and
+    // an invariant check rejects a non-configurable descriptor for a property
+    // the (empty) target does not have. Reporting them configurable is what
+    // makes enumeration work at all through a proxy over a different object.
+    return d && { ...d, configurable: true };
+  },
+});
+
 // ---------------------------------------------------------------------------
-// CONFIG -- the whole per-repo surface. Porting this file to bachata-admin
-// means editing this block, and the MEASURED block below it, and nothing else.
+// CONFIG -- the per-repo surface. This file is shared BY COPY with
+// bachata-admin, which holds the enforcement copy over a repository containing
+// no upload-artifact steps at all.
 //
-// That sentence used to stop at "and nothing else", and it was false in three
-// places: the self-probe named this repo's ci-budget-guard.yml literally, the
-// report legend printed it as a hardcoded string, and the canary pinned this
-// repo's floor edges as literals. A port editing only CONFIG would have failed
-// its own canary on arrival -- and architecture-guard.yml runs the canary
-// BEFORE the guard, so the port's first CI run would have been exit 2 against
-// numbers from a different repository. The probe is fixture-local now, the
-// legend reads NO_UPLOAD_WORKFLOWS, and the floor edges derive from MEASURED.
+// PERMANENTLY PER-REPO -- these must differ between the copies, and only these
+// may:
+//   1. the assertMeasured import above (this repo keeps the function inside a
+//      Vercel preview-probe module that repo has no use for);
+//   2. this CONFIG block;
+//   3. the MEASURED block below it;
+//   4. prose that states this repository's own numbers and filenames.
+//
+// TREAT THE LIST ABOVE AS A MAINTAINED INVARIANT, never as a fact about the
+// code. It has been falsified repeatedly, and the running count is deliberately
+// NOT restated as a single number here: an earlier draft of this very paragraph
+// said "now EIGHT" and then enumerated eight lettered repairs beneath a sentence
+// introducing five of them, so the header whose subject is miscounted claims was
+// itself miscounted, three ways at once. The two quantities it ran together are
+// different things -- how many times the claim has been falsified, and how many
+// repairs the falsifications produced -- and neither is served by a tally that
+// drifts the next time somebody finds one.
+//
+// THREE were found in this repository. The self-probe named ci-budget-guard.yml
+// literally, the report legend printed it as a hardcoded string, and the canary
+// pinned this repo's floor edges as literals. A port editing only CONFIG would
+// have failed its own canary on ARRIVAL -- architecture-guard.yml runs the
+// canary BEFORE the guard, so the port's first CI run would have been exit 2
+// against numbers from a different repository. The probe is fixture-local now,
+// the legend reads NO_UPLOAD_WORKFLOWS, and the floor edges derive from
+// MEASURED.
+//
+// THE EIGHT BELOW were found by ARRIVING SOMEWHERE ELSE -- porting the file to
+// a repository with zero uploads and no node_modules -- and for most of them
+// that was the only thing that could have found them, being expressions which
+// are only ill-formed where a measurement is ZERO or where a dependency is
+// absent. This repository's canary, with uploads present and the arithmetic
+// looking obviously right, was structurally incapable of seeing those.
+//
+// (d) IS THE EXCEPTION AND IS WORTH THE EXTRA LINE, because it is the one the
+// generalisation does not cover: a MEASURED field that nothing re-read was
+// ill-formed in BOTH repositories at once and had nothing to do with zero or
+// with node_modules. It was found by a human reading the block, which is a
+// reminder that the mechanical arguments here do not catch everything.
+//
+// All eight are fixed HERE as well as there, each commented at its own site:
+//   a. the `yaml` import is lazy, so a checkout without node_modules exits 2
+//      rather than 1, the code reserved for "policy violated". MEASURED on this
+//      repository before the fix: exit 1 in both modes;
+//   b. the --self-test dispatch is wrapped, for the same reason;
+//   c. the MEASURED drift band is floored at 1, because a purely relative band
+//      is undefined at a measurement of zero;
+//   d. jobs and largestWorkflowSteps are actually READ, having been recorded
+//      here and consumed by nothing;
+//   e. the A4 report legend survives an empty subject list;
+//   f. `FLOORS.uploadSteps <= Math.max(0, MEASURED.uploadSteps - 2)`;
+//   g. two A4 canary cases supply their own fixture subject instead of reading
+//      NO_UPLOAD_WORKFLOWS through a ?? fallback;
+//   h. the pass path reports a zero-upload repository as such.
+//
+// (c), (e), (f), (g) and (h) are NO-OPS on this repository's numbers, and that
+// was verified by RUNNING rather than by reading -- the verdict of every canary
+// case and of the guard itself is unchanged here. (a), (b) and (d) do change
+// behaviour, all three in the fail-loud direction.
+//
+// ---------------------------------------------------------------------------
+// ONE DIVERGENCE THIS REPOSITORY OWNS, and it is deliberate, load-bearing, and
+// larger than the eight above: WHERE MEASURED STALENESS IS JUDGED.
+//
+// In the admin copy the five drift comparisons are canary cases. Here they are
+// measuredDrift(), called from main() after the policy verdict is printed. The
+// reason is a defect the port surfaced only once (d) had added two more of
+// them: architecture-guard.yml runs --self-test BEFORE the check, so a MEASURED
+// block made stale by perfectly ordinary growth -- one contract check added to
+// db-contract-check.yml, a workflow split in two, a second upload step -- exited
+// 2 and the artifact policy was never evaluated on that PR at all. The guard
+// switched itself off because its own repository had changed, and said "the
+// guard is broken" while doing it. That is this arc's headline failure sitting
+// inside the guard written to end it.
+//
+// Three review findings over two rounds landed on this before the shape was
+// named, and the first attempt at a fix only moved the cliff from one dimension
+// to another -- which is the signal that a number was being re-guessed rather
+// than a mechanism repaired.
+//
+// The severity did not change: drift still exits non-zero, because a warn tier
+// that exits 0 is the silence this arc spent four months in. What changed is
+// that the verdict is REACHED FIRST. A real violation is now named on a run
+// whose MEASURED is stale, which the old order could not do.
+//
+// Admin's copy should follow. Until it does, this is the fifth thing the two
+// differ by, and it is recorded HERE rather than left for the next port to
+// rediscover as a mystery diff in selfTest().
 // ---------------------------------------------------------------------------
 
 /**
@@ -403,12 +607,29 @@ const FLOORS = {
 };
 
 /**
- * What this repo actually measured, 2026-08-12. The floors above are derived
- * from these, and so are the canary cases that pin both edges of each floor --
- * so a port edits this block and CONFIG, and nothing else.
+ * What this repo actually measured. RE-DERIVED 2026-08-14 by running this
+ * file's own parser over .github/workflows rather than by copying the numbers
+ * already written here -- all five agreed, which is a measurement rather than
+ * the assumption it would have been.
  *
- * Written down because "measured" appeared in four comments as an adjective
- * before any of it was in the file as a number.
+ * The floors above are derived from these, and so are the canary cases that pin
+ * both edges of each floor.
+ *
+ * EVERY FIELD IS NOW READ. `jobs` and `largestWorkflowSteps` were declared here
+ * and consumed by nothing -- largestWorkflowSteps pins the collapse floor's only
+ * upper edge through a comparison between two constants, so it could drift
+ * arbitrarily far from the repository while the case asserting it stayed green.
+ * A number that has stopped being a measurement while still looking like one is
+ * the same defect assertInclusion refuses one block up for FLOORS keys.
+ *
+ * STALENESS IS CHECKED BY THE GUARD, NOT THE CANARY. measuredDrift() compares
+ * all five against the run's own stats and exits 1 AFTER the policy verdict has
+ * been printed. It used to be a set of canary cases, which meant a MEASURED
+ * block made stale by ordinary growth exited 2 before the policy was judged at
+ * all -- the guard switching itself off because its repository had changed.
+ *
+ * Written down in the first place because "measured" appeared in four comments
+ * as an adjective before any of it was in the file as a number.
  */
 const MEASURED = {
   workflowFiles: 21,
@@ -2408,6 +2629,14 @@ export function analyse(files, cfg = {}) {
     declaredJobs: parsed.reduce((n, p) => n + (p.declaredJobs ?? 0), 0),
     declaredSteps: parsed.reduce((n, p) => n + (p.declaredSteps ?? 0), 0),
     uploadSteps: parsed.reduce((n, p) => n + p.uploads.length, 0),
+    // Read here so measuredDrift() can compare it without a second walk of the
+    // directory. It is the only MEASURED dimension with no other consumer in
+    // the running guard, which is precisely how it came to be a recorded number
+    // that nothing re-read: it pins the collapse floor's only upper edge
+    // (FLOORS.steps <= MEASURED.steps - MEASURED.largestWorkflowSteps) and that
+    // comparison is between two constants, so it stayed green however far the
+    // real largest workflow moved away from it.
+    largestWorkflowSteps: parsed.reduce((n, p) => Math.max(n, p.steps), 0),
     reusableJobs: parsed.reduce((n, p) => n + p.reusableJobs, 0),
     // A5's measurement is attached AFTER the blockers below, not here. It walks
     // the call graph, which can throw on a pathological document -- and doing
@@ -2448,6 +2677,71 @@ export function analyse(files, cfg = {}) {
   };
 }
 
+/**
+ * Is a live reading far enough from its recorded one to be worth re-measuring?
+ *
+ * FLOORED AT 1, because a purely relative band is undefined at zero:
+ * `Math.abs(1 - 0) > 0 * 0.25` is true, so the first upload-artifact step ever
+ * added to a repository measuring none would read as drift. That matters most
+ * in bachata-admin, where MEASURED.uploadSteps really is 0.
+ *
+ * NON-FINITE INPUTS FAIL CLOSED. A MEASURED key that is renamed or dropped makes
+ * `recorded` undefined, both sides evaluate to NaN, and `NaN > NaN` is FALSE --
+ * so the dimension would report "no drift" while asserting nothing, and the
+ * field would go back to being one that nothing reads. That is the defect this
+ * whole mechanism exists to fix, reappearing through its own repair. An unknown
+ * recorded as the permissive answer is this arc's headline failure mode.
+ */
+export function drifted(live, recorded) {
+  if (!Number.isFinite(live) || !Number.isFinite(recorded)) return true;
+  return Math.abs(live - recorded) > Math.max(1, recorded * 0.25);
+}
+
+/**
+ * Which recorded measurements no longer describe the repository.
+ *
+ * THIS RUNS IN THE GUARD, NOT IN THE CANARY, and the move is the whole point of
+ * it. These five comparisons used to be `--self-test` cases, and
+ * architecture-guard.yml runs the canary BEFORE the check in the same `run:`
+ * block -- so a MEASURED block that had merely gone stale exited 2 and the
+ * artifact policy was never evaluated at all. Ordinary growth (a contract check
+ * added to db-contract-check.yml, a workflow split into two jobs, a second
+ * upload step) took the guard offline, and the failure said "the guard is
+ * broken" about a repository that had done nothing wrong.
+ *
+ * A guard that switches itself off the moment its own repository changes is the
+ * exact failure this arc was opened to remove, and it had been sitting inside
+ * the guard written to enforce it. Reported here, the policy verdict is reached
+ * and printed FIRST: a real violation is still named on a run whose MEASURED is
+ * stale, which is the case that matters and the one the old order could not
+ * serve.
+ *
+ * IT STILL EXITS NON-ZERO. A warn tier that exits 0 is the silence this arc
+ * spent four months in -- GitHub emails on a failed run and on nothing else --
+ * so drift escalates to 1 and the header documents that code as covering both
+ * a policy violation and a stale measurement. What changed is the ORDER and the
+ * message, not the severity.
+ *
+ * Takes the stats the guard already computed rather than re-reading the
+ * directory: one walk, and the numbers reported are provably the ones judged.
+ */
+export function measuredDrift(stats, measured = MEASURED) {
+  // FAILS CLOSED, like drifted() above and for the same reason. Returning []
+  // for a missing stats object reads as "nothing has drifted", which is an
+  // unknown recorded as the permissive answer -- this arc's headline failure,
+  // in the function built to consume the repair for it. It is safe today only
+  // because main() short-circuits on code 2 first, and analyse() ALREADY
+  // returns stats: null on its probe-failure path, so one refactor making the
+  // blocker path match the probe path would silently switch every MEASURED
+  // comparison off. A throw surfaces as exit 2 through main()'s own catch,
+  // which is the honest answer: the guard could not judge staleness.
+  if (!stats) throw new Error('measuredDrift: no stats to compare against (the caller should not reach here on a code-2 result)');
+  const dimensions = ['workflowFiles', 'jobs', 'steps', 'uploadSteps', 'largestWorkflowSteps'];
+  return dimensions
+    .filter((d) => drifted(stats[d], measured[d]))
+    .map((d) => ({ dimension: d, live: stats[d], recorded: measured[d] }));
+}
+
 function report(result, out, err) {
   const { stats } = result;
 
@@ -2481,6 +2775,23 @@ function report(result, out, err) {
     for (const a of allowlist) {
       out('  allowed exception: ' + a.file + ' / ' + a.job + ' / ' + a.step);
       out('      because ' + a.reason);
+    }
+    // A repository with NO uploads still gets a line. The traversal runs
+    // unconditionally, on the stated grounds that a green run should not look
+    // identical whether it read every call edge or none of them -- and then the
+    // report suppressed every fan-out line unless an upload existed, so the work
+    // was done on each run and the reader was told nothing, which is precisely
+    // the assurance-instead-of-a-figure the unconditional call was defending
+    // against. Say the true thing: there was nothing to price.
+    //
+    // Unreachable on THIS repository today, where five upload steps are
+    // measured, and that is exactly why it is here: bachata-admin runs the same
+    // file over a repository with none, and this arm is the only A5 line it ever
+    // prints. Both directions are pinned by canary cases, because an arm no
+    // local run can reach is an arm only the canary can keep honest.
+    if (stats && stats.uploadSteps === 0) {
+      out('  fan-out: no upload-artifact step in this repository, so there is nothing to price ' +
+        '(budget ' + (result.fanOutCap ?? FANOUT_CAP_LEGS) + '). The rule is proven by the self-probe alone here.');
     }
     if (stats && stats.uploadSteps > 0 && stats.fanOut) {
       // `max` is 0 when nothing here could be priced, and printing "produces 0
@@ -2529,8 +2840,17 @@ function report(result, out, err) {
   err('         them. Rename the steps; do not add an entry, because it would exempt both.');
   err('         allowlist-stale: an entry matches nothing. Delete it once you have checked the');
   err('         construct is gone rather than renamed.');
-  err('  A4     ' + (result.noUploadWorkflows ?? NO_UPLOAD_WORKFLOWS).join(', ') +
-    ' upload nothing; they read the pool they would join.');
+  // A4's legend has to survive an EMPTY subject list, because bachata-admin has
+  // one. Left as a bare join it printed "A4      upload nothing", a sentence
+  // whose subject is the empty string -- and a reader of a red build would be
+  // hunting for a workflow the message never named. Repo-agnostic in both
+  // copies: byte-identical output wherever the list is non-empty, which is
+  // every run in THIS repository, so the branch is canary-covered rather than
+  // locally observable.
+  const a4Subjects = result.noUploadWorkflows ?? NO_UPLOAD_WORKFLOWS;
+  err(a4Subjects.length > 0
+    ? '  A4     ' + a4Subjects.join(', ') + ' upload nothing; they read the pool they would join.'
+    : '  A4     no subject in this repo: no workflow is asserted to upload nothing.');
   // The counts the pass path prints belong here too. A reader looking at a red
   // build needs to know how much of the surface was priced at all -- and
   // `unreadable` is the number that makes this measurement sentinel-free, so
@@ -2604,7 +2924,40 @@ export function main(argv = [], deps = {}) {
     // reader (or anything branching on the code to choose between "fix your
     // workflow" and "fix the guard") that an upload is unbounded, when what is
     // actually unbounded is the guard's own reliability.
-    return runSelfTest(out, err) ? 0 : 2;
+    //
+    // Wrapped for the SAME reason the body below is: the canary path has
+    // exactly one honest failure code and it is 2, so anything that escapes
+    // runSelfTest as an exception must not surface as 1.
+    //
+    // BE PRECISE ABOUT WHAT THIS DOES AND DOES NOT CATCH, because the comment
+    // this replaces was inherited from the admin copy and is false here. It
+    // said a missing `yaml` threw past main() and exited 1. Measured: it does
+    // not. The exit 1 in that scenario came from the STATIC IMPORT dying at
+    // module evaluation -- the fix one block up -- and once the load is lazy,
+    // every YAML parse in this canary happens inside a case thunk, which the
+    // runner already catches and turns into a FAIL line. A dependency-less
+    // checkout therefore reaches 2 by failing every case that parses, not
+    // through here. (A draft wrote that as "184 of 380". The numerator was
+    // measured and the denominator was neither the before value nor the after
+    // one, because the same diff went on adding cases -- so it is a proportion
+    // now. A number that moves while you are writing about it does not belong
+    // in a comment, which is the point the CONFIG header makes about tallies
+    // and which this line then ignored two hundred lines later.)
+    //
+    // So this is defence for a route that no site in the file reaches TODAY: a
+    // throw raised while the case LIST is being built, or from any future parse
+    // hoisted to selfTest's own scope, would otherwise escape and become 1. It
+    // is kept because the exit contract should not depend on that remaining
+    // true, and the canary case below drives it through the injected seam so it
+    // is asserted rather than assumed.
+    try {
+      return runSelfTest(out, err) ? 0 : 2;
+    } catch (error) {
+      err('\nWorkflow artifact policy: THE CANARY COULD NOT RUN (exit 2).');
+      err('  ! ' + (error && error.stack ? error.stack : error));
+      err('');
+      return 2;
+    }
   }
 
   // The WHOLE body, not just the disk read. Only the read was wrapped at
@@ -2616,6 +2969,50 @@ export function main(argv = [], deps = {}) {
     const files = listFiles ? listFiles() : readWorkflowsFromDisk(root);
     const result = analyse(files, cfg);
     report(result, out, err);
+
+    // DRIFT IS JUDGED AFTER THE POLICY, and the ordering is the fix rather than
+    // a detail. These comparisons used to be canary cases, and the canary gates
+    // the guard, so a stale MEASURED block meant the policy was never evaluated
+    // -- see measuredDrift's own docstring for why that inversion is the arc's
+    // headline failure living inside the guard built to end it.
+    //
+    // Skipped at code 2, deliberately: the guard could not run, `stats` is
+    // either null or built from a document set already known to be unreadable,
+    // and reporting drift computed from it would be measuring the wreckage. The
+    // exit code is left at 2 either way.
+    // WHICH MEASUREMENTS TO JUDGE AGAINST, and when to judge at all.
+    //
+    // MEASURED describes THIS repository's .github/workflows. Comparing it to a
+    // set of files handed in by a caller is a category error, not a lenient
+    // choice: the canary drives main() with three-file fixtures, and every one
+    // of them would "drift" from a 21-file repository by construction. So an
+    // injected file list with no measurements of its own is not judged.
+    //
+    // It is NOT a silent skip, which is the failure mode this repository has a
+    // guard rule about. The only way to reach it is to inject listFiles, which
+    // nothing but the canary and a test can do; the real CLI reads from disk and
+    // is always judged. And a caller that injects files CAN opt in by supplying
+    // cfg.measured, which is how the cases below drive both directions of this
+    // very branch through main() rather than asserting it from the outside.
+    const measuredFor = cfg.measured ?? (listFiles ? null : MEASURED);
+    const drift = result.code === 2 || !measuredFor ? [] : measuredDrift(result.stats, measuredFor);
+    if (drift.length > 0) {
+      err('\nWorkflow artifact policy: THE MEASUREMENTS IN THIS FILE ARE STALE (exit 1).');
+      err('  The policy verdict above STANDS -- it was reached before this check and is unaffected.');
+      err('  What is wrong is the MEASURED block, which the floors and the canary edges derive from:');
+      for (const d of drift) {
+        err('    ' + d.dimension + ': recorded ' + d.recorded + ', measured ' + d.live + ' just now');
+      }
+      err('  Re-derive MEASURED from this run\'s own numbers and re-check the floors that hang off it.');
+      err('  This is not a policy violation and not a broken guard: it is a number that has stopped');
+      err('  being a measurement while still looking like one.');
+      err('');
+      // Escalated, never downgraded: a policy violation stays 1, a clean repo
+      // with stale numbers becomes 1. Exiting 0 here would put the re-measure
+      // prompt into the one channel nobody reads -- a passing run's log -- which
+      // is the silence this arc exists to remove.
+      return 1;
+    }
     return result.code;
   } catch (error) {
     err('\nWorkflow artifact policy: COULD NOT RUN (exit 2).');
@@ -4347,9 +4744,18 @@ function selfTest(out = console.log, err = console.error) {
   // A4 is a rule about an ABSENCE, and absence rules pass loudest when their
   // subject is deleted. Renaming ci-budget-guard.yml must not read as "it
   // uploads nothing".
+  //
+  // The subject is a FIXTURE name supplied by the case, not whatever CONFIG
+  // happens to hold. Reading NO_UPLOAD_WORKFLOWS through the ?? fallback, this
+  // case asserted the rule only while some repo had an A4 subject configured;
+  // in a repo with none it silently measured an empty list, found no missing
+  // subject, returned 0, and reported that A4's absence rule was broken -- when
+  // what had actually gone missing was the case's own input. A canary case that
+  // reads CONFIG is testing the configuration, not the rule. Verdict here is
+  // unchanged: this repo configures a subject either way.
   add(
     'inclusion: the A4 subject going missing is exit-2 material, not a pass',
-    () => assertInclusion(statsOf({ workflowFiles: 1, jobs: 1, steps: 1, uploadSteps: 1, seenFiles: ['other.yml'] }), { floors: tinyFloors }).length,
+    () => assertInclusion(statsOf({ workflowFiles: 1, jobs: 1, steps: 1, uploadSteps: 1, seenFiles: ['other.yml'] }), { floors: tinyFloors, noUploadWorkflows: ['zz-fixture-meter.yml'] }).length,
     1,
   );
   // An UNDECLARED floor is not a floor of zero. Mistyping a FLOORS key used to
@@ -4369,42 +4775,150 @@ function selfTest(out = console.log, err = console.error) {
   // runs --self-test first.
   add('floors: the file floor absorbs losing two workflows', () => FLOORS.workflowFiles <= MEASURED.workflowFiles - 2, true);
   add('floors: and stays above half, so half a directory read is still caught', () => FLOORS.workflowFiles >= Math.ceil(MEASURED.workflowFiles / 2), true);
-  add('floors: the upload floor absorbs retiring two monitors', () => FLOORS.uploadSteps <= MEASURED.uploadSteps - 2, true);
+  // Math.max(0, ...) is what makes this case PORTABLE. Written as a bare
+  // subtraction it says `FLOORS.uploadSteps <= -2` in a repo that measures zero
+  // uploads -- which no legal floor satisfies, so bachata-admin's port failed
+  // its own positive control on ARRIVAL, before the guard had read a single
+  // workflow, and did it in the one canary case whose subject is the port. The
+  // subtraction is a headroom claim; headroom below zero is not a stricter
+  // claim, it is a nonsensical one. Verdict is unchanged wherever there are two
+  // monitors to retire, which here means 3 <= max(0, 5 - 2) exactly as before.
+  add('floors: the upload floor absorbs retiring two monitors', () => FLOORS.uploadSteps <= Math.max(0, MEASURED.uploadSteps - 2), true);
   // The collapse floor, both edges, from the same measurements: below the
   // largest-single-deletion line and well above the tenth-of-the-repo line.
   add('floors: the collapse floor survives deleting the largest workflow', () => FLOORS.steps <= MEASURED.steps - MEASURED.largestWorkflowSteps, true);
   add('floors: and is high enough to catch a catastrophic under-read', () => FLOORS.steps >= Math.ceil(MEASURED.steps / 10) + 1, true);
-  // MEASURED against the REPOSITORY, which is the only case in this canary that
-  // touches disk -- and it earns the exception. Everything else here pins
-  // FLOORS against MEASURED, so without this the whole "both edges are pinned
-  // by measurement" claim is two hand-written constants agreeing with each
-  // other and never failing on real data. Add ten workflows and leave MEASURED
-  // at 21 and the half-directory floor is silently wrong while the canary stays
-  // green.
+  // MEASURED AGAINST THE REPOSITORY NOW LIVES IN THE GUARD, not here, and the
+  // move is the point rather than a tidy-up. These were the only cases in this
+  // canary that touched disk, defended for years as an exception that earned
+  // itself -- and the exception was the defect. architecture-guard.yml runs
+  // --self-test BEFORE the check in the same `run:` block, so a MEASURED block
+  // made stale by perfectly ordinary growth (a contract check added to
+  // db-contract-check.yml, a workflow split into two jobs, a second upload
+  // step) exited 2, and the artifact policy was never evaluated on that PR at
+  // all. The guard switched itself off because its own repository had changed,
+  // and the failure message said "the guard is broken" about a repo that had
+  // done nothing wrong.
   //
-  // A BAND, not equality: an exact pin would red on adding one workflow, which
-  // is ordinary work, and this file has already spent three drafts learning
-  // what happens when a gate reds on ordinary work. 25% is wide enough to
-  // absorb normal churn and narrow enough that MEASURED cannot quietly become
-  // fiction.
-  const liveStats = () => {
-    const files = readWorkflowsFromDisk(ROOT);
-    const parsedLive = files.map((f) => parseWorkflow(f.name, f.text));
-    return {
-      workflowFiles: parsedLive.length,
-      steps: parsedLive.reduce((n, p) => n + p.steps, 0),
-      uploadSteps: parsedLive.reduce((n, p) => n + p.uploads.length, 0),
-    };
-  };
-  const drifted = (live, recorded) => Math.abs(live - recorded) > recorded * 0.25;
+  // That is this arc's headline failure -- a guard reporting something other
+  // than what it measured -- sitting inside the guard written to end it. Three
+  // review findings across two rounds landed on it before the shape was named,
+  // and the first fix only moved the cliff from one dimension to another.
+  //
+  // The comparisons are measuredDrift() now, called from main() AFTER the
+  // policy verdict has been reached and printed, and still exiting non-zero.
+  // See its docstring for the ordering argument, and for why a warn tier that
+  // exits 0 was never on the table here.
+  //
+  // WHAT STAYS IN THE CANARY is everything provable without a directory: the
+  // band's arithmetic, and measuredDrift's own behaviour driven on injected
+  // stats. Neither can red on ordinary growth, because neither reads the
+  // repository -- which is exactly the property the disk-touching cases lacked
+  // and could not be given.
+  add('drift: a reading inside the band is not drift', () => drifted(22, 21), false);
+  add('drift: and one outside it is', () => drifted(30, 21), true);
+  // The floor, both directions, driven at the zero this repository cannot reach
+  // on its own numbers and bachata-admin runs at every day. Without the floor a
+  // relative band is undefined there: |1 - 0| > 0 is true, so the first upload
+  // ever added would have read as drift.
+  add('drift: a zero measurement tolerates the first arrival rather than red', () => drifted(1, 0), false);
+  add('drift: and still reports drift once it is more than one', () => drifted(2, 0), true);
+  // Fail-closed, both directions. A renamed or deleted MEASURED key must not
+  // read as "no drift" -- that is the unread-field defect coming back through
+  // its own repair -- and the second case stops the first being satisfied by a
+  // predicate that simply always reports drift.
+  add('drift: a MEASURED key that has gone missing reports drift, not agreement', () => drifted(28, undefined), true);
+  add('drift: and an unreadable live reading does the same', () => drifted(NaN, 28), true);
 
-  add('measured: the recorded file count still matches the repository', () => drifted(liveStats().workflowFiles, MEASURED.workflowFiles), false);
-  add('measured: and the recorded step count does too -- re-measure if this reds', () => drifted(liveStats().steps, MEASURED.steps), false);
-  add('measured: and the recorded upload count', () => drifted(liveStats().uploadSteps, MEASURED.uploadSteps), false);
-  // Both directions: the drift test can actually fail, so a green above is a
-  // measurement rather than a tautology like the `MEASURED.steps > 0` it
-  // replaced.
-  add('measured: the drift test is capable of failing', () => drifted(MEASURED.steps * 2, MEASURED.steps), true);
+  // measuredDrift itself, on INJECTED stats. `agreeing` hands MEASURED's own
+  // numbers straight back, so the clean answer below is the rule agreeing with
+  // itself rather than a fixture chosen to make it agree.
+  const agreeing = {
+    workflowFiles: MEASURED.workflowFiles,
+    jobs: MEASURED.jobs,
+    steps: MEASURED.steps,
+    uploadSteps: MEASURED.uploadSteps,
+    largestWorkflowSteps: MEASURED.largestWorkflowSteps,
+  };
+  add('drift: stats matching MEASURED report nothing', () => measuredDrift(agreeing).length, 0);
+  // A perturbation that is outside the band for ANY recorded value, zero
+  // included. `* 3` was the obvious choice and is the defect this backport
+  // exists to remove: at a recorded 0 it is still 0, so nothing drifts, the
+  // filter returns [], and `[0].dimension` throws a TypeError the runner scores
+  // as a FAIL -- taking the canary, and therefore the guard behind it, offline
+  // in any copy where a dimension measures zero. `n * 2 + 2` moves by n + 2,
+  // which always exceeds max(1, n * 0.25).
+  const wayOff = (n) => n * 2 + 2;
+  // THE GUARD'S OWN READING of the two dimensions this diff added, asserted on
+  // a fixture rather than on the repository. measuredDrift is driven above with
+  // INJECTED stats, which proves the comparison and says nothing whatever about
+  // where the numbers come from -- so a stats builder that reported 0 for
+  // either field would agree with a MEASURED of 0 and sail through every case
+  // above. Found by mutation, not by reading: the mutants that neuter these two
+  // reduces survived until these two cases existed.
+  //
+  // The fixture is three workflows of 1, 3 and 2 steps, so the largest is 3 and
+  // the total job count is 3 -- values no other fixture in this file shares, so
+  // a case passing here is reading this fixture and not something else.
+  const sizedFiles = [
+    { name: 'a.yml', text: fixtureWorkflow(['push'], ['      - run: one']) },
+    { name: 'b.yml', text: fixtureWorkflow(['push'], ['      - run: one', '      - run: two', '      - run: three']) },
+    { name: 'c.yml', text: fixtureWorkflow(['push'], ['      - run: one', '      - run: two']) },
+  ];
+  // FLOORS OF ZERO, so this analyses down the code-0 path it is written to
+  // describe. anCfg carries tinyFloors, whose uploadSteps floor is 1, and these
+  // fixtures upload nothing -- so assertInclusion blocked, analyse returned
+  // code 2, and both cases below read .stats off a FAILURE return. They passed
+  // only because that particular code-2 branch happens to carry stats, while
+  // the probe-failure branch twenty lines from it returns stats: null. One
+  // refactor making the two consistent would have turned the only proof that
+  // the guard reads these two fields from disk into a pair of TypeErrors.
+  // Self-contained rather than spread from anCfg, which is declared two hundred
+  // lines further down: a `{ ...anCfg }` here is evaluated while the case LIST
+  // is being built and dies with "Cannot access 'anCfg' before initialization",
+  // which surfaces as THE CANARY COULD NOT RUN rather than as a FAIL line. The
+  // only thing it wanted from anCfg was an empty allowlist.
+  const sizedCfg = { allowlist: [], noUploadWorkflows: [], floors: { workflowFiles: 1, uploadSteps: 0, steps: 1 } };
+  // MEMOISED, not hoisted to an eager const. Eager evaluation ran at case-LIST
+  // construction time, where `anCfg` is not yet initialised (ReferenceError) and
+  // where any failure reads as a crash rather than as a named FAIL line -- which
+  // is the very trade-off the liveMeasured comment in this file recorded before
+  // this block replaced it. Once, but when a case runs.
+  let sizedCache = null;
+  const sizedStats = () => (sizedCache ??= analyse(sizedFiles, sizedCfg).stats);
+  add('drift: analyse reports the LARGEST workflow, not the first or the total', () => sizedStats().largestWorkflowSteps, 3);
+  add('drift: and totals the jobs across every file', () => sizedStats().jobs, 3);
+  // EVERY dimension is reachable, asserted one at a time. A rule that only ever
+  // consults the first key of its list passes a single positive case and is
+  // blind to the other four -- and two of these five are the fields nothing read
+  // before this diff, which is the entire defect being repaired, so naming them
+  // individually is the point rather than thoroughness for its own sake.
+  add('drift: the file count is one of the dimensions checked', () => measuredDrift({ ...agreeing, workflowFiles: wayOff(MEASURED.workflowFiles) })[0].dimension, 'workflowFiles');
+  add('drift: so is the job count, which nothing read before', () => measuredDrift({ ...agreeing, jobs: wayOff(MEASURED.jobs) })[0].dimension, 'jobs');
+  add('drift: so is the step count', () => measuredDrift({ ...agreeing, steps: wayOff(MEASURED.steps) })[0].dimension, 'steps');
+  add('drift: so is the upload count', () => measuredDrift({ ...agreeing, uploadSteps: wayOff(MEASURED.uploadSteps) })[0].dimension, 'uploadSteps');
+  add('drift: so is the largest workflow, the other field nothing read', () => measuredDrift({ ...agreeing, largestWorkflowSteps: wayOff(MEASURED.largestWorkflowSteps) })[0].dimension, 'largestWorkflowSteps');
+  // The report needs both numbers to be actionable: "recorded X, measured Y" is
+  // the whole instruction, and a drift entry that carried only the name would
+  // send the reader back to run the parser by hand.
+  add('drift: a reported dimension carries the recorded and the live figure', () => {
+    const d = measuredDrift({ ...agreeing, steps: wayOff(MEASURED.steps) })[0];
+    return d.recorded === MEASURED.steps && d.live === wayOff(MEASURED.steps);
+  }, true);
+  // A missing stats object THROWS rather than reporting agreement. The case
+  // used to assert the permissive answer as the contract, which is the exact
+  // fail-open shape the two cases above exist to refuse -- an unknown recorded
+  // as "nothing is wrong". main() short-circuits on code 2 before this is
+  // reached, so the throw is unreachable in practice and that is the point: it
+  // stays unreachable only for as long as somebody keeps it so.
+  add('drift: a missing stats object throws rather than reporting agreement', () => {
+    try {
+      measuredDrift(null);
+      return 'returned';
+    } catch (error) {
+      return 'threw';
+    }
+  }, 'threw');
 
   // Deliberately no lower edge on uploadSteps: 0 is correct in bachata-admin,
   // where this same file is the enforcement copy over a repo with no upload
@@ -4432,9 +4946,18 @@ function selfTest(out = console.log, err = console.error) {
       }).length,
     1,
   );
+  // Supplies its own subject, for the same reason as its twin above. This one
+  // is NOT vacuous in this repository -- NO_UPLOAD_WORKFLOWS is non-empty here,
+  // so the ?? fallback happened to feed it the right thing -- and that is
+  // precisely what made it worth fixing rather than leaving: it passed for a
+  // reason that is a property of the CONFIG block rather than of the rule.
+  // Ported to a repo with an empty list, the loop it aims at never runs, so
+  // present and absent become indistinguishable and the case asserts nothing
+  // while still printing ok. It also named a workflow file that exists in only
+  // one of the two repositories.
   add(
     'inclusion: the subject present is not blocked',
-    () => assertInclusion(statsOf({ workflowFiles: 1, jobs: 1, steps: 1, uploadSteps: 1, seenFiles: ['ci-budget-guard.yml'] }), { floors: tinyFloors }).length,
+    () => assertInclusion(statsOf({ workflowFiles: 1, jobs: 1, steps: 1, uploadSteps: 1, seenFiles: ['zz-fixture-meter.yml'] }), { floors: tinyFloors, noUploadWorkflows: ['zz-fixture-meter.yml'] }).length,
     0,
   );
 
@@ -4689,10 +5212,79 @@ function selfTest(out = console.log, err = console.error) {
   // main() via the injected seam, because the direct call recurses.
   add('exit: a failing canary is 2 -- the guard is broken, not the repo', () => runMain(['--self-test'], { runSelfTest: () => false }), 2);
   add('exit: a passing canary is 0', () => runMain(['--self-test'], { runSelfTest: () => true }), 0);
+  // A canary that THROWS rather than returning false is 2 as well, and until
+  // this case the dispatch was unwrapped, so such a throw escaped main() and
+  // node exited 1 -- the code reserved for "policy violated".
+  //
+  // NO LIVE ROUTE REACHES IT TODAY, and saying so is the point of the case
+  // rather than an argument against it: the runner catches per-case throws, and
+  // every YAML parse in this canary sits inside a case thunk, so a missing
+  // `yaml` produces FAIL lines and a clean 2. That was MEASURED, against the
+  // inherited comment which claimed the opposite. What a dependency-less
+  // checkout really did was die at the STATIC IMPORT, before main() existed to
+  // have an opinion -- exit 1 in both modes, in a fresh worktree with no
+  // node_modules -- and the fix for that is the lazy loader, not this wrapper.
+  //
+  // Driven through the same injected seam as the two cases above, so it asserts
+  // main()'s contract rather than the canary's internals, and holds the arm
+  // upright for the day a parse moves out of a thunk.
+  add(
+    'exit: a canary that THROWS is 2, not the policy code',
+    () => runMain(['--self-test'], { runSelfTest: () => { throw new Error('the `yaml` package is not installed'); } }),
+    2,
+  );
   add(
     'exit: a compliant repo is 0 -- the contract is not merely "always 2"',
     () => runMain([], { listFiles: () => cleanFiles, cfg: anCfg }),
     0,
+  );
+  // THE STALE-MEASUREMENT EXIT, driven through main() rather than asserted from
+  // outside it, because the code this returns is the whole reason the check
+  // moved out of the canary. `cleanStats` is what analyse() itself computes
+  // for this fixture, so the agreeing case cannot pass by the measurements
+  // being ignored -- and the drifting case perturbs one dimension of that same
+  // object, so the only difference between the two is the thing under test.
+  // Computed ONCE. The fixture is a module-level constant, so re-running
+  // analyse() -- self-probe included -- per call bought nothing, and three of
+  // the cases below called it twice inside a single expression. Multiplied by
+  // the child process the mutation harness spawns per mutant, each running the
+  // whole canary, it was thousands of redundant probe-and-parse cycles.
+  let cleanCache = null;
+  const cleanStats = () => (cleanCache ??= analyse(cleanFiles, anCfg).stats);
+  add(
+    'exit: an injected repo whose measurements agree is 0',
+    () => runMain([], { listFiles: () => cleanFiles, cfg: { ...anCfg, measured: cleanStats() } }),
+    0,
+  );
+  add(
+    'exit: and one whose MEASURED has gone stale is 1, not 2',
+    () => runMain([], { listFiles: () => cleanFiles, cfg: { ...anCfg, measured: { ...cleanStats(), steps: cleanStats().steps * 10 } } }),
+    1,
+  );
+  // THE ORDERING, which is the entire fix and would otherwise be a claim in a
+  // comment. A stale MEASURED must not stop the policy being judged: the pass
+  // line has to be on the page even on the run that exits 1 for drift. Before
+  // the move this was structurally impossible -- the canary gated the guard, so
+  // a stale block meant no verdict at all.
+  add(
+    'report: a stale MEASURED still lets the policy verdict be printed first',
+    () => captured(cleanFiles, { ...anCfg, measured: { ...cleanStats(), steps: cleanStats().steps * 10 } })
+      .includes('Workflow artifact policy passed'),
+    true,
+  );
+  // And the drift block names the dimension, so the reader is told which number
+  // to re-derive rather than being sent to re-measure all five.
+  add(
+    'report: the drift block names the dimension that moved',
+    () => captured(cleanFiles, { ...anCfg, measured: { ...cleanStats(), steps: cleanStats().steps * 10 } })
+      .includes('steps: recorded '),
+    true,
+  );
+  add(
+    'report: and a repo whose measurements agree never prints the drift block',
+    () => captured(cleanFiles, { ...anCfg, measured: cleanStats() })
+      .includes('THE MEASUREMENTS IN THIS FILE ARE STALE'),
+    false,
   );
   add(
     'exit: a policy violation is 1, held distinct from could-not-run',
@@ -4810,6 +5402,30 @@ function selfTest(out = console.log, err = console.error) {
     () => captured(cleanFiles, anCfg).includes('fan-out: the largest upload here produces 1 copy(s) per run, against a budget of'),
     true,
   );
+  // The zero-upload arm, which no run in THIS repository can reach -- five
+  // upload steps are measured here -- and which is bachata-admin's only A5 line.
+  // Both directions, so the arm cannot be satisfied by a typo and a repo that
+  // does upload is never told there was nothing to price.
+  //
+  // The file set is the A4 subject ALONE -- a workflow that uploads nothing. An
+  // empty list looks like the obvious fixture and is the wrong one: with no
+  // files at all the A4 subject is missing, analyse returns 2, the run takes the
+  // failure path, and the case would be asserting the absence of a line from a
+  // report that never prints it.
+  add(
+    'report: a repo with no uploads is told so, rather than told nothing',
+    // uploadSteps: 0 in the floors as well, because THAT is the configuration a
+    // zero-upload repository actually runs -- tinyFloors demands one upload, so
+    // with the default the run is blocked on the floor and takes the failure
+    // path, which is the same trap one line up wearing different clothes.
+    () => captured([{ name: 'ci-budget-guard.yml', text: guardWithComment }], { ...anCfg, floors: { ...tinyFloors, uploadSteps: 0 } }).includes('fan-out: no upload-artifact step in this repository'),
+    true,
+  );
+  add(
+    'report: and a repo that DOES upload never sees that line',
+    () => captured(cleanFiles, anCfg).includes('no upload-artifact step in this repository'),
+    false,
+  );
   // The failure path states how much of the surface could not be priced. That
   // is the number which makes the measurement sentinel-free, and it reached
   // nobody outside the canary until review said so.
@@ -4833,6 +5449,21 @@ function selfTest(out = console.log, err = console.error) {
     'report: the A4 legend names the configured subject, not a hardcoded file',
     () => captured(ambiguousFiles, { ...anCfg, noUploadWorkflows: ['ci-budget-guard.yml'] }).includes('  A4     ci-budget-guard.yml upload nothing'),
     true,
+  );
+  // THE EMPTY BRANCH, which is bachata-admin's live case and unreachable here.
+  // Adding a branch to the legend and asserting only the branch this repo takes
+  // is how an unasserted line ships: nothing would have failed if the empty case
+  // printed the subjectless sentence it printed before, or nothing at all. Both
+  // directions, so the negative is not satisfied by a typo.
+  add(
+    'report: and with NO A4 subject the legend says so, rather than naming nothing',
+    () => captured(ambiguousFiles, { ...anCfg, noUploadWorkflows: [] }).includes('  A4     no subject in this repo'),
+    true,
+  );
+  add(
+    'report: an empty A4 list never prints the sentence with its subject missing',
+    () => captured(ambiguousFiles, { ...anCfg, noUploadWorkflows: [] }).includes(' upload nothing; they read the pool'),
+    false,
   );
 
   let failed = 0;

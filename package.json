@@ -65,6 +65,7 @@
     "repair:corrupt": "bin/repair-corrupt.sh",
     "check:workflow-artifact-policy": "node scripts/check-workflow-artifact-policy.mjs",
     "check:workflow-artifact-policy:self-test": "node scripts/check-workflow-artifact-policy.mjs --self-test",
+    "mutate:workflow-artifact-policy": "node scripts/mutate-workflow-artifact-policy.mjs",
     "test:unit:timing": "vitest run EdgeTtl --no-file-parallelism"
   },
   "dependencies": {
