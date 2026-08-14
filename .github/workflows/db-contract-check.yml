@@ -1183,6 +1183,31 @@ jobs:
       #     way round -- the DB contracts as a body matter more than one image
       #     sweep, and a cancelled job now announces itself (see the notification
       #     step's `cancelled()` condition) rather than passing in silence.
+      # og-scrape EVIDENCE RECORDER (cron og-scrape-outcome-snapshot).
+      #
+      # og_scrape_outcome_log is the only durable record of what Facebook returns
+      # to our OG scrape POSTs; net._http_response has a 6-hour ttl, so without
+      # the snapshot job every outcome is erased four times a day. The
+      # 2026-08-11 storm lost all 221 of its 403s that way. NO MIGRATION
+      # SCHEDULES THAT JOB, so before this guard its death was silent.
+      #
+      # It gates on cron RUN HISTORY, never on log freshness: measured
+      # 2026-08-14, the job succeeded 48/48 over 24h while the newest write was
+      # 199 minutes old, because the queue was empty and there was nothing to
+      # record. A freshness floor would red a healthy idle system.
+      #
+      # Exits 2 (not 0) against a database where admin migration 20260814130000
+      # has not been applied -- red rather than falsely green.
+      - name: Run og-scrape evidence-recorder check
+        if: always()
+        timeout-minutes: 2
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-og-scrape-evidence.mjs --self-test
+          node scripts/check-og-scrape-evidence.mjs
+
       - name: Run live image-reference check
         if: always()
         timeout-minutes: 3
