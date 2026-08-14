@@ -130,6 +130,7 @@ const TARGETS = [
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
   { rel: 'scripts/check-og-images.mjs' },
+  { rel: 'scripts/check-og-scrape-evidence.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
   { rel: 'scripts/check-pr-mergeable.mjs' },
   { rel: 'scripts/check-rpc-typing.mjs' },
