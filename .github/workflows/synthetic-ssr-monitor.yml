@@ -12,7 +12,16 @@ name: Synthetic SSR Monitor
 
 on:
   schedule:
-    - cron: '15 */6 * * *'  # every 6 hours, offset from the daily contract check
+    # Daily, and off the hour. Was 6-hourly; the saving is Vercel edge
+    # requests, which is the meter that hit 100% on 2026-08-14. It is NOT a
+    # Supabase saving, whatever the cost plan claimed: the UA here is
+    # Googlebot, and middleware.ts returns early for a bare city path under a
+    # search bot (`isBareCity && isSearchBot`) before any supabaseFetch, while
+    # /event left the middleware `matcher` in Phase 5 -- so neither of this
+    # suite's two navigations reaches the bot path at all. The cost is
+    # detection latency: ~6h to ~24h for a prod SSR RangeError or hydration
+    # cascade, the 2026-07-09 post-mortem class.
+    - cron: '53 3 * * *'
   workflow_dispatch:
     inputs:
       base_url:

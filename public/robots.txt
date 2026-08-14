@@ -1,4 +1,78 @@
+# Vercel meters every edge request and the free allowance was hit on
+# 2026-08-14, so this file exists to keep crawl volume off the meter without
+# costing search visibility.
+#
+# There is no per-agent group for Googlebot or Bingbot, so both fall through
+# to the "*" group and keep the same access as any ordinary visitor. No
+# Crawl-delay is set: Googlebot ignores it, Bingbot honours it, so setting one
+# would throttle only the engine we want crawling us against ~4,000 sitemap
+# URLs at changefreq: daily.
+#
+# AhrefsBot and SemrushBot are blocked as crawl volume. If either tool is ever
+# used to audit this domain's own backlinks or rankings, delete its group --
+# a blocked crawler reports nothing about us to us.
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# Everything else, Googlebot and Bingbot included.
+#
+# There is deliberately no `Allow: /` line. Nothing here disallows /, so it
+# adds no access for a longest-match parser, while a first-match parser -- the
+# original convention, still implemented by much of the second tier this file
+# is aimed at -- would take it as a blanket match and skip every Disallow
+# below.
+#
+# /api/ is machine endpoints (ICS, embed, revalidate, bake) with nothing to
+# index. /api/og/card is the ONE exception and must stay reachable: when an
+# entity has no R2-baked card, detailLoader.ts resolves og:image to a live
+# /api/og/card render, and facebookexternalhit and Twitterbot obey robots.txt
+# when fetching it, so disallowing it kills the social preview for every
+# unbaked entity. The Allow names that route, not the /api/og/ prefix, so
+# /api/og/bake -- which writes to R2 -- stays covered by the Disallow.
+#
+# /search is a query-parameter surface that is in no sitemap: followed from an
+# internal link it mints unbounded distinct URLs, each one a metered request.
+# /auth, /onboarding and /profile are session pages with nothing to index.
 User-agent: *
-Allow: /
+Allow: /api/og/card
+Disallow: /api/
+Disallow: /search
+Disallow: /auth
+Disallow: /onboarding
+Disallow: /profile
 
 Sitemap: https://www.bachatacalendar.co.uk/sitemap.xml

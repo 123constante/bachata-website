@@ -11,7 +11,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CityProvider } from "@/contexts/CityContext";
 import { AppChrome } from "@/components/AppChrome";
 import { SearchProvider } from "@/components/search/SearchProvider";
-import { Analytics } from "@vercel/analytics/react";
 
 // Global query defaults: 60s staleTime, single retry, refetch on window focus.
 // Per-query staleTimes (2--5 min) still override where set.
@@ -83,8 +82,20 @@ export function getBrowserQueryClient(): QueryClient {
 
 // Everything OUTSIDE the router. Exported so the SSR-safety gate test
 // (tests/ssr/eventPageSsr.test.tsx) can wrap the real provider stack around a
-// StaticRouter instead of BrowserRouter. <Analytics /> keeps its exact position
-// inside QueryClientProvider; it is effect-injected and SSR-safe.
+// StaticRouter instead of BrowserRouter.
+//
+// Vercel's <Analytics /> used to sit at the bottom of this provider stack. It
+// was removed 2026-08-14: Hobby allows 2,500 events/month, it is unsampled,
+// and it fires once per pageview AND once per client-side navigation, so at
+// ~14k pageviews it was multiples over its ceiling.
+//
+// NOTHING REPLACES IT YET -- this site currently collects no pageview
+// analytics at all. The intended replacement is Cloudflare Web Analytics
+// (free, unmetered, off Vercel's meter), which cannot land until the domain
+// is proxied through Cloudflare, and which will ALSO need its beacon host
+// added to script-src in app/csp.ts: that header is `'self' 'nonce-...'` with
+// no external host, so a beacon added without it is silently CSP-blocked and
+// looks exactly like analytics that work.
 //
 // `client` is optional: the browser omits it (shared getBrowserQueryClient());
 // a server render (or the gate test) passes a fresh createQueryClient() so no
@@ -98,7 +109,6 @@ export const AppProviders = ({ children, client }: { children: ReactNode; client
         {children}
       </TooltipProvider>
     </AuthProvider>
-    <Analytics />
   </QueryClientProvider>
 );
 
