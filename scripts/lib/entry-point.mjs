@@ -85,24 +85,129 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * realpathSync.native resolves junctions AND canonicalises case on Windows (it
- * goes through GetFinalPathNameByHandle); the JS implementation does neither
- * reliably.
+ * goes through GetFinalPathNameByHandle). The JS implementation resolves the
+ * links too -- measured below -- but leaves the case exactly as spelled.
  *
- * Called directly, with no `typeof === 'function'` fallback. A review asked for
- * one; it would be worse than nothing. `.native` has existed since Node 9.2 and
- * every workflow here pins Node 22, so the branch is unreachable -- and if it
- * ever did run, it would silently substitute the implementation this module
- * exists to avoid, reinstating the bug through the rescue path. A missing
- * `.native` should be a TypeError somebody sees, not a quiet downgrade.
+ * An earlier draft called `.native` with no fallback at all, arguing that a
+ * missing `.native` "should be a TypeError somebody sees, not a quiet
+ * downgrade". The argument was right and the code did the opposite: the catch
+ * beneath it was bare, so it swallowed precisely that TypeError, fell through to
+ * the literal compare, and reinstated the fail-open this module exists to remove
+ * -- silently, and behind a warning that blamed argv[1] for a path that resolves
+ * perfectly well. Measured 2026-08-14, junction spelling, `.native` deleted:
+ * false, one warning, wrong culprit. An EACCES from `.native` was byte-identical.
+ *
+ * The first fix for that separated the errors into two classes and retried only
+ * one of them: a `code`-bearing error meant "this PATH is unresolvable, and the
+ * JS implementation fails on it identically, so there is nothing to retry". The
+ * second half of that sentence is false, and a review caught it before it
+ * shipped. The two implementations do not share a code path -- `.native` is one
+ * CreateFileW handle plus GetFinalPathNameByHandle, the JS one walks the
+ * components with lstat/readlink -- and GetFinalPathNameByHandle is not
+ * supported on every filesystem. A network redirector or a FUSE-backed mount can
+ * answer it with ERROR_INVALID_FUNCTION / ERROR_NOT_SUPPORTED, which libuv hands
+ * back as an ordinary code-bearing fs error. This repo runs on Cowork -> FUSE ->
+ * virtio-fs -> NTFS. Classifying that as "the path is gone" skips the fallback
+ * that would have resolved it; both sides then come back unresolved, the compare
+ * degrades to the raw string, and a junction invocation returns FALSE. The
+ * fail-open again, reached through the fix for it.
+ *
+ * So there is no classification. ALWAYS try the JS implementation; report a
+ * failure only when BOTH refuse. The price is one extra component walk on a path
+ * that is genuinely gone, at most once per side per process.
+ *
+ *   - Either implementation resolves it -> that answer, and if `.native` was the
+ *     one that failed, say so. Measured on a real junction 2026-08-14: the JS
+ *     one returns the canonical C:\dev\Website\... spelling, i.e. it does
+ *     resolve the link. So the JUNCTION verdict stays RIGHT -- which is more
+ *     than a TypeError escaping out of a session hook would have achieved.
+ *
+ *     It is NOT a full replacement, and a draft of this paragraph said its "one
+ *     shortfall is the case, which samePath already folds". Case is one
+ *     shortfall. Measured 2026-08-14 on this box:
+ *
+ *       .native('...\lib\ENTRY-~1.MJS') -> ...\lib\entry-point.mjs
+ *       JS     ('...\lib\ENTRY-~1.MJS') -> ...\lib\ENTRY-~1.MJS   (unexpanded)
+ *
+ *     An 8.3 short name and a subst/mapped drive letter are both spellings this
+ *     module's own header names as targets, and neither survives the downgrade:
+ *     under a broken facility they read as imported. That is not a regression --
+ *     before the fallback existed they compared literally and failed the same
+ *     way -- but it is a real limit, and the downgrade warning states it rather
+ *     than reassuring the reader that the verdict is sound. Expanding them is
+ *     re-implementing GetFinalPathNameByHandle in userland, which is the wrong
+ *     trade; naming the gap is not.
+ *   - Both refuse -> report the failure and let the caller name it. The
+ *     `.native` error rides along ONLY when it carried no errno, i.e. when the
+ *     facility is broken as well as the path being gone. An ENOENT from both is
+ *     a missing file, not a broken runtime, and must not accuse one.
+ *
+ * `.native` has existed since Node 9.2 and every workflow here pins Node 22, so
+ * the downgrade should never fire. It is proven anyway -- selfTest deletes
+ * `.native`, stubs it to throw with and without an errno, and injects a
+ * `realpath` seam so the both-refuse branch can be driven without inventing a
+ * filesystem -- because "unreachable" is the reason the bare catch sat
+ * unexamined underneath the paragraph disowning it.
  */
-const realpath = (p) => realpathSync.native(p);
 
-/** null rather than a throw, so callers can branch on "could not resolve". */
-const tryRealpath = (p) => {
+/**
+ * Name a thrown value without trusting it to be an Error.
+ *
+ * resolveReal guards its own read with `?.`; the three warnings below did not,
+ * and reached straight for `.code ?? .message`. A patched or mocked fs throwing
+ * a string -- or null -- therefore made isEntryPoint ITSELF throw, out of an
+ * ESM import resolved before any caller's try/catch exists (see the header),
+ * i.e. a hook whose contract is to print nothing exiting 1 with a stack trace.
+ * That is the outcome the both-refuse branch was added to prevent, defeated one
+ * line further down.
+ */
+const describe = (error) => error?.code ?? error?.message ?? String(error);
+
+/**
+ * Resolve `p`, or say why not. Never a bare null: a caller that cannot name the
+ * failure writes the misattributed warning above.
+ *
+ * `realpath` is a seam, not a configuration point. Nothing in the repo passes
+ * it; the canary does, because "both implementations refuse" cannot be reached
+ * from a real filesystem on demand -- stubbing the `.native` PROPERTY leaves the
+ * JS implementation underneath live, which is precisely the asymmetry the
+ * paragraph above is about.
+ *
+ * EVERY FLAG HERE IS A BOOLEAN, and the callers gate on the boolean rather than
+ * on the thrown value. The first version stored the error in `failure` and in
+ * `downgraded` and let the call sites test those for truthiness, which works
+ * only as long as nothing throws something falsy. describe() exists two lines up
+ * because a mocked fs may throw a non-Error; `throw null` -- or `''`, or `0` --
+ * then made both gates read as "did not happen". Measured on that version: both
+ * implementations throwing an EACCES Error warned twice, throwing null warned
+ * ONCE (the module-side degraded branch silent again), and a `.native` throwing
+ * '' with the JS walker succeeding warned ZERO times -- a downgrade that speaks
+ * only when it also changes the answer, which is the thing this module's own
+ * case name calls "a downgrade nobody finds".
+ *
+ * @param {string} p
+ * @param {typeof realpathSync} realpath
+ * @returns {{path?: string, failed?: boolean, downgraded?: boolean,
+ *            failure?: unknown, nativeError?: unknown}}
+ */
+const resolveReal = (p, realpath) => {
   try {
-    return realpath(p);
-  } catch {
-    return null;
+    return { path: realpath.native(p) };
+  } catch (error) {
+    try {
+      return { path: realpath(p), downgraded: true, nativeError: error };
+    } catch (fallbackError) {
+      // Both refused, so the PATH is the fault. Announce the facility as well
+      // only when the `.native` error had no errno: that is the facility broken
+      // AS WELL as the path being gone. An ENOENT from both must not be
+      // reported as a broken runtime.
+      return {
+        failed: true,
+        failure: fallbackError,
+        downgraded: typeof error?.code !== 'string',
+        nativeError: error,
+      };
+    }
   }
 };
 
@@ -155,12 +260,13 @@ const defaultWarn = (message) => {
  *     }
  *
  * @param {string} importMetaUrl  the caller's own `import.meta.url`
- * @param {{argv?: string[], warn?: (message: string) => void}} [deps]
+ * @param {{argv?: string[], warn?: (message: string) => void,
+ *          realpath?: typeof realpathSync}} [deps]
  *        seams so the canary can drive every branch without spawning a process
  * @returns {boolean}
  */
 export function isEntryPoint(importMetaUrl, deps = {}) {
-  const { argv = process.argv, warn = defaultWarn } = deps;
+  const { argv = process.argv, warn = defaultWarn, realpath = realpathSync } = deps;
 
   if (typeof importMetaUrl !== 'string' || importMetaUrl === '') return false;
 
@@ -188,29 +294,75 @@ export function isEntryPoint(importMetaUrl, deps = {}) {
   // canonical, but --preserve-symlinks-main / --preserve-symlinks turn that
   // off, and under those flags the MODULE side is the non-canonical one --
   // resolving only the argv side would fail open in the mirror image of the
-  // original bug. If the module's own path cannot be resolved (deleted mid-run,
-  // an exotic VFS) fall back to it as given: it came from the loader, so it is
-  // the more trustworthy of the two.
-  const moduleReal = tryRealpath(modulePath) ?? modulePath;
-
+  // original bug.
   const entryAbs = path.resolve(entry);
-  const entryReal = tryRealpath(entryAbs);
-  if (entryReal !== null) return trace(samePath(entryReal, moduleReal), moduleReal);
+  const moduleRes = resolveReal(modulePath, realpath);
+  const entryRes = resolveReal(entryAbs, realpath);
+
+  // One warning per CONDITION, not per call site. A facility that is down fails
+  // both resolutions, and a module that says the same thing twice teaches the
+  // reader to skim the line that mattered.
+  // Gate on the BOOLEAN and carry the whole result, so a falsy thrown value
+  // cannot turn either warning off. `downgradedRes` is an object or undefined.
+  const downgradedRes = moduleRes.downgraded
+    ? { res: moduleRes, on: modulePath }
+    : entryRes.downgraded
+      ? { res: entryRes, on: entryAbs }
+      : undefined;
+  if (downgradedRes !== undefined) {
+    warn(
+      `[entry-point] realpathSync.native could not resolve ${downgradedRes.on} ` +
+        `(${describe(downgradedRes.res.nativeError)}); fell back to the JS realpathSync. That ` +
+        'resolves symlinks and junctions, so the usual non-canonical spellings still compare ' +
+        'correctly; it does NOT canonicalise case, which is immaterial because the compare folds ' +
+        'case on Windows. What it also does not do is expand an 8.3 short name (ENTRY-~1.MJS) or ' +
+        'a subst/mapped drive letter -- measured, not assumed -- so a run spelled either of those ' +
+        'ways will read as imported and do nothing while this is the only line printed. If a ' +
+        'further [entry-point] line follows, a path did not resolve at all and that line governs. ' +
+        'The named path is why this says nothing about the runtime: `.native` goes through one ' +
+        'CreateFileW handle, so a single file held FILE_SHARE_NONE by an editor or a scanner ' +
+        'fails it while the lstat walker resolves it. Read the errno and the path before ' +
+        'suspecting the Node install -- `.native` has existed since 9.2.',
+    );
+  }
+
+  // The module's own path did not resolve (deleted mid-run, an exotic VFS, a
+  // directory this account cannot traverse). Fall back to it as given: it came
+  // from the loader, so it is the more trustworthy of the two. But the compare
+  // below is now realpath-against-raw, and that asymmetry used to happen in
+  // COMPLETE SILENCE -- measured 2026-08-14 at true with zero warnings. The
+  // ordinary branches above are silent on purpose (a plain import, node --eval);
+  // this was the only DEGRADED one, reached because something failed to resolve,
+  // that said nothing about it.
+  if (moduleRes.failed === true) {
+    warn(
+      `[entry-point] could not resolve this module's own path (${modulePath}): ` +
+        `${describe(moduleRes.failure)}. Falling back to the path the ` +
+        'loader gave, so a non-canonical spelling of THIS file will read as imported rather ' +
+        'than run.',
+    );
+  }
+  const moduleReal = moduleRes.path ?? modulePath;
+
+  if (entryRes.path !== undefined) return trace(samePath(entryRes.path, moduleReal), moduleReal);
 
   // argv[1] names something that does not resolve on disk. Node normally
   // guarantees it does -- it just loaded it -- so this is either an exotic
   // invocation or a file that vanished mid-run. Compare literally as a last
-  // resort, and if that also says "not the entry", say so out loud: a silent
-  // false here is indistinguishable from the fail-open this module exists to
-  // remove.
+  // resort and say so either way, naming the errno: a silent false here is
+  // indistinguishable from the fail-open this module exists to remove, and a
+  // silent TRUE is that same raw string compare having guessed correctly.
   const literalMatch = samePath(entryAbs, moduleReal);
-  if (!literalMatch) {
-    warn(
-      `[entry-point] could not resolve process.argv[1] (${entry}); treating ` +
-        `${path.basename(modulePath)} as imported rather than run. If this was a direct ` +
-        'invocation, it has just done nothing.',
-    );
-  }
+  const why = describe(entryRes.failure);
+  warn(
+    literalMatch
+      ? `[entry-point] could not resolve process.argv[1] (${entry}): ${why}; it matched ` +
+          `${path.basename(modulePath)} on a raw string compare -- the comparison this module ` +
+          'exists to replace -- so this verdict is a guess that happened to land.'
+      : `[entry-point] could not resolve process.argv[1] (${entry}): ${why}; treating ` +
+          `${path.basename(modulePath)} as imported rather than run. If this was a direct ` +
+          'invocation, it has just done nothing.',
+  );
   return trace(literalMatch, moduleReal);
 }
 

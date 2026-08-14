@@ -261,9 +261,33 @@ const TWIN_DRIFT_HINT = (rel: string, sibling: string) =>
   "If a cross-repo change is mid-flight, set ADMIN_REPO_DIR to the checkout holding the paired commit.";
 
 describe("twin parity (skips when the admin checkout is absent, e.g. CI)", () => {
+  const fromEnv = Boolean(process.env.ADMIN_REPO_DIR);
   const sibling = process.env.ADMIN_REPO_DIR || path.resolve(REPO_ROOT, "..", "bachata-admin-11april");
   const present = fs.existsSync(path.join(sibling, "scripts", "hooks", "arc-checkpoint.mjs"));
   const lf = (p: string) => fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+
+  // SAY WHICH CHECKOUT THIS COMPARED, on the green and skipped paths too -- the
+  // failure message already carries it, and by then it is too late to be the
+  // thing that prevents the wrong diagnosis. This block's verdict depends on
+  // which branch a NEIGHBOURING working tree happens to be on, so a run aimed at
+  // the wrong one is indistinguishable from real drift, and a skipped run is
+  // indistinguishable from a passing one.
+  //
+  // Not hypothetical. On 2026-08-13 a PowerShell `$env:ADMIN_REPO_DIR` left set
+  // after a cross-repo push (PowerShell has no `VAR=value cmd` prefix, so the
+  // assignment persists for the whole shell) pointed a later run in an unrelated
+  // worktree at a converted sibling, and its legitimately-unconverted twins
+  // reported as `1 failed | 1322 passed`. One line here makes that self-evident.
+  // process.stdout.write, NOT console.log, to match the admin twin of this block:
+  // console.log prints here but is swallowed there (that suite runs happy-dom on the
+  // forks pool, whose DOM console vitest does not intercept -- measured 2026-08-14).
+  // These two blocks are read as a pair, so they use the form that works in both.
+  const source = fromEnv ? "ADMIN_REPO_DIR" : "default sibling path";
+  process.stdout.write(
+    (present
+      ? `twin parity: comparing against ${sibling} (${source})`
+      : `twin parity: SKIPPED -- no admin checkout at ${sibling} (${source})`) + "\n",
+  );
 
   it.skipIf(!present)("hook + lib content-identical modulo line endings", () => {
     // entry-point.mjs joined this list when the two hooks were converted to

@@ -255,10 +255,28 @@ function probeImport(absTarget, importerPath, timeoutMs) {
   return probeRun(importerPath, [absTarget], timeoutMs, absTarget);
 }
 
+/**
+ * Is this a CI runner? Exported so the canary can drive it -- the floor it arms
+ * lives after the case loop, where no case can observe its return.
+ *
+ * Truthiness would arm that floor on CI="false" and CI="0", both ordinary
+ * workstation exports, and the failure message then asserts the opposite of what
+ * is true. That is the third instance of one class in three review rounds on
+ * this branch -- `if (moduleRes.failure)`, `if (downgraded)`, and now this --
+ * so it is written as an explicit predicate over the value, not a cast of it.
+ */
+export const isCiEnv = (value) =>
+  value !== undefined && value !== '' && value !== 'false' && value !== '0';
+
+// Date.now() alone is millisecond-resolution and selfTest now makes five links
+// in a row, so two could collide and the second would fail EEXIST -- which used
+// to be reported as "no link-creation rights here".
+let linkSeq = 0;
+
 function makeLink(target) {
   const link = path.join(
     os.tmpdir(),
-    'entry-point-proof-' + process.pid + '-' + Date.now().toString(36),
+    'entry-point-proof-' + process.pid + '-' + (linkSeq++).toString(36) + '-' + Date.now().toString(36),
   );
   fs.symlinkSync(target, link, IS_WINDOWS ? 'junction' : 'dir');
   return link;
@@ -397,44 +415,351 @@ export async function selfTest() {
   // The undecidable case: argv[1] names something that does not resolve. False
   // is the only safe answer (true would re-run the CLI inside an importer), but
   // it must SAY SO -- a silent false here is the very fail-open being removed.
+  //
+  // The message assert is not decoration. The facility cases below moved this
+  // warning's wording, and the fix for a warning that blamed argv[1] for a
+  // BROKEN REALPATH must not swing the other way and stop blaming argv[1] when
+  // argv[1] is genuinely the thing at fault. This case owns that direction; case
+  // 'the warning names realpathSync.native, NOT argv[1]' owns the other.
   add(
-    'false and LOUD when argv[1] cannot be resolved on disk',
+    'false and LOUD when argv[1] cannot be resolved on disk, naming argv[1] and the errno',
     () => {
-      let warned = 0;
+      const warned = [];
       const got = isEntryPoint(SELF_URL, {
         argv: ['node', path.join(REPO_ROOT, 'no', 'such', 'file-8f3a1c.mjs')],
-        warn: () => warned++,
+        warn: (m) => warned.push(m),
       });
-      return got + '/' + warned;
+      const named =
+        warned.length === 1 &&
+        warned[0].includes('could not resolve process.argv[1]') &&
+        warned[0].includes('ENOENT');
+      return got + '/' + warned.length + '/' + named;
     },
-    'false/1',
+    'false/1/true',
   );
+  // Returns the junction spelling of this file, or SKIP where links cannot be
+  // made -- a fact about the account, not a failure of isEntryPoint, and
+  // reporting it red would make every such case indistinguishable from a real
+  // regression on a runner without link rights.
+  //
+  // ONLY a rights fact may skip. The first draft caught everything and labelled
+  // it "no link-creation rights here", so an EEXIST from a colliding link name
+  // or an ENOSPC read as a permissions fact -- and since five cases route
+  // through here and selfTest still returned 0 with them skipped, the whole
+  // junction arm could evaporate green. Anything that is not EPERM/EACCES is a
+  // defect in this harness or its environment and now reds. The floor beneath
+  // the loop closes the other half: under CI links are known to work, so a skip
+  // there means the harness reported green over a smaller set than it named.
+  const skipReasons = new Set();
+  // main() treats a link it could not remove as exit 2 -- "exactly the artifact
+  // a cleaner running `rm -rf` would follow". selfTest ran the identical hazard
+  // through a `finally` that DISCARDED removeLink's boolean, so the same
+  // junction-pointing-at-the-repo-root left in %TEMP% failed one caller and was
+  // waved through by the other. Five links a run now, not one, and the CI floor
+  // below guarantees all five are made, so this is the hot path.
+  let linkLeftBehind = false;
+  const viaJunction = (fn) => {
+    let link;
+    try {
+      link = makeLink(REPO_ROOT);
+    } catch (error) {
+      if (error?.code !== 'EPERM' && error?.code !== 'EACCES') throw error;
+      skipReasons.add(error.code);
+      return SKIP;
+    }
+    try {
+      const viaLink = path.join(link, path.relative(REPO_ROOT, SELF));
+      // Guard the case itself: if the link spelling is not actually a different
+      // string, it would pass without testing anything.
+      if (viaLink === SELF) return 'link-not-distinct';
+      return fn(viaLink);
+    } finally {
+      if (!removeLink(link)) linkLeftBehind = true;
+    }
+  };
+
   // The whole point of the exercise, proven on the predicate rather than on a
   // spawned process: a link spelling of this file must still read as the entry.
   add(
     'TRUE through a junction/symlink spelling -- the defect this closes',
-    () => {
-      let link;
-      try {
-        link = makeLink(REPO_ROOT);
-      } catch {
-        // Not a failure of isEntryPoint -- a fact about the filesystem or the
-        // account. Reporting it as red would make this case indistinguishable
-        // from a real regression on any runner without link rights.
-        return SKIP;
-      }
-      try {
-        const viaLink = path.join(link, path.relative(REPO_ROOT, SELF));
-        // Guard the case itself: if the link spelling is not actually a
-        // different string, it would pass without testing anything.
-        if (viaLink === SELF) return 'link-not-distinct';
-        return isEntryPoint(SELF_URL, { argv: ['node', viaLink] });
-      } finally {
-        removeLink(link);
-      }
-    },
+    () => viaJunction((viaLink) => isEntryPoint(SELF_URL, { argv: ['node', viaLink] })),
     true,
   );
+  // --- THE REALPATH FACILITY ITSELF FAILING -------------------------------
+  //
+  // The branch nothing drove, and the one that mattered: until 2026-08-14
+  // entry-point.mjs caught every error class from realpathSync.native in a bare
+  // catch, so a facility that was broken rather than a path that was missing
+  // fell through to the literal compare -- the raw string compare this whole
+  // exercise removed -- and returned FALSE through a junction while warning
+  // about argv[1], which resolved perfectly well. Every converted target,
+  // including both session hooks, would have quietly done nothing.
+  //
+  // Driven by stubbing fs.realpathSync.native, which is {writable, configurable}
+  // and read at call time. That the stub REACHES the module under test is
+  // self-proving rather than asserted: if the property lookup did not resolve to
+  // this same function object, the first case below would return the unstubbed
+  // 'true/0' and fail. Every stub is restored in a finally, and the last case
+  // here asserts the restoration actually happened -- a leaked stub would make
+  // every later case measure something other than what it names.
+  const NATIVE = fs.realpathSync.native;
+  const withNative = (stub, fn) => {
+    if (stub === undefined) delete fs.realpathSync.native;
+    else fs.realpathSync.native = stub;
+    try {
+      return fn();
+    } finally {
+      fs.realpathSync.native = NATIVE;
+    }
+  };
+  const observe = (argvPath, extra = {}) => {
+    const warned = [];
+    const got = isEntryPoint(SELF_URL, {
+      argv: ['node', argvPath],
+      warn: (m) => warned.push(m),
+      ...extra,
+    });
+    return { got, warned };
+  };
+  const verdictAndWarns = (argvPath, extra = {}) => {
+    const { got, warned } = observe(argvPath, extra);
+    return got + '/' + warned.length;
+  };
+  // The errno lives ONLY in `.code`, never in the message. An earlier fixture
+  // built this as `new Error(code + ': simulated realpath failure')`, which made
+  // every case asserting "the warning names the errno" pass identically whether
+  // the module read `.code` or `.message` -- the `??` under test supplied by the
+  // fixture rather than measured.
+  const fsError = (code) => Object.assign(new Error('simulated realpath failure'), { code });
+  const isSelfPath = (p) => normaliseForCompare(String(p)) === normaliseForCompare(SELF);
+  // A realpath that refuses in BOTH implementations -- the state no fs stub can
+  // produce, because stubbing the `.native` property leaves the real JS walker
+  // live underneath it. That asymmetry is the whole point of the module's
+  // fallback, so the branches reached only when both refuse need the injected
+  // seam. `selfOnly` narrows the refusal to this file, for the asymmetric case.
+  const refusingRealpath = (code, selfOnly = false) => {
+    const refuse = (p) => {
+      if (selfOnly && !isSelfPath(p)) return NATIVE(p);
+      throw fsError(code);
+    };
+    refuse.native = refuse;
+    return refuse;
+  };
+
+  // The headline: with the facility gone, the junction verdict must still be
+  // TRUE (the JS realpathSync resolves links; only its case handling differs,
+  // and samePath folds case on win32) and the downgrade must be announced.
+  // Before the fix this measured false/1.
+  add(
+    'facility down (.native deleted): still TRUE through a junction, and announced',
+    () => viaJunction((viaLink) => withNative(undefined, () => verdictAndWarns(viaLink))),
+    'true/1',
+  );
+  // Announced even where the verdict was never at risk. A downgrade that only
+  // speaks when it also changes the answer is a downgrade nobody finds.
+  add(
+    'facility down: canonical argv unaffected in verdict, still announced',
+    () => withNative(undefined, () => verdictAndWarns(SELF)),
+    'true/1',
+  );
+  // And the fallback must not become a fail-CLOSED in the other direction: an
+  // ordinary import stays false.
+  add(
+    'facility down: a different real file is still not the entry',
+    () => withNative(undefined, () => verdictAndWarns(path.join(REPO_ROOT, 'scripts/ship-gate.mjs'))),
+    'false/1',
+  );
+  // Attribution. The old warning named argv[1] for a fault in neither argv[1]
+  // nor the path it holds, which is how this survived: the message sent the
+  // reader to look at the one thing that was fine.
+  add(
+    'facility down: the warning names realpathSync.native, NOT argv[1]',
+    () =>
+      withNative(undefined, () => {
+        const { warned } = observe(SELF);
+        return (
+          warned.length === 1 &&
+          warned[0].includes('realpathSync.native') &&
+          // The PATH it failed on. Without it the line reads as a verdict on the
+          // runtime, and `.native` is one CreateFileW handle -- a single file
+          // held FILE_SHARE_NONE fails it while the lstat walker resolves it.
+          warned[0].includes(SELF) &&
+          !warned[0].includes('could not resolve process.argv[1]')
+        );
+      }),
+    true,
+  );
+  // THE ERRNO-BEARING FACILITY FAILURE -- and the reason there is no longer a
+  // classification. `.native` is one CreateFileW handle plus
+  // GetFinalPathNameByHandle; the JS implementation walks the components with
+  // lstat/readlink. A filesystem that does not support the former (a network
+  // redirector, a FUSE-backed mount -- this repo runs on one) answers with
+  // ERROR_INVALID_FUNCTION, which libuv hands back as an ordinary code-bearing
+  // fs error. The first fix for the bare catch read that code and concluded the
+  // PATH was gone, skipping the fallback that would have resolved it: both sides
+  // came back unresolved, the compare degraded to the raw string, and this case
+  // measured false/2/2 through a junction -- the fail-open, reached through its
+  // own fix. It is a stub of `.native` ALONE precisely because the real JS
+  // walker underneath is the thing that has to rescue it.
+  add(
+    '.native fails with an ERRNO but the JS walker resolves it: still TRUE through a junction',
+    () =>
+      viaJunction((viaLink) =>
+        withNative(
+          () => {
+            throw fsError('EACCES');
+          },
+          () => {
+            const { got, warned } = observe(viaLink);
+            return got + '/' + warned.length + '/' + warned.filter((m) => m.includes('EACCES')).length;
+          },
+        ),
+      ),
+    'true/1/1',
+  );
+  // Only when BOTH refuse is the path really gone. Driven through the injected
+  // seam, because no stub of the `.native` property can reach this state.
+  add(
+    'BOTH implementations refuse: false through a junction, both sides named with the errno',
+    () =>
+      viaJunction((viaLink) => {
+        const { got, warned } = observe(viaLink, { realpath: refusingRealpath('EACCES') });
+        return got + '/' + warned.length + '/' + warned.filter((m) => m.includes('EACCES')).length;
+      }),
+    'false/2/2',
+  );
+  // The same state with a CANONICAL argv, which is the arm that decides TRUE off
+  // a raw string compare. It is right here only because the spelling happened to
+  // be canonical; through a junction the identical state returns false (the case
+  // above). So it warns on the way past -- the old code warned only when the
+  // literal compare MISSED, which meant the one verdict reached by the
+  // discredited comparison, and reached successfully, went unremarked.
+  add(
+    'BOTH refuse with a canonical argv: TRUE off the raw compare, and flagged as a guess',
+    () => {
+      const { got, warned } = observe(SELF, { realpath: refusingRealpath('EACCES') });
+      return got + '/' + warned.length + '/' + warned.some((m) => m.includes('guess that happened to land'));
+    },
+    'true/2/true',
+  );
+  // THE SILENT BRANCH. Module side unresolvable, entry side fine: the compare
+  // becomes realpath-against-raw and it used to happen with ZERO warnings --
+  // the only DEGRADED branch that decided without saying anything (the plain
+  // import and node --eval branches are silent by design, and stay that way:
+  // two cases above pin them at false/0).
+  // Measured at true/0 before the fix. Needs a link, because the two sides are
+  // the same string whenever the spelling is canonical, and an asymmetry needs
+  // two spellings.
+  // Through the seam, not a `.native` stub: since the fallback became
+  // unconditional, refusing `.native` for this file alone no longer leaves the
+  // module side unresolved -- the JS walker rescues it, which is the fix
+  // working. To reach the branch this case is named for, BOTH have to refuse.
+  add(
+    'module side alone unresolvable: TRUE through a junction, and no longer silent',
+    () => viaJunction((viaLink) => verdictAndWarns(viaLink, { realpath: refusingRealpath('EBUSY', true) })),
+    'true/1',
+  );
+  // The same branch without link rights, so the coverage does not evaporate on
+  // a runner that cannot make one -- and it drives the false direction.
+  add(
+    'module side alone unresolvable: a different file is still not the entry, and it says so',
+    () =>
+      verdictAndWarns(path.join(REPO_ROOT, 'scripts/ship-gate.mjs'), {
+        realpath: refusingRealpath('EBUSY', true),
+      }),
+    'false/1',
+  );
+  // NOT EVERY THROW IS AN ERROR, and this case has now caught two generations of
+  // that. First: the three warnings reached straight for `.code ?? .message` on
+  // the caught value, so a mocked fs throwing null made isEntryPoint itself
+  // throw -- out of an ESM import resolved before any caller's try/catch exists,
+  // i.e. a hook contracted to print nothing exiting 1 with a stack trace. Before
+  // describe() this case did not fail, it THREW.
+  //
+  // Second, and the reason the expectation moved from 1 to 3: describe() fixed
+  // the READ but the call sites still gated on truthiness, so a falsy throw
+  // switched the warnings off instead of crashing on them -- and THIS CASE
+  // ASSERTED THE ONE SURVIVING WARNING AS CORRECT. A case cannot catch a defect
+  // its author expected; the count is what carried the information, and it was
+  // pinned to the wrong number. All three warnings are now required, and each
+  // must name the thrown value.
+  //
+  // Null rather than a string on purpose: a string still answers `.code` and
+  // `.message` with undefined and never throws, so it would have proven nothing
+  // about the first generation. It is falsy, so it proves the second.
+  add(
+    'a NULL thrown from realpath: all three warnings fire and every one names it',
+    () => {
+      const hostile = () => {
+        throw null;
+      };
+      hostile.native = hostile;
+      const { got, warned } = observe(SELF, { realpath: hostile });
+      return got + '/' + warned.length + '/' + warned.every((m) => m.includes('null'));
+    },
+    'true/3/true',
+  );
+  // The DOWNGRADE gate, which is the falsy defect at its worst: `.native`
+  // refuses with a falsy value and the JS walker succeeds, so nothing is wrong
+  // with the verdict and the only job left is to say the facility is broken.
+  // Measured before the boolean gates: true and ZERO warnings -- a downgrade
+  // that speaks only when it also changes the answer, which is precisely what
+  // the case named 'facility down: canonical argv unaffected in verdict, still
+  // announced' three cases up exists to forbid. That case used a TypeError and
+  // so never saw it.
+  add(
+    'facility down with a FALSY throw: the downgrade is still announced',
+    () => {
+      const halfHostile = (p) => NATIVE(p);
+      halfHostile.native = () => {
+        throw '';
+      };
+      return verdictAndWarns(SELF, { realpath: halfHostile });
+    },
+    'true/1',
+  );
+  // The same shape with the other falsy values, because `null` is the only one
+  // describe() has to reach String() for -- '' and 0 answer `.code`/`.message`
+  // with undefined, so they never exercised the read, only the gates.
+  for (const thrown of ['', 0]) {
+    add(
+      'a falsy ' + JSON.stringify(thrown) + ' thrown from realpath still announces every branch',
+      () => {
+        const hostile = () => {
+          throw thrown;
+        };
+        hostile.native = hostile;
+        return verdictAndWarns(SELF, { realpath: hostile });
+      },
+      'true/3',
+    );
+  }
+  // Both rescues exhausted: the facility is broken AND the JS fallback throws on
+  // the path anyway. Two distinct warnings, a false verdict, and -- the point of
+  // the case -- a RETURN rather than an exception escaping into a session hook.
+  add(
+    'facility down AND the JS fallback also fails: reports twice and still returns',
+    () =>
+      withNative(
+        () => {
+          throw new TypeError('realpathSync.native is not a function');
+        },
+        () => verdictAndWarns(path.join(REPO_ROOT, 'no', 'such', 'file-4b2e7d.mjs')),
+      ),
+    'false/2',
+  );
+  add('realpathSync.native restored after every stubbed case', () => fs.realpathSync.native === NATIVE, true);
+  // The CI floor's predicate, driven directly -- the floor itself runs after the
+  // loop, where no case can see its return. "false" and "0" are the pair a cast
+  // gets wrong, and getting them wrong arms a hard FAIL carrying a message that
+  // asserts the run is on a runner.
+  add(
+    'isCiEnv: only a real CI value arms the floor',
+    () =>
+      [undefined, '', 'false', '0', 'true', '1', 'yes'].map((v) => (isCiEnv(v) ? 1 : 0)).join(''),
+    '0000111',
+  );
+
   if (IS_WINDOWS) {
     add(
       'case-insensitive on Windows, where the filesystem is',
@@ -499,7 +824,10 @@ export async function selfTest() {
     }
     if (got === SKIP) {
       skipped++;
-      console.log('skip  ' + c.name + '  (no link-creation rights here)');
+      // Name the errno rather than asserting the reason. The label used to read
+      // "(no link-creation rights here)" for every possible cause, which is how
+      // a harness defect could present itself as a fact about the account.
+      console.log('skip  ' + c.name + '  (cannot create links here: ' + [...skipReasons].join('/') + ')');
       continue;
     }
     const ok = got === c.expected;
@@ -515,13 +843,40 @@ export async function selfTest() {
     console.error('\nFAIL self-test -- ' + failed + ' of ' + cases.length + ' case(s).');
     return 1;
   }
+  // THE FLOOR. A skip is an honest answer on a workstation without link rights;
+  // it is not one on a runner, where both GitHub images make symlinks and
+  // junctions freely. Without this, the five junction cases -- the arm carrying
+  // the defect this whole harness exists for -- could stop running in CI and the
+  // suite would go on reporting PASS over a smaller set than it names.
+  // A junction left on disk outranks a green case list: main() already exits 2
+  // on it, and the two callers must not disagree about the same hazard. Exit 2
+  // rather than 1 because it is infrastructure, not a contract violation.
+  if (linkLeftBehind) {
+    console.error(
+      '\nCOULD NOT CLEAN UP -- a junction pointing at the repository root is still on disk ' +
+        '(the path is in the error above). Remove it by hand with `cmd /c rmdir` (Windows) or ' +
+        '`unlink` -- NEVER rm -rf -- before anything sweeps the temp directory.',
+    );
+    return 2;
+  }
+  if (skipped > 0 && isCiEnv(process.env.CI)) {
+    console.error(
+      '\nFAIL self-test -- ' +
+        skipped +
+        ' case(s) needing a junction/symlink were skipped (' +
+        [...skipReasons].join('/') +
+        '). Under CI that is not an acceptable answer: link creation works on both runner images, ' +
+        'so this is the junction coverage silently leaving the run, not a fact about the account.',
+    );
+    return 1;
+  }
   console.log(
     '\nPASS self-test -- ' +
       (cases.length - skipped) +
       ' of ' +
       cases.length +
       ' cases over isEntryPoint itself' +
-      (skipped ? ' (' + skipped + ' skipped: no link-creation rights)' : '') +
+      (skipped ? ' (' + skipped + ' skipped: ' + [...skipReasons].join('/') + ')' : '') +
       '.',
   );
   return 0;
