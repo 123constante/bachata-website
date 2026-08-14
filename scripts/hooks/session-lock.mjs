@@ -102,18 +102,160 @@ function resolveStaleMinutes({ staleMinutes, staleHours, hookMode }) {
   return Number.isFinite(explicit) && explicit > 0 ? explicit : fallback;
 }
 
+/**
+ * THE GLOBAL REGISTRY -- the same lock, published where a cross-repo reader can
+ * see it.
+ *
+ * The lock file above is PER REPO, and that is structurally blind to the
+ * collision it was built for. On 2026-08-14 two sessions wrote the same
+ * ~/.claude memory directory with nothing between them, because one was an
+ * ADMIN session and the per-repo lock in the Website checkout could not know it
+ * existed. Repo-scoped locks cannot see a repo-crossing conflict.
+ *
+ * So each session ALSO publishes itself to one file under ~/.claude, keyed by
+ * session id and carrying its repo, branch and the SAME stale_after_iso the
+ * lock uses. Not a second lock: a second VIEW of the one lock, written by the
+ * same function on the same schedule. The user-level write guard reads it and
+ * owns no threshold of its own -- staleness is a timestamp comparison against a
+ * value this file computed, so the 90-minute backstop cannot drift between the
+ * two the way two independently-configured numbers would.
+ *
+ * CONCURRENCY. Read-modify-write, so two sessions writing in the same
+ * millisecond can lose one entry. That heals on the loser's next heartbeat --
+ * every prompt -- and the failure mode of a lost entry is one missed advisory
+ * warning, which is what the situation was before this existed. Locking a lock
+ * registry would be the second lock system this design exists to avoid.
+ */
+const registryPathFor = (env = process.env) => {
+  if (env.CLAUDE_SESSION_REGISTRY) return env.CLAUDE_SESSION_REGISTRY;
+  // SESSION_LOCK_ROOT sandboxes the REGISTRY as well as the lock, and that is
+  // not a convenience. tests/sessionLock.test.ts spawns this script with a
+  // temp root to keep CLI-level cases off the real lock; the first version of
+  // the registry ignored that and published fixture sessions "sess-A" and
+  // "sess-B" straight into the operator's real ~/.claude registry, where the
+  // write guard then reported them as live collisions for ninety minutes.
+  // Measured, not imagined -- it happened on the first suite run after the
+  // registry landed. A test that plants false evidence in the system under
+  // test is worse than no test, so the one env var sandboxes the whole thing
+  // and no future caller has to remember a second one.
+  if (env.SESSION_LOCK_ROOT) return path.join(env.SESSION_LOCK_ROOT, ".claude", ".session-registry.json");
+  return path.join(env.CLAUDE_HOME_DIR || path.join(os.homedir(), ".claude"), ".session-registry.json");
+};
+
 /** Everything the commands need, resolved once. The self-test rebinds this wholesale. */
-function context({ repoRoot, sessionId, staleMinutes } = {}) {
+function context({ repoRoot, sessionId, staleMinutes, identified } = {}) {
   const root = repoRoot || git(["rev-parse", "--show-toplevel"], path.resolve(HERE, "..", "..")) || path.resolve(HERE, "..", "..");
   const mins = Number(staleMinutes);
   return {
     root,
     repoName: path.basename(root),
     lockPath: path.join(root, ".claude", ".session-lock.json"),
+    registryPath: registryPathFor(),
+    // Whether sessionId names a SESSION or is a per-process stand-in. Only the
+    // former may be published -- see publishPresence.
+    identified: identified !== false,
     sessionId: sessionId || "unknown",
     staleMinutes: Number.isFinite(mins) && mins > 0 ? mins : STALE_MINUTES_HOOK,
     branch: git(["rev-parse", "--abbrev-ref", "HEAD"], root) || "unknown",
   };
+}
+
+/**
+ * The registry's sessions map, or a REASON there is none.
+ *
+ * The first version returned `{}` for every failure, and the docstring excused
+ * it with "a corrupt file is reported by the READER". Review measured that
+ * claim false, and it was false by construction: publishRegistry read `{}`,
+ * added this session, and renamed a fresh two-key file over the corrupt one --
+ * so the reader saw a clean file, said nothing, and every other live session's
+ * presence was gone until each next heartbeat. The catch also folded in EACCES
+ * and EISDIR, where overwriting is precisely wrong, on a mount this repo
+ * documents for truncation and stale reads.
+ *
+ * So: ENOENT is "start fresh"; a parse failure or any other errno is
+ * `unreadable`, and the caller must NOT overwrite. The corrupt file then
+ * survives for the reader to report and for a human to delete.
+ */
+function readRegistry(ctx) {
+  let raw;
+  try {
+    raw = fs.readFileSync(ctx.registryPath, "utf8");
+  } catch (err) {
+    if (err && err.code === "ENOENT") return { sessions: {} };
+    return { unreadable: err.message || String(err) };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    // `typeof [] === "object"`, and an ARRAY passed that test: every published
+    // entry was then assigned as a named property on an array and silently
+    // dropped by JSON.stringify, with no unreadable warning. The file reported
+    // as healthy while holding nothing, so the write guard said "you are alone"
+    // for good. A plain object, or it is unreadable.
+    const map = parsed && parsed.sessions;
+    if (map && typeof map === "object" && !Array.isArray(map)) return { sessions: map };
+    return { unreadable: "the sessions value is " + (Array.isArray(map) ? "an array" : "missing or not an object") };
+  } catch (err) {
+    return { unreadable: err.message || String(err) };
+  }
+}
+
+/**
+ * Publish (or withdraw) this session, pruning every entry whose own
+ * stale_after_iso has passed. The prune is why no separate garbage collector is
+ * needed: a crashed session's entry expires on the next write by anyone.
+ */
+function publishRegistry(ctx, body) {
+  // THE IDENTITY GATE LIVES HERE, not in publishPresence, because release()
+  // calls this function directly. It used to be gated only on the publish
+  // path, so a manual `session-lock.mjs release` -- no --hook, no --id, so no
+  // stable identity -- still performed a read-modify-write over the shared
+  // registry, pruning and rewriting every other session's entry from a process
+  // that by this file's own rule has nothing to publish. One choke point.
+  if (ctx.identified === false) return null;
+  const read = readRegistry(ctx);
+  if (read.unreadable !== undefined) {
+    // Do NOT overwrite: the file may hold other sessions this process cannot
+    // parse, and replacing it would both erase them and destroy the evidence
+    // the reader needs. Say so once, per invocation, and leave it alone.
+    process.stderr.write(
+      `session-lock: the session registry at ${ctx.registryPath} is unreadable (${read.unreadable}); ` +
+        "not publishing and NOT overwriting it. Delete the file to start a fresh one.\n"
+    );
+    return null;
+  }
+  const sessions = read.sessions;
+  const now = Date.now();
+  for (const [id, entry] of Object.entries(sessions)) {
+    if (isStale(entry, now)) delete sessions[id];
+  }
+  if (body) {
+    sessions[ctx.sessionId] = {
+      session_id: ctx.sessionId,
+      repo: ctx.repoName,
+      root: ctx.root,
+      branch: ctx.branch,
+      host: body.host,
+      pid: body.pid,
+      started_at_iso: body.started_at_iso,
+      stale_after_iso: body.stale_after_iso,
+    };
+  } else {
+    delete sessions[ctx.sessionId];
+  }
+  const tmp = ctx.registryPath + `.tmp-${process.pid}`;
+  try {
+    fs.mkdirSync(path.dirname(ctx.registryPath), { recursive: true });
+    fs.writeFileSync(tmp, JSON.stringify({ sessions }, null, 2) + "\n");
+    fs.renameSync(tmp, ctx.registryPath);
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    // LOUD, not swallowed. A registry that silently stops being written turns
+    // the write guard into a hook that reports "you are alone" forever -- the
+    // exact false-clean this machinery exists to prevent. It is still non-fatal:
+    // the per-repo lock above is unaffected, so the session continues.
+    process.stderr.write(`session-lock: could not publish to the session registry (${err.message || err})\n`);
+  }
+  return sessions;
 }
 
 function readLock(ctx) {
@@ -181,6 +323,48 @@ function writeLock(ctx, startedAtIso, now = new Date()) {
 }
 
 /**
+ * Publish this session's PRESENCE, whether or not it holds the lock.
+ *
+ * The first version of this published from writeLock(), which looked tidier --
+ * one write path, lock and registry always in step. Its own canary killed it in
+ * the cross-session case: a session that does NOT hold the repo lock never
+ * calls writeLock, so the second session in a repo was the one session the
+ * registry could not see. That is precisely the session a writer needs warning
+ * about. Presence is not ownership, so it is published from the per-turn entry
+ * points instead, by every session, every turn.
+ *
+ * started_at_iso is carried over from this session's own lock when it holds it,
+ * so "started" means the session, not the last heartbeat.
+ */
+function publishPresence(ctx, now = new Date()) {
+  // NO STABLE IDENTITY, NO ENTRY -- enforced in publishRegistry, which every
+  // path goes through. The CLI falls back to `pid-<n>` when the payload carries
+  // no session_id and neither env var is set, and every hook invocation is a
+  // NEW short-lived process, so that key changes every turn. The lock absorbed
+  // it (one file, rewritten each time); a registry is a MAP, so it would
+  // accumulate pid-1234, pid-1291, pid-1355..., each with its own 90-minute
+  // window and none ever withdrawn, until the write guard reported dozens of
+  // live sessions that were all one session. An honest gap beats a fabricated
+  // crowd: the guard's own could-not-determine line covers it.
+  const lock = readLock(ctx);
+  const own = lock && lock.session_id === ctx.sessionId ? lock : null;
+  const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+  // A session that does NOT hold the lock has no started_at to inherit from it,
+  // so the first version stamped `now` on every heartbeat and the second
+  // session -- the one this registry exists to make visible -- was permanently
+  // reported as having started seconds ago, however long it had been running.
+  // Measured: two heartbeats 1.1s apart moved its started_at by a second while
+  // the lock owner's stayed fixed. Carry it forward from its own registry entry.
+  const priorEntry = readRegistry(ctx).sessions?.[ctx.sessionId];
+  return publishRegistry(ctx, {
+    host: os.hostname(),
+    pid: process.pid,
+    started_at_iso: own?.started_at_iso || priorEntry?.started_at_iso || stamp(now),
+    stale_after_iso: stamp(new Date(now.getTime() + ctx.staleMinutes * 60_000)),
+  });
+}
+
+/**
  * The loud one. Names the other session's branch and a worktree command that actually
  * runs: a fresh directory + a NEW branch (adding a worktree for a branch that is already
  * checked out is an error, and a `/` in a branch name would nest the path).
@@ -212,6 +396,7 @@ function foreignWarning(ctx, lock) {
 }
 
 function acquire(ctx, { warnOnly = false } = {}) {
+  publishPresence(ctx);
   const lock = readLock(ctx);
   if (lock && lock.session_id === ctx.sessionId) {
     // Refresh rather than no-op: "already held" should also renew the staleness window.
@@ -240,6 +425,7 @@ function acquire(ctx, { warnOnly = false } = {}) {
  * copy already fired this turn.
  */
 function heartbeat(ctx, { quiet = false } = {}) {
+  publishPresence(ctx);
   const lock = readLock(ctx);
   if (!lock) {
     writeLock(ctx);
@@ -273,6 +459,16 @@ function heartbeat(ctx, { quiet = false } = {}) {
  * identifiable.
  */
 function release(ctx, { force = false, guarded = true } = {}) {
+  // WITHDRAW FIRST, ON EVERY PATH. release is the SessionEnd hook: this session
+  // is over whether or not it owns the repo lock. The first version withdrew
+  // only on the path that actually deletes a lock, so the two early returns
+  // below -- "no lock to release", and the guarded refusal to delete a live
+  // foreign lock -- left this session published as live for its full staleness
+  // window. That refusal path is the ordinary SessionEnd of every session that
+  // did NOT hold the lock, i.e. exactly the second session the registry exists
+  // to make visible; the write guard then named an ended session as live,
+  // which is the cry-wolf that gets an advisory warning muted for good.
+  publishRegistry(ctx, null);
   const lock = readLock(ctx);
   if (!lock) {
     process.stdout.write("session-lock: no lock to release\n");
@@ -323,10 +519,23 @@ function selfTest() {
     failures += 1;
   };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sesslock-"));
-  const ctxFor = (id) => ({
-    root: tmp,
-    repoName: "fixture-repo",
-    lockPath: path.join(tmp, ".claude", ".session-lock.json"),
+  // registryPath is INSIDE the fixture tree, and that is not tidiness: without
+  // it every --self-test run would publish fixture sessions "A" and "B" into
+  // the real ~/.claude registry, where the write guard would report them as
+  // live collisions to whoever ran the canary. A test that plants false
+  // evidence in the thing it tests is worse than no test.
+  // The lockPath follows the REPO. It used to be one shared path for every
+  // repo name, which made the "cross-repo" case two sessions contending for a
+  // single lock file while wearing different labels -- the one shape the
+  // per-repo lock already handles, dressed up as the shape it cannot see.
+  // Groups 1-10 pass no repo, so A and B still share one repo and one lock,
+  // which is what those groups are about.
+  const ctxFor = (id, repo = "fixture-repo") => ({
+    root: path.join(tmp, repo),
+    repoName: repo,
+    lockPath: path.join(tmp, repo, ".claude", ".session-lock.json"),
+    registryPath: path.join(tmp, ".claude", ".session-registry.json"),
+    identified: true,
     sessionId: id,
     staleMinutes: STALE_MINUTES_HOOK,
     branch: `branch-of-${id}`,
@@ -480,6 +689,183 @@ function selfTest() {
     if (hardRc !== 1) fail("bare acquire did not fail against a live foreign lock");
     if (readLock(B).session_id !== "B") fail("acquire stole a live foreign lock");
 
+    // 11. THE GLOBAL REGISTRY: a session publishes itself on every lock write,
+    //     expired entries are pruned by whoever writes next, and a release
+    //     withdraws only its own entry. This is the cross-repo view the
+    //     per-repo lock is structurally blind to, so it is proven in the
+    //     cross-repo shape: two sessions, two different repo names.
+    mute();
+    heartbeat(A);
+    const B2 = ctxFor("B2", "other-repo");
+    heartbeat(B2);
+    unmute();
+    let reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (!reg.A || !reg.B2) fail("the registry did not carry both live sessions");
+    if (reg.A.repo !== "fixture-repo" || reg.B2.repo !== "other-repo")
+      fail("the registry did not record which repo each session is in");
+    if (reg.A.branch !== "branch-of-A") fail("the registry did not record the branch");
+    if (!reg.A.stale_after_iso || isStale(reg.A)) fail("a live session was published already stale");
+
+    //     An expired entry is pruned by the NEXT writer -- no separate garbage
+    //     collector, and a crashed session stops warning by itself.
+    const withGhost = JSON.parse(fs.readFileSync(A.registryPath, "utf8"));
+    withGhost.sessions.GHOST = { session_id: "GHOST", repo: "dead-repo", stale_after_iso: "2020-01-01T00:00:00Z" };
+    fs.writeFileSync(A.registryPath, JSON.stringify(withGhost));
+    mute();
+    heartbeat(A);
+    unmute();
+    reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (reg.GHOST) fail("an expired registry entry was not pruned");
+    if (!reg.B2) fail("the prune took a LIVE entry with it");
+
+    //     RELEASE WITHDRAWS ON EVERY PATH, because release IS SessionEnd. The
+    //     first version withdrew only where a lock was actually deleted, and
+    //     this case drove only that one path -- so it passed 11/11 with the
+    //     leak live. Each spelling below is a real SessionEnd:
+    //
+    //     (a) the session never held any lock -- "no lock to release";
+    //         -- and the lock is REMOVED first, deliberately. heartbeat() on a
+    //         free repo CREATES a lock, so releasing straight after it takes
+    //         the ordinary owner path and the early return is never reached:
+    //         the case would pass while proving nothing about it.
+    const C = ctxFor("C", "third-repo");
+    mute();
+    heartbeat(C);
+    fs.rmSync(C.lockPath, { force: true });
+    const noLockRc = release(C, { guarded: true });
+    unmute();
+    reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (noLockRc !== 0) fail("the no-lock release did not exit 0");
+    if (!/no lock to release/.test(captured)) fail("the no-lock EARLY RETURN was not the path driven");
+    if (reg.C) fail("a session with no lock stayed published after SessionEnd");
+
+    //     (b) the ORDINARY second-session end: the guarded refusal to delete a
+    //     live foreign lock. This is the path the whole registry exists for.
+    const D = ctxFor("D");
+    mute();
+    heartbeat(D);
+    const refused = release(D, { guarded: true });
+    unmute();
+    reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (refused !== 0) fail("the guarded refusal did not exit 0");
+    if (!fs.existsSync(A.lockPath)) fail("the guarded refusal deleted the live lock");
+    if (reg.D) fail("a session that ended without owning the lock stayed published as LIVE");
+
+    //     (c) the force path still withdraws only its OWN entry: it deletes
+    //     ANOTHER session's LOCK, but that session is still running and must
+    //     keep its presence -- removing it would tell the next writer they are
+    //     alone.
+    //
+    //     E takes other-repo's lock FIRST, so B2 is genuinely a non-owner and
+    //     `force` is load-bearing. Before this, B2 owned the lock it released:
+    //     the case took the ordinary owner path, passed identically with
+    //     `force` deleted, and proved nothing about the flag it was named for.
+    //     A repo of its own, so the ownership is arranged rather than inherited
+    //     from whatever the earlier groups happened to leave behind.
+    const owner = ctxFor("OWNER", "force-repo");
+    const nonOwner = ctxFor("NONOWNER", "force-repo");
+    mute();
+    heartbeat(owner);
+    heartbeat(nonOwner);
+    unmute();
+    if (readLock(nonOwner)?.session_id !== "OWNER")
+      fail("the fixture did not put a FOREIGN lock in front of the force path");
+    mute();
+    const forcedRc = release(nonOwner, { guarded: true, force: true });
+    unmute();
+    if (forcedRc !== 0) fail("the forced release did not exit 0");
+    if (readLock(nonOwner)) fail("release --force did not delete the foreign lock");
+    if (!/WARNING - releasing lock held by 'OWNER'/.test(captured))
+      fail("the forced release did not name the lock's owner");
+    reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (!reg.OWNER) fail("forcing another session's LOCK also withdrew that session from the registry");
+    if (reg.NONOWNER) fail("the forcing session did not withdraw itself");
+    if (!reg.A) fail("a forced release withdrew an unrelated session from the registry");
+    if (!reg.B2) fail("a forced release in one repo withdrew a session in ANOTHER repo");
+
+    //     AN UNIDENTIFIED SESSION IS NOT PUBLISHED. A per-process pid identity
+    //     would mint a new entry every turn and withdraw none.
+    const anon = { ...ctxFor("pid-4242"), identified: false };
+    mute();
+    heartbeat(anon);
+    unmute();
+    reg = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions;
+    if (reg["pid-4242"]) fail("a session with no stable identity was published to the registry");
+    //         ...and it must not REWRITE the shared file either. release()
+    //         calls publishRegistry directly, so gating only the publish path
+    //         left a manual terminal release pruning and rewriting every live
+    //         session's entry from a process that has nothing to publish --
+    //         a lost-update window opened by the very check meant to close one.
+    const beforeAnon = fs.readFileSync(A.registryPath, "utf8");
+    mute();
+    release(anon, { guarded: true });
+    unmute();
+    if (fs.readFileSync(A.registryPath, "utf8") !== beforeAnon)
+      fail("an unidentified session rewrote the shared registry on release");
+
+    //     A NON-OWNER'S started_at MUST NOT MOVE. The second session is the one
+    //     the registry exists to reveal, and re-stamping `now` every heartbeat
+    //     reported it as having just started however long it had been running.
+    //     Time is not advanced by sleeping: the entry is BACKDATED to a value
+    //     no clock in this run could produce, so "it was carried forward" and
+    //     "the two stamps happened to be in the same second" cannot be
+    //     confused. Without the backdate the case passes on a stopped clock.
+    const F = ctxFor("F");
+    mute();
+    heartbeat(F);
+    unmute();
+    if (readLock(F)?.session_id === "F") fail("the fixture made F the lock OWNER, so this proves the wrong path");
+    const backdated = "2020-01-02T03:04:05Z";
+    const withBackdate = JSON.parse(fs.readFileSync(A.registryPath, "utf8"));
+    withBackdate.sessions.F.started_at_iso = backdated;
+    fs.writeFileSync(A.registryPath, JSON.stringify(withBackdate));
+    mute();
+    heartbeat(F);
+    unmute();
+    const laterSeen = JSON.parse(fs.readFileSync(A.registryPath, "utf8")).sessions.F.started_at_iso;
+    if (laterSeen !== backdated)
+      fail("a non-owner's started_at moved on heartbeat (" + backdated + " -> " + laterSeen + ")");
+
+    //     A CORRUPT REGISTRY IS PRESERVED AND REPORTED, never overwritten --
+    //     the reader is the only party that can act on it, and it cannot if the
+    //     next writer has already replaced the evidence with a clean file.
+    const corruptPath = A.registryPath;
+    const goodBytes = fs.readFileSync(corruptPath);
+    fs.writeFileSync(corruptPath, "{not json");
+    mute();
+    heartbeat(A);
+    unmute();
+    if (fs.readFileSync(corruptPath, "utf8") !== "{not json") fail("a corrupt registry was overwritten");
+    if (!/unreadable/.test(captured)) fail("a corrupt registry was not reported");
+
+    //         AN ARRAY IS NOT A MAP, and `typeof [] === "object"` said it was.
+    //         Every published entry was then assigned as a named property on an
+    //         array and dropped by JSON.stringify, with no warning: the file
+    //         reported healthy while holding nothing, so the write guard said
+    //         "you are alone" for good. Found by MUTATION -- the fix shipped
+    //         with no case, and the mutant scored zero.
+    fs.writeFileSync(corruptPath, JSON.stringify({ sessions: [] }));
+    mute();
+    heartbeat(A);
+    unmute();
+    if (!/unreadable/.test(captured)) fail("an ARRAY sessions map was accepted as healthy");
+    if (!/an array/.test(captured)) fail("the array registry was not diagnosed as an array");
+    const afterArray = JSON.parse(fs.readFileSync(corruptPath, "utf8"));
+    if (!Array.isArray(afterArray.sessions)) fail("the array registry was overwritten rather than preserved");
+
+    fs.writeFileSync(corruptPath, goodBytes);
+
+    //     THE SANDBOX ITSELF. A CLI-level test points SESSION_LOCK_ROOT at a
+    //     temp tree; the registry must follow it there. This asserts the
+    //     RESOLVER rather than the absence of a write, because "it did not
+    //     touch the real file" is only provable on a machine that has one.
+    const sandboxed = registryPathFor({ SESSION_LOCK_ROOT: path.join(tmp, "sandbox") });
+    if (!sandboxed.startsWith(path.join(tmp, "sandbox"))) fail("SESSION_LOCK_ROOT did not sandbox the registry path");
+    if (registryPathFor({ SESSION_LOCK_ROOT: "/x", CLAUDE_SESSION_REGISTRY: "/explicit.json" }) !== "/explicit.json")
+      fail("an explicit CLAUDE_SESSION_REGISTRY did not win");
+    if (registryPathFor({ CLAUDE_HOME_DIR: path.join(tmp, "home") }) !== path.join(tmp, "home", ".session-registry.json"))
+      fail("the default registry path did not follow CLAUDE_HOME_DIR");
+
     // 10. CLI argv parsing: flags are position-independent and values are never verbs.
     if (parseArgv(["--id", "abc", "release"]).cmd !== "release")
       fail("a flag VALUE was parsed as the subcommand");
@@ -510,7 +896,11 @@ function selfTest() {
     console.error(`session-lock --self-test: ${failures} FAILURE(S)`);
     return 1;
   }
-  console.log("session-lock --self-test: OK (10 groups, both directions)");
+  // No group count. It read "10 groups" until a group was added ABOVE group 10
+  // and the number was bumped by hand -- the same defect CLAUDE.md removed from
+  // its own guard count and the twin file removed from this very line: a number
+  // copied into prose has no writer maintaining it.
+  console.log("session-lock --self-test: OK (both directions)");
   return 0;
 }
 
@@ -597,12 +987,17 @@ if (isEntryPoint(import.meta.url)) {
     process.exitCode = selfTest();
   } else {
     const hookMode = Boolean(args.hook);
-    const sessionId =
+    const namedId =
       args.id ||
       (hookMode && !process.stdin.isTTY ? sessionIdFromStdin() : "") ||
       process.env.COWORK_SESSION_ID ||
       process.env.CLAUDE_SESSION_ID ||
-      `pid-${process.pid}`;
+      "";
+    // The pid fallback still names the LOCK -- one file, rewritten every turn,
+    // where a changing identity costs nothing. It must not name a REGISTRY
+    // entry, so the distinction is carried explicitly rather than inferred
+    // downstream from the string's shape.
+    const sessionId = namedId || `pid-${process.pid}`;
 
     const ctx = context({
       // SESSION_LOCK_ROOT is a TEST-ONLY escape hatch: without it, a CLI-level test
@@ -611,6 +1006,7 @@ if (isEntryPoint(import.meta.url)) {
       // deleted the live session's lock mid-run. Hooks never set it.
       repoRoot: process.env.SESSION_LOCK_ROOT || undefined,
       sessionId,
+      identified: Boolean(namedId),
       staleMinutes: resolveStaleMinutes({
         staleMinutes: args.staleMinutes,
         staleHours: args.staleHours,
@@ -647,6 +1043,10 @@ if (isEntryPoint(import.meta.url)) {
 
 export {
   context,
+  // Exported for ONE reason: ~/.claude/hooks/ops-self-test.mjs cross-checks
+  // this resolver against the write guard's copy of the same precedence, so the
+  // claim that the two halves cannot drift is measured rather than commented.
+  registryPathFor,
   resolveStaleMinutes,
   readLock,
   isStale,
