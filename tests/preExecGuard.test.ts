@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decide, pagerExecHits, segmentArgv } from '../scripts/hooks/pre-exec-guard.mjs';
+import { decide, pagerExecHits, segmentArgv, selfTest } from '../scripts/hooks/pre-exec-guard.mjs';
 
 /**
  * Every ALLOW case marked "(was a false positive)" and every DENY case marked
@@ -106,11 +106,33 @@ describe('pre-exec-guard: limits this guard deliberately accepts', () => {
     expect(pagerExecHits('git -c core.pager=cat grep foo')).toEqual([]);
   });
 
-  it('DOES flag a heredoc body line that starts with the command', () => {
-    // Known false positive. Distinguishing a heredoc body from a command needs
-    // a real shell parser; pinned here so the behaviour is explicit, not a
-    // surprise, and so a future parser has a test to flip.
+  it("runs the guard's own canary, so CI owns it and not just a human", () => {
+    // The vacuous-tsconfig vector is proven in --self-test rather than here:
+    // it needs injected deps for a whole fake tree, and duplicating those
+    // fixtures in two places is how two suites drift into disagreeing. This
+    // line is what puts them in front of `npm run test:unit`.
+    expect(selfTest()).toBe(0);
+  });
+
+  it('no longer flags a heredoc body line -- the flip this case was left for', () => {
+    // This case used to assert the OPPOSITE, as a pinned known false positive:
+    // "distinguishing a heredoc body from a command needs a real shell parser;
+    // pinned here so a future parser has a test to flip." Flipped 2026-08-14.
+    //
+    // The parser arrived for vector 2, where the same false positive was not
+    // survivable: a deny cannot be overridden by any allow, this repo mandates
+    // heredoc transport for every source write, and the string `tsc --noEmit`
+    // appears in its own docs -- so writing a note about the typecheck failed
+    // the write that described it. Vector 1 inherits the fix.
     const heredoc = ['cat > f <<EOF', 'git grep -O cat foo', 'EOF'].join('\n');
-    expect(pagerExecHits(heredoc)).toEqual(['-O']);
+    expect(pagerExecHits(heredoc)).toEqual([]);
+  });
+
+  it('still flags the same command AFTER the heredoc terminator', () => {
+    // The complement, and the one that would catch an over-eager strip: a
+    // heredoc that swallowed the rest of the input would be a blanket off
+    // switch wearing a bug fix's clothes.
+    const after = ['cat > f <<EOF', 'harmless', 'EOF', 'git grep -O cat foo'].join('\n');
+    expect(pagerExecHits(after)).toEqual(['-O']);
   });
 });

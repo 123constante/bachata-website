@@ -543,7 +543,20 @@ BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC — pipelines in
 Non-trivial work runs the 7-step workflow. Every code-bearing working diff gets
 `/code-review` BEFORE commit — Ricky types it when told; findings become edits,
 never follow-up commits. SQL/guards → xhigh; keystone/arc-close/DB-contract
-PRs → ultra. Arc plans carry the mandatory per-PR model/effort table
+PRs → ultra.
+
+**Review depth is bounded by blast radius, and the stopping rule is stated OUT
+LOUD before the round runs.** User-facing or data-integrity changes get two
+rounds. A CI-guard change gets ONE. In either case, a finding the reviewer
+proves by MUTATION — a gate that stays green against the mutant it exists to
+catch — means revert now, queue the original defect, and do not open another
+round. Fixes to findings are unreviewed code, so a second round that finds
+defects *inside* the first round's fixes is the signal, not a setback to push
+through. Earned 2026-08-11 (og scrape: 7 rounds, 8 drafts, ~86 findings) and
+2026-08-14 (teacher/DJ baseline: 2 rounds, 15 then 12 findings, my own
+mutation-tested canary proven blind three ways — reverted, nothing shipped).
+
+Arc plans carry the mandatory per-PR model/effort table
 (`feedback_model_effort_matrix.md`); phase starts write `.claude/arc-state.json`
 and state the phase's required /model + effort in one line (the arc-checkpoint hook injects the pin; a mismatch is declared and recorded, never a halt). Ship gate: `npm run pre-ship`
 + the pre-push receipt gate (`scripts/ship-gate.mjs`). Decisions reach Ricky as

@@ -184,7 +184,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/pre-exec-guard.mjs"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/pre-exec-guard.mjs --hook"
           }
         ]
       }
