@@ -20,7 +20,15 @@ name: Prod Smoke
 on:
   deployment_status:
   schedule:
-    - cron: '0 */6 * * *'
+    # Daily, not 6-hourly: each run is a 13-navigation Playwright suite at
+    # networkidle (several hundred to >1000 requests) and Vercel meters every
+    # edge request. The trade is real and accepted -- worst-case time to detect
+    # a deploy-less prod outage goes from ~6h to ~24h -- and the
+    # deployment_status trigger, which is where most of the value is, is
+    # unchanged. 03:23, deliberately off the hour: GitHub drops congested
+    # top-of-hour ticks silently (no run record), and with one attempt a day
+    # instead of four there is no second chance to absorb that.
+    - cron: '23 3 * * *'
   workflow_dispatch:
 
 permissions:

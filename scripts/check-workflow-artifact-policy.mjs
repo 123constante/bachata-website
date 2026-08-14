@@ -157,9 +157,13 @@
  * price, and FREQUENCY is not read at all. A scheduled `if: always()` upload at
  * the
  * budget's own maximum is arithmetically WORSE than the shape A3 refuses: the
- * incident held 7 copies; gsc-health-check.yml (daily, always(), 14 days) holds
- * 14, and prod-smoke.yml (every 6h plus every production deployment, always(),
- * 14 days) holds 56 or more. Both are small JSON reports today, so nothing is
+ * incident held 7 copies; a scheduled always() upload holds one copy per run
+ * for its whole retention window, so its held total is runs-per-day x
+ * retention-days -- more again where a deployment trigger fires it too. No
+ * count is written here on purpose: a cron is edited without this file
+ * noticing (prod-smoke.yml went 6-hourly to daily on 2026-08-14 and nothing
+ * here changed), and a number no rule re-measures rots exactly the way the
+ * guard-count sentence in CLAUDE.md did. Both are small JSON reports today, so nothing is
  * burning -- but swap one `path:` to a directory of traces and the incident is
  * back with this check green.
  *
