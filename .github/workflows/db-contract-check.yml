@@ -1151,6 +1151,49 @@ jobs:
           node scripts/check-script-conventions.mjs --self-test
           node scripts/check-script-conventions.mjs
 
+      # 66. Occurrence delete/booking safety (2026-08-11). Arc
+      #     course-breaks-schedule-integrity, P3a; admin migration 20260810220000.
+      #
+      #     WHAT IT WATCHES. Admin migration 20260810210000 pulled the booking and
+      #     curation predicates out of the three occurrence delete/cancel
+      #     chokepoints into two helpers, so that "this path still refuses to
+      #     destroy a booking" became a structural question rather than three
+      #     inlined texts kept in sync by hand. Nothing re-asked that question
+      #     after install. This does, daily.
+      #
+      #     WHY IT MATTERS MORE THAN A USUAL DRIFT CHECK: the damage is invisible
+      #     afterwards. Deleting a booked calendar_occurrences row CASCADEs its
+      #     event_attendance and event_guest_list_entries rows away, so a path
+      #     that loses its guard destroys the evidence along with the bookings.
+      #     There is nothing to find later; the guard has to still be there.
+      #
+      #     IT DISCOVERS ITS POPULATION rather than holding a list of three. That
+      #     includes the CASCADE-PARENT paths which destroy occurrences without
+      #     naming an occurrence table -- admin_bulk_delete_draft_events removes
+      #     every draft event in one statement -- and the parent set comes from
+      #     pg_constraint, so it widens by itself. Nine delete paths on prod the
+      #     day it shipped; each must call the guard or carry a written exemption
+      #     whose premise the RPC re-measures every run, the allowlist's own
+      #     membership included.
+      #
+      #     DEGRADED IS A PASS, and deliberately loud. replace_or_patch_occurrences
+      #     is a real unguarded path, ruled OPEN rather than fixed (arc P3c), so
+      #     the job does not go red over a pre-existing condition nobody has
+      #     decided about -- and does not report a clean ok over it either.
+      #     BLIND IS A FAIL: a check that cannot see its subject must not be green.
+      #
+      #     Anon-callable; no Docker, no service key. --self-test first, same as
+      #     the two steps above: the canary proves the verdict logic can still
+      #     fail before its green is trusted.
+      - name: Run occurrence delete/booking safety check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-occurrence-delete-booking-safety.mjs --self-test
+          node scripts/check-occurrence-delete-booking-safety.mjs
+
       # 65. Live image references (2026-07-29). HEAD-checks every image URL
       #     reachable from a public surface (list_public_image_refs_v1, admin
       #     migration 20260729120956). Added after a per-occurrence cover override
