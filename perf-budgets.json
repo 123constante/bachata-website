@@ -3,6 +3,7 @@
   "//home": "255 -> 215 on 2026-08-07 by P6, the closing phase of the supabase-defer arc. Measured 202.9 KB gz across 64 files with vendor-supabase NOT in first load and 0 direct pullers -- the arc's completion proof, and -41.3 KB against the pre-arc baseline. 12.1 KB of headroom, about 2.4 dependency batches at #187's observed +5.0 KB per 53-package batch, which is deliberately the SAME posture the old 255/244.2 pair carried (10.8 KB); the budget got tighter because the route got smaller, not because the tolerance changed. HISTORY, kept because it is the whole reason the arc existed: 245 -> 255 on 2026-08-05 at 244.2 measured, when vendor-supabase (43.3 KB gz) sat in home's first load -- auth-js 46%, realtime-js 17%, storage-js 17%, storage entirely unused (zero `.storage.from(` in src/). None of it was separable: SupabaseClient's constructor eagerly builds every sub-client, so no bundler can drop realtime or storage while `createClient` is imported statically. Deferring the client behind getSupabase() was the only lever, and it took six phases. BEFORE RAISING THIS AGAIN, read `pullerRatchet` below: weight and graph membership are different questions, and P5 measured a regression that read as a 43.8 KB WIN against its budget. UNCHANGED at 215 by P1 of the vendor-cost arc on 2026-08-14, and that is worth a line because P1 went looking for a raise and did not need one. P1 cut home from 64 first-load chunks to 42 -- the change this whole arc exists to make, since Vercel meters edge REQUESTS and the account is at 180% of allowance on them -- and it did it for -0.9 KB: 202.9 -> 202.0 KB gz. Four chunking rules were built and measured against this row before one earned its place; the two rejected wide ones are written up in vite.config.ts so they are not re-run. The third, a single hand-curated Radix group, is the one that matters here: it made home heavier and a raise to 225 was drafted to absorb it. What withdrew the raise was MEASURING the homepage's first-load package set instead of reasoning about it -- a large fraction of that group was not in the graph at all, and those packages became a second chunk that only the routes mounting a dialog pay for. Read this before raising the budget for a chunking change: the raise was a symptom of an unmeasured list, not the price of the win. Live figures come from `npm run check:bundle-budget` and the baseline block below; deltas are not restated in this prose, because a number copied into a comment has no writer keeping it true.",
   "//event": "385 -> 375 on 2026-08-14 by P1 of the vendor-cost arc. This is a TIGHTENING, and it is here because the file was applying its own anti-slack rule to one number and not the other: the same commit lowered event's pullerRatchet 3 -> 2 because leaving a won allowance unclaimed 'decays into a ceiling with slack, and the next regression hides inside the slack', while event's KB budget kept 385 against a measured 358.3 -- 27.3 KB of exactly that slack, on the heaviest route in the app. The KB budget has no under-check to force this (the ratchet does), which is why it needed saying rather than firing. 375 leaves 16.7 KB, roughly the 19.2 KB the 365.8/385 pair carried and about three of #187's 5.0 KB dependency batches. Event carried P1's largest win in both columns, dropping from 93 first-load chunks to 52 and getting lighter as well. Nearly all of the KB is the consolidation itself -- fewer, larger chunks gzip better and drop the per-file overhead -- NOT the tslib move, which is worth a fraction of a KB here and whose value is the puller it removed rather than the bytes. Event still carries vendor-supabase in its first load; nothing left the graph.",
   "//auth": "Added by P5 of the supabase-defer arc. This route is budgeted PRIMARILY so requiredFirstLoad below has somewhere to hang -- the auth pages (/auth, /auth/callback) are not framework routes, they live on the catchall, so the catchall's graph IS the auth path's graph. Measured 277.4 KB gz across 58 files at ebc67e8. Budget set to 310 deliberately generously (32.6 KB headroom, ~12%): #187's 53-package batch cost +5.0 KB, so that is roughly six routine dependency batches of room. The point is that this route must never red-light for drift unrelated to the edge it exists to guard -- a budget red here would be read as an auth-path failure and waste the reader's time. It is NOT a target to optimise against; the catchall deliberately carries vendor-supabase (see requiredFirstLoad). FIGURES ABOVE ARE ebc67e8's AND ARE NOW STALE IN BOTH COLUMNS -- P1 re-measured this route on 2026-08-14 and both the KB and the file count moved. They are left in place rather than overwritten because they are what the 310 was CHOSEN against, and that reasoning is the point of the note; the live numbers are in attribution.baseline below, which is the row anything automated reads, and the headroom follows from those. P1 left this route lighter than it found it despite adding the vendor-icons chunk to its graph, on consolidation alone -- it does NOT pull vendor-ui-modal, which is in /event's first load only.",
+  "//parties+classes+faq": "Added 2026-08-15 by P1 PR 2 of the vendor-cost arc. These three routes had NO KB budget until now, which meant this file recorded P1's COST (the vendor-ui and vendor-icons consolidation lands in the home and event rows above) and not its BENEFIT: the two listing pages are where the request-count win was largest, 82 -> 51, and nothing here could see their weight at all. Measured at d89f92b: parties 304.5 KB gz / 50 chunks / 3 pullers, classes 304.6 / 50 / 3, faq 229.9 / 32 / 0. Budgets are 320 / 320 / 245 -- about 15 KB of headroom each, roughly three of #187's observed 5.0 KB dependency batches, which is the same posture the event row carries (16.7 KB) rather than the deliberately generous auth one. parties and classes are the same page shape and measure within 0.1 KB of each other, so they share a number; faq is lighter by 18 chunks because it mounts no calendar. THE PULLER ROWS ARE MEASUREMENTS, NOT TARGETS, and the parties/classes rows are the highest in this file: 3 direct edges to vendor-supabase, one MORE than event. That is not something this PR introduced -- it is what those routes have always done, visible for the first time because they had no row. Whether it is reducible is the next arc's question. The ratchet is here so the answer cannot drift while nobody is looking. THE THREE LANDING PAGES were added in the same pass, for an asymmetry review caught rather than for anything measured: firstLoadRequestRatchet pinned all six prerendered routes while `routes` budgeted only three of them, so the landing pages were watched on requests and unwatched on bytes -- a page that gains weight through an already-loaded chunk moves no request count, and nothing would have reddened. They are TWO rows, not three, because /bachata-london-sensual-parties and /bachata-london-dominican-parties are the same route module with two registrations, so they resolve to one manifest node and one graph. Measured at d89f92b: landing prose 230.0 KB / 32 chunks / 0 pullers, landing style 229.0 / 32 / 0, both budgeted 245 like faq, which they match in shape. Every prerendered route is now budgeted on BOTH axes; the routes that are not are the SSR ones, and check-first-load-requests.mjs's header says so plainly.",
   "routes": {
     "home (/city/:slug)": {
       "entries": [
@@ -27,6 +28,46 @@
         "app/routes/catchall.tsx"
       ],
       "maxFirstLoadGzipKB": 310
+    },
+    "parties (/parties)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/parties.tsx"
+      ],
+      "maxFirstLoadGzipKB": 320
+    },
+    "classes (/classes)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/classes.tsx"
+      ],
+      "maxFirstLoadGzipKB": 320
+    },
+    "faq (/faq)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/faq.tsx"
+      ],
+      "maxFirstLoadGzipKB": 245
+    },
+    "landing prose (/bachata-parties-london)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/bachata-parties-london.tsx"
+      ],
+      "maxFirstLoadGzipKB": 245
+    },
+    "landing style (/bachata-london-{sensual,dominican}-parties)": {
+      "entries": [
+        "app/entry.client.tsx",
+        "app/root.tsx",
+        "app/routes/bachata-style-parties.tsx"
+      ],
+      "maxFirstLoadGzipKB": 245
     }
   },
   "//requiredFirstLoad": "The INVERSE of the budget, and of the ratchet P6 adds. Everywhere else this file asks 'has the tracked module stayed OUT of this route's first-load graph'. Here it asks the opposite: client.ts sets detectSessionInUrl:true, so auth-js parses the magic-link fragment at CONSTRUCTION, and the auth path needs that construction to happen during initial module evaluation -- before hydration, before the router can rewrite the URL. Deferring it there loses a real user's session silently and tells them their link expired. Until P5 that edge existed only by ACCIDENT (AuthGuard.tsx and ListingRequestForm.tsx were merely unconverted), so the arc's own remaining work would have removed it with nothing failing. src/integrations/supabase/eagerAuthClient.ts makes it intentional; this makes it enforced. BLOCKING, unlike the report-only attribution above: a missing required edge exits 1.",
@@ -41,7 +82,21 @@
   "pullerRatchet": {
     "home (/city/:slug)": 0,
     "event (/event/:id)": 2,
-    "auth (/auth/callback, via catchall)": 2
+    "auth (/auth/callback, via catchall)": 2,
+    "parties (/parties)": 3,
+    "classes (/classes)": 3,
+    "faq (/faq)": 0,
+    "landing prose (/bachata-parties-london)": 0,
+    "landing style (/bachata-london-{sensual,dominican}-parties)": 0
+  },
+  "//firstLoadRequestRatchet": "The REQUEST-COUNT contract, enforced by scripts/check-first-load-requests.mjs (npm run check:first-load-requests, after npm run build). Everything else in this file counts BYTES; this counts DOCUMENTS FETCHED, and they are not the same question. Splitting one 40 KB chunk into forty 1 KB chunks is free in bytes and costs 39 requests on every view -- every KB budget above would report that as a small win. It exists because Vercel meters edge REQUESTS and this account measured 1.8M against a 1M allowance (180%) on 2026-08-14 while sitting at 33% of its byte allowance: ~18 KB per request, so COUNT was the entire lever and weight was never the problem. WHAT THE NUMBER IS: per prerendered index.html, the union of every modulepreload href, the stylesheet, any preload with as=script or as=style, and the static import specifiers inside the inline module script. A union rather than a tag count because React Router bootstraps the route through an inline `import * as route0 from ...`, a real request no tag count would ever see. Deliberately EXCLUDED, so a low number is not mistaken for the whole waterfall: the document itself, favicons, the manifest, preconnect hints, and the font preload -- the guard prints that one per route instead of hiding it. Measured at d89f92b and CORROBORATED INDEPENDENTLY: check-bundle-budget.mjs walks the vite manifest graph and reports 50 / 50 / 32 JS chunks for parties / classes / faq, which is exactly these pins minus the one stylesheet each. Two methods reading two different artefacts and agreeing is why these are pinned rather than sampled. BOTH EDGES BLOCK, exactly as pullerRatchet above: over is a regression, and UNDER fails too, because an allowance nobody tightens decays into a ceiling with slack and the next regression hides in the slack -- tighten it in the PR that earned the win, which is when the number is best understood. COVERAGE IS COMPUTED FROM THE ARTEFACT, not from this list: every index.html under build/client must have a pin and every pin must still name a prerendered route. Add a route to react-router.config.ts prerender without a pin and the guard fails, rather than the new page shipping unwatched -- which is why the three all-prose landing pages sit here beside the three routes the arc targets. They were measured, not assumed, and they are all 33. WHAT THIS DOES NOT COVER, stated here as well as in the guard because a green run is otherwise easy to over-read: only PRERENDERED routes have a document to count, so /city/:slug and /event/:id -- the highest-traffic pages, and most of the request bill this exists to control -- are structurally outside it. They are on-demand SSR + ISR and emit no HTML at build time. The `chunks` figures in attribution.baseline are the nearest thing they have, and those are report-only.",
+  "firstLoadRequestRatchet": {
+    "/parties": 51,
+    "/classes": 51,
+    "/faq": 33,
+    "/bachata-parties-london": 33,
+    "/bachata-london-sensual-parties": 33,
+    "/bachata-london-dominican-parties": 33
   },
   "attribution": {
     "//": "Report-only, added by P0 of the supabase-defer arc (~/.claude/plans/arc-defer-supabase-client.md). Names one chunk whose FIRST-LOAD PULLERS each budgeted route reports: the chunks holding a direct static edge to it, a shortest path from a route entry, and the first-party modules each puller contains (from the sourcemap). The puller count is the arc's work-list -- it shrinks by one per phase, and 0 pullers on home is the completion proof. Nothing here is enforced; P6 turns the count into a ratchet.",
@@ -50,8 +105,8 @@
     "//trackedModule": "The first-party module that leads INTO trackedChunkName, and the target of the module-level edge report. A chunk name cannot serve: no import statement names a chunk, so the chunk-level puller list can say where the weight is but never which import to delete. That gap is why 'is this the last edge?' was answered by `grep -rl integrations/supabase/client` three times and was wrong three times -- grep sees direct importers of a string, not a barrel re-export (@/lib/seo -> useEntitySlugOrId), a provider three components deep (root -> SearchProvider -> SearchOverlay -> searchClickTelemetry), or a loader helper (home -> detailLoader -> resolvePublicEventRef). All three misses were of exactly those shapes, and two of them were recorded in the arc plan as out of scope on the strength of a grep. If this module stops being the way in (client.ts retired, or the client constructed somewhere else), repoint it -- the guard hard-fails if the path is not a file, rather than reporting 0 edges for every route.",
     "trackedModule": "src/integrations/supabase/client.ts",
     "baseline": {
-      "//": "RE-BASELINED by P6 at the arc's close, 2026-08-07. Measured at afd7996 (P5's merge onto main) via npm run build + npm run check:bundle-budget, with only scripts/ and .claude/ edits applied on top -- neither is in the client bundle, so these ARE afd7996's figures. Deltas printed by the guard are against this row; it is rewritten only by a phase that deliberately re-baselines, and never to paper over a regression. WHY RE-BASELINE HERE, since that rule is otherwise strict: the previous row was 138390a, PRE-arc, and home has since dropped 41.3 KB. Leaving it would print '-41.3 KB' on every future run, where it reads as 'this PR saved 41 KB' -- a number meaning something other than what it says, which is the failure mode this file exists to prevent. All three rows now come from ONE commit, which also retires the split-measurement caveat the auth row carried (it was measured at ebc67e8, not 138390a, because it was not budgeted then). PRE-ARC FIGURES, kept so the arc's win stays legible: home 244.2 KB / 61 chunks / 3 pullers (138390a); event 363.5 / 89 / 4 (138390a); auth 277.4 / 58 / 2 (ebc67e8). RE-BASELINED AGAIN 2026-08-14 by P1 of the vendor-cost arc, for the same reason the last one gave: the CHUNK column moved by a third to nearly a half on every route (home 64 -> 42, event 93 -> 52, auth 59 -> 36) and leaving the old row would have printed '-41 chunks' on every future run, where it reads as 'this PR removed 41 chunks'. WHY THE COMMIT FIELD IS NOT A BARE SHA HERE: these figures are 55847dd's client bundle built with THIS commit's vite.config.ts manualChunks, and the merge sha does not exist while the file is being written. That config change is the ONLY input to them -- no source file in the client graph is touched by this PR -- so the row is reproducible from this tree with `npm run build && npm run check:bundle-budget`, which is the property the sha was ever standing in for. PREVIOUS ROW, kept for the same legibility reason: home 202.9 / 64 / 0, event 365.8 / 93 / 3, auth 278.7 / 59 / 2, vendor-supabase 43.3 KB (afd7996). The tracked chunk lost 0.3 KB because tslib moved out of it, not because Supabase shrank.",
-      "commit": "55847dd+p1-chunk-consolidation",
+      "//": "RE-BASELINED by P6 at the arc's close, 2026-08-07. Measured at afd7996 (P5's merge onto main) via npm run build + npm run check:bundle-budget, with only scripts/ and .claude/ edits applied on top -- neither is in the client bundle, so these ARE afd7996's figures. Deltas printed by the guard are against this row; it is rewritten only by a phase that deliberately re-baselines, and never to paper over a regression. WHY RE-BASELINE HERE, since that rule is otherwise strict: the previous row was 138390a, PRE-arc, and home has since dropped 41.3 KB. Leaving it would print '-41.3 KB' on every future run, where it reads as 'this PR saved 41 KB' -- a number meaning something other than what it says, which is the failure mode this file exists to prevent. All three rows now come from ONE commit, which also retires the split-measurement caveat the auth row carried (it was measured at ebc67e8, not 138390a, because it was not budgeted then). PRE-ARC FIGURES, kept so the arc's win stays legible: home 244.2 KB / 61 chunks / 3 pullers (138390a); event 363.5 / 89 / 4 (138390a); auth 277.4 / 58 / 2 (ebc67e8). RE-BASELINED AGAIN 2026-08-14 by P1 of the vendor-cost arc, for the same reason the last one gave: the CHUNK column moved by a third to nearly a half on every route (home 64 -> 42, event 93 -> 52, auth 59 -> 36) and leaving the old row would have printed '-41 chunks' on every future run, where it reads as 'this PR removed 41 chunks'. THE COMMIT FIELD IS A BARE SHA AGAIN, as of P1 PR 2 on 2026-08-15, and the paragraph it replaces is worth keeping in summary because the reasoning still applies to the next writer in this position. PR 1 could not name a sha: the figures were 55847dd's bundle built with a vite.config.ts that only existed on an unmerged branch, so the field read `55847dd+p1-chunk-consolidation` -- a string git cannot resolve, whose branch half dies at merge -- and the note argued that reproducibility from the tree was the property the sha had ever stood in for. PR 1 has now merged as d89f92b, that tree IS this tree, and the figures reproduce from it unchanged (verified by a clean rebuild, not by assuming the extraction of the chunk classifier into vite.chunks.ts was inert). So the field names the commit, which is strictly better than the property standing in for it. If you are ever writing a row whose commit does not exist yet, say so in this field rather than inventing a sha -- and replace it when it does, which is the deferred item this PR is closing. PREVIOUS ROW, kept for the same legibility reason: home 202.9 / 64 / 0, event 365.8 / 93 / 3, auth 278.7 / 59 / 2, vendor-supabase 43.3 KB (afd7996). The tracked chunk lost 0.3 KB because tslib moved out of it, not because Supabase shrank.",
+      "commit": "d89f92b",
       "trackedChunkGzipKB": 43.0,
       "routes": {
         "home (/city/:slug)": {
@@ -68,6 +123,31 @@
           "firstLoadGzipKB": 276.3,
           "chunks": 36,
           "pullers": 2
+        },
+        "parties (/parties)": {
+          "firstLoadGzipKB": 304.5,
+          "chunks": 50,
+          "pullers": 3
+        },
+        "classes (/classes)": {
+          "firstLoadGzipKB": 304.6,
+          "chunks": 50,
+          "pullers": 3
+        },
+        "faq (/faq)": {
+          "firstLoadGzipKB": 229.9,
+          "chunks": 32,
+          "pullers": 0
+        },
+        "landing prose (/bachata-parties-london)": {
+          "firstLoadGzipKB": 230.0,
+          "chunks": 32,
+          "pullers": 0
+        },
+        "landing style (/bachata-london-{sensual,dominican}-parties)": {
+          "firstLoadGzipKB": 229.0,
+          "chunks": 32,
+          "pullers": 0
         }
       }
     }

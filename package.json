@@ -57,6 +57,8 @@
     "check:mojibake:self-test": "node scripts/check-mojibake.mjs --self-test",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
     "check:bundle-budget:self-test": "node scripts/check-bundle-budget.mjs --self-test",
+    "check:first-load-requests": "node scripts/check-first-load-requests.mjs",
+    "check:first-load-requests:self-test": "node scripts/check-first-load-requests.mjs --self-test",
     "check:lighthouse": "node scripts/check-lighthouse.mjs",
     "serve:build": "node scripts/_serve-build.mjs",
     "perf:ab": "node scripts/perf-ab.mjs",
