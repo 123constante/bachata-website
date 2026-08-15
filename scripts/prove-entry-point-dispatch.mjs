@@ -127,6 +127,7 @@ const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },
   { rel: 'scripts/check-ci-budget.mjs' },
+  { rel: 'scripts/check-first-load-requests.mjs' },
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
   { rel: 'scripts/check-og-images.mjs' },

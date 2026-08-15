@@ -73,6 +73,12 @@ jobs:
       - name: Bundle-budget canary (no build required)
         run: npm run check:bundle-budget:self-test
 
+      # Same placement, same reason: it drives main() and every rule against
+      # fixtures and a fake filesystem, so it still reports in exactly the runs
+      # where the build is what broke.
+      - name: First-load request canary (no build required)
+        run: npm run check:first-load-requests:self-test
+
       - name: Build client + server
         env:
           # Same rationale as e2e-smoke.yml: supabase-js validates the URL shape
@@ -84,6 +90,13 @@ jobs:
 
       - name: First-load JS budgets
         run: npm run check:bundle-budget
+
+      # AFTER the KB budgets, and a separate step on purpose: these two answer
+      # different questions off the same build (bytes vs requests) and a route
+      # can pass one while failing the other. Sharing a step would let the
+      # first failure hide the second.
+      - name: First-load request count
+        run: npm run check:first-load-requests
 
   lighthouse:
     # Previews only exist for PRs; skip on push (nothing to point Lighthouse at).
