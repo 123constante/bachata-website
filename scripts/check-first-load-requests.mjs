@@ -39,13 +39,19 @@
 // /event/:id -- the two highest-traffic pages in the app, and the ones the
 // request bill is mostly made of -- are structurally outside this guard. They
 // are on-demand SSR + tagged ISR and emit no index.html. Do NOT read a green
-// run here as "the request bill is guarded". What partly covers them today is
-// check-bundle-budget.mjs, which walks the vite manifest and REPORTS a
-// first-load `chunks` figure for home/event/auth against a stored baseline --
-// report-only, not gated. Turning that report into a ratchet is the obvious
-// next step and is deliberately not in this PR: it means editing a different
-// guard, with its own canary and its own mutation pass, and bundling it here
-// would have shipped the interesting half unreviewed.
+// run here as "the request bill is guarded". What covers them is the SIBLING
+// guard: check-bundle-budget.mjs walks the vite manifest and, since PR 3 of the
+// vendor-cost arc, GATES a first-load `chunks` count for every budgeted route
+// including the two SSR ones -- `chunkRatchet` in perf-budgets.json, both edges
+// blocking. It was report-only when this file was written.
+//
+// A chunk count is not a request count -- it omits the stylesheet and the
+// document -- so the two guards are not interchangeable and their numbers are
+// not comparable. On the six routes where BOTH exist, each pin here is its
+// chunk pin plus one stylesheet; that agreement between two guards reading two
+// different artefacts is what makes the chunk figure a defensible proxy for the
+// routes this file cannot see. Nothing enforces that relationship, so if you
+// change a pin in one block, check the other.
 //
 // BOTH EDGES ARE PINNED, the same contract pullerRatchet in perf-budgets.json
 // carries and for the same reason. Over the pin is a regression. UNDER the pin
