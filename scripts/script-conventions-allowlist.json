@@ -8,9 +8,6 @@
   "scripts/check-anon-grants.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-bundle-budget.mjs": {
-    "R5:unproven-exit-contract": 1
-  },
   "scripts/check-cancelled-occurrence-passthrough.mjs": {
     "R1:empty-sample": 2,
     "R4:no-canary": 1
