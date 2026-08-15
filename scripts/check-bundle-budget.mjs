@@ -69,9 +69,19 @@
 //   npm run check:bundle-budget
 //   npm run check:bundle-budget:self-test    # proves the rules, needs no build
 //
-// Exit 1 if any route is over budget, or on a misconfiguration. The puller
-// COUNT is report-only and never changes the exit code; a malformed attribution
-// block is a misconfiguration and does. The bundle-budget job BLOCKS.
+// Exit 1 on any of FOUR independent verdicts, or on a misconfiguration:
+//   * a route over its maxFirstLoadGzipKB budget
+//   * a requiredFirstLoad edge missing from a route's graph      (P5)
+//   * pullerRatchet broken in EITHER direction                   (P6)
+//   * chunkRatchet broken in EITHER direction                    (vendor-cost PR 3)
+// All four are evaluated before the single exit, deliberately, so a PR that
+// broke two is told about two rather than rebuilding between them. A malformed
+// attribution block is a misconfiguration and also exits 1. What remains
+// report-only is the attribution REPORT itself -- the puller list, the module
+// edge list and the baseline deltas. This sentence used to say the puller count
+// was report-only; P6 falsified that and nobody updated it, which is the whole
+// argument for listing the verdicts rather than describing them.
+// The bundle-budget job BLOCKS.
 
 import { readFileSync, existsSync, statSync, appendFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -321,6 +331,140 @@ export function findRatchetBreaks(ratchet, observed) {
     if (count === undefined) {
       fail(
         `pullerRatchet declares "${route}" but no puller count was measured for ` +
+          'it. The route loop and the ratchet disagree about which routes exist.',
+      );
+    }
+    if (count > allowed) rows.push({ route, allowed, observed: count, direction: 'over' });
+    else if (count < allowed) rows.push({ route, allowed, observed: count, direction: 'under' });
+  }
+  return rows;
+}
+
+/* THE CHUNK RATCHET (PR 3 of the vendor-cost arc).
+ *
+ * WHY A SECOND RATCHET. Vercel meters edge REQUESTS. This account measured 1.8M
+ * against a 1M allowance while sitting at a THIRD of its byte allowance -- ~18 KB
+ * per request -- so COUNT was the entire lever and weight was never the problem.
+ * check-first-load-requests.mjs pins that count directly by parsing the
+ * prerendered HTML. But only PRERENDERED routes have a document on disk, and
+ * /city/:slug and /event/:id -- the two highest-traffic pages, and most of the
+ * request bill -- are on-demand SSR and emit none. They were structurally
+ * outside every request-count gate in the repo.
+ *
+ * This closes that hole from the other side. The manifest graph this guard
+ * already walks yields a first-load JS CHUNK count for every budgeted route, SSR
+ * included, and that number has been carried in attribution.baseline and diffed
+ * on every run since P0 -- REPORT-ONLY. Nothing blocked on it. Turning it into a
+ * contract is the whole change; the measurement is untouched.
+ *
+ * WHY THE KB BUDGET CANNOT STAND IN, which is the same argument pullerRatchet
+ * makes and it is worth repeating because the failure looks identical: splitting
+ * one 40 KB chunk into forty 1 KB chunks costs 39 extra requests on every view
+ * and approximately zero bytes. Every KB budget above would report that as a
+ * small WIN.
+ *
+ * WHAT IT IS NOT. A chunk count is not a request count -- it omits the
+ * stylesheet and the document, and on an SSR route it cannot see anything the
+ * server adds to the HTML. On the six PRERENDERED routes, where both numbers
+ * exist, the request pin is exactly the chunk count plus one stylesheet; that
+ * agreement between two guards reading two different artefacts is what makes
+ * this a defensible proxy rather than a guess. Do not read a green chunk pin as
+ * "requests are gated for this route" -- read it as "the JS half of the
+ * waterfall cannot grow unnoticed".
+ *
+ * BOTH EDGES BLOCK, for the reason pullerRatchet gives at length above: over is
+ * the regression, and UNDER fails too, because an allowance nobody tightens
+ * decays into a ceiling with slack and the next regression hides in the slack.
+ *
+ * WHAT THE CANARY CANNOT SEE HERE, measured rather than reasoned about, because
+ * a coverage claim nobody drove is the thing this file distrusts most. The rules
+ * below are proven: ten mutations of them produce a FAIL line each. The WIRING
+ * in main() is not, and cannot be, because the canary never drives main() --
+ * that is this file's standing R5 entry in script-conventions-allowlist.json.
+ * Deleting `|| chunkBreaks.length` from the single exit condition leaves the
+ * ratchet measuring, printing `[OVER]`, printing the whole REGRESSION paragraph
+ * -- and exiting 0, with the canary reporting ZERO failures.
+ *
+ * That is NOT specific to this rule, which is the reason it is recorded as debt
+ * instead of being special-cased here: the same one-token deletion applied to
+ * `anyOver` (the KB budget), `breaks.length` (the puller ratchet) and
+ * `missing.length` (the required-edge rule) is equally invisible -- four for
+ * four. The exit wiring of this guard has never been under test. Closing it
+ * means giving main() the injected-collaborator seam check-ci-budget.mjs and
+ * check-first-load-requests.mjs both have, driving it from the canary, and
+ * retiring the allowlist row for all four verdicts at once. That is a refactor
+ * of a shipped guard and belongs in its own PR, not bolted onto the one adding
+ * a rule. What IS proven for this rule, end to end against a real build: both
+ * break directions red (exit 1, named message), and all four silent-skip shapes
+ * -- entry dropped, unknown route named, block deleted, block emptied -- red.
+ *
+ * DELIBERATELY A SIBLING of assertRatchetDeclared/findRatchetBreaks rather than
+ * a shared parameterised rule. The two differ in noun, in remediation prose, in
+ * allowance floor (below), and -- the load-bearing one -- in failure NEEDLE: the
+ * canary classifies failures by message substring, and this file has already
+ * been bitten by a mutant that survived because control fell through to a branch
+ * reporting as the same kind. Sharing the message would rebuild that trap. The
+ * duplicated dozen lines are the price, paid knowingly, and the side benefit is
+ * that this change does not touch the shipped puller path at all.
+ */
+export function assertChunkRatchetDeclared(ratchet, routes) {
+  if (!ratchet || typeof ratchet !== 'object' || Object.keys(ratchet).length === 0) {
+    fail(
+      'perf-budgets.json declares no chunkRatchet. This is the ONLY gate on the ' +
+        'first-load request count of the SSR routes -- they emit no prerendered ' +
+        'HTML, so check-first-load-requests.mjs is structurally blind to them -- ' +
+        'and an empty block would report success while checking nothing. If the ' +
+        'rule is genuinely obsolete, delete this assert in the same PR and say why.',
+    );
+  }
+  for (const [route, allowed] of Object.entries(ratchet)) {
+    if (!routes[route]) {
+      // Wording deliberately unlike the pullerRatchet and requiredFirstLoad
+      // forms of this same check: the canary classifies by needle, and three
+      // rules reporting as one kind is how a mutant survives here.
+      fail(
+        `chunkRatchet names the route "${route}", which perf-budgets.json ` +
+          '`routes` does not declare. It would silently check nothing. Add the ' +
+          'route or fix the name.',
+      );
+    }
+    // POSITIVE, where pullerRatchet allows zero. The difference is deliberate: 0
+    // pullers is a real and desirable state (home's 0 is the defer arc's
+    // completion proof), but 0 first-load chunks is not a reachable build -- a
+    // route resolving to zero chunks fails assertMeasured first. So a 0 here can
+    // only be a typo, and it would sit permanently red while LOOKING like a pin.
+    if (!Number.isInteger(allowed) || allowed < 1) {
+      fail(
+        `chunkRatchet["${route}"] is ${JSON.stringify(allowed)}, which is not a ` +
+          'positive integer. Every route loads at least one chunk, so this can ' +
+          'never describe a real build: a non-number compares false against every ' +
+          'count and would never fire, and a 0 would red forever.',
+      );
+    }
+  }
+  for (const route of Object.keys(routes)) {
+    if (!(route in ratchet)) {
+      fail(
+        `the route "${route}" is budgeted but has no chunkRatchet entry. A ` +
+          'budgeted route with no chunk ratchet can be split into unlimited ' +
+          'first-load requests without a word -- and the KB budget will not ' +
+          'notice, because splitting a chunk in two costs no bytes. Add its ' +
+          'measured count.',
+      );
+    }
+  }
+}
+
+/** @returns {{route:string, allowed:number, observed:number, direction:'over'|'under'}[]} */
+export function findChunkRatchetBreaks(ratchet, observed) {
+  const rows = [];
+  for (const [route, allowed] of Object.entries(ratchet)) {
+    const count = observed[route];
+    // A route in the ratchet that the per-route loop never measured. Silence
+    // would read as "0 chunks, comfortably under", the reassuring shape.
+    if (count === undefined) {
+      fail(
+        `chunkRatchet declares "${route}" but no chunk count was measured for ` +
           'it. The route loop and the ratchet disagree about which routes exist.',
       );
     }
@@ -937,6 +1081,8 @@ function main() {
   let anyOver = false;
   /** route -> measured direct puller count, fed to the ratchet after the loop. */
   const observedPullers = {};
+  /** route -> measured first-load JS chunk count, fed to the chunk ratchet. */
+  const observedChunks = {};
   const budgetRows = [
     '## First-load JS budgets',
     '',
@@ -962,6 +1108,14 @@ function main() {
   ];
 
   assertRoutesDeclared(budgets.routes);
+  // Hoisted above the loop for the reason assertRoutesDeclared is: it is a pure
+  // CONFIGURATION check needing nothing but `routes`, and left below the loop a
+  // mistyped route key would first gzip every reached chunk, parse every
+  // puller's sourcemap and walk the source graph eight times before failing on a
+  // string comparison. findChunkRatchetBreaks is the half that genuinely needs
+  // the measurements, and it stays after the loop.
+  const chunkRatchet = budgets.chunkRatchet;
+  assertChunkRatchetDeclared(chunkRatchet, budgets.routes);
 
   for (const [route, { entries, maxFirstLoadGzipKB }] of Object.entries(budgets.routes)) {
     const { seen, parent } = reachableWithPaths(manifest, entries);
@@ -991,6 +1145,10 @@ function main() {
     const inGraph = seen.has(trackedKey);
     const base = baseRoutes[route];
     observedPullers[route] = pullers.length;
+    // The SAME number the line above prints as "across N files" and the baseline
+    // diff prints as "N chunk(s)". Read from `sized` rather than recounted, so
+    // the ratchet can never gate a figure different from the one reported.
+    observedChunks[route] = sized.length;
 
     console.log(
       `  ${trackedName}: ${
@@ -1093,10 +1251,43 @@ function main() {
     );
   }
 
+  // THE CHUNK RATCHET (PR 3 of the vendor-cost arc). A FOURTH independent
+  // verdict, and the only one that gates the SSR routes at all: /city/:slug and
+  // /event/:id emit no prerendered HTML, so check-first-load-requests.mjs cannot
+  // see them, and they are most of the edge-request bill this arc exists to cut.
+  const chunkBreaks = findChunkRatchetBreaks(chunkRatchet, observedChunks);
+  // Heading says CHUNKS, not requests. The rendered summary is the surface most
+  // often read with no source beside it, and a heading saying "requests" invites
+  // exactly the comparison this rule's own docstring forbids -- 42 here against
+  // /parties' request pin of 51 does not mean home is cheaper, because the two
+  // count different things.
+  const chunkRows = [
+    '',
+    '## Chunk ratchet (first-load JS chunks, SSR routes included)',
+    '',
+    'JS chunks only -- NOT a request count: no stylesheet, no document, and on an',
+    'SSR route nothing the server adds. Not comparable with the request pins in',
+    'check-first-load-requests.mjs.',
+    '',
+    '| Route | Allowed | Measured | Status |',
+    '|---|---|---|---|',
+  ];
+  console.log('');
+  for (const [route, allowed] of Object.entries(chunkRatchet)) {
+    const count = observedChunks[route];
+    const broke = chunkBreaks.find((b) => b.route === route);
+    const label = broke ? (broke.direction === 'over' ? '**REGRESSION**' : '**TIGHTEN**') : 'ok';
+    chunkRows.push(`| ${route} | ${allowed} | ${count} | ${label} |`);
+    console.log(
+      `[${broke ? broke.direction.toUpperCase() : 'ok'}] chunk ratchet: ${route} -- ` +
+        `${count} first-load chunk(s), allowance ${allowed}`,
+    );
+  }
+
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows, ...ratchetRows].join('\n') + '\n',
+      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows, ...ratchetRows, ...chunkRows].join('\n') + '\n',
     );
   }
 
@@ -1118,6 +1309,35 @@ function main() {
         console.error(
           `PULLER RATCHET NOT TIGHTENED: "${route}" now has ${observed} direct ` +
             `puller(s) of ${trackedName}, but the allowance is still ${allowed}.\n` +
+            '  This is a WIN that has not been recorded. Lower the allowance to ' +
+            `${observed} in perf-budgets.json in this PR -- an allowance nobody ` +
+            'tightens decays into a ceiling with slack, and the next regression ' +
+            'hides inside the slack.',
+        );
+      }
+    }
+  }
+
+  if (chunkBreaks.length) {
+    console.error('');
+    for (const { route, allowed, observed, direction } of chunkBreaks) {
+      if (direction === 'over') {
+        console.error(
+          `CHUNK RATCHET REGRESSION: "${route}" now loads ${observed} first-load ` +
+            `JS chunk(s), allowance ${allowed}.\n` +
+            '  Every extra chunk is one more edge request on every view of this ' +
+            'page, and this account is metered on request COUNT -- it went 80% ' +
+            'over that allowance while using a third of its byte allowance. The ' +
+            'KB budget above will NOT catch this: splitting one chunk into two ' +
+            'costs no bytes, so it reads there as a win or as nothing at all.\n' +
+            '  Diff the largest-chunks list printed above against the previous ' +
+            'build. If the extra requests were genuinely bought, raise the ' +
+            'allowance in this PR and say what bought them.',
+        );
+      } else {
+        console.error(
+          `CHUNK RATCHET NOT TIGHTENED: "${route}" now loads ${observed} ` +
+            `first-load JS chunk(s), but the allowance is still ${allowed}.\n` +
             '  This is a WIN that has not been recorded. Lower the allowance to ' +
             `${observed} in perf-budgets.json in this PR -- an allowance nobody ` +
             'tightens decays into a ceiling with slack, and the next regression ' +
@@ -1153,7 +1373,7 @@ function main() {
         'deliberately in this PR with justification.',
     );
   }
-  if (missing.length || anyOver || breaks.length) {
+  if (missing.length || anyOver || breaks.length || chunkBreaks.length) {
     return 1;
   }
   console.log('');
@@ -1208,6 +1428,21 @@ function selfTest() {
     ['non-negative integer', 'ratchet-bad-allowance'],
     ['has no pullerRatchet entry', 'ratchet-missing-route'],
     ['no puller count was measured', 'ratchet-unmeasured'],
+    // The chunk ratchet's needles. Every one is deliberately distinct from its
+    // puller counterpart directly above -- these are matched FIRST-WINS in array
+    // order, so a shared substring would file two different bugs as one kind and
+    // let a mutant survive by falling through to the wrong branch. Appended
+    // rather than interleaved: an earlier needle wins, so appending cannot steal
+    // a classification from any rule that already had one.
+    ['declares no chunkRatchet', 'no-chunk-ratchet'],
+    ['chunkRatchet names the route', 'chunk-ratchet-unknown-route'],
+    // Pinned to a phrase that names its own rule. "positive integer" alone is
+    // generic where its four siblings are self-identifying, so the next rule in
+    // this file phrased that way would be filed as a chunk-allowance failure and
+    // a mutant routing control into it would pass this rule's case.
+    ['positive integer. Every route loads', 'chunk-ratchet-bad-allowance'],
+    ['has no chunkRatchet entry', 'chunk-ratchet-missing-route'],
+    ['no chunk count was measured', 'chunk-ratchet-unmeasured'],
   ];
   const failureKind = (run) => {
     try {
@@ -1573,6 +1808,88 @@ function selfTest() {
     'ratchet-bad-allowance',
   );
 
+  // --- the CHUNK RATCHET (PR 3): both directions, plus every silent-skip ---
+  //
+  // The rule that gates the SSR routes, which no request-count guard in the repo
+  // can see. Same fixture routes as the puller ratchet above, deliberately:
+  // these two rules are read side by side and a second set of route names would
+  // only obscure that they differ in what they COUNT, not in what they cover.
+  const CHUNK_RAT = { home: 42, event: 52 };
+  add(
+    'chunk counts exactly at the allowance report nothing',
+    () => findChunkRatchetBreaks(CHUNK_RAT, { home: 42, event: 52 }).length,
+    0,
+  );
+  add(
+    'a route ABOVE its chunk allowance is reported as a regression',
+    () => findChunkRatchetBreaks(CHUNK_RAT, { home: 43, event: 52 })[0]?.direction,
+    'over',
+  );
+  add(
+    'a SINGLE extra chunk is caught -- one chunk is one edge request per view',
+    () => findChunkRatchetBreaks(CHUNK_RAT, { home: 43, event: 52 })[0]?.route,
+    'home',
+  );
+  add(
+    'a route BELOW its chunk allowance is reported as an untightened ratchet',
+    () => findChunkRatchetBreaks(CHUNK_RAT, { home: 42, event: 51 })[0]?.direction,
+    'under',
+  );
+  add(
+    'both chunk directions can break at once, and both are reported',
+    () => findChunkRatchetBreaks(CHUNK_RAT, { home: 43, event: 51 }).length,
+    2,
+  );
+  add(
+    'a chunk-ratchet route that was never measured fails rather than reading as 0',
+    () => failureKind(() => findChunkRatchetBreaks(CHUNK_RAT, { home: 42 })),
+    'chunk-ratchet-unmeasured',
+  );
+  add(
+    'a missing chunkRatchet block fails rather than checking nothing',
+    () => failureKind(() => assertChunkRatchetDeclared(undefined, RAT_ROUTES)),
+    'no-chunk-ratchet',
+  );
+  add(
+    'an EMPTY chunkRatchet block fails the same way',
+    () => failureKind(() => assertChunkRatchetDeclared({}, RAT_ROUTES)),
+    'no-chunk-ratchet',
+  );
+  add(
+    'a fully populated chunkRatchet block is silent',
+    () => failureKind(() => assertChunkRatchetDeclared(CHUNK_RAT, RAT_ROUTES)),
+    'no-throw',
+  );
+  add(
+    'a chunkRatchet entry naming an undeclared route fails loudly',
+    () => failureKind(() => assertChunkRatchetDeclared({ ...CHUNK_RAT, ghost: 1 }, RAT_ROUTES)),
+    'chunk-ratchet-unknown-route',
+  );
+  add(
+    'a BUDGETED route with no chunkRatchet entry fails -- unlimited requests, silently',
+    () => failureKind(() => assertChunkRatchetDeclared({ home: 42 }, RAT_ROUTES)),
+    'chunk-ratchet-missing-route',
+  );
+  add(
+    'a non-integer chunk allowance fails rather than comparing false forever',
+    () => failureKind(() => assertChunkRatchetDeclared({ home: 42, event: '52' }, RAT_ROUTES)),
+    'chunk-ratchet-bad-allowance',
+  );
+  // ZERO is where this rule deliberately diverges from pullerRatchet, which
+  // treats 0 as its most important value. Pinned because the divergence is the
+  // kind of thing a later editor "harmonises" back to `< 0` without noticing
+  // that 0 chunks is not a build any route can have.
+  add(
+    'a ZERO chunk allowance fails -- unlike pullerRatchet, 0 is not a real state',
+    () => failureKind(() => assertChunkRatchetDeclared({ home: 0, event: 52 }, RAT_ROUTES)),
+    'chunk-ratchet-bad-allowance',
+  );
+  add(
+    'a negative chunk allowance fails the same way',
+    () => failureKind(() => assertChunkRatchetDeclared({ home: 42, event: -1 }, RAT_ROUTES)),
+    'chunk-ratchet-bad-allowance',
+  );
+
   // --- packagesFromMap / describeContents: the vendor-only fallback ---
   add(
     'a vendor-only chunk is described by its packages, not dismissed',
@@ -1933,8 +2250,15 @@ function selfTest() {
       'resolver as arguments so fixtures can drive it). What is NOT covered, ' +
       'because none of it is fixture-drivable: the four filesystem-bound ' +
       'failures (no client manifest; a manifest entry missing from disk; a ' +
-      'trackedModule that is not a file; no vite.config.ts), and the bodies of ' +
-      'makeFsResolver / makeFsReader. A wrong EXTENSION list surfaces as ' +
+      'trackedModule that is not a file; no vite.config.ts), the bodies of ' +
+      'makeFsResolver / makeFsReader, and -- the one worth naming, because it is ' +
+      'not obvious from a green run -- main()\'s EXIT WIRING. Nothing here drives ' +
+      'main(), so dropping any of the four verdicts from its single exit ' +
+      'condition (anyOver, breaks, chunkBreaks, missing) leaves every case above ' +
+      'passing while the guard exits 0 on a real regression. Measured, four for ' +
+      'four, not assumed; see the R5 row for this file in ' +
+      'script-conventions-allowlist.json and the note above assertChunkRatchetDeclared. ' +
+      'A wrong EXTENSION list surfaces as ' +
       'unresolved specifiers on a real run; a missed ALIAS does not, which is ' +
       'exactly why assertKnownAliases exists and is pinned here instead. A ' +
       "banner claiming total coverage is the same over-claim this file's " +

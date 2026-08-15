@@ -103,7 +103,114 @@ export const CHECKS = [
   // passed 995 + 56 under the same contention. Separated rather than given
   // longer timeouts, because the bound is part of what they assert.
   ["test:unit:timing", "edge-TTL specs (serial -- they measure wall clock)", ["--reporter=dot"]],
+  // The BUILD, and the gate that reads its output. Placed at the END of the
+  // list, which is NOT a short-circuit -- every CHECKS entry runs regardless of
+  // what failed before it (see the header), and typecheck and eslint still run
+  // after the loop. It is ordering for the READER of the ledger: the expensive
+  // pair sits below the cheap ones it can never explain.
+  //
+  // WHY THE BUILD IS A STEP AND NOT A PRECONDITION. check:first-load-requests
+  // counts the modulepreloads in the PRERENDERED HTML, which exists only after a
+  // build, and it cannot tell whether the build/client on disk describes this
+  // working tree. On 2026-08-15 a stale build/client -- left over from before the
+  // chunk-consolidation PR -- was measured by its sibling guard, which reported
+  // "+41 chunk(s)" against the baseline and STILL printed [ok] on every route,
+  // because the KB budgets have headroom. A confident verdict about a tree that
+  // no longer exists is worse than no verdict at all.
+  //
+  // WHICH IS WHY THE SCRIPT IS build:ship AND NOT build. It deletes build/ before
+  // invoking react-router, so a build that dies EARLY -- a syntax error in
+  // vite.chunks.ts, say, which is exactly the file these guards watch -- cannot
+  // leave yesterday's artefact behind for the next step to measure. Vite empties
+  // outDir itself, but only once it has loaded its config; a config-load failure
+  // never gets there. With the directory gone, check:first-load-requests takes
+  // its "cannot measure" path (exit 2) and the ledger reads FAIL, instead of
+  // parsing stale HTML and matching every pin. Two rows, not one, so a broken
+  // build is reported AS a broken build rather than as a request-count failure.
+  //
+  // This is why the pair is here and not in "npm run lint": that chain is
+  // buildless by design and is what CI's fast guards run. CI catches a request
+  // regression either way -- perf-budget.yml builds and runs both request guards
+  // -- but only after the push. This is the same verdict, before it.
+  ["build:ship", "production build, from a clean build/ (the request ratchet reads its HTML)"],
+  ["check:first-load-requests", "first-load REQUEST-count ratchet (prerendered routes)"],
 ];
+
+/** Where CI declares the env the perf build is designed to run under. */
+const PERF_WORKFLOW = ".github/workflows/perf-budget.yml";
+
+/**
+ * The Supabase env the PERF build is built with, lifted out of perf-budget.yml.
+ *
+ * WHY THIS EXISTS, and it is the same failure smokeEnvFrom below was written for.
+ * supabase-js validates the URL shape at module init, so prerendering a route
+ * constructs a client and a build with no VITE_SUPABASE_URL simply throws --
+ * perf-budget.yml says so in a comment beside the very values this reads. `.env`
+ * is gitignored, so a fresh `git worktree` or clone (a trap this repo has hit
+ * twice) has none, and without this the ship gate would hard-fail at the build
+ * for a reason with no relation to the diff. That is the red-on-a-clean-tree
+ * shape that teaches you to reach for --no-verify, which also drops the stamp.
+ *
+ * A SECOND, SMALLER BENEFIT worth naming because it is load-bearing elsewhere:
+ * Vite inlines import.meta.env.VITE_* as string LITERALS at build time, so the
+ * key's LENGTH lands in the bundle. Building with the same placeholder CI uses
+ * is what makes perf-budgets.json's CI-measured baseline reproducible on a
+ * developer's machine; building with .env's real key does not (measured
+ * 2026-08-15: it accounts for most of a systematic 0.2-0.4 KB gap).
+ *
+ * READ from the workflow, not copied, for the reason smokeEnvFrom gives: two
+ * copies of a value whose only job is to match is drift waiting to happen. A
+ * SIBLING of smokeEnvFrom rather than a generalisation of it, because that
+ * function is pinned by five canary cases and its error text names its own
+ * workflow and its own failure; parameterising it to serve both would put a
+ * shipped, tested gate at risk to save a dozen lines.
+ *
+ * Blocking by INCLUSION -- both names must be found -- because a renamed key or
+ * a moved block otherwise reads as "nothing to set".
+ */
+export function buildEnvFrom(text, parseYaml) {
+  const doc = parseYaml(text);
+  const found = {};
+  const lift = (block) => {
+    if (!block || typeof block !== "object") return;
+    for (const [k, v] of Object.entries(block)) {
+      if (k.startsWith("VITE_") && typeof v === "string") found[k] = v;
+    }
+  };
+  const runsBuild = (s) => s && typeof s.run === "string" && s.run.includes("npm run build");
+  const jobs = doc && doc.jobs && typeof doc.jobs === "object" ? Object.values(doc.jobs) : [];
+  for (const job of jobs) {
+    const steps = job && Array.isArray(job.steps) ? job.steps : [];
+    if (!steps.some(runsBuild)) continue;
+    // Workflow < job < step, GitHub's own precedence order.
+    lift(doc.env);
+    lift(job.env);
+    for (const step of steps) if (runsBuild(step)) lift(step.env);
+  }
+  const REQUIRED = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"];
+  const missing = REQUIRED.filter((k) => !found[k]);
+  if (missing.length > 0) {
+    throw new Error(
+      "pre-ship: could not read " + missing.join(" and ") + " from " + PERF_WORKFLOW +
+        " (looked for a step whose `run` mentions npm run build). The production build " +
+        "constructs a Supabase client while prerendering and throws without a valid-shaped " +
+        "placeholder, so the ship gate would red on a clean tree. Fix the lookup rather " +
+        "than dropping the env.",
+    );
+  }
+  return found;
+}
+
+/** Resolve the perf-build env, or null with the reason recorded. Never throws. */
+async function buildEnv() {
+  try {
+    const YAML = await import("yaml");
+    const text = fs.readFileSync(path.join(REPO_ROOT, PERF_WORKFLOW), "utf8");
+    return { env: buildEnvFrom(text, (t) => YAML.parse(t)), error: null };
+  } catch (error) {
+    return { env: null, error: error.message };
+  }
+}
 
 /**
  * Per-check SKIP predicates, decided by pre-ship BEFORE running the check so
@@ -950,6 +1057,11 @@ async function main(argv = process.argv.slice(2)) {
   const driftFatal = !drift.ok && (drift.severity === "error" || strictScope);
 
   // -- repo-only checks -------------------------------------------------------
+  // Resolved ONCE, before the loop, and only used by build:ship. A failure here
+  // is reported as that check failing rather than thrown: a lookup problem in a
+  // workflow file must not discard a ledger the rest of the run has earned.
+  const perfBuild = dryRun ? { env: null, error: null } : await buildEnv();
+
   const results = [];
   if (!dryRun) {
     for (const [id, label, args] of CHECKS) {
@@ -957,9 +1069,18 @@ async function main(argv = process.argv.slice(2)) {
       if (skipReason) {
         console.log("SKIP " + id + " -- " + skipReason);
         results.push({ id, label, ok: true, skipped: true, skipReason });
-      } else {
-        results.push({ id, label, ok: runCheck(id, args || []) });
+        continue;
       }
+      if (id === "build:ship" && !perfBuild.env) {
+        // NOT run without the env. Building against .env's real project (or
+        // against nothing at all, on a fresh worktree) measures something other
+        // than what CI measures, and a green row would say otherwise.
+        console.log("FAIL " + id + " -- could not resolve the build env: " + perfBuild.error);
+        results.push({ id, label, ok: false });
+        continue;
+      }
+      const extraEnv = id === "build:ship" ? perfBuild.env : null;
+      results.push({ id, label, ok: runCheck(id, args || [], extraEnv) });
     }
   }
 

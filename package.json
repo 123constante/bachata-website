@@ -7,6 +7,7 @@
     "dev": "react-router dev",
     "dev:spa": "vite",
     "build": "react-router build",
+    "build:ship": "node -e \"require('node:fs').rmSync('build',{recursive:true,force:true})\" && react-router build",
     "typecheck": "react-router typegen && tsc -p tsconfig.app.json --noEmit",
     "check:wallclock-brand": "react-router typegen && node scripts/check-wallclock-brand.mjs",
     "check:rpc-typing": "node scripts/check-rpc-typing.mjs",
