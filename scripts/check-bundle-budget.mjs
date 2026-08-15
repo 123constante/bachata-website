@@ -67,7 +67,7 @@
 //
 //   npm run build                            # the manifest is a build artifact
 //   npm run check:bundle-budget
-//   npm run check:bundle-budget:self-test    # proves the rules, needs no build
+//   npm run check:bundle-budget:self-test    # rules AND exit codes, needs no build
 //
 // Exit 1 on any of FOUR independent verdicts, or on a misconfiguration:
 //   * a route over its maxFirstLoadGzipKB budget
@@ -75,8 +75,12 @@
 //   * pullerRatchet broken in EITHER direction                   (P6)
 //   * chunkRatchet broken in EITHER direction                    (vendor-cost PR 3)
 // All four are evaluated before the single exit, deliberately, so a PR that
-// broke two is told about two rather than rebuilding between them. A malformed
-// attribution block is a misconfiguration and also exits 1. What remains
+// broke two is told about two rather than rebuilding between them. That exit
+// condition is DRIVEN by the canary through main()'s injected-collaborator seam
+// (rule R5), because until 2026-08-15 nothing drove it and dropping any ONE of
+// the four terms was invisible to every case in this file -- measured, four for
+// four. A malformed attribution block is a misconfiguration and also exits 1.
+// What remains
 // report-only is the attribution REPORT itself -- the puller list, the module
 // edge list and the baseline deltas. This sentence used to say the puller count
 // was report-only; P6 falsified that and nobody updated it, which is the whole
@@ -376,27 +380,24 @@ export function findRatchetBreaks(ratchet, observed) {
  * the regression, and UNDER fails too, because an allowance nobody tightens
  * decays into a ceiling with slack and the next regression hides in the slack.
  *
- * WHAT THE CANARY CANNOT SEE HERE, measured rather than reasoned about, because
- * a coverage claim nobody drove is the thing this file distrusts most. The rules
- * below are proven: ten mutations of them produce a FAIL line each. The WIRING
- * in main() is not, and cannot be, because the canary never drives main() --
- * that is this file's standing R5 entry in script-conventions-allowlist.json.
- * Deleting `|| chunkBreaks.length` from the single exit condition leaves the
- * ratchet measuring, printing `[OVER]`, printing the whole REGRESSION paragraph
- * -- and exiting 0, with the canary reporting ZERO failures.
+ * WHAT THE CANARY CAN SEE HERE, and what it could not until 2026-08-15. The
+ * rules below were proven from the start: ten mutations of them produce a FAIL
+ * line each. The WIRING in main() was not, and the gap was MEASURED rather than
+ * argued -- deleting `|| chunkBreaks.length` from the single exit condition left
+ * the ratchet measuring, printing `[OVER]`, printing the whole REGRESSION
+ * paragraph -- and exiting 0, with the canary reporting ZERO failures. The same
+ * one-token deletion applied to `anyOver` (the KB budget), `breaks.length` (the
+ * puller ratchet) and `missing.length` (the required-edge rule) was equally
+ * invisible: four for four, and three of the four had shipped that way for
+ * weeks.
  *
- * That is NOT specific to this rule, which is the reason it is recorded as debt
- * instead of being special-cased here: the same one-token deletion applied to
- * `anyOver` (the KB budget), `breaks.length` (the puller ratchet) and
- * `missing.length` (the required-edge rule) is equally invisible -- four for
- * four. The exit wiring of this guard has never been under test. Closing it
- * means giving main() the injected-collaborator seam check-ci-budget.mjs and
- * check-first-load-requests.mjs both have, driving it from the canary, and
- * retiring the allowlist row for all four verdicts at once. That is a refactor
- * of a shipped guard and belongs in its own PR, not bolted onto the one adding
- * a rule. What IS proven for this rule, end to end against a real build: both
- * break directions red (exit 1, named message), and all four silent-skip shapes
- * -- entry dropped, unknown route named, block deleted, block emptied -- red.
+ * That is now closed. main() takes its collaborators as an argument and the
+ * canary drives it directly -- see THE EXIT-CODE CONTRACT ITSELF near the end of
+ * selfTest, where every verdict has a case pinning its CODE and its BRANCH --
+ * and this file's R5 row in script-conventions-allowlist.json is retired. The
+ * rule's end-to-end proof against a real build stands as it was: both break
+ * directions red (exit 1, named message), and all four silent-skip shapes --
+ * entry dropped, unknown route named, block deleted, block emptied -- red.
  *
  * DELIBERATELY A SIBLING of assertRatchetDeclared/findRatchetBreaks rather than
  * a shared parameterised rule. The two differ in noun, in remediation prose, in
@@ -1022,25 +1023,155 @@ export function assertBaselineRow(route, base) {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main -- and the collaborators it is handed rather than reaches for.
+//
+// THE SEAM EXISTS FOR THE EXIT CODES, not for testability in the abstract.
+// Until 2026-08-15 nothing drove main(), and the cost of that was MEASURED
+// rather than suspected: deleting any ONE of the four terms in its single exit
+// condition (missing, anyOver, breaks, chunkBreaks) left the guard measuring the
+// regression, printing [OVER], printing its whole remediation paragraph -- and
+// exiting 0, with the canary reporting ZERO failures. Four for four, and three
+// of the four had shipped that way for weeks. That is rule R5 of
+// check-script-conventions.mjs, and this is the shape its two reference
+// implementations (check-ci-budget.mjs, check-first-load-requests.mjs) use.
+//
+// main() OWNS the exit code and does nothing else: resolve collaborators,
+// delegate, translate a CheckFailure into 1. check() holds the measurements and
+// the four verdicts. Split that way so the canary can pin a CODE and a BRANCH in
+// one assertion -- all four verdicts return 1, so "it returned 1" alone passes
+// for any of them, the wrong-reason pass this file's failureKind classifier
+// already exists to prevent.
 // ---------------------------------------------------------------------------
 
-function main() {
-  if (!existsSync(MANIFEST_PATH)) {
+/**
+ * The client manifest, or a diagnosis. Takes its path so the canary can drive
+ * the missing-build branch against a path that really is absent, rather than
+ * pinning a stub's imitation of it.
+ */
+export function readManifestFrom(manifestPath) {
+  if (!existsSync(manifestPath)) {
     fail(
-      `No client manifest at ${path.relative(ROOT, MANIFEST_PATH)}. ` +
+      `No client manifest at ${path.relative(ROOT, manifestPath)}. ` +
         'Run `npm run build` first (vite.config.ts emits the manifest for the client build).',
     );
   }
+  return JSON.parse(readFileSync(manifestPath, 'utf8'));
+}
 
-  const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-  const budgets = JSON.parse(readFileSync(BUDGETS_PATH, 'utf8'));
+/** vite.config.ts source, or a diagnosis. Path-taking for the same reason. */
+export function readViteConfigFrom(configPath) {
+  if (!existsSync(configPath)) {
+    fail(
+      'vite.config.ts is missing, so the module walk cannot confirm that `@/` is ' +
+        'still the only alias its resolver has to know.',
+    );
+  }
+  return readFileSync(configPath, 'utf8');
+}
+
+/**
+ * The step summary is a real append to a real file, so it is a collaborator and
+ * not an env lookup. The canary drives check() a dozen times and
+ * GITHUB_STEP_SUMMARY is set for every one of those runs in CI -- unguarded,
+ * proving the exit contract would write a dozen fixture tables into the job
+ * summary of the job doing the proving.
+ */
+const appendStepSummary = (text) => {
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + '\n');
+  }
+};
+
+/**
+ * The real collaborators, bound once and spread under the canary's overrides.
+ * Everything filesystem-, gzip- or console-bound lives here, which is what lets
+ * every branch of check() be reached with no build and no writes.
+ */
+const REAL_DEPS = {
+  readManifest: () => readManifestFrom(MANIFEST_PATH),
+  readBudgets: () => JSON.parse(readFileSync(BUDGETS_PATH, 'utf8')),
+  readViteConfig: () => readViteConfigFrom(path.join(ROOT, 'vite.config.ts')),
+  // isFile, not merely exists -- the same distinction makeFsResolver documents
+  // above, and for the same reason. A trackedModule pointed at a DIRECTORY (a
+  // barrel folder, after the client module moves into one) passes existsSync,
+  // and the module walk then reports 0 edges for every route: precisely the
+  // "reads as the goal state" failure the message this gates is worded to stop.
+  fileExists: (relative) => {
+    const target = path.join(ROOT, relative);
+    return existsSync(target) && statSync(target).isFile();
+  },
+  gzip: gzipBytes,
+  chunkContents: readChunkContents,
+  readSource: makeFsReader(ROOT),
+  resolveSpec: makeFsResolver(ROOT),
+  writeSummary: appendStepSummary,
+  log: console.log,
+  logError: console.error,
+};
+
+/** The only flags this CLI takes. It lives beside main() because main() is what
+ *  rejects an unknown one: declared inside the entry-point block, that branch
+ *  was unreachable from the canary, and mutating its `process.exitCode = 1` to 0
+ *  scored zero FAIL lines -- a typo'd flag exiting 0 having checked nothing. */
+const KNOWN_FLAGS = ['--self-test'];
+
+/**
+ * THE EXIT OWNER. Its return value becomes process.exitCode, and the canary
+ * drives THIS function -- not the rules alone -- so the codes are measured
+ * rather than asserted (rule R5 of check-script-conventions.mjs).
+ */
+export function main(argv = [], deps = {}) {
+  const collaborators = { ...REAL_DEPS, ...deps };
+
+  const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));
+  if (unknown.length) {
+    // NOT a budget verdict -- nothing was measured. Kept ahead of the try so it
+    // cannot be confused with one.
+    collaborators.logError(
+      `bundle-budget: unknown flag(s) ${unknown.join(' ')}. Known: ${KNOWN_FLAGS.join(', ')}.`,
+    );
+    return 1;
+  }
+
+  try {
+    return check(collaborators);
+  } catch (err) {
+    // A non-contract error is never laundered into an exit code. A TypeError in
+    // this guard reported as 1 would read as "your PR broke a budget"; it is a
+    // broken guard, and it must arrive with its stack.
+    if (!(err instanceof CheckFailure)) throw err;
+    collaborators.logError('');
+    collaborators.logError(`bundle-budget check FAILED\n  ${err.message}`);
+    collaborators.logError('');
+    return 1;
+  }
+}
+
+/**
+ * Every measurement and all four verdicts. Returns the exit code; main() is the
+ * only caller and the only thing that turns a CheckFailure into one.
+ */
+function check({
+  readManifest,
+  readBudgets,
+  readViteConfig,
+  fileExists,
+  gzip,
+  chunkContents,
+  readSource,
+  resolveSpec,
+  writeSummary,
+  log,
+  logError,
+}) {
+  const manifest = readManifest();
+  const budgets = readBudgets();
 
   const attribution = assertAttribution(budgets);
 
   const trackedName = attribution.trackedChunkName;
   const trackedModule = assertTrackedModule(attribution);
-  if (!existsSync(path.join(ROOT, trackedModule))) {
+  if (!fileExists(trackedModule)) {
     fail(
       `attribution.trackedModule "${trackedModule}" is not a file in this repo. ` +
         'The module-level edge report would walk to a target nothing can import ' +
@@ -1048,35 +1179,26 @@ function main() {
         'Point it at the module that leads into the tracked chunk.',
     );
   }
-  const VITE_CONFIG = path.join(ROOT, 'vite.config.ts');
-  if (!existsSync(VITE_CONFIG)) {
-    fail(
-      'vite.config.ts is missing, so the module walk cannot confirm that `@/` is ' +
-        'still the only alias its resolver has to know.',
-    );
-  }
-  assertKnownAliases(aliasKeysFrom(readFileSync(VITE_CONFIG, 'utf8')));
-  const readSource = makeFsReader(ROOT);
-  const resolveSpec = makeFsResolver(ROOT);
+  assertKnownAliases(aliasKeysFrom(readViteConfig()));
   const trackedKey = resolveTrackedKey(manifest, trackedName);
-  const trackedGz = gzipBytes(manifest[trackedKey].file);
+  const trackedGz = gzip(manifest[trackedKey].file);
   const baseRoutes = attribution.baseline?.routes ?? {};
   const baseCommit = attribution.baseline?.commit ?? 'none recorded';
   const baseTrackedKB = attribution.baseline?.trackedChunkGzipKB;
 
-  console.log('');
-  console.log(
+  log('');
+  log(
     `tracked chunk "${trackedName}" -> ${manifest[trackedKey].file} (${fmtKB(trackedGz)} gz)`,
   );
   // The tracked chunk's OWN weight is DIFFED, not merely recorded beside a live
   // number. A @supabase minor that grows it is precisely the regression
   // .github/dependabot.yml's carve-out leans on this job to name.
   if (typeof baseTrackedKB === 'number') {
-    console.log(
+    log(
       `  vs baseline: ${baseTrackedKB} KB -> ${signed(kb(trackedGz) - baseTrackedKB, 1)} KB`,
     );
   }
-  console.log(`baseline commit: ${baseCommit}`);
+  log(`baseline commit: ${baseCommit}`);
 
   let anyOver = false;
   /** route -> measured direct puller count, fed to the ratchet after the loop. */
@@ -1124,21 +1246,21 @@ function main() {
     );
     assertMeasured(route, files);
     const sized = files
-      .map((f) => ({ file: f, bytes: gzipBytes(f) }))
+      .map((f) => ({ file: f, bytes: gzip(f) }))
       .sort((a, b) => b.bytes - a.bytes);
     const total = sized.reduce((sum, s) => sum + s.bytes, 0);
     const over = kb(total) > maxFirstLoadGzipKB;
     anyOver ||= over;
 
     const status = over ? 'OVER BUDGET' : 'ok';
-    console.log('');
-    console.log(
+    log('');
+    log(
       `[${status}] ${route}: ${fmtKB(total)} first-load JS across ${sized.length} files ` +
         `(budget ${maxFirstLoadGzipKB} KB)`,
     );
-    console.log('  largest chunks:');
+    log('  largest chunks:');
     for (const { file, bytes } of sized.slice(0, 10)) {
-      console.log(`    ${fmtKB(bytes).padStart(9)}  ${file}`);
+      log(`    ${fmtKB(bytes).padStart(9)}  ${file}`);
     }
 
     const pullers = findPullers(manifest, seen, trackedKey);
@@ -1150,7 +1272,7 @@ function main() {
     // the ratchet can never gate a figure different from the one reported.
     observedChunks[route] = sized.length;
 
-    console.log(
+    log(
       `  ${trackedName}: ${
         inGraph ? `IN first load (${fmtKB(trackedGz)} gz)` : 'NOT in first load'
       } -- ${pullers.length} direct puller(s)`,
@@ -1159,13 +1281,13 @@ function main() {
       // Said out loud, not skipped: a budgeted route with no baseline row
       // accrues weight against no reference, and silence there reads as "no
       // change since the baseline" rather than "never compared".
-      console.log(
+      log(
         `  vs baseline ${baseCommit}: NO baseline row for "${route}" -- nothing to ` +
           'compare against. Add one to attribution.baseline.routes in perf-budgets.json.',
       );
     } else {
       assertBaselineRow(route, base);
-      console.log(
+      log(
         `  vs baseline ${baseCommit}: ${base.firstLoadGzipKB} KB / ${base.chunks} chunk(s) / ` +
           `${base.pullers} puller(s) -> ${signed(kb(total) - base.firstLoadGzipKB, 1)} KB, ` +
           `${signed(sized.length - base.chunks, 0)} chunk(s), ` +
@@ -1173,9 +1295,9 @@ function main() {
       );
     }
     for (const puller of pullers) {
-      console.log(`    ${puller}`);
-      console.log(`      via: ${pathTo(parent, puller).join(' > ')}`);
-      console.log(`      contains: ${describeContents(readChunkContents(manifest[puller].file))}`);
+      log(`    ${puller}`);
+      log(`      via: ${pathTo(parent, puller).join(' > ')}`);
+      log(`      contains: ${describeContents(chunkContents(manifest[puller].file))}`);
     }
 
     // The chunk count above says WHERE the weight is; this says WHICH import to
@@ -1190,13 +1312,13 @@ function main() {
       edgeCount: moduleEdges.length,
       unresolved: walk.unresolved,
     });
-    console.log(
+    log(
       `  static module edges to ${trackedModule}: ${moduleEdges.length} module(s) ` +
         `(${walk.parsed} module(s) parsed; source-level ceiling, see header)`,
     );
     for (const mod of moduleEdges) {
-      console.log(`    ${mod}`);
-      console.log(`      via: ${pathTo(walk.parent, mod).join(' > ')}`);
+      log(`    ${mod}`);
+      log(`      via: ${pathTo(walk.parent, mod).join(' > ')}`);
     }
     moduleRows.push(
       `| ${route} | ${moduleEdges.length} | ${walk.parsed} | ${
@@ -1224,11 +1346,11 @@ function main() {
   assertRequiredDeclared(required);
   const missing = findMissingRequiredEdges(manifest, required, budgets.routes);
   const requiredRows = ['', '## Required first-load edges', '', '| Route | Module | Status |', '|---|---|---|'];
-  console.log('');
+  log('');
   for (const { route, module } of required) {
     const gone = missing.some((r) => r.route === route && r.module === module);
     requiredRows.push(`| ${route} | \`${module}\` | ${gone ? '**MISSING**' : 'present'} |`);
-    console.log(`[${gone ? 'MISSING' : 'ok'}] required edge: ${module} in ${route}`);
+    log(`[${gone ? 'MISSING' : 'ok'}] required edge: ${module} in ${route}`);
   }
 
   // THE PULLER RATCHET (P6). A third independent verdict, for the same reason
@@ -1239,13 +1361,13 @@ function main() {
   assertRatchetDeclared(ratchet, budgets.routes);
   const breaks = findRatchetBreaks(ratchet, observedPullers);
   const ratchetRows = ['', '## Puller ratchet', '', '| Route | Allowed | Measured | Status |', '|---|---|---|---|'];
-  console.log('');
+  log('');
   for (const [route, allowed] of Object.entries(ratchet)) {
     const count = observedPullers[route];
     const broke = breaks.find((b) => b.route === route);
     const label = broke ? (broke.direction === 'over' ? '**REGRESSION**' : '**TIGHTEN**') : 'ok';
     ratchetRows.push(`| ${route} | ${allowed} | ${count} | ${label} |`);
-    console.log(
+    log(
       `[${broke ? broke.direction.toUpperCase() : 'ok'}] puller ratchet: ${route} -- ` +
         `${count} puller(s), allowance ${allowed}`,
     );
@@ -1272,30 +1394,30 @@ function main() {
     '| Route | Allowed | Measured | Status |',
     '|---|---|---|---|',
   ];
-  console.log('');
+  log('');
   for (const [route, allowed] of Object.entries(chunkRatchet)) {
     const count = observedChunks[route];
     const broke = chunkBreaks.find((b) => b.route === route);
     const label = broke ? (broke.direction === 'over' ? '**REGRESSION**' : '**TIGHTEN**') : 'ok';
     chunkRows.push(`| ${route} | ${allowed} | ${count} | ${label} |`);
-    console.log(
+    log(
       `[${broke ? broke.direction.toUpperCase() : 'ok'}] chunk ratchet: ${route} -- ` +
         `${count} first-load chunk(s), allowance ${allowed}`,
     );
   }
 
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(
-      process.env.GITHUB_STEP_SUMMARY,
-      [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows, ...ratchetRows, ...chunkRows].join('\n') + '\n',
-    );
-  }
+  // The step summary is a collaborator, not an env lookup: the canary drives
+  // check() a dozen times, and GITHUB_STEP_SUMMARY is set for every one of those
+  // runs in CI.
+  writeSummary(
+    [...budgetRows, ...attrRows, ...moduleRows, ...requiredRows, ...ratchetRows, ...chunkRows].join('\n'),
+  );
 
   if (breaks.length) {
-    console.error('');
+    logError('');
     for (const { route, allowed, observed, direction } of breaks) {
       if (direction === 'over') {
-        console.error(
+        logError(
           `PULLER RATCHET REGRESSION: "${route}" now has ${observed} direct ` +
             `puller(s) of ${trackedName}, allowance ${allowed}.\n` +
             '  Something re-imported the Supabase client into this route\'s static ' +
@@ -1306,7 +1428,7 @@ function main() {
             'a reason, not here.',
         );
       } else {
-        console.error(
+        logError(
           `PULLER RATCHET NOT TIGHTENED: "${route}" now has ${observed} direct ` +
             `puller(s) of ${trackedName}, but the allowance is still ${allowed}.\n` +
             '  This is a WIN that has not been recorded. Lower the allowance to ' +
@@ -1319,10 +1441,10 @@ function main() {
   }
 
   if (chunkBreaks.length) {
-    console.error('');
+    logError('');
     for (const { route, allowed, observed, direction } of chunkBreaks) {
       if (direction === 'over') {
-        console.error(
+        logError(
           `CHUNK RATCHET REGRESSION: "${route}" now loads ${observed} first-load ` +
             `JS chunk(s), allowance ${allowed}.\n` +
             '  Every extra chunk is one more edge request on every view of this ' +
@@ -1335,7 +1457,7 @@ function main() {
             'allowance in this PR and say what bought them.',
         );
       } else {
-        console.error(
+        logError(
           `CHUNK RATCHET NOT TIGHTENED: "${route}" now loads ${observed} ` +
             `first-load JS chunk(s), but the allowance is still ${allowed}.\n` +
             '  This is a WIN that has not been recorded. Lower the allowance to ' +
@@ -1348,9 +1470,9 @@ function main() {
   }
 
   if (missing.length) {
-    console.error('');
+    logError('');
     for (const { route, module, why } of missing) {
-      console.error(
+      logError(
         `REQUIRED FIRST-LOAD EDGE LOST: "${module}" is no longer in the ` +
           `first-load graph of "${route}".\n  Why it is required: ${why}\n` +
           '  This is not a size regression -- it is a CORRECTNESS one, and it fails ' +
@@ -1367,7 +1489,7 @@ function main() {
   // budget message entirely, so a PR that broke both got told about one, fixed
   // it, rebuilt (minutes), and only then heard about the other.
   if (anyOver) {
-    console.error(
+    logError(
       '\nOne or more routes exceed their first-load JS budget (perf-budgets.json). ' +
         'Either remove the weight from the static import graph or raise the budget ' +
         'deliberately in this PR with justification.',
@@ -1376,8 +1498,8 @@ function main() {
   if (missing.length || anyOver || breaks.length || chunkBreaks.length) {
     return 1;
   }
-  console.log('');
-  console.log('All first-load JS budgets respected.');
+  log('');
+  log('All first-load JS budgets respected.');
   return 0;
 }
 
@@ -1386,8 +1508,10 @@ function main() {
 // can fail is not a guard). Every PURE rule is proved in BOTH directions
 // against fixtures, so it needs no build -- which is why perf-budget.yml runs
 // it BEFORE the build step, where it still reports when the build is the thing
-// that broke. Two branches are filesystem-bound (no client manifest at all; a
-// manifest entry missing from disk) and are deliberately NOT covered here.
+// that broke. Since the R5 seam, main() and its exit codes are proved here too,
+// including the no-client-manifest branch (driven through the real reader
+// against a path that really is absent). ONE branch stays filesystem-bound and
+// uncovered: a manifest entry missing from disk.
 // That workflow triggers on pushes to main/master and PRs targeting them, so
 // this is not literally every push.
 // ---------------------------------------------------------------------------
@@ -1443,6 +1567,14 @@ function selfTest() {
     ['positive integer. Every route loads', 'chunk-ratchet-bad-allowance'],
     ['has no chunkRatchet entry', 'chunk-ratchet-missing-route'],
     ['no chunk count was measured', 'chunk-ratchet-unmeasured'],
+    // The three MISCONFIGURATIONS the exit-contract cases reach through main().
+    // They all print one message and return 1 from one branch, so without a
+    // needle each they would be indistinguishable from each other. Appended for
+    // the reason the chunk needles were: first-wins order means an appended
+    // needle cannot steal a classification from a rule that already has one.
+    ['No client manifest at', 'no-manifest'],
+    ['vite.config.ts is missing', 'no-vite-config'],
+    ['is not a file in this repo', 'tracked-module-not-a-file'],
   ];
   const failureKind = (run) => {
     try {
@@ -2222,6 +2354,293 @@ function selfTest() {
     'no-throw',
   );
 
+  // --- THE EXIT-CODE CONTRACT ITSELF (rule R5) ----------------------------
+  // main() is the function whose return value becomes process.exitCode, so it
+  // is DRIVEN here rather than reasoned about. Every filesystem-, gzip- and
+  // console-bound collaborator is injected, so these cases need no build.
+  //
+  // Each case pins a CODE and a BRANCH. All four verdicts return 1, so "it
+  // returned 1" passes for any of them -- and that is measured, not
+  // hypothetical: until this block existed, deleting any ONE of the four terms
+  // from the exit condition left every other case in this file green while the
+  // guard exited 0 on a regression it had just finished printing. Four for four.
+  // Third column: WHICH STREAM the marker has to appear on. Without it both
+  // arrays were joined before matching, and a mutant swapping REAL_DEPS' `log`
+  // for console.error scored zero FAIL lines -- no case could tell whether a
+  // verdict was announced on stdout or stderr, and a KINDS needle appearing in
+  // ordinary route output could steal a misconfiguration's classification.
+  const VERDICTS = [
+    ['exceed their first-load JS budget', 'budget', 'err'],
+    ['PULLER RATCHET REGRESSION', 'puller:over', 'err'],
+    ['PULLER RATCHET NOT TIGHTENED', 'puller:under', 'err'],
+    ['CHUNK RATCHET REGRESSION', 'chunk:over', 'err'],
+    ['CHUNK RATCHET NOT TIGHTENED', 'chunk:under', 'err'],
+    ['REQUIRED FIRST-LOAD EDGE LOST', 'required', 'err'],
+    ['bundle-budget check FAILED', 'misconfig', 'err'],
+    ['unknown flag(s)', 'unknown-flag', 'err'],
+    ['All first-load JS budgets respected', 'clean', 'out'],
+  ];
+  // EVERY marker that fired, not the first: a case naming one verdict thereby
+  // asserts the other three stayed silent, which is what makes a term dropped
+  // from the exit condition visible instead of merely survivable.
+  //
+  // A misconfiguration is classified further, with the same KINDS table the
+  // pure cases use. Three unrelated failures reach that one branch, so
+  // "1|misconfig" alone would pass for any of them -- the wrong-reason pass this
+  // canary opens by warning about.
+  const verdictsOf = (out, err) => {
+    const fired = VERDICTS.filter(([needle, , stream]) =>
+      (stream === 'out' ? out : err).includes(needle),
+    ).map(([, kind]) => kind);
+    // Classified against STDERR alone. The route report on stdout is long and
+    // quotes route names, budgets and module paths, so classifying against the
+    // whole transcript lets ordinary output answer a question about the failure.
+    if (err.includes('bundle-budget check FAILED')) {
+      const found = KINDS.find(([needle]) => err.includes(needle));
+      fired.push('as:' + (found ? found[1] : 'unclassified'));
+    }
+    return fired.join(',');
+  };
+
+  // The budgets every exit case starts from, aligned with what the fixtures
+  // above actually measure: M reaches 6 chunks from ROOT_ENTRY, two of which
+  // import the tracked chunk, and the injected gzip returns 1 KB per chunk.
+  const fixtureBudgets = () => ({
+    routes: { home: { entries: [ROOT_ENTRY], maxFirstLoadGzipKB: 10 } },
+    requiredFirstLoad: [{ route: 'home', module: '_shared.js', why: 'fixture' }],
+    pullerRatchet: { home: 2 },
+    chunkRatchet: { home: 6 },
+    attribution: {
+      trackedChunkName: 'vendor-supabase',
+      trackedModule: TRACKED_MODULE,
+      baseline: {
+        commit: 'fixture',
+        trackedChunkGzipKB: 1,
+        routes: { home: { firstLoadGzipKB: 6, chunks: 6, pullers: 2 } },
+      },
+    },
+  });
+  /** fixtureBudgets with ONE field moved -- the only difference between cases. */
+  const budgetsWith = (mutate) => () => {
+    const budgets = fixtureBudgets();
+    mutate(budgets);
+    return budgets;
+  };
+
+  /** Drive main() with everything injected; report `code|verdicts`. The two
+   *  streams are kept APART on purpose -- see the VERDICTS note above. */
+  const runMain = (deps = {}, argv = []) => {
+    const out = [];
+    const err = [];
+    const code = main(argv, {
+      readManifest: () => M,
+      readBudgets: fixtureBudgets,
+      readViteConfig: () => "resolve: { alias: { '@': './src' } }",
+      fileExists: () => true,
+      gzip: () => 1024,
+      chunkContents: () => ({ modules: ['src/a.ts'], packages: [], note: null }),
+      readSource: fixtureReader,
+      resolveSpec: fixtureResolver,
+      writeSummary: () => {},
+      log: (m) => out.push(String(m)),
+      logError: (m) => err.push(String(m)),
+      ...deps,
+    });
+    return `${code}|${verdictsOf(out.join('\n'), err.join('\n'))}`;
+  };
+
+  add('the aligned fixture passes -- exit 0, and it says so', () => runMain(), '0|clean');
+  add(
+    'OVER the KB budget -> 1, and no other verdict fires',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.routes.home.maxFirstLoadGzipKB = 5; }) }),
+    '1|budget',
+  );
+  add(
+    'a required first-load edge that is no longer reachable -> 1',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.requiredFirstLoad[0].module = '_deep.js'; }) }),
+    '1|required',
+  );
+  add(
+    'MORE pullers than the allowance -> 1, reported as a regression',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.pullerRatchet.home = 1; }) }),
+    '1|puller:over',
+  );
+  add(
+    'FEWER pullers than the allowance -> 1, reported as an untightened win',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.pullerRatchet.home = 3; }) }),
+    '1|puller:under',
+  );
+  add(
+    'MORE first-load chunks than the allowance -> 1, reported as a regression',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.chunkRatchet.home = 5; }) }),
+    '1|chunk:over',
+  );
+  add(
+    'FEWER first-load chunks than the allowance -> 1, reported as an untightened win',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.chunkRatchet.home = 7; }) }),
+    '1|chunk:under',
+  );
+  // The no-early-return property the exit block claims in prose: a PR that broke
+  // two verdicts hears about both, rather than fixing one and paying for another
+  // build to be told about the other.
+  add(
+    'two broken verdicts are BOTH reported before the single exit',
+    () =>
+      runMain({
+        readBudgets: budgetsWith((b) => {
+          b.routes.home.maxFirstLoadGzipKB = 5;
+          b.chunkRatchet.home = 5;
+        }),
+      }),
+    '1|budget,chunk:over',
+  );
+  // The misconfiguration branch, pinned to WHICH misconfiguration. Two of the
+  // three drive the real reader against a path that really is absent, so what is
+  // proven is the branch and not a stub imitating it.
+  //
+  // These pin what this guard DOES, which is not what R3 would ask for: a
+  // missing build is INFRASTRUCTURE and the sibling guard beside it in pre-ship
+  // returns 2 for it, where this returns 1. Recorded rather than changed --
+  // moving a shipped guard's exit codes means auditing perf-budget.yml and the
+  // ship-gate ledger, which is a different PR from proving the wiring.
+  add(
+    'a trackedModule that is not a file -> 1, as that misconfiguration',
+    () => runMain({ fileExists: () => false }),
+    '1|misconfig,as:tracked-module-not-a-file',
+  );
+  add(
+    'no client build -> 1, through the real reader on a real absent path',
+    () =>
+      runMain({
+        readManifest: () => readManifestFrom(path.join(ROOT, 'no-such-build', 'manifest.json')),
+      }),
+    '1|misconfig,as:no-manifest',
+  );
+  add(
+    'no vite.config.ts -> 1, through the real reader on a real absent path',
+    () =>
+      runMain({ readViteConfig: () => readViteConfigFrom(path.join(ROOT, 'no-such-vite.config.ts')) }),
+    '1|misconfig,as:no-vite-config',
+  );
+  // ...and the failure that must NOT become a verdict. A TypeError reported as
+  // exit 1 reads as "your PR broke a budget"; it is a broken guard, and it has
+  // to arrive with its stack.
+  add(
+    'a non-contract error is rethrown, never laundered into an exit code',
+    () => {
+      try {
+        return runMain({
+          readBudgets: () => {
+            throw new TypeError('boom');
+          },
+        });
+      } catch (err) {
+        return `${err.constructor.name}: ${err.message}`;
+      }
+    },
+    'TypeError: boom',
+  );
+
+  // --- and the CALL SITES of the silent-skip asserts -----------------------
+  // The seam above proves the four VERDICTS. It says nothing about whether
+  // check() still CALLS the R1 defences this file argues for at length -- and
+  // measured, seven for seven, deleting any one of those calls left all 123
+  // cases green. A dropped assertRequiredDeclared is the loudest: the eager auth
+  // client could then leave the first-load graph with magic links breaking in
+  // production, and this guard would say "All first-load JS budgets respected."
+  // Each case names the assert by the KINDS needle of the message it prints, so
+  // a mutant routing control into a different rule cannot pass as this one.
+  add(
+    'a deleted attribution block still fails (assertAttribution is CALLED)',
+    () => runMain({ readBudgets: budgetsWith((b) => { delete b.attribution; }) }),
+    '1|misconfig,as:no-attribution',
+  );
+  add(
+    'an empty routes block still fails (assertRoutesDeclared is CALLED)',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.routes = {}; }) }),
+    '1|misconfig,as:no-routes',
+  );
+  add(
+    'a route resolving to no JS chunk still fails (assertMeasured is CALLED)',
+    () =>
+      runMain({
+        readManifest: () => ({ ...M, 'app/style.tsx': { file: 'assets/style.css' } }),
+        readBudgets: budgetsWith((b) => { b.routes.home.entries = ['app/style.tsx']; }),
+      }),
+    '1|misconfig,as:nothing-measured',
+  );
+  add(
+    'a hole in the baseline row still fails (assertBaselineRow is CALLED)',
+    () =>
+      runMain({
+        readBudgets: budgetsWith((b) => { b.attribution.baseline.routes.home.chunks = null; }),
+      }),
+    '1|misconfig,as:bad-baseline',
+  );
+  add(
+    'a module walk that sees nothing still fails (assertModuleWalkSaw is CALLED)',
+    () => runMain({ readSource: () => null }),
+    '1|misconfig,as:walk-saw-nothing',
+  );
+  add(
+    'a deleted requiredFirstLoad block still fails (assertRequiredDeclared is CALLED)',
+    () => runMain({ readBudgets: budgetsWith((b) => { delete b.requiredFirstLoad; }) }),
+    '1|misconfig,as:no-required-edges',
+  );
+  add(
+    'a second vite alias still fails (assertKnownAliases is CALLED)',
+    () => runMain({ readViteConfig: () => "alias: { '@': a, '~': b }" }),
+    '1|misconfig,as:unknown-alias',
+  );
+
+  // The KB budget's BOUNDARY, which no other case reaches: every fixture above
+  // is 6 KB against 10 (under) or 5 (over), so mutating `>` to `>=` scored zero
+  // FAIL lines. Both ratchets pin their equivalent explicitly; this is the third.
+  add(
+    'a route sitting EXACTLY on its budget is not over it',
+    () => runMain({ readBudgets: budgetsWith((b) => { b.routes.home.maxFirstLoadGzipKB = 6; }) }),
+    '0|clean',
+  );
+
+  // An unknown flag measures NOTHING, so exiting 0 on a typo would be the
+  // silent-green shape R1 names. Driven through main() because that is now
+  // where the branch lives.
+  add(
+    'an unknown flag -> 1, without pretending to have checked',
+    () => runMain({}, ['--nope']),
+    '1|unknown-flag',
+  );
+
+  // --- what INJECTION structurally hides: the DEFAULTS ---------------------
+  // Every case above replaces REAL_DEPS, so nothing in them can see how the real
+  // collaborators are wired. Two mutations proved that concretely: binding `log`
+  // to console.error, and dropping the isFile half of fileExists, both scored
+  // ZERO FAIL lines. These two cases close the ones that can change a verdict or
+  // a diagnosis; the class is wider (a reader bound to the wrong PATH would be
+  // just as invisible) and is named here rather than left to be discovered.
+  add(
+    'the default log/logError are the two DISTINCT streams',
+    () => `${REAL_DEPS.log === console.log}/${REAL_DEPS.logError === console.error}`,
+    'true/true',
+  );
+  add(
+    'the default fileExists rejects a DIRECTORY, which existsSync alone accepts',
+    () => REAL_DEPS.fileExists('.'),
+    false,
+  );
+
+  // The six-table job summary is "the surface most often read with no source
+  // beside it", and dropping the call scored zero FAIL lines.
+  add(
+    'the whole six-table job summary is handed to the writer, not dropped',
+    () => {
+      const written = [];
+      runMain({ writeSummary: (text) => written.push(text) });
+      return (written[0] ?? '').split('\n').filter((line) => line.startsWith('## ')).length;
+    },
+    6,
+  );
+
   let failed = 0;
   for (const { name, run, expected } of cases) {
     let actual;
@@ -2247,17 +2666,23 @@ function selfTest() {
   console.log(
     `PASS self-test -- ${cases.length} cases. Every PURE rule is proven in both ` +
       'directions, including the module walk (which takes its reader and ' +
-      'resolver as arguments so fixtures can drive it). What is NOT covered, ' +
-      'because none of it is fixture-drivable: the four filesystem-bound ' +
-      'failures (no client manifest; a manifest entry missing from disk; a ' +
-      'trackedModule that is not a file; no vite.config.ts), the bodies of ' +
-      'makeFsResolver / makeFsReader, and -- the one worth naming, because it is ' +
-      'not obvious from a green run -- main()\'s EXIT WIRING. Nothing here drives ' +
-      'main(), so dropping any of the four verdicts from its single exit ' +
-      'condition (anyOver, breaks, chunkBreaks, missing) leaves every case above ' +
-      'passing while the guard exits 0 on a real regression. Measured, four for ' +
-      'four, not assumed; see the R5 row for this file in ' +
-      'script-conventions-allowlist.json and the note above assertChunkRatchetDeclared. ' +
+      'resolver as arguments so fixtures can drive it) -- and, since the R5 ' +
+      'seam, main() itself: all four verdicts in isolation, both directions of ' +
+      'both ratchets, the KB budget at its boundary, a two-verdict case pinning ' +
+      'the single exit, each misconfiguration classified by WHICH one it was ' +
+      'rather than by its code, an unknown flag, the job-summary write, and the ' +
+      'CALL SITE of every silent-skip assert (deleting any one of those seven ' +
+      'calls used to leave all 123 cases green). ' +
+      'What is still NOT covered, because none of it is fixture-drivable: a ' +
+      'manifest entry missing from disk, the sourcemap reader, the body of ' +
+      'appendStepSummary, and the bodies of makeFsResolver / makeFsReader. None ' +
+      'of them can quietly move a verdict -- an unreadable chunk hard-fails, an ' +
+      'unresolvable first-party specifier trips the blindness check, and the ' +
+      'sourcemap is report-only -- but a resolver pointed at the WRONG file ' +
+      'would be invisible here. One EXIT CODE is knowingly unpinned by R3: a ' +
+      'missing build is infrastructure and returns 1, where the sibling guard ' +
+      'beside it in pre-ship returns 2. The cases below assert what this guard ' +
+      'DOES, and changing it is a separate PR that has to audit every caller. ' +
       'A wrong EXTENSION list surfaces as ' +
       'unresolved specifiers on a real run; a missed ALIAS does not, which is ' +
       'exactly why assertKnownAliases exists and is pinned here instead. A ' +
@@ -2281,25 +2706,14 @@ function selfTest() {
 // replaces made the guard exit 0 having run nothing through a junction.
 if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
-  const KNOWN_FLAGS = ['--self-test'];
-  const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));
-
-  if (unknown.length) {
-    console.error(
-      `bundle-budget: unknown flag(s) ${unknown.join(' ')}. Known: ${KNOWN_FLAGS.join(', ')}.`,
-    );
-    process.exitCode = 1;
-  } else if (argv.includes('--self-test')) {
+  // EXACTLY --self-test, not "contains it": `--self-test --nope` must still be
+  // rejected as an unknown flag, which is what the previous shape did by
+  // checking flags first. Everything else goes to main(), which owns every
+  // other code -- unknown flags and the CheckFailure translation included -- so
+  // the canary drives the same wiring the CLI does rather than a copy of it.
+  if (argv.length === 1 && argv[0] === '--self-test') {
     process.exitCode = selfTest() ? 0 : 1;
   } else {
-    try {
-      process.exitCode = main();
-    } catch (err) {
-      if (!(err instanceof CheckFailure)) throw err;
-      console.error('');
-      console.error(`bundle-budget check FAILED\n  ${err.message}`);
-      console.error('');
-      process.exitCode = 1;
-    }
+    process.exitCode = main(argv);
   }
 }

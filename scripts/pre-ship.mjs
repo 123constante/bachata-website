@@ -133,6 +133,13 @@ export const CHECKS = [
   // regression either way -- perf-budget.yml builds and runs both request guards
   // -- but only after the push. This is the same verdict, before it.
   ["build:ship", "production build, from a clean build/ (the request ratchet reads its HTML)"],
+  // Both request gates read the build above, so the expensive half is already
+  // paid for. This one is the ONLY gate on the first-load chunk count of the SSR
+  // routes -- /city/:slug and /event/:id emit no prerendered HTML, so the guard
+  // below is structurally blind to them, and they are most of the edge-request
+  // bill. Held back from the PR that made it blocking only because that diff had
+  // already had its review round.
+  ["check:bundle-budget", "first-load JS budgets + puller/chunk ratchets (SSR routes included)"],
   ["check:first-load-requests", "first-load REQUEST-count ratchet (prerendered routes)"],
 ];
 
@@ -1075,6 +1082,15 @@ async function main(argv = process.argv.slice(2)) {
         // NOT run without the env. Building against .env's real project (or
         // against nothing at all, on a fresh worktree) measures something other
         // than what CI measures, and a green row would say otherwise.
+        //
+        // The artefact is DELETED anyway, which is the half this branch was
+        // missing: the two checks below read build/ and cannot tell whether it
+        // describes this working tree. Left in place, a stale build/client from
+        // an earlier run is parsed by both and matches every pin -- two
+        // confident PASS rows about a tree that no longer exists, sitting beside
+        // this FAIL. With it gone they take their cannot-measure path, which is
+        // the whole argument for build:ship in the header above.
+        fs.rmSync(path.join(REPO_ROOT, "build"), { recursive: true, force: true });
         console.log("FAIL " + id + " -- could not resolve the build env: " + perfBuild.error);
         results.push({ id, label, ok: false });
         continue;
