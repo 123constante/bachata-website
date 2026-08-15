@@ -73,6 +73,27 @@ updates:
       - dependency-name: "@supabase/supabase-js"
         update-types: [version-update:semver-major]
 
+      # The UI layer became cache-tuned on 2026-08-14, when P1 of the
+      # vendor-cost arc pinned it into vendor-ui + vendor-ui-modal to cut
+      # first-load REQUEST count (Vercel edge requests were at 180% of
+      # allowance). It belongs under the same rule as the chunks above and was
+      # simply not covered by it before: a Radix major can split, rename or
+      # merge subpackages, which drops them out of the name lists in
+      # vite.config.ts and back into per-package chunks -- silently re-bucketing
+      # a tuned chunk, which is the exact thing this ignore block exists to stop
+      # arriving as an auto-PR. Only DIRECT dependencies are listed; Radix's
+      # runtime helpers (@floating-ui/*, aria-hidden, react-remove-scroll,
+      # use-sidecar, react-style-singleton, tslib) are transitive and ride with
+      # whatever bumps them. lucide-react appears again below for its minors.
+      - dependency-name: "@radix-ui/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: sonner
+        update-types: [version-update:semver-major]
+      - dependency-name: class-variance-authority
+        update-types: [version-update:semver-major]
+      - dependency-name: lucide-react
+        update-types: [version-update:semver-major]
+
       # --- 0.x deps: the MINOR is the breaking release ---
       # npm caret on 0.x resolves to >=0.y.z <0.(y+1).0, so 0.34 -> 0.35 IS a
       # breaking bump - but Dependabot labels it semver-minor and the major

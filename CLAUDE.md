@@ -79,9 +79,17 @@ via `QueryCache` / `MutationCache` `onError`.
 
 ### Chunk splitting (Vite)
 
-Manual chunks in `vite.config.ts`:
-`vendor-react`, `vendor-query`, `vendor-motion`, `vendor-supabase`, `vendor-ui`.
-Do not break these without reason — they are tuned for cache hit rates.
+Manual chunks in `vite.config.ts`: `vendor-react` (carries tslib &mdash; see the
+comment there before moving it), `vendor-query`, `vendor-motion`,
+`vendor-sentry`, `vendor-supabase`, `vendor-icons`, `vendor-ui`,
+`vendor-ui-modal`. Do not break these without reason &mdash; they are tuned for
+cache hit rates AND, since 2026-08-14, for first-load REQUEST count.
+
+The two `vendor-ui*` groups are name lists, and which list a package is in is a
+MEASURED fact about the app shell's first-load graph, not a judgement &mdash;
+put a package in the wrong one and its weight lands on every route. The rule
+and the way to re-measure it are in `vite.config.ts`; `perf-budgets.json`
+budgets and the puller ratchet are what enforce the result.
 
 ---
 
