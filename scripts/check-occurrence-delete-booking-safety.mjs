@@ -79,7 +79,8 @@
  * CI:     env: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
  */
 import fs from 'node:fs';
-import path from 'node:path';
+
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 /** Hard ceiling on the RPC round trip. It scans pg_proc bodies for every
  *  function in the public schema and runs three small aggregate queries over
@@ -371,12 +372,48 @@ export function evaluate(data) {
   return { code: 0, out, err };
 }
 
+/**
+ * Build the RPC caller. Split out of main() so the canary can substitute it:
+ * every branch below main's credential check is otherwise reachable only with a
+ * live Supabase, which is precisely why the exit contract went unproven.
+ */
+async function connectAndCall(url, key) {
+  // Imported dynamically so a missing/broken dependency is caught here and
+  // reported as exit 2. A static import throws at MODULE LOAD, before any
+  // handler exists, which would defeat the exit-code contract in the header.
+  const { createClient } = await import('@supabase/supabase-js');
+  const sb = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return () => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), RPC_TIMEOUT_MS);
+    return sb
+      .rpc('check_occurrence_delete_booking_safety_v1')
+      .abortSignal(ac.signal)
+      .then((r) => r)
+      .finally(() => clearTimeout(timer));
+  };
+}
+
 // NOTE: main() RETURNS its exit code rather than calling process.exit().
 // process.exit() truncates buffered stdout on Linux CI, and on Windows it can
 // abort the runtime outright (exit 127) when an undici keep-alive handle is
 // still closing -- a green check that fails its own job.
-async function main() {
-  const env = loadEnv();
+//
+// R5 (unproven-exit-contract): main() is the SOLE exit owner -- `--self-test`
+// dispatches through it rather than beside it -- and it takes injectable
+// collaborators so selfTest() can drive it and assert the code it returns.
+// Before this, the canary proved all 42 verdict rules and never once executed
+// the function whose return value becomes process.exitCode; the mapping from
+// verdict to exit code, the credential guard and both error arms were asserted
+// by nothing. Same shape the repo names in `feedback_canary_must_drive_the_exit_contract`.
+async function main(argv = [], deps = {}) {
+  const { loadEnvFn = loadEnv, connect = connectAndCall, log = console.log } = deps;
+
+  if (argv.includes('--self-test')) return (await selfTest(log)) ? 0 : 1;
+
+  const env = loadEnvFn();
   const url = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
   const key =
     env.VITE_SUPABASE_PUBLISHABLE_KEY ||
@@ -388,30 +425,13 @@ async function main() {
     return 2;
   }
 
-  // Imported dynamically so a missing/broken dependency is caught here and
-  // reported as exit 2. A static import throws at MODULE LOAD, before any
-  // handler exists, which would defeat the exit-code contract in the header.
-  let createClient;
+  let callGuard;
   try {
-    ({ createClient } = await import('@supabase/supabase-js'));
+    callGuard = await connect(url, key);
   } catch (e) {
     console.error(`Could not load @supabase/supabase-js: ${e?.message ?? e}`);
     return 2;
   }
-
-  const sb = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const callGuard = () => {
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), RPC_TIMEOUT_MS);
-    return sb
-      .rpc('check_occurrence_delete_booking_safety_v1')
-      .abortSignal(ac.signal)
-      .then((r) => r)
-      .finally(() => clearTimeout(timer));
-  };
 
   let { data, error } = await callGuard();
   if (error && isTransient(error)) {
@@ -457,14 +477,26 @@ async function main() {
 // can lose the `blind FAILS` case, the unknown-status case and the two
 // zero-population cases and still print PASS. Add a case, update this number --
 // that is the point.
-const EXPECTED_CASES = 42;
+const EXPECTED_CASES = 47;
 
-export function selfTest(log = console.log) {
+export async function selfTest(log = console.log) {
   const cases = [];
   const add = (name, fn, expected) => {
     let actual;
     try {
       actual = fn();
+    } catch (e) {
+      actual = `THREW: ${e?.message ?? e}`;
+    }
+    cases.push({ name, actual, expected });
+  };
+  /* Async twin of add(), for the cases that drive main(). Kept separate rather
+   * than making add() async: 42 of these cases are pure and synchronous, and
+   * awaiting each one serialises a canary that has no reason to be slow. */
+  const addAsync = async (name, fn, expected) => {
+    let actual;
+    try {
+      actual = await fn();
     } catch (e) {
       actual = `THREW: ${e?.message ?? e}`;
     }
@@ -610,6 +642,33 @@ export function selfTest(log = console.log) {
   add('a dropped status ladder (42883) is NOT function-missing', () => isFunctionMissing({ code: '42883', message: 'function public._occurrence_delete_safety_status_v1(jsonb) does not exist' }), false);
   add('a 42883 that NAMES the check IS function-missing', () => isFunctionMissing({ code: '42883', message: 'function public.check_occurrence_delete_booking_safety_v1() does not exist' }), true);
 
+  // --- the EXIT CONTRACT itself (rule R5) ---
+  //
+  // Everything above proves the verdict LOGIC. None of it executed main(), so
+  // the step CI actually runs -- and the mapping from verdict to process
+  // exitCode -- was asserted by nothing. These five drive main() with injected
+  // collaborators and assert the code it returns, which is the whole of R5.
+  //
+  // Note what the seams do NOT stub: evaluate(), failingArms() and the error
+  // classifiers all run for real here. Only the environment and the network are
+  // substituted, so a regression in the verdict-to-code mapping still reds.
+  const noNetwork = { connect: () => { throw new Error('the canary must never open a socket'); } };
+  const withPayload = (payload, error = null) => ({
+    loadEnvFn: () => ({ VITE_SUPABASE_URL: 'https://stub', VITE_SUPABASE_PUBLISHABLE_KEY: 'stub' }),
+    connect: async () => async () => ({ data: payload, error }),
+    log: () => {},
+  });
+  const quiet = { ...withPayload(clean), log: () => {} };
+
+  await addAsync('main returns 2 when credentials are absent', () => main([], { loadEnvFn: () => ({}), ...noNetwork }), 2);
+  await addAsync('main returns 2 when the client cannot be constructed', () => main([], {
+    loadEnvFn: quiet.loadEnvFn,
+    connect: () => { throw new Error('module not found'); },
+  }), 2);
+  await addAsync('main returns 0 on a clean payload', () => main([], withPayload(clean)), 0);
+  await addAsync('main returns 1 on a violating payload', () => main([], withPayload(violation)), 1);
+  await addAsync('main returns 1 when the check itself is missing', () => main([], withPayload(null, { code: 'PGRST202', message: 'function not found' })), 1);
+
   let failed = 0;
   for (const c of cases) {
     const ok = c.actual === c.expected;
@@ -633,18 +692,20 @@ export function selfTest(log = console.log) {
 }
 
 // Only act when run as a CLI -- importing this module must not query or exit.
-const invokedDirectly =
-  typeof process.argv[1] === 'string' &&
-  path.resolve(process.argv[1]).replace(/\\/g, '/').endsWith('/check-occurrence-delete-booking-safety.mjs');
-
-if (invokedDirectly) {
-  if (process.argv.includes('--self-test')) {
-    process.exitCode = selfTest() ? 0 : 1;
-  } else {
-    // A throw anywhere is "the check could not run" -- exit 2, never 1.
-    process.exitCode = await main().catch((e) => {
-      console.error(`Transport/unexpected error: ${e?.message ?? e}`);
-      return 2;
-    });
-  }
+//
+// isEntryPoint(), not a hand-rolled compare. The previous basename `endsWith`
+// answered a weaker question than it looked like: any path ending in this
+// filename satisfied it, and any non-canonical spelling of the real one is
+// resolved by neither side. scripts/lib/entry-point.mjs owns the predicate and
+// carries the measured reasoning; a second copy of it here is the duplication
+// class the ledger already tracks.
+//
+// ONE exit owner: main() dispatches --self-test internally, so there is a single
+// assignment to process.exitCode and R5 has something to point at.
+if (isEntryPoint(import.meta.url)) {
+  // A throw anywhere is "the check could not run" -- exit 2, never 1.
+  process.exitCode = await main(process.argv.slice(2)).catch((e) => {
+    console.error(`Transport/unexpected error: ${e?.message ?? e}`);
+    return 2;
+  });
 }
