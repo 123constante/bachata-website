@@ -46,7 +46,7 @@ const RETRY_DELAY_MS = 2000;
 
 /** The admin migration that ships the RPC. Named once so the "apply it"
  *  message and the "do NOT re-apply it" message cannot drift apart. */
-const CHECK_MIGRATION = '20260819120200_program_day_offset_canonical_check_v1.sql';
+const CHECK_MIGRATION = '20260819120109_program_day_offset_canonical_check_v1.sql';
 
 /**
  * R1 (silent-skip) floors. A guard that reports "0 violations" over a sample it
