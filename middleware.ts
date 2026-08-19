@@ -1,4 +1,5 @@
 import { next } from '@vercel/edge';
+import { teacherTag } from './app/cacheTags';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -325,11 +326,19 @@ export default async function middleware(request: Request): Promise<Response> {
   const canonicalUrl = request.url;
 
   let meta: OgMeta | null = null;
+  // Set only where a real purge exists for the entity behind the response, so a
+  // long s-maxage is safe. `teacher` is in REVALIDATABLE_ENTITY_TYPES and
+  // admin_save_person_v1 purges teacherTag(id) on every write; organisers and
+  // cities have no such tag today, so they stay on a blind TTL below.
+  let cacheTag: string | null = null;
   switch (kind) {
     case 'teachers': {
       const ref = await resolveRef('dancer_profiles', id);
       meta = ref ? await fetchTeacherMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
+      if (meta && ref) {
+        meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
+        cacheTag = teacherTag(ref.id);
+      }
       break;
     }
     case 'organisers': {
@@ -387,10 +396,31 @@ export default async function middleware(request: Request): Promise<Response> {
   // preview image never 308-redirects (apex→www) and breaks the card.
   meta.image = sameHostImage(meta.image, url.origin);
 
-  return new Response(buildMetaHtml(meta), {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-    },
-  });
+  // Two caching regimes, and which one applies is a fact about whether a PURGE
+  // reaches this response -- not about how fresh we would like it to be.
+  //
+  // Tagged (teachers): the same Vercel-Cache-Tag / Vercel-CDN-Cache-Control
+  // mechanism app/detailLoader.ts uses site-wide, on the same 1h/24h TTL
+  // convention. A teacher write emits the purge, so a long s-maxage costs no
+  // staleness -- the edge entry dies on edit, not on expiry.
+  //
+  // Untagged (organisers, city): these ride a TTL, not a purge, because no
+  // organiser/city tag exists yet (wiring one is a cross-repo change: new
+  // entity type + admin RPC emission + cacheTags.test.ts conformance). The
+  // payload is bot-only OG-card HTML edited by a single operator at low
+  // frequency, so an hour of blind staleness on a link preview is the cheap
+  // side of the trade against re-invoking this function per crawl.
+  const headers: Record<string, string> = {
+    'Content-Type': 'text/html; charset=utf-8',
+  };
+  if (cacheTag) {
+    headers['Vercel-Cache-Tag'] = cacheTag;
+    headers['Vercel-CDN-Cache-Control'] =
+      'public, s-maxage=3600, stale-while-revalidate=86400';
+    headers['Cache-Control'] = 'public, s-maxage=300, stale-while-revalidate=600';
+  } else {
+    headers['Cache-Control'] = 'public, s-maxage=3600, stale-while-revalidate=604800';
+  }
+
+  return new Response(buildMetaHtml(meta), { headers });
 }
