@@ -231,6 +231,24 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-contract.mjs
 
+      - name: Run override-mirror ghost check
+        # Fails if any calendar_occurrences row has is_override=true left behind
+        # after its P5 override row emptied (no venue/city, empty payload, no
+        # session/added-session overrides) - the "ghost OVR badge" drift class.
+        # Anon-callable; no Docker. Retires with the legacy mirror at Lever 1E.
+        #
+        # Canary first, same shape as the festival detail-span step above: a
+        # guard that cannot prove it fails aborts before the DB is queried. It
+        # also drives the branch that matters most here - a zero-row read is
+        # reported as infrastructure (exit 2), not as "no ghosts found".
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-override-mirror-ghost.mjs --self-test
+          node scripts/check-override-mirror-ghost.mjs
+
       - name: Run venue publish-gate contract check
         # Fails if any venue-as-destination read path stops gating via the
         # canonical venue_is_public(publish_state) predicate (the drift that
