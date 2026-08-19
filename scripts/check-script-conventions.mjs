@@ -90,6 +90,42 @@
  * branch fired passes for the wrong reason. R5 buys the seam that makes that
  * judgement possible; it does not make it for you.
  *
+ * THE NAMED GAP: R5 PROVES VALUE-OWNERSHIP, NOT REACHABILITY. It asks who
+ * PRODUCED the value that lands in process.exitCode, and whether the canary
+ * calls them. It never asks whether the assigning statement RUNS. The two come
+ * apart the moment the exit statement sits inside any function body, because
+ * the owner list then holds only the inner value-producer. Measured against
+ * this file on 2026-08-19, canary present in every row:
+ *
+ *   process.exitCode = await main(argv)      module scope   owners [main]
+ *                                            canary calls main        clean
+ *                                            canary does not          FIRES
+ *   main() { process.exitCode = verdict() }  owners [verdict]         clean
+ *   main() { process.exit(verdict()) }       owners [verdict]         clean
+ *   class R { run() { ...same... } }         owners [verdict]         clean
+ *   (async () => { ...same... })()           owners [verdict]         clean
+ *   only literal codes anywhere              owners []                FIRES
+ *
+ * So the rule asks MORE of the more testable shape. Exposing the assignment at
+ * the CLI tail names main as an owner and R5 demands the canary drive it;
+ * hiding the same assignment inside main removes main from the owner set and
+ * R5 asks the smaller question instead. That is an INVERSION, not merely a
+ * blind spot, and it is why check-override-mirror-ghost.mjs passed R5 with its
+ * exit code disconnected from its own verdict -- mutating the assignment to
+ * `= 0` left all five of its cases green.
+ *
+ * IT IS DOCUMENTED RATHER THAN FIXED, and that is a decision with evidence
+ * behind it. Three attempts to widen ownership to the enclosing function were
+ * built and reverted on 2026-08-19 (plans/queued-r5-exit-owner-widening-
+ * attempt3-reverted.md). Each walked the syntax tree outward from the exit
+ * site; each went blind to a wrapper the walk did not name while over-firing
+ * on a callee it did. A SYNTACTIC ANCESTOR IS NOT A DRIVABILITY PROOF. The
+ * shape of a fix that would work is dynamic, not static -- a canary case that
+ * SPAWNS the script and asserts the real process-level exit code -- and that
+ * is a different rule with a different cost, queued rather than smuggled in
+ * here. Until it lands, read an R5 pass as "the value-producer is driven",
+ * never as "the exit contract is proven".
+ *
  * RATCHET. Today violations are frozen in
  * scripts/script-conventions-allowlist.json. The guard fails on a NEW
  * violation, on a COUNT INCREASE, and -- deliberately -- on a STALE entry, so
@@ -448,6 +484,12 @@ export function findMissingCanary(src) {
 //   2. A function owns it, but the canary never calls it. Every rule case is
 //      green; flip the `return 2` to `return 0` and they stay green.
 //   3. There is no locatable canary body to look in.
+//
+// AND ONE SHAPE THAT ANSWERS NO AND IS NOT ASKED: an exit statement inside a
+// function body. The owner list then holds only the inner value-producer, so a
+// canary driving that alone passes while the wiring stays unproven. That is the
+// NAMED GAP in the header -- read it before trusting an R5 pass, and before
+// attempting a fourth fix.
 //
 // ONE ALLOWLIST KIND FOR ALL THREE, DELIBERATELY. The obvious design records
 // which shape a script is in. It is wrong here: fixing R5 is a multi-step
@@ -1590,6 +1632,30 @@ async function selfTest() {
     'clean',
   );
 
+  // THE NAMED GAP, pinned so it cannot move by accident. This case asserts what
+  // the rule DOES today, not what it ought to do: an exit statement inside any
+  // function body leaves only the inner value-producer in the owner list, so a
+  // canary driving that alone passes with the wiring unproven. It is here
+  // because prose rots and an executable claim does not -- if a future change
+  // makes this FIRE, that is progress, and the NAMED GAP block in the header
+  // must be rewritten in the same commit. Do not "fix" this case on its own.
+  // Three attempts to close the gap by widening ownership to the enclosing
+  // function were built and reverted on 2026-08-19; see the header for why a
+  // fourth static one is not the answer.
+  add(
+    'R5 GAP (documented, NOT desired): an assignment inside a function is not seen',
+    () =>
+      r5(
+        src(
+          'function verdict(d) { return d.ok ? 0 : 1; }',
+          'function main() { process.exitCode = verdict(); }',
+          'function selfTest() { return verdict({ ok: true }) === 0; }',
+          'main();',
+        ),
+      ),
+    'clean',
+  );
+
   // --- R6 raw entry-point guard: positive ---
   //
   // Each fixture below is a spelling that EXISTED in this repo on 2026-08-12,
@@ -2067,6 +2133,10 @@ export async function run({ write = false, root = ROOT } = {}) {
     console.error('                     becomes process.exitCode. See check-ci-budget.mjs:');
     console.error('                     main(argv, deps) returns the code, the CLI assigns it,');
     console.error('                     and the canary drives it with injected collaborators.');
+    console.error('                     R5 proves the VALUE is drivable, NOT that the assignment');
+    console.error('                     runs: moving it inside main() hides it from the rule, so');
+    console.error('                     a pass is not proof. See the NAMED GAP block in the');
+    console.error('                     header before treating one as such.');
     console.error('  R6 raw-entry-point never compare import.meta against process.argv[1] yourself --');
     console.error('                     it mispredicts through a junction/symlink and the script');
     console.error('                     exits 0 having run NOTHING, canary included. Use');
