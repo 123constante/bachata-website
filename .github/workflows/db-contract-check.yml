@@ -1194,6 +1194,49 @@ jobs:
           node scripts/check-occurrence-delete-booking-safety.mjs --self-test
           node scripts/check-occurrence-delete-booking-safety.mjs
 
+      # 67. Program-day offset canonical (2026-08-19). Asserts a property of the
+      #     program-day SET ITSELF: no two days share a date_offset_days, a
+      #     festival's offsets are contiguous, and _p5_festival_span_v1 agrees
+      #     with its own program_day_count.
+      #
+      #     Every neighbouring guard compares two DERIVED VIEWS of the same day
+      #     set, so a defect in the source shows up identically on both sides and
+      #     cancels: #26 compares a legacy day date against item timestamps the
+      #     mirror STAMPS from that same day, #40 takes count(DISTINCT offset) on
+      #     one side and distinct calendar dates on the other, #64 checks the span
+      #     endpoints but never the count between them.
+      #
+      #     "All Stars Festival" served a 3-day programme for a Thu-Sun festival:
+      #     two days carried offset 0, the legacy mirror merged them via
+      #     ON CONFLICT (event_id, event_date), and the public grid deduped again
+      #     via new Set(schedule.map(s => s.day)). Friday vanished with no error.
+      #     #40 caught it only because the collision landed on a MIDDLE day; on
+      #     the LAST day (offsets {0,0,1,2}) max(offset) shrinks with the count
+      #     and every check reads green with a day still missing. That is canary
+      #     case M2.
+      #
+      #     UNIQUE (series_id, date_offset_days) now blocks the duplicate at write
+      #     time (admin 20260819120100), but a UNIQUE index cannot see a GAP --
+      #     proven live: a {0,1,3} insert is accepted. This step covers that.
+      #
+      #     Anon-callable; no Docker, no service key. --self-test first, same as
+      #     the steps above.
+      #     The step timeout is the only bound here that cannot be defeated from
+      #     inside the script. RPC_TIMEOUT_MS puts the worst case at 20s + the
+      #     retry wait + 20s; a later edit that raises that constant or adds a
+      #     second retry would quietly eat the 5-minute job budget, and the step
+      #     that gets cancelled is the outbound image sweep at the end, which
+      #     then fails as CANCELLED rather than by name.
+      - name: Run program-day offset canonical check
+        if: always()
+        timeout-minutes: 2
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-program-day-offsets.mjs --self-test
+          node scripts/check-program-day-offsets.mjs
+
       # 65. Live image references (2026-07-29). HEAD-checks every image URL
       #     reachable from a public surface (list_public_image_refs_v1, admin
       #     migration 20260729120956). Added after a per-occurrence cover override

@@ -31,7 +31,7 @@ src/
     programDayRollover.ts  Day-rollover logic (must mirror admin lib)
   hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
   contexts/            CityContext
-scripts/               CI contract check scripts (66 checks in db-contract-check.yml)
+scripts/               CI contract check scripts (see db-contract-check.yml)
 tests/                 Vitest unit tests + Playwright e2e specs
 bin/                   Integrity and session-lock tools
 .github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
@@ -197,7 +197,12 @@ applied via `supabase db push` from there (CLI-only).
 - Hand-applying DDL via Supabase SQL editor without the migration in admin first
 
 **What this repo owns:**
-- Contract-check scripts (`scripts/check-*.mjs`) — 66 checks in db-contract-check.yml
+- Contract-check scripts (`scripts/check-*.mjs`), run from db-contract-check.yml.
+  No count is pinned here, for the same reason none is pinned on the guard-script
+  count above: a number copied into prose has no writer maintaining it. This one
+  had drifted twice over — it read "66" while the workflow held 72 check steps
+  and its own comments had reached #67. Count them when you need the figure:
+  `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml`
 - `supabase/config.toml` project_id pin
 
 CI check #18 verifies `Website/supabase/migrations/` does not exist. Re-creating
@@ -303,7 +308,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | 66 DB contract checks (venue, coords, program, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) |
+| `db-contract-check.yml` | push/PR/daily 06:00 UTC | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, mojibake). **Does NOT run eslint** |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
