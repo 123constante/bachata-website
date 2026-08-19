@@ -43,7 +43,26 @@
  * to stderr as it returns -- BEFORE the caller's main() does any work. Every
  * target is now probed identically with no arguments, no spy, no per-target
  * timeout, and the observable is the verdict itself rather than noise the
- * target happened to emit. No target's real work is executed at all.
+ * target happened to emit.
+ *
+ * WHAT THE KILL DOES NOT PREVENT, measured rather than assumed. The marker
+ * fires BEFORE main(), but the child is not dead by then: killTree's
+ * spawnSync('taskkill') costs ~250-300ms merely to START, while a target that
+ * opens its client at once issues its first request at ~120ms. So a target's
+ * real work is STARTED and then severed mid-flight. It is never completed and
+ * nothing here awaits it, and in every measured case it is a read-only RPC --
+ * but "no target does any real work" was simply false, and a guard that
+ * misreports what it did to the operator is the one thing this file cannot be.
+ * Measured 2026-08-19, armed exactly as the sweep runs it:
+ * check-occurrence-delete-booking-safety 5/5, check-image-refs-live 3/3,
+ * check-og-scrape-evidence 3/3 -- each POSTs its RPC on every run.
+ * The observer has to sit OUTSIDE this process: an in-process listener reports
+ * a false NEGATIVE, because the parent cannot accept the socket while it is
+ * blocked inside the very spawnSync being timed. That mistake was made and
+ * caught here; do not repeat it when re-measuring.
+ * Shrinking the window is QUEUED, not done. The obvious reorder -- child.kill
+ * before taskkill -- would orphan the grandchild that _serve-build.mjs re-execs,
+ * which is the hazard killTree exists for, so it is not a one-line swap.
  *
  * WHY THE CONTROL ARM IS NOT OPTIONAL. Each target is probed three times:
  * canonically, through the link, and via a plain import. If the canonical run
@@ -130,6 +149,7 @@ const TARGETS = [
   { rel: 'scripts/check-first-load-requests.mjs' },
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
+  { rel: 'scripts/check-occurrence-delete-booking-safety.mjs' },
   { rel: 'scripts/check-og-images.mjs' },
   { rel: 'scripts/check-og-scrape-evidence.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
@@ -925,10 +945,19 @@ export async function main() {
   console.log('Entry-point proof');
   console.log('  repo: ' + REPO_ROOT);
   console.log('  link: ' + link + '  (' + (IS_WINDOWS ? 'junction' : 'symlink') + ')');
-  console.log('  probe: ENTRY_POINT_TRACE, no arguments -- no target does any real work');
+  console.log('  probe: ENTRY_POINT_TRACE, no arguments -- each target is killed at the marker');
+  console.log('         (a target that opens a client first still gets ONE read-only request out:');
+  console.log('          ~120ms against a ~250-300ms kill -- severed mid-flight, never awaited)');
   console.log('');
 
   const rows = [];
+  // DERIVED, not pinned. The literal 42 this replaces was already overrun by
+  // scripts/mutate-workflow-artifact-policy.mjs (43) and the row added for
+  // check-occurrence-delete-booking-safety.mjs (50) closed the gap entirely --
+  // "...safety.mjsPASS", verdict glued to the filename in the one line an
+  // operator reads. A width copied from the longest name at the time is the
+  // same defect waiting for the next long name.
+  const relWidth = Math.max(...TARGETS.map((t) => t.rel.length)) + 2;
   let linkRemoved = false;
   try {
     for (const target of TARGETS) {
@@ -968,7 +997,7 @@ export async function main() {
       console.log(
         (ok ? 'ok  ' : 'FAIL') +
           '  ' +
-          target.rel.padEnd(42) +
+          target.rel.padEnd(relWidth) +
           verdict.padEnd(16) +
           'direct ' +
           (control.marker ?? '-') +
