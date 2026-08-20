@@ -309,7 +309,7 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
 | `db-contract-check.yml` | push/PR/daily 06:00 UTC | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
-| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, mojibake). **Does NOT run eslint** |
+| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, **entry-point dispatch proof**, mojibake). **Does NOT run eslint** |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
 | `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
@@ -418,7 +418,7 @@ green one is trusted for months.
 | R3 exit-drift | it breaks 0 pass / 1 contract violated / 2 infrastructure. Missing creds are **2** |
 | R4 no-canary | it carries no `--self-test` proving it can fail |
 | R5 unproven-exit | its canary proves the RULES but never drives the function whose return value becomes `process.exitCode` &mdash; so the rules are measured and the CODES are merely asserted |
-| R6 raw-entry-point | it compares `import.meta` against `process.argv[1]` by hand. Node realpaths one side and not the other, so through a junction or symlink the script exits 0 having run NOTHING &mdash; canary included. Use `isEntryPoint(import.meta.url)` from `scripts/lib/entry-point.mjs`; prove it with `npm run prove:entry-point` |
+| R6 raw-entry-point | it compares `import.meta` against `process.argv[1]` by hand. Node realpaths one side and not the other, so through a junction or symlink the script exits 0 having run NOTHING &mdash; canary included. Use `isEntryPoint(import.meta.url)` from `scripts/lib/entry-point.mjs`. `npm run prove:entry-point` is the sweep that proves it, and it runs in `architecture-guard.yml` &mdash; canary first, last step in the job, separately bounded by `timeout-minutes`, no `if:`, no `continue-on-error`. Not literally every PR: that workflow's `pull_request` is filtered to `branches: [main, master]`, so a PR between two topic branches does not queue it. It was in NO caller at all from #235 until 2026-08-20, which is how an unlisted dispatcher kept it at exit 2 (&ldquo;cannot run&rdquo;) for days with nothing going red; `tests/entryPoint.test.ts` now asserts that step is present and gating, out of parsed YAML |
 
 **It is a ratchet, not a gate you can satisfy by editing the allowlist.** Today's
 violations are frozen in `scripts/script-conventions-allowlist.json`; the guard

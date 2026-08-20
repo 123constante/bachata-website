@@ -116,3 +116,57 @@ jobs:
             echo '::error::cp1252→UTF-8 mojibake detected. Re-save the affected files as UTF-8 (charset declared in .editorconfig).'
             exit 1
           fi
+
+      # Entry-point dispatch proof: every CLI under scripts/ and bin/ still RUNS
+      # when it is invoked through a junction/symlink spelling of the repo, and
+      # still stays silent on a plain import. Node realpaths import.meta.url and
+      # leaves process.argv[1] as typed, so a hand-rolled comparison of the two
+      # fails OPEN through such a spelling -- the script exits 0 having run
+      # NOTHING, which reads as a pass. That is rule R6 in
+      # check-script-conventions.mjs, and this is the sweep that proves it.
+      #
+      # The incident being closed here is one level up from that. #235 landed a
+      # guard that dispatched through isEntryPoint with no TARGETS row, so
+      # `npm run prove:entry-point` exited 2 -- "cannot run", nothing measured --
+      # from that merge until #260. Nothing caught it, because the prover
+      # appeared in NO workflow, no lint chain and no pre-ship. It was OFFLINE
+      # rather than passing, and an offline guard looks exactly like a quiet one.
+      #
+      # Three attempts at a cheap source-scanning stand-in for this step were
+      # built and all three reverted, the last two dying inside their own central
+      # predicate on pristine code. The premise behind them was that the sweep is
+      # too slow for every PR. Re-measured on this tree 2026-08-20: ~10s over 25
+      # targets, on a job that already spends minutes in `npm ci` -- and the
+      # unlisted-dispatcher case, which is the #235 shape exactly, returns 2
+      # before a single process is spawned. So the real prover runs here and
+      # there is no stand-in left to keep honest.
+      #
+      # It creates one link per run under the temp directory and removes it;
+      # both GitHub runner images make symlinks and junctions unprivileged. It
+      # does not degrade quietly if that stops being true: a link-rights skip
+      # under CI is a hard failure inside the canary, and a link the sweep could
+      # not remove is exit 2 rather than a warning line.
+      #
+      # LAST, AND SEPARATELY BOUNDED, for the reason check #65 is in
+      # db-contract-check.yml. This is the only step here that spawns processes
+      # -- 25 targets x 3 arms, sequentially, each free to burn the prover's own
+      # 30s per-arm timeout. That worst case is far larger than this job's
+      # timeout-minutes, so a handful of stalled arms would have GitHub cancel
+      # the JOB: the prover's "COULD NOT MEASURE" report never prints, and every
+      # step behind it is killed having reported nothing. A cancelled job is not
+      # a named failure. So it runs after the cheap greps, and its own
+      # timeout-minutes bounds it well under the job's -- measured at ~10s, this
+      # is a 12x ceiling, not a target.
+      #
+      # That this step RUNS is asserted from tests/entryPoint.test.ts, out of
+      # PARSED yaml -- a guard against offline guards has no business being
+      # switched off by a comment character. That spec pins the script to
+      # EXACTLY these two lines: no `if:`, no continue-on-error, no `shell:`
+      # override, and nothing wrapped around them.
+      #
+      # Canary first, same rule as the guards above.
+      - name: Entry-point dispatch proof (canary, then the sweep)
+        timeout-minutes: 2
+        run: |
+          npm run prove:entry-point:self-test
+          npm run prove:entry-point
