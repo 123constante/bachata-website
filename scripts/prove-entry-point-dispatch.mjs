@@ -45,24 +45,45 @@
  * timeout, and the observable is the verdict itself rather than noise the
  * target happened to emit.
  *
- * WHAT THE KILL DOES NOT PREVENT, measured rather than assumed. The marker
- * fires BEFORE main(), but the child is not dead by then: killTree's
- * spawnSync('taskkill') costs ~250-300ms merely to START, while a target that
- * opens its client at once issues its first request at ~120ms. So a target's
- * real work is STARTED and then severed mid-flight. It is never completed and
- * nothing here awaits it, and in every measured case it is a read-only RPC --
- * but "no target does any real work" was simply false, and a guard that
- * misreports what it did to the operator is the one thing this file cannot be.
- * Measured 2026-08-19, armed exactly as the sweep runs it:
- * check-occurrence-delete-booking-safety 5/5, check-image-refs-live 3/3,
- * check-og-scrape-evidence 3/3 -- each POSTs its RPC on every run.
- * The observer has to sit OUTSIDE this process: an in-process listener reports
- * a false NEGATIVE, because the parent cannot accept the socket while it is
- * blocked inside the very spawnSync being timed. That mistake was made and
- * caught here; do not repeat it when re-measuring.
- * Shrinking the window is QUEUED, not done. The obvious reorder -- child.kill
- * before taskkill -- would orphan the grandchild that _serve-build.mjs re-execs,
- * which is the hazard killTree exists for, so it is not a one-line swap.
+ * WHY THE KILL IS NO LONGER THE THING PREVENTING REAL WORK. It never was, and
+ * for six days this docblock said otherwise. The marker fires before main(),
+ * but the child was still alive when it fired, so the harness had to race it --
+ * and it lost. killTree's spawnSync('taskkill') costs ~180-210ms to RETURN
+ * (measured 2026-08-20, 3 runs, C:/dev/Website-wt-probe); the child lives for
+ * all of it. An earlier note put the window at ~1ms, which was the taskkill
+ * SPAWN, not its effect. In that window a target opening its client at once
+ * gets a request out, and scripts/mutate-workflow-artifact-policy.mjs writes a
+ * .mutant file whose reclaiming `finally` a SIGKILL never reaches -- 2 leaked
+ * per sweep, 42 orphans deleted across the worktrees on 2026-08-20, under a
+ * filename `git status` will not show because .gitignore hides it.
+ *
+ * The window is not the defect. Racing at all is. So the child is no longer
+ * killed at the marker: under ENTRY_POINT_PROBE, scripts/lib/entry-point.mjs
+ * ENDS THE PROCESS on the line after the marker, and only where the verdict is
+ * true -- the one moment where the answer is known and nothing has happened
+ * yet. Measured on those same runs: zero mutants on disk at the marker, one by
+ * the time taskkill returned. This harness now waits for that exit instead of
+ * competing with it.
+ *
+ * WHAT IS ACTUALLY GUARANTEED, stated narrowly because the last version of this
+ * paragraph overclaimed. No target's main() is ENTERED: the dispatch never
+ * receives `true`. That is a claim about the dispatch line and nothing else. A
+ * module whose top level does work before its dispatch -- an import with a side
+ * effect, a client constructed at module scope -- is entirely unaffected by
+ * this and always was; the predicate cannot run before the module body that
+ * calls it. No such target is known here, and if one appears it needs its own
+ * answer rather than an assumption that this one covers it.
+ *
+ * The claim is CHECKED, not trusted: an arm whose verdict is true must exit
+ * with ENTRY_POINT_PROBE_EXIT, or the row is PROBE-UNSAFE and the run cannot
+ * measure. "It exited" would have been the weaker predicate with several
+ * causes; the code has one writer.
+ *
+ * The earlier docblock also recorded that an in-process listener reports a
+ * false NEGATIVE here, because the parent cannot accept a socket while blocked
+ * inside the very spawnSync being timed. Still true, still the trap to avoid
+ * when re-measuring; the 2026-08-20 numbers above were taken from a separate
+ * process for that reason.
  *
  * WHY THE CONTROL ARM IS NOT OPTIONAL. Each target is probed three times:
  * canonically, through the link, and via a plain import. If the canonical run
@@ -87,7 +108,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { isEntryPoint } from './lib/entry-point.mjs';
+import { ENTRY_POINT_PROBE_EXIT, isEntryPoint, probeArmed } from './lib/entry-point.mjs';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const IS_WINDOWS = process.platform === 'win32';
@@ -173,6 +194,169 @@ const TARGETS = [
 /** Generous: nothing here runs a target's real work, so this only catches hangs. */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * How long the probe's own exit is allowed to take, once the marker says the
+ * verdict was true.
+ *
+ * It is a deadline on ONE process.exit that has already been decided, not on
+ * any work -- entry-point.mjs writes the marker and exits on the next
+ * statement -- so this is generous by a wide margin rather than tuned. The
+ * measured distance between the two on this machine is under a millisecond.
+ *
+ * It exists because the alternative to a deadline is a 30s timeout reported as
+ * TIMEOUT, which says "the machine was slow" about a target that has in fact
+ * gone off and started its real work. Those are different findings and the
+ * operator needs the right one: a target whose predicate does not honour the
+ * probe -- an un-updated vendored copy is the realistic way that happens -- is
+ * a target this harness can no longer probe safely, and it must say so rather
+ * than quietly falling back to the kill-race that leaked mutants for six days.
+ */
+const PROBE_GRACE_MS = 5_000;
+
+/**
+ * The arming, in ONE place, because two copies of it stopped agreeing the
+ * moment anyone edited either.
+ *
+ * The spawned canary's whole claim is "this is the exact arming the sweep
+ * uses", and a duplicated object literal cannot make that true -- rename or add
+ * a variable in one and the canary keeps passing against an arming the sweep no
+ * longer runs, which is the canary quietly measuring the wrong thing rather
+ * than failing.
+ *
+ * Not spread into process.env here: it is merged at each spawn site, so this
+ * stays the delta and never a snapshot of the environment.
+ */
+const PROBE_ENV = {
+  NO_COLOR: '1',
+  ENTRY_POINT_TRACE: '1',
+  ENTRY_POINT_PROBE: '1',
+};
+
+/**
+ * Does the predicate on disk honour ENTRY_POINT_PROBE at all?
+ *
+ * A PRE-FLIGHT, not a nicety. If the answer is no, this harness has no safe way
+ * to run anything: it falls back to waiting PROBE_GRACE_MS per arm while the
+ * target runs its real work -- which for a target that finishes inside the
+ * grace means it runs COMPLETELY, strictly worse than the ~200ms kill this
+ * change replaced. Discovering that 25 targets and 75 arms too late is how the
+ * mutation harness would leak far more than the 2-per-sweep the header cites.
+ * So it is asked once, of one cheap target, before the sweep spawns anything.
+ *
+ * check-mojibake.mjs is the subject because it is the cheapest thing in TARGETS
+ * to be wrong about: pure filesystem, no credentials, no network. If the probe
+ * is broken, the cost of finding out is one full mojibake scan.
+ *
+ * Every failure is DISTINGUISHED rather than collapsed into "not honoured".
+ * Renaming the file, an EPERM, or a timeout would otherwise all print as a
+ * probe regression -- accusing the mechanism when the file simply is not there,
+ * which is the "it ended is not evidence of why" rule this harness applies
+ * everywhere else.
+ *
+ * @returns {{ok: boolean, reason: string, detail: string}}
+ */
+export function probeSelfCheck(deps = {}) {
+  const {
+    run = spawnSync,
+    target = path.join(REPO_ROOT, 'scripts', 'check-mojibake.mjs'),
+    exists = fs.existsSync,
+  } = deps;
+
+  if (!exists(target)) return { ok: false, reason: 'target-missing', detail: target };
+
+  const result = run(process.execPath, [target], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: DEFAULT_TIMEOUT_MS,
+    env: { ...process.env, ...PROBE_ENV },
+  });
+
+  if (result.error) {
+    return { ok: false, reason: 'spawn-failed', detail: result.error.message };
+  }
+  // A timeout is its own answer: spawnSync reports the signal, and reading it
+  // as "did not exit 97" would blame the predicate for a hung machine.
+  if (result.signal) return { ok: false, reason: 'killed', detail: String(result.signal) };
+  // stderr SPECIFICALLY: fd 2 is part of the claim, so a merged stream would
+  // pass with the marker on stdout.
+  if (!/\[entry-point-trace\] true /.test(result.stderr ?? '')) {
+    return { ok: false, reason: 'no-marker', detail: String(result.stderr ?? '').slice(0, 200).trim() };
+  }
+  if (result.status !== ENTRY_POINT_PROBE_EXIT) {
+    return { ok: false, reason: 'not-honoured', detail: 'exit ' + String(result.status) };
+  }
+  return { ok: true, reason: 'honoured', detail: 'exit ' + String(result.status) };
+}
+
+/**
+ * The verdict ladder, as a pure function over the three arms.
+ *
+ * Extracted so the canary can DRIVE it. It used to be inline in main(), where
+ * -- as the TARGETS docblock says of the deferral arms that were deleted for
+ * this exact reason -- no case could reach it: selfTest() drives isEntryPoint's
+ * branches and never main()'s ladder. The PROBE-UNSAFE rungs would then have
+ * run for the first time on the day someone trusted them, and one of them was
+ * already wrong (see the arm naming below). An unreachable satisfied state is
+ * not a gate.
+ *
+ * Returns the verdict AND which arms are implicated, because a message that
+ * names the wrong arm is worse than one that names none.
+ *
+ * @param {{control: object, linked: object, imported: object}} arms
+ * @returns {{verdict: string, unsafeArms: string[]}}
+ */
+export function classifyRow(arms) {
+  const ordered = [
+    ['direct', arms.control],
+    ['link', arms.linked],
+    ['import', arms.imported],
+  ];
+
+  if (ordered.some(([, r]) => r.outcome === 'timeout')) {
+    // Its own verdict, never FAIL-OPEN. Conflating "it stayed silent" with "it
+    // ran out of time" is how a slow machine gets reported as a bug.
+    return { verdict: 'TIMEOUT', unsafeArms: [] };
+  }
+
+  // BEFORE the probe-health rungs, deliberately. A true marker on the import
+  // arm is unambiguous evidence of the worst finding this harness has -- the
+  // module fires its CLI inside whatever imported it -- and it is evidence
+  // whether or not the probe then stopped the process, because the marker is
+  // written first. Ranked below PROBE-UNSAFE it was MASKED: the arm reports
+  // probe-not-honoured, the row became "could not measure" (exit 2), and a real
+  // contract violation (exit 1) was downgraded to an infrastructure note.
+  if (arms.imported.marker === 'true') {
+    return { verdict: 'RUNS-ON-IMPORT', unsafeArms: [] };
+  }
+
+  // Probe health, per arm. The exit-code half is scoped to arms that actually
+  // dispatched: a false marker never arms the probe, so demanding 97 of it
+  // would fail every import arm on every row.
+  const unsafeArms = ordered
+    .filter(
+      ([, r]) =>
+        r.outcome === 'probe-not-honoured' ||
+        (r.marker === 'true' && r.exitCode !== ENTRY_POINT_PROBE_EXIT),
+    )
+    .map(([name]) => name);
+  if (unsafeArms.length > 0) {
+    // Not a dispatch finding. Nothing about the predicate's verdict is in
+    // doubt; what is in doubt is whether this harness can point at that file
+    // without starting its real work.
+    return { verdict: 'PROBE-UNSAFE', unsafeArms };
+  }
+
+  if (arms.control.marker === null) return { verdict: 'INCONCLUSIVE', unsafeArms: [] };
+  // Invoked by its own canonical path, a CLI must consider itself the entry. If
+  // it does not, the probe is measuring something else.
+  if (arms.control.marker !== 'true') return { verdict: 'INCONCLUSIVE', unsafeArms: [] };
+  if (arms.linked.marker !== 'true') return { verdict: 'FAIL-OPEN', unsafeArms: [] };
+  // Reached only with imported.marker null -- 'true' returned above and 'false'
+  // is the pass. Unchanged from before this ladder was extracted.
+  if (arms.imported.marker !== 'false') return { verdict: 'RUNS-ON-IMPORT', unsafeArms: [] };
+  return { verdict: 'PASS', unsafeArms: [] };
+}
+
 /** Fold case only where the filesystem does -- same rule as the predicate's. */
 const normaliseForCompare = (p) => (IS_WINDOWS ? p.toLowerCase() : p);
 
@@ -223,22 +407,56 @@ function probeRun(script, args, timeoutMs, expectRealPath) {
       cwd: REPO_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: !IS_WINDOWS,
-      env: { ...process.env, NO_COLOR: '1', ENTRY_POINT_TRACE: '1' },
+      // ENTRY_POINT_PROBE is set HERE, per child, and never exported into this
+      // process's own environment -- this file is one of the targets, so a
+      // global would stop the sweep at its own dispatch before it spawned
+      // anything, exiting 97 having proven nothing.
+      env: { ...process.env, ...PROBE_ENV },
     });
 
     let text = '';
     let marker = null;
     let settled = false;
+    let graceTimer = null;
+    let reaped = false;
+    let markerSeen = false;
 
-    const finish = (outcome) => {
+    const finish = (outcome, exitCode = null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      killTree(child);
-      resolve({ marker, outcome, sample: text.slice(0, 200).trim() });
+      if (graceTimer !== null) clearTimeout(graceTimer);
+      // ONLY while the child is still alive. This used to be unconditional, and
+      // that was safe only because the old code always settled from onData with
+      // the child provably running. It now settles from 'close' on every
+      // ordinary arm -- and by the time node emits 'close' it has reaped the
+      // process, so the OS is free to reuse the pid. An unconditional
+      // `taskkill /PID <reaped> /T /F` is then 75 blind force-kills per sweep
+      // (25 targets x 3 arms) aimed at whatever inherited those numbers; on
+      // POSIX process.kill(-pid) SIGKILLs an unrelated process GROUP. The
+      // timeout, spawn-fault and probe-not-honoured arms still reach here with
+      // a live tree, which is what killTree remains for -- _serve-build.mjs's
+      // grandchild being the reason it must be the tree and not the child.
+      //
+      // NAMED GAP: no canary drives this. killTree is not injected, so a case
+      // proving "we did not kill a reaped pid" would need a seam this file does
+      // not have, and the observable -- an unrelated process surviving -- is
+      // not one a canary can assert. It is stated here rather than left to look
+      // covered, which is the same standard the DEFERRED arms were held to.
+      if (!reaped) killTree(child);
+      resolve({ marker, outcome, exitCode, sample: text.slice(0, 200).trim() });
     };
 
     const onData = (buf) => {
+      // Once the target's own marker is captured there is nothing left to find,
+      // and on the `true` path this handler stays subscribed for up to
+      // PROBE_GRACE_MS. Without this bail, a target that does NOT honour the
+      // probe -- the one case that lives long -- appends its entire real run to
+      // `text` and re-matches the whole accumulated buffer on every chunk. That
+      // is quadratic in output size, on precisely the path this change exists
+      // to make cheap. The check has to be the FIRST statement: sitting below
+      // the path filter, it still re-scanned everything before returning.
+      if (markerSeen) return;
       text += buf.toString('utf8');
       // Re-scan the whole buffer each time: a marker can arrive split across
       // two chunks, and there may be several from imported modules before the
@@ -246,8 +464,23 @@ function probeRun(script, args, timeoutMs, expectRealPath) {
       TRACE_RE.lastIndex = 0;
       for (const found of text.matchAll(TRACE_RE)) {
         if (wanted !== null && normaliseForCompare(found[2].trim()) !== wanted) continue;
+        markerSeen = true;
         marker = found[1];
-        finish('traced');
+        if (marker !== 'true') {
+          // The target decided it was IMPORTED, so its main() never runs and
+          // there is nothing to stop. Nothing will exit 97 either -- the probe
+          // fires only on true -- so waiting would buy a timeout. This is the
+          // link arm of a FAIL-OPEN, and it is safe precisely because the
+          // dispatch did not fire.
+          finish('traced');
+          return;
+        }
+        // Verdict true: the probe inside entry-point.mjs is ending this process
+        // right now, BEFORE main(). Do not race it with a kill -- that race is
+        // the whole defect (see the header). Wait for the exit it promises, and
+        // hold it to a deadline so a target built against an older copy of the
+        // predicate cannot quietly reinstate the old behaviour.
+        graceTimer = setTimeout(() => finish('probe-not-honoured'), PROBE_GRACE_MS);
         return;
       }
     };
@@ -262,7 +495,12 @@ function probeRun(script, args, timeoutMs, expectRealPath) {
       text += 'spawn error: ' + error.message;
       finish('spawn-error');
     });
-    child.on('close', () => finish('exited'));
+    child.on('close', (code) => {
+      // Set BEFORE finish: node has already reaped the process by the time this
+      // fires, so the pid must be treated as gone from here on.
+      reaped = true;
+      finish('exited', code);
+    });
 
     const timer = setTimeout(() => finish('timeout'), timeoutMs ?? DEFAULT_TIMEOUT_MS);
   });
@@ -794,20 +1032,71 @@ export async function selfTest() {
   }
   // The trace is what the sweep observes, so it is itself under test: it must
   // report the verdict it returned, and must stay silent when unset.
+  /**
+   * Drive isEntryPoint with the trace/probe environment set to `env` and both
+   * debug seams captured.
+   *
+   * The marker is captured through the `write` seam because it now goes to fd 2
+   * by number; stubbing process.stderr.write -- which these cases used to do --
+   * stopped intercepting it, and a case that captures nothing while asserting
+   * "no marker" passes for the wrong reason. The real fd-2 writer and the real
+   * process.exit are proven separately, end to end, by the spawned case below:
+   * injection here would otherwise hide exactly the defaults it replaces.
+   *
+   * Restores BOTH variables unconditionally, including the delete/restore
+   * asymmetry -- leaking ENTRY_POINT_PROBE into the rest of the run would end
+   * this process at the next dispatch.
+   */
+  const withTraceEnv = (env, run) => {
+    const before = {
+      trace: process.env.ENTRY_POINT_TRACE,
+      probe: process.env.ENTRY_POINT_PROBE,
+    };
+    const restore = (name, value) => {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    };
+    restore('ENTRY_POINT_TRACE', env.trace);
+    restore('ENTRY_POINT_PROBE', env.probe);
+    const written = [];
+    const exits = [];
+    try {
+      const verdicts = run({
+        write: (line) => written.push(String(line)),
+        exit: (code) => exits.push(code),
+      });
+      // REFUSE a thenable rather than quietly mishandling it. The finally below
+      // restores the environment when `run` RETURNS, so an async callback would
+      // restore it at the first await -- before the probe branch had run -- and
+      // every later case would then execute under whatever this one left set.
+      // The stake is in this helper's own docstring: a leaked ENTRY_POINT_PROBE
+      // ends the process at the next dispatch. The case loop does `await
+      // c.fn()`, so writing an async case here is invited and would otherwise
+      // fail in a way nobody could read.
+      if (verdicts !== null && typeof verdicts?.then === 'function') {
+        throw new Error('withTraceEnv: `run` must be synchronous -- it returned a thenable');
+      }
+      return { written, exits, verdicts };
+    } finally {
+      restore('ENTRY_POINT_TRACE', before.trace);
+      restore('ENTRY_POINT_PROBE', before.probe);
+    }
+  };
+
+  const markers = (written) =>
+    written
+      .join('')
+      .split('\n')
+      .filter((l) => l.includes('[entry-point-trace]'))
+      .map((l) => TRACE_LINE_RE.exec(l)?.[1])
+      .join(',');
+
   add(
     'ENTRY_POINT_TRACE off: no marker',
     () => {
-      const before = process.env.ENTRY_POINT_TRACE;
-      delete process.env.ENTRY_POINT_TRACE;
-      const written = [];
-      const original = process.stderr.write;
-      process.stderr.write = (chunk) => (written.push(String(chunk)), true);
-      try {
-        isEntryPoint(SELF_URL, { argv: ['node', SELF] });
-      } finally {
-        process.stderr.write = original;
-        if (before !== undefined) process.env.ENTRY_POINT_TRACE = before;
-      }
+      const { written } = withTraceEnv({ trace: undefined, probe: undefined }, (seams) => {
+        isEntryPoint(SELF_URL, { argv: ['node', SELF], ...seams });
+      });
       return written.join('').includes('[entry-point-trace]');
     },
     false,
@@ -815,27 +1104,218 @@ export async function selfTest() {
   add(
     'ENTRY_POINT_TRACE on: the marker reports the verdict, both ways',
     () => {
-      const before = process.env.ENTRY_POINT_TRACE;
-      process.env.ENTRY_POINT_TRACE = '1';
-      const written = [];
-      const original = process.stderr.write;
-      process.stderr.write = (chunk) => (written.push(String(chunk)), true);
-      try {
-        isEntryPoint(SELF_URL, { argv: ['node', SELF] });
-        isEntryPoint(SELF_URL, { argv: ['node', path.join(REPO_ROOT, 'scripts/ship-gate.mjs')] });
-      } finally {
-        process.stderr.write = original;
-        if (before === undefined) delete process.env.ENTRY_POINT_TRACE;
-        else process.env.ENTRY_POINT_TRACE = before;
-      }
-      return written
-        .join('')
-        .split('\n')
-        .filter((l) => l.includes('[entry-point-trace]'))
-        .map((l) => TRACE_LINE_RE.exec(l)?.[1])
-        .join(',');
+      const { written } = withTraceEnv({ trace: '1', probe: undefined }, (seams) => {
+        isEntryPoint(SELF_URL, { argv: ['node', SELF], ...seams });
+        isEntryPoint(SELF_URL, {
+          argv: ['node', path.join(REPO_ROOT, 'scripts/ship-gate.mjs')],
+          ...seams,
+        });
+      });
+      return markers(written);
     },
     'true,false',
+  );
+  // TRACE alone must NOT end the process. The probe is a second switch, not a
+  // consequence of the first: leaving them fused would turn every traced
+  // debugging run into a run that stops at the dispatch.
+  add(
+    'ENTRY_POINT_TRACE on, PROBE off: verdict true is returned, nothing exits',
+    () => {
+      const { exits, verdicts } = withTraceEnv({ trace: '1', probe: undefined }, (seams) =>
+        isEntryPoint(SELF_URL, { argv: ['node', SELF], ...seams }),
+      );
+      return String(verdicts) + '/' + exits.length;
+    },
+    'true/0',
+  );
+  // The probe arm itself: the marker is still emitted (it IS the measurement),
+  // the process is ended with the dedicated code, and -- the half that matters
+  // -- the caller does not receive true, so no dispatch can fire on a seam that
+  // returns instead of exiting.
+  add(
+    'PROBE on, verdict true: marker emitted, exits 97, and never returns true',
+    () => {
+      const { written, exits, verdicts } = withTraceEnv({ trace: '1', probe: '1' }, (seams) =>
+        isEntryPoint(SELF_URL, { argv: ['node', SELF], ...seams }),
+      );
+      return markers(written) + '/' + exits.join(',') + '/' + String(verdicts);
+    },
+    'true/97/false',
+  );
+  // The other half. A first draft of this comment justified it by saying that
+  // exiting on false would hide RUNS-ON-IMPORT, and MUTATION DISPROVED THAT:
+  // the marker is written BEFORE the exit, so the evidence survives and the
+  // harness still reads `true` on the import arm. The real reason is duller and
+  // was measured -- flip the condition to `if (process.env.ENTRY_POINT_PROBE)`
+  // and scripts/pre-ship.mjs goes INCONCLUSIVE, because it imports
+  // check-plan-hygiene.mjs, whose perfectly correct FALSE verdict now ends the
+  // process before pre-ship reaches its own dispatch. Exiting on false stops
+  // the IMPORTER, not the imported CLI; every ordinary import in the repo would
+  // die the moment the variable was set.
+  add(
+    'PROBE on, verdict false: marker emitted, nothing exits, false returned',
+    () => {
+      const { written, exits, verdicts } = withTraceEnv({ trace: '1', probe: '1' }, (seams) =>
+        isEntryPoint(SELF_URL, {
+          argv: ['node', path.join(REPO_ROOT, 'scripts/ship-gate.mjs')],
+          ...seams,
+        }),
+      );
+      return markers(written) + '/' + exits.length + '/' + String(verdicts);
+    },
+    'false/0/false',
+  );
+  // PROBE without TRACE is inert -- trace() returns before reading it. Worth a
+  // case because the guard is the `if (!process.env.ENTRY_POINT_TRACE) return`
+  // at the top, which is easy to reorder while tidying and whose loss would
+  // stop every CLI in the repo the moment the variable appeared anywhere.
+  add(
+    'PROBE on, TRACE off: inert -- no marker, no exit, verdict returned',
+    () => {
+      const { written, exits, verdicts } = withTraceEnv({ trace: undefined, probe: '1' }, (seams) =>
+        isEntryPoint(SELF_URL, { argv: ['node', SELF], ...seams }),
+      );
+      return written.length + '/' + exits.length + '/' + String(verdicts);
+    },
+    '0/0/true',
+  );
+  // THE DEFAULTS, end to end, with no seam anywhere: a real child process, the
+  // real fd-2 writer, the real process.exit. Every case above injects both, and
+  // injection cannot prove what the un-injected code does -- the marker could
+  // go to the wrong fd, or the exit could be missing entirely, and all five
+  // would still pass. This is the exact arming probeRun uses, so a break shows
+  // up here rather than 25 rows into a sweep.
+  //
+  // check-mojibake.mjs is the target because it is the cheapest thing in
+  // TARGETS to be wrong about: pure filesystem, no credentials, no network. The
+  // point is what it does NOT do -- if the probe failed, this case would sit
+  // through its whole real scan and then report the wrong exit code, which is
+  // the failure being guarded against, visible rather than silent.
+  add(
+    'defaults, spawned: the real writer reaches fd 2 and the real exit is 97',
+    () => {
+      const r = probeSelfCheck();
+      return r.ok + '/' + r.reason + '/' + r.detail;
+    },
+    'true/honoured/exit 97',
+  );
+  // probeSelfCheck's failure arms, driven through injected collaborators. These
+  // are what main() now refuses to spawn on, so each must be reachable AND
+  // distinguishable -- collapsing them into one "not honoured" is how a renamed
+  // file gets reported as a broken probe.
+  const noRun = () => {
+    throw new Error('probeSelfCheck must not spawn when the target is missing');
+  };
+  add(
+    'probeSelfCheck: a missing target is named as missing, and nothing is spawned',
+    () => probeSelfCheck({ exists: () => false, run: noRun, target: 'X' }).reason,
+    'target-missing',
+  );
+  add(
+    'probeSelfCheck: a spawn fault is a spawn fault, not a probe regression',
+    () =>
+      probeSelfCheck({
+        exists: () => true,
+        run: () => ({ error: new Error('EPERM'), status: null, stderr: null }),
+      }).reason,
+    'spawn-failed',
+  );
+  add(
+    'probeSelfCheck: a killed/timed-out run is its own reason',
+    () =>
+      probeSelfCheck({ exists: () => true, run: () => ({ signal: 'SIGTERM', status: null, stderr: '' }) })
+        .reason,
+    'killed',
+  );
+  add(
+    'probeSelfCheck: marker on STDOUT does not count -- fd 2 is the claim',
+    () =>
+      probeSelfCheck({
+        exists: () => true,
+        run: () => ({ status: 97, stdout: '[entry-point-trace] true x', stderr: '' }),
+      }).reason,
+    'no-marker',
+  );
+  add(
+    'probeSelfCheck: marker but the wrong exit code is NOT honoured',
+    () =>
+      probeSelfCheck({
+        exists: () => true,
+        run: () => ({ status: 0, stderr: '[entry-point-trace] true x\n' }),
+      }).reason,
+    'not-honoured',
+  );
+
+  // classifyRow, every rung. Before this ladder was extracted it lived inside
+  // main(), which no case can reach -- so PROBE-UNSAFE, its arm naming and the
+  // RUNS-ON-IMPORT ordering would all have run for the first time in anger.
+  // Each case asserts WHICH rung fired, not merely that something did: four
+  // rungs can return a non-PASS verdict and a case asserting "not PASS" passes
+  // for the wrong reason.
+  const arm = (over = {}) => ({ marker: 'false', outcome: 'exited', exitCode: 0, ...over });
+  const dispatched = (over = {}) =>
+    arm({ marker: 'true', outcome: 'exited', exitCode: ENTRY_POINT_PROBE_EXIT, ...over });
+  const row = (over = {}) => ({
+    control: dispatched(),
+    linked: dispatched(),
+    imported: arm(),
+    ...over,
+  });
+  const said = (over) => {
+    const { verdict, unsafeArms } = classifyRow(row(over));
+    return verdict + (unsafeArms.length ? ':' + unsafeArms.join('+') : '');
+  };
+
+  add('classifyRow: the ordinary all-good row', () => said({}), 'PASS');
+  add('classifyRow: a timeout on any arm outranks everything', () => said({ linked: dispatched({ outcome: 'timeout' }) }), 'TIMEOUT');
+  add('classifyRow: no marker by the canonical path is INCONCLUSIVE', () => said({ control: dispatched({ marker: null }) }), 'INCONCLUSIVE');
+  add('classifyRow: canonical says imported -- measuring something else', () => said({ control: dispatched({ marker: 'false' }) }), 'INCONCLUSIVE');
+  add('classifyRow: true canonically, false through the link, is FAIL-OPEN', () => said({ linked: dispatched({ marker: 'false', exitCode: 0 }) }), 'FAIL-OPEN');
+  // The exit-code rung, per arm, and the arm is NAMED -- the half a first
+  // version got wrong by always printing direct and link.
+  add('classifyRow: direct exited 0 instead of 97 -- named, not guessed', () => said({ control: dispatched({ exitCode: 0 }) }), 'PROBE-UNSAFE:direct');
+  add('classifyRow: the link arm alone, named alone', () => said({ linked: dispatched({ exitCode: 0 }) }), 'PROBE-UNSAFE:link');
+  add('classifyRow: both dispatching arms, both named', () => said({ control: dispatched({ exitCode: 1 }), linked: dispatched({ exitCode: 1 }) }), 'PROBE-UNSAFE:direct+link');
+  add('classifyRow: the grace timer expiring is PROBE-UNSAFE too', () => said({ control: dispatched({ outcome: 'probe-not-honoured', exitCode: null }) }), 'PROBE-UNSAFE:direct');
+  // A false marker never arms the probe, so the import arm must NOT be held to
+  // exit 97. Getting this wrong reds every row on every sweep.
+  add('classifyRow: the import arm is not held to the probe exit code', () => said({ imported: arm({ exitCode: 0 }) }), 'PASS');
+  // Ranked ABOVE probe health, deliberately: a true marker on import is the
+  // worst finding here and is evidence whether or not the probe then stopped
+  // the process. Ranked below, it was masked into "could not measure".
+  add('classifyRow: RUNS-ON-IMPORT is not masked by an unhonoured probe', () => said({ imported: arm({ marker: 'true', outcome: 'probe-not-honoured', exitCode: null }) }), 'RUNS-ON-IMPORT');
+  add('classifyRow: RUNS-ON-IMPORT on a clean row', () => said({ imported: arm({ marker: 'true', exitCode: ENTRY_POINT_PROBE_EXIT }) }), 'RUNS-ON-IMPORT');
+  // ...but a TIMEOUT still outranks it: nothing was measured, so nothing is
+  // being accused.
+  add('classifyRow: a timeout still outranks a true import marker', () => said({ imported: arm({ marker: 'true', outcome: 'timeout' }) }), 'TIMEOUT');
+
+  // The arming predicate. "0" and "false" are what somebody writes to turn the
+  // switch OFF, and truthiness would arm it -- stopping every CLI in the repo.
+  // Same values as isCiEnv above, because it is the same class, fixed here for
+  // the fourth time.
+  add(
+    'probeArmed: only a real value arms the probe -- not "0", not "false"',
+    () =>
+      [undefined, '', 'false', '0', '1', 'true', 'yes'].map((v) => (probeArmed(v) ? 1 : 0)).join(''),
+    '0000111',
+  );
+  // withTraceEnv restores the environment on `run` RETURNING, so an async case
+  // would restore it too early and leak the probe into every later case. It
+  // refuses instead of coping.
+  add(
+    'withTraceEnv: an async callback is refused, not silently mishandled',
+    () => {
+      try {
+        withTraceEnv({ trace: '1', probe: undefined }, async () => true);
+        return 'accepted';
+      } catch (error) {
+        return error.message.includes('must be synchronous') ? 'refused' : 'threw: ' + error.message;
+      } finally {
+        // Belt and braces: prove the refusal path still left nothing behind.
+        if (process.env.ENTRY_POINT_PROBE !== undefined) delete process.env.ENTRY_POINT_PROBE;
+      }
+    },
+    'refused',
   );
 
   let failed = 0;
@@ -924,6 +1404,25 @@ export async function main() {
     return 2;
   }
 
+  // Before ANY of the 75 arms: is the predicate on disk still stoppable? If not
+  // the sweep has no safe way to run, and every target it touches from here
+  // starts real work it will not finish. Cheaper to answer once, out loud.
+  const preflight = probeSelfCheck();
+  if (!preflight.ok) {
+    console.error('Entry-point proof: cannot run -- the probe was not honoured on a trial target.');
+    console.error('  reason: ' + preflight.reason + (preflight.detail ? '  (' + preflight.detail + ')' : ''));
+    console.error(
+      'Under ENTRY_POINT_PROBE, scripts/lib/entry-point.mjs must report its verdict and then end',
+    );
+    console.error(
+      'the process with ' +
+        ENTRY_POINT_PROBE_EXIT +
+        '. Without that this harness would run each target\'s real work rather than',
+    );
+    console.error('stopping it at the dispatch, so it declines to spawn anything. Nothing was measured.');
+    return 2;
+  }
+
   const importerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'entry-point-importer-'));
   const importerPath = path.join(importerDir, 'importer.mjs');
   fs.writeFileSync(
@@ -946,9 +1445,9 @@ export async function main() {
   console.log('Entry-point proof');
   console.log('  repo: ' + REPO_ROOT);
   console.log('  link: ' + link + '  (' + (IS_WINDOWS ? 'junction' : 'symlink') + ')');
-  console.log('  probe: ENTRY_POINT_TRACE, no arguments -- each target is killed at the marker');
-  console.log('         (a target that opens a client first still gets ONE read-only request out:');
-  console.log('          ~120ms against a ~250-300ms kill -- severed mid-flight, never awaited)');
+  console.log('  probe: ENTRY_POINT_TRACE + ENTRY_POINT_PROBE, no arguments -- the predicate');
+  console.log('         reports its verdict and then ends the process at the dispatch, so no');
+  console.log('         target\'s main() is entered and no kill has to win a race to prevent it');
   console.log('');
 
   const rows = [];
@@ -974,26 +1473,14 @@ export async function main() {
         target.timeoutMs,
       );
 
-      let verdict;
-      if ([control, linked, imported].some((r) => r.outcome === 'timeout')) {
-        // Its own verdict, never FAIL-OPEN. Conflating "it stayed silent" with
-        // "it ran out of time" is how a slow machine gets reported as a bug.
-        verdict = 'TIMEOUT';
-      } else if (control.marker === null) {
-        verdict = 'INCONCLUSIVE';
-      } else if (control.marker !== 'true') {
-        // Invoked by its own canonical path, a CLI must consider itself the
-        // entry. If it does not, the probe is measuring something else.
-        verdict = 'INCONCLUSIVE';
-      } else if (linked.marker !== 'true') {
-        verdict = 'FAIL-OPEN';
-      } else if (imported.marker !== 'false') {
-        verdict = 'RUNS-ON-IMPORT';
-      } else {
-        verdict = 'PASS';
-      }
+      // BY INCLUSION, inside classifyRow: a dispatching arm must have ended
+      // with the probe's OWN exit code. "It exited" is not evidence -- a module
+      // that threw at import exits too, and this harness has already been wrong
+      // once by accepting an outcome with several possible causes. 97 has
+      // exactly one writer, on the line after the marker.
+      const { verdict, unsafeArms } = classifyRow({ control, linked, imported });
 
-      rows.push({ ...target, control, linked, imported, verdict });
+      rows.push({ ...target, control, linked, imported, verdict, unsafeArms });
       const ok = verdict === 'PASS';
       console.log(
         (ok ? 'ok  ' : 'FAIL') +
@@ -1025,6 +1512,7 @@ export async function main() {
   }
 
   const timedOut = rows.filter((r) => r.verdict === 'TIMEOUT');
+  const probeUnsafe = rows.filter((r) => r.verdict === 'PROBE-UNSAFE');
   const inconclusive = rows.filter((r) => r.verdict === 'INCONCLUSIVE');
   const failed = rows.filter(
     (r) => r.verdict === 'FAIL-OPEN' || r.verdict === 'RUNS-ON-IMPORT',
@@ -1039,15 +1527,35 @@ export async function main() {
     console.error('Remove it by hand before anything sweeps the temp directory.');
     return 2;
   }
-  if (timedOut.length > 0 || inconclusive.length > 0) {
+  if (timedOut.length > 0 || inconclusive.length > 0 || probeUnsafe.length > 0) {
     console.error(
       'Entry-point proof COULD NOT MEASURE ' +
-        (timedOut.length + inconclusive.length) +
+        (timedOut.length + inconclusive.length + probeUnsafe.length) +
         ' of ' +
         rows.length +
         ' target(s). Do not read this as green.',
     );
     for (const r of timedOut) console.error('  ? ' + r.rel + '  timed out before it reported a verdict');
+    for (const r of probeUnsafe) {
+      // Name the arms that ACTUALLY failed, with their own exit codes. A first
+      // version printed direct and link unconditionally, so a fault on the
+      // import arm produced "direct exit 97, link exit 97, wanted 97" -- a
+      // message asserting a contradiction and never naming the arm at fault.
+      const armOf = { direct: r.control, link: r.linked, import: r.imported };
+      const detail = r.unsafeArms
+        .map((name) => name + ' exit ' + String(armOf[name].exitCode))
+        .join(', ');
+      console.error(
+        '  ? ' +
+          r.rel +
+          '  reported the entry verdict but did NOT stop at it (' +
+          detail +
+          '; wanted ' +
+          ENTRY_POINT_PROBE_EXIT +
+          '). Its copy of scripts/lib/entry-point.mjs may predate ENTRY_POINT_PROBE. ' +
+          'Until it honours the probe this harness cannot run it without starting its real work.',
+      );
+    }
     for (const r of inconclusive) {
       console.error(
         '  ? ' +
