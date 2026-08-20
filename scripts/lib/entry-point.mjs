@@ -78,8 +78,16 @@
 // silence -- deliberately, in that order. ENTRY_POINT_TRACE is read from the
 // inherited environment, so exporting it globally makes every hook invocation speak;
 // it is a debugging switch, not something to leave set.
+//
+// ENTRY_POINT_PROBE is the same kind of switch with a far sharper edge, and it is
+// inherited the same way. It ends the process at the dispatch instead of returning
+// true, so exporting it globally does not make the hooks speak -- it stops every
+// hook, every guard and every CLI in this repo from doing anything at all, each one
+// exiting 97 having run nothing. That is the intended effect inside
+// prove-entry-point-dispatch.mjs, which sets it per spawned child and never in its
+// own environment. It has no business in a shell profile, a .env file or a CI job.
 
-import { realpathSync } from 'node:fs';
+import { realpathSync, writeSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -229,10 +237,114 @@ const resolveReal = (p, realpath) => {
  * states true/false rather than leaving the reader to infer it from noise.
  *
  * Off by default and never changes the return value -- it only speaks.
+ *
+ * ENTRY_POINT_PROBE: THE SAME MARKER, BUT THE CALLER NEVER GETS THE VERDICT.
+ *
+ * Tracing alone is not enough to probe a target safely, and the harness that
+ * relied on it was leaking. The marker fires before the caller's main(), but
+ * the caller is still ALIVE when it fires, so the observer has to race it. The
+ * observer is prove-entry-point-dispatch.mjs, and its kill is a spawnSync of
+ * `taskkill`, which -- measured 2026-08-20 in C:/dev/Website-wt-probe, 3 runs
+ * -- costs 180-210ms to RETURN, not the ~1ms the queue file recorded. That
+ * number was the taskkill SPAWN, and the child lives until it returns. So the
+ * real window is ~200ms of the target's real work, every arm, every sweep.
+ *
+ * What it cost, concretely: scripts/mutate-workflow-artifact-policy.mjs writes
+ * a `.mutant-<pid>-<hash>.mjs` into scripts/ and reclaims it in a `finally`
+ * that a SIGKILL never reaches. Those files are hidden by .gitignore and its
+ * sweeper is scoped to its own pid, so nothing on the system ever reclaims
+ * them; 42 orphans were deleted across the worktrees on 2026-08-20, and
+ * `npm run lint` reds citing a filename `git status` will not show.
+ *
+ * The window is not the defect, though -- racing at all is. So under
+ * ENTRY_POINT_PROBE this module ENDS THE PROCESS at the marker, and only where
+ * the verdict is TRUE. That is the one point where the answer is known and no
+ * side effect has happened yet: measured on the same 3 runs, ZERO mutants
+ * existed on disk at the marker and one existed by the time taskkill returned.
+ * Stopping here is not "killing sooner"; it is never starting.
+ *
+ * FALSE MUST RETURN NORMALLY. A false verdict means the module was IMPORTED, so
+ * there is no dispatch to stop and nothing to make safe -- but the cost of
+ * stopping anyway is not hypothetical, and it is not the one the first draft of
+ * this paragraph guessed at. That draft said exiting on false would hide the
+ * run-on-import class; mutation disproved it, because the marker is written
+ * before the exit and the evidence survives either way.
+ *
+ * What actually happens is that the exit lands on the IMPORTER. Measured with
+ * the condition flipped: scripts/pre-ship.mjs imports check-plan-hygiene.mjs,
+ * whose entirely correct `false` now ends pre-ship before it reaches its own
+ * dispatch -- the harness reports INCONCLUSIVE for a file with nothing wrong
+ * with it. Generalised: every ordinary import of every converted module in this
+ * repo would kill its importer the moment the variable was set. Only the branch
+ * about to hand `true` to a dispatch is stopped.
+ *
+ * A DISTINCT EXIT CODE, not 0. The harness asserts the child stopped BECAUSE of
+ * the probe, by inclusion, rather than accepting any exit as evidence -- a
+ * target that crashed at import would otherwise be indistinguishable from one
+ * the probe stopped cleanly, and this repo has the scar for treating "it ended"
+ * as "it ended for the reason I assumed".
+ *
+ * writeSync, not process.stderr.write, and only because of the exit below: on
+ * POSIX a pipe stderr is async, and process.exit discards what is still
+ * buffered -- the measured 904-lines-became-194 class. The marker IS the
+ * measurement, so losing it would report a correct dispatch as silent.
+ *
+ * warn() goes through the SAME writer, and that is not tidiness. A first draft
+ * left warn() on console.error while claiming here that the traced and probed
+ * runs could not diverge on ordering. They could: all three degraded branches
+ * warn BEFORE reaching trace(), so the exit would have dropped exactly the
+ * notices that explain why a verdict is a guess, on the one run where the
+ * reader needs them. See writeFd2.
+ *
+ * Confined to the debug path either way: nothing here runs unless
+ * ENTRY_POINT_TRACE is set.
  */
-const trace = (verdict, modulePath) => {
+export const ENTRY_POINT_PROBE_EXIT = 97;
+
+const defaultExit = (code) => {
+  process.exit(code);
+};
+
+// Fd 2 by number, not process.stderr: see writeFd2 below, which both this and
+// defaultWarn go through. Injectable only so the canary can read the marker
+// back -- monkeypatching process.stderr.write no longer intercepts it, which is
+// the point.
+const defaultWrite = (line) => {
+  writeFd2(line);
+};
+
+/**
+ * Is the probe armed? An explicit predicate over the VALUE, never a cast of it.
+ *
+ * ENTRY_POINT_PROBE=0 and =false are what somebody writes in a shell profile or
+ * a CI job to turn the switch OFF. Both are non-empty strings, so truthiness
+ * arms it -- and arming it stops every hook, guard and CLI in this repo at its
+ * dispatch, exiting 97 having run nothing. The operator's attempt to prevent
+ * the catastrophe would BE the catastrophe.
+ *
+ * Same shape, same values, and for the same reason as isCiEnv in
+ * prove-entry-point-dispatch.mjs, where this class was last fixed. It is the
+ * fourth time in this repo; the pattern is written out rather than inferred.
+ *
+ * ENTRY_POINT_TRACE is deliberately left on plain truthiness. It only SPEAKS --
+ * TRACE=0 producing an unwanted marker costs a line of stderr, not a run -- and
+ * changing its arming would be a behaviour change to an existing switch smuggled
+ * in beside a new one.
+ */
+export const probeArmed = (value) =>
+  value !== undefined && value !== '' && value !== 'false' && value !== '0';
+
+const trace = (verdict, modulePath, deps = {}) => {
   if (!process.env.ENTRY_POINT_TRACE) return verdict;
-  process.stderr.write('[entry-point-trace] ' + verdict + ' ' + modulePath + '\n');
+  const { exit = defaultExit, write = defaultWrite } = deps;
+  write('[entry-point-trace] ' + verdict + ' ' + modulePath + '\n');
+  if (verdict === true && probeArmed(process.env.ENTRY_POINT_PROBE)) {
+    exit(ENTRY_POINT_PROBE_EXIT);
+    // Reached only when `exit` is an injected seam (the canary). A real
+    // process.exit does not return, and the caller must never receive `true`
+    // from a probed run -- that is the dispatch this exists to prevent.
+    return false;
+  }
   return verdict;
 };
 
@@ -244,8 +356,48 @@ const trace = (verdict, modulePath) => {
 const samePath = (a, b) =>
   process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 
+/**
+ * Everything this module says goes out through ONE synchronous writer on fd 2.
+ *
+ * Not a tidy-up. ENTRY_POINT_PROBE ends the process at the marker, and on POSIX
+ * a piped process.stderr is asynchronous -- which is exactly how the harness
+ * spawns every target. console.error would queue the degraded-path warnings and
+ * process.exit would discard them, so a run whose verdict is a GUESS would show
+ * the marker and none of the three notices explaining why. That is the
+ * 904-lines-became-194 class arriving through the back door, and an earlier
+ * draft of this file claimed immunity from it while leaving warn() on
+ * console.error.
+ *
+ * Short writes are looped, because a partial '[entry-point-trace] true <path>'
+ * fails the harness's path filter and reports a correct dispatch as
+ * INCONCLUSIVE.
+ *
+ * The catch is deliberate and is the one place this module stays quiet. fd 2
+ * can be non-blocking (libuv sets O_NONBLOCK on a pipe) and a full buffer
+ * raises EAGAIN; letting that escape would throw out of isEntryPoint, which is
+ * resolved as an ESM import BEFORE any caller's try/catch exists -- so a hook
+ * contracted to print nothing would exit 1 with a stack trace. A lost debug
+ * line degrades the harness to INCONCLUSIVE, which is a verdict it reports as
+ * exit 2. A throw here breaks the hooks instead. Neither is good; only one is
+ * silent about being bad, and it is not this one.
+ */
+const writeFd2 = (line) => {
+  const buf = Buffer.from(line, 'utf8');
+  let offset = 0;
+  try {
+    while (offset < buf.length) {
+      const written = writeSync(2, buf, offset, buf.length - offset);
+      if (!(written > 0)) break;
+      offset += written;
+    }
+  } catch {
+    // See above: silence here is the lesser of two evils, and the harness turns
+    // a missing marker into exit 2 rather than a pass.
+  }
+};
+
 const defaultWarn = (message) => {
-  console.error(message);
+  writeFd2(String(message) + '\n');
 };
 
 /**
@@ -261,12 +413,26 @@ const defaultWarn = (message) => {
  *
  * @param {string} importMetaUrl  the caller's own `import.meta.url`
  * @param {{argv?: string[], warn?: (message: string) => void,
- *          realpath?: typeof realpathSync}} [deps]
- *        seams so the canary can drive every branch without spawning a process
+ *          realpath?: typeof realpathSync, exit?: (code: number) => void,
+ *          write?: (line: string) => void}} [deps]
+ *        seams so the canary can drive every branch without spawning a process.
+ *        `exit` exists for exactly one case: the ENTRY_POINT_PROBE arm ends the
+ *        process, which a canary cannot drive against the real process.exit
+ *        without taking the test runner with it. `write` exists because the
+ *        marker goes to fd 2 directly, so stubbing process.stderr.write no
+ *        longer sees it. Both are debug-path only -- neither is reachable
+ *        unless ENTRY_POINT_TRACE is set.
  * @returns {boolean}
  */
 export function isEntryPoint(importMetaUrl, deps = {}) {
-  const { argv = process.argv, warn = defaultWarn, realpath = realpathSync } = deps;
+  const {
+    argv = process.argv,
+    warn = defaultWarn,
+    realpath = realpathSync,
+    exit = defaultExit,
+    write = defaultWrite,
+  } = deps;
+  const traceDeps = { exit, write };
 
   if (typeof importMetaUrl !== 'string' || importMetaUrl === '') return false;
 
@@ -344,7 +510,8 @@ export function isEntryPoint(importMetaUrl, deps = {}) {
   }
   const moduleReal = moduleRes.path ?? modulePath;
 
-  if (entryRes.path !== undefined) return trace(samePath(entryRes.path, moduleReal), moduleReal);
+  if (entryRes.path !== undefined)
+    return trace(samePath(entryRes.path, moduleReal), moduleReal, traceDeps);
 
   // argv[1] names something that does not resolve on disk. Node normally
   // guarantees it does -- it just loaded it -- so this is either an exotic
@@ -363,7 +530,7 @@ export function isEntryPoint(importMetaUrl, deps = {}) {
           `${path.basename(modulePath)} as imported rather than run. If this was a direct ` +
           'invocation, it has just done nothing.',
   );
-  return trace(literalMatch, moduleReal);
+  return trace(literalMatch, moduleReal, traceDeps);
 }
 
 export default isEntryPoint;
