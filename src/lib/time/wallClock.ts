@@ -27,7 +27,7 @@
 // string is confined to this file -- nothing else may cast a brand to string.
 
 import { format } from 'date-fns';
-import { parseUtcIso, zonedFormatterFactory } from '@/lib/londonDate';
+import { isRealDateKey, parseUtcIso, zonedFormatterFactory } from '@/lib/londonDate';
 
 declare const _wallClockBrand: unique symbol;
 declare const _instantBrand: unique symbol;
@@ -203,6 +203,71 @@ export const wallClockExactDateKey = (wc: WallClock | null | undefined): string 
   if (!wc) return null;
   const s = unwrap(wc);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+};
+
+/**
+ * The inclusive list of calendar days from `start` to `end`, as date-only
+ * wall clocks.
+ *
+ * Exists because a festival's day COLUMNS must come from its span, not from
+ * the sessions that happen to exist. Deriving them from sessions means a day
+ * with no sessions -- or two programme days that collide on one date -- simply
+ * vanishes from the page with the count quietly wrong, which is exactly how
+ * "All Stars Festival" served a 3-day grid for a Thu-Sun festival on
+ * 2026-08-19 and lost Friday entirely.
+ *
+ * All arithmetic is done at UTC midnight and read back with `toISOString`, so
+ * the machine's timezone cannot shift a date. That is deliberate: the
+ * neighbouring `formatWallClockLocalIntl` constructs a machine-LOCAL Date and
+ * is the one reader in this file whose answer depends on where it runs.
+ *
+ * Returns [] for a missing, malformed or calendar-impossible bound, for an end
+ * before its start, and for a span longer than `maxDays` -- a nonsense span
+ * must not be able to allocate an unbounded array or render thousands of
+ * columns.
+ *
+ * "Calendar-impossible" is a separate test from "malformed" and needs to be:
+ * `Date.parse('2026-02-30T00:00:00Z')` is not NaN, it is 2026-03-02, so a
+ * shape-valid nonsense bound would have rendered two phantom columns after the
+ * festival ended. `isRealDateKey` is the repo's existing validator for exactly
+ * this (src/lib/londonDate.ts) and is round-trip based, so it is leap-year
+ * aware without a second CALENDAR VALIDATOR living here.
+ *
+ * The day ARITHMETIC below is a different matter and is honestly duplicated:
+ * londonDate.ts already exports `addDaysToKey` and `londonDaysBetweenKeys`,
+ * which together are this function's body -- but anchored at UTC NOON, chosen
+ * there as +/-1h insurance, whereas this steps at UTC MIDNIGHT because it must
+ * emit WallClock brands rather than raw keys. Two anchors now coexist. They
+ * agree today and nothing forces them to keep agreeing; unifying them is
+ * queued debt, not something this function silently resolved.
+ *
+ * NOTE the caller cannot tell WHICH of those rejections it got -- every one
+ * returns []. festivalGridDays reads an empty result as "no span", so an
+ * over-cap or impossible span degrades to the session-derived column list
+ * rather than announcing itself. That is the pre-fix behaviour, not a new
+ * defect, but it is silent; distinguishing the sentinels is queued debt.
+ */
+export const wallClockDateRange = (
+  start: WallClock | null | undefined,
+  end: WallClock | null | undefined,
+  maxDays = 62,
+): WallClock[] => {
+  const first = wallClockDateKey(start);
+  const last = wallClockDateKey(end);
+  if (!first || !last || !isRealDateKey(first) || !isRealDateKey(last)) return [];
+
+  const t0 = Date.parse(`${first}T00:00:00Z`);
+  const t1 = Date.parse(`${last}T00:00:00Z`);
+  if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 < t0) return [];
+
+  const span = Math.round((t1 - t0) / 86_400_000) + 1;
+  if (span > maxDays) return [];
+
+  const out: WallClock[] = [];
+  for (let i = 0; i < span; i += 1) {
+    out.push(asWallClock(new Date(t0 + i * 86_400_000).toISOString().slice(0, 10)));
+  }
+  return out;
 };
 
 /**
