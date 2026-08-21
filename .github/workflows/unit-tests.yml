@@ -60,6 +60,35 @@ jobs:
         # tz-sensitive scope: the calendar-time helpers and the calendar-day
         # transforms that construct/compare local Dates. Everything else is
         # timezone-inert and runs once under Europe/London.
+        #
+        # festivalGridDays is the deliberate exception -- it is timezone-INERT
+        # and is listed here to PROVE that rather than assert it. The arithmetic
+        # it is protecting is not in that file: it is wallClockDateRange in
+        # src/lib/time/wallClock.ts, which works at UTC midnight and reads back
+        # with toISOString. formatWallClockLocalIntl, which builds a machine-
+        # LOCAL Date, sits in that SAME file a few exports down -- so the inert
+        # version really is one careless edit from becoming the local one, and a
+        # helper deciding a festival's day COLUMNS must not quietly start
+        # depending on where CI runs.
+        #
+        # Not decoration, and MEASURED -- one row per mutant, per leg, so the
+        # claim can be re-run rather than believed:
+        #
+        #   mutation of wallClockDateRange        London  NewYork  Sydney
+        #   START bound Z dropped (time kept)     KILL    KILL     KILL
+        #   END   bound Z dropped (time kept)     live    live     KILL
+        #   toISOString -> toLocaleDateString     live    KILL     live
+        #   both bounds -> Date.parse(key)        live    live     live
+        #
+        # Read off it: London alone already catches the START bound, because a
+        # DST-spanning case exists. It catches NEITHER of the other two, so both
+        # extra zones earn their place and neither is redundant with the other.
+        #
+        # The last row is an EQUIVALENT mutant, named so nobody reads its
+        # silence as a hole: ES parses a date-ONLY string as UTC, so
+        # `Date.parse('2026-11-05')` is identical to the Z form everywhere. The
+        # matrix covers the machine-local class; it does not cover every edit to
+        # those lines, and no arrangement of zones could.
         run: |
           if [ "${{ matrix.scope }}" = "full" ]; then
             # TWO passes, and the second is not optional. `test:unit` now
@@ -73,11 +102,11 @@ jobs:
             npm run test:unit:timing
           else
             # --no-file-parallelism for the same reason the London leg splits:
-            # four of these eight files assert real wall-clock bounds and lose
-            # races against sibling workers. These legs have been green, but
+            # four of these nine files (the *EdgeTtl ones) assert real
+            # wall-clock bounds and lose races against sibling workers. These legs have been green, but
             # green is not evidence of absence when the failure is load-
             # dependent -- it reproduced locally only once the machine was
             # loaded, and a busier runner would surface it here as an
             # unexplained red on an unrelated PR.
-            npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
+            npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/festivalGridDays.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
           fi

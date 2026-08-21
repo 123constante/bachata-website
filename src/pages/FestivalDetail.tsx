@@ -26,6 +26,7 @@ import { useRecordEventView } from "@/modules/event-page/useRecordEventView";
 import { EventStickyActionBar } from "@/modules/event-page/bento/EventStickyActionBar";
 
 import { useFestivalDetailQuery } from "@/modules/event-page/useFestivalDetailQuery";
+import { festivalGridDays } from "@/modules/event-page/utils/festivalGridDays";
 
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
 
@@ -1738,7 +1739,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
-    const uniqDays = Array.from(new Set(schedule.map((s) => s.day))).sort();
+    // Columns come from the festival's SPAN, not from the sessions that happen
+    // to exist -- see festivalGridDays for why that distinction is the whole
+    // bug. Kept as a pure function so the session-less-middle-day case is
+    // testable without rendering this page.
+    const uniqDays: WallClock[] = festivalGridDays(
+      schedule,
+      festivalDetail?.dates.localStart,
+      festivalDetail?.dates.localEnd,
+    );
 
     const uniqHoursSet = new Set<number>();
 
@@ -1827,7 +1836,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     const eid = festivalDetail?.eventId ?? null;
     if (!eid || !mounted || days.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
-    setActiveDayIdx(pickDefaultDayIndex(days.map((d) => wallClockDateKey(d) ?? ""), todayKey));
+    // Pass today's key ONLY if today actually has sessions. pickDefaultDayIndex
+    // documents "on a gap day with no sessions, it falls back to the first day",
+    // and that used to be true for free: `days` was session-derived, so a gap
+    // day was never in the array and indexOf missed. Now days come from the
+    // SPAN, so a rest day IS in the array and a visitor arriving on one would
+    // open the schedule on a blank column. Withholding the key restores the
+    // documented behaviour and makes the function's `days` param honest again.
+    const sessionDayKeys = new Set(
+      (festivalDetail?.schedule ?? []).map((s) => wallClockDateKey(s.day)).filter(Boolean),
+    );
+    const todayHasSessions = !!todayKey && sessionDayKeys.has(todayKey);
+    setActiveDayIdx(
+      pickDefaultDayIndex(
+        days.map((d) => wallClockDateKey(d) ?? ""),
+        todayHasSessions ? todayKey : null,
+      ),
+    );
     // `mounted` is a dep, not just a read: it is the edge this effect waits for.
     // Without it the effect runs once with mounted === false, bails, and never
     // re-runs when the flag flips (days and todayKey are typically unchanged in
@@ -2432,7 +2457,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
                 const label = formatWallClockLocalIntl(day, { weekday: "short", day: "numeric" }) ?? "";
 
-                const count = (festivalDetail?.schedule ?? []).filter((s) => s.day === day).length;
+                // Compare KEYS, not the branded values. `day` is now rebuilt
+                // from the span, so it is a date-only WallClock that need not
+                // be byte-identical to the schedule's own `s.day` (which can
+                // carry a time suffix -- sniffIsFestival guards for exactly
+                // that shape). `===` silently read 0 for every tab beside a
+                // visibly populated column; the grid cells were unaffected
+                // because they already route through wallClockDateKey.
+                const dayKey = wallClockDateKey(day);
+                const count = (festivalDetail?.schedule ?? []).filter(
+                  (s) => wallClockDateKey(s.day) === dayKey,
+                ).length;
 
                 const isToday = canRenderClockDerived && wallClockDateKey(day) === todayKey;
 

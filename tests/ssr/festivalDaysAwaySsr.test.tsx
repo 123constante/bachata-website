@@ -55,9 +55,16 @@ const TODAY_BADGE = '<span class="tl-day-today">Today</span>';
 // `.day-tab` / `.tl-day` rules cannot satisfy it either.
 const TODAY_TAB = /class="day-tab[^"]*\btoday\b[^"]*"/;
 
-// One session on each of the festival's three days. `days` is derived from the
-// schedule (not from local_start/local_end), and the timeline block is gated on
-// having both days AND hours -- so a badge cannot render without this.
+// One session on each of the festival's three days. `days` now comes from the
+// SPAN (local_start..local_end) via festivalGridDays, not from the schedule --
+// but the timeline block is still gated on having both days AND hours, and
+// `hours` is session-derived, so a badge cannot render without this.
+//
+// NOTE this fixture cannot see the span/schedule distinction: its three session
+// days are exactly the three span days, so span-derived and session-derived
+// columns are identical here and these cases pass against either
+// implementation. A render-level case with a session-less span day, an
+// out-of-span session, or an undated session is queued, not covered.
 const SCHEDULE = [LOCAL_START, '2026-09-05', LOCAL_END].map((day, i) => ({
   id: `sess-${i}`,
   day,

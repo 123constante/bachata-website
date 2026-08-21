@@ -7,6 +7,17 @@ import { isRealDateKey } from '@/lib/londonDate';
  * (upcoming), after it (finished), or on a gap day with no sessions, it falls
  * back to the first day — unchanged from the historical default.
  *
+ * THE GAP-DAY HALF ABOVE IS NO LONGER THIS FUNCTION'S TO KEEP. It used to hold
+ * for free: `days` was session-derived, so a gap day was never in the array and
+ * `indexOf` missed. Since festivalGridDays started building columns from the
+ * festival's SPAN, gap days ARE in the array, and the promise survives only
+ * because the caller withholds `todayKey` when today has no sessions (see the
+ * default-day effect in FestivalDetail.tsx). So it is now a convention between
+ * two files, not an invariant this function can enforce, and the cases in
+ * __tests__/festivalDefaultDay.test.ts cannot cover it -- a second call site
+ * would silently get the other behaviour. Taking the session-day set as a
+ * parameter would make it enforceable where it is tested; that is queued.
+ *
  * TAKES THE KEY, DOES NOT READ A CLOCK. This used to compute its own
  * `dateKeyInTz(new Date(), tz)` while FestivalDetail separately held a reactive
  * `todayKey` from `useTodayKey(eventTz)`. Two clocks resolving either side of the
