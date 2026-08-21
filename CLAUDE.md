@@ -417,7 +417,7 @@ green one is trusted for months.
 | R2 swallowed-error | it has an empty `catch`, or a `.catch(() => default)` &mdash; an unreadable file then scans clean |
 | R3 exit-drift | it breaks 0 pass / 1 contract violated / 2 infrastructure. Missing creds are **2** |
 | R4 no-canary | it carries no `--self-test` proving it can fail |
-| R5 unproven-exit | its canary proves the RULES but never drives the function whose return value becomes `process.exitCode` &mdash; so the rules are measured and the CODES are merely asserted |
+| R5 unproven-exit | its canary proves the RULES but never drives the function whose return value becomes `process.exitCode` &mdash; so the rules are measured and the CODES are merely asserted. It proves VALUE-ownership only; an exit statement inside a function body is invisible to it (the named gap, below) |
 | R6 raw-entry-point | it compares `import.meta` against `process.argv[1]` by hand. Node realpaths one side and not the other, so through a junction or symlink the script exits 0 having run NOTHING &mdash; canary included. Use `isEntryPoint(import.meta.url)` from `scripts/lib/entry-point.mjs`. `npm run prove:entry-point` is the sweep that proves it, and it runs in `architecture-guard.yml` &mdash; canary first, last step in the job, separately bounded by `timeout-minutes`, no `if:`, no `continue-on-error`. Not literally every PR: that workflow's `pull_request` is filtered to `branches: [main, master]`, so a PR between two topic branches does not queue it. It was in NO caller at all from #235 until 2026-08-20, which is how an unlisted dispatcher kept it at exit 2 (&ldquo;cannot run&rdquo;) for days with nothing going red; `tests/entryPoint.test.ts` now asserts that step is present and gating, out of parsed YAML |
 
 **It is a ratchet, not a gate you can satisfy by editing the allowlist.** Today's
@@ -444,6 +444,33 @@ yours to do. And note the deliberate interaction with R4 &mdash; a script with n
 canary is R4 debt only, so **fixing R4 by adding a rules-only canary turns that
 script into an R5 violation**. That is the rule asking for the other half of the
 job, not a bug.
+
+**THE NAMED GAP &mdash; R5 proves value-ownership, not reachability.** It asks
+who PRODUCED the value that lands in `process.exitCode` and whether the canary
+calls them. It never asks whether the assigning statement RUNS, and the two come
+apart the moment that statement sits inside a function body: the owner list then
+holds only the inner value-producer, so a canary driving that alone passes.
+Measured 2026-08-19, canary present in every row &mdash;
+`process.exitCode = await main(argv)` at module scope names `main` and FIRES if
+the canary skips it, while `main(){ process.exitCode = verdict() }`, the same
+inside a class method, the same inside a module-scope IIFE, and
+`main(){ process.exit(verdict()) }` all resolve to `[verdict]` and pass. **So
+the rule asks MORE of the more testable shape** &mdash; that is an inversion, not
+just a blind spot, and it is how `check-override-mirror-ghost.mjs` passed R5 with
+its exit code disconnected from its own verdict.
+
+It is documented rather than fixed, with evidence: three attempts to widen
+ownership to the enclosing function were built and reverted on 2026-08-19
+(`plans/queued-r5-exit-owner-widening-attempt3-reverted.md`). Each walked the
+syntax tree outward from the exit site; each went blind to a wrapper it could not
+name while over-firing on a callee it could. **A syntactic ancestor is not a
+drivability proof.** A fix that would work is dynamic rather than static &mdash;
+a canary case that SPAWNS the script and asserts the real process-level exit code
+&mdash; and that is a different rule, queued for its own decision. Until it
+lands, read an R5 pass as "the value-producer is driven", never as "the exit
+contract is proven". The gap is pinned by a canary case named
+`R5 GAP (documented, NOT desired)`; if that case ever starts firing, rewrite this
+section in the same commit.
 
 ---
 
