@@ -385,6 +385,22 @@ Fixtures, both live:
   so it runs LAST and is double-bounded &mdash; 10s per request, 120s per sweep &mdash;
   because the job is `timeout-minutes: 5` and undici would otherwise wait 300s on
   a stalled edge, killing every check behind it with no named failure.
+- Occurrence delete / booking safety (#66)
+- Program-day offset canonical (#67)
+- Override-mirror ghost rows (#68) &mdash; `calendar_occurrences` rows still
+  carrying `is_override = true` after the P5 override row emptied, with no
+  override content anywhere. Hit in prod 2026-08-19. Calls
+  `check_override_mirror_ghost_v1()` (admin `20260704140000`). **The symptom is
+  in the ADMIN editor, not on a public page here** &mdash; an OVR/deviation
+  badge that never clears; `is_override` appears in this repo only in the
+  generated types. It is guarded from here because the admin migration wires it
+  here. ZERO rows measured is exit **2**, not a pass &mdash; on 2026-08-21 prod
+  carried 357 rows with `is_override = true` and **zero** ghosts among them, so
+  a total of 0 means the read broke; that figure is a dated reading and nothing
+  gates on it. A readable `ghost_count` is judged BEFORE the payload fields it
+  does not depend on, so a shape drift elsewhere cannot downgrade a real
+  violation to an infrastructure 2. Retires WITH the legacy mirror at Lever 1E
+  &mdash; delete the step then, never relax the floor.
 
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
