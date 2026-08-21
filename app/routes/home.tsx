@@ -234,12 +234,35 @@ export async function loader({ params }: Route.LoaderArgs) {
   // fell INSIDE that gap yields a non-positive number, which edgeCacheControl
   // floors to no caching at all -- the honest answer, since the document is
   // already stale on emission.
+  //
+  // WHO THIS BOUND ACTUALLY PROTECTS, measured 2026-08-19 while cutting Vercel
+  // Fluid Active CPU. The badge is a client-subscribing leaf --
+  // home-map/homeClock.tsx's useHomeNow() ticks every 60 seconds -- so a real
+  // browser self-corrects a "On now" / "Soon" claim within a minute of
+  // hydration NO MATTER how stale the served document was. The only reader this
+  // bound can protect is one that does not execute JS: a crawler reading raw
+  // HTML. So the whole cost of a tight bound falls on the site's busiest route,
+  // to buy precision for non-JS bots alone.
+  //
+  // Hence a FLOOR, not a blanket widen: a badge edge inside the fetch-to-render
+  // gap legitimately yields <= 0, which must keep flowing through as "already
+  // stale, don't cache" (see the emission-lag note above) -- flooring THAT would
+  // silently reintroduce the false-claim risk this bound exists to prevent. The
+  // floor only raises an otherwise-tiny-but-honest positive bound, capping the
+  // worst-case evening collapse toward 60s at five minutes instead. Bots that
+  // could see the residual staleness are separately suppressed by the Vercel
+  // WAF challenge rule added the same day.
+  const MIN_BADGE_BOUND_SECONDS = 300;
   const nextBadgeChangeMs = soonestLiveStatusChangeMs(mapRows, todayKey, nowMs);
-  const boundSeconds = Math.min(
-    secondsUntilKeyRollsOver(todayKey, LONDON_TZ),
+  const badgeBoundSeconds =
     nextBadgeChangeMs === null
       ? Number.POSITIVE_INFINITY
-      : (nextBadgeChangeMs - Date.now()) / 1000,
+      : (nextBadgeChangeMs - Date.now()) / 1000;
+  const boundSeconds = Math.min(
+    secondsUntilKeyRollsOver(todayKey, LONDON_TZ),
+    badgeBoundSeconds > 0
+      ? Math.max(MIN_BADGE_BOUND_SECONDS, badgeBoundSeconds)
+      : badgeBoundSeconds,
   );
 
   return taggedData(

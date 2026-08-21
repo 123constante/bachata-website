@@ -199,6 +199,38 @@ describe('home loader edge TTL', () => {
     );
   });
 
+  it('floors a tiny-but-honest badge bound at five minutes', async () => {
+    // 23:00 London, one minute short of the 23:01 edge. Unfloored this grants
+    // 60s - margin, and the homepage re-invokes the SSR function every minute
+    // through evening peak. The badge is a client-subscribing leaf (homeClock's
+    // useHomeNow, 60s tick), so the only reader a 60s bound protects over a
+    // 300s one is a crawler that does not run JS.
+    //
+    // NON-VACUITY: 300 is not reachable from the day bound (3600s here) nor
+    // from the edge (60s), so only the floor can produce it.
+    vi.setSystemTime(new Date('2026-09-06T22:00:00Z'));
+    rpc.mapRows = [row()];
+
+    const { mod, result } = await run();
+    expect(totalServableSeconds(cdnHeaderOf(mod, result))).toBe(
+      300 - EDGE_STORE_MARGIN_SECONDS,
+    );
+  });
+
+  it('does not let the floor raise the bound past the day rollover', async () => {
+    // The half of the floor that is easy to get wrong: it applies to the BADGE
+    // term, never to the combined value. 23:58:30 London leaves 90s of the
+    // pinned day and 30s to the badge edge; flooring the MINIMUM would serve
+    // this document 300s -- 210 of them under a todayKey that has rolled over.
+    vi.setSystemTime(new Date('2026-09-06T22:58:30Z'));
+    rpc.mapRows = [row({ end_time: `${TODAY} 23:58:00+00` })];
+
+    const { mod, result } = await run();
+    expect(totalServableSeconds(cdnHeaderOf(mod, result))).toBe(
+      90 - EDGE_STORE_MARGIN_SECONDS,
+    );
+  });
+
   it('reverts to the day bound when the same row is NOT today', async () => {
     // Non-vacuity for the case above: identical fixture, one field moved. If the
     // 6 minutes came from anywhere but the badge derivation, this stays at 6.
