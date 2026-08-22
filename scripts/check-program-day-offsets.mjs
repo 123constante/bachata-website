@@ -37,6 +37,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { readEnvFiles, readEnvDirs, firstValue } from './lib/dotenv.mjs';
 
 /** The RPC runs four small aggregates over ~420 series and one LATERAL over
  *  the live festivals. It shares a 5-minute job budget with ~60 sibling steps,
@@ -316,60 +317,16 @@ export function evaluate(data) {
  */
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-const ENV_FILES = ['.env.local', '.env', '.env.development'];
-
 /**
- * Files only, one directory. Same per-line parser as always -- only double
- * quotes stripped, `export ` not handled, no comment stripping. That gap is
- * PR A's, not this one's: fixing credential RESOLUTION here must not fix the
- * PARSER too, or the two changes stop being reviewable independently.
- *
- * FIRST NON-BLANK, not first PRESENT -- review on this PR caught the merge
- * still carrying the original blank-shadowing defect one layer under
- * firstValue(): a stale `VITE_SUPABASE_URL=` in .env.local blocked a real
- * value in .env from ever being read, the same class firstValue() closes at
- * the shell-vs-files layer but this function had not, at the file-vs-file
- * layer. Matches the sibling guard's readEnvFiles exactly.
- *
- * Object.create(null), also ported from the sibling: a `{}` bag gives a line
- * spelled `__proto__=x` or `constructor=x` a silent, invisible effect on the
- * result instead of an ordinary key.
+ * readEnvFiles and readEnvDirs now come from ./lib/dotenv.mjs (imported
+ * above), shared with the sibling guard (check-override-mirror-ghost.mjs,
+ * #68). EXTRACTED 2026-08-22, closing the gap this file used to name here:
+ * this guard's own parser used to strip only double quotes, never handled
+ * `export `, and never stripped an inline comment -- "PR A's, not this
+ * one's", deferred until the shared parser was actually correct. It now is
+ * (Website#268, #269), so both guards read `.env` files identically. See
+ * ./lib/dotenv.mjs for the parser's own rationale.
  */
-function readEnvFiles(dir) {
-  const vars = Object.create(null);
-  for (const name of ENV_FILES) {
-    const file = path.join(dir, name);
-    if (!fs.existsSync(file)) continue;
-    for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#')) continue;
-      const idx = line.indexOf('=');
-      if (idx < 0) continue;
-      const k = line.slice(0, idx).trim();
-      const v = line.slice(idx + 1).replace(/^"|"$/g, '');
-      if (String(vars[k] ?? '').trim() === '') vars[k] = v;
-    }
-  }
-  return vars;
-}
-
-/**
- * ROOT, then cwd -- additive, not a replacement. Directory-level merge is
- * FIRST NON-BLANK too now, for the identical reason as readEnvFiles above:
- * a blank value read from ROOT must not block a real one in cwd, which is
- * exactly the foreign-cwd case this whole change exists to serve. Matches
- * the sibling guard's readEnvDirs exactly.
- */
-function readEnvDirs(dirs) {
-  const merged = Object.create(null);
-  for (const dir of dirs) {
-    const bag = readEnvFiles(dir);
-    for (const key of Object.keys(bag)) {
-      if (String(merged[key] ?? '').trim() === '') merged[key] = bag[key];
-    }
-  }
-  return merged;
-}
 
 /**
  * `cwd === ROOT` is compared case-insensitively on win32 only -- this repo's
@@ -393,23 +350,6 @@ function defaultReadDotEnv() {
     ? path.resolve(cwd).toLowerCase() === path.resolve(ROOT).toLowerCase()
     : cwd === ROOT;
   return readEnvDirs(same ? [ROOT] : [ROOT, cwd]);
-}
-
-/**
- * First non-blank value, NAME-major then SOURCE-major -- identical in shape to
- * the sibling guard's firstValue; see its header for the full account of why
- * source-major was wrong. Not extracted to scripts/lib/: unifying the two
- * copies is its own PR (queued), and duplicating a nine-line pure function
- * costs less than a shared module with one migrated call site did last time.
- */
-function firstValue(sources, ...names) {
-  for (const name of names) {
-    for (const source of sources) {
-      const value = String(source[name] ?? '').trim();
-      if (value) return value;
-    }
-  }
-  return '';
 }
 
 async function connectAndCall(url, key) {
@@ -569,7 +509,7 @@ function driveMain(argv, { env = { VITE_SUPABASE_URL: 'u', VITE_SUPABASE_PUBLISH
 // EQUALITY, not a floor. A canary with slack can silently lose a rung -- the
 // floor-shaped version of this number would still print PASS after someone
 // deleted the two self-inconsistency cases. Add a case, update this number.
-const EXPECTED_CASES = 53;
+const EXPECTED_CASES = 56;
 
 export async function selfTest(log = console.log) {
   const cases = [
@@ -766,6 +706,24 @@ export async function selfTest(log = console.log) {
         });
         return `${code}|${credsSeen[0]}`;
       }, '0|https://prod.test|prod-key'],
+    // Not previously driven here (unlike the sibling guard's identical case):
+    // when BOTH sources define the SAME primary name with DIFFERENT non-blank
+    // values, process.env must win -- firstValue's source order is
+    // [env, fromFiles]. connect() rejects anything but the CREDS pair, so a
+    // reversed source order would fail this the wrong way (the stale .env
+    // pair reaching connect()) rather than merely returning the wrong data.
+    ['exit 0: process.env WINS over .env when both define the SAME primary name -- the fixture connect() rejects the .env spelling',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { VITE_SUPABASE_URL: 'https://prod.test', VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' },
+          readDotEnv: () => ({ VITE_SUPABASE_URL: 'https://stale.test',
+            VITE_SUPABASE_PUBLISHABLE_KEY: 'stale-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
     ['readEnvFiles takes .env.local, .env and .env.development, and the FIRST file wins',
       () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-env-'));
@@ -804,12 +762,18 @@ export async function selfTest(log = console.log) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
       }, 'null|x|y|v'],
-    // PR A v2 (2026-08-22): NOT one of the two parser fixes made there -- this
-    // guard's readEnvFiles already used `.trim() === ''` for every assignment,
-    // within one file and across files alike (one shared accumulator, no
-    // separate per-file merge step) -- so the blank-predicate defect the
-    // sibling guard had never reproduced here. Driven, not assumed: a real
-    // value followed by a blank duplicate FOR THE SAME KEY, in the SAME file.
+    // STALE AS OF EXTRACTION, corrected here: this comment used to say the
+    // pre-extraction local readEnvFiles already used `.trim() === ''` "within
+    // one file and across files alike (one shared accumulator, no separate
+    // per-file merge step)". That was true of the OLD local implementation
+    // this PR deleted, but readEnvFiles now comes from ./lib/dotenv.mjs,
+    // which does NOT use one shared accumulator: it runs parseDotEnv() once
+    // PER FILE (a sequential-edit-log within that file, where a LATER real
+    // value overwrites an earlier one) and only THEN merges across files
+    // first-non-blank-wins. The case immediately below still holds under
+    // both old and new code -- a blank duplicate never overwrites a real
+    // value, whichever rule applies -- so it did not catch the drift. The
+    // case after it is new, and is the one that actually distinguishes them.
     ['a blank duplicate LOWER in the same file does not overwrite a real value above it',
       () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dup-'));
@@ -820,6 +784,23 @@ export async function selfTest(log = console.log) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
       }, 'real'],
+    // EXTRACTION (2026-08-22): genuinely new behaviour for THIS guard, driven
+    // rather than assumed -- under the old local parser `K=old\nK=new` in one
+    // file kept 'old' (first-non-blank-wins, the same rule as the cross-file
+    // merge). The shared parser's within-file rule is different on purpose
+    // (a sequential edit log: a later REAL value legitimately replaces an
+    // earlier one, e.g. an operator rotating a credential by appending a
+    // corrected line -- see ./lib/dotenv.mjs). Both guards now agree.
+    ['TWO real values for the same key in one file -- the LATER one wins, matching #68 (check-override-mirror-ghost.mjs)',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-later-wins-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env'), 'K=old-value\nK=new-value\n');
+          return readEnvFiles(dir).K;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'new-value'],
     ['readEnvDirs prefers the FIRST directory in the list for a name both define -- ROOT then cwd',
       () => {
         const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirA-'));
@@ -864,6 +845,34 @@ export async function selfTest(log = console.log) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
       }, 'solo'],
+    // EXTRACTION (2026-08-22): this guard used to carry its OWN parser --
+    // only double quotes stripped, no `export ` handling, no comment
+    // stripping -- documented above readEnvFiles as "PR A's, not this one's".
+    // Both are gone now that readEnvFiles comes from ./lib/dotenv.mjs, the
+    // SAME module #68 imports. Driven, not assumed: this fixture would have
+    // read back as `export A` (key, with the literal prefix) and a comment
+    // still glued to the URL under the pre-extraction parser -- both wrong in
+    // ways this guard's own suite never had a case to catch, because its old
+    // parser could not do either job. One case is enough here: the parser's
+    // OWN edge cases (NBSP, tabs, blank-vs-comment) are #68's canary, driven
+    // against the identical shared function -- duplicating that battery here
+    // would prove the same code twice, not prove more of it.
+    ['readEnvFiles now shares #68 (check-override-mirror-ghost.mjs)\'s parser -- ' +
+     '`export ` and an unquoted trailing comment are both honoured, closing the ' +
+     'gap this file used to defer to "PR A"',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-shared-parser-'));
+        try {
+          fs.writeFileSync(
+            path.join(dir, '.env'),
+            ['export A=https://x.supabase.co # prod', "B='single-quoted'"].join('\n'),
+          );
+          const got = readEnvFiles(dir);
+          return got.A + '|' + got.B;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'https://x.supabase.co|single-quoted'],
   );
 
   let failed = 0;
