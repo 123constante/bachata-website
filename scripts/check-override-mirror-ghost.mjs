@@ -134,6 +134,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { parseDotEnv, readEnvFiles, readEnvDirs, firstValue } from './lib/dotenv.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const RPC_NAME = 'check_override_mirror_ghost_v1';
@@ -386,151 +387,15 @@ export function verdict(data, error, timeout = { timedOut: false, ms: RPC_TIMEOU
 // ---------------------------------------------------------------------------
 
 /**
- * KEPT IN THIS FILE, not extracted to scripts/lib/.
- *
- * The previous draft moved this pair into scripts/lib/dotenv.mjs with a
- * docstring saying it existed to stop the copy in check-program-day-offsets.mjs
- * diverging -- and then migrated no call site, including that one. Two
- * implementations plus a false claim is worse than two implementations.
- * Unifying them is a change to a SHIPPED guard with its own canary and belongs
- * in its own PR (queued), not smuggled in behind this one.
- *
- * The sibling picked up the SAME credential-resolution fix in this PR
- * (name-major, blank-aware; ROOT-then-cwd) -- driven, not assumed; see its own
- * header. Its PARSER still differs: only double quotes stripped, `export `
- * still not handled, no inline-comment stripping. That gap is PR A's, not
- * this one's, and stays open until then.
+ * parseDotEnv, readEnvFiles, readEnvDirs and firstValue now live in
+ * ./lib/dotenv.mjs (imported above), shared with the sibling guard
+ * (check-program-day-offsets.mjs, #67). EXTRACTED 2026-08-22 -- see that
+ * module's own header for the design rationale and for why ROOT itself could
+ * not move with them. The previous attempt at this extraction moved the code
+ * before the parser underneath was correct and migrated no call site; both
+ * gaps are closed here: the parser was fixed first (Website#268, #269), and
+ * this PR is what actually points both guards at the one implementation.
  */
-const ENV_FILES = ['.env.local', '.env', '.env.development'];
-
-/**
- * Object.create(null), and not for tidiness. Every bug in this parser presents
- * downstream as a confusing missing-credentials exit 2, and a plain `{}` gives
- * a .env line spelled `__proto__=x` or `constructor=x` a silent, invisible
- * effect on the result -- the one failure mode this module can least afford to
- * add. A null-prototype bag makes those ordinary keys.
- */
-export function parseDotEnv(text) {
-  const vars = Object.create(null);
-  for (const raw of String(text).split(/\r?\n/)) {
-    let line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    if (line.startsWith('export ')) line = line.slice('export '.length).trim();
-    const idx = line.indexOf('=');
-    if (idx < 0) continue;
-    const key = line.slice(0, idx).trim();
-    if (!key) continue;
-    // UNTRIMMED on purpose: the comment scan below keys on whitespace
-    // immediately before `#`, and `.trim()` would already have erased that
-    // whitespace for a comment-only remainder (`A=<TAB># cmt`), making it
-    // indistinguishable from `A=#cmt` (no marker, data). Scan this raw slice
-    // first; `value` (trimmed) is only what the quote/comment branches below
-    // actually keep.
-    const rawSuffix = line.slice(idx + 1);
-    let value = rawSuffix.trim();
-    const quoted = value.length > 1 && ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'")));
-    if (quoted) {
-      value = value.slice(1, -1);
-    } else {
-      // An UNQUOTED trailing comment is a comment, as it is everywhere else
-      // that reads these files. Kept out of the value because
-      // `VITE_SUPABASE_URL=https://x.supabase.co # prod` otherwise reaches
-      // createClient, which throws "Invalid URL" -- and the operator gets
-      // COULD NOT MEASURE instead of the branch that names the two secrets.
-      // Quoted values are untouched: inside quotes a `#` is data.
-      //
-      // The needle used to be the literal `' #'` (one space), so a TAB
-      // before `#` -- or a comment-only value, where `.trim()` above already
-      // consumed the leading whitespace -- defeated it: `A=<TAB># set in
-      // Vercel` parsed to the VALUE `# set in Vercel`, non-blank, which then
-      // shadowed a real value in a later file exactly the way the blank
-      // rule below exists to prevent. Scanning is over `rawSuffix`, not
-      // `value`, and requires an ACTUAL preceding whitespace character in
-      // that untrimmed text -- never the bare fact of being first -- so
-      // `A=#nospace` and `A=a#b` (no whitespace anywhere) still keep their
-      // `#` as data, unchanged from before; only a `#` a real space or tab
-      // actually precedes is a comment.
-      // SPACE or TAB, not the regex `\s` class -- found in review, by
-      // direct execution: `\s` also matches NBSP (U+00A0) and the Unicode
-      // line/paragraph separators, so a `.env` value corrupted by the exact
-      // cp1252 mojibake this repo's own CLAUDE.md warns about (an NBSP from a
-      // pasted-in URL, say) would have a literal `#` mid-value silently read
-      // as a comment marker where the old literal-space needle never would.
-      let hash = -1;
-      for (let i = 1; i < rawSuffix.length; i++) {
-        const prev = rawSuffix[i - 1];
-        if (rawSuffix[i] === '#' && (prev === ' ' || prev === '\t')) { hash = i; break; }
-      }
-      if (hash >= 0) value = rawSuffix.slice(0, hash).trim();
-    }
-    // A blank must not clobber a real value FOR THE SAME KEY within one
-    // file, matching the cross-file/cross-dir rule below -- but unlike
-    // those merges (where FILE ORDER is a priority list, so first-non-blank
-    // is correct), lines within one file are a sequential edit log: a real
-    // value legitimately REPLACES an earlier real one (an operator rotating
-    // a credential by appending a corrected line below a stale one). An
-    // unconditional first-non-blank-wins here got that backwards -- found
-    // in review, by direct execution: `KEY=old\nKEY=new` kept `old`.
-    // So the new value always wins UNLESS it is itself blank AND would
-    // clobber a real one -- the one case this rule exists to stop.
-    if (value.trim() !== '' || String(vars[key] ?? '').trim() === '') vars[key] = value;
-  }
-  return vars;
-}
-
-/**
- * The three files this repo actually keeps keys in, FIRST file wins.
- *
- * Reading only .env gave one machine two answers: a developer keeping
- * credentials in .env.local got a green #67 beside a #68 that exited 2 and
- * blamed the secrets.
- */
-export function readEnvFiles(dir) {
-  const merged = Object.create(null);
-  for (const name of ENV_FILES) {
-    const file = path.join(dir, name);
-    if (!fs.existsSync(file)) continue;
-    const parsed = parseDotEnv(fs.readFileSync(file, 'utf8'));
-    for (const key of Object.keys(parsed)) {
-      // FIRST NON-BLANK wins, not first PRESENT. `VITE_SUPABASE_URL=` left in
-      // .env.local shadowed the real value in .env under first-present, and the
-      // guard then exited 2 blaming absent secrets that were sitting in the
-      // next file down -- byte for byte the failure firstValue() below was
-      // written to stop, one layer lower and covered by no case. Found in
-      // review, after a docstring here had already claimed the class was
-      // closed: naming a blind spot is not closing it.
-      if (String(merged[key] ?? '').trim() === '') merged[key] = parsed[key];
-    }
-  }
-  return merged;
-}
-
-/**
- * NO DEFAULT PARAMETER on readEnvFiles itself, deliberately. A `dir = ROOT`
- * default is a seam every canary case could override, so the ROOT-vs-cwd
- * resolution below would never once be driven and could be changed to
- * `process.cwd()` with the canary still reporting PASS. readEnvDirs stays
- * equally explicit -- it takes the directory LIST, never defaults it.
- *
- * ROOT, then cwd -- additive, not a replacement. ROOT is resolved from
- * import.meta.url, so it is right regardless of where the process was
- * launched from; cwd is tried SECOND, purely as an addition, so a caller
- * whose working directory holds its own credentials still finds them --
- * without letting a foreign cwd's files beat ROOT's own when both define the
- * same name (first-non-blank-per-name, the same rule readEnvFiles already
- * uses across files). Read twice only when the two directories differ.
- */
-export function readEnvDirs(dirs) {
-  const merged = Object.create(null);
-  for (const dir of dirs) {
-    const bag = readEnvFiles(dir);
-    for (const key of Object.keys(bag)) {
-      if (String(merged[key] ?? '').trim() === '') merged[key] = bag[key];
-    }
-  }
-  return merged;
-}
 
 /**
  * `cwd === ROOT` is compared case-insensitively on win32 only -- this repo's
@@ -540,11 +405,11 @@ export function readEnvDirs(dirs) {
  * same three files twice. Not attempted on POSIX, where case is significant
  * and folding it would wrongly merge two genuinely different directories.
  *
- * RESIDUAL, stated rather than papered over: readEnvDirs above is driven
+ * RESIDUAL, stated rather than papered over, unaffected by the extraction of
+ * readEnvDirs to ./lib/dotenv.mjs: readEnvDirs itself IS driven there,
  * directly with fixture directories, but THIS function's own binding of ROOT
  * and process.cwd() into that list is not -- every canary case injects
- * readDotEnv over it. That is the same accepted gap readEnvFiles(ROOT) always
- * carried; see the header. Verified instead by running the live guard from a
+ * readDotEnv over it. Verified instead by running the live guard from a
  * foreign cwd before shipping, not by a unit case.
  */
 function defaultReadDotEnv() {
@@ -566,35 +431,6 @@ async function defaultMakeClient(url, key) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
-
-/**
- * First non-blank value, NAME-major then SOURCE-major.
- *
- * Source-major (this function's shape until 2026-08-22) fixed the blank-export
- * hole below -- and opened a worse one: a FALLBACK name exported by a running
- * `supabase start` (bare SUPABASE_URL) beat the PRIMARY name (VITE_SUPABASE_URL)
- * sitting correctly in this repo's own files, because source-major checks env
- * against every name before ever looking at the files. That reads the LOCAL
- * stack against prod-correct files and turns a healthy tree into a false
- * CONTRACT violation (exit 1, "apply the ADMIN migration") -- worse than the
- * blank-shadowing bug it replaced, which only ever produced an honest exit 2.
- *
- * Name-major closes both without reopening either: for each name, in order,
- * take the first non-blank value across [env, files]. A blank export still
- * falls through to a real file value FOR THAT NAME (case below), and
- * db-contract-check.yml exports secrets under the PRIMARY names only
- * (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY), so CI already wins on
- * the NAME axis -- source-major bought CI nothing it did not already have.
- */
-const firstValue = (sources, ...names) => {
-  for (const name of names) {
-    for (const source of sources) {
-      const value = String(source[name] ?? '').trim();
-      if (value) return value;
-    }
-  }
-  return '';
-};
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -1675,7 +1511,8 @@ export async function selfTest(out = console.log, err = console.error) {
    * v2 (2026-08-22): the within-FILE assignment used to be unconditional --
    * `vars[key] = value` on every matching line, last one standing -- so a
    * leftover blank (or quoted-but-blank) duplicate beneath a real value
-   * silently won. `.trim() === ''`, matching readEnvFiles/readEnvDirs below.
+   * silently won. `.trim() === ''`, matching readEnvFiles/readEnvDirs in
+   * ./lib/dotenv.mjs.
    */
   add(
     'a blank duplicate LOWER in the same file does not overwrite a real value above it',
@@ -1704,7 +1541,8 @@ export async function selfTest(out = console.log, err = console.error) {
   );
   /**
    * Found in review, by direct execution: the FIRST cut of this rule was
-   * unconditional first-non-blank-wins, copied from readEnvFiles below --
+   * unconditional first-non-blank-wins, copied from readEnvFiles's own
+   * cross-file merge rule in ./lib/dotenv.mjs --
    * correct THERE because file order is a priority list, wrong HERE, where
    * lines are a sequential edit log and a later REAL value (an operator
    * rotating a credential by appending a corrected line) must still win.
