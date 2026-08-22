@@ -1,0 +1,44 @@
+{
+  "firewallEnabled": true,
+  "managedRules": {
+    "ai_bots": { "active": true, "action": "deny" },
+    "bot_protection": { "active": true, "action": "log" }
+  },
+  "crs": {
+    "gen": { "active": true, "action": "log" },
+    "java": { "active": false, "action": "log" },
+    "lfi": { "active": false, "action": "log" },
+    "ma": { "active": false, "action": "log" },
+    "php": { "active": false, "action": "log" },
+    "rce": { "active": true, "action": "log" },
+    "rfi": { "active": false, "action": "log" },
+    "sd": { "active": false, "action": "log" },
+    "sf": { "active": false, "action": "log" },
+    "sqli": { "active": true, "action": "log" },
+    "xss": { "active": true, "action": "log" }
+  },
+  "rules": [
+    {
+      "id": "rule_bypass_revalidate_webhook_ddNB3U",
+      "name": "Bypass revalidate webhook",
+      "active": true,
+      "description": "Supabase's pg_net calls this path to purge the CDN cache on content writes. Bot Protection would flag it as non-browser traffic and challenge it, which pg_net cannot solve -- silently breaking cache invalidation. Must run before Bot Management.",
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "eq", "value": "/api/revalidate" }
+          ]
+        }
+      ],
+      "action": {
+        "mitigate": {
+          "action": "bypass",
+          "redirect": null,
+          "rateLimit": null,
+          "actionDuration": null
+        }
+      }
+    }
+  ],
+  "ips": []
+}
