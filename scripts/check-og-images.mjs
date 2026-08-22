@@ -20,6 +20,7 @@
 // Exit 1 if any sampled page would show no preview.
 // --self-test runs the network-free canary (see selfTest at the bottom).
 
+import { appendFileSync } from 'node:fs';
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
 
@@ -58,6 +59,94 @@ const MAX_BYTES = 300 * 1024;
 // checkPage's isCard stays separate ON PURPOSE: it asserts the narrower
 // /api/og/card?query FORM that the v= and occ= assertions key off.
 const OG_API_RE = /\/api\/og\//i;
+
+/**
+ * WHAT THIS RUN ACTUALLY MEASURED -- the RC5 fix, in one honest paragraph.
+ *
+ * This guard has two arms. The scheduled arm hits public production and
+ * therefore traverses every live edge control, Vercel Bot Protection included.
+ * The pull_request arm hits the PR's Vercel preview THROUGH the
+ * Protection-Bypass-for-Automation header -- which does not merely open
+ * Deployment Protection, it exempts the request from the WAF as well. On
+ * 2026-08-21 a Bot Protection flip served HTTP 429 to every non-browser client
+ * for ~14 hours; every og-image-check run in that window was a bypassed
+ * pull_request run, and every one of them was green. They were not wrong.
+ * They measured a surface the outage could not reach.
+ *
+ * So the report says so, on green runs as loudly as on red ones. A run that
+ * used the bypass measured NOTHING about Bot Protection, and the summary now
+ * states that rather than quietly reading as reassurance.
+ *
+ * Pure, and canaried below, because a self-describing guard that describes
+ * itself wrongly is worse than one that says nothing at all.
+ */
+export const PROD_HOST = 'www.bachatacalendar.co.uk';
+
+export function measurementReport(base, { bypassInUse, isPreview }) {
+  let host;
+  try {
+    host = new URL(base).host;
+  } catch {
+    host = String(base);
+  }
+  // THREE-WAY, not a boolean on isPreview. The first draft branched
+  // preview-or-else, so a staging alias, a localhost tunnel or an unparseable
+  // base was announced as "PRODUCTION (public)" and, with no bypass set, as
+  // having exercised the live production edge controls -- a flatly false claim
+  // from the function whose entire job is honest self-description. Raised in
+  // review. Matched by INCLUSION against the known production host: anything
+  // this file cannot positively identify is UNRECOGNISED, never production.
+  let targetClass;
+  if (isPreview) targetClass = 'VERCEL PREVIEW (Deployment Protection)';
+  else if (host === PROD_HOST) targetClass = 'PRODUCTION (public)';
+  else targetClass = 'UNRECOGNISED (neither ' + PROD_HOST + ' nor a *.vercel.app preview)';
+
+  const lines = [
+    'OG image guard -- measured host: ' + host,
+    '  target class:   ' + targetClass,
+    '  bypass secret:  ' + (bypassInUse ? 'IN USE' : 'not sent'),
+  ];
+  if (bypassInUse) {
+    lines.push('  bot protection: NOT EXERCISED -- the protection-bypass header exempts this '
+      + 'request from the WAF as well as from Deployment Protection. This run proves '
+      + 'nothing about Bot Protection; only the production arms do.');
+  } else if (host === PROD_HOST) {
+    lines.push('  bot protection: EXERCISED -- these requests traversed the live production edge controls.');
+  } else {
+    // No bypass, but not production either: whatever edge controls this host
+    // has were exercised, and they are not the ones the 2026-08-21 flip broke.
+    lines.push('  bot protection: NOT EXERCISED on production -- this host is not ' + PROD_HOST
+      + ', so nothing here says anything about the live production edge controls.');
+  }
+  return lines.join('\n');
+}
+
+/** GitHub renders this on the run's summary page, where someone glancing at a
+ *  green tick will actually see it. Guarded on the env var so a local run is a
+ *  no-op; deliberately NOT wrapped in try/catch -- an unwritable step summary
+ *  inside Actions is an infrastructure fault worth surfacing, and swallowing
+ *  it is the R2 defect this repo's conventions guard exists to catch. */
+export function publishStepSummary(text, { env = process.env, append = appendFileSync, warn = console.log } = {}) {
+  const path = env.GITHUB_STEP_SUMMARY;
+  if (!path) return false;
+  try {
+    append(path, '### OG image guard\n\n```\n' + text + '\n```\n\n', 'utf8');
+  } catch (error) {
+    // NOT swallowed (R2): it announces itself as an Actions warning. But it
+    // must not become the guard's exit code either. The first draft let this
+    // throw, and the throw lands in main().catch, which sets exit 1 --
+    // CONTRACT VIOLATED -- so a full step-summary file (the 1MB cap) or a
+    // read-only runner disk would file an issue saying "read which sampled
+    // page lost its og:image" for a run where no page was ever fetched. That
+    // is R3 exit-drift: an infrastructure fault wearing a violation's code.
+    // Raised in review. The summary is a reporting side-channel; stdout above
+    // already carries the same text, which is the record that matters.
+    warn('::warning title=step summary unavailable::could not write GITHUB_STEP_SUMMARY: ' +
+      (error && error.message ? error.message : error) + ' -- the measurement report is on stdout above.');
+    return false;
+  }
+  return true;
+}
 
 // A few URLs per page type so a regression in any fetcher gets caught.
 //
@@ -465,7 +554,15 @@ async function checkPage(pathOrUrl) {
 }
 
 async function main() {
-  console.log(`OG image guard — base: ${BASE}`);
+  // NAMED BEFORE ANYTHING THAT CAN FAIL. bypassHeaders() below THROWS in CI
+  // when the secret is missing on a preview host, which fires before the full
+  // report is built -- and the one-line banner this replaced used to have
+  // already printed the base by then. Without this line a missing-secret red
+  // names no target at all and the operator has to infer OG_CHECK_BASE from
+  // the workflow file. Raised in review: the deleted banner's invariant was
+  // "every run states its target before doing anything that can fail", and
+  // that invariant is restored here rather than lost with the line.
+  console.log('OG image guard -- target: ' + BASE);
 
   // A PROVEN Deployment Protection wall (401/403 or parked on Vercel's login
   // surface) is an AUTH failure, not an OG failure: skip green with a warning.
@@ -473,6 +570,16 @@ async function main() {
   // check runs and fails loud. The isPreviewHost gate is inside the helper, so
   // this never short-circuits the public production run.
   BYPASS = bypassHeaders({ required: isPreviewHost(BASE) });
+
+  // Reported from the RESOLVED bypass, never from the trigger or the URL
+  // shape. bypassHeaders() returns null when no secret is configured, so this
+  // states what the requests below will actually carry -- including the case
+  // nobody plans for, a bypass secret present in the environment of a run
+  // pointed at production.
+  const report = measurementReport(BASE, { bypassInUse: BYPASS !== null, isPreview: isPreviewHost(BASE) });
+  console.log(report);
+  publishStepSummary(report);
+
   if (await skipIfWalledPreview(BASE, { bypass: BYPASS, label: 'OG preview skipped', subject: 'OG cards could not be checked' })) {
     return;
   }
@@ -632,6 +739,64 @@ function selfTest() {
     ['both fire on a redirect chain that ENDS on a marked card',
       cardRedirectFailure(`${PROD}/api/og/card?kind=event&id=x&v=1`, { ...served(`${PROD}/api/og/card?kind=event&id=x&v=1`), fallbackReason: 'card-data-unavailable' }) !== null
       && cardFallbackFailure({ ...served(`${PROD}/api/og/card?kind=event&id=x&v=1`), fallbackReason: 'card-data-unavailable' }) !== null],
+
+    // --- measurementReport: the RC5 fix, proven in BOTH directions ---------
+    // A self-describing guard that describes itself wrongly is worse than one
+    // that says nothing, so the honest sentence is asserted, not assumed.
+    ['a bypassed run says it measured NOTHING about bot protection',
+      /bot protection: NOT EXERCISED/.test(measurementReport('https://x-abc.vercel.app', { bypassInUse: true, isPreview: true }))],
+    ['a bypassed run is not allowed to claim it exercised anything',
+      !/bot protection: EXERCISED/.test(measurementReport('https://x-abc.vercel.app', { bypassInUse: true, isPreview: true }))],
+    ['the production arm says it DID exercise the edge controls',
+      /bot protection: EXERCISED/.test(measurementReport(PROD, { bypassInUse: false, isPreview: false }))],
+    // The dangerous middle case: a bypass secret leaking into a run pointed at
+    // production. Host and trigger both say "prod"; only the resolved bypass
+    // says the WAF was skipped. Reported off the bypass for exactly this.
+    ['a bypass secret present on a PROD base still reports NOT EXERCISED',
+      /bot protection: NOT EXERCISED/.test(measurementReport(PROD, { bypassInUse: true, isPreview: false }))],
+    ['the report names the host it measured',
+      /measured host: www\.bachatacalendar\.co\.uk/.test(measurementReport(PROD, { bypassInUse: false, isPreview: false }))],
+    ['an unparseable base still reports something rather than throwing',
+      /measured host: not a url/.test(measurementReport('not a url', { bypassInUse: false, isPreview: false }))],
+    // The three-way branch, in the direction the first draft got wrong. These
+    // assert the CLAIMS, not just the host line -- which is what let the old
+    // two-way branch pass while announcing a staging alias as production.
+    ['an unparseable base is NOT announced as production',
+      !/PRODUCTION/.test(measurementReport('not a url', { bypassInUse: false, isPreview: false }))],
+    ['an unparseable base does NOT claim production edge controls were exercised',
+      !/bot protection: EXERCISED/.test(measurementReport('not a url', { bypassInUse: false, isPreview: false }))],
+    ['a staging alias is UNRECOGNISED, not production',
+      /target class:   UNRECOGNISED/.test(measurementReport('https://staging.example.com', { bypassInUse: false, isPreview: false }))],
+    ['a staging alias does NOT claim production edge controls were exercised',
+      /NOT EXERCISED on production/.test(measurementReport('https://staging.example.com', { bypassInUse: false, isPreview: false }))],
+    ['the apex domain is not the production host either (www is)',
+      /UNRECOGNISED/.test(measurementReport('https://bachatacalendar.co.uk', { bypassInUse: false, isPreview: false }))],
+
+    // --- publishStepSummary: writes only when Actions asked for it ---------
+    ['no GITHUB_STEP_SUMMARY -> no write, no throw',
+      publishStepSummary('x', { env: {}, append: () => { throw new Error('must not write'); } }) === false],
+    // An unwritable summary must WARN and return false, never throw -- a throw
+    // here reaches main().catch and becomes exit 1 CONTRACT VIOLATED for what
+    // is an infrastructure fault (R3 exit-drift).
+    ['an unwritable step summary warns and returns false, it does not throw',
+      (() => {
+        const warnings = [];
+        const wrote = publishStepSummary('x', {
+          env: { GITHUB_STEP_SUMMARY: '/tmp/summary' },
+          append: () => { throw new Error('ENOSPC'); },
+          warn: (s) => warnings.push(String(s)),
+        });
+        return wrote === false && warnings.some((w) => /::warning/.test(w) && /ENOSPC/.test(w));
+      })()],
+    ['GITHUB_STEP_SUMMARY set -> the report reaches the run summary',
+      (() => {
+        let seen = null;
+        const wrote = publishStepSummary('REPORT-BODY', {
+          env: { GITHUB_STEP_SUMMARY: '/tmp/summary' },
+          append: (path, text) => { seen = [path, text]; },
+        });
+        return wrote === true && seen[0] === '/tmp/summary' && seen[1].includes('REPORT-BODY');
+      })()],
   ];
   let failed = 0;
   for (const [name, ok] of cases) {
@@ -679,10 +844,14 @@ function selfTest() {
 // Precisely what "importable" now buys, since the last version of this comment
 // overclaimed it: `await import()` from node is safe -- proven on every run of
 // that harness, whose import arm loads this file and asserts the CLI does not
-// fire. A VITEST spec needs two more things this file does not yet have: an
-// `export` (nothing here is exported) and no shebang, because a
-// `#!/usr/bin/env node` first line makes the file unparseable when vitest
-// inlines it (see check-rpc-typing.mjs, which records that measurement).
+// fire. A VITEST spec used to need two more things this file lacked; it now
+// needs ONE. `measurementReport` and `publishStepSummary` ARE exported (P5), so
+// the only remaining blocker is the shebang: a `#!/usr/bin/env node` first line
+// makes the file unparseable when vitest inlines it (see check-rpc-typing.mjs,
+// which records that measurement). Both are covered by the self-test below
+// instead. Raised in review -- the old wording said "nothing here is exported",
+// which would have sent a future author off to duplicate logic that is in fact
+// reachable.
 if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
   const KNOWN_FLAGS = ['--self-test'];

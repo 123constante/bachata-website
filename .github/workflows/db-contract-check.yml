@@ -1355,6 +1355,53 @@ jobs:
           node scripts/check-og-scrape-evidence.mjs --self-test
           node scripts/check-og-scrape-evidence.mjs
 
+      # 69. OG BAKE PIPELINE HEALTH (2026-08-22). check_og_render_health_v1()
+      #     has been installed since admin migration 20260814130000 and was
+      #     called by NO CI. During the 2026-08-21 WAF incident it reported the
+      #     outage to nobody. "An installed RPC is not a check."
+      #
+      #     Reads the BAKE half (ready/pending/error/stuck/sample_errors); the
+      #     SCRAPE half is check-og-scrape-evidence.mjs above. Same RPC, two
+      #     questions, deliberately not merged.
+      #
+      #     IT DOES NOT GATE ON `stuck`, AND THAT IS THE POINT. Measured
+      #     2026-08-22: healthy prod reads stuck = 1, and the incident's own
+      #     reading was stuck = 1 -- the same single permanent
+      #     card-data-unavailable row, whose attempts = 5 excludes it from
+      #     _og_sweep and freezes its updated_at for ever. `stuck` could not
+      #     have counted the outage either: the sweep restamps updated_at on
+      #     every POST it issues, so a row being retried is never 15 minutes
+      #     stale. A threshold on it is permanently red or permanently green.
+      #
+      #     What it gates on instead: P1's own error vocabulary
+      #     ("bake POST failed: HTTP <code>"), which is what makes this class
+      #     visible at all and did not exist during the incident; a lower bound
+      #     on stale PENDING rows derived as stuck - error, which self-gates to
+      #     zero on healthy prod and catches a dead sweep; and a zero-ready
+      #     ledger. Both directions were proven against prod inside rolled-back
+      #     transactions on 2026-08-22 -- those measured payloads are the
+      #     canary's fixtures.
+      #
+      #     Placed before the image-reference sweep so it keeps its last slot:
+      #     that step is the only outbound-network one and must stay at the end.
+      #     BUDGET NOTE, raised in review. This job is `timeout-minutes: 5` for
+      #     the whole suite, and the image-reference sweep below is explicitly
+      #     bounded against that same 5 minutes. A new step is a new claim on a
+      #     SHARED budget, so this one is bounded twice: the RPC call itself
+      #     carries RPC_TIMEOUT_MS (20s, matching the sweep's inventory cap) and
+      #     supabase-js has no default of its own, and `timeout-minutes: 1`
+      #     below is the backstop that cannot be defeated from inside the
+      #     script. One DB aggregate over 280 rows; 1 minute is generous.
+      - name: Run og-render bake-pipeline health check
+        if: always()
+        timeout-minutes: 1
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-og-render-health.mjs --self-test
+          node scripts/check-og-render-health.mjs
+
       - name: Run live image-reference check
         if: always()
         timeout-minutes: 3

@@ -402,7 +402,68 @@ Fixtures, both live:
   violation to an infrastructure 2. Retires WITH the legacy mirror at Lever 1E
   &mdash; delete the step then, never relax the floor.
 
+- OG bake-pipeline health (#69) &mdash; reads the BAKE half of
+  `check_og_render_health_v1()`, which was installed and called by **no CI** until
+  2026-08-22. It deliberately does **not** gate on `stuck`: measured that day,
+  healthy prod reads `stuck = 1` and the 2026-08-21 incident read `stuck = 1`,
+  the same permanent `card-data-unavailable` row. `_og_sweep` restamps
+  `updated_at` on every POST it issues, so a row under retry is never 15 minutes
+  stale and `stuck` **could not have counted the outage**. What it gates on is
+  P1's error vocabulary (`bake POST failed: HTTP <code>`), `stuck - error` as a
+  self-cancelling lower bound on stale PENDING rows, and a zero-`ready` ledger.
+  Both directions proven against prod in rolled-back transactions; those
+  payloads are the canary's fixtures. The SCRAPE half is a separate check
+  (`check-og-scrape-evidence.mjs`) on purpose.
+  **The transport rule does NOT clear itself, deliberately.** `_og_sweep` selects
+  `attempts < 5`, and `_og_enqueue` resets `attempts` only on its
+  `INSERT..ON CONFLICT` branch &mdash; reached when the row is new or the COVER
+  HASH changed, never on an unrelated write. So a parked row means that entity
+  will never have a baked OG image until a cover change or a deliberate repair,
+  and the violation text carries the repair SQL. That is not `stuck`'s defect
+  wearing a new hat: `stuck` reads 1 on a HEALTHY system, this reads 0.
+  Named blind spot: `sample_errors` is `LIMIT 5 ORDER BY updated_at DESC` with no
+  per-row timestamp, so five newer content errors can push parked transport
+  errors out of the sample. Closing it needs a counter the RPC does not expose.
+
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
+
+**Read its arms before trusting a green.** The `pull_request` arm probes the
+Vercel PREVIEW through `VERCEL_AUTOMATION_BYPASS_SECRET`, which exempts the
+request from the WAF as well as from Deployment Protection &mdash; so it is
+structurally incapable of failing on an edge-control regression, and on
+2026-08-21 every run in the 14-hour outage was a green preview run. Since P5 the
+guard REPORTS this per run (measured host, bypass sent or not, bot protection
+exercised or not) to stdout and the run summary, on green runs as loudly as red.
+The target class is decided by INCLUSION against the known production host, so a
+staging alias or an unparseable base reads as UNRECOGNISED and never claims to
+have exercised production edge controls.
+Production is covered by the daily schedule **and**, since P5, by a
+`deployment_status` arm gated to `state == success && environment == Production`
+&mdash; ~24h detection latency down to minutes. Its honest limit: that event and
+the production alias move are not transactionally ordered, so the arm can still
+measure the previous deployment. It buys latency, not commit attribution.
+
+`check-sitemap-fetchable.mjs` (`npm run check:sitemap-fetchable`) gates
+`sitemap-submit.yml` ahead of its GSC submit. That workflow was green throughout
+the incident because `sitemaps.submit` only REGISTERS a feedpath &mdash; Google
+answers "noted" and fetches later, so no outcome of that call could ever go red
+on an unfetchable sitemap. The guard GETs the URL with a **non-browser** UA (a
+browser UA was 200 all through the outage) and asserts 200 + XML + a sitemap
+root element + a floor of 50 `<loc>` entries (prod: 314, of which 26 are static
+routes that render with no database at all). The floor applies to a flat
+`<urlset>` ONLY &mdash; a `<sitemapindex>` lists child sitemaps and needs just
+one, or the gate would false-red the day the generator is split. Gate and submit
+now derive their URL from one workflow-level `SITEMAP_TARGET`, and the script
+REFUSES (exit 2) if `GSC_CHECK_BASE` disagrees with what it probed: proving one
+URL and announcing another is the same wrong-surface class this arc removes.
+The workflow carries its own failure-notification step &mdash; without it this
+would have been a brand-new unattended prod probe with no audience, and
+`lint-workflow-notification.mjs` could not have caught that, because its
+predicate is scoped to schedule-reachable jobs and this one is push-triggered.
+**That blind spot in the P2 lint is real and queued, not fixed here.**
+It cannot prove Googlebot specifically is allowed &mdash; Vercel verifies that by
+reverse DNS and spoofing the UA would be less accurate, not more.
+`/robots.txt` 429'd in the same incident and still has no guard.
 
 ### Writing a new guard &mdash; the six rules `check-script-conventions.mjs` enforces
 

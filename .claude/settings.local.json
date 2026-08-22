@@ -127,7 +127,7 @@
       "Bash(grep -q \"ready in\" C:\\\\\\\\Users\\\\\\\\ecual\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\c--dev-Website\\\\\\\\38acbdc8-4c4c-4923-a722-355bb54c8565\\\\\\\\tasks\\\\\\\\b597drbd9.output)",
       "Bash(grep -q \"Local.*http\" C:\\\\\\\\Users\\\\\\\\ecual\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\c--dev-Website\\\\\\\\38acbdc8-4c4c-4923-a722-355bb54c8565\\\\\\\\tasks\\\\\\\\b597drbd9.output)",
       "Bash(/c/Users/ecual/AppData/Local/Microsoft/WindowsApps/python3 -c \"print\\('ok'\\)\")",
-      "Bash(node -e \"const fs=require\\('fs'\\); let c=fs.readFileSync\\('src/modules/event-page/bento/blocks/RaffleBlock.tsx','utf8'\\); c=c.replace\\('  const { config, loading, refresh } = useEventRaffleConfig\\(eventId ?? null, sessionId\\);','  const { config, loading, error, refresh } = useEventRaffleConfig\\(eventId ?? null, sessionId\\);'\\); c=c.replace\\('  if \\(!loading && \\(!config || !config.enabled\\)\\) {\\\\n    return null;\\\\n  }','  if \\(!loading && \\(!config || !config.enabled\\)\\) {\\\\n    if \\(import.meta.env.DEV && error\\) {\\\\n      console.warn\\(\\\\'[RaffleBlock] get_event_raffle RPC failed \u2014 tile hidden. Error:\\\\', error\\);\\\\n    }\\\\n    return null;\\\\n  }'\\); fs.writeFileSync\\('/tmp/RaffleBlock_new.tsx',c\\); console.log\\('lines:',c.split\\('\\\\n'\\).length\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); let c=fs.readFileSync\\('src/modules/event-page/bento/blocks/RaffleBlock.tsx','utf8'\\); c=c.replace\\('  const { config, loading, refresh } = useEventRaffleConfig\\(eventId ?? null, sessionId\\);','  const { config, loading, error, refresh } = useEventRaffleConfig\\(eventId ?? null, sessionId\\);'\\); c=c.replace\\('  if \\(!loading && \\(!config || !config.enabled\\)\\) {\\\\n    return null;\\\\n  }','  if \\(!loading && \\(!config || !config.enabled\\)\\) {\\\\n    if \\(import.meta.env.DEV && error\\) {\\\\n      console.warn\\(\\\\'[RaffleBlock] get_event_raffle RPC failed — tile hidden. Error:\\\\', error\\);\\\\n    }\\\\n    return null;\\\\n  }'\\); fs.writeFileSync\\('/tmp/RaffleBlock_new.tsx',c\\); console.log\\('lines:',c.split\\('\\\\n'\\).length\\);\")",
       "Bash(scripts/safe-write.py src/modules/event-page/bento/blocks/RaffleBlock.tsx)",
       "Bash(python3 scripts/safe-write.py src/modules/event-page/bento/blocks/RaffleBlock.tsx)",
       "Bash(/c/WINDOWS/py scripts/safe-write.py src/modules/event-page/bento/blocks/RaffleBlock.tsx)",
@@ -221,7 +221,9 @@
       "PowerShell($c = Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Write-Output \"killing PID $_\"; Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } else { Write-Output \"nothing listening on 8081\" })",
       "mcp__playwright__browser_run_code_unsafe",
       "Bash(cp src/lib/authResolution.ts /c/tmp/ar2.bak)",
-      "Bash(cp /c/tmp/ar2.bak src/lib/authResolution.ts)"
+      "Bash(cp /c/tmp/ar2.bak src/lib/authResolution.ts)",
+      "Bash(node -e ' *)",
+      "Bash(gh repo *)"
     ],
     "additionalDirectories": [
       "c:\\dev\\bachata-admin-11april\\supabase\\migrations",
