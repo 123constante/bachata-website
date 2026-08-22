@@ -50,3 +50,24 @@ jobs:
 
       - name: Lint workflows for unjustified continue-on-error
         run: node scripts/lint-workflow-masking.mjs
+
+  notification-check:
+    # Guards against the RC4 failure mode (edge-config-governance arc, P2):
+    # prod-smoke, seo-check, og-image-check and synthetic-ssr-monitor went red
+    # on schedule and stayed red for ~14h with no failure-notification step --
+    # detection existed, but had no audience. Every workflow job reachable on
+    # a schedule tick that probes production must carry a failure-notification
+    # step (see scripts/lint-workflow-notification.mjs for the exact rule).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Canary (self-test)
+        run: node scripts/lint-workflow-notification.mjs --self-test
+
+      - name: Lint workflows for unnotified scheduled prod probes
+        run: node scripts/lint-workflow-notification.mjs

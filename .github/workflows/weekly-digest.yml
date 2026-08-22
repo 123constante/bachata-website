@@ -17,6 +17,11 @@ on:
   schedule:
     - cron: '0 7 * * 1'   # Mondays 07:00 UTC
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +33,14 @@ jobs:
     timeout-minutes: 8
 
     steps:
+      # A deliberate failure, on demand -- proves the notify step below end to
+      # end. Mirrors db-contract-check.yml's test_notification input.
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -98,3 +111,60 @@ jobs:
           TITLE="Weekly digest - $(date -u +%Y-%m-%d)"
           gh issue create --title "$TITLE" --body-file digest.md --label digest \
             || gh issue create --title "$TITLE" --body-file digest.md
+
+      # Failure-notification pattern copied from db-contract-check.yml (see its
+      # "Announce failure" step for the full cancelled()/schedule reasoning).
+      # A distinct mechanism and label from "Open digest issue" above: that
+      # step is the digest's DELIVERY, and only runs if every prior step
+      # succeeded; this one fires when the job failed to PRODUCE a digest at
+      # all, which is otherwise invisible -- no digest issue appears, and
+      # nothing says why. Scoped to schedule + workflow_dispatch only.
+      - name: Announce failure
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) || (cancelled() && github.event_name == 'schedule')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'weekly-digest';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Weekly Digest failed to build -- no digest issue was opened this week.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Open the run and read which section failed: GSC analytics, the',
+              'live-series check, or the checkout/install steps before them.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'Weekly Digest build red', body, labels: [LABEL],
+              });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'weekly-digest';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }

@@ -14,6 +14,11 @@ on:
   schedule:
     - cron: '30 6 * * *'   # daily, offset from the 06:00 db-contract run
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
   pull_request:
     branches: [main, master]
 
@@ -28,8 +33,21 @@ jobs:
         github.event.deployment.environment == 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # Needed by the "Announce failure" step below -- see
+      # db-contract-check.yml's comment above its own permissions block.
+      issues: write
 
     steps:
+      # A deliberate failure, on demand -- proves the notify step below end to
+      # end. Mirrors db-contract-check.yml's test_notification input.
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -49,6 +67,65 @@ jobs:
         env:
           SEO_CHECK_BASE: https://www.bachatacalendar.co.uk
         run: npm run check:seo
+
+      # Failure-notification pattern copied from db-contract-check.yml (see its
+      # "Announce failure" step for the full cancelled()/schedule reasoning).
+      # Scoped to schedule + workflow_dispatch + deployment_status: unlike
+      # db-contract-check.yml (no deployment_status trigger), this job's
+      # deployment_status run IS the post-deploy health check, an automated
+      # Vercel-triggered run with no human watching this specific GitHub check
+      # -- the same unattended-tick class schedule is. NOT extended to PR: the
+      # seo-preview job below covers those, with a human already in the loop
+      # via the PR itself.
+      - name: Announce failure
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'deployment_status')) || (cancelled() && github.event_name == 'schedule')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'seo-guard';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'SEO Guard failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Open the run and read which assertion failed -- canonical, title,',
+              'meta description, h1, Event JSON-LD, or the homepage /event/ links.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'SEO Guard red', body, labels: [LABEL],
+              });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'deployment_status')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'seo-guard';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }
 
   seo-preview:
     # Pre-merge run against the PR's Vercel preview. check-seo.mjs + previewProbe

@@ -30,9 +30,17 @@ on:
     # instead of four there is no second chance to absorb that.
     - cron: '23 3 * * *'
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  # Needed by the "Announce failure" step below -- see db-contract-check.yml's
+  # comment above its own permissions block for why this can't stay implicit.
+  issues: write
 
 jobs:
   smoke:
@@ -49,6 +57,15 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # A deliberate failure, on demand -- proves the notify step below end to
+      # end without waiting for a genuinely bad night. Mirrors
+      # db-contract-check.yml's test_notification input.
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -81,3 +98,62 @@ jobs:
           name: prod-smoke-report
           path: smoke-report.json
           retention-days: 14
+
+      # Failure-notification pattern copied from db-contract-check.yml (see its
+      # "Announce failure" step for the full cancelled()/schedule reasoning).
+      # Scoped to schedule + workflow_dispatch + deployment_status: unlike
+      # db-contract-check.yml (no deployment_status trigger), this job's
+      # deployment_status run IS the post-deploy health check, an automated
+      # Vercel-triggered run with no human watching this specific GitHub check
+      # -- the same unattended-tick class schedule is. Not extended to PR:
+      # this workflow has no pull_request trigger at all.
+      - name: Announce failure
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'deployment_status')) || (cancelled() && github.event_name == 'schedule')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'prod-smoke';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Prod Smoke failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Open the run and read which step failed. The suite navigates the',
+              'live homepage map, an event page, and key routes under a mobile',
+              'viewport -- see scripts/launch-critical-smoke.mjs.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'prod-smoke red', body, labels: [LABEL],
+              });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'deployment_status')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'prod-smoke';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }
