@@ -569,7 +569,7 @@ function driveMain(argv, { env = { VITE_SUPABASE_URL: 'u', VITE_SUPABASE_PUBLISH
 // EQUALITY, not a floor. A canary with slack can silently lose a rung -- the
 // floor-shaped version of this number would still print PASS after someone
 // deleted the two self-inconsistency cases. Add a case, update this number.
-const EXPECTED_CASES = 52;
+const EXPECTED_CASES = 53;
 
 export async function selfTest(log = console.log) {
   const cases = [
@@ -804,6 +804,22 @@ export async function selfTest(log = console.log) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
       }, 'null|x|y|v'],
+    // PR A v2 (2026-08-22): NOT one of the two parser fixes made there -- this
+    // guard's readEnvFiles already used `.trim() === ''` for every assignment,
+    // within one file and across files alike (one shared accumulator, no
+    // separate per-file merge step) -- so the blank-predicate defect the
+    // sibling guard had never reproduced here. Driven, not assumed: a real
+    // value followed by a blank duplicate FOR THE SAME KEY, in the SAME file.
+    ['a blank duplicate LOWER in the same file does not overwrite a real value above it',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dup-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env'), 'K=real\nK=\n');
+          return readEnvFiles(dir).K;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'real'],
     ['readEnvDirs prefers the FIRST directory in the list for a name both define -- ROOT then cwd',
       () => {
         const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirA-'));
