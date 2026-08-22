@@ -95,33 +95,52 @@ const BROWSER_NO_STORE = "public, max-age=0, must-revalidate";
 // so it never reaches the client.
 const EDGE_TTL_BOUND_HEADER = "X-Edge-Ttl-Bound";
 
-/** Slack between the loader measuring a bound and the CDN storing the response
- *  (SSR streaming + transfer). Exported so a test asserts the real number
- *  rather than restating it. A floor, not a guarantee: a genuinely cold
- *  function can exceed it, which costs one early revalidation, not a stale
- *  claim -- the error stays on the safe side either way. */
+/** Slack between the loader measuring a bound (at T0) and the CDN actually
+ *  storing the response (T0 + renderTime, after SSR streaming + transfer).
+ *  Exported so a test asserts the real number rather than restating it.
+ *
+ *  The emitted TTL is sized as (deadline - T0) - MARGIN, so the entry expires
+ *  at T0 + renderTime + [(deadline - T0) - MARGIN] = deadline + (renderTime -
+ *  MARGIN). When renderTime <= MARGIN (the budgeted case), that expiry lands
+ *  AT OR BEFORE the deadline -- the safe side, costing only an earlier
+ *  revalidation than strictly necessary. A genuinely cold render CAN overrun
+ *  MARGIN, and overrunning is the one direction that costs a stale claim: the
+ *  entry then expires (renderTime - MARGIN) seconds PAST the deadline, and
+ *  every request in that window is served content that has stopped being
+ *  true. Sized generously against ordinary SSR latency for that reason, not
+ *  because the direction is free. */
 export const EDGE_STORE_MARGIN_SECONDS = 5;
 
 // A zero stale window is spelled by OMITTING the directive, never by
 // `stale-while-revalidate=0`, so that a layer keying off the directive's
 // PRESENCE rather than its value cannot read an explicit zero as "stale serving
-// enabled". Note what this does and does not buy: omission removes the explicit
-// permission, it is not a prohibition. RFC 7234 still lets a shared cache serve
-// a stale entry on origin error unless `must-revalidate` is present, which is
-// deliberately not set -- serving a slightly old festival page beats failing it
-// while Supabase is down. Vercel honours the value either way; this is belt to
-// the value's braces, not the guarantee on its own.
+// enabled". Note what this does and does not buy, and it is LESS than the
+// omission-vs-explicit-zero distinction implies. Scope this to ORIGIN-ERROR
+// staleness specifically -- ordinary stale-while-revalidate serving (the
+// bounded/unbounded case below, where swr > 0) is NOT affected by any of this
+// and is exactly what edgeCacheControl()'s own doc describes: the first
+// request after s-maxage IS served the stale copy, by design. What RFC 9111
+// 5.2.2.10 (folds `proxy-revalidate` into `s-maxage`) and 5.2.2.8 (a shared
+// cache MUST NOT serve a stale response without revalidating, once that
+// applies) forecloses is narrower: reusing a stale entry to survive an ORIGIN
+// ERROR, which every string this module emits already can't do, `must-
+// revalidate` present or not. So an old festival page beating a 500 while
+// Supabase is down is NOT a latitude this omission grants; the directive that
+// would actually grant it is `stale-if-error`, which nothing here sets.
+// Vercel honours the value either way; this is belt to a buckle that was
+// never fastened, not the value's braces.
 const cacheControl = (sMaxAge: number, swr: number): string => {
   if (swr > 0) return `public, s-maxage=${sMaxAge}, stale-while-revalidate=${swr}`;
   // s-maxage=0 with no stale window is the "not servable from cache" spelling,
-  // and omission alone does not get there. By the note above, a shared cache may
-  // still serve a stale entry on origin ERROR unless `must-revalidate` is set.
-  // That trade is right for a bounded entry -- an old festival page beats a 500
-  // while Supabase is down -- and inverts here: reaching zero means either the
-  // pinned day is already over or the bound did not survive the trip, so the
-  // premise is that we do NOT know this document is true. Serving it stale on an
-  // outage is precisely what the branch exists to prevent, so this one asks for
-  // the prohibition rather than merely withholding the permission.
+  // and omission alone does not get there. By the note above, RFC 9111 already
+  // forbids a shared cache from serving this stale on origin error, with or
+  // without `must-revalidate` -- so this directive is not withdrawing a latitude
+  // the module otherwise relies on; there was none to withdraw. Set anyway
+  // because it costs nothing and states the intent explicitly: reaching zero
+  // means either the pinned day is already over or the bound did not survive the
+  // trip, so the premise is that we do NOT know this document is true, and
+  // nothing here should be read as licence to add `stale-if-error` later without
+  // re-deriving whether that is actually wanted.
   //
   // BELT, AND UNVERIFIED AT THE EDGE. Be honest about the strength of that ask:
   // Vercel documents its CDN-Cache-Control handling for max-age / s-maxage /

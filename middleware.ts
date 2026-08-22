@@ -1,5 +1,6 @@
 import { next } from '@vercel/edge';
 import { teacherTag } from './app/cacheTags';
+import { edgeCacheControl } from './app/detailLoader';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -415,8 +416,11 @@ export default async function middleware(request: Request): Promise<Response> {
   };
   if (cacheTag) {
     headers['Vercel-Cache-Tag'] = cacheTag;
-    headers['Vercel-CDN-Cache-Control'] =
-      'public, s-maxage=3600, stale-while-revalidate=86400';
+    // Routed through edgeCacheControl() rather than restating its default
+    // literal, so a future retune of EDGE_S_MAXAGE/EDGE_SWR in
+    // app/detailLoader.ts -- the "same 1h/24h TTL convention" this block
+    // already claims to follow -- cannot leave this sibling behind silently.
+    headers['Vercel-CDN-Cache-Control'] = edgeCacheControl();
     headers['Cache-Control'] = 'public, s-maxage=300, stale-while-revalidate=600';
   } else {
     headers['Cache-Control'] = 'public, s-maxage=3600, stale-while-revalidate=604800';

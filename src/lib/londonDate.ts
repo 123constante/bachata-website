@@ -386,8 +386,17 @@ export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Da
  * in such a zone, this is the note to read first: fix the fixed point, do not
  * paper over it here.
  *
- * Never negative; never throws on a missing/invalid zone or a malformed key
- * (which degrades to today's, matching safeKeyParts).
+ * Never negative; never throws on a missing/invalid zone or a malformed key --
+ * and the two degrade in DIFFERENT directions, which is easy to conflate.
+ * A malformed KEY degrades to today on `timeZone` (via `dateKeyInTz`), NOT
+ * London -- unlike `safeKeyParts`, which has no timeZone argument to degrade
+ * on and falls back to London specifically. For a zone that disagrees with
+ * London on the calendar date at call time, those are different days.
+ * An invalid/missing ZONE, by contrast, degrades to London: `dateKeyInTz`
+ * and `zonedMidnightUtc` both route through `zonedFormatterFactory`, whose
+ * catch on a bad IANA identifier builds the formatter on `LONDON_TZ`. So a
+ * malformed key is measured on the zone the caller asked for; a malformed
+ * zone is measured on London regardless of what the caller asked for.
  */
 export const secondsUntilKeyRollsOver = (
   dayKey: string,
