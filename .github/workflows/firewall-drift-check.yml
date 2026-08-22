@@ -1,0 +1,154 @@
+name: Firewall Drift Check
+
+# Guards the LIVE Vercel Edge/WAF config against the committed
+# vercel-firewall.json, the way db-contract-check.yml guards the schema and
+# ci-budget-guard.yml guards spend. Phase P3 of the edge-config-governance arc
+# (RC1): until this existed, a dashboard edit to Bot Protection / the OWASP
+# CRS / a custom rule left no diff, no review, no history anywhere --
+# precisely what took prod down for ~14h on 2026-08-21, with four red probe
+# workflows nobody was told about (arc plan: edge-config-governance).
+#
+# NOT registered as a 5th "Announce failure" consumer inside
+# db-contract-check.yml, and NOT wired into pre-ship's CHECKS. Both mirror
+# ci-budget-guard.yml's own reasoning, not new judgement:
+#   - this measures ACCOUNT/EXTERNAL state via a live, credentialed Vercel API
+#     call, not a diff of this repo. db-contract-check.yml runs on every
+#     push/PR, and a Dependabot PR gets a SEPARATE, narrower secret store (see
+#     this repo's memory/dependabot_secret_store.md) -- VERCEL_TOKEN would be
+#     silently absent there, and every such PR would report a spurious "could
+#     not measure" rather than the green a code-only diff should get.
+#   - pre-ship's CHECKS ledger reproduces the PR gate locally; a live network
+#     call has no business blocking a ship over unrelated code, the same
+#     reason check:ci-budget / check:og / check:gsc are already excluded from
+#     it.
+# It gets its own tiny scheduled workflow instead, decoupled and separately
+# named, so a missing/expired token reds THIS board, not every PR's.
+#
+# HONEST LIMIT (also stated in the guard's own docstring): this detects a
+# dashboard edit within one CI cycle. It cannot prevent one -- nobody can stop
+# a PATCH made straight against Vercel's API from outside this repo.
+#
+# Requires the repo secret VERCEL_TOKEN. Read scope is enough for this
+# workflow (GET .../active); write access is only exercised by
+# scripts/apply-firewall.mjs, run by hand. Without the secret the measure job
+# exits 2 and goes RED -- never a green report over an unauthenticated read.
+
+on:
+  schedule:
+    - cron: '15 6 * * *'   # daily, 15 min after db-contract-check
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/check-firewall-drift.mjs'
+      - 'scripts/apply-firewall.mjs'
+      - 'scripts/lib/firewall-config.mjs'
+      - 'vercel-firewall.json'
+      - '.github/workflows/firewall-drift-check.yml'
+      - 'package.json'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # The canary needs no secret and no network, so it still reports when the
+  # token is the thing that broke -- and it is the R4 proof that the rule
+  # below can actually fail.
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove the drift rules can fail
+        run: node scripts/check-firewall-drift.mjs --self-test
+
+      # apply-firewall.mjs is not a check-*.mjs (R1-R5 in
+      # check-script-conventions.mjs never scan it), and it mutates prod --
+      # review of P3 found it had zero automated coverage, so a regression
+      # would only surface when a human next ran it against production with
+      # a real token. Same job, no secret needed: its canary runs entirely
+      # against a stateful in-memory fetch fixture.
+      - name: Prove the apply rules can fail
+        run: node scripts/apply-firewall.mjs --self-test
+
+  measure:
+    # The live sweep runs on the schedule, on demand, and on main -- not on
+    # every branch push. The canary above still runs on every push, which is
+    # what exercises a change to the rules.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # One measurement at a time: every call is authenticated against a single
+    # token's rate limit, and two overlapping runs would not merely waste
+    # minutes, they would produce a 403 that reads like a dead token.
+    concurrency:
+      group: firewall-drift-measure
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # No npm install: check-firewall-drift.mjs imports only node built-ins
+      # and scripts/lib/firewall-config.mjs.
+      - name: Diff live Vercel firewall config against vercel-firewall.json
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/check-firewall-drift.mjs
+
+      # Not extended to workflow_dispatch failures beyond schedule -- see
+      # db-contract-check.yml's own comment on this exact choice: a dispatch
+      # failure is almost always a human watching it run, and filing "it
+      # failed, go read the run" against a run they are already reading is
+      # the noise that trains people to close these issues unread. Kept for
+      # workflow_dispatch here anyway (matching db-contract-check.yml, not
+      # narrowing further) since this workflow is also how a human proves the
+      # notifier itself still works, same as that one's test_notification
+      # input.
+      - name: Announce failure
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) || (cancelled() && github.event_name == 'schedule')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'firewall-drift';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '`firewall-drift-check` failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'The live Vercel Edge/WAF config no longer matches the committed',
+              '`vercel-firewall.json` (or the guard could not measure it -- read',
+              'the run output either way). If the change was intentional, re-fetch',
+              'and re-commit `vercel-firewall.json`. If it was not, restore it with',
+              '`node scripts/apply-firewall.mjs` (add `--allow-destructive` only',
+              'after a human confirms a destructive-looking change).',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: LABEL });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: 'firewall-drift-check red', body, labels: [LABEL] });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'firewall-drift';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: LABEL });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+            }

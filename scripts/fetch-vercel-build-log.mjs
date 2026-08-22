@@ -16,8 +16,11 @@ if (!TOKEN) {
   console.error('[vercel-log] VERCEL_TOKEN not set. Create one at https://vercel.com/account/settings/tokens (read scope).')
   process.exit(1)
 }
+import { resolveProjectId } from './lib/firewall-config.mjs'
+
 const PROJECT = process.env.VERCEL_PROJECT || 'bachata-website'
-const TEAM = process.env.VERCEL_TEAM_ID ? `&teamId=${process.env.VERCEL_TEAM_ID}` : ''
+const TEAM_ID = process.env.VERCEL_TEAM_ID ?? ''
+const TEAM = TEAM_ID ? `&teamId=${TEAM_ID}` : ''
 const ALL = process.argv.includes('--all')
 const API = 'https://api.vercel.com'
 const h = { headers: { Authorization: `Bearer ${TOKEN}` } }
@@ -28,11 +31,14 @@ async function j(url) {
   return res.json()
 }
 
-// 1) resolve project id
-const proj = await j(`${API}/v9/projects/${PROJECT}?${TEAM.slice(1)}`).catch(() => null)
-const projectId = proj?.id
-if (!projectId) {
-  console.error(`[vercel-log] couldn't resolve project "${PROJECT}". Check the name / token scope.`)
+// 1) resolve project id -- shared with scripts/apply-firewall.mjs /
+// scripts/check-firewall-drift.mjs (scripts/lib/firewall-config.mjs) rather
+// than a second copy of the same lookup.
+let projectId
+try {
+  projectId = await resolveProjectId(fetch, TOKEN, PROJECT, TEAM_ID)
+} catch (error) {
+  console.error(`[vercel-log] couldn't resolve project "${PROJECT}": ${error.message}`)
   process.exit(1)
 }
 
