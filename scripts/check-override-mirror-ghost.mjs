@@ -420,7 +420,14 @@ export function parseDotEnv(text) {
     if (idx < 0) continue;
     const key = line.slice(0, idx).trim();
     if (!key) continue;
-    let value = line.slice(idx + 1).trim();
+    // UNTRIMMED on purpose: the comment scan below keys on whitespace
+    // immediately before `#`, and `.trim()` would already have erased that
+    // whitespace for a comment-only remainder (`A=<TAB># cmt`), making it
+    // indistinguishable from `A=#cmt` (no marker, data). Scan this raw slice
+    // first; `value` (trimmed) is only what the quote/comment branches below
+    // actually keep.
+    const rawSuffix = line.slice(idx + 1);
+    let value = rawSuffix.trim();
     const quoted = value.length > 1 && ((value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'")));
     if (quoted) {
@@ -432,10 +439,42 @@ export function parseDotEnv(text) {
       // createClient, which throws "Invalid URL" -- and the operator gets
       // COULD NOT MEASURE instead of the branch that names the two secrets.
       // Quoted values are untouched: inside quotes a `#` is data.
-      const hash = value.indexOf(' #');
-      if (hash >= 0) value = value.slice(0, hash).trim();
+      //
+      // The needle used to be the literal `' #'` (one space), so a TAB
+      // before `#` -- or a comment-only value, where `.trim()` above already
+      // consumed the leading whitespace -- defeated it: `A=<TAB># set in
+      // Vercel` parsed to the VALUE `# set in Vercel`, non-blank, which then
+      // shadowed a real value in a later file exactly the way the blank
+      // rule below exists to prevent. Scanning is over `rawSuffix`, not
+      // `value`, and requires an ACTUAL preceding whitespace character in
+      // that untrimmed text -- never the bare fact of being first -- so
+      // `A=#nospace` and `A=a#b` (no whitespace anywhere) still keep their
+      // `#` as data, unchanged from before; only a `#` a real space or tab
+      // actually precedes is a comment.
+      // SPACE or TAB, not the regex `\s` class -- found in review, by
+      // direct execution: `\s` also matches NBSP (U+00A0) and the Unicode
+      // line/paragraph separators, so a `.env` value corrupted by the exact
+      // cp1252 mojibake this repo's own CLAUDE.md warns about (an NBSP from a
+      // pasted-in URL, say) would have a literal `#` mid-value silently read
+      // as a comment marker where the old literal-space needle never would.
+      let hash = -1;
+      for (let i = 1; i < rawSuffix.length; i++) {
+        const prev = rawSuffix[i - 1];
+        if (rawSuffix[i] === '#' && (prev === ' ' || prev === '\t')) { hash = i; break; }
+      }
+      if (hash >= 0) value = rawSuffix.slice(0, hash).trim();
     }
-    vars[key] = value;
+    // A blank must not clobber a real value FOR THE SAME KEY within one
+    // file, matching the cross-file/cross-dir rule below -- but unlike
+    // those merges (where FILE ORDER is a priority list, so first-non-blank
+    // is correct), lines within one file are a sequential edit log: a real
+    // value legitimately REPLACES an earlier real one (an operator rotating
+    // a credential by appending a corrected line below a stale one). An
+    // unconditional first-non-blank-wins here got that backwards -- found
+    // in review, by direct execution: `KEY=old\nKEY=new` kept `old`.
+    // So the new value always wins UNLESS it is itself blank AND would
+    // clobber a real one -- the one case this rule exists to stop.
+    if (value.trim() !== '' || String(vars[key] ?? '').trim() === '') vars[key] = value;
   }
   return vars;
 }
@@ -1589,6 +1628,147 @@ export async function selfTest(out = console.log, err = console.error) {
       return parsed.U + '|' + parsed.V + '|' + parsed.W;
     },
     'https://x.supabase.co|plain#nospace|keep # this',
+  );
+  /**
+   * v2 (2026-08-22): the comment needle was the literal `' #'`, so anything
+   * OTHER than a plain space before `#` defeated it -- a TAB, or a
+   * comment-only remainder where the outer `.trim()` had already eaten the
+   * whitespace the needle keyed on. All FOUR shapes measured wrong on the
+   * pre-v2 parser (driven, not read -- a differential run against the old
+   * code printed `# set in Vercel`, `# cmt`, a leaked TAB+comment inside the
+   * URL, and `#b` respectively, all non-blank/non-clean).
+   */
+  add(
+    'a comment-only value is BLANK regardless of what whitespace precedes the #',
+    () => {
+      const parsed = parseDotEnv(
+        ['A=' + '\t' + '# set in Vercel', 'B=  # cmt', 'C=' + '\t' + ' #b'].join('\n'),
+      );
+      return '[' + parsed.A + ']|[' + parsed.B + ']|[' + parsed.C + ']';
+    },
+    '[]|[]|[]',
+  );
+  add(
+    'a TAB, not just a space, strips a trailing comment out of the VALUE',
+    () => {
+      const parsed = parseDotEnv('A=https://x.supabase.co' + '\t' + '# prod');
+      return parsed.A;
+    },
+    'https://x.supabase.co',
+  );
+  /**
+   * The needle still requires an ACTUAL preceding whitespace character --
+   * never the bare fact of being first -- so a `#` with nothing before it at
+   * all is still data, unchanged from the pre-v2 parser. Pinned separately
+   * from the case above so the two do not collapse into one accidentally
+   * correct predicate.
+   */
+  add(
+    'a # with NOTHING before it -- not even trimmed whitespace -- is still data, not a comment',
+    () => {
+      const parsed = parseDotEnv(['A=#nospace', 'B=a#b'].join('\n'));
+      return parsed.A + '|' + parsed.B;
+    },
+    '#nospace|a#b',
+  );
+  /**
+   * v2 (2026-08-22): the within-FILE assignment used to be unconditional --
+   * `vars[key] = value` on every matching line, last one standing -- so a
+   * leftover blank (or quoted-but-blank) duplicate beneath a real value
+   * silently won. `.trim() === ''`, matching readEnvFiles/readEnvDirs below.
+   */
+  add(
+    'a blank duplicate LOWER in the same file does not overwrite a real value above it',
+    () => {
+      const parsed = parseDotEnv(['A=real', 'A="   "', 'B=real', 'B='].join('\n'));
+      return parsed.A + '|' + parsed.B;
+    },
+    'real|real',
+  );
+  /**
+   * The OTHER direction, and it is a DIFFERENT branch of the predicate: this
+   * one drives whether a whitespace-only STORED value still counts as blank
+   * when a REAL value follows it, not whether a blank later value can
+   * overwrite a real earlier one. `.trim() === ''` vs a bare `=== ''` agree on
+   * every case above (nothing there stores a non-empty-but-blank string first)
+   * -- only this ordering tells them apart, and only this case caught, by
+   * MUTATION, that `.trim()` had not actually been proven yet.
+   */
+  add(
+    'a whitespace-only value stored FIRST does not block a real value below it',
+    () => {
+      const parsed = parseDotEnv(['A="   "', 'A=real'].join('\n'));
+      return parsed.A;
+    },
+    'real',
+  );
+  /**
+   * Found in review, by direct execution: the FIRST cut of this rule was
+   * unconditional first-non-blank-wins, copied from readEnvFiles below --
+   * correct THERE because file order is a priority list, wrong HERE, where
+   * lines are a sequential edit log and a later REAL value (an operator
+   * rotating a credential by appending a corrected line) must still win.
+   * `KEY=old\nKEY=new` silently kept `old` under that first cut.
+   */
+  add(
+    'TWO real values for the same key in one file -- the LATER one wins, same as before this fix',
+    () => {
+      const parsed = parseDotEnv(['KEY=old-value', 'KEY=new-value'].join('\n'));
+      return parsed.KEY;
+    },
+    'new-value',
+  );
+  /**
+   * Found in review, by direct execution: the FIRST cut of the needle used
+   * the regex `\s` class, which also matches NBSP (U+00A0) and the Unicode
+   * line/paragraph separators -- not just the space and tab the fix exists
+   * for. `keepme\u00A0#stillpartofvalue` lost everything from the NBSP
+   * onward under that first cut; only an ASCII space or tab is a comment
+   * marker, matching the old parser's literal `' #'` needle in kind, just
+   * not tied to a single-space width.
+   */
+  add(
+    'an NBSP before # is NOT a comment marker -- only an ASCII space or tab is',
+    () => {
+      const parsed = parseDotEnv('A=keepme\u00A0#stillpartofvalue');
+      return parsed.A;
+    },
+    'keepme\u00A0#stillpartofvalue',
+  );
+  /**
+   * Both halves of the OR need `.trim()`, not just the first: a
+   * whitespace-only stored value (from a QUOTED blank, `="   "`) must still
+   * read as blank when a later line for the same key is blank too -- a bare
+   * `=== ''` on the second clause alone passes every case above (nothing
+   * else stores a non-empty-but-blank string and then follows it with
+   * another blank), so only this exact ordering tells the two apart.
+   */
+  add(
+    'a whitespace-only stored value still reads as blank against a LATER blank, not just a later real one',
+    () => {
+      const parsed = parseDotEnv(['A="   "', 'A=""'].join('\n'));
+      return '[' + parsed.A + ']';
+    },
+    '[]',
+  );
+  /**
+   * NOT one of v2's two fixes, and deliberately left this way: quote-stripping
+   * still runs only when the TRIMMED value itself ends in a matching quote, so
+   * a quoted value with a trailing comment keeps its literal quote characters.
+   * Closing it needs the comment scan to be quote-AWARE (skip a `#` that sits
+   * inside an open quote, e.g. `A="a # b"` a case above, which must NOT
+   * become a comment) -- a bigger, structural change than 'the needle' or
+   * 'the blank predicate', and the exact shape of scope-widening that sank
+   * both earlier attempts at this parser. Pinned here, not silently fixed, so
+   * a future change to this stays a deliberate decision instead of a re-drift.
+   */
+  add(
+    'DEFERRED, not fixed here: a quoted value with a trailing comment keeps its literal quotes',
+    () => {
+      const parsed = parseDotEnv('A="https://x" # prod');
+      return parsed.A;
+    },
+    '"https://x"',
   );
   /**
    * The FILE SET, not just the parser, driven against a real temporary
