@@ -18,6 +18,8 @@
     "check:ci-budget:self-test": "node scripts/check-ci-budget.mjs --self-test",
     "check:firewall-drift": "node scripts/check-firewall-drift.mjs",
     "check:firewall-drift:self-test": "node scripts/check-firewall-drift.mjs --self-test",
+    "check:origin-consumers": "node scripts/check-origin-consumers.mjs",
+    "check:origin-consumers:self-test": "node scripts/check-origin-consumers.mjs --self-test",
     "apply:firewall:self-test": "node scripts/apply-firewall.mjs --self-test",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
     "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",

@@ -175,6 +175,7 @@ const TARGETS = [
   { rel: 'scripts/check-occurrence-delete-booking-safety.mjs' },
   { rel: 'scripts/check-og-images.mjs' },
   { rel: 'scripts/check-og-scrape-evidence.mjs' },
+  { rel: 'scripts/check-origin-consumers.mjs' },
   { rel: 'scripts/check-override-mirror-ghost.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
   { rel: 'scripts/check-pr-mergeable.mjs' },
