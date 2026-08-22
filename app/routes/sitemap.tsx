@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { flags } from "@/lib/featureFlags";
+import { edgeCacheControl } from "../detailLoader";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
 // dead build-time scripts/generate-sitemap.mjs, which `react-router build`
@@ -204,8 +205,11 @@ export async function loader() {
     headers: {
       "Content-Type": "application/xml",
       // 1h edge TTL; a DB blip inside the window serves the stale copy for up
-      // to a day instead of erroring the crawler.
-      "Vercel-CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      // to a day instead of erroring the crawler. Routed through
+      // edgeCacheControl() rather than restating its default literal, so a
+      // future retune of EDGE_S_MAXAGE/EDGE_SWR cannot leave this route behind
+      // silently.
+      "Vercel-CDN-Cache-Control": edgeCacheControl(),
     },
   });
 }

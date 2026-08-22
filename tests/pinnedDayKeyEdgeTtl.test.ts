@@ -111,6 +111,21 @@ describe('secondsUntilKeyRollsOver', () => {
     expect(secondsUntilKeyRollsOver('2027-02-30', 'Africa/Tunis', at)).toBe(today);
   });
 
+  it('degrades a malformed key to today on the GIVEN zone, not London', () => {
+    // Africa/Tunis above is UTC+1 year-round, the same offset London runs at
+    // all BST season, so that case cannot tell "degrades on timeZone" apart
+    // from "degrades to London" -- the exact vacuity in F1. Tokyo (UTC+9, no
+    // DST) disagrees with London on the calendar DATE at this instant: 22:20Z
+    // on 6 Sept is 07:20 on the 7th in Tokyo, still 23:20 on the 6th in
+    // London (BST, UTC+1). A fallback to London would report the wrong day's
+    // rollover.
+    const at = new Date('2026-09-06T22:20:00Z');
+    const tokyoToday = secondsUntilKeyRollsOver('2026-09-07', 'Asia/Tokyo', at);
+    const london = secondsUntilKeyRollsOver('2026-09-06', 'Europe/London', at);
+    expect(tokyoToday).not.toBe(london);
+    expect(secondsUntilKeyRollsOver('not-a-date', 'Asia/Tokyo', at)).toBe(tokyoToday);
+  });
+
   it('under-estimates, never over-estimates, where local midnight does not exist', () => {
     // The documented limit. America/Havana springs forward AT midnight on
     // 2026-03-08, so local 00:00 never occurs and the underlying fixed point
@@ -152,11 +167,12 @@ describe('secondsUntilKeyRollsOver', () => {
   });
 });
 
-// A zero bound is not spelled `public, s-maxage=0`. Omitting the stale
-// directive withholds PERMISSION to serve stale, but RFC 7234 still lets a
-// shared cache serve a stale entry on origin error unless `must-revalidate` is
-// set -- and the whole premise of reaching zero is that we do not know this
-// document is true, so an outage is exactly when it must not be served.
+// A zero bound is not spelled `public, s-maxage=0`. `must-revalidate` is set
+// explicitly even though RFC 9111 5.2.2.8/5.2.2.10 already forbid a shared
+// cache from serving this stale on origin error via `s-maxage` alone -- the
+// whole premise of reaching zero is that we do not know this document is
+// true, so the directive states that intent rather than granting a latitude
+// that was never there to withdraw.
 const NO_EDGE_CACHE = 'public, s-maxage=0, must-revalidate';
 
 describe('pinDayAndBound', () => {
@@ -377,6 +393,10 @@ describe('parseEdgeTtlBound', () => {
   it('separates never-asked from asked-and-broke', () => {
     expect(parseEdgeTtlBound(null)).toBeUndefined();
     expect(parseEdgeTtlBound('2400')).toBe(2400);
+    // A REAL zero, not the empty-string trap below -- '0'.trim() is truthy, so
+    // a tidy to `raw.trim() ? Number(raw) : NaN` reads this as corrupt and
+    // turns every "no cache" bound into "never asked".
+    expect(parseEdgeTtlBound('0')).toBe(0);
     for (const corrupt of ['', '   ', 'NaN', 'undefined', 'not-a-number', 'Infinity', '1e400']) {
       expect(parseEdgeTtlBound(corrupt)).toBeNaN();
     }
