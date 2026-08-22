@@ -3,11 +3,43 @@ name: OG Image Guard
 # Verifies social link previews still render: every sampled page must expose an
 # og:image that resolves to a JPEG/PNG (never WebP) under 300KB, with dimensions.
 #
-# Two triggers:
-#   - scheduled/dispatch: against PRODUCTION (post-deploy drift).
-#   - pull_request: against the PR's Vercel PREVIEW (pre-merge coverage), reached
-#     first-party via scripts/lib/previewProbe.mjs + the protection-bypass secret.
-#     Catches an OG regression BEFORE it ships, not a day later on prod.
+# WHAT EACH ARM CAN AND CANNOT SEE -- read this before trusting a green
+# ---------------------------------------------------------------------
+#   - pull_request: the PR's Vercel PREVIEW, reached via
+#     scripts/lib/previewProbe.mjs + VERCEL_AUTOMATION_BYPASS_SECRET. That
+#     header does not merely open Deployment Protection; it exempts the request
+#     from the WAF too. This arm is therefore STRUCTURALLY INCAPABLE of failing
+#     on an edge-control regression, and on 2026-08-21 it proved it: a Bot
+#     Protection flip served 429 to every non-browser client for ~14 hours and
+#     every og-image-check run in that window was a green preview run.
+#     It catches OG regressions in OUR code, before merge. Nothing else.
+#   - schedule (daily 06:00 UTC) + deployment_status: PRODUCTION, no bypass, so
+#     these traverse every live edge control. These are the only arms that say
+#     anything at all about Bot Protection.
+#
+# The guard now REPORTS this per run rather than leaving it to be inferred:
+# check-og-images.mjs prints the measured host, whether the bypass was sent and
+# whether bot protection was exercised, to stdout and to the run summary, on
+# green runs as loudly as on red ones (see measurementReport there).
+#
+# THE deployment_status ARM (added P5, 2026-08-22) closes the detection gap the
+# daily-only production arm left. The schedule alone meant a prod-side breakage
+# could sit unseen for up to ~24 hours -- which is most of what the 14-hour
+# incident actually was. GitHub fires deployment_status when Vercel publishes a
+# deployment; gated to state=success + environment=Production, that is a prod
+# probe within minutes of every merge to main.
+#
+# ITS HONEST LIMIT, stated rather than implied: deployment_status fires when
+# Vercel marks the deployment READY, which is when the production alias moves,
+# but the two are not transactionally ordered. A run can still measure the
+# PREVIOUS deployment. This arm buys detection LATENCY (~24h -> ~minutes); it
+# does not guarantee it measured the commit that triggered it. The settle wait
+# below narrows the window; it does not close it. For "did THIS commit ship a
+# good OG tag", the pull_request arm is the one that answers, pre-merge.
+#
+# `push` was considered and rejected for the same reason inverted: it fires
+# BEFORE Vercel has deployed, so it would reliably measure the previous
+# deployment rather than occasionally.
 
 on:
   schedule:
@@ -20,11 +52,43 @@ on:
         default: false
   pull_request:
     branches: [main, master]
+  # Vercel publishes each deployment as a GitHub Deployment; measured on this
+  # repo 2026-08-22, the environments in use are exactly "Preview" (62) and
+  # "Production" (38). The job condition narrows to Production + success.
+  deployment_status:
+
+# The announce step reads "is an issue already open?" and creates one if not.
+# That check-then-create is only safe while runs are serialised. Before
+# deployment_status, the production arm ran daily or by hand, so an overlap was
+# effectively impossible; two merges minutes apart now make it routine, and two
+# concurrent reds would each see an empty list and each file an issue for one
+# incident. Raised in review.
+#
+# cancel-in-progress is FALSE on purpose: cancelling the earlier run would
+# discard a real measurement, and this workflow's notifier treats a cancelled
+# scheduled run as something to announce. Queue them instead.
+#
+# The group excludes the PR arm (keyed on ref) so preview runs on different PRs
+# still go in parallel; only the production arm serialises.
+concurrency:
+  group: og-image-check-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: false
 
 jobs:
   og-check:
-    # Production run (schedule + manual). Skipped on PRs — the preview job covers those.
-    if: github.event_name != 'pull_request'
+    # Production run: schedule, manual, and every successful Production
+    # deployment. Written by INCLUSION, not as `!= 'pull_request'`: this file
+    # now carries a trigger (deployment_status) that fires on Preview
+    # deployments and on failed/in-progress states too, and an exclusion-shaped
+    # condition would have admitted every one of them -- a job pointed at
+    # production, running on a preview's deploy event, is precisely the
+    # wrong-target class this phase exists to remove.
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'deployment_status'
+          && github.event.deployment_status.state == 'success'
+          && github.event.deployment_status.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -57,6 +121,14 @@ jobs:
       - name: Canary (self-test)
         run: npm run check:og:self-test
 
+      # Narrows -- does not close -- the window in which the production alias
+      # has not yet moved to the deployment whose success triggered us. See the
+      # honest-limit paragraph in this file's header. Only on the
+      # deployment_status arm: the scheduled run has no such race.
+      - name: Let the production alias settle
+        if: github.event_name == 'deployment_status'
+        run: sleep 30
+
       - name: Run OG image guard
         env:
           OG_CHECK_BASE: https://www.bachatacalendar.co.uk
@@ -67,7 +139,18 @@ jobs:
       # Scoped to schedule + workflow_dispatch only -- PR runs already have a
       # human in the loop via the PR itself.
       - name: Announce failure
-        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) || (cancelled() && github.event_name == 'schedule')
+        # deployment_status is listed EXPLICITLY on both arms. A post-merge
+        # production probe is unattended in exactly the way the scheduled one
+        # is -- nobody is watching a workflow that fires off a Vercel webhook --
+        # so adding that trigger without adding it here would have created a
+        # brand-new silent prod probe inside the phase whose whole subject is
+        # guards nobody hears.
+        if: >-
+          (failure() && (github.event_name == 'schedule'
+                         || github.event_name == 'workflow_dispatch'
+                         || github.event_name == 'deployment_status'))
+          || (cancelled() && (github.event_name == 'schedule'
+                              || github.event_name == 'deployment_status'))
         uses: actions/github-script@v9
         with:
           script: |
@@ -97,6 +180,23 @@ jobs:
             }
 
       - name: Close failure issue when green again
+        # DELIBERATELY NARROWER THAN THE ANNOUNCE STEP ABOVE -- deployment_status
+        # may OPEN an issue but must never CLOSE one.
+        #
+        # The header concedes that arm can still measure the PREVIOUS deployment
+        # (the 30s settle narrows the race, it does not close it). This step
+        # closes EVERY open issue carrying the label, unconditionally. So a run
+        # that raced the alias, measured the old-and-good deployment and passed
+        # would comment "Green again" and close a live incident while production
+        # was still broken -- the guard actively erasing the alarm it exists to
+        # raise. Raised in review; the first draft extended both steps
+        # symmetrically, having reasoned about the race for attribution and
+        # latency only, never for its effect on this path.
+        #
+        # Cost of the narrowing: a red first raised by a deployment_status run
+        # stays open until the next 06:00 schedule tick confirms green. Up to
+        # ~24h of a stale open issue, against the alternative of silently
+        # closing a real one. That trade is not close.
         if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v9
         with:

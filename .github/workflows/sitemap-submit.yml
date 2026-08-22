@@ -1,8 +1,14 @@
 name: Sitemap Submit
 
-# Notify Google to re-crawl the canonical sitemap after every deploy to main.
-# Runs immediately on push (Vercel deploys in ~60s; sitemaps.submit just queues
-# a crawl - it does not need the deploy to be live first).
+# Notify Google to re-crawl the canonical sitemap after every deploy to main --
+# but only once we have confirmed the sitemap is actually fetchable.
+#
+# Runs immediately on push. sitemaps.submit only queues a crawl, so it does not
+# need THIS push's deploy to be live first, and the fetchability gate below is
+# scoped to match: it asks "is the production sitemap surface serving to
+# non-browser clients right now", which is a question about the currently-live
+# deployment, not about the commit that triggered the run. That is the question
+# the 2026-08-21 incident answered wrongly for 14 hours.
 #
 # Uses the same service-account key as gsc-health-check.yml but requests
 # webmasters scope (Full) so it can call sitemaps.submit. The SA holds Full
@@ -15,6 +21,19 @@ on:
 
 permissions:
   contents: read
+  # Needed by the "Announce failure" step below -- see db-contract-check.yml's
+  # comment above its own permissions block for why this cannot stay implicit.
+  issues: write
+
+# ONE SOURCE OF TRUTH for which site is being verified and announced. The gate
+# reads it as SITEMAP_CHECK_BASE and check-gsc.mjs reads it as GSC_CHECK_BASE;
+# before this they defaulted independently, so moving one (to the apex domain,
+# or a staging property) would have left the gate proving www while a different
+# URL was submitted. Raised in review. The script cross-checks the two at
+# runtime as well, so a divergence introduced elsewhere is refused rather than
+# measured around.
+env:
+  SITEMAP_TARGET: https://www.bachatacalendar.co.uk
 
 jobs:
   sitemap-submit:
@@ -30,8 +49,120 @@ jobs:
         with:
           node-version: 22
 
+      # THE GATE, AND WHY IT IS AHEAD OF THE SUBMIT (P5, 2026-08-22).
+      #
+      # This workflow ran GREEN throughout the 2026-08-21 WAF incident while
+      # /sitemap.xml was serving 429 to every non-browser client. That was not
+      # a bug in its error handling. sitemaps.submit REGISTERS a feedpath;
+      # Google answers "noted" and fetches later, from its own machines. The
+      # 2xx we asserted on never said anything about fetchability, so no
+      # outcome of that call could ever have gone red on this class.
+      #
+      # The assumption that was never stated: something else was believed to
+      # guarantee the URL was servable. Nothing did. check-gsc.mjs's default
+      # mode does read Google's own fetch errors for the canonical sitemap --
+      # but that runs in gsc-health-check.yml, is lagging by however long
+      # Google waits between fetches, and was never in this workflow's path.
+      #
+      # So: prove it is fetchable FIRST, with a non-browser user-agent (a
+      # browser UA was 200 all through the incident), and refuse to announce it
+      # otherwise. Submitting an unfetchable sitemap does not merely fail to
+      # help -- it records a fetch error against the property.
+      #
+      # Canary first, same convention as the checks in db-contract-check.yml:
+      # a guard that has not proven it CAN fail is not evidence of anything.
+      - name: Canary (self-test)
+        run: node scripts/check-sitemap-fetchable.mjs --self-test
+
+      - name: Verify the sitemap is fetchable
+        timeout-minutes: 1
+        env:
+          SITEMAP_CHECK_BASE: ${{ env.SITEMAP_TARGET }}
+          GSC_CHECK_BASE: ${{ env.SITEMAP_TARGET }}
+        run: node scripts/check-sitemap-fetchable.mjs
+
       # No npm install: check-gsc.mjs imports only node built-ins.
+      #
+      # Reached only when the step above passed, by ordinary step ordering --
+      # deliberately NOT `if: always()`. A failure here means Google was never
+      # told, which is the correct outcome: the next merge re-submits, and
+      # Google re-crawls on its own schedule regardless.
       - name: Submit sitemap to Google Search Console
         env:
           GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+          # Same source of truth as the gate above. check-gsc.mjs builds the
+          # submitted feedpath from GSC_CHECK_BASE, and the gate builds its
+          # probe target from it too, so the two cannot drift onto different
+          # URLs -- which would have let the gate go green having measured a
+          # URL that was not the one submitted. Raised in review.
+          GSC_CHECK_BASE: ${{ env.SITEMAP_TARGET }}
         run: node scripts/check-gsc.mjs --submit-canonical
+
+      # THE AUDIENCE. Added with the gate, not after it.
+      #
+      # Until this PR, nothing in this workflow could go red on a production
+      # fault -- sitemaps.submit answers 2xx regardless. The gate above changes
+      # that, which makes this file a production probe for the first time, and a
+      # production probe with no notification is precisely what P2 existed to
+      # abolish. lint-workflow-notification.mjs would NOT have caught the
+      # omission: its predicate is "reachable on a schedule: tick AND references
+      # production", and this workflow is push-triggered, so a push-triggered
+      # prod probe is invisible to it. Raised in review, and the lint's blind
+      # spot is queued rather than widened here -- changing that predicate is a
+      # guard change needing its own canary and its own review round.
+      #
+      # Pattern copied from db-contract-check.yml: one issue, reused, with a
+      # comment trail, auto-closed on the next green. `cancelled()` is included
+      # because a job killed by its own timeout-minutes is CANCELLED, not
+      # FAILED, so failure() alone would let an overrun pass in silence.
+      - name: Announce failure
+        if: failure() || cancelled()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'sitemap-submit';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Sitemap Submit failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Either /sitemap.xml is not fetchable by a non-browser client (read the',
+              'check-sitemap-fetchable step -- a 429/403 means an edge/WAF control, so',
+              'run `npm run check:firewall-drift`), or the GSC submit itself failed.',
+              'Google was NOT told to re-crawl.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'Sitemap Submit red', body, labels: [LABEL],
+              });
+            }
+
+      - name: Close failure issue when green again
+        if: success()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'sitemap-submit';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }
