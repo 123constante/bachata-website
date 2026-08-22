@@ -1,6 +1,11 @@
 import { next } from '@vercel/edge';
 import { teacherTag } from './app/cacheTags';
-import { edgeCacheControl } from './app/detailLoader';
+// The Edge runtime bundle cannot resolve ./app/detailLoader's transitive
+// imports (react-router, @/integrations/supabase/getSupabase, @/lib/seo) --
+// broke the Vercel build (#272). edgeCacheControl lives in the dependency-free
+// leaf module below for exactly that reason; import it from there, never from
+// detailLoader.ts, even though detailLoader.ts re-exports the same name.
+import { edgeCacheControl } from './app/edgeCacheControl';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
