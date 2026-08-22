@@ -108,11 +108,14 @@
  *   ~/.claude/plans/queued-r7-dispatch-exit-wiring.md. Do not re-add it here
  *   alone -- #66, #67 and og-scrape-evidence carry the identical hole.
  *
- *   THE ROOT BINDING of the .env reader. Every case injects readDotEnv, so
- *   `readEnvFiles(ROOT)` reverting to `process.cwd()` is unproven. Removing
- *   that function's default parameter is what stops the binding being silently
- *   overridable; proving it would need a fixture root the module cannot be
- *   pointed at.
+ *   THE ROOT-THEN-CWD BINDING of the .env reader. Every case injects
+ *   readDotEnv, so `readEnvDirs(same ? [ROOT] : [ROOT, cwd])` collapsing to
+ *   `[cwd]` -- the exact shape of the mutant that reverted the 2026-08-22
+ *   extraction attempt on this seam -- is unproven by any case here.
+ *   readEnvDirs itself IS driven, with fixture directories, against the
+ *   additive merge rule; only the identifiers that feed it (ROOT, cwd, same)
+ *   are not. Verified instead by running the live guard from a foreign cwd
+ *   before shipping, not by a unit case.
  *
  * NAMED GAP, not an oversight: the sample-size floor is `> 0`, so a partial
  * read returning 1 row of 357 still passes. A tighter floor would be a number
@@ -387,12 +390,16 @@ export function verdict(data, error, timeout = { timedOut: false, ms: RPC_TIMEOU
  *
  * The previous draft moved this pair into scripts/lib/dotenv.mjs with a
  * docstring saying it existed to stop the copy in check-program-day-offsets.mjs
- * diverging -- and then migrated no call site, including that one. The sibling
- * still resolves against cwd, still strips only double quotes and still ignores
- * `export `, so the divergence the module advertised preventing was guaranteed
- * by the module's own arrival. Two implementations plus a false claim is worse
- * than two implementations. Unifying them is a change to a SHIPPED guard with
- * its own canary and belongs in its own PR, not smuggled in behind this one.
+ * diverging -- and then migrated no call site, including that one. Two
+ * implementations plus a false claim is worse than two implementations.
+ * Unifying them is a change to a SHIPPED guard with its own canary and belongs
+ * in its own PR (queued), not smuggled in behind this one.
+ *
+ * The sibling picked up the SAME credential-resolution fix in this PR
+ * (name-major, blank-aware; ROOT-then-cwd) -- driven, not assumed; see its own
+ * header. Its PARSER still differs: only double quotes stripped, `export `
+ * still not handled, no inline-comment stripping. That gap is PR A's, not
+ * this one's, and stays open until then.
  */
 const ENV_FILES = ['.env.local', '.env', '.env.development'];
 
@@ -461,13 +468,52 @@ export function readEnvFiles(dir) {
 }
 
 /**
- * NO DEFAULT PARAMETER, deliberately. A `dir = ROOT` default is a seam every
- * canary case could override, so the ROOT-vs-cwd resolution this guard depends
- * on would never once be driven and could be changed to `process.cwd()` with
- * the canary still reporting PASS.
+ * NO DEFAULT PARAMETER on readEnvFiles itself, deliberately. A `dir = ROOT`
+ * default is a seam every canary case could override, so the ROOT-vs-cwd
+ * resolution below would never once be driven and could be changed to
+ * `process.cwd()` with the canary still reporting PASS. readEnvDirs stays
+ * equally explicit -- it takes the directory LIST, never defaults it.
+ *
+ * ROOT, then cwd -- additive, not a replacement. ROOT is resolved from
+ * import.meta.url, so it is right regardless of where the process was
+ * launched from; cwd is tried SECOND, purely as an addition, so a caller
+ * whose working directory holds its own credentials still finds them --
+ * without letting a foreign cwd's files beat ROOT's own when both define the
+ * same name (first-non-blank-per-name, the same rule readEnvFiles already
+ * uses across files). Read twice only when the two directories differ.
+ */
+export function readEnvDirs(dirs) {
+  const merged = Object.create(null);
+  for (const dir of dirs) {
+    const bag = readEnvFiles(dir);
+    for (const key of Object.keys(bag)) {
+      if (String(merged[key] ?? '').trim() === '') merged[key] = bag[key];
+    }
+  }
+  return merged;
+}
+
+/**
+ * `cwd === ROOT` is compared case-insensitively on win32 only -- this repo's
+ * own mount hazards (junction/drive-letter-casing) can make process.cwd() and
+ * a path resolved from import.meta.url differ only in case for the identical
+ * directory, which would otherwise defeat the collapse below and read the
+ * same three files twice. Not attempted on POSIX, where case is significant
+ * and folding it would wrongly merge two genuinely different directories.
+ *
+ * RESIDUAL, stated rather than papered over: readEnvDirs above is driven
+ * directly with fixture directories, but THIS function's own binding of ROOT
+ * and process.cwd() into that list is not -- every canary case injects
+ * readDotEnv over it. That is the same accepted gap readEnvFiles(ROOT) always
+ * carried; see the header. Verified instead by running the live guard from a
+ * foreign cwd before shipping, not by a unit case.
  */
 function defaultReadDotEnv() {
-  return readEnvFiles(ROOT);
+  const cwd = process.cwd();
+  const same = process.platform === 'win32'
+    ? path.resolve(cwd).toLowerCase() === path.resolve(ROOT).toLowerCase()
+    : cwd === ROOT;
+  return readEnvDirs(same ? [ROOT] : [ROOT, cwd]);
 }
 
 /**
@@ -483,20 +529,27 @@ async function defaultMakeClient(url, key) {
 }
 
 /**
- * First non-blank value, SOURCE-major then NAME-major.
+ * First non-blank value, NAME-major then SOURCE-major.
  *
- * Source-major is the fix for a measured hole: the previous draft merged the
- * two into one bag as `{ ...dotEnv, ...env }`, which lets an EXPORTED-BUT-EMPTY
- * variable shadow a perfectly good .env value -- and `VITE_SUPABASE_URL=` in a
- * shell profile is exactly the shape that happens in. It fell back across
- * NAMES and never across SOURCES. Here a blank in process.env falls through to
- * the file, while a real exported value still beats it, because a secret
- * supplied by CI must never be shadowed by a file that should not be in the
- * checkout at all.
+ * Source-major (this function's shape until 2026-08-22) fixed the blank-export
+ * hole below -- and opened a worse one: a FALLBACK name exported by a running
+ * `supabase start` (bare SUPABASE_URL) beat the PRIMARY name (VITE_SUPABASE_URL)
+ * sitting correctly in this repo's own files, because source-major checks env
+ * against every name before ever looking at the files. That reads the LOCAL
+ * stack against prod-correct files and turns a healthy tree into a false
+ * CONTRACT violation (exit 1, "apply the ADMIN migration") -- worse than the
+ * blank-shadowing bug it replaced, which only ever produced an honest exit 2.
+ *
+ * Name-major closes both without reopening either: for each name, in order,
+ * take the first non-blank value across [env, files]. A blank export still
+ * falls through to a real file value FOR THAT NAME (case below), and
+ * db-contract-check.yml exports secrets under the PRIMARY names only
+ * (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY), so CI already wins on
+ * the NAME axis -- source-major bought CI nothing it did not already have.
  */
 const firstValue = (sources, ...names) => {
-  for (const source of sources) {
-    for (const name of names) {
+  for (const name of names) {
+    for (const source of sources) {
       const value = String(source[name] ?? '').trim();
       if (value) return value;
     }
@@ -956,6 +1009,64 @@ export async function selfTest(out = console.log, err = console.error) {
           VITE_SUPABASE_URL: CREDS.VITE_SUPABASE_URL,
           SUPABASE_PUBLISHABLE_KEY: CREDS.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
+        makeClient: clientOf(HEALTHY),
+      }),
+    '0|silent',
+  );
+
+  /**
+   * NAME-MAJOR, driven against the exact failure that made source-major
+   * dangerous: a FALLBACK name exported by a running `supabase start` (bare
+   * SUPABASE_URL) must not beat the PRIMARY name sitting correctly in this
+   * repo's own files. clientOf(HEALTHY) enforces the exact CREDS pair --
+   * under source-major this case would pass the LOCAL url through instead and
+   * fail with "main() passed through the wrong credentials".
+   */
+  add(
+    'exit: a PRIMARY name in files beats a FALLBACK name exported in the shell -- name-major',
+    () =>
+      mainOutcome([], {
+        env: { SUPABASE_URL: 'http://127.0.0.1:54321' },
+        readDotEnv: () => CREDS,
+        makeClient: clientOf(HEALTHY),
+      }),
+    '0|silent',
+  );
+  add(
+    'exit: a PRIMARY key name in files beats the FALLBACK SUPABASE_ANON_KEY exported in the shell',
+    () =>
+      mainOutcome([], {
+        env: { SUPABASE_ANON_KEY: 'local-anon-key' },
+        readDotEnv: () => CREDS,
+        makeClient: clientOf(HEALTHY),
+      }),
+    '0|silent',
+  );
+  add(
+    'exit: a PRIMARY key name in files beats the middle fallback SUPABASE_PUBLISHABLE_KEY exported in the shell',
+    () =>
+      mainOutcome([], {
+        env: { SUPABASE_PUBLISHABLE_KEY: 'local-middle-key' },
+        readDotEnv: () => CREDS,
+        makeClient: clientOf(HEALTHY),
+      }),
+    '0|silent',
+  );
+  /**
+   * A name blank in BOTH sources must cascade to the NEXT NAME, still checked
+   * source-by-source -- not just "blank in one source falls to the other for
+   * the same name" (covered above already).
+   */
+  add(
+    'exit: a name blank in BOTH sources cascades to the next name, still checked source-by-source',
+    () =>
+      mainOutcome([], {
+        env: { VITE_SUPABASE_URL: '   ' },
+        readDotEnv: () => ({
+          VITE_SUPABASE_URL: '',
+          SUPABASE_URL: CREDS.VITE_SUPABASE_URL,
+          VITE_SUPABASE_PUBLISHABLE_KEY: CREDS.VITE_SUPABASE_PUBLISHABLE_KEY,
+        }),
         makeClient: clientOf(HEALTHY),
       }),
     '0|silent',
@@ -1526,6 +1637,62 @@ export async function selfTest(out = console.log, err = console.error) {
       }
     },
     'from-env|from-local',
+  );
+
+  /**
+   * readEnvDirs: ROOT then cwd, additive. Two real temp directories, because
+   * the property being proven is which DIRECTORY wins, not which file within
+   * one does -- that half is proven above.
+   */
+  add(
+    'readEnvDirs prefers the FIRST directory in the list for a name both define',
+    () => {
+      const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirA-'));
+      const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirB-'));
+      try {
+        fs.writeFileSync(path.join(dirA, '.env'), 'K=from-A\n');
+        fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\nONLY_B=yes\n');
+        const got = readEnvDirs([dirA, dirB]);
+        return got.K + '|' + got.ONLY_B;
+      } finally {
+        fs.rmSync(dirA, { recursive: true, force: true });
+        fs.rmSync(dirB, { recursive: true, force: true });
+      }
+    },
+    'from-A|yes',
+  );
+  add(
+    'readEnvDirs: a BLANK value in the first directory does not shadow a real one in the second -- additive, not a replacement',
+    () => {
+      const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirA2-'));
+      const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirB2-'));
+      try {
+        fs.writeFileSync(path.join(dirA, '.env'), 'K=\n');
+        fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\n');
+        const got = readEnvDirs([dirA, dirB]);
+        return got.K;
+      } finally {
+        fs.rmSync(dirA, { recursive: true, force: true });
+        fs.rmSync(dirB, { recursive: true, force: true });
+      }
+    },
+    'from-B',
+  );
+  add(
+    // Named for what it proves, not for defaultReadDotEnv's collapse branch --
+    // that branch feeds THIS call, but is itself in the residual gap above,
+    // unproven by any case here.
+    'readEnvDirs reads ONE directory fine when the list has one entry',
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirOne-'));
+      try {
+        fs.writeFileSync(path.join(dir, '.env'), 'K=solo\n');
+        return readEnvDirs([dir]).K;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    'solo',
   );
 
   /**

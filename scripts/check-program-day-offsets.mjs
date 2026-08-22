@@ -33,6 +33,9 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
 
 /** The RPC runs four small aggregates over ~420 series and one LATERAL over
@@ -297,31 +300,116 @@ export function evaluate(data) {
  * a tree where they are plainly present -- which reads as a broken check
  * rather than a missing file.
  *
- * It does NOT rescue a fresh `git worktree`, and an earlier draft of this
- * comment claimed it did. These names resolve against process.cwd(); a worktree
- * holding none of the three still misses all three and still returns 2. Fixing
- * that means resolving upward from import.meta.url to the main worktree, which
- * is a different change with its own cross-repo hazard -- see the
- * `relative_path_resolves_in_wrong_repo` note. Documenting a defence that is
- * not there is worse than not having it.
+ * ROOT, then cwd -- ported from the sibling guard (check-override-mirror-
+ * ghost.mjs) in this PR; see its header for the full account of why. ROOT is
+ * resolved from import.meta.url, so a caller running this script from an
+ * unrelated directory no longer risks reading THAT directory's own .env files
+ * first, or missing credentials this script's own repo plainly has -- the
+ * `relative_path_resolves_in_wrong_repo` hazard this comment used to warn
+ * about. cwd is tried second, purely as an addition.
+ *
+ * STILL DOES NOT rescue a fresh `git worktree` that never had its .env files
+ * copied in: ROOT then points at that worktree's own checkout, which has none
+ * either, same as cwd did before. Copying the four .env files into a fresh
+ * worktree remains a manual step; this fix is about WHICH directory is
+ * searched, not about credentials existing somewhere they do not.
  */
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
 const ENV_FILES = ['.env.local', '.env', '.env.development'];
 
-function loadEnv() {
-  const env = { ...process.env };
+/**
+ * Files only, one directory. Same per-line parser as always -- only double
+ * quotes stripped, `export ` not handled, no comment stripping. That gap is
+ * PR A's, not this one's: fixing credential RESOLUTION here must not fix the
+ * PARSER too, or the two changes stop being reviewable independently.
+ *
+ * FIRST NON-BLANK, not first PRESENT -- review on this PR caught the merge
+ * still carrying the original blank-shadowing defect one layer under
+ * firstValue(): a stale `VITE_SUPABASE_URL=` in .env.local blocked a real
+ * value in .env from ever being read, the same class firstValue() closes at
+ * the shell-vs-files layer but this function had not, at the file-vs-file
+ * layer. Matches the sibling guard's readEnvFiles exactly.
+ *
+ * Object.create(null), also ported from the sibling: a `{}` bag gives a line
+ * spelled `__proto__=x` or `constructor=x` a silent, invisible effect on the
+ * result instead of an ordinary key.
+ */
+function readEnvFiles(dir) {
+  const vars = Object.create(null);
   for (const name of ENV_FILES) {
-    if (!fs.existsSync(name)) continue;
-    for (const raw of fs.readFileSync(name, 'utf8').split(/\r?\n/)) {
+    const file = path.join(dir, name);
+    if (!fs.existsSync(file)) continue;
+    for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
       const line = raw.trim();
       if (!line || line.startsWith('#')) continue;
       const idx = line.indexOf('=');
       if (idx < 0) continue;
       const k = line.slice(0, idx).trim();
       const v = line.slice(idx + 1).replace(/^"|"$/g, '');
-      if (env[k] === undefined) env[k] = v;
+      if (String(vars[k] ?? '').trim() === '') vars[k] = v;
     }
   }
-  return env;
+  return vars;
+}
+
+/**
+ * ROOT, then cwd -- additive, not a replacement. Directory-level merge is
+ * FIRST NON-BLANK too now, for the identical reason as readEnvFiles above:
+ * a blank value read from ROOT must not block a real one in cwd, which is
+ * exactly the foreign-cwd case this whole change exists to serve. Matches
+ * the sibling guard's readEnvDirs exactly.
+ */
+function readEnvDirs(dirs) {
+  const merged = Object.create(null);
+  for (const dir of dirs) {
+    const bag = readEnvFiles(dir);
+    for (const key of Object.keys(bag)) {
+      if (String(merged[key] ?? '').trim() === '') merged[key] = bag[key];
+    }
+  }
+  return merged;
+}
+
+/**
+ * `cwd === ROOT` is compared case-insensitively on win32 only -- this repo's
+ * own mount hazards (junction/drive-letter-casing) can make process.cwd() and
+ * a path resolved from import.meta.url differ only in case for the identical
+ * directory, which would otherwise defeat the collapse below and read the
+ * same three files twice. Not attempted on POSIX, where case is significant
+ * and folding it would wrongly merge two genuinely different directories.
+ *
+ * RESIDUAL, stated rather than papered over, and the SAME accepted gap the
+ * sibling guard names for its own copy of this function: every canary case
+ * injects readDotEnv, so this function's own binding of ROOT and
+ * process.cwd() into the dirs list is unproven by any case here, even though
+ * readEnvDirs itself is driven directly with fixture directories above.
+ * Verified instead by running the live guard from a foreign cwd before
+ * shipping, not by a unit case.
+ */
+function defaultReadDotEnv() {
+  const cwd = process.cwd();
+  const same = process.platform === 'win32'
+    ? path.resolve(cwd).toLowerCase() === path.resolve(ROOT).toLowerCase()
+    : cwd === ROOT;
+  return readEnvDirs(same ? [ROOT] : [ROOT, cwd]);
+}
+
+/**
+ * First non-blank value, NAME-major then SOURCE-major -- identical in shape to
+ * the sibling guard's firstValue; see its header for the full account of why
+ * source-major was wrong. Not extracted to scripts/lib/: unifying the two
+ * copies is its own PR (queued), and duplicating a nine-line pure function
+ * costs less than a shared module with one migrated call site did last time.
+ */
+function firstValue(sources, ...names) {
+  for (const name of names) {
+    for (const source of sources) {
+      const value = String(source[name] ?? '').trim();
+      if (value) return value;
+    }
+  }
+  return '';
 }
 
 async function connectAndCall(url, key) {
@@ -349,7 +437,8 @@ async function connectAndCall(url, key) {
 // returned 2" would pass for the wrong reason.
 async function main(argv = [], deps = {}) {
   const {
-    loadEnvFn = loadEnv,
+    env = process.env,
+    readDotEnv = defaultReadDotEnv,
     connect = connectAndCall,
     log = console.log,
     // Every failure line went to an UNINJECTED console.error until 2026-08-19,
@@ -367,12 +456,14 @@ async function main(argv = [], deps = {}) {
 
   if (argv.includes('--self-test')) return (await selfTest(log)) ? 0 : 1;
 
-  const env = loadEnvFn();
-  const url = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
-  const key =
-    env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    env.SUPABASE_PUBLISHABLE_KEY ||
-    env.SUPABASE_ANON_KEY;
+  const fromFiles = readDotEnv();
+  const url = firstValue([env, fromFiles], 'VITE_SUPABASE_URL', 'SUPABASE_URL');
+  const key = firstValue(
+    [env, fromFiles],
+    'VITE_SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_ANON_KEY',
+  );
 
   // R3: missing credentials are INFRASTRUCTURE (2), never a green 0 and never
   // a contract failure (1).
@@ -458,13 +549,16 @@ function payload(over = {}) {
  *  branches returning 1 for different reasons is exactly the shape R5 warns
  *  about. */
 function driveMain(argv, { env = { VITE_SUPABASE_URL: 'u', VITE_SUPABASE_PUBLISHABLE_KEY: 'k' },
-                           result, connectThrows = false, errSink } = {}) {
+                           readDotEnv = () => ({}),
+                           result, connectThrows = false, errSink, credsSeen } = {}) {
   return main(argv, {
-    loadEnvFn: () => env,
+    env,
+    readDotEnv,
     log: () => {},
     errLog: (line) => { if (errSink) errSink.push(String(line)); },
     sleep: async () => {},
-    connect: async () => {
+    connect: async (url, key) => {
+      if (credsSeen) credsSeen.push(url + '|' + key);
       if (connectThrows) throw new Error('module not found');
       const seq = Array.isArray(result) ? [...result] : [result];
       return async () => (seq.length > 1 ? seq.shift() : seq[0]);
@@ -475,7 +569,7 @@ function driveMain(argv, { env = { VITE_SUPABASE_URL: 'u', VITE_SUPABASE_PUBLISH
 // EQUALITY, not a floor. A canary with slack can silently lose a rung -- the
 // floor-shaped version of this number would still print PASS after someone
 // deleted the two self-inconsistency cases. Add a case, update this number.
-const EXPECTED_CASES = 41;
+const EXPECTED_CASES = 52;
 
 export async function selfTest(log = console.log) {
   const cases = [
@@ -609,6 +703,151 @@ export async function selfTest(log = console.log) {
         return `${code}|apply=${text.includes('Apply the ADMIN migration')}` +
           `|dep=${text.includes('is deployed, but something it calls is not')}`;
       }, '1|apply=false|dep=true'],
+    // ---- credential resolution: NAME-major then SOURCE-major, ROOT-then-cwd ----
+    // Ported from the sibling guard's canary; see its header for the full
+    // account of why source-major was wrong. driveMain's connect() records the
+    // (url, key) it actually received, so these prove the RESOLVED PAIR, not
+    // just that main() reached the RPC.
+    ['exit 0: a PRIMARY name in files beats a FALLBACK name exported in the shell -- name-major',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { SUPABASE_URL: 'http://127.0.0.1:54321' },
+          readDotEnv: () => ({ VITE_SUPABASE_URL: 'https://prod.test',
+            VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
+    ['exit 0: a PRIMARY key name in files beats the FALLBACK SUPABASE_ANON_KEY exported in the shell',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { VITE_SUPABASE_URL: 'https://prod.test', SUPABASE_ANON_KEY: 'local-anon' },
+          readDotEnv: () => ({ VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
+    ['exit 0: a PRIMARY key name in files beats the middle fallback SUPABASE_PUBLISHABLE_KEY exported in the shell',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { VITE_SUPABASE_URL: 'https://prod.test', SUPABASE_PUBLISHABLE_KEY: 'local-middle' },
+          readDotEnv: () => ({ VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
+    ['exit 0: a name blank in BOTH sources cascades to the next name, still checked source-by-source',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { VITE_SUPABASE_URL: '   ' },
+          readDotEnv: () => ({ VITE_SUPABASE_URL: '', SUPABASE_URL: 'https://prod.test',
+            VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
+    ['exit 0: a BLANK exported variable falls through to files instead of shadowing them at the SAME key',
+      async () => {
+        const credsSeen = [];
+        const code = await driveMain([], {
+          env: { VITE_SUPABASE_URL: '', VITE_SUPABASE_PUBLISHABLE_KEY: '  ' },
+          readDotEnv: () => ({ VITE_SUPABASE_URL: 'https://prod.test',
+            VITE_SUPABASE_PUBLISHABLE_KEY: 'prod-key' }),
+          result: { data: payload(), error: null },
+          credsSeen,
+        });
+        return `${code}|${credsSeen[0]}`;
+      }, '0|https://prod.test|prod-key'],
+    ['readEnvFiles takes .env.local, .env and .env.development, and the FIRST file wins',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-env-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env.local'), 'K=from-local\n');
+          fs.writeFileSync(path.join(dir, '.env'), 'K=from-env\nONLY_ENV=yes\n');
+          fs.writeFileSync(path.join(dir, '.env.development'), 'ONLY_DEV=yes\n');
+          const got = readEnvFiles(dir);
+          return got.K + '|' + got.ONLY_ENV + '|' + got.ONLY_DEV;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'from-local|yes|yes'],
+    // FIRST NON-BLANK, not first PRESENT -- the fix review caught: a stale
+    // blank in .env.local must not block a real value in .env.
+    ['a BLANK value in an earlier file does not shadow a real one in a later file',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-blank-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env.local'), 'K=\nJ=from-local\n');
+          fs.writeFileSync(path.join(dir, '.env'), 'K=from-env\nJ=from-env\n');
+          const got = readEnvFiles(dir);
+          return got.K + '|' + got.J;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'from-env|from-local'],
+    ['readEnvFiles returns a NULL-PROTOTYPE bag, so __proto__ and constructor are ordinary keys',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-proto-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env'), '__proto__=x\nconstructor=y\nK=v\n');
+          const got = readEnvFiles(dir);
+          return Object.getPrototypeOf(got) + '|' + got.__proto__ + '|' + got.constructor + '|' + got.K;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'null|x|y|v'],
+    ['readEnvDirs prefers the FIRST directory in the list for a name both define -- ROOT then cwd',
+      () => {
+        const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirA-'));
+        const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirB-'));
+        try {
+          fs.writeFileSync(path.join(dirA, '.env'), 'K=from-A\n');
+          fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\nONLY_B=yes\n');
+          const got = readEnvDirs([dirA, dirB]);
+          return got.K + '|' + got.ONLY_B;
+        } finally {
+          fs.rmSync(dirA, { recursive: true, force: true });
+          fs.rmSync(dirB, { recursive: true, force: true });
+        }
+      }, 'from-A|yes'],
+    // readEnvDirs: a BLANK value in the first directory does not shadow a
+    // real one in the second -- additive, not a replacement. This is the
+    // exact scenario the ROOT-then-cwd change exists to serve: a blank left
+    // in ROOT's own .env must not block a real value the caller's cwd has.
+    ['readEnvDirs: a BLANK value in the first directory does not shadow a real one in the second',
+      () => {
+        const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirA2-'));
+        const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirB2-'));
+        try {
+          fs.writeFileSync(path.join(dirA, '.env'), 'K=\n');
+          fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\n');
+          return readEnvDirs([dirA, dirB]).K;
+        } finally {
+          fs.rmSync(dirA, { recursive: true, force: true });
+          fs.rmSync(dirB, { recursive: true, force: true });
+        }
+      }, 'from-B'],
+    // Named for what it proves, not for defaultReadDotEnv's collapse branch --
+    // that branch feeds THIS call, but is itself in the residual gap named
+    // above defaultReadDotEnv, unproven by any case here.
+    ['readEnvDirs reads ONE directory fine when the list has one entry',
+      () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-dirOne-'));
+        try {
+          fs.writeFileSync(path.join(dir, '.env'), 'K=solo\n');
+          return readEnvDirs([dir]).K;
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }, 'solo'],
   );
 
   let failed = 0;
