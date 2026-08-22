@@ -184,6 +184,7 @@ const TARGETS = [
   { rel: 'scripts/hooks/pre-exec-guard.mjs' },
   { rel: 'scripts/hooks/review-stamp.mjs' },
   { rel: 'scripts/hooks/session-lock.mjs' },
+  { rel: 'scripts/lint-workflow-notification.mjs' },
   { rel: 'scripts/mutate-workflow-artifact-policy.mjs' },
   { rel: 'scripts/pre-ship.mjs' },
   { rel: 'scripts/prove-entry-point-dispatch.mjs' },
