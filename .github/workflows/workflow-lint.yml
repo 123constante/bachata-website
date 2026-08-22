@@ -65,6 +65,21 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+
+      # npm 10 (bundled with Node 22) has rejected this repo's lockfile
+      # before ("Missing: quickjs-wasi@2.2.0 from lock file"); every sibling
+      # Node-22 npm-ci job carries this upgrade for that reason.
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      # The lint imports the `yaml` package (a real parser, not a line
+      # scanner -- that is P2's whole point), so the job must install
+      # dependencies. Shipped without this step, the canary failed 5/20 on
+      # "Cannot find module 'yaml'" and the job was red on main from the
+      # first post-merge run (2026-08-22).
+      - name: Install dependencies
+        run: npm ci
 
       - name: Canary (self-test)
         run: node scripts/lint-workflow-notification.mjs --self-test
