@@ -18,7 +18,9 @@ import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 //
 // PersonChip is intentionally low-level. It does NOT decide layout (overlap vs
 // row vs grid). PeopleStack picks the layout and renders zero or more chips
-// inside it. See plan_person_discoverability.md.
+// inside it. The one layout property the chip DOES own is its own cross-axis
+// alignment (`crossAlign` below) -- container `items-*` no longer reaches the
+// chip root. See plan_person_discoverability.md.
 
 // --- Sizes ---
 //
@@ -114,6 +116,15 @@ export interface PersonChipProps {
    *  attribute the discovery to that event. Optional - listings / search
    *  callsites leave it null. */
   eventId?: string | null;
+  /** Cross-axis alignment of the chip root inside its container. Default
+   *  'start': in a row or wrap container the cross axis is vertical, so
+   *  'start' pins the avatars of each flex LINE to that line's top edge
+   *  (a wrapped second row is its own line) whether the parent centres
+   *  unequal-height chips or stretches them (the two ragged-avatar
+   *  mechanisms). In a flex-COLUMN container the cross axis is HORIZONTAL,
+   *  so 'start' there means left-aligned -- a centred column must pass
+   *  'center'. */
+  crossAlign?: 'start' | 'center';
 }
 
 // --- Implementation ---
@@ -182,6 +193,7 @@ export const PersonChip = ({
   unlinked = 'dim',
   layout,
   eventId,
+  crossAlign = 'start',
 }: PersonChipProps) => {
   const t = SIZE_TABLE[size];
   const role = (roleOverride ?? person.role ?? '').trim();
@@ -313,8 +325,10 @@ export const PersonChip = ({
     paddingBlock: 2,
     borderRadius: 9999,
   };
-  const cls =
-    'inline-flex items-center transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none';
+  // Shared by BOTH wrapper branches below -- a class meant for linked and
+  // unlinked chips alike goes here, not on `cls`.
+  const baseCls = `${crossAlign === 'center' ? 'self-center' : 'self-start'} inline-flex items-center`;
+  const cls = `${baseCls} transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none`;
 
   // data-* attributes so Phase 3 click instrumentation can attribute discovery
   // sources without re-touching every callsite.
@@ -359,7 +373,7 @@ export const PersonChip = ({
     <span
       title={tooltip}
       aria-label={tooltip}
-      className="inline-flex items-center"
+      className={baseCls}
       style={visualStyle}
       {...dataAttrs}
     >
