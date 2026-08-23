@@ -55,6 +55,47 @@ const TODAY_BADGE = '<span class="tl-day-today">Today</span>';
 // `.day-tab` / `.tl-day` rules cannot satisfy it either.
 const TODAY_TAB = /class="day-tab[^"]*\btoday\b[^"]*"/;
 
+// The mobile day-tab strip, asserted as RENDERED MARKUP rather than as the bare
+// class name -- for exactly the reason the TODAY_BADGE note above gives, which
+// these cases had copied the trap of rather than the lesson. The component
+// inlines its stylesheet, and that stylesheet carries both
+// `.cinematic-festival .day-mobile-tabs{...}` and `.day-mobile-tabs[hidden]`, so
+// `toContain(TABS_RENDERED)` sat in the HTML of every festival page whether
+// or not the strip rendered -- including one where the whole timeline section
+// was skipped. It could not fail, which made it a non-vacuity guard that
+// guaranteed nothing.
+const TABS_RENDERED = 'class="day-mobile-tabs"';
+
+/**
+ * The inclusive `YYYY-MM-DD` keys a span covers -- this file's notion of "the
+ * days a festival has columns for".
+ *
+ * ONE definition, because it is an ORACLE and not a convenience: the wide-span
+ * case below checks the rendered column COUNT and the open column's INDEX
+ * against what this returns. A second copy of the same loop can drift from the
+ * first, and the drift would present as the grid being wrong.
+ *
+ * IT THROWS ON INPUT IT CANNOT READ rather than returning `[]`. An oracle that
+ * fails open is worse than none: `Date.parse('2026-9-1T00:00:00Z')` is NaN,
+ * `NaN <= NaN` is false, and the empty list would then have the wide-span case
+ * assert that the grid emitted ZERO columns and that `openDay` read '-1' --
+ * two confusing reds blamed on the grid, for one character in a fixture.
+ */
+const spanDayKeys = (start: string, end: string): string[] => {
+  const first = Date.parse(`${start}T00:00:00Z`);
+  const last = Date.parse(`${end}T00:00:00Z`);
+  if (!Number.isFinite(first) || !Number.isFinite(last)) {
+    throw new Error(`spanDayKeys: unparseable span bounds ${start}..${end}`);
+  }
+  if (last < first) throw new Error(`spanDayKeys: end precedes start ${start}..${end}`);
+
+  const out: string[] = [];
+  for (let t = first; t <= last; t += 86_400_000) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return out;
+};
+
 // One session on each of the festival's three days. `days` now comes from the
 // SPAN (local_start..local_end) via festivalGridDays, not from the schedule --
 // but the timeline block is still gated on having both days AND hours, and
@@ -104,7 +145,10 @@ afterAll(() => {
  * under us this fixture changes with it instead of silently describing a shape
  * that no longer exists.
  */
-async function seedClient(schedule: unknown[] = []): Promise<QueryClient> {
+async function seedClient(
+  schedule: unknown[] = [],
+  span: { start: string; end: string } = { start: LOCAL_START, end: LOCAL_END },
+): Promise<QueryClient> {
   const { createQueryClient } = await import('@/App');
   const { parseFestivalDetail, festivalDetailQueryKey } = await import(
     '@/modules/event-page/useFestivalDetailQuery'
@@ -146,7 +190,7 @@ async function seedClient(schedule: unknown[] = []): Promise<QueryClient> {
     parseFestivalDetail({
       event_id: EVENT_UUID,
       identity: { name: 'Test Festival' },
-      dates: { local_start: LOCAL_START, local_end: LOCAL_END, timezone: TZ },
+      dates: { local_start: span.start, local_end: span.end, timezone: TZ },
       schedule,
       passes: [],
     }),
@@ -156,10 +200,14 @@ async function seedClient(schedule: unknown[] = []): Promise<QueryClient> {
 }
 
 /** Server-render /festival/:id, optionally with the loader's pinned day key. */
-async function renderFestival(serverTodayKey?: string, schedule: unknown[] = []): Promise<string> {
+async function renderFestival(
+  serverTodayKey?: string,
+  schedule: unknown[] = [],
+  span?: { start: string; end: string },
+): Promise<string> {
   const { AppProviders } = await import('@/App');
   const { default: FestivalDetail } = await import('@/pages/FestivalDetail');
-  const client = await seedClient(schedule);
+  const client = await seedClient(schedule, span);
 
   return renderToString(
     <AppProviders client={client}>
@@ -258,8 +306,8 @@ describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
 
     // Non-vacuity: the timeline actually rendered in BOTH, so the difference
     // below is the gate and not one render silently falling back to a skeleton.
-    expect(withKey).toContain('day-mobile-tabs');
-    expect(withoutKey).toContain('day-mobile-tabs');
+    expect(withKey).toContain(TABS_RENDERED);
+    expect(withoutKey).toContain(TABS_RENDERED);
     expect(withKey).not.toContain('Festival not found');
 
     // The timeline header's visible badge, and the mobile tab's class.
@@ -280,7 +328,7 @@ describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
     // The pin is not itself the trigger -- the day has to match. Without this a
     // change that badged the first tab unconditionally would look correct.
     const html = await renderFestival('2026-10-01', SCHEDULE);
-    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TABS_RENDERED);
     expect(html).not.toContain(TODAY_BADGE);
     expect(html).not.toMatch(TODAY_TAB);
   });
@@ -311,14 +359,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
   // does not move. The two lists coincide here only because this fixture's
   // session days are exactly its span days -- the very coincidence the file
   // header calls out at the top.
-  const SPAN_DAYS = (() => {
-    const out: string[] = [];
-    const last = Date.parse(`${LOCAL_END}T00:00:00Z`);
-    for (let t = Date.parse(`${LOCAL_START}T00:00:00Z`); t <= last; t += 86_400_000) {
-      out.push(new Date(t).toISOString().slice(0, 10));
-    }
-    return out;
-  })();
+  const SPAN_DAYS = spanDayKeys(LOCAL_START, LOCAL_END);
 
   // ...and the coincidence is now ASSERTED rather than assumed, so the day a
   // fixture gains an out-of-span session this reds here, where the cause is
@@ -345,7 +386,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
 
     // Non-vacuity: the timeline rendered AND the badge is genuinely present, so
     // a red below means the two disagree rather than that nothing rendered.
-    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TABS_RENDERED);
     expect(html).toContain(TODAY_BADGE);
 
     expect(html).toMatch(ACTIVE_AND_TODAY);
@@ -365,7 +406,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // the case above. With no pin there is nothing to seed from, the mount gate
     // is all there is, and day 1 is the correct server answer.
     const html = await renderFestival(undefined, SCHEDULE);
-    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TABS_RENDERED);
     expect(openDay(html)).toBe('0');
     // NOT `not.toMatch(ACTIVE_AND_TODAY)`, which was here and could not fail:
     // with no key `canRenderClockDerived` is false, so no button carries
@@ -395,7 +436,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     vi.setSystemTime(new Date('2026-09-05T12:00:00Z')); // mid-run, column 1
     try {
       const html = await renderFestival(undefined, SCHEDULE);
-      expect(html).toContain('day-mobile-tabs');
+      expect(html).toContain(TABS_RENDERED);
       expect(openDay(html)).toBe('0');
       // Second job, worth having: with the clock inside the fixture span this
       // is the one render in this file where a degraded mount gate could badge
@@ -410,8 +451,212 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
 
   it('opens day 1 when the pinned day falls outside the festival', async () => {
     const html = await renderFestival('2026-10-01', SCHEDULE);
-    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TABS_RENDERED);
     expect(openDay(html)).toBe('0');
+  });
+
+  /**
+   * The `.tl-body` element, tag-depth-matched out of the served document.
+   *
+   * BOUNDS THE SCAN, which end-of-document does not. The last row would
+   * otherwise run to the foot of the page and absorb the legend, venue,
+   * tickets and footer; today that is the WHOLE remainder, because every
+   * fixture here renders a single row. It reads correct only because nothing
+   * below the timeline happens to emit a `.slot` -- the day one does, the
+   * column-count assertion reds pointing at the grid instead of at this
+   * helper.
+   */
+  const tlBody = (html: string): string => {
+    const at = html.search(/<div [^>]*class="[^"]*\btl-body\b/);
+    if (at === -1) throw new Error('tlBody: the served document has no .tl-body');
+
+    const tagRe = /<div\b|<\/div>/g;
+    tagRe.lastIndex = at;
+    let depth = 0;
+    for (let m = tagRe.exec(html); m; m = tagRe.exec(html)) {
+      depth += m[0] === '</div>' ? -1 : 1;
+      if (depth === 0) return html.slice(at, m.index + m[0].length);
+    }
+    throw new Error('tlBody: unbalanced <div> nesting -- the timeline cannot be bounded');
+  };
+
+  /**
+   * Per rendered `.tl-row` inside the timeline: how many day cells it has,
+   * which 0-based cell carries `data-open` (-1 for none), and HOW MANY do.
+   *
+   * This reads the SERVED MARKUP because that is where the defect lived. The
+   * single-day view works by HIDING, so the pairing of open column to open cell
+   * is the whole contract: get it wrong and the page silently shows the
+   * NEIGHBOURING day, which no assertion on `data-day` alone can tell from the
+   * right one.
+   *
+   * `opens` IS SEPARATE FROM `open`, for the reason `activeTabCount` exists one
+   * element over: `open` records the LAST matching cell, so identity alone
+   * cannot see EXTRA open columns. Measured, not reasoned -- mutating the stamp
+   * to `dayIdx <= activeDayIdx` opens EIGHT of fourteen columns on a 375px
+   * viewport, and every case in this file stayed green, because `open` still
+   * read 7 and `count` still read 14. Cardinality has to be counted.
+   *
+   * Both anchors match the class within the attribute run rather than requiring
+   * `class="..."` to be the exact and first attribute: a `cn()` refactor or a
+   * reordered attribute would otherwise report every row as ZERO cells, reding
+   * as "the grid stopped emitting columns" when the grid is fine.
+   */
+  const rowSlots = (html: string): Array<{ count: number; open: number; opens: number }> => {
+    const body = tlBody(html);
+
+    const starts: number[] = [];
+    const rowRe = /<div [^>]*class="[^"]*\btl-row\b/g;
+    for (let m = rowRe.exec(body); m; m = rowRe.exec(body)) starts.push(m.index);
+
+    return starts.map((start, i) => {
+      const chunk = body.slice(start, starts[i + 1] ?? body.length);
+      const slotRe = /<div [^>]*class="[^"]*\bslot\b([^>]*)>/g;
+      let count = 0;
+      let open = -1;
+      let opens = 0;
+      for (let m = slotRe.exec(chunk); m; m = slotRe.exec(chunk)) {
+        // ATTRIBUTE BOUNDARY, not a substring. A bare
+        // `m[0].includes('data-open')` counts any attribute whose NAME OR VALUE
+        // merely contains the text -- add `data-open-hour={hour}` to the cell
+        // and all 14 columns report open, reding the cardinality assertion
+        // below against the stamp when the stamp is fine.
+        if (/\sdata-open(=|\s|>)/.test(m[0])) {
+          open = count;
+          opens += 1;
+        }
+        count += 1;
+      }
+      return { count, open, opens };
+    });
+  };
+
+  /**
+   * Every `@media (max-width:900px){...}` block of the inlined stylesheet,
+   * brace-matched out of the served document and joined.
+   *
+   * Needed because "the rule is in the HTML" is NOT the property under test.
+   * Hoisted out of the mobile block these rules hide every column but one on
+   * DESKTOP too -- a worse regression than the one they fix, and one that a
+   * `toContain` on the whole document cannot see.
+   */
+  const mobileCss = (html: string): string => {
+    const OPEN = '@media (max-width:900px){';
+    const blocks: string[] = [];
+    for (let at = html.indexOf(OPEN); at !== -1; at = html.indexOf(OPEN, at + 1)) {
+      let depth = 0;
+      let i = at + OPEN.length - 1;
+      for (; i < html.length; i += 1) {
+        if (html[i] === '{') depth += 1;
+        else if (html[i] === '}') {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      // RECORD THE FAILURE rather than slicing to end-of-input. The loop can
+      // also exit by exhausting the string, and `html.slice(at, html.length+1)`
+      // is then everything from the first mobile block to the foot of the page
+      // -- which makes the "only inside the mobile media block" half of this
+      // gate a TAUTOLOGY: the rules satisfy `toContain` wherever they live,
+      // including hoisted onto DESKTOP, and `not.toBe('')` still passes. One
+      // stray brace is enough, and CSS permits them inside strings -- this
+      // sheet already ships `content:'\a3 '` and `content:''`.
+      if (depth !== 0) throw new Error('mobileCss: unbalanced braces -- the media block cannot be bounded');
+
+      blocks.push(html.slice(at, i + 1));
+    }
+    return blocks.join('|');
+  };
+
+  const HIDE_CLOSED_SLOTS =
+    '.cinematic-festival .tl-body:not([data-day="all"]) .tl-row > .slot:not([data-open]){display:none}';
+  const HIDE_EMPTY_ROWS =
+    '.cinematic-festival .tl-body:not([data-day="all"]) .tl-row:not(:has(> .slot[data-open] > .session)){display:none}';
+
+  it('ships both single-day rules, and only inside the mobile media block', async () => {
+    // THE CONSUMER HALF. A generator or a constant proven in isolation says
+    // nothing about whether the page uses it: the rules these replaced were
+    // themselves correct CSS, and the page still fell apart, because nothing
+    // tied them to what it rendered. Delete either rule and this reds; hoist
+    // either out of the media block and this reds.
+    const html = await renderFestival('2026-09-05', SCHEDULE);
+    const mobile = mobileCss(html);
+    expect(mobile).not.toBe('');
+
+    for (const rule of [HIDE_CLOSED_SLOTS, HIDE_EMPTY_ROWS]) {
+      // Exactly once in the document, and that once is inside a mobile block.
+      expect(html.split(rule).length - 1).toBe(1);
+      expect(mobile).toContain(rule);
+    }
+  });
+
+  it('opens exactly one column per row on a 14-day span, with no fallback', async () => {
+    // COUNT INDEPENDENCE, which is the point of stamping `data-open` on the
+    // cell rather than counting child positions from the ancestor.
+    //
+    // This is the case the three-day fixture could never express -- it only
+    // ever emits columns 0..2, which is how a four-column ceiling survived
+    // review. The span is a parameter so the column count can exceed anything
+    // a hand-written rule list would have covered.
+    const start = '2026-09-01';
+    const end = '2026-09-14';
+    const pinned = '2026-09-08';
+
+    const wideSpan = spanDayKeys(start, end);
+
+    // TWO DISTINCT HOURS, and the later one deliberately ABSENT from the pinned
+    // day. `hours` is the set of distinct wall-clock start hours, so a fixture
+    // whose sessions all start at 20:00 renders exactly ONE row -- which is
+    // what this case shipped with. Every `new Set(rows.map(...))` below was
+    // then a set of ONE element, and "per row" was a claim about n=1: a defect
+    // that stamped the first row correctly and the rest wrongly was invisible.
+    // The 22:00 row also gives the empty-row rule something real to act on,
+    // since it has no session in the open column.
+    const wideSchedule = [
+      { day: start, hour: '20:00:00' },
+      { day: pinned, hour: '20:00:00' },
+      { day: end, hour: '20:00:00' },
+      { day: start, hour: '22:00:00' },
+      { day: end, hour: '22:00:00' },
+    ].map((s, i) => ({
+      id: `wide-${i}`,
+      day: s.day,
+      title: `Session ${i}`,
+      start_time: s.hour,
+      type: 'class',
+    }));
+
+    const html = await renderFestival(pinned, wideSchedule, { start, end });
+    expect(html).toContain(TABS_RENDERED);
+
+    // Still the SINGLE-DAY view. No ceiling to trip, so nothing forces the
+    // all-days grid on a reader who did not ask for it.
+    expect(openDay(html)).toBe(String(wideSpan.indexOf(pinned)));
+
+    const rows = rowSlots(html);
+
+    // Non-vacuity, PINNED rather than floored: one row per distinct hour, so
+    // there are genuinely several rows for the per-row assertions to range
+    // over. `toBeGreaterThan(0)` was satisfied by the single row this fixture
+    // used to render, which is exactly how a claim about n=1 read as a claim
+    // about every row.
+    expect(rows.length).toBe(2);
+
+    // Non-vacuity: the grid really did emit 14 columns, so a 3-column render
+    // cannot satisfy the pairing assertion below by accident.
+    expect(new Set(rows.map((r) => r.count))).toEqual(new Set([wideSpan.length]));
+
+    // THE PAIRING, identity. Every row opens the column the timeline says is
+    // open -- drop `data-open` from the cell and every row reads -1; shift it
+    // by one and every row reads the neighbour.
+    expect(new Set(rows.map((r) => r.open))).toEqual(new Set([wideSpan.indexOf(pinned)]));
+
+    // THE PAIRING, CARDINALITY -- the half identity cannot express, and the
+    // half this case's own title claims ("exactly one"). `open` holds the LAST
+    // open cell, so a stamp that opens columns 0..7 leaves it at 7 and agrees
+    // with the assertion above while rendering eight columns at once on a
+    // 375px viewport. Verified against that mutant: green before, red now.
+    expect(new Set(rows.map((r) => r.opens))).toEqual(new Set([1]));
   });
 
   it('badges a session-less span day but still opens day 1', async () => {
@@ -426,7 +671,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     const gapSchedule = SCHEDULE.filter((s) => s.day !== '2026-09-05');
     const html = await renderFestival('2026-09-05', gapSchedule);
 
-    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TABS_RENDERED);
     expect(html).toContain(TODAY_BADGE);
     expect(openDay(html)).toBe('0');
     expect(html).not.toMatch(ACTIVE_AND_TODAY);
