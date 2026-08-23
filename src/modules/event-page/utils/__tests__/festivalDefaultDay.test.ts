@@ -3,9 +3,11 @@
 //
 // During a live festival the schedule opens on TODAY, computed in the festival's
 // OWN timezone (not the visitor's browser zone), so a visitor abroad still sees
-// the correct day. Before/after the festival, or on a gap day, it falls back to
-// the first day (index 0). The timezone-boundary cases are what break naive
-// browser-local implementations.
+// the correct day. Before/after the festival it falls back to the first day
+// (index 0). The GAP-DAY half of that promise belongs to
+// resolveFestivalDefaultDay, not to pickDefaultDayIndex, and is covered in its
+// own block at the foot of this file. The timezone-boundary cases are what
+// break naive browser-local implementations.
 //
 // pickDefaultDayIndex now TAKES the key rather than reading a clock, so these
 // tests resolve it via `dateKeyInTz(now, tz)` — the same call `useTodayKey(tz)`
@@ -23,7 +25,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { dateKeyInTz } from '@/lib/londonDate';
-import { pickDefaultDayIndex } from '../festivalDefaultDay';
+import { pickDefaultDayIndex, resolveFestivalDefaultDay } from '../festivalDefaultDay';
 
 const DAYS = ['2026-06-12', '2026-06-13', '2026-06-14']; // Fri, Sat, Sun
 
@@ -94,5 +96,78 @@ describe('pickDefaultDayIndex', () => {
     expect(pickDefaultDayIndex(DAYS, 'not-a-date')).toBe(0);
     // Guard stays honest in the other direction: a real key still selects.
     expect(pickDefaultDayIndex(DAYS, '2026-06-13')).toBe(1);
+  });
+});
+
+// =============================================================================
+// resolveFestivalDefaultDay -- pickDefaultDayIndex plus the GAP-DAY rule.
+//
+// The rule used to live inline in FestivalDetail's mount-gated effect, where
+// nothing could test it: `days` are the grid's columns and come from the
+// festival's SPAN, so a rest day mid-festival is a real, empty column. Opening
+// the schedule there is worse than opening on day 1, so a todayKey naming a
+// session-less day is withheld.
+//
+// It moved here because the page now resolves the default TWICE -- once during
+// render from the loader's pinned key (so the crawled document opens the day it
+// badges) and once from the effect against the real clock -- and two copies of
+// this rule drifting apart is the class of defect the move exists to prevent.
+// =============================================================================
+describe('resolveFestivalDefaultDay', () => {
+  const SESSIONS = new Set(DAYS); // every span day has sessions
+
+  it('opens on today when today is in range AND has sessions', () => {
+    expect(resolveFestivalDefaultDay(DAYS, SESSIONS, '2026-06-13')).toBe(1);
+    expect(resolveFestivalDefaultDay(DAYS, SESSIONS, '2026-06-14')).toBe(2);
+  });
+
+  it('falls back to day 1 on a session-less span day', () => {
+    // THE RULE. The 13th is a real column (it is in DAYS) but has no sessions,
+    // so the key is withheld and the caller gets the first-day fallback rather
+    // than a blank column. Paired with the case above, which uses the SAME key
+    // against a session set that contains it -- so this cannot pass by the key
+    // being rejected for some unrelated reason.
+    const gap = new Set(['2026-06-12', '2026-06-14']);
+    expect(resolveFestivalDefaultDay(DAYS, gap, '2026-06-13')).toBe(0);
+  });
+
+  it('falls back to day 1 when today is outside the festival', () => {
+    // The session set must CONTAIN the out-of-span key, or the gap-day check
+    // rejects it first and the answer comes from pickDefaultDayIndex's
+    // `!todayKey` early return -- never reaching the indexOf miss this case is
+    // named for. Written the obvious way (`SESSIONS`, which is `new Set(DAYS)`)
+    // it stayed green against `return idx >= 0 ? idx : 0` -> `return idx`,
+    // i.e. against a build that answers -1 and renders no active tab at all.
+    const withOutOfSpanSession = new Set([...DAYS, '2026-06-20']);
+    expect(resolveFestivalDefaultDay(DAYS, withOutOfSpanSession, '2026-06-20')).toBe(0);
+  });
+
+  it('falls back to day 1 with no key at all', () => {
+    // The /event/<slug> mount and the pre-seed server render both land here.
+    expect(resolveFestivalDefaultDay(DAYS, SESSIONS, null)).toBe(0);
+    expect(resolveFestivalDefaultDay(DAYS, SESSIONS, undefined)).toBe(0);
+    expect(resolveFestivalDefaultDay(DAYS, SESSIONS, '')).toBe(0);
+  });
+
+  it('still rejects a malformed key from a degraded-Intl runtime', () => {
+    // Inherited from pickDefaultDayIndex, asserted here so a future rewrite of
+    // this wrapper that stops delegating cannot silently drop the validator.
+    //
+    // THE MALFORMED KEY MUST BE A COLUMN, not merely a member of the session
+    // set. The obvious form -- DAYS plus a session set holding '2026-13-45' --
+    // cannot fail: DAYS does not carry that key, so indexOf misses and the
+    // answer is 0 with or without isRealDateKey. Measured: deleting the
+    // validator left that version 16/16 green. Here the malformed key IS a
+    // column, so without the validator indexOf finds it and returns 1.
+    const degradedColumns = ['2026-06-12', '2026-13-45'];
+    expect(resolveFestivalDefaultDay(degradedColumns, new Set(degradedColumns), '2026-13-45')).toBe(0);
+  });
+
+  it('falls back to day 1 when nothing has sessions at all', () => {
+    expect(resolveFestivalDefaultDay(DAYS, new Set<string>(), '2026-06-13')).toBe(0);
+  });
+
+  it('falls back to day 1 when there are no columns', () => {
+    expect(resolveFestivalDefaultDay([], SESSIONS, '2026-06-13')).toBe(0);
   });
 });

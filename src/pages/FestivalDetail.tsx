@@ -32,7 +32,7 @@ import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-pa
 
 import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledBanner";
 
-import { pickDefaultDayIndex } from "@/modules/event-page/utils/festivalDefaultDay";
+import { resolveFestivalDefaultDay } from "@/modules/event-page/utils/festivalDefaultDay";
 import {
   computeHeroDayStatus,
   type CancellationState,
@@ -1392,7 +1392,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const { pathname } = useLocation();
 
-  const [activeDayIdx, setActiveDayIdx] = useState(0);
+  // Which day tab is open, as an OVERRIDE rather than as the value: `null`
+  // means "nobody has decided yet", and the rendered index falls back to a
+  // pure, render-time seed derived from the loader's pinned key (see
+  // `seedDayIdx` below). That is what lets the SERVER-rendered document open
+  // the day it badges. The mount-gated effect and a user's tab click both
+  // write here, and either one wins over the seed permanently.
+  const [pickedDayIdx, setPickedDayIdx] = useState<number | null>(null);
 
   // SSR-safe: seed a DETERMINISTIC value so the server and the client's first
   // render agree. Reading window.innerWidth here rendered `true` on the server
@@ -1814,50 +1820,92 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     [startKey, endKey, todayKey, isCancelled, cancellationState],
   );
 
-  // Open the schedule on TODAY when the festival is live (else day 1). Runs once
-  // per festival load — a ref keyed on eventId stops it from overriding a user's
-  // later tab click or re-firing on unrelated re-renders. `todayKey` is in the
-  // dep list because the effect reads it, but the same ref makes it inert after
-  // the first pick: a midnight rollover advances the badges and deliberately
-  // leaves the open tab where the user left it.
+  // The grid's day columns and its session days, as plain 'YYYY-MM-DD' keys.
+  // Both default-day picks below need exactly this pair; deriving it once is
+  // what stops them drifting apart the way the badge and the tab did.
+  const dayKeys = useMemo(() => days.map((d) => wallClockDateKey(d) ?? ""), [days]);
+  const sessionDayKeys = useMemo(
+    () =>
+      new Set(
+        (festivalDetail?.schedule ?? [])
+          .map((s) => wallClockDateKey(s.day))
+          .filter((k): k is string => Boolean(k)),
+      ),
+    [festivalDetail?.schedule],
+  );
+
+  // THE RENDER-TIME SEED. Derived from the LOADER's pinned key, never from the
+  // live clock, so the server render and the client's first (hydration) render
+  // compute the same index from the same input -- no #418 mismatch, and no
+  // dependence on `mounted`, which is false in both.
+  //
+  // This is what closes the gap that made the crawled document badge day 3 and
+  // open day 1: the today badges were un-gated by the pin (see
+  // `canRenderClockDerived`) while the only default-day pick was mount-gated,
+  // so the two disagreed on every server-rendered load.
+  //
+  // A SEED IS NOT A LATCH, and that distinction is the whole safety argument.
+  // The effect below still refuses to LATCH against the pinned key, for the
+  // reason documented there: that document is edge-cached and can predate the
+  // festival's midnight. This value latches nothing -- the moment the effect
+  // (or a tab click) writes `pickedDayIdx`, the seed stops being read for the
+  // rest of the page's life. A stale pin therefore costs one corrected tab a
+  // tick after hydration, where before this seed EVERY load opened day 1.
+  //
+  // With no pinned key (`/event/<slug>`) there is nothing to seed from and this
+  // is 0, exactly as before.
+  const seedDayIdx = useMemo(
+    () => resolveFestivalDefaultDay(dayKeys, sessionDayKeys, serverTodayKey ?? null),
+    [dayKeys, sessionDayKeys, serverTodayKey],
+  );
+
+  const activeDayIdx = pickedDayIdx ?? seedDayIdx;
+
+  // Correct the seed against the REAL client clock when the festival is live
+  // (else leave day 1). Runs once per festival load -- a ref keyed on eventId
+  // stops it from overriding a user's later tab click or re-firing on unrelated
+  // re-renders. `todayKey` is in the dep list because the effect reads it, but
+  // the same ref makes it inert after the first pick: a midnight rollover
+  // advances the badges and deliberately leaves the open tab where the user
+  // left it.
   //
   // WAITING FOR `mounted` IS LOAD-BEARING, not a stray SSR guard. This pick
-  // latches, so it must not run against the SERVER's pinned key: that document
+  // LATCHES, so it must not run against the SERVER's pinned key: that document
   // is edge-cached (s-maxage + SWR) and can have been generated before the
   // festival's midnight, and the latch would make the correction inert. The
-  // schedule would then open on yesterday's tab while the today badge, which
+  // schedule would then stay on yesterday's tab while the today badge, which
   // does not latch, marked the right day. `mounted` is exactly the "the pin has
-  // been checked against the real client clock" signal: useTodayKey's mount
-  // check is an earlier effect in this same component, so both land in one
-  // batch and the first render with `mounted === true` already carries the
-  // corrected key. The effect never runs on the server, so nothing is lost.
+  // been checked against the real client clock" signal.
+  //
+  // WHY THAT IS STILL TRUE ALONGSIDE THE SEED: the seed is read only until this
+  // runs, and this always overwrites it. The pre-hydration document opens the
+  // pinned day; the first mounted render opens the true day. Never the reverse.
+  //
+  // ON ORDERING, because the previous wording here had it backwards and someone
+  // will act on it: useTodayKey's mount check is the LATER effect in this
+  // component, not an earlier one -- `setMounted`'s effect is registered near
+  // the top and `useTodayKey` is not called until some 160 lines further down.
+  // The first render with `mounted === true` does still carry the corrected
+  // key, but that holds because React 18 batches both state updates into ONE
+  // commit, NOT because of hook order. Reordering these hooks changes nothing;
+  // separating them across commits (a flushSync, a Suspense boundary, an await
+  // between them) would, and would give exactly one latched render against the
+  // stale pin -- the failure this paragraph exists to prevent.
   const defaultedForRef = useRef<string | null>(null);
   useEffect(() => {
     const eid = festivalDetail?.eventId ?? null;
-    if (!eid || !mounted || days.length === 0 || defaultedForRef.current === eid) return;
+    if (!eid || !mounted || dayKeys.length === 0 || defaultedForRef.current === eid) return;
     defaultedForRef.current = eid;
-    // Pass today's key ONLY if today actually has sessions. pickDefaultDayIndex
-    // documents "on a gap day with no sessions, it falls back to the first day",
-    // and that used to be true for free: `days` was session-derived, so a gap
-    // day was never in the array and indexOf missed. Now days come from the
-    // SPAN, so a rest day IS in the array and a visitor arriving on one would
-    // open the schedule on a blank column. Withholding the key restores the
-    // documented behaviour and makes the function's `days` param honest again.
-    const sessionDayKeys = new Set(
-      (festivalDetail?.schedule ?? []).map((s) => wallClockDateKey(s.day)).filter(Boolean),
-    );
-    const todayHasSessions = !!todayKey && sessionDayKeys.has(todayKey);
-    setActiveDayIdx(
-      pickDefaultDayIndex(
-        days.map((d) => wallClockDateKey(d) ?? ""),
-        todayHasSessions ? todayKey : null,
-      ),
-    );
+    // The gap-day rule -- withhold `todayKey` when today has no sessions, so a
+    // visitor arriving on a rest day opens day 1 rather than a blank column --
+    // now lives in resolveFestivalDefaultDay, shared with the seed above. It
+    // used to be inline here, which is precisely why the seed could not exist.
+    setPickedDayIdx(resolveFestivalDefaultDay(dayKeys, sessionDayKeys, todayKey));
     // `mounted` is a dep, not just a read: it is the edge this effect waits for.
     // Without it the effect runs once with mounted === false, bails, and never
-    // re-runs when the flag flips (days and todayKey are typically unchanged in
-    // that commit) -- the schedule would never open on today at all.
-  }, [festivalDetail?.eventId, days, todayKey, mounted]);
+    // re-runs when the flag flips (dayKeys and todayKey are typically unchanged
+    // in that commit) -- the schedule would never be corrected off the seed.
+  }, [festivalDetail?.eventId, dayKeys, sessionDayKeys, todayKey, mounted]);
 
 
 
@@ -2479,7 +2527,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
                     className={`day-tab ${activeDayIdx === i ? "active" : ""} ${isToday ? "today" : ""}`}
 
-                    onClick={() => setActiveDayIdx(i)}
+                    onClick={() => setPickedDayIdx(i)}
 
                   >
 

@@ -63,8 +63,12 @@ const TODAY_TAB = /class="day-tab[^"]*\btoday\b[^"]*"/;
 // NOTE this fixture cannot see the span/schedule distinction: its three session
 // days are exactly the three span days, so span-derived and session-derived
 // columns are identical here and these cases pass against either
-// implementation. A render-level case with a session-less span day, an
-// out-of-span session, or an undated session is queued, not covered.
+// implementation.
+//
+// The session-less span day IS now covered, by 'badges a session-less span day
+// but still opens day 1' in the default-day describe at the foot of this file,
+// which filters this fixture down to two of the three days. An out-of-span
+// session and an undated session remain queued, not covered.
 const SCHEDULE = [LOCAL_START, '2026-09-05', LOCAL_END].map((day, i) => ({
   id: `sess-${i}`,
   day,
@@ -279,5 +283,152 @@ describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
     expect(html).toContain('day-mobile-tabs');
     expect(html).not.toContain(TODAY_BADGE);
     expect(html).not.toMatch(TODAY_TAB);
+  });
+});
+
+/**
+ * THE DAY THE DOCUMENT BADGES IS THE DAY IT OPENS.
+ *
+ * Both answers come from the SAME pinned key but by different code: the badge
+ * is a display (`canRenderClockDerived`, un-gated once a key is pinned), the
+ * open tab is a picked index that used to wait for `mounted`. They were free to
+ * disagree, and on a mid-run festival they always did -- the server-rendered
+ * document badged day 3 and opened day 1, and the tab jumped after hydration.
+ *
+ * These cases assert the AGREEMENT rather than either half. That distinction is
+ * the whole point: every case in the badge suite above passes with the
+ * disagreement in place, so none of them could be the gate for this.
+ */
+describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
+  // The grid's columns, derived from the SPAN -- the input festivalGridDays
+  // actually reads -- and not from the session list.
+  //
+  // Deriving these from SCHEDULE was wrong, and wrong in the direction that
+  // makes assertions pass against the wrong column. festivalGridDays builds
+  // `[...spanDays, ...orphanDays].sort(byDateKey)`, so a session dated OUTSIDE
+  // the span is sorted IN, not appended: add one dated 2026-09-01 and every
+  // span column shifts by one while `SCHEDULE.map(s => s.day).indexOf(...)`
+  // does not move. The two lists coincide here only because this fixture's
+  // session days are exactly its span days -- the very coincidence the file
+  // header calls out at the top.
+  const SPAN_DAYS = (() => {
+    const out: string[] = [];
+    const last = Date.parse(`${LOCAL_END}T00:00:00Z`);
+    for (let t = Date.parse(`${LOCAL_START}T00:00:00Z`); t <= last; t += 86_400_000) {
+      out.push(new Date(t).toISOString().slice(0, 10));
+    }
+    return out;
+  })();
+
+  // ...and the coincidence is now ASSERTED rather than assumed, so the day a
+  // fixture gains an out-of-span session this reds here, where the cause is
+  // obvious, instead of silently shifting an expected index somewhere below.
+  it('has no out-of-span sessions, so span days ARE the grid columns', () => {
+    expect(SCHEDULE.every((s) => SPAN_DAYS.includes(s.day))).toBe(true);
+  });
+
+  // One button carrying BOTH classes. Asserted as a single match on purpose:
+  // two independent toContain calls are satisfied by `active` on one tab and
+  // `today` on another, which is exactly the defect.
+  const ACTIVE_AND_TODAY = /class="day-tab active[^"]*\btoday\b[^"]*"/;
+
+  /** How many tabs render as the open one. Exactly one may. */
+  const activeTabCount = (html: string) => html.split('day-tab active').length - 1;
+
+  /** Which column the timeline opens on: `<div class="tl-body" data-day="N">`. */
+  const openDay = (html: string): string | null =>
+    html.match(/class="tl-body" data-day="([^"]*)"/)?.[1] ?? null;
+
+  it('opens the schedule on the day it badges as today', async () => {
+    const pinned = '2026-09-05';
+    const html = await renderFestival(pinned, SCHEDULE);
+
+    // Non-vacuity: the timeline rendered AND the badge is genuinely present, so
+    // a red below means the two disagree rather than that nothing rendered.
+    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TODAY_BADGE);
+
+    expect(html).toMatch(ACTIVE_AND_TODAY);
+    expect(openDay(html)).toBe(String(SPAN_DAYS.indexOf(pinned)));
+
+    // CARDINALITY, separately from identity. ACTIVE_AND_TODAY only proves that
+    // SOME button carries both classes, and `openDay` reads a different element
+    // entirely, so neither notices extra open tabs: `activeDayIdx === i` ->
+    // `activeDayIdx >= i` renders three active tabs and was measured green
+    // against every other case in this file. Same hole triage finding 8
+    // recorded for the mobile today-badge, one class over.
+    expect(activeTabCount(html)).toBe(1);
+  });
+
+  it('opens day 1 when no key is pinned', async () => {
+    // The control that stops a seed which fires unconditionally from passing
+    // the case above. With no pin there is nothing to seed from, the mount gate
+    // is all there is, and day 1 is the correct server answer.
+    const html = await renderFestival(undefined, SCHEDULE);
+    expect(html).toContain('day-mobile-tabs');
+    expect(openDay(html)).toBe('0');
+    // NOT `not.toMatch(ACTIVE_AND_TODAY)`, which was here and could not fail:
+    // with no key `canRenderClockDerived` is false, so no button carries
+    // `today` at all and the two-class regex cannot match whatever the seed
+    // does. It restated the badge gate instead of controlling the seed. The
+    // real control is `openDay` above -- and it only bites because the runner's
+    // clock sits outside the September fixture, which is why the fake-clock
+    // case below exists. This line adds the part openDay cannot see.
+    expect(activeTabCount(html)).toBe(1);
+  });
+
+  it('never seeds from the machine clock, only from the pin', async () => {
+    // KILLS THE MUTANT THAT SEEDS FROM `todayKey` INSTEAD OF `serverTodayKey`.
+    // Without a faked clock that mutant is invisible: the runner's real date is
+    // never inside the fixture's September span, so a clock-derived seed and a
+    // pin-derived seed both land on day 1 and every other case in this file
+    // passes either way. Measured before this case existed -- it survived with
+    // zero failing assertions.
+    //
+    // A server that derives the day itself is the React #418 hydration mismatch
+    // `canRenderClockDerived` exists to prevent: the pin is there precisely so
+    // the server and the client's FIRST render cannot disagree.
+    //
+    // Only Date is faked. Faking the timer functions as well would put the
+    // dynamic imports and the query client on a stopped clock for no benefit.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-05T12:00:00Z')); // mid-run, column 1
+    try {
+      const html = await renderFestival(undefined, SCHEDULE);
+      expect(html).toContain('day-mobile-tabs');
+      expect(openDay(html)).toBe('0');
+      // Second job, worth having: with the clock inside the fixture span this
+      // is the one render in this file where a degraded mount gate could badge
+      // a day. The other negative cases cannot see that -- their clock is two
+      // weeks short of the fixture, so they would pass with no gate at all.
+      expect(html).not.toContain(TODAY_BADGE);
+      expect(html).not.toMatch(TODAY_TAB);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens day 1 when the pinned day falls outside the festival', async () => {
+    const html = await renderFestival('2026-10-01', SCHEDULE);
+    expect(html).toContain('day-mobile-tabs');
+    expect(openDay(html)).toBe('0');
+  });
+
+  it('badges a session-less span day but still opens day 1', async () => {
+    // THE GAP-DAY RULE -- and the one place badge and tab are MEANT to
+    // disagree. `days` come from the span, so a rest day is a real column with
+    // nothing in it; opening the schedule on a blank column is worse than
+    // opening on day 1, so the key is withheld from the PICK while the badge,
+    // which is a statement about the calendar and not about content, stays.
+    //
+    // Stated as a case because it is the constraint most likely to be deleted
+    // by someone "simplifying" the seed to just pass the pinned key through.
+    const gapSchedule = SCHEDULE.filter((s) => s.day !== '2026-09-05');
+    const html = await renderFestival('2026-09-05', gapSchedule);
+
+    expect(html).toContain('day-mobile-tabs');
+    expect(html).toContain(TODAY_BADGE);
+    expect(openDay(html)).toBe('0');
+    expect(html).not.toMatch(ACTIVE_AND_TODAY);
   });
 });
