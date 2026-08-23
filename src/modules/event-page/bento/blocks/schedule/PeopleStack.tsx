@@ -223,6 +223,8 @@ const ChipRow = ({
       </div>
     );
   }
+  // items-center is inert for the chips (each pins its own cross-axis via
+  // crossAlign); it would still govern a future non-chip sibling on this line.
   return (
     <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
       {people.map((p) => (
@@ -408,6 +410,8 @@ const VerticalFeature = ({
   eventId?: string | null;
 }) => {
   if (people.length === 0) return null;
+  // flex-col: the cross axis is horizontal -- chips pass crossAlign='center'
+  // (see that prop's JSDoc for why).
   return (
     <div className="mt-[6px] flex flex-col items-center gap-[6px]">
       {people.map((p) => (
@@ -419,6 +423,7 @@ const VerticalFeature = ({
           showRole
           context={context}
           eventId={eventId}
+          crossAlign="center"
         />
       ))}
     </div>
@@ -574,6 +579,8 @@ const ChipOverlapPopover = ({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {/* items-center is inert for the chips (self-*); kept for future
+            non-chip siblings on this line. */}
         <div className="flex flex-wrap items-center" style={{ gap: '8px 14px' }}>
           {people.map((p) => (
             <PersonChip
