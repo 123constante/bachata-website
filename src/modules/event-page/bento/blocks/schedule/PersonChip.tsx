@@ -51,31 +51,22 @@ const SIZE_TABLE: Record<
 // stay compact without sacrificing tap reliability on mobile.
 const HIT_AREA_MIN_PX = 44;
 
-// --- First-name shortening for stacked chips ---
+// --- Names print whole ---
 //
-// Stacked chips (avatar above name) are narrow, so we show the first name only.
-// Two guards stop that from mangling non-personal names: a title prefix ("Dj
-// Mr M") and a group/act keyword ("StreetBeat Salsa Team") both keep their full
-// text. The full name is always preserved on hover (title) and aria-label.
-
-const NAME_TITLE_PREFIXES = new Set([
-  'dj', 'mc', 'dr', 'sr', 'sra', 'srta', 'mr', 'mrs', 'ms', 'prof',
-]);
-const NAME_GROUP_KEYWORDS = [
-  'team', 'crew', 'company', 'academy', 'project', 'collective', 'studio', 'school',
-];
-
-const toChipDisplayName = (full: string): string => {
-  const name = (full || '').trim();
-  if (!name) return name;
-  const parts = name.split(/\s+/);
-  if (parts.length === 1) return name;
-  const firstLower = parts[0].toLowerCase().replace(/\.+$/, '');
-  if (NAME_TITLE_PREFIXES.has(firstLower)) return name;
-  const lower = name.toLowerCase();
-  if (NAME_GROUP_KEYWORDS.some((k) => lower.includes(k))) return name;
-  return parts[0];
-};
+// A stacked chip used to print only parts[0] of a multi-word name unless it
+// matched a title-prefix allowlist ("Dj", "Mr") or a group keyword ("Team",
+// "Academy"). Those allowlists could only spare the shapes someone had thought
+// of, so on production it mangled 54 of 73 distinct names across 27 of 29 event
+// pages and erased the partner from 32 teaching couples ("Abdel & Lety" ->
+// "Abdel"). title= and aria-label= carried the full text throughout, so on a
+// LINKED chip -- which lands on a real <a>, an element ARIA permits naming --
+// hover and screen readers were right and only the eye was wrong. Do NOT read
+// that as blanket accessible coverage: an unlinked chip is a bare <span> with
+// no role, and ARIA prohibits an accessible name on a generic, so there the
+// aria-label may never be announced and only the title tooltip carries it.
+//
+// Clipping is allowed, but only where the reader can SEE it -- an ellipsis or
+// the line clamp below. Never a dropped word.
 
 // --- Unlinked behaviour ---
 //
@@ -127,7 +118,12 @@ export interface PersonChipProps {
 
 // --- Implementation ---
 
-const initialFor = (name: string): string => (name || '?').charAt(0).toUpperCase();
+// Trimmed on the way in. The chip text below is a trimmed `chipName`, so an
+// untrimmed read here renders a correct name beside a blank circle -- for a
+// leading-space name, `' '.charAt(0)` is a space. 8 rows in `dancer_profiles`
+// carry surrounding whitespace today.
+const initialFor = (name: string): string =>
+  ((name ?? '').trim() || '?').charAt(0).toUpperCase();
 
 /** The visible avatar circle. All sizes use the same anatomy - only the
  *  pixel knobs differ. The outer wrapper handles hit-area, not this.
@@ -194,9 +190,15 @@ export const PersonChip = ({
   // Decide what to render based on linkedness + unlinked mode.
   if (!isLinked && unlinked === 'hide') return null;
   const isDimmed = !isLinked && unlinked === 'dim';
+  // One resolved name, reused by every slot below -- the stacked text, the row
+  // text, the title and the aria-label. The original defect hid because the row
+  // branch printed the full name while the stacked branch printed one word, so
+  // it read as intermittent rather than broken. (The avatar initial is derived
+  // separately inside AvatarCircle and does not read this.)
+  const chipName = (person.name ?? '').trim();
   const tooltip = isLinked
-    ? person.name
-    : `${person.name} - profile not yet on Bachata Calendar`;
+    ? chipName
+    : `${chipName} - profile not yet on Bachata Calendar`;
 
   // Default layout picker - 'stacked' when the callsite asked for a role tag
   // (party headliner) or when the size is 'xl' (class-card cell), 'row'
@@ -205,11 +207,10 @@ export const PersonChip = ({
     layout ?? ((size === 'lg' && showRole) || size === 'xl' ? 'stacked' : 'row');
 
   const stacked = effectiveLayout === 'stacked';
-  const chipName = toChipDisplayName(person.name);
   // Hide the role tag when the name already starts with that role word, e.g.
   // name "DJ Tony Spark" + role "DJ" would otherwise render "DJ" twice.
   const roleLeadsName =
-    !!role && chipName.trim().toLowerCase().startsWith(role.trim().toLowerCase() + ' ');
+    !!role && chipName.toLowerCase().startsWith(role.trim().toLowerCase() + ' ');
   const inner = stacked ? (
     <div className="flex flex-col items-center" style={{ minWidth: HIT_AREA_MIN_PX }}>
       <AvatarCircle person={person} size={size} dimmed={isDimmed} />
@@ -224,15 +225,51 @@ export const PersonChip = ({
             color: 'hsl(var(--bento-fg))',
             opacity: isDimmed ? 0.7 : 1,
             marginTop: 5,
-            // First names fit on one line; the 2-line clamp only engages for
-            // the kept-full group/title fallbacks so they don't truncate ugly.
+            // Settled 2026-08-23 (Ricky): a stacked chip prints the WHOLE name
+            // and clips with a VISIBLE ellipsis when it will not fit. This box
+            // is deliberately narrow and is NOT to be widened. At `md` a name
+            // past roughly 16 characters clamps -- "Cristian & Gabriella" ->
+            // "Cristian & Ga..." -- and that is the intended outcome, not a
+            // defect. An ellipsis is acceptable; a silently dropped word is
+            // not. Do not reintroduce any shortening rule to make it fit, and
+            // least of all an allowlist sparing couples or stage names: that
+            // exclusion-shaped predicate is what caused the original bug.
+            // Rationale: plans/queued-person-name-authority-round2-revert.md.
             maxWidth: t.avatarPx + 24,
             overflow: 'hidden',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
+            // Two DIFFERENT properties on purpose, and note which is which.
+            // `word-break: break-word` is the PRIMARY, not the fallback: it is
+            // understood by every Chrome, every Safari and Firefox 67+, i.e.
+            // effectively all of our traffic. Per CSS Text it applies
+            // `overflow-wrap: anywhere` whatever the declared overflow-wrap
+            // says, so wherever it lands the line below is inert and its value
+            // only decides what happens in the window it misses, Firefox
+            // 49-66. `overflow-wrap: break-word` (Firefox 49+, Safari 6.1+,
+            // every Chrome) covers that whole window; `anywhere` (Firefox 65+,
+            // Safari 15.4+) covers only its top two versions, so break-word is
+            // the strictly wider choice here and changes nothing anywhere else.
+            // A third value cannot be added: duplicate keys in a style object
+            // collapse to the last one, so the CSS trick of declaring a
+            // widely-supported value and letting the cascade upgrade it is
+            // unavailable, and a second `overflowWrap` would just erase the
+            // first. With NEITHER property understood the used value is
+            // `normal`, where a single token wider than the box does not wrap
+            // at all and `overflow: hidden` shears it mid-glyph with no
+            // ellipsis -- the invisible clip this file exists to prevent, on
+            // the ~95% of traffic that is mobile.
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
           } as React.CSSProperties}
-          title={person.name}
+          /* Deliberately no title= here. The wrapper <Link>/<span> below
+             already carries one, and on an unlinked chip that one is a strict
+             superset of this text ("<name> - profile not yet on Bachata
+             Calendar"). A title on this div shadows it for the whole name
+             area, which is most of the chip, so hovering the name silently
+             lost the explanation. Its original job -- revealing a full name
+             the eye could not see -- ended when the shortener was deleted. */
         >
           {chipName}
         </div>
@@ -264,7 +301,7 @@ export const PersonChip = ({
             maxWidth: `${t.nameMaxCh}ch`,
           }}
         >
-          {person.name}
+          {chipName}
         </span>
       )}
     </div>
