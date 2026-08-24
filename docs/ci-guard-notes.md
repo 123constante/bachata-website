@@ -145,6 +145,90 @@ reverse DNS and spoofing the UA would be less accurate, not more.
 `/robots.txt` 429'd in the same incident and still has no guard.
 
 
+### The git hooks themselves have NO guard, and here is the defect they carry
+
+**Git for Windows reports a hook that DIED FROM A SIGNAL as a hook that PASSED.**
+Measured 2026-08-24 against git 2.53.0.windows.1 on a throwaway bare remote:
+
+| hook body | `git push` exit | ref landed |
+|---|---|---|
+| `exit 1` | 1 | no |
+| `exit 141` | 1 | no |
+| `kill -13 $$` (SIGPIPE) | **0** | **YES** |
+| `kill -9 $$` (SIGKILL) | **0** | **YES** |
+| `kill -15 $$` (SIGTERM) | **0** | **YES** |
+
+It is the SIGNAL, not the number &mdash; a hook spelling `exit 141` blocks
+correctly, so no exit code downstream can tell the two apart. POSIX git 2.43
+blocks all three (exit 1, no ref), so this is a Git-for-Windows fail-open, on the
+only platform this repo is developed on.
+
+**The accidental trigger is a pipe.** A hook's stdout IS git's stdout, so
+`git push | head -40` gives the reader its 40 lines and closes it; the next write
+from the hook &mdash; or from vitest running underneath it &mdash; takes SIGPIPE
+and the whole ship gate disappears. Measured against the real `.githooks/pre-push`
+at `origin/main`: exit **141 after 34s**, mid-unit-suite, no verdict reached, in
+both the `| head` and `2>&1 | head` forms. That is every guard on that hook
+&mdash; unit suite AND review receipt &mdash; off, with nothing printed to say so.
+`.githooks/pre-commit` shares it: `git commit | head -5` committed past a hook
+that had exited 1.
+
+The remedy is `trap '' PIPE` (plus `trap 'exit 1' INT TERM HUP`), which turns the
+fatal write into an ignorable EPIPE so the hook survives to report a verdict:
+re-measured on the same file, exit **1 in 4s**, fail-closed, no hang. The hooks
+also carry `exec >&2`, which is why `git push | head -40` now runs the gate to
+completion (measured: exit 0 after 80s) instead of merely failing it closed.
+**`exec >&2` is not a substitute for the trap** &mdash; under `2>&1 | head` it
+protects nothing, measured.
+
+**NOTHING ENFORCES THE REMEDY, and that is a deliberate REVERT, not an omission.**
+A behavioural guard (`check-hook-signal-safety.mjs`: extract each hook's actual
+`trap` statements, run them in front of a writer whose reader quits early, assert
+the writer reaches its own exit code) was built, mutation-scored 18/17 and
+reviewed at xhigh on 2026-08-24. Review returned **15 findings, six of them
+mutants the guard existed to catch and was green against**:
+
+1. `#!/usr/bin/env bash` fails its shebang regex, so an unguarded hook beside a
+   guarded one is dropped from the sample and `main()` returns 0.
+2. A trap installed AFTER the gate work passes &mdash; the extractor hoists every
+   `trap` line to the front of the probe, so line order, which is the entire
+   property, is discarded.
+3. A trap nested in a function body, an untaken `if`, or a heredoc is extracted
+   and replayed at probe top level, certifying a trap never installed at runtime.
+4. `trap 'exit 1' PIPE` scores identically to `trap '' PIPE`, because the probe's
+   survival sentinel was itself 1. That hook aborts at the first severed write
+   and reaches no verdict &mdash; the exact property the guard claimed to measure.
+5. Deleting `.githooks/pre-push` leaves `pre-commit` alone in the directory,
+   `hooks.length === 1`, and the guard green &mdash; on the one file whose own
+   step 2 says its deletion must never go out unreviewed.
+6. `core.hooksPath` is never read. In a clone where `bin/install-hooks.sh` was
+   never run, git executes `.git/hooks/*` (empty) and no gate runs at all, while
+   the guard reports two healthy hooks.
+
+Plus: the probe shelled out to a bare `bash`, which on the dev box resolves to
+**WSL2 Linux bash** outside `npm run` (permanent exit 2, and a Windows-specific
+remedy certified by measuring a different kernel); and it executed shell text
+lifted verbatim from `.githooks/` inside a `pull_request` job on a public repo.
+
+**The lesson is the mutation score, not the guard.** 18/17 was true and
+misleading: [`battery_coverage_bounded_by_operator_set`] &mdash; none of the six
+shapes above carries a literal or an operator, so no mutation battery over that
+file could ever have contained them. A score is a claim about its operator set.
+
+What a correct guard almost certainly looks like: assert STATICALLY that each
+hook's first non-comment line is exactly `trap '' PIPE`, over every file in
+`.githooks/` regardless of shebang, with the expected hook names pinned, and
+compare `git config --get core.hooksPath`. That closes 1-6 and 15 by
+construction and needs no shell eval and no `bash`. Not built; queued.
+
+**Read the absence correctly: CI could never have caught this anyway.** Linux git
+blocks a signal-killed hook, so `architecture-guard.yml` never had the defect;
+any CI step here would have been a regression gate on the remedy, not a detector.
+Three residuals: **SIGKILL cannot be trapped**; the remedy is unguarded; and
+`.githooks/pre-commit` carries a *separate* silent bypass &mdash; a missing
+`check-source-integrity.cjs` prints "skipping" and exits 0, the very fail-open
+`pre-push` documents having fixed in its own step 2.
+
 ---
 
 ## Writing a new guard &mdash; the six rules `check-script-conventions.mjs` enforces
