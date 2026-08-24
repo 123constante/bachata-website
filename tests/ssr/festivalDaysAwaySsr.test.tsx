@@ -38,6 +38,7 @@ import {
   LOCAL_END,
   SCHEDULE,
   seedClient,
+  IDS_A,
   installFixtureFetchGate,
   removeFixtureFetchGate,
 } from '../fixtures/festivalFixture';
@@ -111,7 +112,9 @@ async function renderFestival(
 ): Promise<string> {
   const { AppProviders } = await import('@/App');
   const { default: FestivalDetail } = await import('@/pages/FestivalDetail');
-  const client = await seedClient(schedule, span);
+  // IDS_A explicitly: seedClient no longer defaults its `ids`, because omitting
+  // it silently meant "festival A" even at call sites showing another festival.
+  const client = await seedClient(schedule, span, IDS_A);
 
   return renderToString(
     <AppProviders client={client}>

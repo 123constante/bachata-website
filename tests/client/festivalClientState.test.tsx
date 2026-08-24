@@ -7,13 +7,14 @@
  * unit, so nothing MOUNTS this component. Three defects were therefore
  * recorded as "survives the whole suite with zero fail lines" rather than
  * fixed:
- *
- *   R1  the activeDayIdx clamp, which exists because pickedDayIdx outlives a
- *       client-side festival-to-festival navigation      -- NOW GATED
+ *   R1  the activeDayIdx clamp, recorded as existing because pickedDayIdx
+ *       outlives a festival-to-festival navigation       -- PREMISE WRONG,
+ *       see the navigation describe; the clamp is now UNGATED
  *   --  the OVERRIDE half of the seed/override split: tab clicks, and the
  *       post-mount clock correction                      -- NOW GATED
  *   --  per-festival state (pickedDayIdx, showAllDays, descExpanded,
- *       lightboxIndex) leaking across a warm navigation  -- STILL OPEN
+ *       lightboxIndex) leaking across a navigation       -- NOT A DEFECT:
+ *       both routes key on params.id and remount. NOW GATED, at the key.
  *
  * SETTLED STATE IS NOT ENOUGH, which is the thing to carry away from this
  * file. R1 survived the first version of this harness with zero fail lines
@@ -32,21 +33,34 @@
  * and MARKUP: which cell carries data-open, which tab is active, what survives
  * a rerender. A green run here says nothing about how the page looks.
  *
- * WARM vs COLD, because only one of them reaches the defect. On a COLD
- * destination sniffIsFestival(undefined, undefined) is false, EventPage falls
- * through to BentoPage, and this component unmounts -- taking its state with
- * it. Only A -> B -> back inside the 60s staleTime keeps the route module
- * mounted, which is what `navigateTo` models here -- a real router navigation.
- * NOT a rerender: MemoryRouter reads `initialEntries` once, at mount, so
- * re-rendering the tree with a different one changes nothing and the
- * destination silently stays put. `rerender` is deliberately NOT returned from
- * mountFestival for that reason.
+ * MOUNT THE ROUTE, NOT JUST THE PAGE. The navigation cases pass
+ * `{ throughRoute: true }`, which mounts app/routes/festival.tsx's own
+ * component rather than FestivalDetail directly. That file holds
+ * `key={params.id}`, so it -- not this harness -- decides whether a param
+ * change remounts. A keyed wrapper written HERE would prove only that React
+ * remounts on a key change and would stay green with the production key
+ * deleted. Direct-mount cases keep the old shape: nothing about a key matters
+ * to a case that never navigates.
+ *
+ * An earlier version of this header argued warm-vs-cold reachability at
+ * length -- COLD destinations unmount via EventPage's festival sniff, WARM
+ * ones survive inside the 60s staleTime. All true of `/event/:id` in the
+ * abstract, and beside the point: both routes key on the param, so the
+ * subtree remounts either way and no per-festival state crosses a navigation.
+ * The distinction cost two review rounds before anyone read the route file.
+ *
+ * `navigateTo` is a real router navigation and is AWAITED -- a remount can
+ * suspend on the PageTransition chunk, and a synchronous act() returns on the
+ * suspended commit. NOT a rerender: MemoryRouter reads `initialEntries` once,
+ * at mount, so re-rendering the tree with a different one changes nothing and
+ * the destination silently stays put. `rerender` is deliberately NOT returned
+ * from mountFestival for that reason.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { Profiler } from 'react';
 import { render, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, useNavigate } from 'react-router';
+import { MemoryRouter, Routes, Route, useNavigate, useParams } from 'react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   EVENT_UUID,
@@ -59,6 +73,8 @@ import {
   SCHEDULE_B,
   SPAN_WITH_EARLY_DAY,
   SCHEDULE_WITH_EARLY_DAY,
+  SPAN_SHRUNK,
+  SCHEDULE_SHRUNK,
   IDS_A,
   seedClient,
   installFixtureFetchGate,
@@ -121,11 +137,44 @@ afterAll(() => {
  * the destination silently stays put. A reader who restored `rerender` to make
  * the old wording true would have reintroduced exactly that no-op navigation.
  */
-async function mountFestival(uuid: string, serverTodayKey?: string) {
+async function mountFestival(
+  uuid: string,
+  serverTodayKey?: string,
+  opts?: { throughRoute?: boolean },
+) {
   const { AppProviders } = await import('@/App');
   const { default: FestivalDetail } = await import('@/pages/FestivalDetail');
 
-  const client: QueryClient = await seedClient(SCHEDULE, undefined, undefined);
+  // THROUGH-ROUTE MODE mounts the REAL route component from
+  // app/routes/festival.tsx rather than FestivalDetail directly, and the
+  // distinction is the whole value of the navigation cases below.
+  //
+  // `key={params.id}` lives in that file, not here, and the key is what is
+  // under test. A keyed wrapper written INSIDE this harness would assert only
+  // that React remounts when a key changes -- it would stay green with the
+  // production key deleted, and read as coverage while gating nothing. That is
+  // the same shape as the defect this harness was built to expose.
+  //
+  // The adapter reproduces exactly what the framework does and nothing more:
+  // compute params from the URL, hand them to the route component as a prop.
+  // HydrationBoundary, InitialVisiblePageTransition and the key are all the
+  // shipped file's own.
+  //
+  // CALLED, not rendered as JSX, and that form is measured rather than chosen:
+  // FestivalRoute holds no hooks, so inlining its render into the adapter is
+  // equivalent, and the key it returns still sits on an element whose parent
+  // re-renders on a param change -- which is what makes the remount happen.
+  const { default: FestivalRoute } = await import('../../app/routes/festival');
+  const RouteAdapter = () => {
+    const params = useParams();
+    return (FestivalRoute as unknown as (p: unknown) => JSX.Element)({
+      loaderData: { todayKey: serverTodayKey, dehydratedState: undefined },
+      params,
+      matches: [],
+    });
+  };
+
+  const client: QueryClient = await seedClient(SCHEDULE, undefined, IDS_A);
   await seedClient(
     SCHEDULE_B,
     { start: LOCAL_START_B, end: LOCAL_END_B },
@@ -177,7 +226,9 @@ async function mountFestival(uuid: string, serverTodayKey?: string) {
             path="/festival/:id"
             element={(
               <Profiler id="festival" onRender={() => commits.push(snapshotGrid(container))}>
-                <FestivalDetail serverTodayKey={serverTodayKey} />
+                {opts?.throughRoute
+                  ? <RouteAdapter />
+                  : <FestivalDetail serverTodayKey={serverTodayKey} />}
               </Profiler>
             )}
           />
@@ -202,6 +253,31 @@ async function mountFestival(uuid: string, serverTodayKey?: string) {
     throw err;
   }
 
+  // SETTLE THE TREE BEFORE HANDING IT BACK, and this is not defensive padding.
+  //
+  // InitialVisiblePageTransition renders PageTransition -- a lazy chunk --
+  // inside a Suspense boundary once its module-scoped `clientNavigated` flag
+  // is set, which any EARLIER case in this file may have done. A mount landing
+  // in that state returns while the boundary is still showing its fallback,
+  // and a click delivered to that tree can be discarded when the chunk
+  // resolves and the real subtree takes over -- the picked day silently
+  // reverts to the seed.
+  //
+  // That is not hypothetical: it made a key-deletion mutant red on the SETUP
+  // click of a later case rather than on the window it was written to gate.
+  // The mutant died either way, which is precisely the danger -- a green/red
+  // verdict driven by cross-test module state instead of by the thing under
+  // test. Draining here makes each case start from a settled tree, so the
+  // verdict comes from its own assertions.
+  //
+  // UNCONDITIONAL. This was briefly narrowed to throughRoute mounts because
+  // applying it everywhere red the landRefetch case 3 runs out of 3 -- but the
+  // cause was landRefetch missing its own second flush (see it below), not
+  // anything about direct mounts. With that fixed the drain is safe for both
+  // modes, and keeping it narrowed would have left a rule whose stated reason
+  // had stopped being true.
+  await act(async () => {});
+
   // NO `rerender` and NO `client`. rerender is withheld for the reason in the
   // WARM vs COLD note; the raw QueryClient is withheld for the same reason --
   // a case reaching for setQueryData directly would bypass landRefetch's
@@ -213,9 +289,26 @@ async function mountFestival(uuid: string, serverTodayKey?: string) {
     clearCommits: () => {
       commits.length = 0;
     },
-    navigateTo: (to: string) => {
+    /**
+     * AWAITED, and the await is load-bearing in throughRoute mode.
+     *
+     * A remount re-enters InitialVisiblePageTransition, which after the first
+     * client navigation renders PageTransition -- a lazy chunk -- inside a
+     * Suspense boundary. The commit that starts that import is the SUSPENDED
+     * one: a synchronous act() returns on it, and the commit window a case
+     * then reads is a single frame with an empty grid rather than the
+     * destination. Measured: 1 commit, slots=0, against the 8 the resolved
+     * navigation produces.
+     *
+     * An async act() drains the microtask queue the lazy import resolves on,
+     * so the window covers the whole navigation. Direct-mount cases are
+     * unaffected -- nothing suspends there -- so this is safe for both modes.
+     */
+    navigateTo: async (to: string) => {
       if (!navigate) throw new Error('navigateTo: the router never mounted the probe');
-      act(() => navigate!(`/festival/${to}`));
+      await act(async () => {
+        navigate!(`/festival/${to}`);
+      });
     },
     /**
      * Land a fresh payload into the SAME QueryClient -- what a refetch does.
@@ -238,6 +331,34 @@ async function mountFestival(uuid: string, serverTodayKey?: string) {
     ) => {
       await act(async () => {
         await seedClient(schedule, span, ids, client);
+      });
+      // A SECOND FLUSH, and it is the difference between this lever working and
+      // silently doing nothing.
+      //
+      // The act() above returns once seedClient's own promise settles. React
+      // Query's observer notification is scheduled on the notifyManager, so the
+      // re-render it triggers lands in a LATER task -- outside that act(). With
+      // one flush the cache holds the new payload and the tree still renders the
+      // old one: measured as 3 day tabs where the refetch supplies 4, and as
+      // ZERO <Profiler> commits during the refetch.
+      //
+      // That symptom was first diagnosed here as "the query observer stops being
+      // notified after any interaction that sets component state", and a drain
+      // was narrowed to the throughRoute path to work around it. Both were
+      // wrong: an extra flush BEFORE landRefetch changes nothing (which is what
+      // the wrong diagnosis tested), an extra flush AFTER it recovers the update
+      // every time. Recorded because the wrong cause is what manufactured the
+      // narrowing, and the narrowing looked like a fix.
+      //
+      // A TASK, not a microtask. `await act(async () => {})` drains microtasks
+      // only, and React Query's notifyManager schedules its batched observer
+      // notification on a macrotask -- so an empty act() is not enough on its
+      // own (measured: still 3 tabs where 4 are supplied). Crossing a real
+      // timer boundary is what makes the notification land inside act(), and
+      // therefore inside the case's assertions. setTimeout is REAL here: the
+      // file pins `vi.useFakeTimers({ toFake: ['Date'] })`, Date only.
+      await act(async () => {
+        await new Promise((resolve) => { setTimeout(resolve, 0); });
       });
     },
   };
@@ -440,131 +561,167 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
   });
 });
 
-describe('client: a WARM festival-to-festival navigation settles in range', { timeout: 60_000 }, () => {
-  // TWO CASES, AND THE SECOND IS THE ONE THAT GATES THE CLAMP. The settled
-  // state after this navigation is correct WITH OR WITHOUT the clamp, because
-  // the defect is TRANSIENT: defaultedForRef corrects the leaked index one
-  // effect later, so the out-of-range render happens, paints nothing into
-  // data-open, and is gone before act() returns. Measured -- reverting the
-  // clamp to `pickedDayIdx ?? seedDayIdx` left this file 3/3 green until the
-  // commit-boundary case below existed.
+
+describe('client: a refetch that SHORTENS the schedule', { timeout: 60_000 }, () => {
+  // THE CLAMP'S GATE, and until this case the clamp had none.
   //
-  // The first case is still worth its runtime: it pins the settled result and
-  // drives the whole warm path -- shared QueryClient, no remount, a real router
-  // navigation -- and if IT reds, the second case's window is meaningless.
-  it('opens exactly one in-range column after navigating to a smaller festival', async () => {
-    //
-    // FestivalDetailInner renders with no key, so a param change keeps the
-    // route module MOUNTED and pickedDayIdx outlives the navigation. Festival
-    // A has three columns and we tap the third; festival B has two. Without
-    // the clamp activeDayIdx is 2 against a 2-column grid, data-open lands on
-    // nothing, and the hide-every-other-slot rule hides EVERY slot -- a blank
-    // schedule, not a wrong one.
-    //
-    // Warm is the whole point: both festivals are seeded into ONE QueryClient,
-    // so the destination resolves from cache and this component never
-    // unmounts. On a cold destination it would unmount and take the state with
-    // it, which is why no SSR case could ever reach this.
+  // It was justified -- in its own comment, and in the case that covered it --
+  // as protection against pickedDayIdx outliving a festival-to-festival
+  // NAVIGATION. It cannot: both routes remount on a param change, so every
+  // destination starts from a null pick. Measured: with the navigation cases
+  // below pointed at the real route, reverting the clamp to
+  // `pickedDayIdx ?? seedDayIdx` left this file 6/6 GREEN.
+  //
+  // What the clamp actually guards is this: the same festival, still mounted,
+  // whose schedule gets shorter underneath a pick already made. No remount, no
+  // navigation, and defaultedForRef.current === eventId so the default-day
+  // effect will not re-pick either.
+  it('keeps the open column in range when the closing day is deleted', async () => {
     const user = userEvent.setup();
-    const { container, navigateTo } = await mountFestival(EVENT_UUID, LOCAL_START);
+    const { container, landRefetch } = await mountFestival(EVENT_UUID, LOCAL_START);
 
     await user.click(dayTabs(container)[2]);
     expect(openColumns(container)).toEqual([2]);
 
-    navigateTo(EVENT_UUID_B);
+    await landRefetch(SCHEDULE_SHRUNK, SPAN_SHRUNK, IDS_A);
 
-    // The destination really is the smaller festival -- without this the case
-    // could pass against a navigation that never happened.
+    // The grid really did shrink -- without this the case could pass against a
+    // refetch that changed nothing, which is precisely how the navigation cases
+    // this file used to carry went two rounds asserting an unreachable tree.
     expect(dayTabs(container)).toHaveLength(2);
 
-    const open = openColumns(container);
-    expect(open).toHaveLength(1);
-    expect(open[0]).toBeLessThanOrEqual(1);
+    // Reverting the clamp leaves activeDayIdx at 2 against a 2-column grid:
+    // data-open is stamped on NOTHING, the hide-every-other-slot rule hides
+    // every slot, and the reader gets a BLANK schedule rather than a wrong one.
+    // That mutant reds this line with an empty array.
+    //
+    // PINNED TO THE LAST COLUMN, not merely "in range". The clamp BOUNDS the
+    // stale pick without dropping it, so the view silently moves to column 1
+    // while pickedDayIdx stays 2. The queued write-back would legitimately
+    // change this to [0]; re-recording this line is part of that change rather
+    // than a workaround for it.
+    expect(openColumns(container)).toEqual([1]);
+  });
+});
+
+describe('client: a festival-to-festival navigation, through the REAL route', { timeout: 60_000 }, () => {
+  // WHAT CHANGED HERE, AND WHY, because the previous version of this block
+  // asserted the opposite of what the app does.
+  //
+  // These cases used to mount FestivalDetail directly, with no key -- an
+  // arrangement the app does not ship. app/routes/festival.tsx renders it as
+  // `<InitialVisiblePageTransition key={params.id}>`, and app/routes/event.tsx
+  // does the same for /event/:id, so a param change REMOUNTS the subtree and
+  // every piece of per-festival state -- pickedDayIdx, lightboxIndex,
+  // descExpanded, showAllDays -- is destroyed with it. Both keys have been in
+  // place since the RR7 framework-mode migration (2567376, 0729ecc).
+  //
+  // The old R1 case therefore pinned `commits[0].open` to [1] -- the leaked
+  // index, clamped -- as the expected contract. It was measuring the defect
+  // and recording it as correct.
+  //
+  // MEASURED 2026-08-24, through the real route component, both directions:
+  //
+  //   key present (shipped)   8 commits, every one open=[0]
+  //   key deleted (mutant)    3 commits: open=[1], open=[0], open=[0]
+  //
+  // so the window assertion below kills a deletion of the production key. The
+  // SETTLED state cannot: it is [0] either way, because defaultedForRef
+  // re-picks on an eventId change one effect later. That is the entire reason
+  // the second case exists, and why the first is labelled a control.
+  //
+  // ONE FIDELITY GAP, stated rather than hidden: the adapter hands BOTH
+  // festivals the same `todayKey` (festival A's start), where the real loader
+  // recomputes it per navigation. That key is absent from B's dayKeys, so
+  // resolveFestivalDefaultDay falls back to day 0 -- exactly what a real load
+  // of B on a day outside its span does. It is the destination's own seed
+  // either way, which is all these cases read.
+  it('reaches the destination festival', async () => {
+    // THE CONTROL, and labelled honestly: this case PASSES with the production
+    // key deleted. It gates nothing about the remount. Its job is to prove the
+    // navigation happened at all, so that a green window case below cannot be
+    // green over a navigation that never ran.
+    const user = userEvent.setup();
+    const { container, navigateTo } = await mountFestival(EVENT_UUID, LOCAL_START, {
+      throughRoute: true,
+    });
+
+    await user.click(dayTabs(container)[2]);
+    expect(openColumns(container)).toEqual([2]);
+
+    await navigateTo(EVENT_UUID_B);
+
+    expect(dayTabs(container)).toHaveLength(2);
+    expect(openColumns(container)).toEqual([0]);
   });
 
-  it('opens exactly one in-range column on EVERY commit of that navigation', async () => {
-    // R1. The clamp at FestivalDetail.tsx exists because pickedDayIdx outlives
-    // a warm festival-to-festival navigation. Without it, the first commit
-    // after the param change renders activeDayIdx = 2 against a 2-column grid
-    // and data-open is stamped on NOTHING. Measured, both directions, here:
-    //
-    //   clamp present   [ {slots:2, open:[1]}, {slots:2, open:[0]} ]
-    //   clamp reverted  [ {slots:2, open:[] }, {slots:2, open:[0]} ]
-    //
-    // so the assertion has to be over the WINDOW, not the settled state.
-    //
-    // WHICH VIEWPORT, because this case cannot be quoted for the consequence
-    // without it. jsdom reports innerWidth 1024, so the mount effect sets
-    // showAllDays and the body renders data-day="all" -- the DESKTOP state,
-    // and the one jsdomPolyfills.ts pins ("no case in it may claim anything
-    // about mobile breakpoint behaviour"). ASSERTED HERE: the state defect --
-    // no column carries data-open. NOT ASSERTED: what a reader sees. The
-    // blank schedule is the MOBILE rendering of this same state, produced by
-    // `.tl-body:not([data-day="all"]) .tl-row > .slot:not([data-open])
-    // {display:none}`, a rule that cannot match at this width. The state is
-    // viewport-independent and is what the clamp fixes; the mobile render of
-    // it is queued with the rest of the mobile re-point.
+  it('shows no frame carrying the previous festival day', async () => {
+    // THE GATE ON `key={params.id}`. Delete it from app/routes/festival.tsx
+    // and the first commit after the param change opens column 1 -- festival
+    // A's day 2, clamped to B's last column -- a frame showing the wrong day
+    // of the wrong festival. Restore it and no such frame exists.
     const user = userEvent.setup();
     const { container, commits, clearCommits, navigateTo } = await mountFestival(
       EVENT_UUID,
       LOCAL_START,
+      { throughRoute: true },
     );
 
     await user.click(dayTabs(container)[2]);
     expect(openColumns(container)).toEqual([2]);
 
     clearCommits();
-    navigateTo(EVENT_UUID_B);
+    await navigateTo(EVENT_UUID_B);
 
-    // FAIL-CLOSED, and this line is why the probe cannot go quietly blind.
-    // <Profiler> only reports in a development React build; in a production
-    // one it is inert, `commits` stays EMPTY, and every assertion below
-    // passes vacuously over an empty array.
+    // WHAT THE MOUNT DRAIN DOES TO THIS CASE, measured in all four
+    // combinations, because review read it as a fail-open and it is not:
     //
-    // PINNED EXACTLY, not as a floor. The frame that discriminates is
-    // commits[0] -- the render between the param change and the correction --
-    // and a floor cannot say which frame that is. A future change that both
-    // added one benign commit AND stopped capturing the pre-correction one
-    // (batching the param change with the correction, moving the correction
-    // to useLayoutEffect, React's own scheduling) would leave two
-    // post-correction frames: a floor of 2 holds, every frame has one open
-    // in-range column, and the case gates nothing it claims to. Measured
-    // 2026-08-24: exactly 2, with and without the clamp. If this reds on the
-    // COUNT, re-measure and re-record it -- do not relax it to a floor.
-    expect(commits.length).toBe(2);
+    //   drain   key      result
+    //   -----   ------   ---------------------------------------------------
+    //   yes     yes      7/7 green
+    //   yes     no       reds HERE, at {commit: 0, open: [1]} -- intended
+    //   no      yes      7/7 green
+    //   no      no       reds, but at the slots line below ([0] vs [2]) -- 3/3
+    //
+    // So the verdict tracks the key in both drain states: this case has no
+    // configuration in which it stays green against its own mutant. What the
+    // drain changes is WHICH assertion reds. Without it the navigation window
+    // is a single Suspense-fallback frame with an empty grid, and the
+    // "probe saw the DESTINATION" assertion below rejects that before the
+    // discriminating line is reached -- fail-closed, with a confusing message.
+    //
+    // The fallback frame is caught by that slots assertion, NOT by the length
+    // check immediately below: snapshotGrid cannot tell a fallback frame from a
+    // resolved one, so `commits.length > 0` would accept a fallback-only
+    // window on its own. The two assertions are load-bearing together.
+    //
+    // FAIL-CLOSED. <Profiler> only reports in a development React build; in a
+    // production one it is inert, `commits` stays EMPTY, and every assertion
+    // below passes vacuously over an empty array.
+    expect(commits.length).toBeGreaterThan(0);
 
-    // The discriminating frame, named rather than inferred. With the clamp it
-    // opens the destination's LAST column (the leaked index 2, clamped to 1);
-    // without it, nothing. NOTE: the queued per-festival state reset would
-    // legitimately change this to [0] -- that is a deliberate behaviour change
-    // and re-recording this line is part of it, not a workaround.
-    const first = commits[0];
-    if (first.grid !== 'present') throw new Error(`commit 0 rendered ${first.grid}`);
-    expect(first.open).toEqual([1]);
+    // NO COUNT PIN, and that is a deliberate difference from the version this
+    // replaces. The remount produces 8 commits and the mutant 3, so a pinned
+    // count would encode WHICH ARRANGEMENT is in place rather than whether the
+    // reader was ever shown the wrong column -- it would red on any benign
+    // scheduling change and pass on none of the real ones. The invariant below
+    // runs over the WHOLE window instead, so a wrong frame anywhere kills it
+    // and no single frame has to be named as the discriminating one.
 
-    // The probe saw the DESTINATION. Stated by inclusion (every commit has B's
-    // two columns) rather than by excluding what we recognise: a probe reading
-    // the wrong tree, or one that recorded only pre-navigation frames, would
-    // otherwise satisfy the invariant below without ever having looked at the
-    // render that carries the defect.
+    // The probe saw the DESTINATION. Stated by inclusion (every commit carries
+    // B's two columns) rather than by excluding what we recognise: a probe
+    // reading the wrong tree, or one that recorded only pre-navigation frames,
+    // would otherwise satisfy the invariant below without ever having looked
+    // at the render that carries the defect.
     expect(commits.map((c) => (c.grid === 'present' ? c.slots : c.grid))).toEqual(
       new Array(commits.length).fill(2),
     );
 
-    // The invariant itself: no frame in this window may be blank or doubly
-    // open, and no ROW within a frame may disagree with its siblings. Keyed by
-    // commit index so a failure names WHICH frame.
-    //
-    // There is deliberately NO `open[k] < slots` assertion here. It reads like
-    // a second edge and is definitionally true: snapshotGrid derives every
-    // element of `open` as an index INTO the slot list it measures, so an
-    // out-of-range value is unrepresentable and the line survives being
-    // replaced by expect(true) with zero fail lines. The clamp's defect
-    // reaches the DOM as an empty `open`, which the length check already
-    // catches on its own.
     for (const [i, commit] of commits.entries()) {
       if (commit.grid !== 'present') throw new Error(`commit ${i} rendered ${commit.grid}`);
-      expect({ commit: i, open: commit.open.length }).toEqual({ commit: i, open: 1 });
+      // The destination's OWN seed, not the origin's leaked pick. Keyed by
+      // commit index so a failure names WHICH frame was wrong.
+      expect({ commit: i, open: commit.open }).toEqual({ commit: i, open: [0] });
       expect({ commit: i, perRow: commit.openPerRow }).toEqual({
         commit: i,
         perRow: new Array(commit.rows).fill(1),

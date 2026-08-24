@@ -1885,29 +1885,37 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // Stamping the open column on the slot made this view independent of the
   // column COUNT, not of the INDEX, so the clamp is not redundant with it.
   //
-  // IT IS ALSO NOT A COMPLETE REPAIR, and the remainder is QUEUED rather than
-  // guessed at. The clamp BOUNDS a stale pick, it does not DROP one:
-  // `pickedDayIdx` keeps the out-of-range value, so the reader silently gets
-  // the last column rather than the day they chose, and a later refetch that
-  // restores the longer schedule springs the view back to the stale index with
-  // no user action. `defaultedForRef.current === eid` means the effect below
-  // will not re-pick either. The same staleness reaches `lightboxIndex`,
-  // `descExpanded` and `showAllDays`, so one reset for the whole per-festival
-  // group is the real fix -- not a special case for this one index.
+  // A REFETCH IS THE ONLY PATH THAT REACHES THIS, and this comment named the
+  // wrong one for weeks. It said the clamp existed because `pickedDayIdx`
+  // outlives a festival-to-festival NAVIGATION. It does not: both route entry
+  // points render this page under `key={params.id}` -- app/routes/festival.tsx
+  // and app/routes/event.tsx, since the RR7 migration (0729ecc, 2567376) -- so
+  // a param change REMOUNTS the subtree and every destination starts from a
+  // null pick. Measured through the real route component, both directions:
+  // with the key, 8 commits and every one opens the destination's own seed;
+  // with it deleted, the first commit opens the leaked index. The navigation
+  // was never the danger; the key was already there.
   //
-  // A render-time reset for `pickedDayIdx` alone was written and REVERTED. It
-  // cannot be proven here: no test in this repo MOUNTS this component, so both
-  // it and this clamp survive being no-op'd with 17/17 green, and this repo
-  // does not ship a fix that survives `-> if (false)` with zero fail lines.
-  // A jsdom harness comes first. See queued-festival-per-festival-state-reset.md.
+  // WHAT IT LEAVES UNDONE, unchanged: the clamp BOUNDS a stale pick, it does
+  // not DROP one. `pickedDayIdx` keeps the out-of-range value, so the reader
+  // silently gets the last column rather than the day they chose, and a later
+  // refetch restoring the longer schedule springs the view back to the stale
+  // index with no user action. `defaultedForRef.current === eid` means the
+  // effect below will not re-pick either. That residual, and the two candidate
+  // fixes for it (write the pick back, or re-run resolveFestivalDefaultDay when
+  // dayKeys changes), are queued in
+  // ~/.claude/plans/queued-festival-clamp-writeback-and-route-twin.md -- the
+  // only referrer that file has.
   //
-  // The navigation path is also narrower than "React Router keeps the route
-  // module mounted", which is what the reverted attempt assumed. On a COLD
-  // destination this component does not survive at all: while the new event's
-  // queries are in flight `sniffIsFestival(undefined, undefined)` is false, so
-  // EventPage falls through to BentoPage and FestivalDetail unmounts, taking
-  // every bit of this state with it. Only a WARM destination -- A -> B -> back
-  // to A inside the 60s staleTime -- keeps it alive.
+  // GATED BY EXACTLY ONE CASE, and it is worth knowing which. "a refetch that
+  // SHORTENS the schedule" in tests/client/festivalClientState.test.tsx picks
+  // day 2 of a 3-day festival, lands a 2-day payload for the SAME eventId, and
+  // pins the open column to the last one. Reverting this line to
+  // `pickedDayIdx ?? seedDayIdx` reds it with an empty array -- the blank grid
+  // described above, reproduced. Nothing else covers it: the case that USED to
+  // claim the clamp drove a navigation on an UNKEYED tree and passed with the
+  // clamp reverted. Delete or weaken that case and this line is untested again,
+  // with a green suite saying nothing.
   const activeDayIdx = Math.min(pickedDayIdx ?? seedDayIdx, Math.max(days.length - 1, 0));
 
   // Correct the seed against the REAL client clock when the festival is live

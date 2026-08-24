@@ -19,6 +19,10 @@ export const SLUG = 'test-festival';
  * A after navigating to B has to SAY SO. It used to be seedClient's inline
  * default, which meant "omit the argument" silently meant "festival A" at
  * every call site, including ones on screen showing B.
+ *
+ * That default is now GONE rather than merely named -- this comment described
+ * the removal for a while before it happened, and review caught the gap. The
+ * parameter is required and `seedClient` throws when it is missing.
  */
 export const IDS_A = { uuid: EVENT_UUID, slug: SLUG, name: 'Test Festival' };
 
@@ -85,6 +89,22 @@ export const SCHEDULE_WITH_EARLY_DAY = [
   },
   ...SCHEDULE,
 ];
+
+/**
+ * The same festival A, as a REFETCH would land it once an organiser DELETES the
+ * closing day. Columns come from the SPAN unioned with the session days, so
+ * dropping both shortens the grid to two columns while a pick of index 2 --
+ * made while three existed -- survives untouched in component state.
+ *
+ * THIS IS THE CLAMP'S ONLY PRODUCTION-REACHABLE PATH. A festival-to-festival
+ * navigation cannot reach it: app/routes/festival.tsx and app/routes/event.tsx
+ * both render the page under `key={params.id}`, so the subtree REMOUNTS on a
+ * param change and every destination starts from a null pick. Only a
+ * same-eventId refetch keeps a stale pick alive against a grid that has since
+ * got shorter.
+ */
+export const SPAN_SHRUNK = { start: LOCAL_START, end: '2026-09-05' };
+export const SCHEDULE_SHRUNK = SCHEDULE.slice(0, 2);
 
 /**
  * A SECOND festival, for the warm-navigation cases. Different id, different
@@ -157,9 +177,27 @@ export function removeFixtureFetchGate() {
 export async function seedClient(
   schedule: unknown[] = [],
   span: { start: string; end: string } = { start: LOCAL_START, end: LOCAL_END },
-  ids: { uuid: string; slug: string; name: string } = IDS_A,
+  ids: { uuid: string; slug: string; name: string },
   client?: QueryClient,
 ): Promise<QueryClient> {
+  // REQUIRED, with a runtime guard because `tests/` is in no tsconfig and a
+  // missing argument therefore reaches here as `undefined` with nothing having
+  // complained. It used to default to IDS_A, which made
+  // `seedClient(SCHEDULE_B, spanB, undefined, client)` silently overwrite
+  // festival A's cache and leave B unseeded -- a mistake whose symptom is a
+  // case asserting against the wrong festival, not an error.
+  // `!ids?.uuid`, not `!ids`. A truthiness check catches the omission it was
+  // written for and misses the arg-shift that making this required invites:
+  // `seedClient(SCHEDULE_B, spanB, client)` passes a QueryClient as `ids`, sails
+  // through a truthy guard, seeds every key under `undefined`, and renders
+  // "Festival not found" -- the exact silent wrong-festival symptom this guard
+  // exists to convert into an error.
+  if (!ids?.uuid) {
+    throw new Error(
+      'seedClient: `ids` is required. Omitting it used to mean festival A, which silently ' +
+        'overwrites whichever festival you meant to seed into a shared client.',
+    );
+  }
   const { createQueryClient } = await import('@/App');
   const { parseFestivalDetail, festivalDetailQueryKey } = await import(
     '@/modules/event-page/useFestivalDetailQuery'
