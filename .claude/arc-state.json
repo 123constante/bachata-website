@@ -1,14 +1,12 @@
 {
   "version": 1,
   "arc": "edge-config-governance",
-  "phase": 2,
+  "phase": "done",
   "set_at": "2026-08-22T00:00:00Z",
-  "closed_at": null,
-  "closed_note": null,
+  "closed_at": "2026-08-24T22:00:00Z",
+  "closed_note": "ENDED BY DECISION, NOT BY COMPLETION. P0-P5 shipped and merged. P6 (re-arm Vercel Bot Protection) was CLOSED by Ricky on 2026-08-23: bot_protection stays action:log permanently. WhatsApp's link-preview fetcher is confirmed present in the Bot-Protection-matched set, so arming to challenge would likely break previews on the primary distribution channel -- a product tradeoff, decided deliberately, not an unfinished task. Do NOT attempt re-arm #3; reopen only if those fetchers become IP/rDNS-verified bots on Vercel's list, or if Ricky asks. Both build attempts (2026-08-22, reverted twice) failed on the SAME defect class: coverage inferred from the firewall config alone, never from the consumer's observed behaviour. What stands guard instead: ai_bots at deny, Vercel DDoS mitigation, the Bypass-revalidate-webhook custom rule, P3's firewall config-as-code drift check, and P5's guards. STILL OPEN, non-blocking: three P5 guard-fixability residuals, deliberately deferred with stated reasons -- see queued-p5-guard-fixability-residuals.md. NOTE ON THIS FILE: it never carried a plan field, only free-text note. check-plan-hygiene.mjs's lintArcState reads state.plan, so its cross-check (E_ARCSTATE_PLAN_MISSING / _UNTRACKED / _ARC_MISMATCH / _NOT_LIVE) SKIPPED this arc for its whole life -- which is why the note's plan pointer stayed wrong, naming i-pasted-this-link-gentle-cray.md (a MEMORY.md-ceiling plan, unrelated to this arc) with nothing to catch it.",
   "required_model": "claude-opus-5",
   "required_effort": "high",
-  "actual_model": "claude-sonnet-5",
-  "deviation": "Session started on claude-sonnet-5 (Auto Mode session default), not the plan's required claude-opus-5. Declared and recorded per CLAUDE.md (a mismatch is declared and recorded, never a halt) -- proceeding without a stop, effort held at high for this phase's guard-authoring work.",
   "scope": [
     ".github/workflows/prod-smoke.yml",
     ".github/workflows/seo-check.yml",
@@ -21,5 +19,5 @@
     "scripts/lint-workflow-notification.mjs",
     "scripts/prove-entry-point-dispatch.mjs"
   ],
-  "note": "P2 of the edge-config-governance arc (plan: ~/.claude/plans/i-pasted-this-link-gentle-cray.md). Part A: copy db-contract-check.yml's failure-notification + close-on-green pattern into the four probe workflows that went red silently for ~14h on 2026-08-21/22 (prod-smoke, seo-check, og-image-check prod arm only, synthetic-ssr-monitor). Part B: a new lint-workflow-notification.mjs (wired into workflow-lint.yml) that refuses a schedule-triggered job referencing production with no notification step -- built on a real YAML parse, reusing check-workflow-artifact-policy.mjs's review-hardened readTriggers/conditionIsFailureGate/scheduleCanReach rather than reinventing them (an early hand-rolled line-scanner draft reintroduced three bugs those functions were already fixed against: a negated failure() condition, a commented-out uses: line, and a block-scalar VALUE shaped like 'steps:' -- caught by /code-review xhigh and fixed by the rewrite, mutation-tested). The lint's own real scan of the repo (not just the four named files) surfaced three more live instances of the SAME defect -- gsc-health-check.yml, sourcemap-check.yml (schedule-triggered prod probes with no notify step, the domain only in the invoked script's own fallback default, not in the workflow YAML) and weekly-digest.yml (same shape, a report-delivery job rather than a health probe) -- all three repaired alongside the four named in scope. prod-smoke.yml and seo-check.yml additionally widened their notify scope to include deployment_status (the post-deploy run itself, previously excluded on weak reasoning the review flagged); synthetic-ssr-monitor.yml dropped the cancelled() clause it copied from db-contract-check.yml, because this file (unlike db-contract-check.yml) has concurrency.cancel-in-progress:true, so an ordinary workflow_dispatch overlapping a schedule tick would file a false-positive issue. Single PR-sized phase; do not start P3+."
+  "note": "Arc record lives in two plan files, not one: queued-p6-rearm-bot-protection.md (the end-state decision, plus the preserved record of both reverted re-arm attempts) and queued-p5-guard-fixability-residuals.md (the three deferred residuals, status: live). The previous value of this field described P2 only and named the wrong plan; the P2 detail is in git history."
 }
