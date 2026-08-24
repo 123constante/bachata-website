@@ -1,4 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// `parseEventPageSnapshot` is pure, but the module graph reaches
+// `@/modules/event-page/useEventPageQuery`, which constructs the REAL Supabase
+// client at import time -- a live client, with its own timers, in an extra
+// worker. A pure-function test has no business opening a network client.
+//
+// SCOPE, precisely. This was the last spec whose STATIC import graph reached
+// the client (7 did; the other 6 already severed it -- 4 mock the client, 2 cut
+// `app/lib/ogCardRender`). It is NOT true that no test opens a client any more:
+// three still construct one at RUN time from inside a test body, via
+// `await import('@/pages/FestivalDetail')` -- tests/client/festivalClientState
+// and tests/ssr/festivalDaysAwaySsr -- while tests/ssr/eventPageSsr declares
+// never mocking it a HARD CONSTRAINT, since its whole point is proving the real
+// module evaluates under node. Do not read this mock as more than it is.
+//
+// It is hygiene, not a fix for the EdgeTtl parallel failures: measured n=3 per
+// configuration, adding it changed nothing (those are 5000ms TIMEOUTS driven by
+// module-resolution cost inside `it()` bodies).
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: { rpc: vi.fn() },
+}));
+
 import { parseEventPageSnapshot } from '@/modules/event-page/useEventPageQuery';
 
 // Minimal payload satisfying parseEventPageSnapshot's require* guards -- only
