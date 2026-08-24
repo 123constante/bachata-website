@@ -1,4 +1,38 @@
 #!/bin/sh
+# -- Signal safety. Keep this FIRST; everything below it is only a gate while
+#    this shell is alive to report a verdict. -------------------------------
+# Git for Windows reads a hook that DIED FROM A SIGNAL as a hook that PASSED:
+# measured 2026-08-24 against git 2.53.0.windows.1 on a throwaway bare remote,
+# a pre-push killed by SIGPIPE, SIGKILL or SIGTERM gives `git push` exit 0 and
+# the ref lands. POSIX git 2.43 blocks the same hook (exit 1, no ref), so this
+# is a Windows-only fail-open -- which is exactly where this repo is developed.
+#
+# The accidental trigger is a pipe. A hook's stdout IS git's stdout, so
+# `git push | head -40` gives the reader 40 lines and then closes it; the next
+# write from this script (or from vitest underneath it) takes SIGPIPE and the
+# whole gate disappears with no diagnostic. Measured on THIS file: piped to
+# `head -40` it exited 141 after 34s, mid-unit-suite, having reached no verdict.
+#
+# `trap '' PIPE` makes those writes fail with EPIPE instead of killing us, so
+# the gate still runs to a verdict and still exits non-zero. Re-measured on
+# this file with the trap: exit 1 in 4s -- fail-closed, no hang. INT/TERM/HUP
+# get the same treatment for the same reason. SIGKILL cannot be trapped and
+# stays a real residual; there is no in-hook defence against it.
+#
+# NOTHING ENFORCES THIS. A guard was built for it on 2026-08-24 and REVERTED the
+# same day: review proved it green against six shapes it existed to catch --
+# a `#!/usr/bin/env bash` hook with no trap at all, a trap installed AFTER the
+# gate work, a trap nested in a function or an untaken `if`, `trap 'exit 1' PIPE`
+# (which aborts at the first severed write, reaching no verdict), deletion of
+# this file outright, and a clone where `core.hooksPath` was never set so git
+# runs none of this. Delete these three lines and no check anywhere goes red.
+# The residuals are in ~/.claude/plans/queued-edge-ttl-parallel-cause.md.
+trap '' PIPE
+trap 'exit 1' INT TERM HUP
+# Diagnostics belong on stderr, where a stdout pipe cannot truncate them. This
+# also means `git push | head -40` no longer severs the gate at all, rather
+# than merely failing it closed.
+exec >&2
 # pre-push -- the ship gate at the last local chokepoint.
 #
 #   0. Refspec triage. Git feeds this hook one line per ref being pushed:

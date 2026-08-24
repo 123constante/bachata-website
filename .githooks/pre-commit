@@ -1,4 +1,11 @@
 #!/bin/sh
+# Signal safety, first: Git for Windows reads a signal-killed hook as a PASSED
+# hook, so `git commit | head -5` silently commits past this check (measured
+# 2026-08-24). See the long note in .githooks/pre-push, including why nothing
+# enforces this yet.
+trap '' PIPE
+trap 'exit 1' INT TERM HUP
+exec >&2
 # pre-commit — refuse commits that contain corruption (null bytes / unparseable JSON).
 # Runs the Node-based integrity check so it works regardless of bash availability.
 
