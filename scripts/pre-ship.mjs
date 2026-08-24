@@ -96,13 +96,13 @@ export const CHECKS = [
   // have that directory. It also RE-RENDERS PLANS-INDEX.md on a passing lint.
   ["check:plan-hygiene", "arc-plan frontmatter + arc-state cross-check (lint-only)"],
   ["test:unit", "vitest unit + contract suite", ["--reporter=dot"]],
-  // The timing-sensitive edge-TTL specs, in their own pass with file
-  // parallelism off. They assert real wall-clock bounds (~5s) and lost races
-  // against other workers: at 24 workers on 12 cores the combined run failed 5
-  // tests, ALL of them in that family and none anywhere else, while the split
-  // passed 995 + 56 under the same contention. Separated rather than given
-  // longer timeouts, because the bound is part of what they assert.
-  ["test:unit:timing", "edge-TTL specs (serial -- they measure wall clock)", ["--reporter=dot"]],
+  // The edge-TTL specs, in their own pass with file parallelism off. The
+  // failure class this pass exists for is documented IN TREE, with the
+  // evidence attached: see the header comment of
+  // tests/dancerEditorPayloads.test.ts and installFixtureFetchGate in
+  // tests/fixtures/festivalFixture.tsx. No summary is kept here, because
+  // every summary written into this file so far has been wrong.
+  ["test:unit:timing", "edge-TTL specs (serial)", ["--reporter=dot"]],
   // The BUILD, and the gate that reads its output. Placed at the END of the
   // list, which is NOT a short-circuit -- every CHECKS entry runs regardless of
   // what failed before it (see the header), and typecheck and eslint still run

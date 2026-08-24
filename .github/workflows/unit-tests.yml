@@ -1,8 +1,8 @@
 name: Unit & Contract Tests
 
-# Vitest unit + contract suite (212 tests across 22 files). CLAUDE.md names
-# these as the unit/contract gate, but they ran only by hand until now - a
-# regression in the event_view_p5 snapshot_compat shape could ship unblocked.
+# Vitest unit + contract suite. CLAUDE.md names these as the unit/contract
+# gate, but they ran only by hand until now - a regression in the
+# event_view_p5 snapshot_compat shape could ship unblocked.
 #
 # The 4 contract tests (eventViewCompat, publicEventPageLineup,
 # occurrenceProgram, latestEvents) hit the live READ-ONLY DB via the anon key,
@@ -91,22 +91,16 @@ jobs:
         # those lines, and no arrangement of zones could.
         run: |
           if [ "${{ matrix.scope }}" = "full" ]; then
-            # TWO passes, and the second is not optional. `test:unit` now
-            # EXCLUDES the *EdgeTtl.test.ts family, which run in their own
-            # serial pass because they assert real wall-clock bounds and lost
-            # races against other vitest workers (reproduced at 24 workers on
-            # 12 cores: 5 failures, all in that family). Without the second
-            # line those specs would silently stop running under London, which
-            # is a coverage loss wearing a green tick.
+            # TWO passes, and the second is not optional. `test:unit` EXCLUDES
+            # the *EdgeTtl.test.ts family, which runs in its own serial pass.
+            # Without the second line those specs would silently stop running
+            # under London, which is a coverage loss wearing a green tick.
             npm run test:unit
             npm run test:unit:timing
           else
-            # --no-file-parallelism for the same reason the London leg splits:
-            # four of these nine files (the *EdgeTtl ones) assert real
-            # wall-clock bounds and lose races against sibling workers. These legs have been green, but
-            # green is not evidence of absence when the failure is load-
-            # dependent -- it reproduced locally only once the machine was
-            # loaded, and a busier runner would surface it here as an
-            # unexplained red on an unrelated PR.
+            # --no-file-parallelism, matching the serial pass the London leg
+            # runs. This list carries some of the *EdgeTtl specs but not all of
+            # them -- sitemapEdgeTtl is not in it, so this leg is NOT a
+            # substitute for the London leg's second pass.
             npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/festivalGridDays.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
           fi

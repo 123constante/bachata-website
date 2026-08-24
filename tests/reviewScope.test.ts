@@ -836,9 +836,8 @@ describe("smokeServerUrlFrom -- the port is read, not copied", () => {
 });
 
 describe("the unit suite is split in two, and the halves are complementary", () => {
-  // The timing-sensitive edge-TTL specs lose races against other vitest workers
-  // -- reproduced deterministically at 24 workers on 12 cores: 5 failures, all
-  // in that family, zero elsewhere. They now run in their own pass. The two
+  // The edge-TTL specs run in their own pass; tests/dancerEditorPayloads.test.ts
+  // carries the evidence for why. The two
   // halves are defined by the SAME token so a new *EdgeTtl.test.ts file cannot
   // be excluded from one half without being picked up by the other; an explicit
   // file list would have orphaned it silently, which is the failure this repo
