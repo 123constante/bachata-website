@@ -23,23 +23,24 @@
  * rather than the assertion being lenient.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import type { QueryClient } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter, Routes, Route } from 'react-router';
 
-const EVENT_UUID = '00000000-0000-4000-8000-0000000000f1';
-const SLUG = 'test-festival';
-
-// Deliberately NOT Europe/London. The festival page runs on the EVENT's calendar,
-// so a London-pinned assumption anywhere in this path has to show up as a wrong
-// label here rather than passing by coincidence on the developer's machine.
-const TZ = 'Africa/Tunis';
-
-// The festival runs 4-6 Sept. Every expected label below is derived from these
-// two keys plus the pinned "today", never hard-coded to a real date -- so the
-// suite does not rot the moment it is run on a different day.
-const LOCAL_START = '2026-09-04';
-const LOCAL_END = '2026-09-06';
+// The fixture lives in tests/fixtures/festivalFixture, shared with the CLIENT
+// harness (tests/client/festivalClientState). It used to be declared here and
+// would have been copied there; the two suites assert opposite halves of this
+// component -- what the SERVER emits, and what the CLIENT does after hydration
+// -- and a copied fixture drifts silently, because a stale payload shape still
+// renders SOMETHING and the copy that stopped matching the parser keeps passing.
+import {
+  EVENT_UUID,
+  LOCAL_START,
+  LOCAL_END,
+  SCHEDULE,
+  seedClient,
+  installFixtureFetchGate,
+  removeFixtureFetchGate,
+} from '../fixtures/festivalFixture';
 
 const DAYS_AWAY_CLASS = 'hero-days-away';
 
@@ -96,108 +97,11 @@ const spanDayKeys = (start: string, end: string): string[] => {
   return out;
 };
 
-// One session on each of the festival's three days. `days` now comes from the
-// SPAN (local_start..local_end) via festivalGridDays, not from the schedule --
-// but the timeline block is still gated on having both days AND hours, and
-// `hours` is session-derived, so a badge cannot render without this.
-//
-// NOTE this fixture cannot see the span/schedule distinction: its three session
-// days are exactly the three span days, so span-derived and session-derived
-// columns are identical here and these cases pass against either
-// implementation.
-//
-// The session-less span day IS now covered, by 'badges a session-less span day
-// but still opens day 1' in the default-day describe at the foot of this file,
-// which filters this fixture down to two of the three days. An out-of-span
-// session and an undated session remain queued, not covered.
-const SCHEDULE = [LOCAL_START, '2026-09-05', LOCAL_END].map((day, i) => ({
-  id: `sess-${i}`,
-  day,
-  title: `Session ${i}`,
-  start_time: '20:00:00',
-  type: 'class',
-}));
-
-let realFetch: typeof globalThis.fetch;
-
-beforeAll(() => {
-  if (!import.meta.env.VITE_SUPABASE_URL) {
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://stub-project.supabase.co');
-  }
-  if (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'stub-publishable-key');
-  }
-  realFetch = globalThis.fetch;
-  globalThis.fetch = (() => {
-    throw new Error('SSR gate: every query must be pre-seeded; no fetch during renderToString');
-  }) as typeof globalThis.fetch;
-});
-
-afterAll(() => {
-  globalThis.fetch = realFetch;
-  vi.unstubAllEnvs();
-});
-
-/**
- * Seed the four queries FestivalDetail mounts. Built through the REAL
- * parseFestivalDetail rather than a hand-written object literal: the parser is
- * what the loader and the client hook both run, so if the payload shape changes
- * under us this fixture changes with it instead of silently describing a shape
- * that no longer exists.
- */
-async function seedClient(
-  schedule: unknown[] = [],
-  span: { start: string; end: string } = { start: LOCAL_START, end: LOCAL_END },
-): Promise<QueryClient> {
-  const { createQueryClient } = await import('@/App');
-  const { parseFestivalDetail, festivalDetailQueryKey } = await import(
-    '@/modules/event-page/useFestivalDetailQuery'
-  );
-  const { festivalEventQueryKey } = await import('@/modules/event-page/festivalEventQuery');
-
-  const client = createQueryClient();
-
-  // useEntitySlugOrId: for `events` the id comes ONLY from this query (the raw
-  // uuid is deliberately never re-injected), so without this the page renders
-  // "Festival not found" and every other assertion here would be vacuous.
-  client.setQueryData(['entity-resolve', 'events', 'id', EVENT_UUID], {
-    id: EVENT_UUID,
-    slug: SLUG,
-  });
-
-  client.setQueryData(festivalEventQueryKey(EVENT_UUID), {
-    id: EVENT_UUID,
-    name: 'Test Festival',
-    city: 'Tunis',
-    date: null,
-    start_time: null,
-    poster_url: null,
-    description: null,
-    ticket_url: null,
-    faq: null,
-    meta_data: null,
-  });
-
-  // Non-cancelled AND present: heroDayStatus stays silent until cancellation is
-  // KNOWN, so an absent snapshot would suppress the label for a reason that has
-  // nothing to do with SSR and make a red here mean the wrong thing.
-  client.setQueryData(['festival-snapshot', EVENT_UUID], {
-    occurrence_effective: { is_cancelled: false, cancellation_reason_label: null },
-  });
-
-  client.setQueryData(
-    festivalDetailQueryKey(EVENT_UUID),
-    parseFestivalDetail({
-      event_id: EVENT_UUID,
-      identity: { name: 'Test Festival' },
-      dates: { local_start: span.start, local_end: span.end, timezone: TZ },
-      schedule,
-      passes: [],
-    }),
-  );
-
-  return client;
-}
+// The festival fixture -- SCHEDULE, the dates, the timezone and seedClient --
+// is imported from tests/fixtures/festivalFixture, along with the notes on what
+// it can and cannot express.
+beforeAll(() => installFixtureFetchGate('SSR gate'));
+afterAll(removeFixtureFetchGate);
 
 /** Server-render /festival/:id, optionally with the loader's pinned day key. */
 async function renderFestival(
