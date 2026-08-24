@@ -14,6 +14,14 @@ import type { QueryClient } from '@tanstack/react-query';
 export const EVENT_UUID = '00000000-0000-4000-8000-0000000000f1';
 export const SLUG = 'test-festival';
 
+/**
+ * Festival A's identity as one value, because a caller that wants to re-seed
+ * A after navigating to B has to SAY SO. It used to be seedClient's inline
+ * default, which meant "omit the argument" silently meant "festival A" at
+ * every call site, including ones on screen showing B.
+ */
+export const IDS_A = { uuid: EVENT_UUID, slug: SLUG, name: 'Test Festival' };
+
 // Deliberately NOT Europe/London. The festival page runs on the EVENT's
 // calendar, so a London-pinned assumption anywhere in this path has to show up
 // as a wrong result rather than passing by coincidence on a London machine.
@@ -45,6 +53,38 @@ export const SCHEDULE = [LOCAL_START, '2026-09-05', LOCAL_END].map((day, i) => (
   start_time: '20:00:00',
   type: 'class',
 }));
+
+/**
+ * The same festival A, as a REFETCH would land it once an organiser adds a day
+ * to the FRONT. `days` come from the SPAN, so the grid grows at the front and
+ * every existing column shifts right by one -- which moves `seedDayIdx` (the
+ * index of the pinned key) from 0 to 1 while touching nothing a user picked.
+ * That is the only production-reachable way to make the seed disagree with an
+ * already-settled pick, and it is what the only-when-different case needs.
+ *
+ * THE SESSION ON THE NEW DAY IS REALISM, NOT MECHANISM, and the first version
+ * of this comment got that wrong. It claimed a blank leading column would
+ * engage the gap-day rule; it would not. That rule keys off the key being
+ * resolved -- here serverTodayKey, LOCAL_START -- which carries a session
+ * either way, so seedDayIdx is 1 after this refetch whether or not the new
+ * front day has anything on it. What the session buys is a payload that looks
+ * like the edit it models (an organiser adding an opening day) rather than a
+ * span silently stretched over nothing. The wrong version is recorded here
+ * because a plausible false mechanism in a fixture header is how the next
+ * author talks themselves out of a variant that is actually free.
+ */
+const EARLY_DAY = '2026-09-03';
+export const SPAN_WITH_EARLY_DAY = { start: EARLY_DAY, end: LOCAL_END };
+export const SCHEDULE_WITH_EARLY_DAY = [
+  {
+    id: 'sess-early',
+    day: EARLY_DAY,
+    title: 'Opening party',
+    start_time: '20:00:00',
+    type: 'class',
+  },
+  ...SCHEDULE,
+];
 
 /**
  * A SECOND festival, for the warm-navigation cases. Different id, different
@@ -117,11 +157,7 @@ export function removeFixtureFetchGate() {
 export async function seedClient(
   schedule: unknown[] = [],
   span: { start: string; end: string } = { start: LOCAL_START, end: LOCAL_END },
-  ids: { uuid: string; slug: string; name: string } = {
-    uuid: EVENT_UUID,
-    slug: SLUG,
-    name: 'Test Festival',
-  },
+  ids: { uuid: string; slug: string; name: string } = IDS_A,
   client?: QueryClient,
 ): Promise<QueryClient> {
   const { createQueryClient } = await import('@/App');
