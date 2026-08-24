@@ -132,6 +132,34 @@ type FestivalDetailInnerProps = {
 
 // Ported from the validated mockup at c:\tmp\festival-mockups\05-cinematic-timeline.html
 
+// NOTHING INSIDE THE LITERAL BELOW IS FREE. It is a template literal, so its
+// contents are never minified: every byte ships twice, once in the JS chunk
+// and once inlined into each SSR document. Maintainer prose belongs HERE, in
+// a // comment, not in a /* */ inside the stylesheet. (A backtick in there
+// would also end the literal outright -- esbuild catches that, safe-edit's
+// parse-check does not.)
+//
+// THE SINGLE-DAY VIEW WORKS BY HIDING, and the open column is stamped on the
+// SLOT rather than counted from the ancestor. data-open is written by the same
+// days.map that renders the cell, so both of the rules under the "single-day
+// view" marker are independent of how many columns the schedule has.
+//
+// They used to be an ENUMERATION -- .tl-body[data-day="0"].."3", one
+// hand-written pair per index, each naming a child position with nth-child.
+// That fails OPEN: an index with no matching rule hides NOTHING, so the reader
+// gets every column crushed into a 375px viewport with every empty hour row
+// showing, which looks like a broken page rather than a missing stylesheet
+// rule. It was live, not theoretical -- event_program_days says Tunisia
+// Bachata Festival 2026 runs 2026-09-24..28, five columns, and the default-day
+// effect SELECTS that fifth column on the day itself. festivalGridDays can
+// produce far more: a 62-day span (wallClockDateRange's maxDays), plus one
+// column per out-of-span session, plus the UNDATED bucket.
+//
+// Do NOT reintroduce a count here in any form. A generated list bounded by a
+// constant is the same defect with a larger number, and it drags a ceiling, a
+// forced fallback and a disabled toggle along with it to stay honest. Nothing
+// needs to know the column count for this view to be correct.
+//
 // ---------------------------------------------------------------------------
 
 const CINEMATIC_CSS = `
@@ -589,21 +617,12 @@ const CINEMATIC_CSS = `
 
   .cinematic-festival .slot{padding:10px 12px;min-height:0}
 
-  .cinematic-festival .tl-body[data-day="0"] .tl-row > .slot:not(:nth-child(2)),
+  /* single-day view: hide-based, count-independent. Read the note above the
+     CINEMATIC_CSS declaration before touching either rule. */
 
-  .cinematic-festival .tl-body[data-day="1"] .tl-row > .slot:not(:nth-child(3)),
+  .cinematic-festival .tl-body:not([data-day="all"]) .tl-row > .slot:not([data-open]){display:none}
 
-  .cinematic-festival .tl-body[data-day="2"] .tl-row > .slot:not(:nth-child(4)),
-
-  .cinematic-festival .tl-body[data-day="3"] .tl-row > .slot:not(:nth-child(5)){display:none}
-
-  .cinematic-festival .tl-body[data-day="0"] .tl-row:not(:has(> .slot:nth-child(2) > .session)),
-
-  .cinematic-festival .tl-body[data-day="1"] .tl-row:not(:has(> .slot:nth-child(3) > .session)),
-
-  .cinematic-festival .tl-body[data-day="2"] .tl-row:not(:has(> .slot:nth-child(4) > .session)),
-
-  .cinematic-festival .tl-body[data-day="3"] .tl-row:not(:has(> .slot:nth-child(5) > .session)){display:none}
+  .cinematic-festival .tl-body:not([data-day="all"]) .tl-row:not(:has(> .slot[data-open] > .session)){display:none}
 
   .cinematic-festival .day-mobile-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;position:sticky;top:0;background:linear-gradient(180deg,#0a0a0a 0%,#0a0a0a 80%,transparent);padding:8px 0 12px;z-index:5}
 
@@ -801,8 +820,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .all-days-toggle button{background:transparent;border:1px solid rgba(251,146,60,0.3);color:rgba(255,255,255,0.7);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;transition:all .15s}
 
 .cinematic-festival .all-days-toggle button:hover{border-color:#fb923c;color:#fb923c}
-
-.cinematic-festival .all-days-toggle button.active{border-color:#fb923c;color:#fb923c;background:rgba(251,146,60,0.06)}
 
 @media (min-width:901px){.cinematic-festival .all-days-toggle{display:none}}
 
@@ -1859,7 +1876,39 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     [dayKeys, sessionDayKeys, serverTodayKey],
   );
 
-  const activeDayIdx = pickedDayIdx ?? seedDayIdx;
+  // CLAMPED, because the picked index can outlive the schedule it was picked
+  // from: a refetch that shortens the schedule leaves an earlier tab click
+  // pointing past the last column, and an index past the last column matches no
+  // cell -- `data-open` is stamped on nothing, the hide-every-other-slot rule
+  // therefore hides EVERY slot, and the schedule renders blank.
+  //
+  // Stamping the open column on the slot made this view independent of the
+  // column COUNT, not of the INDEX, so the clamp is not redundant with it.
+  //
+  // IT IS ALSO NOT A COMPLETE REPAIR, and the remainder is QUEUED rather than
+  // guessed at. The clamp BOUNDS a stale pick, it does not DROP one:
+  // `pickedDayIdx` keeps the out-of-range value, so the reader silently gets
+  // the last column rather than the day they chose, and a later refetch that
+  // restores the longer schedule springs the view back to the stale index with
+  // no user action. `defaultedForRef.current === eid` means the effect below
+  // will not re-pick either. The same staleness reaches `lightboxIndex`,
+  // `descExpanded` and `showAllDays`, so one reset for the whole per-festival
+  // group is the real fix -- not a special case for this one index.
+  //
+  // A render-time reset for `pickedDayIdx` alone was written and REVERTED. It
+  // cannot be proven here: no test in this repo MOUNTS this component, so both
+  // it and this clamp survive being no-op'd with 17/17 green, and this repo
+  // does not ship a fix that survives `-> if (false)` with zero fail lines.
+  // A jsdom harness comes first. See queued-festival-per-festival-state-reset.md.
+  //
+  // The navigation path is also narrower than "React Router keeps the route
+  // module mounted", which is what the reverted attempt assumed. On a COLD
+  // destination this component does not survive at all: while the new event's
+  // queries are in flight `sniffIsFestival(undefined, undefined)` is false, so
+  // EventPage falls through to BentoPage and FestivalDetail unmounts, taking
+  // every bit of this state with it. Only a WARM destination -- A -> B -> back
+  // to A inside the 60s staleTime -- keeps it alive.
+  const activeDayIdx = Math.min(pickedDayIdx ?? seedDayIdx, Math.max(days.length - 1, 0));
 
   // Correct the seed against the REAL client clock when the festival is live
   // (else leave day 1). Runs once per festival load -- a ref keyed on eventId
@@ -2481,15 +2530,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
             <div className="all-days-toggle">
 
+              {/* A plain ACTION button, not a toggle-state one. The label always
+                  names what tapping DOES -- "Single day" while the all-days view
+                  is up, "View all N days" otherwise -- so an `aria-pressed` on
+                  top of it contradicted the name it sat on: with the all-days
+                  view showing, a screen reader announced "Single day, pressed",
+                  i.e. that single-day was ON when it is the thing that is off.
+                  The name carries the whole meaning; the state attribute only
+                  ever fought it.
+
+                  AND THE SAME GOES FOR THE VISUAL CHANNEL. This carried
+                  `className={showAllDays ? "active" : ""}` alongside the
+                  aria-pressed, painting `.all-days-toggle button.active`'s
+                  orange "on" treatment on a button reading "Single day" while
+                  the all-days grid was up -- telling a sighted reader exactly
+                  what the attribute told a screen-reader one. Removing one
+                  channel and leaving the other would have been half a fix, so
+                  the class and its now-dead rule go with it. */}
               <button
 
                 type="button"
 
-                className={showAllDays ? "active" : ""}
-
                 onClick={() => setShowAllDays((v) => !v)}
-
-                aria-pressed={showAllDays}
 
               >
 
@@ -2589,6 +2651,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
+              {/* `data-day` is STATE, not a style hook for the open column any
+                  more -- the CSS reads only `[data-day="all"]` (which view is
+                  up), never the index. The index is still stamped because it is
+                  the one place the chosen column is observable from the served
+                  HTML, which is what the SSR default-day gate asserts on. */}
               <div className="tl-body" data-day={showAllDays ? "all" : String(activeDayIdx)}>
 
                 {hours.map((hour) => (
@@ -2603,7 +2670,23 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
                       return (
 
-                        <div key={wallClockDateKey(day) ?? `day-${dayIdx}`} className="slot">
+                        // THE OPEN COLUMN, stamped where it is KNOWN. `dayIdx`
+                        // and `activeDayIdx` are both in scope right here, so
+                        // the cell can say whether it is the open one instead
+                        // of the stylesheet counting child positions from the
+                        // ancestor -- which is what forced an enumeration, and
+                        // with it a ceiling, a fallback and a disabled toggle.
+                        // `|| undefined` so the attribute is ABSENT rather than
+                        // `data-open="false"` on closed cells: the CSS matches
+                        // on presence (`:not([data-open])`), and an attribute
+                        // that were always present would match every column and
+                        // hide none -- failing open, the exact mode this
+                        // replaced. See CINEMATIC_CSS.
+                        <div
+                          key={wallClockDateKey(day) ?? `day-${dayIdx}`}
+                          className="slot"
+                          data-open={dayIdx === activeDayIdx || undefined}
+                        >
 
                           {sessions.map((s, idx) => {
 

@@ -51,16 +51,24 @@ const byDateKey = (a: WallClock, b: WallClock): number => {
  *    session became unreachable in the UI. The column carries no label, which
  *    is ugly; labelling it is queued debt, hiding it is not an option.
  *
- * LAST, not first, and that placement is forced rather than aesthetic. The
- * mobile single-day CSS in FestivalDetail defines `data-day="0"`..`"3"` only,
- * so a FIFTH column is unselectable on mobile -- where ~95% of users are. Any
- * column past the fourth is therefore lost, and the only choice is WHICH one:
- * appending puts a data-fault bucket in that position, while the pre-extraction
- * order (a raw Set put '' first) put the festival's real last day there. Both
- * lose a column; this one loses the least valuable. The four-column ceiling
- * itself is a PRE-EXISTING limit -- a genuine five-day festival already hits it
- * on main -- and fixing it is queued separately, but this change makes it
- * easier to reach, which is why it is written down here.
+ * LAST, not first -- now for the plain reason that an orphan bucket belongs
+ * after the festival's real days.
+ *
+ * IT USED TO BE FORCED, and by a defect. The mobile single-day CSS enumerated
+ * `data-day="0"`..`"3"`, so any column past the fourth was lost, and the only
+ * choice was WHICH one to lose: appending puts a data-fault bucket in that
+ * position, while the pre-extraction order (a raw Set put '' first) put the
+ * festival's real last day there. This note called a fifth column merely
+ * "unselectable", and that was WRONG -- the default-day effect SELECTS it on a
+ * five-day festival's last day, and Tunisia Bachata Festival 2026
+ * (2026-09-24..28) is a live instance. A selected index with no matching rule
+ * hid nothing, so the page went unstyled rather than merely losing a tab.
+ *
+ * THE CEILING IS GONE, and no number replaced it. FestivalDetail stamps
+ * `data-open` on the open cell itself, so the CSS never counts columns and this
+ * function's output is unbounded as far as the view is concerned -- which
+ * matters, because it can emit a 62-day span (wallClockDateRange's maxDays),
+ * plus one column per out-of-span session, plus this bucket.
  *
  * There is deliberately NO separate "no span" branch. With no span days there
  * are no span keys, so every session is an orphan and the union below already
