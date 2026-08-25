@@ -1,4 +1,13 @@
-import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  // ALIASED, because line ~2300 of this file uses the DOM's global
+  // KeyboardEvent on a document listener. An unaliased import would shadow it
+  // there with React's synthetic one, and the two are not the same type.
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { createPortal } from "react-dom";
 
@@ -48,10 +57,10 @@ import { useTodayKey } from "@/hooks/useTodayKey";
 import {
   asWallClock,
   formatWallClockLocalIntl,
-  formatWallClockTime,
   instantToDate,
   wallClockDateKey,
   wallClockHour,
+  wallClockTimeKey,
   wallClockToInstant,
   type WallClock,
 } from "@/lib/time/wallClock";
@@ -65,7 +74,11 @@ import { FestivalPromoBanner } from "@/modules/event-page/sections/FestivalPromo
 
 import { FestivalGroupChatSection } from "@/modules/event-page/sections/FestivalGroupChatSection";
 
-import type { EventPageSnapshot } from "@/modules/event-page/types";
+import type {
+  EventPageSnapshot,
+  FestivalScheduleItem,
+  FestivalSessionLevel,
+} from "@/modules/event-page/types";
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
@@ -139,26 +152,28 @@ type FestivalDetailInnerProps = {
 // would also end the literal outright -- esbuild catches that, safe-edit's
 // parse-check does not.)
 //
-// THE SINGLE-DAY VIEW WORKS BY HIDING, and the open column is stamped on the
-// SLOT rather than counted from the ancestor. data-open is written by the same
-// days.map that renders the cell, so both of the rules under the "single-day
-// view" marker are independent of how many columns the schedule has.
+// THE SINGLE-DAY VIEW NO LONGER WORKS BY HIDING, and this is the note that
+// used to say it did. The columns were DAYS: every day was laid out and all
+// but one hidden with CSS, so the stylesheet carried the whole burden of
+// showing the right one. The columns are ROOMS now, the grid is built for the
+// open day alone, and the other days are not hidden -- they are not rendered.
 //
-// They used to be an ENUMERATION -- .tl-body[data-day="0"].."3", one
-// hand-written pair per index, each naming a child position with nth-child.
-// That fails OPEN: an index with no matching rule hides NOTHING, so the reader
-// gets every column crushed into a 375px viewport with every empty hour row
-// showing, which looks like a broken page rather than a missing stylesheet
-// rule. It was live, not theoretical -- event_program_days says Tunisia
-// Bachata Festival 2026 runs 2026-09-24..28, five columns, and the default-day
-// effect SELECTS that fifth column on the day itself. festivalGridDays can
-// produce far more: a 62-day span (wallClockDateRange's maxDays), plus one
-// column per out-of-span session, plus the UNDATED bucket.
+// Two consequences worth keeping. First, the count problem is gone at the
+// root rather than solved: nothing in this stylesheet needs to know how many
+// days a festival has, so a 62-day span (wallClockDateRange's maxDays) plus a
+// column per out-of-span session plus the UNDATED bucket cannot produce a rule
+// with no match. The enumeration that preceded it -- .tl-body[data-day="0"]
+// .."3", one hand-written nth-child pair per index -- failed OPEN, and did so
+// on live data: event_program_days has Tunisia Bachata Festival 2026 running
+// 2026-09-24..28, five columns, with the default-day effect selecting the
+// fifth on the day itself. Do not reintroduce a count in any form.
 //
-// Do NOT reintroduce a count here in any form. A generated list bounded by a
-// constant is the same defect with a larger number, and it drags a ceiling, a
-// forced fallback and a disabled toggle along with it to stay honest. Nothing
-// needs to know the column count for this view to be correct.
+// Second, "the reader is looking at the wrong day" became a REPRESENTABLE
+// failure. Under the hide-based grid every day was in the DOM whatever the
+// state said, so the only observable was which column was un-hidden; the
+// content of the open column could never be wrong. Now each session card is
+// stamped with the day index it belongs to, so the gates assert the served
+// markup carries the open day's sessions and no others.
 //
 // ---------------------------------------------------------------------------
 
@@ -395,67 +410,134 @@ const CINEMATIC_CSS = `
 
 /* TV-Guide table grid -- flat cells with borders, type pills as chips */
 
-.cinematic-festival .tl-grid-wrap{border:1px solid rgba(251,146,60,0.3);background:#0a0a0a;overflow:hidden}
+/* TIMETABLE -- rooms across, hours down. Light on purpose: see PRODUCT.md. */
 
-.cinematic-festival .tl-header{display:grid;gap:0;border-bottom:1px solid rgba(251,146,60,0.4);position:sticky;top:0;background:#0a0a0a;z-index:10}
-
-.cinematic-festival .tl-time-h{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.2em;text-transform:uppercase;padding:14px 12px;border-right:1px solid rgba(251,146,60,0.3);background:rgba(255,255,255,0.02)}
-
-.cinematic-festival .tl-day{padding:14px 12px;border-right:1px solid rgba(251,146,60,0.15);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#fb923c}
-
-.cinematic-festival .tl-day:last-child{border-right:none}
-
-.cinematic-festival .tl-day .name{display:inline}
-
-.cinematic-festival .tl-day .date{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;display:block;margin-top:4px;letter-spacing:-0.01em;line-height:1}
-
-.cinematic-festival .tl-day .date .lbl{color:rgba(255,255,255,0.5);font-size:0.55em;margin-left:6px;letter-spacing:0.15em}
-
-.cinematic-festival .tl-day.today{background:rgba(251,146,60,0.10);box-shadow:inset 0 2px 0 #fb923c}
-
-.cinematic-festival .tl-day-today{display:block;margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.18em;color:#000;background:#fb923c;border-radius:99px;padding:1px 7px;width:fit-content;margin-left:auto;margin-right:auto}
+.cinematic-festival .program-wrap{--tl-paper:#F2F2EF;--tl-ink:#000;--tl-ink-soft:rgba(0,0,0,0.74);--tl-ink-mute:rgba(0,0,0,0.58);--tl-hdr-bg:#000;--tl-hdr-ink:#fff;--tl-hdr-ink2:rgba(255,255,255,0.78);--tl-edge:#000;--tl-drop:rgba(0,0,0,0.85);--lv-beginner:#15803D;--lv-improver:#0369A1;--lv-intermediate:#C2410C;--lv-advanced:#BE185D;--lv-multi:#0F766E;--lv-open:#6D28D9;--lv-none:#5A6675;--tl-rowh:80px;--tl-gaph:26px;--tl-colw:210px;--tl-tgw:48px;--tl-headh:50px;--tl-boxh:360px}
 
 .cinematic-festival .tl-body{position:relative}
 
-.cinematic-festival .tl-row{display:grid;gap:0;align-items:stretch;position:relative}
+.cinematic-festival .tl-box:focus-visible{outline:3px solid #fb923c;outline-offset:4px}
 
-.cinematic-festival .tl-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.5);padding:12px;display:flex;align-items:flex-start;letter-spacing:0.05em;background:rgba(255,255,255,0.02);border-right:1px solid rgba(251,146,60,0.15);border-bottom:1px solid rgba(255,255,255,0.04)}
+.cinematic-festival .tl-box{position:relative;overflow:auto;background:var(--tl-paper);border:3px solid var(--tl-edge);box-shadow:8px 8px 0 var(--tl-drop)}
 
-.cinematic-festival .slot{padding:10px 12px;display:flex;flex-direction:column;justify-content:flex-start;gap:8px;border-right:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.04);min-height:64px}
+.cinematic-festival .tl-box::-webkit-scrollbar{width:6px;height:6px}
 
-.cinematic-festival .slot:last-child{border-right:none}
+.cinematic-festival .tl-box::-webkit-scrollbar-thumb{background:var(--tl-edge)}
 
-.cinematic-festival .tl-row:last-child > *{border-bottom:none}
+.cinematic-festival .tl-grid{display:grid;min-width:max-content;position:relative}
 
-.cinematic-festival .session{cursor:pointer;transition:background .15s ease;padding:2px 0;margin:0;background:transparent;border:none}
+.cinematic-festival .tl-corner{position:sticky;left:0;top:0;z-index:9;background:var(--tl-hdr-bg)}
 
-.cinematic-festival .slot:has(> .session):hover{background:rgba(251,146,60,0.05)}
+/* STICKY ONLY BELOW 901px, and that is a consequence of the settled design,
+   not an oversight. .tl-box is given a height (--tl-boxh) only inside the
+   <=900px query below, so above that width it grows to fit and its scrollport
+   never scrolls on the block axis -- which leaves the top: offset here, and on
+   .tl-ev-label, with no scroll range to stick within. On desktop the box opens
+   out and the whole day is on the page at once, so there is nothing to stick
+   TO; the rules are inert rather than wrong. Giving the box a desktop height
+   would make them live again and is a DESIGN decision, not a fix -- do not add
+   one here without settling that first.
+   NO BACKTICKS IN THIS BLOCK: it lives inside a JS template literal, where a
+   backtick ends the string and the parse error lands 3,000 lines away. */
+.cinematic-festival .tl-room{position:sticky;top:0;z-index:6;background:var(--tl-hdr-bg);padding:9px 12px;min-height:var(--tl-headh);display:flex;flex-direction:column;justify-content:center}
 
-.cinematic-festival .s-pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;padding:2px 7px;background:rgba(251,146,60,0.15);color:#fb923c;border:1px solid rgba(251,146,60,0.4);font-weight:700;margin-bottom:6px}
+.cinematic-festival .tl-room-name{color:var(--tl-hdr-ink);text-transform:uppercase;font-size:12px;font-weight:800;letter-spacing:0.05em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.cinematic-festival .session.party .s-pill{background:rgba(236,72,153,0.15);color:#ec4899;border-color:rgba(236,72,153,0.4)}
+.cinematic-festival .tl-room-count{color:var(--tl-hdr-ink2);font-size:11.5px;font-weight:600;line-height:1.25;margin-top:1px}
 
-.cinematic-festival .session.master .s-pill{background:rgba(168,85,247,0.15);color:#a855f7;border-color:rgba(168,85,247,0.4)}
+.cinematic-festival .tl-hour{position:sticky;left:0;z-index:4;background:var(--tl-paper);color:var(--tl-ink);font-weight:800;font-size:12px;padding:7px 8px 0 0;text-align:right}
 
-.cinematic-festival .s-title{font-size:13px;font-weight:600;color:#fff;line-height:1.3;letter-spacing:-0.005em}
+.cinematic-festival .tl-cellbg{border-top:1px solid var(--tl-edge)}
 
-.cinematic-festival .s-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:0.02em;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cinematic-festival .tl-gap{position:sticky;left:0;display:flex;align-items:center}
 
-.cinematic-festival .s-meta .tag{padding:1px 5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:9px;letter-spacing:0.05em}
+.cinematic-festival .tl-gap::before{content:'';position:absolute;left:12px;right:12px;top:50%;border-top:1px dashed var(--tl-ink-mute)}
 
-.cinematic-festival .s-duration{font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);margin-top:3px;letter-spacing:0.02em}
+.cinematic-festival .tl-gap span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:var(--tl-ink-soft);background:var(--tl-paper);padding:0 10px;position:sticky;left:calc(var(--tl-tgw) + 5px);z-index:2}
 
-.cinematic-festival .legend{display:flex;justify-content:center;gap:20px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);flex-wrap:wrap}
+/* Session card. NO overflow:hidden -- a clipping ancestor kills the sticky
+   label outright, which is the whole reason the label can float. */
 
-.cinematic-festival .legend-item{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.5)}
+.cinematic-festival .tl-ev{position:relative;z-index:3;margin:4px;background:var(--lv-none);border:2px solid var(--tl-edge);box-shadow:3px 3px 0 var(--tl-drop);padding:9px 11px;align-self:stretch;transition:transform .12s ease,box-shadow .12s ease}
 
-.cinematic-festival .legend-item .swatch{width:14px;height:14px;border-left:3px solid;background:rgba(255,255,255,0.04)}
+.cinematic-festival .tl-ev.l-beginner{background:var(--lv-beginner)}
+.cinematic-festival .tl-ev.l-improver{background:var(--lv-improver)}
+.cinematic-festival .tl-ev.l-intermediate{background:var(--lv-intermediate)}
+.cinematic-festival .tl-ev.l-advanced{background:var(--lv-advanced)}
+.cinematic-festival .tl-ev.l-multi{background:var(--lv-multi)}
+.cinematic-festival .tl-ev.l-open{background:var(--lv-open)}
 
-.cinematic-festival .legend-item.class .swatch{border-color:#fb923c}
+.cinematic-festival .tl-ev-label{position:sticky;top:var(--tl-headh);z-index:2;display:flex;flex-direction:column;gap:3px}
 
-.cinematic-festival .legend-item.party .swatch{border-color:#ec4899}
+.cinematic-festival .tl-ev-who{color:#fff;font-weight:800;font-size:14px;text-transform:uppercase;line-height:1.14}
 
-.cinematic-festival .legend-item.master .swatch{border-color:#a855f7}
+.cinematic-festival .tl-ev-what{color:#fff;font-weight:700;font-size:12px;line-height:1.28}
+
+.cinematic-festival .tl-ev-meta{color:#fff;font-weight:700;font-size:11.5px;letter-spacing:0.02em}
+
+.cinematic-festival .tl-ev-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+
+.cinematic-festival .tl-ev-tag{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;background:var(--tl-edge);color:var(--tl-paper);padding:2px 8px}
+
+.cinematic-festival .tl-ev-tag.ghost{background:transparent;color:var(--tl-edge);box-shadow:inset 0 0 0 2px var(--tl-edge)}
+
+.cinematic-festival .tl-ev-roster i.more{font-style:italic;font-weight:600;opacity:0.85}
+
+.cinematic-festival .tl-ev-roster{margin-top:7px;padding-top:7px;border-top:2px solid rgba(0,0,0,0.4);display:flex;flex-direction:column;gap:2px}
+
+.cinematic-festival .tl-ev-roster b{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:#fff;margin-bottom:2px}
+
+.cinematic-festival .tl-ev-roster i{font-style:normal;font-size:12.5px;font-weight:700;color:#fff;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Over three hours: wash the colour back so a long social reads as a backdrop
+   rather than a wall. A LAYERED GRADIENT, not color-mix() -- if color-mix is
+   unsupported the declaration is dropped and the card keeps a saturated
+   background under ink recoloured for a washed one, i.e. dark on dark. */
+
+.cinematic-festival .tl-ev.long{background-image:linear-gradient(0deg,rgba(242,242,239,0.74) 0,rgba(242,242,239,0.74) 100%);border-left-width:8px}
+
+.cinematic-festival .tl-ev.long .tl-ev-who,.cinematic-festival .tl-ev.long .tl-ev-what,.cinematic-festival .tl-ev.long .tl-ev-meta,.cinematic-festival .tl-ev.long .tl-ev-roster b,.cinematic-festival .tl-ev.long .tl-ev-roster i{color:var(--tl-ink)}
+
+.cinematic-festival .tl-ev.long .tl-ev-roster{border-top-color:rgba(0,0,0,0.35)}
+
+/* Empty day -- a real state, not a blank grid. */
+
+.cinematic-festival .tl-empty{background:var(--tl-paper);border:3px solid var(--tl-edge);box-shadow:8px 8px 0 var(--tl-drop);padding:26px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:180px}
+
+.cinematic-festival .tl-empty-mark{font-size:30px;line-height:1;color:var(--tl-ink);margin-bottom:8px}
+
+.cinematic-festival .tl-empty-title{font-size:19px;font-weight:800;color:var(--tl-ink);text-transform:uppercase;line-height:1.15}
+
+.cinematic-festival .tl-empty-body{font-size:13.5px;font-weight:500;color:var(--tl-ink-soft);margin-top:8px;line-height:1.5;max-width:34ch}
+
+.cinematic-festival .tl-note{display:flex;justify-content:space-between;padding:9px 3px 0}
+
+.cinematic-festival .tl-note span{font-size:12px;font-weight:600;color:rgba(255,255,255,0.62)}
+
+.cinematic-festival .legend{display:flex;justify-content:center;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.12);flex-wrap:wrap}
+
+.cinematic-festival .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.78)}
+
+.cinematic-festival .legend-item .swatch{width:11px;height:11px;display:block;background:var(--lv-none);border:1px solid rgba(255,255,255,0.35)}
+
+.cinematic-festival .legend-item.l-beginner .swatch{background:var(--lv-beginner)}
+.cinematic-festival .legend-item.l-improver .swatch{background:var(--lv-improver)}
+.cinematic-festival .legend-item.l-intermediate .swatch{background:var(--lv-intermediate)}
+.cinematic-festival .legend-item.l-advanced .swatch{background:var(--lv-advanced)}
+.cinematic-festival .legend-item.l-multi .swatch{background:var(--lv-multi)}
+.cinematic-festival .legend-item.l-open .swatch{background:var(--lv-open)}
+
+@media (hover:hover){
+  .cinematic-festival .tl-ev:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--tl-drop)}
+}
+
+/* Keep the state change, drop the travel -- killing the feedback outright is
+   the usual over-correction here. */
+
+@media (prefers-reduced-motion:reduce){
+  .cinematic-festival .tl-ev{transition:box-shadow .12s ease}
+  .cinematic-festival .tl-ev:hover{transform:none;box-shadow:5px 5px 0 var(--tl-drop)}
+}
 
 
 
@@ -609,26 +691,16 @@ const CINEMATIC_CSS = `
 
 @media (max-width:900px){
 
-  .cinematic-festival .tl-header{display:none}
+  /* THE TRAPPED BOX. Mobile only: a fixed height plus overscroll-behavior so
+     the timetable never scrolls the page underneath it, on either axis. The
+     desktop rule is the ABSENCE of these -- the box opens out to its full
+     height, which is why they must stay inside this media block. */
 
-  .cinematic-festival .tl-row{grid-template-columns:60px 1fr !important;gap:0;min-height:0;padding:0}
+  .cinematic-festival .tl-box{height:var(--tl-boxh);overscroll-behavior:none;-webkit-overflow-scrolling:touch}
 
-  .cinematic-festival .tl-time{padding:10px 8px;font-size:10px}
+  .cinematic-festival .program{padding:36px 16px}
 
-  .cinematic-festival .slot{padding:10px 12px;min-height:0}
-
-  /* single-day view: hide-based, count-independent. Read the note above the
-     CINEMATIC_CSS declaration before touching either rule. */
-
-  .cinematic-festival .tl-body:not([data-day="all"]) .tl-row > .slot:not([data-open]){display:none}
-
-  .cinematic-festival .tl-body:not([data-day="all"]) .tl-row:not(:has(> .slot[data-open] > .session)){display:none}
-
-  .cinematic-festival .day-mobile-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;position:sticky;top:0;background:linear-gradient(180deg,#0a0a0a 0%,#0a0a0a 80%,transparent);padding:8px 0 12px;z-index:5}
-
-  .cinematic-festival .day-tab{padding:10px 18px;background:rgba(255,255,255,0.04);border:1px solid rgba(251,146,60,0.3);color:#fb923c;font-family:'Bebas Neue',sans-serif;letter-spacing:0.15em;font-size:13px;text-transform:uppercase;cursor:pointer;transition:all .15s}
-
-  .cinematic-festival .day-tab.active{background:#fb923c;color:#000;border-color:#fb923c}
+  .cinematic-festival .tl-ev-who{font-size:13px}
 
   .cinematic-festival .lineup{padding:36px 16px}
 
@@ -734,8 +806,6 @@ const CINEMATIC_CSS = `
 
 }
 
-@media (min-width:901px){.cinematic-festival .day-mobile-tabs{display:none}}
-
 @media (max-width:480px){
 
   .cinematic-festival .hero{padding:0 16px 40px}
@@ -803,64 +873,34 @@ const CINEMATIC_CSS = `
 
 
 
-/* === P3 schedule density toggle + counts ================= */
 
-.cinematic-festival .day-tab-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;margin-left:6px;font-weight:400}
+/* === Day picker ========================================== */
 
-.cinematic-festival .day-tab.active .day-tab-count{color:rgba(0,0,0,0.5)}
+.cinematic-festival .day-picker{display:flex;gap:8px;overflow-x:auto;padding:13px 0 15px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 
-.cinematic-festival .day-tab.today:not(.active){border-color:rgba(251,146,60,0.7)}
+.cinematic-festival .day-picker::-webkit-scrollbar{display:none}
 
-.cinematic-festival .day-tab-today{margin-left:7px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.16em;text-transform:uppercase;color:#000;background:#fb923c;border-radius:99px;padding:1px 6px;vertical-align:middle}
+.cinematic-festival .day-tab{flex:0 0 auto;display:flex;align-items:baseline;gap:7px;min-height:46px;padding:10px 15px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);color:#fff;cursor:pointer;font:inherit;transition:background .15s,border-color .15s}
 
-.cinematic-festival .day-tab.active .day-tab-today{background:#000;color:#fb923c}
+.cinematic-festival .day-tab-wd{font-size:12px;font-weight:600;color:rgba(255,255,255,0.82)}
 
-.cinematic-festival .all-days-toggle{display:flex;justify-content:center;margin:-6px 0 12px}
+.cinematic-festival .day-tab-num{font-size:18px;font-weight:800;letter-spacing:-0.02em}
 
-.cinematic-festival .all-days-toggle button{background:transparent;border:1px solid rgba(251,146,60,0.3);color:rgba(255,255,255,0.7);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.cinematic-festival .day-tab-count{font-size:12px;font-weight:600;color:rgba(255,255,255,0.74)}
 
-.cinematic-festival .all-days-toggle button:hover{border-color:#fb923c;color:#fb923c}
+.cinematic-festival .day-tab.active{background:#fff;border-color:#fff;color:#111}
 
-@media (min-width:901px){.cinematic-festival .all-days-toggle{display:none}}
+.cinematic-festival .day-tab.active .day-tab-wd{color:#3A3A3A}
 
-.cinematic-festival .day-mobile-tabs[hidden]{display:none}
+.cinematic-festival .day-tab.active .day-tab-count{color:#4A4A4A}
 
-@media (max-width:900px){
+.cinematic-festival .day-tab.today:not(.active){border-color:#fb923c}
 
-  /* Swipe Grid mode: when showing all days on mobile, horizontal scroll with wide columns. */
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]){overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(251,146,60,0.4) transparent}
+.cinematic-festival .day-tab-today{font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#111;background:#fb923c;border-radius:99px;padding:2px 8px;align-self:center}
 
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"])::-webkit-scrollbar{height:4px}
+.cinematic-festival .day-tab.active .day-tab-today{background:#111;color:#fb923c}
 
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"])::-webkit-scrollbar-thumb{background:rgba(251,146,60,0.4)}
-
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-header{display:grid !important;grid-template-columns:60px repeat(var(--days, 3), minmax(170px, 1fr)) !important;min-width:fit-content;position:sticky;top:0;z-index:4;background:#0a0a0a}
-
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-time-h{position:sticky;left:0;z-index:2;background:#0a0a0a;padding:12px 8px;font-size:10px}
-
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-day{padding:10px 12px;font-size:10px;scroll-snap-align:start}
-
-  .cinematic-festival .tl-grid-wrap:has(.tl-body[data-day="all"]) .tl-day .date{font-size:18px;margin-top:2px}
-
-  .cinematic-festival .tl-body[data-day="all"]{min-width:fit-content}
-
-  .cinematic-festival .tl-body[data-day="all"] .tl-row{display:grid !important;grid-template-columns:60px repeat(var(--days, 3), minmax(170px, 1fr)) !important;min-width:fit-content}
-
-  .cinematic-festival .tl-body[data-day="all"] .tl-row > .slot{display:flex !important;scroll-snap-align:start}
-
-  .cinematic-festival .tl-body[data-day="all"] .tl-time{position:sticky;left:0;z-index:2;background:#0a0a0a}
-
-}
-
-.cinematic-festival .tl-swipe-hint{display:none}
-
-@media (max-width:900px){
-
-  .cinematic-festival .tl-swipe-hint{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 16px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(251,146,60,0.55)}
-
-  .cinematic-festival .tl-swipe-hint span:first-child,.cinematic-festival .tl-swipe-hint span:last-child{font-size:14px}
-
-}
+.cinematic-festival .day-tab:focus-visible{outline:3px solid #fb923c;outline-offset:3px}
 
 
 
@@ -1393,6 +1433,451 @@ const splitTitleIntoLines = (name: string): string[] => {
  * (snake_case). Only the fields this page actually reads are named; the rest
  * stays `unknown` rather than `any` so a new read has to declare itself here.
  */
+// ---------------------------------------------------------------------------
+// Timetable model -- rooms across, hours down, ONE DAY at a time.
+// ---------------------------------------------------------------------------
+// Pure and module-scoped, so every decision about lanes, spans and gaps can be
+// read without rendering the page. The renderer below only turns what this
+// returns into grid coordinates; it makes no layout decisions of its own.
+//
+// The columns are ROOMS, not days -- that is the whole shape change. A festival
+// runs several rooms at once and the reader's question is "what is on at
+// 16:00", which a day-per-column grid cannot answer at all. A festival that has
+// published NO rooms renders exactly one column, and that is CORRECT rather
+// than a case to design around: Tunisia Bachata Festival 2026 carries 14
+// programme items with room empty and levels empty on every one of them, so one
+// grey column is a true rendering of what the organiser has published. Inventing
+// a room or a level there would put false information on a public page.
+
+// The order is the SOURCE and the union is derived from it, not the other way
+// round. Written as two lists, adding a level and forgetting the array leaves
+// `indexOf` returning -1, which sorts the new level silently to the FRONT of
+// the legend instead of failing to compile.
+const TIMETABLE_LEVEL_ORDER = [
+  "beginner",
+  "improver",
+  "intermediate",
+  "advanced",
+  "multi",
+  "open",
+  "none",
+] as const;
+
+type TimetableLevelKey = (typeof TIMETABLE_LEVEL_ORDER)[number];
+
+// The spelling the other four surfaces already use (ScheduleBlock, PeopleStack,
+// FestivalProgramSection): the same session must not read differently on
+// /festival/:id than it does on /event/:slug.
+const LEVEL_LABEL_FULL: Record<FestivalSessionLevel, string> = {
+  beginner: "Beginner",
+  improver: "Improver",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  open_level: "Open Level",
+};
+
+/** The four NAMED levels, in canonical order -- `open_level` is not one of them. */
+const NAMED_LEVELS = ["beginner", "improver", "intermediate", "advanced"] as const;
+
+// Colour is BY LEVEL, and the legend beneath the grid has to stay honest about
+// it -- so a session carrying more than one level is not painted as its first
+// one. It reads "All levels" and shares the open-level swatch. A session with no
+// level is grey and says so; nothing is inferred.
+const timetableLevel = (
+  levels: FestivalSessionLevel[],
+): { key: TimetableLevelKey; label: string } => {
+  if (levels.length === 0) return { key: "none", label: "No level set" };
+
+  // THE CONTRACT IS IN `FestivalScheduleItem.levels`: "All four named = 'All
+  // levels'. `open_level` alone = 'Open Level'." Reading ANY multi-level
+  // session as "All levels" advertised a beginner+improver class as open to
+  // advanced dancers -- false information about a real event, on a public page.
+  // A partial set is listed as what it is.
+  const named = NAMED_LEVELS.filter((l) => levels.includes(l));
+  if (levels.includes("open_level")) return { key: "open", label: "Open Level" };
+  if (named.length === NAMED_LEVELS.length) return { key: "open", label: "All levels" };
+  if (named.length > 1) {
+    return { key: "multi", label: named.map((l) => LEVEL_LABEL_FULL[l]).join(", ") };
+  }
+  // `levels` non-empty but carrying nothing recognisable: say nothing rather
+  // than pick one. Unreachable through the codec, and not worth a lie if it is.
+  if (named.length === 0) return { key: "none", label: "No level set" };
+  return { key: named[0], label: LEVEL_LABEL_FULL[named[0]] };
+};
+
+/** Minutes since midnight of a stored wall clock, read as-stored. */
+const wallClockMinutes = (wc: WallClock | null | undefined): number | null => {
+  const key = wallClockTimeKey(wc);
+  if (!key) return null;
+  const hh = Number(key.slice(0, 2));
+  const mm = Number(key.slice(3, 5));
+  return Number.isFinite(hh) && Number.isFinite(mm) ? hh * 60 + mm : null;
+};
+
+const minutesToHHMM = (m: number): string =>
+  `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+const DEFAULT_SESSION_MINUTES = 60;
+const LONG_SESSION_MINUTES = 180;
+
+// The longest a session may run PAST MIDNIGHT before the wrap is read as a data
+// fault rather than an all-nighter. A 9-hour 21:00-06:00 party is real; a
+// 23-hour one is a start/end typo, and without this bound it claims every hour
+// row on the day.
+const MAX_WRAP_MINUTES = 720;
+
+// The programme day runs 08:00 to 07:59 the next morning, which is the axis
+// `src/lib/programDayRollover.ts` already puts the DATA on. Hours are
+// normalised onto one continuous axis, so a 01:00 session sorts after the
+// 23:00 party it follows instead of to the top of the grid -- and shares a row
+// with a 23:00-02:00 party that wrapped onto the same hour, rather than
+// rendering a second row with the same clock label.
+//
+// THE BOUNDARY IS 8, NOT 9, and it is not a free choice: `ROLLOVER_HOUR = 8`
+// there rolls back sessions starting STRICTLY BEFORE 08:00 ("exclusive of
+// 08:00", in its own words), so 08:00-08:59 belongs to its OWN day's morning.
+// This constant read 9 while its comment claimed parity with that file, which
+// put an 08:30 bootcamp at the BOTTOM of its day behind a fabricated 10-hour
+// gap -- the data said morning, the axis said tomorrow.
+const DAY_AXIS_START_HOUR = 8;
+
+const roomOf = (item: FestivalScheduleItem): string | null => {
+  const raw = item.venueRoom;
+  return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
+};
+
+// End time is the field the data is least honest about, so every reading is
+// BOUNDED rather than trusted:
+//   missing              -> one hour, which occupies exactly one row
+//   equal to start       -> unknown, treated as missing. NOT as 24 hours, which
+//                           is what a bare `end <= start -> +1 day` rule does to
+//                           a 20:00-20:00 row
+//   earlier than start   -> an overnight party, wrapped past midnight, UNLESS
+//                           the wrap exceeds MAX_WRAP_MINUTES, which reads as a
+//                           typo and falls back to the default hour
+//
+// DURATION IS COMPUTED ON THE RAW CLOCK and the axis shift applied afterwards,
+// so the two cannot disagree. An earlier version clamped with
+// `Math.min(end, start + 1440)`, which was unreachable in both branches --
+// wrapped ends are always under start+1440 by construction, and un-wrapped ones
+// are under 1440 outright. It read as a bound and was dead code, so a 10:00 ->
+// 09:00 typo still produced a 23-hour card spanning the whole day.
+const sessionSpanMinutes = (
+  item: FestivalScheduleItem,
+): { start: number; end: number; endPublished: boolean } | null => {
+  const rawStart = wallClockMinutes(item.startTime);
+  if (rawStart === null) return null;
+  const rawEnd = wallClockMinutes(item.endTime);
+
+  // `endPublished` SEPARATES THE LAYOUT DECISION FROM THE CLAIM. A session with
+  // no end time still needs a height, so it gets DEFAULT_SESSION_MINUTES -- but
+  // the organiser published no end, and the card must not print one. Rendering
+  // the fallback as a clock range told readers a 20:00 session ends at 21:00 on
+  // the sole authority of this constant.
+  let duration: number;
+  let endPublished: boolean;
+  if (rawEnd === null || rawEnd === rawStart) {
+    duration = DEFAULT_SESSION_MINUTES;
+    endPublished = false;
+  } else if (rawEnd > rawStart) {
+    duration = rawEnd - rawStart;
+    endPublished = true;
+  } else {
+    const wrapped = rawEnd + 1440 - rawStart;
+    // Over the bound the wrap is read as a start/end typo. Rejecting the value
+    // is right; asserting a DIFFERENT one in its place is not, so the card
+    // falls back to start-only rather than to "start to start+1h".
+    endPublished = wrapped <= MAX_WRAP_MINUTES;
+    duration = endPublished ? wrapped : DEFAULT_SESSION_MINUTES;
+  }
+
+  const start = rawStart < DAY_AXIS_START_HOUR * 60 ? rawStart + 1440 : rawStart;
+  return { start, end: start + duration, endPublished };
+};
+
+type TimetableRow = { kind: "hour"; hour: number } | { kind: "gap"; hours: number };
+
+type TimetableRoom = {
+  name: string | null;
+  lanes: number;
+  count: number;
+  /** 0-based column this room's header starts at; it spans `lanes` of them. */
+  startColumn: number;
+};
+
+type TimetableCell = {
+  key: string;
+  item: FestivalScheduleItem;
+  room: string | null;
+  /** 0-based index into the flattened room/lane column list. */
+  column: number;
+  /** 0-based indices into `rows`, inclusive at both ends. */
+  rowStart: number;
+  rowEnd: number;
+  startMin: number;
+  endMin: number;
+  /**
+   * Did the ORGANISER publish an end time, or is `endMin` the layout fallback?
+   *
+   * `endMin` always holds something because a card needs a height. Printing
+   * that fallback as a clock range told readers a 20:00 session ends at 21:00
+   * on the authority of DEFAULT_SESSION_MINUTES alone. False when no end was
+   * published, when end == start, and when the wrap exceeded MAX_WRAP_MINUTES
+   * (a rejected end must render as start-only, not as a different wrong end).
+   */
+  endPublished: boolean;
+  isLong: boolean;
+  level: { key: TimetableLevelKey; label: string };
+  /** "Party" / "Masterclass", or null for an ordinary class. */
+  typeTag: string | null;
+  /**
+   * Whether the card is tall enough for a tag ROW. When false the type is
+   * folded into the meta line instead of getting its own 28px band, which a
+   * one-row card cannot afford.
+   */
+  tagRow: boolean;
+  /**
+   * How many artist names this card has ROOM for.
+   *
+   * The card must not clip (`overflow:hidden` on it silently disables the
+   * sticky label) and it carries `z-index:3`, so a roster longer than the card
+   * paints straight over the session below it. A one-hour workshop with four
+   * instructors needs ~108px of label inside ~54px of card. Bounding the list
+   * here, where the row span is known, is what keeps the card honest without
+   * clipping it.
+   */
+  maxRoster: number;
+};
+
+/**
+ * The exposed content of the grid, in the order the eye reads it.
+ *
+ * GAPS AND SESSIONS TOGETHER, because they are the only two things in the grid
+ * that are NOT aria-hidden, and DOM order is the order a screen reader and a
+ * keyboard walk take. Emitting them in separate passes -- every gap, then every
+ * session -- announced "3 hours free, 5 hours free" up front and then the whole
+ * day, which is exactly the mismatch the cells' row-then-column sort exists to
+ * prevent. One ordering, one pass, both kinds.
+ */
+type TimetableFlowItem =
+  | { kind: "gap"; row: number; column: number; hours: number }
+  | { kind: "cell"; row: number; column: number; cell: TimetableCell };
+
+type TimetableLayout = {
+  rooms: TimetableRoom[];
+  columns: number;
+  rows: TimetableRow[];
+  cells: TimetableCell[];
+  flow: TimetableFlowItem[];
+};
+
+const EMPTY_TIMETABLE: TimetableLayout = { rooms: [], columns: 0, rows: [], cells: [], flow: [] };
+
+// What a card of N rows can hold.
+//
+// EVERY FIGURE HERE WAS MEASURED IN THE BROWSER, not derived. The first attempt
+// estimated them and was wrong in both directions -- a three-row card still
+// overflowed by 25px and a one-row card by 2px -- which is the whole reason
+// these are named constants with a note rather than arithmetic inline.
+//
+// TIMETABLE_ROW_PX MIRRORS `--tl-rowh` in CINEMATIC_CSS and the two must move
+// together; this is the same coupling shape as the `--bento-cell` fallback, and
+// it is real: change the CSS row height alone and every tall card silently
+// mis-sizes its roster. The rest are the rendered heights of the card's own
+// parts at the sizes that stylesheet sets.
+const TIMETABLE_ROW_PX = 80;
+const CARD_CHROME_PX = 30;
+const CARD_FIXED_TEXT_PX = 35;
+const CARD_TAG_ROW_PX = 28;
+const ROSTER_HEADER_PX = 31;
+const ROSTER_LINE_PX = 18;
+
+// A one-row card cannot afford a tag ROW at all -- 15px name + 17px meta + 28px
+// tag needs 60px of the 50px such a card has inside its padding. Below this the
+// type is folded into the meta line instead, which costs nothing.
+const MIN_ROWS_FOR_TAG_ROW = 2;
+
+/**
+ * How many roster LINES a card can show, counting the "and N more" line as one
+ * of them. Zero means the roster block does not fit and the artist count
+ * belongs on the meta line.
+ */
+const rosterCapacity = (rowSpan: number, hasTagRow: boolean): number => {
+  const usable =
+    rowSpan * TIMETABLE_ROW_PX -
+    CARD_CHROME_PX -
+    CARD_FIXED_TEXT_PX -
+    (hasTagRow ? CARD_TAG_ROW_PX : 0) -
+    ROSTER_HEADER_PX;
+  return Math.max(0, Math.floor(usable / ROSTER_LINE_PX));
+};
+
+/** One day's sessions, placed into room columns and hour rows. */
+const buildTimetableLayout = (items: FestivalScheduleItem[]): TimetableLayout => {
+  const timed = items.flatMap((item) => {
+    const span = sessionSpanMinutes(item);
+    return span ? [{ item, span }] : [];
+  });
+  if (timed.length === 0) return EMPTY_TIMETABLE;
+
+  // Rooms in FIRST-APPEARANCE order. The RPC already returns programme items in
+  // the organiser's own sort_order, so this preserves that rather than imposing
+  // an alphabetical order on top of it.
+  const hasRooms = timed.some(({ item }) => roomOf(item) !== null);
+  const roomNames: (string | null)[] = [];
+  if (hasRooms) {
+    for (const { item } of timed) {
+      const name = roomOf(item);
+      if (!roomNames.includes(name)) roomNames.push(name);
+    }
+  } else {
+    roomNames.push(null);
+  }
+
+  // Greedy interval partitioning per room: reuse the first lane whose last
+  // session has already finished, else open a new one. Exercised by real data,
+  // not defensive -- London Latin Fest runs THREE classes at once in a single
+  // room on two of its days (16:00 on 24 May, 18:00 on 25 May).
+  //
+  // PARTITIONED ON HOUR ROWS, NOT ON MINUTES, because the row is the unit this
+  // grid can actually place a card in. Partitioning on minutes let two sessions
+  // that merely ABUT -- 20:00-20:30 and 20:30-21:00 -- share a lane: neither
+  // overlaps in time, so both took lane 0, and both then floored into hour row
+  // 20 and the same column. CSS Grid puts identical coordinates in the same
+  // area and `.tl-ev` is `align-self:stretch`, so the later card covered the
+  // earlier one completely and a session vanished from a public page.
+  //
+  // Two sessions sharing an hour row therefore need two lanes even when their
+  // minutes do not collide. That is the honest rendering while rows are whole
+  // hours: they genuinely occupy the same row.
+  const groups = roomNames.map((name) => {
+    const inRoom = timed
+      .filter(({ item }) => roomOf(item) === name)
+      .sort((a, b) => a.span.start - b.span.start || a.span.end - b.span.end);
+
+    const laneEndHours: number[] = [];
+    const placed = inRoom.map(({ item, span }) => {
+      const firstHour = Math.floor(span.start / 60);
+      const endHourExclusive = Math.ceil(span.end / 60);
+      const found = laneEndHours.findIndex((end) => end <= firstHour);
+      const lane = found === -1 ? laneEndHours.length : found;
+      laneEndHours[lane] = endHourExclusive;
+      return { item, span, lane };
+    });
+
+    return { name, placed, lanes: Math.max(laneEndHours.length, 1) };
+  });
+
+  // Hours any session touches. Empty hours are absent from this set, which is
+  // what lets the run below collapse them into one thin labelled break instead
+  // of a stack of blank rows.
+  const covered = new Set<number>();
+  for (const group of groups) {
+    for (const { span } of group.placed) {
+      for (let h = Math.floor(span.start / 60); h < Math.ceil(span.end / 60); h += 1) covered.add(h);
+    }
+  }
+  const hours = [...covered].sort((a, b) => a - b);
+
+  const rows: TimetableRow[] = [];
+  const rowOfHour = new Map<number, number>();
+  hours.forEach((hour, i) => {
+    if (i > 0 && hour - hours[i - 1] > 1) rows.push({ kind: "gap", hours: hour - hours[i - 1] - 1 });
+    rowOfHour.set(hour, rows.length);
+    rows.push({ kind: "hour", hour });
+  });
+
+  // A room's lanes are contiguous, so a lane's column IS its room's start
+  // column plus the lane index. The lookup Map this replaced was keyed
+  // `${gi}:${lane}` and read through a `?? 0` that could never fire -- which
+  // reads as a safety net while actually being a silent "put the card in
+  // column 0" if lane numbering ever changes. The arithmetic has no
+  // unreachable branch to reason about.
+  const roomStartColumn: number[] = [];
+  let columns = 0;
+  groups.forEach((group, gi) => {
+    roomStartColumn[gi] = columns;
+    columns += group.lanes;
+  });
+
+  const cells: TimetableCell[] = [];
+  groups.forEach((group, gi) => {
+    group.placed.forEach(({ item, span, lane }, pi) => {
+      const rowStart = rowOfHour.get(Math.floor(span.start / 60));
+      if (rowStart === undefined) return;
+      const lastHour = rowOfHour.get(Math.ceil(span.end / 60) - 1);
+      const rowEnd = lastHour === undefined || lastHour < rowStart ? rowStart : lastHour;
+      const isLong = span.end - span.start > LONG_SESSION_MINUTES;
+      // The type the old card carried on its Class / Master / Party pill.
+      // Colour is by LEVEL now, so nothing else on the card distinguishes a
+      // party from a workshop -- and on a festival with no levels published
+      // (Tunisia: 14 items, every `levels` empty) that left every card an
+      // identical grey block. An ordinary class stays untagged; it is the
+      // default and a tag on all of them would say nothing.
+      const typeTag = item.isMasterclass
+        ? "Masterclass"
+        : item.type === "party"
+          ? "Party"
+          : null;
+      const tagRow =
+        (typeTag !== null || isLong) && rowEnd - rowStart + 1 >= MIN_ROWS_FOR_TAG_ROW;
+      cells.push({
+        key: item.id ?? `${gi}-${pi}`,
+        item,
+        room: group.name,
+        column: roomStartColumn[gi] + lane,
+        rowStart,
+        rowEnd,
+        startMin: span.start,
+        endMin: span.end,
+        endPublished: span.endPublished,
+        isLong,
+        level: timetableLevel(item.levels),
+        typeTag,
+        tagRow,
+        maxRoster: rosterCapacity(rowEnd - rowStart + 1, tagRow),
+      });
+    });
+  });
+
+  // VISUAL ORDER -- row first, then column -- and `flow` is the SINGLE OWNER of
+  // it. Position lives in CSS grid coordinates here, so source order is not
+  // reading order; a screen reader and a keyboard walk both follow the DOM, and
+  // would otherwise be read the day in an order the eye never sees. This sort
+  // is the ARIA contract, not a tidy-up.
+  //
+  // `cells` DELIBERATELY CARRIES NO ORDER OF ITS OWN. It used to be sorted here
+  // too, and once the renderer moved to `flow` that sort stopped affecting any
+  // output while still reading as the thing enforcing the contract -- a mutant
+  // reversing it went from killing a case to surviving silently. Its only other
+  // consumers are a length check and the legend, neither of which cares. One
+  // owner, so there is no second line to mistake for this one.
+  //
+  // Gap rows share the ordering rather than forming a pass of their own. Column
+  // -1 puts a gap ahead of anything in its row, which is where it reads: the
+  // break comes before the session that ends it.
+  const flow: TimetableFlowItem[] = [
+    ...rows.flatMap((row, i) =>
+      row.kind === "gap" ? [{ kind: "gap" as const, row: i, column: -1, hours: row.hours }] : [],
+    ),
+    ...cells.map((cell) => ({
+      kind: "cell" as const,
+      row: cell.rowStart,
+      column: cell.column,
+      cell,
+    })),
+  ].sort((a, b) => a.row - b.row || a.column - b.column);
+
+  const rooms: TimetableRoom[] = groups.map((g, gi) => ({
+    name: g.name,
+    lanes: g.lanes,
+    count: g.placed.length,
+    startColumn: roomStartColumn[gi],
+  }));
+
+  return { rooms, columns, rows, cells, flow };
+};
+
 type FestivalSnapshotPayload = {
   occurrence_effective?: {
     is_cancelled?: boolean | null;
@@ -1417,14 +1902,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // write here, and either one wins over the seed permanently.
   const [pickedDayIdx, setPickedDayIdx] = useState<number | null>(null);
 
-  // SSR-safe: seed a DETERMINISTIC value so the server and the client's first
-  // render agree. Reading window.innerWidth here rendered `true` on the server
-  // and `false` on a mobile client -> React #418/#425 hydration mismatch once
-  // PR #99 made festivals SSR content at /event/<slug>. Mobile-first default
-  // (single-day tabs, ~95% of traffic); the mount effect below upgrades desktop
-  // (>900px) to the all-days grid. Users can still toggle either way.
-  const [showAllDays, setShowAllDays] = useState(false);
-
+  // THE ALL-DAYS GRID IS GONE, and with it its `showAllDays` state, its toggle,
+  // its swipe hint and its viewport-seeded mount effect. It existed because the
+  // columns used to be DAYS: on a phone that grid could only show one column, so
+  // a second mode was needed to see the rest. The columns are ROOMS now and the
+  // day picker above the box is the day navigation on every viewport, so a
+  // days-across mode would be a second, competing navigation for the same
+  // question -- and a rooms-by-days grid is not a surface any design here
+  // describes. Removing it also removes the last reader of window.innerWidth on
+  // this page, which is what made the seed a hydration hazard in the first place.
   const [isCalSheetOpen, setIsCalSheetOpen] = useState(false);
 
   const [descExpanded, setDescExpanded] = useState(false);
@@ -1650,10 +2136,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
     setMounted(true);
 
-    // Post-mount: upgrade desktop viewports to the all-days grid. SSR-safe --
-    // window is only read AFTER hydration (see the showAllDays seed above).
-    if (typeof window !== "undefined" && window.innerWidth > 900) setShowAllDays(true);
-
   }, []);
 
 
@@ -1749,7 +2231,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   // Schedule grid -- group by day, then by hour
 
-  const { days, hours, sessionsByDayHour } = useMemo(() => {
+  // `hours` is no longer a row list -- the timetable derives its own rows per
+  // day, because which hours are occupied is a property of the OPEN DAY and not
+  // of the festival. It survives as the second half of the section's render
+  // gate: a schedule whose every start time is unparseable must not put an
+  // empty grid on the page, and that is the one question this set answers.
+  const { days, hasTimedSession, sessionsByDay } = useMemo(() => {
 
     const schedule = festivalDetail?.schedule ?? [];
 
@@ -1758,7 +2245,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     // intersection `string & WallClock`, and the brand silently launders back
     // to string (new Date(day) compiled without error before this fix).
 
-    if (schedule.length === 0) return { days: [] as WallClock[], hours: [] as number[], sessionsByDayHour: {} as Record<string, typeof schedule> };
+    if (schedule.length === 0) return { days: [] as WallClock[], hasTimedSession: false, sessionsByDay: {} as Record<string, typeof schedule> };
 
 
 
@@ -1772,7 +2259,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       festivalDetail?.dates.localEnd,
     );
 
-    const uniqHoursSet = new Set<number>();
+    // This used to collect the distinct hours as a sorted array, back when the
+    // hours were the grid's ROWS. The rows come from `buildTimetableLayout`
+    // now, and the only surviving question is whether the festival has ANY
+    // session with a readable start -- so it is a boolean, named for what it
+    // answers. Same predicate as before (`wallClockHour`), so the same
+    // sessions are skipped: this is not a behaviour change.
+    let hasTimed = false;
 
     const byKey: Record<string, typeof schedule> = {};
 
@@ -1782,9 +2275,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       if (hh === null) return;
 
-      uniqHoursSet.add(hh);
+      hasTimed = true;
 
-      const key = `${wallClockDateKey(s.day) ?? ''}-${hh}`;
+      const key = wallClockDateKey(s.day) ?? '';
 
       if (!byKey[key]) byKey[key] = [];
 
@@ -1792,7 +2285,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
     });
 
-    return { days: uniqDays, hours: Array.from(uniqHoursSet).sort((a, b) => a - b), sessionsByDayHour: byKey };
+    return { days: uniqDays, hasTimedSession: hasTimed, sessionsByDay: byKey };
 
   }, [festivalDetail]);
 
@@ -1878,12 +2371,16 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   // CLAMPED, because the picked index can outlive the schedule it was picked
   // from: a refetch that shortens the schedule leaves an earlier tab click
-  // pointing past the last column, and an index past the last column matches no
-  // cell -- `data-open` is stamped on nothing, the hide-every-other-slot rule
-  // therefore hides EVERY slot, and the schedule renders blank.
+  // pointing past the last column. `days[i]` is then `undefined`, so the
+  // timetable is handed nothing and the reader gets the "Nothing scheduled"
+  // empty state on a festival that has a full programme.
   //
-  // Stamping the open column on the slot made this view independent of the
-  // column COUNT, not of the INDEX, so the clamp is not redundant with it.
+  // (This paragraph used to describe `data-open` being stamped on no cell and
+  // the hide-every-other-slot CSS rule therefore hiding every column. Both were
+  // deleted with the day-column grid; the clamp still matters, but for the
+  // reason above. The blank-schedule SYMPTOM is unchanged, which is exactly why
+  // a stale explanation here survives reading -- it still describes what you
+  // see.)
   //
   // A REFETCH IS THE ONLY PATH THAT REACHES THIS, and this comment named the
   // wrong one for weeks. It said the clamp existed because `pickedDayIdx`
@@ -1917,6 +2414,123 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // clamp reverted. Delete or weaken that case and this line is untested again,
   // with a green suite saying nothing.
   const activeDayIdx = Math.min(pickedDayIdx ?? seedDayIdx, Math.max(days.length - 1, 0));
+
+  // THE UNDATED COLUMN KEYS ON `''`, NOT ON NULL, and that distinction is the
+  // whole of finding 1. `sessionsByDay` buckets on `wallClockDateKey(s.day) ??
+  // ''`, so a session whose day is unusable lands under `''` -- and
+  // `festivalGridDays` appends a column for exactly that case, because (its
+  // words) losing it "was a silent regression: the session became unreachable
+  // in the UI". Reading the key as `null` and feeding the grid `[]` reintroduced
+  // that, with the day chip above still counting the session it would not show.
+  //
+  // `undefined` (no such day at all) stays distinct from `''` (the undated
+  // day): the first must render nothing, the second must render its bucket.
+  // `dayKeys` (above) ALREADY holds exactly `wallClockDateKey(d) ?? ''` per
+  // day, and its own comment says it exists so these derivations stop drifting
+  // apart. Re-deriving it here put the undated-column sentinel in a fourth
+  // place. `dayKeys[i]` is `undefined` out of range and `''` for the undated
+  // day, which is precisely the distinction the note above protects.
+  const activeDayKey = dayKeys[activeDayIdx] ?? null;
+
+  // Which column of the picker a given day key belongs to. Used to stamp each
+  // rendered session with the day it ACTUALLY comes from -- see the note on
+  // `data-day` at the card itself for why that is not the same as the open one.
+  const dayIndexByKey = useMemo(() => {
+    const byKey = new Map<string, number>();
+    // Built from `dayKeys`, so the UNDATED column's `''` sentinel is defined in
+    // ONE place. A card on that column needs a real stamp or it reads -1 and
+    // the gate rejects the page.
+    dayKeys.forEach((key, i) => {
+      if (!byKey.has(key)) byKey.set(key, i);
+    });
+    return byKey;
+  }, [dayKeys]);
+
+  // THE OPEN DAY IS THE ONLY DAY THAT EXISTS in the grid. The previous design
+  // rendered every day as a column and hid all but one with CSS; the columns are
+  // rooms now, so the other days are not laid out and then hidden, they are not
+  // built. That makes "the reader is looking at the wrong day" a representable
+  // failure rather than a stylesheet one, which is what the gates assert on.
+  const timetable = useMemo(
+    () => buildTimetableLayout(activeDayKey === null ? [] : (sessionsByDay[activeDayKey] ?? [])),
+    [sessionsByDay, activeDayKey],
+  );
+
+  // The legend lists the levels PRESENT on the open day, in canonical order --
+  // never the full set, which would advertise a beginner stream on a day that
+  // has none.
+  //
+  // ONE ROW PER COLOUR. Keying by (colour, label) rendered "Open Level" and
+  // "All levels" as two rows painted the SAME purple, so a reader matching a
+  // card against the legend got two answers and no way to choose -- a colour
+  // key whose colour does not identify the row beside it. Sharing a swatch and
+  // sharing a row are the same claim, so the labels that share a colour share
+  // a line. `multi` is the exception: its labels are per-session lists, so the
+  // row names the colour and the CARD carries the detail.
+  const timetableLegend = useMemo(() => {
+    const byKey = new Map<TimetableLevelKey, Set<string>>();
+    for (const cell of timetable.cells) {
+      const labels = byKey.get(cell.level.key) ?? new Set<string>();
+      labels.add(cell.level.label);
+      byKey.set(cell.level.key, labels);
+    }
+    return [...byKey.entries()]
+      .map(([key, labels]) => ({
+        key,
+        label: key === "multi" ? "Multiple levels" : [...labels].sort().join(" / "),
+      }))
+      .sort(
+        (a, b) =>
+          TIMETABLE_LEVEL_ORDER.indexOf(a.key) - TIMETABLE_LEVEL_ORDER.indexOf(b.key),
+      );
+  }, [timetable]);
+
+  // Roving tabindex: only the selected day chip is in the tab order, and the
+  // arrow keys move between them. Without this a reader tabbing through a
+  // fourteen-day festival pays fourteen stops before reaching the grid.
+  const dayTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const dayPickerRef = useRef<HTMLDivElement | null>(null);
+
+  // KEEP THE OPEN CHIP ON SCREEN. The picker is a non-wrapping horizontal
+  // scroller and the chips carry full weekday names, so about three fit a 375px
+  // viewport. A festival that opens on its own middle day -- which is the whole
+  // point of the default-day seed -- would otherwise load showing days 1-3 with
+  // nothing highlighted, while the grid below shows a day the reader cannot see
+  // selected.
+  //
+  // `scrollLeft` on the strip, NOT `scrollIntoView`: the latter walks every
+  // scrollable ancestor and would yank the PAGE to the timetable on load, which
+  // is a worse bug than the one it fixes. Effect-only, so the server renders
+  // nothing position-dependent.
+  useEffect(() => {
+    const strip = dayPickerRef.current;
+    const chip = dayTabRefs.current[activeDayIdx];
+    if (!strip || !chip) return;
+    if (strip.scrollWidth <= strip.clientWidth) return;
+    // MEASURED FROM THE STRIP, not from `offsetParent`. `.day-picker` sets no
+    // `position`, so a chip's `offsetLeft` resolves against `.program-wrap`
+    // (which is `position:relative`) -- correct only while the picker's left
+    // edge sits at x=0 inside that wrapper. Padding on the wrapper, a margin on
+    // the picker, or a sibling beside it would silently offset every load by
+    // that gap, putting the open chip off-centre or off-screen: the exact
+    // failure this effect exists to prevent. The delta is offset-independent.
+    const offsetInStrip = chip.offsetLeft - strip.offsetLeft;
+    strip.scrollLeft = Math.max(0, offsetInStrip - (strip.clientWidth - chip.clientWidth) / 2);
+  }, [activeDayIdx, days.length]);
+
+  const handleDayTabKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, i: number) => {
+    const count = days.length;
+    if (count === 0) return;
+    let next = -1;
+    if (e.key === "ArrowRight") next = (i + 1) % count;
+    else if (e.key === "ArrowLeft") next = (i - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    setPickedDayIdx(next);
+    dayTabRefs.current[next]?.focus();
+  };
 
   // Correct the seed against the REAL client clock when the festival is live
   // (else leave day 1). Runs once per festival load -- a ref keyed on eventId
@@ -2516,256 +3130,330 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       {/* PROGRAMME / SCHEDULE */}
 
-      {days.length > 0 && hours.length > 0 && (
-
+      {days.length > 0 && hasTimedSession && (
         <section className="program">
-
           <div className="program-wrap">
-
             <div className="section-h">
-
               <div className="lab">Programme</div>
-
               <h2>The Schedule.</h2>
-
               <div className="sub">{days.length} {days.length === 1 ? "Day" : "Days"}</div>
-
             </div>
 
+            {/* THE DAY PICKER, on every viewport -- there is no second day
+                navigation any more, so it is not a mobile affordance.
 
+                A REAL TABLIST. These used to be plain buttons carrying
+                `aria-selected`, which is invalid on a bare button and is
+                simply dropped: the whole selected/unselected distinction
+                reached a screen reader through nothing but colour. They are
+                now role="tab" inside a role="tablist", driving one tabpanel,
+                with a roving tabindex and arrow-key movement -- so a reader on
+                a fourteen-day festival does not pay fourteen tab stops to get
+                past the picker.
 
-            {/* Mobile day-tabs (P3: with session counts + all-days toggle) */}
-
-            <div className="all-days-toggle">
-
-              {/* A plain ACTION button, not a toggle-state one. The label always
-                  names what tapping DOES -- "Single day" while the all-days view
-                  is up, "View all N days" otherwise -- so an `aria-pressed` on
-                  top of it contradicted the name it sat on: with the all-days
-                  view showing, a screen reader announced "Single day, pressed",
-                  i.e. that single-day was ON when it is the thing that is off.
-                  The name carries the whole meaning; the state attribute only
-                  ever fought it.
-
-                  AND THE SAME GOES FOR THE VISUAL CHANNEL. This carried
-                  `className={showAllDays ? "active" : ""}` alongside the
-                  aria-pressed, painting `.all-days-toggle button.active`'s
-                  orange "on" treatment on a button reading "Single day" while
-                  the all-days grid was up -- telling a sighted reader exactly
-                  what the attribute told a screen-reader one. Removing one
-                  channel and leaving the other would have been half a fix, so
-                  the class and its now-dead rule go with it. */}
-              <button
-
-                type="button"
-
-                onClick={() => setShowAllDays((v) => !v)}
-
-              >
-
-                {showAllDays ? "Single day" : `View all ${days.length} days`}
-
-              </button>
-
-            </div>
-
-            <div className="day-mobile-tabs" hidden={showAllDays} aria-hidden={showAllDays}>
-
+                `className` KEEPS `active` alongside `aria-selected`. The class
+                is the style hook and the attribute is the semantics; both
+                gates and the stylesheet read the class, and dropping it to
+                "let ARIA do it" would leave the chip unstyled. */}
+            <div className="day-picker" ref={dayPickerRef} role="tablist" aria-label="Festival days">
               {days.map((day, i) => {
-
-                const label = formatWallClockLocalIntl(day, { weekday: "short", day: "numeric" }) ?? "";
-
-                // Compare KEYS, not the branded values. `day` is now rebuilt
-                // from the span, so it is a date-only WallClock that need not
-                // be byte-identical to the schedule's own `s.day` (which can
-                // carry a time suffix -- sniffIsFestival guards for exactly
-                // that shape). `===` silently read 0 for every tab beside a
-                // visibly populated column; the grid cells were unaffected
-                // because they already route through wallClockDateKey.
+                const weekday = formatWallClockLocalIntl(day, { weekday: "long" }) ?? "";
+                const dayNum = formatWallClockLocalIntl(day, { day: "numeric" }) ?? "";
                 const dayKey = wallClockDateKey(day);
-                const count = (festivalDetail?.schedule ?? []).filter(
-                  (s) => wallClockDateKey(s.day) === dayKey,
-                ).length;
-
-                const isToday = canRenderClockDerived && wallClockDateKey(day) === todayKey;
-
+                const count = (sessionsByDay[dayKey ?? ""] ?? []).length;
+                const isToday = canRenderClockDerived && dayKey === todayKey;
+                const isActive = activeDayIdx === i;
                 return (
-
                   <button
-
-                    key={wallClockDateKey(day) ?? `day-${i}`}
-
-                    className={`day-tab ${activeDayIdx === i ? "active" : ""} ${isToday ? "today" : ""}`}
-
+                    key={dayKey ?? `day-${i}`}
+                    ref={(el) => { dayTabRefs.current[i] = el; }}
+                    type="button"
+                    role="tab"
+                    id={`festival-day-tab-${i}`}
+                    aria-controls="festival-timetable-panel"
+                    aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
+                    className={`day-tab ${isActive ? "active" : ""} ${isToday ? "today" : ""}`}
                     onClick={() => setPickedDayIdx(i)}
-
+                    onKeyDown={(e) => handleDayTabKeyDown(e, i)}
                   >
-
-                    {label}<span className="day-tab-count">&middot; {count}</span>
-
+                    <span className="day-tab-wd">{weekday}</span>
+                    <span className="day-tab-num">{dayNum}</span>
+                    {/* The separator is load-bearing, not decoration. Without
+                        it the chip renders "Friday 4 3" -- date then count,
+                        two unlabelled numbers running together -- and on a day
+                        whose count matches its date, "Friday 4 4". */}
+                    <span className="day-tab-count" aria-hidden="true">&middot; {count}</span>
                     {isToday && <span className="day-tab-today">Today</span>}
-
+                    <span className="sr-only">{count === 1 ? "1 session" : `${count} sessions`}</span>
                   </button>
-
                 );
-
               })}
-
             </div>
 
+            {/* `data-day` is STATE, and it is now the ONLY place the open day
+                is observable from the served HTML -- the grid below holds one
+                day's sessions and nothing else, so there is no second column
+                to compare it against. Keep `className` first and `data-day`
+                immediately after it: the SSR gate reads the pair as adjacent
+                attributes, which is what makes it a markup assertion rather
+                than a substring search over the whole document. */}
+            <div
+              className="tl-body"
+              data-day={String(activeDayIdx)}
+              role="tabpanel"
+              id="festival-timetable-panel"
+              aria-labelledby={`festival-day-tab-${activeDayIdx}`}
+            >
+              {timetable.cells.length === 0 ? (
+                <div className="tl-empty">
+                  <div className="tl-empty-mark" aria-hidden="true">&mdash;</div>
+                  <div className="tl-empty-title">Nothing scheduled</div>
+                  <div className="tl-empty-body">
+                    This day is part of the festival, but nothing has been published for
+                    it yet. Try another day above.
+                  </div>
+                </div>
+              ) : (
+                // FOCUSABLE HERE, NOT ON THE PANEL. `.tl-box` is the scroll
+                // container -- on mobile it is 360px tall with
+                // `overscroll-behavior:none`, so it holds the only scrollbar
+                // that reaches the rest of the day. `tabIndex` on the outer
+                // `.tl-body`, which has no overflow, gave the keyboard a focus
+                // ring on an element that does not scroll: arrow keys moved the
+                // page instead and everything below the fourth row was
+                // unreachable in browsers that do not auto-focus scroll regions.
+                <div className="tl-box" tabIndex={0}>
+                  <div
+                    className="tl-grid"
+                    style={{
+                      gridTemplateColumns: `var(--tl-tgw) repeat(${timetable.columns}, ${
+                        timetable.columns === 1 ? "minmax(150px,1fr)" : "var(--tl-colw)"
+                      })`,
+                      gridTemplateRows: `var(--tl-headh) ${timetable.rows
+                        .map((r) => (r.kind === "hour" ? "var(--tl-rowh)" : "var(--tl-gaph)"))
+                        .join(" ")}`,
+                    }}
+                  >
+                    <div className="tl-corner" style={{ gridRow: 1, gridColumn: 1 }} aria-hidden="true" />
 
+                    {/* Room headers span their lanes -- one room running three
+                        classes at once is three columns under one heading. */}
+                    {timetable.rooms.map((room, ri) => (
+                      <div
+                        key={`${room.name ?? "unset"}-${ri}`}
+                        className="tl-room"
+                        style={{ gridRow: 1, gridColumn: `${room.startColumn + 2} / span ${room.lanes}` }}
+                        aria-hidden="true"
+                      >
+                        <span className="tl-room-name">
+                          {room.name ?? (timetable.rooms.length > 1 ? "Room not set" : "All sessions")}
+                        </span>
+                        <span className="tl-room-count">
+                          {room.count === 1 ? "1 session" : `${room.count} sessions`}
+                        </span>
+                      </div>
+                    ))}
 
-            {showAllDays && days.length > 1 && (
-              <div className="tl-swipe-hint" aria-hidden="true">
-                <span>&laquo;</span><span>swipe to change day</span><span>&raquo;</span>
+                    {/* The hour rail. Scaffolding, so aria-hidden and its DOM
+                        position does not matter -- each session states its own
+                        time in its label. The GAP rows are not here: they are
+                        exposed content and travel in the ordered flow below,
+                        interleaved with the sessions. */}
+                    {timetable.rows.map((row, ri) =>
+                      row.kind === "hour" ? (
+                        <div
+                          key={`hour-${ri}`}
+                          className="tl-hour"
+                          style={{ gridRow: ri + 2, gridColumn: 1 }}
+                          aria-hidden="true"
+                        >
+                          {minutesToHHMM(row.hour * 60)}
+                        </div>
+                      ) : null,
+                    )}
+
+                    {/* ONE rule per hour row, not one per cell. `.tl-cellbg`
+                        is a bare `border-top` and `.tl-grid` declares no column
+                        gap, so N abutting segments and one spanning element
+                        paint the same pixels -- while the per-cell form cost
+                        `hours x columns` nodes on every render AND every SSR
+                        response, scaling with the two dimensions this design
+                        just made variable. If a COLUMN separator is ever
+                        wanted, the per-cell form has to come back. */}
+                    {timetable.rows.map((row, ri) =>
+                      row.kind === "hour" ? (
+                        <div
+                          key={`cellbg-${ri}`}
+                          className="tl-cellbg"
+                          style={{ gridRow: ri + 2, gridColumn: "2 / -1" }}
+                          aria-hidden="true"
+                        />
+                      ) : null,
+                    )}
+
+                    {/* THE EXPOSED CONTENT, in the order the eye reads it --
+                        gap rows and sessions interleaved by row, from one
+                        ordered list. Everything above this point is aria-hidden
+                        scaffolding, so this is the whole of what a screen
+                        reader hears, and it hears it in visual order.
+
+                        No role="grid": sessions span rows, DOM order is
+                        CSS-driven, and ARIA grid semantics with spanning cells
+                        are fragile enough that they mislead more than they
+                        help. Each session carries its whole meaning in one
+                        label instead.
+
+                        NO <button>. The mockup put an absolutely-positioned
+                        button under the sticky label, because sticky inside a
+                        button is unreliable -- Chromium applies the offset
+                        unconditionally and parks every label part-way down its
+                        own card. Nothing here is clickable (a session has no
+                        page of its own), so a button would announce a control
+                        that does nothing. The label is plain text in document
+                        order, the visual block is aria-hidden, and sticky works
+                        because it is not inside a button and the card has no
+                        clipping ancestor. If sessions ever gain a destination,
+                        the sibling-button shape is the fix -- do not put sticky
+                        inside it. */}
+                    {timetable.flow.map((entry) => {
+                      if (entry.kind === "gap") {
+                        // An empty stretch is real information -- the
+                        // difference between a festival that pauses for lunch
+                        // and one that has not published its afternoon.
+                        return (
+                          <div
+                            key={`gap-${entry.row}`}
+                            className="tl-gap"
+                            style={{
+                              gridRow: entry.row + 2,
+                              gridColumn: "1 / -1",
+                            }}
+                          >
+                            <span>
+                              {entry.hours === 1 ? "1 hour free" : `${entry.hours} hours free`}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const cell = entry.cell;
+                      const people = [...cell.item.instructors, ...cell.item.djs]
+                        .map((p) => p.displayName)
+                        .filter((n): n is string => Boolean(n));
+                      const solo = people.length === 1;
+                      const from = minutesToHHMM(cell.startMin);
+                      const to = minutesToHHMM(cell.endMin);
+                      // BOUNDED BY WHAT THE CARD CAN HOLD. The card cannot clip
+                      // (that would kill the sticky label) and it sits above its
+                      // neighbours, so an unbounded roster paints over the
+                      // session below it.
+                      //
+                      // The "and N more" line COSTS A LINE, so it is taken out
+                      // of the budget rather than added on top of it -- which
+                      // is what made the first version of this still overflow.
+                      const roster = people.length > 1 && cell.maxRoster > 0;
+                      const shown =
+                        !roster || people.length <= cell.maxRoster
+                          ? people
+                          : people.slice(0, cell.maxRoster - 1);
+                      const hidden = people.length - shown.length;
+                      const label = [
+                        solo ? people[0] : cell.item.title,
+                        solo ? cell.item.title : "",
+                        cell.typeTag ?? "",
+                        cell.room ? `in ${cell.room}` : "",
+                        cell.endPublished ? `${from} to ${to}` : `from ${from}, no end published`,
+                        cell.level.label,
+                        // The FULL count, never the truncated one -- the label
+                        // is not space-constrained and must not under-report.
+                        people.length > 1 ? `${people.length} artists` : "",
+                      ].filter(Boolean).join(", ");
+
+                      return (
+                        <div
+                          key={cell.key}
+                          className={`tl-ev l-${cell.level.key} ${cell.isLong ? "long" : ""}`}
+                          data-day={String(
+                            dayIndexByKey.get(wallClockDateKey(cell.item.day) ?? "") ?? -1,
+                          )}
+                          style={{
+                            gridRow: `${cell.rowStart + 2} / ${cell.rowEnd + 3}`,
+                            gridColumn: cell.column + 2,
+                          }}
+                        >
+                          <span className="sr-only">{label}</span>
+                          <span className="tl-ev-label" aria-hidden="true">
+                            {cell.tagRow && (
+                              <span className="tl-ev-tags">
+                                {cell.typeTag && <span className="tl-ev-tag">{cell.typeTag}</span>}
+                                {cell.isLong && <span className="tl-ev-tag ghost">Ongoing</span>}
+                              </span>
+                            )}
+                            <span className="tl-ev-who">{solo ? people[0] : cell.item.title}</span>
+                            {solo && <span className="tl-ev-what">{cell.item.title}</span>}
+                            {/* Whatever did not earn its own band lands here.
+                                A short card gets its type and its artist count
+                                on the meta line rather than losing them. */}
+                            <span className="tl-ev-meta">
+                              {cell.endPublished ? `${from}–${to}` : from}
+                              {/* \u00b7, never a pasted middle dot and never
+                                  &middot;: an HTML entity inside a template
+                                  literal ships as the literal seven characters,
+                                  and raw Unicode punctuation is what the cp1252
+                                  round-trip corrupts (see CLAUDE.md). */}
+                              {!cell.tagRow && cell.typeTag ? ` \u00b7 ${cell.typeTag}` : ""}
+                              {` \u00b7 ${cell.level.label}`}
+                              {!roster && people.length > 1 ? ` \u00b7 ${people.length} artists` : ""}
+                            </span>
+                            {roster && (
+                              <span className="tl-ev-roster">
+                                <b>{people.length} artists</b>
+                                {shown.map((n, pi) => <i key={`${cell.key}-p-${pi}`}>{n}</i>)}
+                                {hidden > 0 && <i className="more">and {hidden} more</i>}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* THE NOTE DESCRIBES THE GRID, never the viewport. It used to say
+                "scroll inside the box" unconditionally -- but the rule that
+                makes `.tl-box` scroll on the block axis lives only in the
+                <=900px media query, and a narrow day does not scroll
+                horizontally either, so on desktop it instructed the reader to
+                scroll something already fully visible. The room count is the
+                claim worth making and it holds at every width.
+
+                `timetable.columns` is the LANE count, not what the reader sees:
+                a day with three concurrent classes in one room and one in
+                another renders TWO room headings and said "4 columns". Rooms
+                are what carry a heading, so rooms are what the note counts. */}
+            {timetable.cells.length > 0 && timetable.rooms.length > 1 && (
+              <div className="tl-note" aria-hidden="true">
+                <span>{`${timetable.rooms.length} rooms, side by side`}</span>
               </div>
             )}
 
-            {/* Table-grid: Time x Days */}
-
-            <div className="tl-grid-wrap" style={{ "--days": days.length } as CSSProperties}>
-
-              <div className="tl-header" style={{ gridTemplateColumns: `90px repeat(${days.length}, 1fr)` }}>
-
-                <div className="tl-time-h">Time</div>
-
-                {days.map((day, i) => {
-
-                  const weekday = formatWallClockLocalIntl(day, { weekday: "short" }) ?? "";
-
-                  const dayNum = formatWallClockLocalIntl(day, { day: "numeric" }) ?? "";
-
-                  const monthShort = formatWallClockLocalIntl(day, { month: "short" }) ?? "";
-
-                  const isToday = canRenderClockDerived && wallClockDateKey(day) === todayKey;
-
-                  return (
-
-                    <div key={wallClockDateKey(day) ?? `day-${i}`} className={`tl-day ${isToday ? "today" : ""}`}>
-
-                      <span className="name">{weekday}</span>
-
-                      <div className="date">{dayNum}<span className="lbl">{monthShort}</span></div>
-
-                      {isToday && <span className="tl-day-today">Today</span>}
-
-                    </div>
-
-                  );
-
-                })}
-
-              </div>
-
-
-
-              {/* `data-day` is STATE, not a style hook for the open column any
-                  more -- the CSS reads only `[data-day="all"]` (which view is
-                  up), never the index. The index is still stamped because it is
-                  the one place the chosen column is observable from the served
-                  HTML, which is what the SSR default-day gate asserts on. */}
-              <div className="tl-body" data-day={showAllDays ? "all" : String(activeDayIdx)}>
-
-                {hours.map((hour) => (
-
-                  <div key={hour} className="tl-row" style={{ gridTemplateColumns: `90px repeat(${days.length}, 1fr)` }}>
-
-                    <div className="tl-time">{String(hour).padStart(2, "0")}:00</div>
-
-                    {days.map((day, dayIdx) => {
-
-                      const sessions = sessionsByDayHour[`${wallClockDateKey(day) ?? ''}-${hour}`] ?? [];
-
-                      return (
-
-                        // THE OPEN COLUMN, stamped where it is KNOWN. `dayIdx`
-                        // and `activeDayIdx` are both in scope right here, so
-                        // the cell can say whether it is the open one instead
-                        // of the stylesheet counting child positions from the
-                        // ancestor -- which is what forced an enumeration, and
-                        // with it a ceiling, a fallback and a disabled toggle.
-                        // `|| undefined` so the attribute is ABSENT rather than
-                        // `data-open="false"` on closed cells: the CSS matches
-                        // on presence (`:not([data-open])`), and an attribute
-                        // that were always present would match every column and
-                        // hide none -- failing open, the exact mode this
-                        // replaced. See CINEMATIC_CSS.
-                        <div
-                          key={wallClockDateKey(day) ?? `day-${dayIdx}`}
-                          className="slot"
-                          data-open={dayIdx === activeDayIdx || undefined}
-                        >
-
-                          {sessions.map((s, idx) => {
-
-                            const cls = s.isMasterclass ? "master" : s.type === "party" ? "party" : "";
-
-                            const pillLabel = s.isMasterclass ? "Master" : s.type === "party" ? "Party" : "Class";
-
-                            const instructors = s.instructors.map((i) => i.displayName).filter(Boolean).join(" \u00b7 ");
-
-                            const startTimeStr = formatWallClockTime(s.startTime, { hour12: false }) ?? "";
-
-                            const endTimeStr = formatWallClockTime(s.endTime, { hour12: false }) ?? "";
-
-                            const dur = endTimeStr ? `${startTimeStr} \u2014 ${endTimeStr}` : startTimeStr;
-
-                            const levels = s.levels.length > 0 ? s.levels.map((l) => l.replace(/_/g, " ")).join(", ") : null;
-
-                            return (
-
-                              <div key={s.id ?? idx} className={`session ${cls}`}>
-
-                                <span className="s-pill">{pillLabel}</span>
-
-                                <div className="s-title">{s.title}</div>
-
-                                <div className="s-meta">
-
-                                  {instructors && <span>{instructors}</span>}
-
-                                  {levels && <span className="tag">{levels}</span>}
-
-                                </div>
-
-                                <div className="s-duration">{dur}</div>
-
-                              </div>
-
-                            );
-
-                          })}
-
-                        </div>
-
-                      );
-
-                    })}
-
+            {/* The levels PRESENT on the open day, never the full set -- a
+                legend advertising a beginner stream on a day that has none is
+                worse than no legend. */}
+            {timetableLegend.length > 0 && (
+              <div className="legend">
+                {timetableLegend.map((lv) => (
+                  <div key={`${lv.key}-${lv.label}`} className={`legend-item l-${lv.key}`}>
+                    <span className="swatch" />{lv.label}
                   </div>
-
                 ))}
-
               </div>
-
-            </div>
-
-
-
-            <div className="legend">
-
-              <div className="legend-item class"><span className="swatch" />Class</div>
-
-              <div className="legend-item master"><span className="swatch" />Masterclass</div>
-
-              <div className="legend-item party"><span className="swatch" />Party</div>
-
-            </div>
-
+            )}
           </div>
-
         </section>
-
       )}
 
 

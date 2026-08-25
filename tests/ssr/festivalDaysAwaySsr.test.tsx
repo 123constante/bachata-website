@@ -22,7 +22,7 @@
  * every query is pre-seeded, so any network call means the fixture is wrong
  * rather than the assertion being lenient.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter, Routes, Route } from 'react-router';
 
@@ -37,36 +37,60 @@ import {
   LOCAL_START,
   LOCAL_END,
   SCHEDULE,
+  SCHEDULE_WITH_UNDATED,
   seedClient,
   IDS_A,
   installFixtureFetchGate,
   removeFixtureFetchGate,
+  OUTSIDE_THE_SPAN,
 } from '../fixtures/festivalFixture';
 
 const DAYS_AWAY_CLASS = 'hero-days-away';
 
 // The schedule's visible "today" marker, asserted as RENDERED MARKUP rather than
 // as the bare class name. The component inlines its stylesheet into the document,
-// so the string `tl-day-today` is in the HTML of every festival page whether or
-// not a badge rendered -- a `toContain('tl-day-today')` would be green against a
+// so the string `day-tab-today` is in the HTML of every festival page whether or
+// not a badge rendered -- a `toContain('day-tab-today')` would be green against a
 // completely broken gate. The `<span ...>` form only exists if the element did.
-const TODAY_BADGE = '<span class="tl-day-today">Today</span>';
+//
+// RE-ANCHORED, and honestly: this used to read `tl-day-today` on the timeline's
+// own day-header row. That row is gone -- the columns are rooms now, so there is
+// no per-day header to badge -- and the day chip is the only place the schedule
+// says "today". So this and TODAY_TAB below now read the SAME element by two
+// different channels (the rendered pill, and the class list) rather than two
+// elements. That is a real reduction in redundancy and is recorded as one; the
+// property under test, "the schedule marks today in the SERVED document", is
+// unchanged. The two channels DO fail independently, but only because TODAY_TAB
+// was tightened -- as first written it was satisfied by this very string, so the
+// pair was one assertion wearing two names. See the note on TODAY_TAB below.
+const TODAY_BADGE = '<span class="day-tab-today">Today</span>';
 
-// The mobile day-tab carries no text, only a class, so the marker is the class
-// LIST on a rendered button. Anchored to `class="day-tab` so the stylesheet's own
-// `.day-tab` / `.tl-day` rules cannot satisfy it either.
-const TODAY_TAB = /class="day-tab[^"]*\btoday\b[^"]*"/;
+// The day chip's CLASS LIST, as opposed to the rendered pill above. Anchored to
+// `class="day-tab` so the stylesheet's own rules cannot satisfy it either.
+//
+// THE TRAILING SPACE IS LOAD-BEARING. Without it this regex is satisfied by
+// `class="day-tab-today"` -- the pill's own class -- because `[^"]*` eats the
+// hyphen and `\btoday\b` then matches. TODAY_BADGE contains that exact string,
+// so every `toContain(TODAY_BADGE)` guaranteed the paired `toMatch(TODAY_TAB)`
+// and the two "independent channels" were one channel asserted twice. The chip
+// always renders `class="day-tab ` followed by its state classes, so requiring
+// the space separates the two for real.
+const TODAY_TAB = /class="day-tab [^"]*\btoday\b[^"]*"/;
 
-// The mobile day-tab strip, asserted as RENDERED MARKUP rather than as the bare
+// The day-picker strip, asserted as RENDERED MARKUP rather than as the bare
 // class name -- for exactly the reason the TODAY_BADGE note above gives, which
 // these cases had copied the trap of rather than the lesson. The component
-// inlines its stylesheet, and that stylesheet carries both
-// `.cinematic-festival .day-mobile-tabs{...}` and `.day-mobile-tabs[hidden]`, so
-// `toContain(TABS_RENDERED)` sat in the HTML of every festival page whether
-// or not the strip rendered -- including one where the whole timeline section
-// was skipped. It could not fail, which made it a non-vacuity guard that
-// guaranteed nothing.
-const TABS_RENDERED = 'class="day-mobile-tabs"';
+// inlines its stylesheet, and that stylesheet carries `.cinematic-festival
+// .day-picker{...}`, so a `toContain('day-picker')` would sit in the HTML of
+// every festival page whether or not the strip rendered -- including one where
+// the whole timeline section was skipped. It could not fail, which would make
+// it a non-vacuity guard that guaranteed nothing. The `class="..."` form can.
+//
+// RENAMED from `day-mobile-tabs`, deliberately rather than for tidiness: the
+// strip is no longer a mobile affordance with a desktop counterpart, it is the
+// only day navigation at every width, and a class still calling itself "mobile"
+// would send the next reader looking for the other one.
+const TABS_RENDERED = 'class="day-picker"';
 
 /**
  * The inclusive `YYYY-MM-DD` keys a span covers -- this file's notion of "the
@@ -101,8 +125,32 @@ const spanDayKeys = (start: string, end: string): string[] => {
 // The festival fixture -- SCHEDULE, the dates, the timezone and seedClient --
 // is imported from tests/fixtures/festivalFixture, along with the notes on what
 // it can and cannot express.
-beforeAll(() => installFixtureFetchGate('SSR gate'));
-afterAll(removeFixtureFetchGate);
+beforeAll(() => {
+  installFixtureFetchGate('SSR gate');
+  // THE CLOCK IS PINNED, and it is a defect fix rather than hygiene. Every
+  // negative in this file -- every `not.toContain` on a today marker, and every
+  // `openDay(html)).toBe('0')` with no key pinned -- was satisfied by the real
+  // wall-clock date happening to fall outside the fixture's 2026-09-04..06
+  // span. That is a COINCIDENCE, not a design, and it expires: on 5 and 6
+  // September the seed resolves a different column and cases red against
+  // correct code. The client twin was pinned on 2026-08-24 and this one was
+  // left, which is the whole reason it is being done now.
+  //
+  // Only Date is faked. Faking the timer functions as well would put the
+  // dynamic imports and the query client on a stopped clock for no benefit.
+  vi.useFakeTimers({ toFake: ['Date'] });
+});
+
+// Re-pinned per case, so the one case that deliberately MOVES the clock cannot
+// leak its date into the next.
+beforeEach(() => {
+  vi.setSystemTime(OUTSIDE_THE_SPAN);
+});
+
+afterAll(() => {
+  removeFixtureFetchGate();
+  vi.useRealTimers();
+});
 
 /** Server-render /festival/:id, optionally with the loader's pinned day key. */
 async function renderFestival(
@@ -337,9 +385,9 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // `canRenderClockDerived` exists to prevent: the pin is there precisely so
     // the server and the client's FIRST render cannot disagree.
     //
-    // Only Date is faked. Faking the timer functions as well would put the
-    // dynamic imports and the query client on a stopped clock for no benefit.
-    vi.useFakeTimers({ toFake: ['Date'] });
+    // The file already runs on a fake Date pinned OUTSIDE the span; this case
+    // moves it INSIDE, which is the only arrangement that tells a clock-derived
+    // seed from a pin-derived one apart.
     vi.setSystemTime(new Date('2026-09-05T12:00:00Z')); // mid-run, column 1
     try {
       const html = await renderFestival(undefined, SCHEDULE);
@@ -352,7 +400,12 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
       expect(html).not.toContain(TODAY_BADGE);
       expect(html).not.toMatch(TODAY_TAB);
     } finally {
-      vi.useRealTimers();
+      // RE-PIN, never useRealTimers(). Tearing the fake clock down here would
+      // leave the file's own beforeEach re-pinning a clock that no longer
+      // exists, and the cases after this one would silently go back to running
+      // against the machine date -- reinstating exactly the time bomb the pin
+      // was added to remove, in the one place nobody would look for it.
+      vi.setSystemTime(OUTSIDE_THE_SPAN);
     }
   });
 
@@ -365,13 +418,16 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
   /**
    * The `.tl-body` element, tag-depth-matched out of the served document.
    *
-   * BOUNDS THE SCAN, which end-of-document does not. The last row would
-   * otherwise run to the foot of the page and absorb the legend, venue,
-   * tickets and footer; today that is the WHOLE remainder, because every
-   * fixture here renders a single row. It reads correct only because nothing
-   * below the timeline happens to emit a `.slot` -- the day one does, the
-   * column-count assertion reds pointing at the grid instead of at this
-   * helper.
+   * BOUNDS THE SCAN, which end-of-document does not. Every reader below
+   * (`daySessions`, `hourRows`, `metaTexts`) matches on class names that are
+   * not unique to the timetable, so an unbounded scan would absorb the legend,
+   * venue, tickets and footer and answer about the whole page. Depth-matching
+   * `<div>`/`</div>` from `.tl-body` ends the scan at its own closing tag, so
+   * what those readers see is the grid and nothing else.
+   *
+   * The three justifications this note used to carry -- a single-row fixture,
+   * `.slot` appearing nowhere below the timeline, and a column-count assertion
+   * -- all named things the rooms-across rebuild deleted.
    */
   const tlBody = (html: string): string => {
     const at = html.search(/<div [^>]*class="[^"]*\btl-body\b/);
@@ -388,55 +444,89 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
   };
 
   /**
-   * Per rendered `.tl-row` inside the timeline: how many day cells it has,
-   * which 0-based cell carries `data-open` (-1 for none), and HOW MANY do.
+   * Every session card the served timeline rendered, with the day index each
+   * one is stamped with.
    *
-   * This reads the SERVED MARKUP because that is where the defect lived. The
-   * single-day view works by HIDING, so the pairing of open column to open cell
-   * is the whole contract: get it wrong and the page silently shows the
-   * NEIGHBOURING day, which no assertion on `data-day` alone can tell from the
-   * right one.
+   * THIS REPLACES A ROW/SLOT READER, and the replacement is the shape change
+   * rather than a rewording of it. The grid used to render EVERY day as a
+   * column and hide all but one with CSS, so the only thing observable was
+   * which column was un-hidden -- what was IN the open column could not be
+   * wrong, because all of it was always there. Rooms are the columns now and
+   * only the open day is built, so "the reader is looking at the wrong day"
+   * became a fact about CONTENT, and that is what this reads.
    *
-   * `opens` IS SEPARATE FROM `open`, for the reason `activeTabCount` exists one
-   * element over: `open` records the LAST matching cell, so identity alone
-   * cannot see EXTRA open columns. Measured, not reasoned -- mutating the stamp
-   * to `dayIdx <= activeDayIdx` opens EIGHT of fourteen columns on a 375px
-   * viewport, and every case in this file stayed green, because `open` still
-   * read 7 and `count` still read 14. Cardinality has to be counted.
+   * Cardinality is kept separate from identity for the reason the old reader
+   * kept `opens` apart from `open`: a set of day indices proves they AGREE, and
+   * a count proves how many cards there are, and neither implies the other. A
+   * grid that rendered the open day's sessions PLUS a neighbour's satisfies the
+   * first assertion the moment the sets are compared loosely.
    *
    * Both anchors match the class within the attribute run rather than requiring
    * `class="..."` to be the exact and first attribute: a `cn()` refactor or a
-   * reordered attribute would otherwise report every row as ZERO cells, reding
-   * as "the grid stopped emitting columns" when the grid is fine.
+   * reordered attribute would otherwise report ZERO cards, reding as "the grid
+   * stopped emitting sessions" when the grid is fine.
    */
-  const rowSlots = (html: string): Array<{ count: number; open: number; opens: number }> => {
+  const daySessions = (html: string): Array<{ day: string | null; label: string | null }> => {
     const body = tlBody(html);
-
     const starts: number[] = [];
-    const rowRe = /<div [^>]*class="[^"]*\btl-row\b/g;
-    for (let m = rowRe.exec(body); m; m = rowRe.exec(body)) starts.push(m.index);
-
-    return starts.map((start, i) => {
-      const chunk = body.slice(start, starts[i + 1] ?? body.length);
-      const slotRe = /<div [^>]*class="[^"]*\bslot\b([^>]*)>/g;
-      let count = 0;
-      let open = -1;
-      let opens = 0;
-      for (let m = slotRe.exec(chunk); m; m = slotRe.exec(chunk)) {
-        // ATTRIBUTE BOUNDARY, not a substring. A bare
-        // `m[0].includes('data-open')` counts any attribute whose NAME OR VALUE
-        // merely contains the text -- add `data-open-hour={hour}` to the cell
-        // and all 14 columns report open, reding the cardinality assertion
-        // below against the stamp when the stamp is fine.
-        if (/\sdata-open(=|\s|>)/.test(m[0])) {
-          open = count;
-          opens += 1;
-        }
-        count += 1;
-      }
-      return { count, open, opens };
-    });
+    const attrs: string[] = [];
+    const evRe = /<div [^>]*class="[^"]*\btl-ev\b[^"]*"([^>]*)>/g;
+    for (let m = evRe.exec(body); m; m = evRe.exec(body)) {
+      starts.push(m.index);
+      attrs.push(m[1]);
+    }
+    return starts.map((start, i) => ({
+      day: attrs[i].match(/\sdata-day="([^"]*)"/)?.[1] ?? null,
+      // The card's accessible name, which is also the only text a session
+      // contributes to the document in DOM order -- the visual block beside it
+      // is aria-hidden. Reading it here is what lets a case assert ORDER.
+      label:
+        body
+          .slice(start, starts[i + 1] ?? body.length)
+          .match(/<span class="sr-only">([^<]*)<\/span>/)?.[1] ?? null,
+    }));
   };
+
+  /**
+   * The VISIBLE meta line of each session card, bounded to its own element.
+   *
+   * Bounded deliberately: a `[\s\S]{0,240}?` scan from the opening tag crosses
+   * `</span>` and runs into the NEXT card's accessible name, so it matched text
+   * the meta line does not contain -- measured, by a mutant that deleted the
+   * meta line's type and stayed green. React's `<!-- -->` text separators are
+   * stripped so the result reads as the sentence a person sees.
+   */
+  const metaTexts = (html: string): string[] => {
+    const body = tlBody(html);
+    const out: string[] = [];
+    const openRe = /<span class="tl-ev-meta">/g;
+    for (let m = openRe.exec(body); m; m = openRe.exec(body)) {
+      const rest = body.slice(m.index + m[0].length);
+      const close = rest.indexOf('</span>');
+      out.push((close === -1 ? rest : rest.slice(0, close)).replace(/<!-- -->/g, ''));
+    }
+    return out;
+  };
+
+  /**
+   * How many SESSION columns (lanes) `.tl-grid` declares, read off the grid's
+   * own track list rather than off prose.
+   *
+   * The two cases below used to assert `'2 columns'` against `.tl-note`, which
+   * is `aria-hidden` decorative copy -- rewording it, or dropping it on a
+   * viewport where nothing scrolls, red an assertion about greedy interval
+   * partitioning for no defect. `grid-template-columns` IS the answer: the
+   * leading `var(--tl-tgw)` is the time gutter, `repeat(N, ...)` the sessions.
+   */
+  const sessionColumns = (html: string): number => {
+    const m = tlBody(html).match(/grid-template-columns:\s*var\(--tl-tgw\)\s*repeat\((\d+),/);
+    if (!m) throw new Error('sessionColumns: .tl-grid declared no repeat() track list');
+    return Number(m[1]);
+  };
+
+  /** How many hour rows the open day rendered -- one per hour it occupies. */
+  const hourRows = (html: string): number =>
+    tlBody(html).split(/<div [^>]*class="[^"]*\btl-hour\b/).length - 1;
 
   /**
    * Every `@media (max-width:900px){...}` block of the inlined stylesheet,
@@ -475,56 +565,101 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     return blocks.join('|');
   };
 
-  const HIDE_CLOSED_SLOTS =
-    '.cinematic-festival .tl-body:not([data-day="all"]) .tl-row > .slot:not([data-open]){display:none}';
-  const HIDE_EMPTY_ROWS =
-    '.cinematic-festival .tl-body:not([data-day="all"]) .tl-row:not(:has(> .slot[data-open] > .session)){display:none}';
+  /**
+   * The trapped-box rule -- a fixed height plus `overscroll-behavior:none` --
+   * which is what stops the timetable from scrolling the PAGE underneath it
+   * once the reader reaches an edge, on either axis.
+   *
+   * IT REPLACES THE TWO HIDE RULES, which no longer exist. Those were the
+   * single-day view: every day was rendered as a column and all but one hidden
+   * on mobile, so the stylesheet carried the whole burden of showing the right
+   * day. Nothing is hidden now -- only the open day is built -- so the rule
+   * worth gating is the one that still has a mobile-only job.
+   *
+   * The "and only inside the mobile media block" half carries over unchanged in
+   * meaning: hoisted to every width, this pins the box to 360px on DESKTOP,
+   * where the design is that it opens out to full height. That is a worse
+   * regression than the one it fixes and a `toContain` over the whole document
+   * cannot see it.
+   */
+  const TRAPPED_BOX =
+    '.cinematic-festival .tl-box{height:var(--tl-boxh);overscroll-behavior:none;-webkit-overflow-scrolling:touch}';
 
-  it('ships both single-day rules, and only inside the mobile media block', async () => {
-    // THE CONSUMER HALF. A generator or a constant proven in isolation says
-    // nothing about whether the page uses it: the rules these replaced were
-    // themselves correct CSS, and the page still fell apart, because nothing
-    // tied them to what it rendered. Delete either rule and this reds; hoist
-    // either out of the media block and this reds.
+  it('ships the trapped-box rule, and only inside the mobile media block', async () => {
+    // THE CONSUMER HALF. A rule proven in isolation says nothing about whether
+    // the page uses it: the rules this replaced were themselves correct CSS,
+    // and the page still fell apart, because nothing tied them to what it
+    // rendered. Delete the rule and this reds; hoist it out of the media block
+    // and this reds.
     const html = await renderFestival('2026-09-05', SCHEDULE);
     const mobile = mobileCss(html);
     expect(mobile).not.toBe('');
 
-    for (const rule of [HIDE_CLOSED_SLOTS, HIDE_EMPTY_ROWS]) {
-      // Exactly once in the document, and that once is inside a mobile block.
-      expect(html.split(rule).length - 1).toBe(1);
-      expect(mobile).toContain(rule);
-    }
+    // Exactly once in the document, and that once is inside a mobile block.
+    expect(html.split(TRAPPED_BOX).length - 1).toBe(1);
+    expect(mobile).toContain(TRAPPED_BOX);
+
+    // THE OTHER EDGE, which the rule alone cannot state: the box has to be a
+    // scroll container at EVERY width, or trapping its overscroll on mobile
+    // traps nothing and the desktop overflow silently clips instead. This
+    // declaration lives outside the media block, so it must NOT be in `mobile`.
+    const BASE_BOX = '.cinematic-festival .tl-box{position:relative;overflow:auto;';
+    expect(html.split(BASE_BOX).length - 1).toBe(1);
+    expect(mobile).not.toContain(BASE_BOX);
+
+    // THE KEYBOARD REACHES THE SCROLLER, not the panel around it. `tabIndex`
+    // lived on `.tl-body`, which has no overflow, so Tab put a focus ring on an
+    // element that does not scroll and the arrow keys moved the PAGE instead --
+    // leaving everything past the fourth row unreachable on mobile in browsers
+    // that do not auto-focus scroll regions.
+    expect(html).toMatch(/<div class="tl-box" tabindex="0"/i);
+    expect(html).not.toMatch(/class="tl-body"[^>]*tabindex/i);
+
+    // And the focus ring follows it, or the focused element is invisible.
+    expect(html).toContain('.cinematic-festival .tl-box:focus-visible{');
   });
 
-  it('opens exactly one column per row on a 14-day span, with no fallback', async () => {
-    // COUNT INDEPENDENCE, which is the point of stamping `data-open` on the
-    // cell rather than counting child positions from the ancestor.
-    //
-    // This is the case the three-day fixture could never express -- it only
-    // ever emits columns 0..2, which is how a four-column ceiling survived
-    // review. The span is a parameter so the column count can exceed anything
-    // a hand-written rule list would have covered.
+  it('separates the day chip\'s date from its session count', async () => {
+    // Without the separator the chip renders "Friday 4 3" -- date then count,
+    // two unlabelled numbers running together -- and "Friday 4 4" on a day whose
+    // count matches its date, which cannot be read at all.
+    // The `<!-- -->` is React's own text separator between a static string and
+    // an interpolated one under renderToString -- not markup this page writes.
+    const html = await renderFestival(LOCAL_START, SCHEDULE);
+    // \u00b7, never a pasted middle dot: CLAUDE.md forbids raw Unicode
+    // punctuation in source, because the cp1252 round-trip over this mount
+    // mangles the byte -- and the regex would then stop matching and red the
+    // suite pointing at the day-tab separator rather than at the corruption.
+    // The component renders it the same way, for the same reason.
+    expect(html).toMatch(/<span class="day-tab-count"[^>]*>\u00b7\s*(<!-- -->)?\s*\d+<\/span>/);
+  });
+
+  it('renders only the open day on a 14-day span, with no fallback', async () => {
+    // COUNT INDEPENDENCE. The old grid put every day on screen as a column and
+    // hid all but one, so the number of days was a number the STYLESHEET had to
+    // know -- which is how a four-column ceiling survived review against a
+    // three-day fixture. Days reach the grid through one index now, so the span
+    // is a parameter here to prove that nothing downstream counts.
     const start = '2026-09-01';
     const end = '2026-09-14';
     const pinned = '2026-09-08';
 
     const wideSpan = spanDayKeys(start, end);
 
-    // TWO DISTINCT HOURS, and the later one deliberately ABSENT from the pinned
-    // day. `hours` is the set of distinct wall-clock start hours, so a fixture
-    // whose sessions all start at 20:00 renders exactly ONE row -- which is
-    // what this case shipped with. Every `new Set(rows.map(...))` below was
-    // then a set of ONE element, and "per row" was a claim about n=1: a defect
-    // that stamped the first row correctly and the rest wrongly was invisible.
-    // The 22:00 row also gives the empty-row rule something real to act on,
-    // since it has no session in the open column.
+    // TWO SESSIONS ON THE PINNED DAY, at DIFFERENT hours, and four on other
+    // days. The two hours are what make the per-card assertions below a claim
+    // about n>1 rather than about n=1: a defect that placed the first card
+    // correctly and the rest wrongly would otherwise be invisible, which is
+    // exactly what this case shipped with when the fixture pinned every session
+    // to 20:00. The four elsewhere are what make "only the open day" mean
+    // something -- there is real content to wrongly include.
     const wideSchedule = [
       { day: start, hour: '20:00:00' },
       { day: pinned, hour: '20:00:00' },
       { day: end, hour: '20:00:00' },
       { day: start, hour: '22:00:00' },
       { day: end, hour: '22:00:00' },
+      { day: pinned, hour: '22:00:00' },
     ].map((s, i) => ({
       id: `wide-${i}`,
       day: s.day,
@@ -536,34 +671,359 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     const html = await renderFestival(pinned, wideSchedule, { start, end });
     expect(html).toContain(TABS_RENDERED);
 
-    // Still the SINGLE-DAY view. No ceiling to trip, so nothing forces the
-    // all-days grid on a reader who did not ask for it.
-    expect(openDay(html)).toBe(String(wideSpan.indexOf(pinned)));
+    const openIdx = wideSpan.indexOf(pinned);
+    expect(openDay(html)).toBe(String(openIdx));
 
-    const rows = rowSlots(html);
+    // Non-vacuity: the picker really did emit all 14 days, so the assertions
+    // below cannot be satisfied by a page that rendered a three-day strip.
+    //
+    // TWO ANCHORS, and the class one carries its trailing SPACE deliberately.
+    // The chip's children are `day-tab-wd`, `day-tab-num`, `day-tab-count` and
+    // `day-tab-today`, so a bare `class="day-tab` prefix counts them all: it
+    // read 57 against a 14-day strip, and would have read a plausible-looking
+    // number against a broken one. `role="tab"` is exact -- `role="tablist"`
+    // does not contain it, because of the closing quote -- and it is worth
+    // asserting in its own right, since the chips carried an `aria-selected`
+    // with no role at all before this design.
+    expect(html.split('class="day-tab ').length - 1).toBe(wideSpan.length);
+    expect(html.split('role="tab"').length - 1).toBe(wideSpan.length);
+    expect(activeTabCount(html)).toBe(1);
 
-    // Non-vacuity, PINNED rather than floored: one row per distinct hour, so
-    // there are genuinely several rows for the per-row assertions to range
-    // over. `toBeGreaterThan(0)` was satisfied by the single row this fixture
-    // used to render, which is exactly how a claim about n=1 read as a claim
-    // about every row.
-    expect(rows.length).toBe(2);
+    const cards = daySessions(html);
 
-    // Non-vacuity: the grid really did emit 14 columns, so a 3-column render
-    // cannot satisfy the pairing assertion below by accident.
-    expect(new Set(rows.map((r) => r.count))).toEqual(new Set([wideSpan.length]));
-
-    // THE PAIRING, identity. Every row opens the column the timeline says is
-    // open -- drop `data-open` from the cell and every row reads -1; shift it
-    // by one and every row reads the neighbour.
-    expect(new Set(rows.map((r) => r.open))).toEqual(new Set([wideSpan.indexOf(pinned)]));
+    // THE PAIRING, identity. Every card on screen belongs to the day the
+    // timeline says is open -- an off-by-one in the day lookup shows the
+    // NEIGHBOUR's sessions, which no assertion on `data-day` alone can tell
+    // apart from the right ones.
+    expect(new Set(cards.map((c) => c.day))).toEqual(new Set([String(openIdx)]));
 
     // THE PAIRING, CARDINALITY -- the half identity cannot express, and the
-    // half this case's own title claims ("exactly one"). `open` holds the LAST
-    // open cell, so a stamp that opens columns 0..7 leaves it at 7 and agrees
-    // with the assertion above while rendering eight columns at once on a
-    // 375px viewport. Verified against that mutant: green before, red now.
-    expect(new Set(rows.map((r) => r.opens))).toEqual(new Set([1]));
+    // half the title claims. A grid that rendered the open day's two sessions
+    // PLUS the other four still satisfies the set assertion above whenever the
+    // extras carry the open day's own stamp, and a grid that dropped one
+    // satisfies it too. Six sessions are supplied; exactly two may render.
+    expect(cards).toHaveLength(2);
+
+    // ...and the rows follow the sessions, not the span. One row per occupied
+    // hour of the OPEN day -- two here, out of the two the whole fixture uses.
+    // A grid that laid out fourteen days' hours would still read 2 only by
+    // coincidence, so this is stated rather than assumed.
+    expect(hourRows(html)).toBe(2);
+
+    // VISUAL ORDER, which is an ARIA contract and not a tidy-up. Position on
+    // this grid lives in CSS coordinates, so DOM order is free to disagree with
+    // what the eye sees -- and DOM order is what a screen reader and a keyboard
+    // walk follow. The layout sorts by row then column to make them agree.
+    //
+    // ASSERTED because the source comment claiming it was, for a while, the
+    // only thing that did: replacing the sort with `cells.reverse()` survived
+    // every case here with zero failing assertions. This is the pinned day's
+    // 20:00 session (Session 1) before its 22:00 one (Session 5); it needs two
+    // cards on one day to mean anything, which is why the fixture has them.
+    expect(cards.map((c) => c.label?.split(',')[0])).toEqual(['Session 1', 'Session 5']);
+  });
+
+  /**
+   * The fold-round cases. Each one exists because a reviewer found the defect
+   * in code that had already passed a mutation pass and a browser check --
+   * these are the fixes, and fixes are unreviewed code.
+   */
+  it('gives abutting sessions in one room separate columns, not the same cell', async () => {
+    // 20:00-20:30 and 20:30-21:00 do not overlap in MINUTES, so a minute-based
+    // lane assignment put both in lane 0 -- and both then floor into hour row
+    // 20, so both got identical grid coordinates. CSS Grid stacks those and
+    // `align-self:stretch` makes the later card cover the earlier one whole: a
+    // session gone from a public page with nothing to see.
+    const day = LOCAL_START;
+    const abutting = [
+      { id: 'ab-0', day, title: 'First half', start_time: '20:00:00', end_time: '20:30:00', type: 'class', venue_room: 'Room A' },
+      { id: 'ab-1', day, title: 'Second half', start_time: '20:30:00', end_time: '21:00:00', type: 'class', venue_room: 'Room A' },
+    ];
+    const html = await renderFestival(day, abutting, { start: day, end: day });
+
+    const cards = daySessions(html);
+    expect(cards.map((c) => c.label?.split(',')[0])).toEqual(['First half', 'Second half']);
+
+    // THE ASSERTION THAT BITES: two lanes, so two session tracks. One track
+    // means they share a cell, which is the defect however many cards rendered.
+    expect(sessionColumns(html)).toBe(2);
+  });
+
+  it('bounds a start-after-end typo to one hour instead of the whole day', async () => {
+    // 10:00 -> 09:00 wraps to a 23-hour span, which claims 23 hour rows and
+    // renders one card over the entire day. The clamp that was supposed to stop
+    // this was `Math.min(end, start + 1440)` -- unreachable in both branches, so
+    // it read as a bound while being dead code.
+    const day = LOCAL_START;
+    const typo = [
+      { id: 'ty-0', day, title: 'Typo session', start_time: '10:00:00', end_time: '09:00:00', type: 'class' },
+    ];
+    const html = await renderFestival(day, typo, { start: day, end: day });
+
+    expect(daySessions(html)).toHaveLength(1);
+    // One occupied hour, so one row. A 23-hour read renders 23.
+    expect(hourRows(html)).toBe(1);
+  });
+
+  it('sorts an early-morning session after the evening it follows', async () => {
+    // The programme day runs 09:00 -> 08:59, which is the axis
+    // programDayRollover already puts the DATA on. Read raw, a 01:00 session
+    // sorts to hour 1 -- above a 23:00 party -- and the grid renders 01:00
+    // first, then "21 hours free", then 23:00, then rows labelled 00:00 and
+    // 01:00 from the party's wrap. Two rows with the same clock label.
+    const day = LOCAL_START;
+    const overnight = [
+      { id: 'on-0', day, title: 'Late class', start_time: '01:00:00', end_time: '02:00:00', type: 'class', is_masterclass: true },
+      { id: 'on-1', day, title: 'Evening party', start_time: '23:00:00', end_time: '02:00:00', type: 'party' },
+    ];
+    const html = await renderFestival(day, overnight, { start: day, end: day });
+
+    // THE SESSION TYPE IS STILL ON THE PAGE, by both routes. Colour is by LEVEL
+    // now, so nothing else distinguishes a party from a workshop -- and on a
+    // festival that publishes no levels (Tunisia: 14 items, every `levels`
+    // empty) dropping it left every card an identical grey block. A tall card
+    // gets a tag band; a one-row card cannot afford one, so its type is folded
+    // into the meta line instead. Both are asserted, because a fix that only
+    // covered the tall case would look complete against this fixture.
+    expect(html).toContain('<span class="tl-ev-tag">Party</span>');
+
+    // THE ONE-ROW PATH, asserted on the VISIBLE meta line and not on the
+    // accessible name. The label carries `typeTag` whichever way the card
+    // renders, so a `sr-only` assertion passes with the visual fold deleted --
+    // measured: removing it left every case here green. This reads the meta
+    // span, which only the fold writes to.
+    expect(metaTexts(html).some((t) => t.includes('Masterclass'))).toBe(true);
+
+    // ...and the accessible name reports it too, by whichever route.
+    expect(daySessions(html).map((c) => c.label?.split(',')[1]?.trim())).toContain('Masterclass');
+
+    // VISUAL ORDER is the receipt: the party comes first because it starts
+    // first on the festival's own clock.
+    const cards = daySessions(html);
+    expect(cards.map((c) => c.label?.split(',')[0])).toEqual(['Evening party', 'Late class']);
+
+    // Hours 23, 00 and 01 -- three rows, no duplicate label, no phantom gap.
+    expect(hourRows(html)).toBe(3);
+    expect(html).not.toContain('hours free');
+  });
+
+  it('gives an unroomed session its own column instead of dropping it', async () => {
+    // THE DEFECT THIS EXISTS FOR, and it is not hypothetical: a review of the
+    // four design mockups this grid was built from found it in FOUR OF FOUR.
+    // Group the day by room, then select each group with `item.room === room`,
+    // and every session whose room is NULL matches no group and vanishes from
+    // the grid -- while the day chip above it goes on counting it, so the chip
+    // reads one more than the grid shows. `event_program_items.room` is
+    // nullable, so the mixed shape is representable.
+    //
+    // No live festival mixes roomed and unroomed sessions on one day (checked
+    // against prod on 2026-08-25), which is exactly why this needs a case and
+    // not a look: there is nothing to see it on.
+    const day = LOCAL_START;
+    const mixed = [
+      { id: 'mx-0', day, title: 'In a room', start_time: '10:00:00', end_time: '11:00:00', type: 'class', venue_room: 'Room A' },
+      { id: 'mx-1', day, title: 'Also in a room', start_time: '12:00:00', end_time: '13:00:00', type: 'class', venue_room: 'Room A' },
+      { id: 'mx-2', day, title: 'Room not published', start_time: '10:00:00', end_time: '11:00:00', type: 'class' },
+    ];
+    const html = await renderFestival(day, mixed, { start: day, end: day });
+
+    // EVERY session reaches the grid. Asserted by NAME and not only by count:
+    // a count alone is satisfied by a grid that drops the unroomed session and
+    // renders one of the others twice.
+    const cards = daySessions(html);
+    expect(cards.map((c) => c.label?.split(',')[0]).sort()).toEqual([
+      'Also in a room',
+      'In a room',
+      'Room not published',
+    ]);
+
+    // ...and it sits in a column that SAYS the room is unknown, rather than
+    // being folded into Room A -- which would not lose the session, it would
+    // misattribute it, and that is worse on a public page about a real event.
+    expect(html).toContain('Room A');
+    expect(html).toContain('Room not set');
+    expect(sessionColumns(html)).toBe(2);
+  });
+
+  /**
+   * REGRESSION CASES FOR THE REVIEW ROUND, and the reason they exist at all:
+   * the three defects below were fixed and the suite stayed 34/34 green. A
+   * fix nothing asserts is a fix that can be reverted in silence, and all
+   * three are wrong information about a real event on a public page.
+   */
+  it('puts an 08:30 session at the TOP of its own day, not behind a fabricated gap', async () => {
+    // programDayRollover rolls back sessions starting STRICTLY BEFORE 08:00, so
+    // 08:00-08:59 belongs to its own day's morning. DAY_AXIS_START_HOUR read 9
+    // while its comment claimed parity with that file, so an 08:30 bootcamp was
+    // pushed a full day up the axis: last card of the day, behind a "10 hours
+    // free" gap the organiser never published.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'am-0', day, title: 'Morning bootcamp', start_time: '08:30:00', end_time: '09:30:00', type: 'class' },
+      { id: 'pm-0', day, title: 'Evening party', start_time: '21:00:00', end_time: '23:00:00', type: 'party' },
+    ], { start: day, end: day });
+
+    expect(daySessions(html).map((c) => c.label?.split(',')[0])).toEqual([
+      'Morning bootcamp',
+      'Evening party',
+    ]);
+    // No gap row may claim the hours BEFORE the first session.
+    expect(html).not.toContain('10 hours free');
+  });
+
+  it('does not print an end time the organiser never published', async () => {
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'ne-0', day, title: 'No end published', start_time: '20:00:00', type: 'class' },
+    ], { start: day, end: day });
+
+    // The card still needs a height, so the layout keeps its 60-minute default
+    // -- but "20:00-21:00" is a CLAIM, and nobody made it.
+    const meta = metaTexts(html);
+    expect(meta.length).toBe(1);
+    expect(meta[0]).toContain('20:00');
+    expect(meta[0]).not.toContain('21:00');
+    expect(daySessions(html)[0].label).toContain('no end published');
+  });
+
+  it('renders a REJECTED wrap as start-only, not as a different wrong end', async () => {
+    // 10:00 -> 09:00 wraps to 23 hours, over MAX_WRAP_MINUTES, so the reading is
+    // rejected as a typo. Substituting start+1h swapped one wrong end for
+    // another; declining to state an end is the only honest option.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'wr-0', day, title: 'Typo', start_time: '10:00:00', end_time: '09:00:00', type: 'class' },
+    ], { start: day, end: day });
+
+    const meta = metaTexts(html);
+    expect(meta[0]).toContain('10:00');
+    expect(meta[0]).not.toContain('11:00');
+  });
+
+  it('does not advertise a two-level class as open to everyone', async () => {
+    // FestivalScheduleItem.levels: "All four named = 'All levels'." Reading ANY
+    // multi-level session as "All levels" told advanced dancers a
+    // beginner+improver class was for them.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'lv-0', day, title: 'Two level class', start_time: '10:00:00', end_time: '11:00:00', type: 'class', levels: ['beginner', 'improver'] },
+    ], { start: day, end: day });
+
+    expect(metaTexts(html)[0]).toContain('Beginner, Improver');
+    expect(html).not.toContain('All levels');
+  });
+
+  it('never paints two legend rows the same colour', async () => {
+    // "Open Level" and "All levels" are both open -- they shared a swatch and
+    // rendered as two rows, so a reader matching a purple card against the key
+    // got two answers. Sharing a colour and sharing a row are the same claim.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'op-0', day, title: 'Open', start_time: '10:00:00', end_time: '11:00:00', type: 'class', levels: ['open_level'] },
+      { id: 'af-0', day, title: 'All four', start_time: '12:00:00', end_time: '13:00:00', type: 'class', levels: ['beginner', 'improver', 'intermediate', 'advanced'] },
+    ], { start: day, end: day });
+
+    const keys = [...html.matchAll(/class="legend-item l-([a-z]+)"/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(0);
+    expect(new Set(keys).size, `legend repeated a swatch: ${keys.join(', ')}`).toBe(keys.length);
+  });
+
+  it('renders the UNDATED column instead of an empty grid', async () => {
+    // festivalGridDays appends a column for a session with no usable day, and
+    // its own header says why: losing that column "was a silent regression: the
+    // session became unreachable in the UI". `sessionsByDay` buckets it under
+    // `''`, so reading the open day's key as `null` and feeding the grid `[]`
+    // reintroduced exactly that -- with the day chip above still counting the
+    // session it would not show.
+    const html = await renderFestival(undefined, SCHEDULE_WITH_UNDATED);
+
+    // The UNDATED column is appended LAST, after the three span days, and it
+    // still gets a chip -- the column is not dropped.
+    expect(html.split('class="day-tab ').length - 1).toBe(4);
+
+    // THE CONTENT HALF IS NOT ASSERTABLE HERE, and saying so is the point.
+    // Opening the undated column needs a CLICK: the seed answers day 0 (a real
+    // span day) and no pinned key can select a column that has no date to pin.
+    // A render with the undated session alone therefore shows "Nothing
+    // scheduled" for day 0 and proves nothing about the undated one. The click
+    // lives in tests/client/festivalClientState -- "opens the UNDATED column".
+    // Splitting it is honest; asserting the easy half here and calling the
+    // defect covered is how it got shipped in the first place.
+  });
+
+  it('reads gap rows between the sessions they separate, not all before them', async () => {
+    // Gaps are the only content in the grid besides sessions that is NOT
+    // aria-hidden, so DOM order is what a screen reader and a keyboard walk
+    // follow. Emitted in their own pass they announced every break up front --
+    // "3 hours free, 5 hours free", then the whole day -- which is the exact
+    // mismatch the cells' row-then-column sort exists to prevent. The source
+    // called that sort "the ARIA contract" while the gaps sat outside it.
+    const day = LOCAL_START;
+    const spaced = [
+      { id: 'sp-0', day, title: 'Morning', start_time: '10:00:00', end_time: '11:00:00', type: 'class' },
+      { id: 'sp-1', day, title: 'Afternoon', start_time: '15:00:00', end_time: '16:00:00', type: 'class' },
+      { id: 'sp-2', day, title: 'Evening', start_time: '20:00:00', end_time: '21:00:00', type: 'class' },
+    ];
+    const html = await renderFestival(day, spaced, { start: day, end: day });
+    const body = tlBody(html);
+
+    // The exposed content, in served order.
+    const flow = [...body.matchAll(/<div [^>]*class="[^"]*\b(tl-gap|tl-ev)\b[^"]*"[^>]*>(?:<span[^>]*>)?([^<]*)/g)]
+      .map((m) => (m[1] === 'tl-gap' ? 'GAP' : 'SESSION'));
+
+    expect(flow).toEqual(['SESSION', 'GAP', 'SESSION', 'GAP', 'SESSION']);
+  });
+
+  it('bounds a roster to what the card can hold, and still names the full count', async () => {
+    // The card cannot use `overflow:hidden` (that disables the sticky label) and
+    // it carries `z-index:3`, so an unbounded roster paints straight over the
+    // session below it. A one-hour card has room for none of it.
+    const day = LOCAL_START;
+    const people = Array.from({ length: 8 }, (_unused, i) => ({
+      id: `p-${i}`,
+      display_name: `Artist Number ${i}`,
+    }));
+    const crowded = [
+      { id: 'cr-0', day, title: 'One hour, eight artists', start_time: '10:00:00', end_time: '11:00:00', type: 'class', instructors: people },
+    ];
+    const html = await renderFestival(day, crowded, { start: day, end: day });
+    const body = tlBody(html);
+
+    // A one-row card shows NO roster block -- the count moves to the meta line.
+    expect(body).not.toContain('tl-ev-roster');
+    expect(body).toContain('8 artists');
+
+    // ...and the accessible name reports the full count regardless, because it
+    // is not space-constrained and must never under-report.
+    expect(daySessions(html)[0].label).toContain('8 artists');
+  });
+
+  it('says so when the open day has nothing on it, instead of an empty grid', async () => {
+    // THE REST-DAY BRANCH. `days` come from the SPAN, so a day with no sessions
+    // is a real column, and when it is the one that opens -- a festival whose
+    // span starts before its programme does -- the box would otherwise be a
+    // headerless, rowless husk. No live festival reaches this today (checked
+    // against prod on 2026-08-25: no event has a span day its programme
+    // skips), which is exactly why it needs a case rather than a look.
+    //
+    // Day 0 is deliberately the blank one: with no key pinned the seed answers
+    // 0, so the reader lands on it.
+    const laterOnly = SCHEDULE.filter((s) => s.day !== LOCAL_START);
+    const html = await renderFestival(undefined, laterOnly);
+
+    expect(html).toContain(TABS_RENDERED);
+    expect(openDay(html)).toBe('0');
+    expect(html).toContain('Nothing scheduled');
+
+    // The GRID is absent, not merely empty -- an empty `.tl-box` would satisfy
+    // the copy assertion above while still drawing a bordered, blank 360px
+    // rectangle under it.
+    expect(html).not.toMatch(/<div [^>]*class="[^"]*\btl-box\b/);
+    expect(daySessions(html)).toHaveLength(0);
+
+    // ...and the picker still offers the days that DO have sessions, so the
+    // empty state is a signpost rather than a dead end.
+    expect(html.split('class="day-tab ').length - 1).toBe(3);
   });
 
   it('badges a session-less span day but still opens day 1', async () => {
