@@ -137,6 +137,24 @@ export const SPAN_SHRUNK = { start: LOCAL_START, end: '2026-09-05' };
 export const SCHEDULE_SHRUNK = SCHEDULE.slice(0, 2);
 
 /**
+ * THE UNDATED SESSION -- a session whose day the organiser has not published.
+ * `festivalGridDays` appends one extra column for exactly this, because losing
+ * it "was a silent regression: the session became unreachable in the UI", and
+ * `sessionsByDay` buckets it under `''` rather than dropping it.
+ *
+ * Shared because the defect is covered by a PAIR of cases that were split on
+ * purpose: SSR asserts the extra chip renders, the client asserts the card
+ * appears when that chip is tapped. They are only two halves of one defect
+ * while the payload is identical -- duplicated inline, changing the title or
+ * the start time in one file leaves both suites green and the split silently
+ * covering two different things.
+ */
+export const SCHEDULE_WITH_UNDATED = [
+  ...SCHEDULE,
+  { id: 'un-0', day: null, title: 'Day not published', start_time: '20:00:00', type: 'class' },
+];
+
+/**
  * A SECOND festival, for the warm-navigation cases. Different id, different
  * span, and deliberately FEWER days than the first -- a festival-to-festival
  * navigation from a 3-day event to a 2-day one is what makes a leaked day

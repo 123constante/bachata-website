@@ -64,9 +64,12 @@ const byDateKey = (a: WallClock, b: WallClock): number => {
  * (2026-09-24..28) is a live instance. A selected index with no matching rule
  * hid nothing, so the page went unstyled rather than merely losing a tab.
  *
- * THE CEILING IS GONE, and no number replaced it. FestivalDetail stamps
- * `data-open` on the open cell itself, so the CSS never counts columns and this
- * function's output is unbounded as far as the view is concerned -- which
+ * THE CEILING IS GONE, and no number replaced it. FestivalDetail renders ONLY
+ * the open day (the grid's columns are ROOMS now, and the other days are not
+ * laid out and hidden -- they are not built), so no rule anywhere counts day
+ * columns and this function's output is unbounded as far as the view is
+ * concerned. The `data-open` stamp this note used to cite was deleted with the
+ * every-day-as-a-column design it belonged to -- which
  * matters, because it can emit a 62-day span (wallClockDateRange's maxDays),
  * plus one column per out-of-span session, plus this bucket.
  *

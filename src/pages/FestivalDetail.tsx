@@ -412,7 +412,7 @@ const CINEMATIC_CSS = `
 
 /* TIMETABLE -- rooms across, hours down. Light on purpose: see PRODUCT.md. */
 
-.cinematic-festival .program-wrap{--tl-paper:#F2F2EF;--tl-ink:#000;--tl-ink-soft:rgba(0,0,0,0.74);--tl-ink-mute:rgba(0,0,0,0.58);--tl-hdr-bg:#000;--tl-hdr-ink:#fff;--tl-hdr-ink2:rgba(255,255,255,0.78);--tl-edge:#000;--tl-drop:rgba(0,0,0,0.85);--lv-beginner:#15803D;--lv-improver:#0369A1;--lv-intermediate:#C2410C;--lv-advanced:#BE185D;--lv-open:#6D28D9;--lv-none:#5A6675;--tl-rowh:80px;--tl-gaph:26px;--tl-colw:210px;--tl-tgw:48px;--tl-headh:50px;--tl-boxh:360px}
+.cinematic-festival .program-wrap{--tl-paper:#F2F2EF;--tl-ink:#000;--tl-ink-soft:rgba(0,0,0,0.74);--tl-ink-mute:rgba(0,0,0,0.58);--tl-hdr-bg:#000;--tl-hdr-ink:#fff;--tl-hdr-ink2:rgba(255,255,255,0.78);--tl-edge:#000;--tl-drop:rgba(0,0,0,0.85);--lv-beginner:#15803D;--lv-improver:#0369A1;--lv-intermediate:#C2410C;--lv-advanced:#BE185D;--lv-multi:#0F766E;--lv-open:#6D28D9;--lv-none:#5A6675;--tl-rowh:80px;--tl-gaph:26px;--tl-colw:210px;--tl-tgw:48px;--tl-headh:50px;--tl-boxh:360px}
 
 .cinematic-festival .tl-body{position:relative}
 
@@ -428,6 +428,17 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .tl-corner{position:sticky;left:0;top:0;z-index:9;background:var(--tl-hdr-bg)}
 
+/* STICKY ONLY BELOW 901px, and that is a consequence of the settled design,
+   not an oversight. .tl-box is given a height (--tl-boxh) only inside the
+   <=900px query below, so above that width it grows to fit and its scrollport
+   never scrolls on the block axis -- which leaves the top: offset here, and on
+   .tl-ev-label, with no scroll range to stick within. On desktop the box opens
+   out and the whole day is on the page at once, so there is nothing to stick
+   TO; the rules are inert rather than wrong. Giving the box a desktop height
+   would make them live again and is a DESIGN decision, not a fix -- do not add
+   one here without settling that first.
+   NO BACKTICKS IN THIS BLOCK: it lives inside a JS template literal, where a
+   backtick ends the string and the parse error lands 3,000 lines away. */
 .cinematic-festival .tl-room{position:sticky;top:0;z-index:6;background:var(--tl-hdr-bg);padding:9px 12px;min-height:var(--tl-headh);display:flex;flex-direction:column;justify-content:center}
 
 .cinematic-festival .tl-room-name{color:var(--tl-hdr-ink);text-transform:uppercase;font-size:12px;font-weight:800;letter-spacing:0.05em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -453,8 +464,8 @@ const CINEMATIC_CSS = `
 .cinematic-festival .tl-ev.l-improver{background:var(--lv-improver)}
 .cinematic-festival .tl-ev.l-intermediate{background:var(--lv-intermediate)}
 .cinematic-festival .tl-ev.l-advanced{background:var(--lv-advanced)}
+.cinematic-festival .tl-ev.l-multi{background:var(--lv-multi)}
 .cinematic-festival .tl-ev.l-open{background:var(--lv-open)}
-.cinematic-festival .tl-ev.l-none{background:var(--lv-none)}
 
 .cinematic-festival .tl-ev-label{position:sticky;top:var(--tl-headh);z-index:2;display:flex;flex-direction:column;gap:3px}
 
@@ -513,8 +524,8 @@ const CINEMATIC_CSS = `
 .cinematic-festival .legend-item.l-improver .swatch{background:var(--lv-improver)}
 .cinematic-festival .legend-item.l-intermediate .swatch{background:var(--lv-intermediate)}
 .cinematic-festival .legend-item.l-advanced .swatch{background:var(--lv-advanced)}
+.cinematic-festival .legend-item.l-multi .swatch{background:var(--lv-multi)}
 .cinematic-festival .legend-item.l-open .swatch{background:var(--lv-open)}
-.cinematic-festival .legend-item.l-none .swatch{background:var(--lv-none)}
 
 @media (hover:hover){
   .cinematic-festival .tl-ev:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--tl-drop)}
@@ -1438,22 +1449,35 @@ const splitTitleIntoLines = (name: string): string[] => {
 // grey column is a true rendering of what the organiser has published. Inventing
 // a room or a level there would put false information on a public page.
 
-type TimetableLevelKey =
-  | "beginner"
-  | "improver"
-  | "intermediate"
-  | "advanced"
-  | "open"
-  | "none";
-
-const TIMETABLE_LEVEL_ORDER: TimetableLevelKey[] = [
+// The order is the SOURCE and the union is derived from it, not the other way
+// round. Written as two lists, adding a level and forgetting the array leaves
+// `indexOf` returning -1, which sorts the new level silently to the FRONT of
+// the legend instead of failing to compile.
+const TIMETABLE_LEVEL_ORDER = [
   "beginner",
   "improver",
   "intermediate",
   "advanced",
+  "multi",
   "open",
   "none",
-];
+] as const;
+
+type TimetableLevelKey = (typeof TIMETABLE_LEVEL_ORDER)[number];
+
+// The spelling the other four surfaces already use (ScheduleBlock, PeopleStack,
+// FestivalProgramSection): the same session must not read differently on
+// /festival/:id than it does on /event/:slug.
+const LEVEL_LABEL_FULL: Record<FestivalSessionLevel, string> = {
+  beginner: "Beginner",
+  improver: "Improver",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  open_level: "Open Level",
+};
+
+/** The four NAMED levels, in canonical order -- `open_level` is not one of them. */
+const NAMED_LEVELS = ["beginner", "improver", "intermediate", "advanced"] as const;
 
 // Colour is BY LEVEL, and the legend beneath the grid has to stay honest about
 // it -- so a session carrying more than one level is not painted as its first
@@ -1463,10 +1487,22 @@ const timetableLevel = (
   levels: FestivalSessionLevel[],
 ): { key: TimetableLevelKey; label: string } => {
   if (levels.length === 0) return { key: "none", label: "No level set" };
-  if (levels.length > 1) return { key: "open", label: "All levels" };
-  const only = levels[0];
-  if (only === "open_level") return { key: "open", label: "Open level" };
-  return { key: only, label: only.charAt(0).toUpperCase() + only.slice(1) };
+
+  // THE CONTRACT IS IN `FestivalScheduleItem.levels`: "All four named = 'All
+  // levels'. `open_level` alone = 'Open Level'." Reading ANY multi-level
+  // session as "All levels" advertised a beginner+improver class as open to
+  // advanced dancers -- false information about a real event, on a public page.
+  // A partial set is listed as what it is.
+  const named = NAMED_LEVELS.filter((l) => levels.includes(l));
+  if (levels.includes("open_level")) return { key: "open", label: "Open Level" };
+  if (named.length === NAMED_LEVELS.length) return { key: "open", label: "All levels" };
+  if (named.length > 1) {
+    return { key: "multi", label: named.map((l) => LEVEL_LABEL_FULL[l]).join(", ") };
+  }
+  // `levels` non-empty but carrying nothing recognisable: say nothing rather
+  // than pick one. Unreachable through the codec, and not worth a lie if it is.
+  if (named.length === 0) return { key: "none", label: "No level set" };
+  return { key: named[0], label: LEVEL_LABEL_FULL[named[0]] };
 };
 
 /** Minutes since midnight of a stored wall clock, read as-stored. */
@@ -1490,14 +1526,20 @@ const LONG_SESSION_MINUTES = 180;
 // row on the day.
 const MAX_WRAP_MINUTES = 720;
 
-// The programme day runs 09:00 to 08:59 the next morning, which is the axis
-// `src/lib/programDayRollover.ts` already puts the DATA on: a session starting
-// 00:00-08:00 belongs to the PREVIOUS day. Hours are therefore normalised onto
-// one continuous axis, so a 01:00 session sorts after the 23:00 party it
-// follows instead of to the top of the grid -- and shares a row with a
-// 23:00-02:00 party that wrapped onto the same hour, rather than rendering a
-// second row with the same clock label.
-const DAY_AXIS_START_HOUR = 9;
+// The programme day runs 08:00 to 07:59 the next morning, which is the axis
+// `src/lib/programDayRollover.ts` already puts the DATA on. Hours are
+// normalised onto one continuous axis, so a 01:00 session sorts after the
+// 23:00 party it follows instead of to the top of the grid -- and shares a row
+// with a 23:00-02:00 party that wrapped onto the same hour, rather than
+// rendering a second row with the same clock label.
+//
+// THE BOUNDARY IS 8, NOT 9, and it is not a free choice: `ROLLOVER_HOUR = 8`
+// there rolls back sessions starting STRICTLY BEFORE 08:00 ("exclusive of
+// 08:00", in its own words), so 08:00-08:59 belongs to its OWN day's morning.
+// This constant read 9 while its comment claimed parity with that file, which
+// put an 08:30 bootcamp at the BOTTOM of its day behind a fabricated 10-hour
+// gap -- the data said morning, the axis said tomorrow.
+const DAY_AXIS_START_HOUR = 8;
 
 const roomOf = (item: FestivalScheduleItem): string | null => {
   const raw = item.venueRoom;
@@ -1522,23 +1564,35 @@ const roomOf = (item: FestivalScheduleItem): string | null => {
 // 09:00 typo still produced a 23-hour card spanning the whole day.
 const sessionSpanMinutes = (
   item: FestivalScheduleItem,
-): { start: number; end: number } | null => {
+): { start: number; end: number; endPublished: boolean } | null => {
   const rawStart = wallClockMinutes(item.startTime);
   if (rawStart === null) return null;
   const rawEnd = wallClockMinutes(item.endTime);
 
+  // `endPublished` SEPARATES THE LAYOUT DECISION FROM THE CLAIM. A session with
+  // no end time still needs a height, so it gets DEFAULT_SESSION_MINUTES -- but
+  // the organiser published no end, and the card must not print one. Rendering
+  // the fallback as a clock range told readers a 20:00 session ends at 21:00 on
+  // the sole authority of this constant.
   let duration: number;
+  let endPublished: boolean;
   if (rawEnd === null || rawEnd === rawStart) {
     duration = DEFAULT_SESSION_MINUTES;
+    endPublished = false;
   } else if (rawEnd > rawStart) {
     duration = rawEnd - rawStart;
+    endPublished = true;
   } else {
     const wrapped = rawEnd + 1440 - rawStart;
-    duration = wrapped > MAX_WRAP_MINUTES ? DEFAULT_SESSION_MINUTES : wrapped;
+    // Over the bound the wrap is read as a start/end typo. Rejecting the value
+    // is right; asserting a DIFFERENT one in its place is not, so the card
+    // falls back to start-only rather than to "start to start+1h".
+    endPublished = wrapped <= MAX_WRAP_MINUTES;
+    duration = endPublished ? wrapped : DEFAULT_SESSION_MINUTES;
   }
 
   const start = rawStart < DAY_AXIS_START_HOUR * 60 ? rawStart + 1440 : rawStart;
-  return { start, end: start + duration };
+  return { start, end: start + duration, endPublished };
 };
 
 type TimetableRow = { kind: "hour"; hour: number } | { kind: "gap"; hours: number };
@@ -1562,6 +1616,16 @@ type TimetableCell = {
   rowEnd: number;
   startMin: number;
   endMin: number;
+  /**
+   * Did the ORGANISER publish an end time, or is `endMin` the layout fallback?
+   *
+   * `endMin` always holds something because a card needs a height. Printing
+   * that fallback as a clock range told readers a 20:00 session ends at 21:00
+   * on the authority of DEFAULT_SESSION_MINUTES alone. False when no end was
+   * published, when end == start, and when the wrap exceeded MAX_WRAP_MINUTES
+   * (a rejected end must render as start-only, not as a different wrong end).
+   */
+  endPublished: boolean;
   isLong: boolean;
   level: { key: TimetableLevelKey; label: string };
   /** "Party" / "Masterclass", or null for an ordinary class. */
@@ -1723,15 +1787,17 @@ const buildTimetableLayout = (items: FestivalScheduleItem[]): TimetableLayout =>
     rows.push({ kind: "hour", hour });
   });
 
-  const columnOfLane = new Map<string, number>();
+  // A room's lanes are contiguous, so a lane's column IS its room's start
+  // column plus the lane index. The lookup Map this replaced was keyed
+  // `${gi}:${lane}` and read through a `?? 0` that could never fire -- which
+  // reads as a safety net while actually being a silent "put the card in
+  // column 0" if lane numbering ever changes. The arithmetic has no
+  // unreachable branch to reason about.
   const roomStartColumn: number[] = [];
   let columns = 0;
   groups.forEach((group, gi) => {
     roomStartColumn[gi] = columns;
-    for (let lane = 0; lane < group.lanes; lane += 1) {
-      columnOfLane.set(`${gi}:${lane}`, columns);
-      columns += 1;
-    }
+    columns += group.lanes;
   });
 
   const cells: TimetableCell[] = [];
@@ -1759,11 +1825,12 @@ const buildTimetableLayout = (items: FestivalScheduleItem[]): TimetableLayout =>
         key: item.id ?? `${gi}-${pi}`,
         item,
         room: group.name,
-        column: columnOfLane.get(`${gi}:${lane}`) ?? 0,
+        column: roomStartColumn[gi] + lane,
         rowStart,
         rowEnd,
         startMin: span.start,
         endMin: span.end,
+        endPublished: span.endPublished,
         isLong,
         level: timetableLevel(item.levels),
         typeTag,
@@ -2169,7 +2236,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // of the festival. It survives as the second half of the section's render
   // gate: a schedule whose every start time is unparseable must not put an
   // empty grid on the page, and that is the one question this set answers.
-  const { days, hours, sessionsByDay } = useMemo(() => {
+  const { days, hasTimedSession, sessionsByDay } = useMemo(() => {
 
     const schedule = festivalDetail?.schedule ?? [];
 
@@ -2178,7 +2245,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     // intersection `string & WallClock`, and the brand silently launders back
     // to string (new Date(day) compiled without error before this fix).
 
-    if (schedule.length === 0) return { days: [] as WallClock[], hours: [] as number[], sessionsByDay: {} as Record<string, typeof schedule> };
+    if (schedule.length === 0) return { days: [] as WallClock[], hasTimedSession: false, sessionsByDay: {} as Record<string, typeof schedule> };
 
 
 
@@ -2192,7 +2259,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       festivalDetail?.dates.localEnd,
     );
 
-    const uniqHoursSet = new Set<number>();
+    // This used to collect the distinct hours as a sorted array, back when the
+    // hours were the grid's ROWS. The rows come from `buildTimetableLayout`
+    // now, and the only surviving question is whether the festival has ANY
+    // session with a readable start -- so it is a boolean, named for what it
+    // answers. Same predicate as before (`wallClockHour`), so the same
+    // sessions are skipped: this is not a behaviour change.
+    let hasTimed = false;
 
     const byKey: Record<string, typeof schedule> = {};
 
@@ -2202,7 +2275,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       if (hh === null) return;
 
-      uniqHoursSet.add(hh);
+      hasTimed = true;
 
       const key = wallClockDateKey(s.day) ?? '';
 
@@ -2212,7 +2285,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
     });
 
-    return { days: uniqDays, hours: Array.from(uniqHoursSet).sort((a, b) => a - b), sessionsByDay: byKey };
+    return { days: uniqDays, hasTimedSession: hasTimed, sessionsByDay: byKey };
 
   }, [festivalDetail]);
 
@@ -2352,23 +2425,26 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   //
   // `undefined` (no such day at all) stays distinct from `''` (the undated
   // day): the first must render nothing, the second must render its bucket.
-  const activeDay: WallClock | undefined = days[activeDayIdx];
-  const activeDayKey = activeDay === undefined ? null : (wallClockDateKey(activeDay) ?? '');
+  // `dayKeys` (above) ALREADY holds exactly `wallClockDateKey(d) ?? ''` per
+  // day, and its own comment says it exists so these derivations stop drifting
+  // apart. Re-deriving it here put the undated-column sentinel in a fourth
+  // place. `dayKeys[i]` is `undefined` out of range and `''` for the undated
+  // day, which is precisely the distinction the note above protects.
+  const activeDayKey = dayKeys[activeDayIdx] ?? null;
 
   // Which column of the picker a given day key belongs to. Used to stamp each
   // rendered session with the day it ACTUALLY comes from -- see the note on
   // `data-day` at the card itself for why that is not the same as the open one.
   const dayIndexByKey = useMemo(() => {
     const byKey = new Map<string, number>();
-    days.forEach((day, i) => {
-      // `?? ''` for the same reason activeDayKey uses it: the UNDATED column is
-      // a real column and its sessions need a stamp, or every card on it reads
-      // -1 and the gate rejects the page.
-      const key = wallClockDateKey(day) ?? '';
+    // Built from `dayKeys`, so the UNDATED column's `''` sentinel is defined in
+    // ONE place. A card on that column needs a real stamp or it reads -1 and
+    // the gate rejects the page.
+    dayKeys.forEach((key, i) => {
       if (!byKey.has(key)) byKey.set(key, i);
     });
     return byKey;
-  }, [days]);
+  }, [dayKeys]);
 
   // THE OPEN DAY IS THE ONLY DAY THAT EXISTS in the grid. The previous design
   // rendered every day as a column and hid all but one with CSS; the columns are
@@ -2382,19 +2458,31 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   // The legend lists the levels PRESENT on the open day, in canonical order --
   // never the full set, which would advertise a beginner stream on a day that
-  // has none. Keyed by (colour, label) so "Open level" and "All levels", which
-  // deliberately share a swatch, still read as the two distinct things they are.
+  // has none.
+  //
+  // ONE ROW PER COLOUR. Keying by (colour, label) rendered "Open Level" and
+  // "All levels" as two rows painted the SAME purple, so a reader matching a
+  // card against the legend got two answers and no way to choose -- a colour
+  // key whose colour does not identify the row beside it. Sharing a swatch and
+  // sharing a row are the same claim, so the labels that share a colour share
+  // a line. `multi` is the exception: its labels are per-session lists, so the
+  // row names the colour and the CARD carries the detail.
   const timetableLegend = useMemo(() => {
-    const seen = new Map<string, { key: TimetableLevelKey; label: string }>();
+    const byKey = new Map<TimetableLevelKey, Set<string>>();
     for (const cell of timetable.cells) {
-      const id = `${cell.level.key}:${cell.level.label}`;
-      if (!seen.has(id)) seen.set(id, cell.level);
+      const labels = byKey.get(cell.level.key) ?? new Set<string>();
+      labels.add(cell.level.label);
+      byKey.set(cell.level.key, labels);
     }
-    return [...seen.values()].sort(
-      (a, b) =>
-        TIMETABLE_LEVEL_ORDER.indexOf(a.key) - TIMETABLE_LEVEL_ORDER.indexOf(b.key) ||
-        a.label.localeCompare(b.label),
-    );
+    return [...byKey.entries()]
+      .map(([key, labels]) => ({
+        key,
+        label: key === "multi" ? "Multiple levels" : [...labels].sort().join(" / "),
+      }))
+      .sort(
+        (a, b) =>
+          TIMETABLE_LEVEL_ORDER.indexOf(a.key) - TIMETABLE_LEVEL_ORDER.indexOf(b.key),
+      );
   }, [timetable]);
 
   // Roving tabindex: only the selected day chip is in the tab order, and the
@@ -2419,7 +2507,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     const chip = dayTabRefs.current[activeDayIdx];
     if (!strip || !chip) return;
     if (strip.scrollWidth <= strip.clientWidth) return;
-    strip.scrollLeft = Math.max(0, chip.offsetLeft - (strip.clientWidth - chip.clientWidth) / 2);
+    // MEASURED FROM THE STRIP, not from `offsetParent`. `.day-picker` sets no
+    // `position`, so a chip's `offsetLeft` resolves against `.program-wrap`
+    // (which is `position:relative`) -- correct only while the picker's left
+    // edge sits at x=0 inside that wrapper. Padding on the wrapper, a margin on
+    // the picker, or a sibling beside it would silently offset every load by
+    // that gap, putting the open chip off-centre or off-screen: the exact
+    // failure this effect exists to prevent. The delta is offset-independent.
+    const offsetInStrip = chip.offsetLeft - strip.offsetLeft;
+    strip.scrollLeft = Math.max(0, offsetInStrip - (strip.clientWidth - chip.clientWidth) / 2);
   }, [activeDayIdx, days.length]);
 
   const handleDayTabKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, i: number) => {
@@ -3034,7 +3130,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       {/* PROGRAMME / SCHEDULE */}
 
-      {days.length > 0 && hours.length > 0 && (
+      {days.length > 0 && hasTimedSession && (
         <section className="program">
           <div className="program-wrap">
             <div className="section-h">
@@ -3172,22 +3268,28 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                           style={{ gridRow: ri + 2, gridColumn: 1 }}
                           aria-hidden="true"
                         >
-                          {String(row.hour % 24).padStart(2, "0")}:00
+                          {minutesToHHMM(row.hour * 60)}
                         </div>
                       ) : null,
                     )}
 
-                    {timetable.rows.flatMap((row, ri) =>
-                      row.kind === "hour"
-                        ? Array.from({ length: timetable.columns }, (_unused, ci) => (
-                            <div
-                              key={`cellbg-${ri}-${ci}`}
-                              className="tl-cellbg"
-                              style={{ gridRow: ri + 2, gridColumn: ci + 2 }}
-                              aria-hidden="true"
-                            />
-                          ))
-                        : [],
+                    {/* ONE rule per hour row, not one per cell. `.tl-cellbg`
+                        is a bare `border-top` and `.tl-grid` declares no column
+                        gap, so N abutting segments and one spanning element
+                        paint the same pixels -- while the per-cell form cost
+                        `hours x columns` nodes on every render AND every SSR
+                        response, scaling with the two dimensions this design
+                        just made variable. If a COLUMN separator is ever
+                        wanted, the per-cell form has to come back. */}
+                    {timetable.rows.map((row, ri) =>
+                      row.kind === "hour" ? (
+                        <div
+                          key={`cellbg-${ri}`}
+                          className="tl-cellbg"
+                          style={{ gridRow: ri + 2, gridColumn: "2 / -1" }}
+                          aria-hidden="true"
+                        />
+                      ) : null,
                     )}
 
                     {/* THE EXPOSED CONTENT, in the order the eye reads it --
@@ -3225,7 +3327,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                             className="tl-gap"
                             style={{
                               gridRow: entry.row + 2,
-                              gridColumn: `1 / span ${timetable.columns + 1}`,
+                              gridColumn: "1 / -1",
                             }}
                           >
                             <span>
@@ -3261,7 +3363,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                         solo ? cell.item.title : "",
                         cell.typeTag ?? "",
                         cell.room ? `in ${cell.room}` : "",
-                        `${from} to ${to}`,
+                        cell.endPublished ? `${from} to ${to}` : `from ${from}, no end published`,
                         cell.level.label,
                         // The FULL count, never the truncated one -- the label
                         // is not space-constrained and must not under-report.
@@ -3294,7 +3396,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                                 A short card gets its type and its artist count
                                 on the meta line rather than losing them. */}
                             <span className="tl-ev-meta">
-                              {from}&ndash;{to}
+                              {cell.endPublished ? `${from}–${to}` : from}
                               {/* \u00b7, never a pasted middle dot and never
                                   &middot;: an HTML entity inside a template
                                   literal ships as the literal seven characters,
@@ -3320,10 +3422,21 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
               )}
             </div>
 
-            {timetable.cells.length > 0 && (
+            {/* THE NOTE DESCRIBES THE GRID, never the viewport. It used to say
+                "scroll inside the box" unconditionally -- but the rule that
+                makes `.tl-box` scroll on the block axis lives only in the
+                <=900px media query, and a narrow day does not scroll
+                horizontally either, so on desktop it instructed the reader to
+                scroll something already fully visible. The room count is the
+                claim worth making and it holds at every width.
+
+                `timetable.columns` is the LANE count, not what the reader sees:
+                a day with three concurrent classes in one room and one in
+                another renders TWO room headings and said "4 columns". Rooms
+                are what carry a heading, so rooms are what the note counts. */}
+            {timetable.cells.length > 0 && timetable.rooms.length > 1 && (
               <div className="tl-note" aria-hidden="true">
-                <span>scroll inside the box</span>
-                <span>{timetable.columns === 1 ? "one column" : `${timetable.columns} columns`}</span>
+                <span>{`${timetable.rooms.length} rooms, side by side`}</span>
               </div>
             )}
 

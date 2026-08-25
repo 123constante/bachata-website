@@ -51,8 +51,13 @@ outdoor legibility beats mood, and it beats it only here.
 alone: the box, its room headers, its hour rail and its session cards. The page
 around it — hero, lineup, tickets, venue, footer — is unchanged, and so is the
 day picker sitting above the box, which reads as part of the dark page. The
-timetable's light tokens are declared on `.program-wrap` in `FestivalDetail.tsx`
-and are namespaced `--tl-*`, so nothing outside can inherit them.
+timetable's light tokens are declared on `.program-wrap` in `FestivalDetail.tsx`,
+in TWO namespaces: `--tl-*` for the surface (paper, ink, edges, row heights) and
+`--lv-*` for the level palette (`--lv-beginner`, `--lv-improver`,
+`--lv-intermediate`, `--lv-advanced`, `--lv-multi`, `--lv-open`, `--lv-none`).
+Both are scoped to that selector, so nothing outside can inherit them &mdash; but
+grepping only `--tl-` finds the surface and misses the whole level palette, which
+is the half a revert would leave behind.
 
 The register is still ours: it is brutalist, not soft — hard black rules, hard
 offset shadows, no blur, no gradients, no rounded pastel cards. It is the

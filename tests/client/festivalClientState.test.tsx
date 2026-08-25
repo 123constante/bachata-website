@@ -72,6 +72,7 @@ import {
   LOCAL_START_B,
   LOCAL_END_B,
   SCHEDULE,
+  SCHEDULE_WITH_UNDATED,
   SCHEDULE_B,
   SPAN_WITH_EARLY_DAY,
   SCHEDULE_WITH_EARLY_DAY,
@@ -576,10 +577,7 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
     expect(dayTabs(container)).toHaveLength(3);
 
     await landRefetch(
-      [
-        ...SCHEDULE,
-        { id: 'un-0', day: null, title: 'Day not published', start_time: '20:00:00', type: 'class' },
-      ],
+      SCHEDULE_WITH_UNDATED,
       { start: LOCAL_START, end: LOCAL_END },
       IDS_A,
     );

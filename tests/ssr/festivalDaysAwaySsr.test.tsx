@@ -37,6 +37,7 @@ import {
   LOCAL_START,
   LOCAL_END,
   SCHEDULE,
+  SCHEDULE_WITH_UNDATED,
   seedClient,
   IDS_A,
   installFixtureFetchGate,
@@ -417,13 +418,16 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
   /**
    * The `.tl-body` element, tag-depth-matched out of the served document.
    *
-   * BOUNDS THE SCAN, which end-of-document does not. The last row would
-   * otherwise run to the foot of the page and absorb the legend, venue,
-   * tickets and footer; today that is the WHOLE remainder, because every
-   * fixture here renders a single row. It reads correct only because nothing
-   * below the timeline happens to emit a `.slot` -- the day one does, the
-   * column-count assertion reds pointing at the grid instead of at this
-   * helper.
+   * BOUNDS THE SCAN, which end-of-document does not. Every reader below
+   * (`daySessions`, `hourRows`, `metaTexts`) matches on class names that are
+   * not unique to the timetable, so an unbounded scan would absorb the legend,
+   * venue, tickets and footer and answer about the whole page. Depth-matching
+   * `<div>`/`</div>` from `.tl-body` ends the scan at its own closing tag, so
+   * what those readers see is the grid and nothing else.
+   *
+   * The three justifications this note used to carry -- a single-row fixture,
+   * `.slot` appearing nowhere below the timeline, and a column-count assertion
+   * -- all named things the rooms-across rebuild deleted.
    */
   const tlBody = (html: string): string => {
     const at = html.search(/<div [^>]*class="[^"]*\btl-body\b/);
@@ -502,6 +506,22 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
       out.push((close === -1 ? rest : rest.slice(0, close)).replace(/<!-- -->/g, ''));
     }
     return out;
+  };
+
+  /**
+   * How many SESSION columns (lanes) `.tl-grid` declares, read off the grid's
+   * own track list rather than off prose.
+   *
+   * The two cases below used to assert `'2 columns'` against `.tl-note`, which
+   * is `aria-hidden` decorative copy -- rewording it, or dropping it on a
+   * viewport where nothing scrolls, red an assertion about greedy interval
+   * partitioning for no defect. `grid-template-columns` IS the answer: the
+   * leading `var(--tl-tgw)` is the time gutter, `repeat(N, ...)` the sessions.
+   */
+  const sessionColumns = (html: string): number => {
+    const m = tlBody(html).match(/grid-template-columns:\s*var\(--tl-tgw\)\s*repeat\((\d+),/);
+    if (!m) throw new Error('sessionColumns: .tl-grid declared no repeat() track list');
+    return Number(m[1]);
   };
 
   /** How many hour rows the open day rendered -- one per hour it occupies. */
@@ -606,7 +626,12 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // The `<!-- -->` is React's own text separator between a static string and
     // an interpolated one under renderToString -- not markup this page writes.
     const html = await renderFestival(LOCAL_START, SCHEDULE);
-    expect(html).toMatch(/<span class="day-tab-count"[^>]*>·\s*(<!-- -->)?\s*\d+<\/span>/);
+    // \u00b7, never a pasted middle dot: CLAUDE.md forbids raw Unicode
+    // punctuation in source, because the cp1252 round-trip over this mount
+    // mangles the byte -- and the regex would then stop matching and red the
+    // suite pointing at the day-tab separator rather than at the corruption.
+    // The component renders it the same way, for the same reason.
+    expect(html).toMatch(/<span class="day-tab-count"[^>]*>\u00b7\s*(<!-- -->)?\s*\d+<\/span>/);
   });
 
   it('renders only the open day on a 14-day span, with no fallback', async () => {
@@ -719,9 +744,9 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     const cards = daySessions(html);
     expect(cards.map((c) => c.label?.split(',')[0])).toEqual(['First half', 'Second half']);
 
-    // THE ASSERTION THAT BITES: two lanes, so two columns. One column means
-    // they share a cell, which is the defect however many cards rendered.
-    expect(html).toContain('2 columns');
+    // THE ASSERTION THAT BITES: two lanes, so two session tracks. One track
+    // means they share a cell, which is the defect however many cards rendered.
+    expect(sessionColumns(html)).toBe(2);
   });
 
   it('bounds a start-after-end typo to one hour instead of the whole day', async () => {
@@ -817,7 +842,90 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // misattribute it, and that is worse on a public page about a real event.
     expect(html).toContain('Room A');
     expect(html).toContain('Room not set');
-    expect(html).toContain('2 columns');
+    expect(sessionColumns(html)).toBe(2);
+  });
+
+  /**
+   * REGRESSION CASES FOR THE REVIEW ROUND, and the reason they exist at all:
+   * the three defects below were fixed and the suite stayed 34/34 green. A
+   * fix nothing asserts is a fix that can be reverted in silence, and all
+   * three are wrong information about a real event on a public page.
+   */
+  it('puts an 08:30 session at the TOP of its own day, not behind a fabricated gap', async () => {
+    // programDayRollover rolls back sessions starting STRICTLY BEFORE 08:00, so
+    // 08:00-08:59 belongs to its own day's morning. DAY_AXIS_START_HOUR read 9
+    // while its comment claimed parity with that file, so an 08:30 bootcamp was
+    // pushed a full day up the axis: last card of the day, behind a "10 hours
+    // free" gap the organiser never published.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'am-0', day, title: 'Morning bootcamp', start_time: '08:30:00', end_time: '09:30:00', type: 'class' },
+      { id: 'pm-0', day, title: 'Evening party', start_time: '21:00:00', end_time: '23:00:00', type: 'party' },
+    ], { start: day, end: day });
+
+    expect(daySessions(html).map((c) => c.label?.split(',')[0])).toEqual([
+      'Morning bootcamp',
+      'Evening party',
+    ]);
+    // No gap row may claim the hours BEFORE the first session.
+    expect(html).not.toContain('10 hours free');
+  });
+
+  it('does not print an end time the organiser never published', async () => {
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'ne-0', day, title: 'No end published', start_time: '20:00:00', type: 'class' },
+    ], { start: day, end: day });
+
+    // The card still needs a height, so the layout keeps its 60-minute default
+    // -- but "20:00-21:00" is a CLAIM, and nobody made it.
+    const meta = metaTexts(html);
+    expect(meta.length).toBe(1);
+    expect(meta[0]).toContain('20:00');
+    expect(meta[0]).not.toContain('21:00');
+    expect(daySessions(html)[0].label).toContain('no end published');
+  });
+
+  it('renders a REJECTED wrap as start-only, not as a different wrong end', async () => {
+    // 10:00 -> 09:00 wraps to 23 hours, over MAX_WRAP_MINUTES, so the reading is
+    // rejected as a typo. Substituting start+1h swapped one wrong end for
+    // another; declining to state an end is the only honest option.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'wr-0', day, title: 'Typo', start_time: '10:00:00', end_time: '09:00:00', type: 'class' },
+    ], { start: day, end: day });
+
+    const meta = metaTexts(html);
+    expect(meta[0]).toContain('10:00');
+    expect(meta[0]).not.toContain('11:00');
+  });
+
+  it('does not advertise a two-level class as open to everyone', async () => {
+    // FestivalScheduleItem.levels: "All four named = 'All levels'." Reading ANY
+    // multi-level session as "All levels" told advanced dancers a
+    // beginner+improver class was for them.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'lv-0', day, title: 'Two level class', start_time: '10:00:00', end_time: '11:00:00', type: 'class', levels: ['beginner', 'improver'] },
+    ], { start: day, end: day });
+
+    expect(metaTexts(html)[0]).toContain('Beginner, Improver');
+    expect(html).not.toContain('All levels');
+  });
+
+  it('never paints two legend rows the same colour', async () => {
+    // "Open Level" and "All levels" are both open -- they shared a swatch and
+    // rendered as two rows, so a reader matching a purple card against the key
+    // got two answers. Sharing a colour and sharing a row are the same claim.
+    const day = LOCAL_START;
+    const html = await renderFestival(day, [
+      { id: 'op-0', day, title: 'Open', start_time: '10:00:00', end_time: '11:00:00', type: 'class', levels: ['open_level'] },
+      { id: 'af-0', day, title: 'All four', start_time: '12:00:00', end_time: '13:00:00', type: 'class', levels: ['beginner', 'improver', 'intermediate', 'advanced'] },
+    ], { start: day, end: day });
+
+    const keys = [...html.matchAll(/class="legend-item l-([a-z]+)"/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(0);
+    expect(new Set(keys).size, `legend repeated a swatch: ${keys.join(', ')}`).toBe(keys.length);
   });
 
   it('renders the UNDATED column instead of an empty grid', async () => {
@@ -827,11 +935,7 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // `''`, so reading the open day's key as `null` and feeding the grid `[]`
     // reintroduced exactly that -- with the day chip above still counting the
     // session it would not show.
-    const undated = [
-      ...SCHEDULE,
-      { id: 'un-0', day: null, title: 'Day not published', start_time: '20:00:00', type: 'class' },
-    ];
-    const html = await renderFestival(undefined, undated);
+    const html = await renderFestival(undefined, SCHEDULE_WITH_UNDATED);
 
     // The UNDATED column is appended LAST, after the three span days, and it
     // still gets a chip -- the column is not dropped.
