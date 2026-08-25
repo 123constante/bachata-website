@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { courseLadderModel } from '@/modules/event-page/bento/blocks/courseLadderModel';
 import {
   formatDateLabel,
   formatTime,
@@ -11,8 +12,17 @@ import {
 // Approach A -- Weeks Ladder. Renders a course's occurrences as a vertical
 // Week 1..N progression: a connecting spine, numbered nodes, the next session
 // pulsing, and past weeks dimmed. Used in place of the flat DatesBlock when
-// event.type === 'course'. Week count and ordering derive purely from the
-// occurrences array (already date-ordered by the snapshot RPC).
+// event.type === 'course'.
+//
+// The arithmetic lives in courseLadderModel, not here: a cancelled night is
+// unnumbered and does not count, so a four-date course with one night called
+// off is a three-week course whose remaining weeks renumber. Deriving that from
+// the array index -- which is what this file used to do -- got both answers
+// wrong the moment anything was cancelled. Ordering is the snapshot RPC's.
+//
+// A cancelled row therefore shows a dot instead of a numbered node and reads
+// "Cancelled" where the week number would be. It carries no Cancelled badge:
+// the row already says so, in the slot the reader is looking at.
 
 type WeeksLadderBlockProps = {
   occurrences: EventPageSnapshotOccurrence[];
@@ -25,11 +35,7 @@ export const WeeksLadderBlock = ({
   currentOccurrenceId,
   level,
 }: WeeksLadderBlockProps) => {
-  const weekCount = occurrences.length;
-  // The next session is the first non-past, non-cancelled occurrence. When
-  // none remain the course has finished and nothing pulses.
-  const nextIdx = occurrences.findIndex((o) => !o.isPast && !o.isCancelled);
-  const finished = nextIdx === -1;
+  const { rows, weekCount, finished } = courseLadderModel(occurrences);
 
   return (
     <BentoTile title="Course" color="hsl(var(--bento-surface-raised))" mode="multi-target">
@@ -63,10 +69,8 @@ export const WeeksLadderBlock = ({
             aria-hidden="true"
           />
 
-          {occurrences.map((occ, i) => {
+          {rows.map(({ occurrence: occ, weekNumber, isNext, isPast, isCancelled }) => {
             const isActive = occ.occurrenceId === currentOccurrenceId;
-            const isUpcoming = i === nextIdx;
-            const isPast = occ.isPast;
             const dimmed = isPast && !isActive;
             const dateLabel = formatDateLabel(occ);
             const time = formatTime(occ.startsAt);
@@ -80,29 +84,41 @@ export const WeeksLadderBlock = ({
                 className="relative flex items-center gap-3 py-[9px]"
                 style={{ opacity: dimmed ? 0.4 : undefined }}
               >
-                {/* Node */}
+                {/* Node -- numbered when the session is going ahead, a dot when not. */}
                 <span className="relative z-[2] flex h-7 w-7 flex-none items-center justify-center">
-                  {isUpcoming && (
+                  {isNext && (
                     <span
                       className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
                       style={{ background: 'hsl(var(--bento-accent))' }}
                       aria-hidden="true"
                     />
                   )}
-                  <span
-                    className="relative flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-extrabold"
-                    style={
-                      isUpcoming
-                        ? { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }
-                        : {
-                            background: 'hsl(var(--bento-surface))',
-                            border: '2px solid hsl(var(--bento-accent) / 0.18)',
-                            color: 'hsl(var(--bento-fg-muted))',
-                          }
-                    }
-                  >
-                    {i + 1}
-                  </span>
+                  {isCancelled ? (
+                    <span
+                      className="relative flex h-7 w-7 items-center justify-center"
+                      aria-hidden="true"
+                    >
+                      <span
+                        className="h-[7px] w-[7px] rounded-full"
+                        style={{ background: 'hsl(var(--bento-fg-muted) / 0.55)' }}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className="relative flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-extrabold"
+                      style={
+                        isNext
+                          ? { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }
+                          : {
+                              background: 'hsl(var(--bento-surface))',
+                              border: '2px solid hsl(var(--bento-accent) / 0.18)',
+                              color: 'hsl(var(--bento-fg-muted))',
+                            }
+                      }
+                    >
+                      {weekNumber}
+                    </span>
+                  )}
                 </span>
 
                 {/* Label */}
@@ -110,49 +126,39 @@ export const WeeksLadderBlock = ({
                   <span
                     className="text-[12px] font-extrabold leading-none"
                     style={{
-                      color: occ.isCancelled
+                      color: isCancelled
                         ? 'rgba(248,113,113,0.7)'
-                        : isUpcoming
+                        : isNext
                           ? 'hsl(var(--bento-fg))'
                           : 'hsl(var(--bento-fg-muted))',
-                      textDecoration: occ.isCancelled ? 'line-through' : undefined,
                     }}
                   >
-                    Week {i + 1}
+                    {isCancelled ? 'Cancelled' : `Week ${weekNumber}`}
                   </span>
                   <span className="text-[9.5px] font-semibold" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
                     {dateLabel}
                   </span>
-                  {(isUpcoming || today || occ.isCancelled) && (
+                  {!isCancelled && (isNext || today) && (
                     <span className="mt-[3px] flex gap-1">
-                      {occ.isCancelled ? (
-                        <span
-                          className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
-                          style={{ background: '#dc2626', color: '#fff' }}
-                        >
-                          Cancelled
-                        </span>
-                      ) : (
-                        <span
-                          className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
-                          style={{ background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }}
-                        >
-                          {today ? 'Today' : 'Next session'}
-                        </span>
-                      )}
+                      <span
+                        className="rounded-[3px] px-[4px] py-px text-[6.5px] font-extrabold uppercase tracking-[0.06em]"
+                        style={{ background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }}
+                      >
+                        {today ? 'Today' : 'Next session'}
+                      </span>
                     </span>
                   )}
                 </div>
 
                 {/* Time */}
-                {!occ.isCancelled && time && (
+                {!isCancelled && time && (
                   <div className="flex flex-col items-end gap-[2px]">
                     <span
                       className="leading-none tracking-[-0.01em]"
                       style={{
-                        fontSize: isUpcoming ? '13px' : '11px',
-                        fontWeight: isUpcoming ? 900 : 700,
-                        color: isUpcoming ? 'hsl(var(--bento-accent))' : 'hsl(var(--bento-fg-muted))',
+                        fontSize: isNext ? '13px' : '11px',
+                        fontWeight: isNext ? 900 : 700,
+                        color: isNext ? 'hsl(var(--bento-accent))' : 'hsl(var(--bento-fg-muted))',
                       }}
                     >
                       {time}
