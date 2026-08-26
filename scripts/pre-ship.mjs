@@ -70,7 +70,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first FIFTEEN are exactly the npm-run links of the "lint" chain (which
+ * The first SIXTEEN are exactly the npm-run links of the "lint" chain (which
  * also ends in a bare `eslint .`, run by the chain and not listed here),
  * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
  * membership, so this comment is the only thing marking where the chain prefix
@@ -98,12 +98,21 @@ export const CHECKS = [
   // one case (collectFiles(['.claude']) must reach settings.local.json), and
   // that passes only because .claude/settings.local.json is TRACKED -- four of
   // its siblings under .claude/ are gitignored. If it is ever untracked this
-  // canary reds at link 2 and blocks the thirteen links behind it, so keep it
-  // tracked or move that case behind a "file exists" guard.
+  // canary reds at link 2 and blocks the FOURTEEN links behind it, so keep it
+  // tracked or move that case behind a "file exists" guard. Fourteen, not the
+  // thirteen this said until 2026-08-26: pairing check:image-widths took the
+  // chain to 16 links and this second copy of the count went stale in the very
+  // commit that updated the band word, which is what a second copy always does.
   //
-  // Cost 2026-08-26: ~0.3s of work. The npm-spawn figure (~2-3s) is not
-  // recorded as the cost, because it is spawn noise that does not reproduce
-  // between runs and is the same toll every link in the chain pays.
+  // Note what that hazard IS, because it has a name now and two siblings: a
+  // live-subject assertion sitting in a gating position. See the image-widths
+  // block below for the full account and the queue.
+  //
+  // Cost 2026-08-26: ~0.3s of work. The npm spawn is not recorded as the cost
+  // of THIS link, because it is the same toll every link already in the chain
+  // pays. The "~2-3s" this said until review was an estimate nobody ran --
+  // measured on this machine it is ~800ms, mean of 3. See the image-widths note
+  // for why a spawn IS marginal cost for a link a diff ADDS.
   ["check:mojibake:self-test", "the detector fires AND the scan still reaches .claude"],
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
@@ -111,22 +120,40 @@ export const CHECKS = [
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
-  // NO CANARY PAIRED HERE, and the reason is the point. check-image-widths.mjs's
-  // --self-test is NOT fixture-only: its last three cases (:759-764) run
-  // checkTree() against the LIVE tree and assert it is clean. Put in the chain
-  // ahead of the check, an ORDINARY width violation reds the CANARY -- measured
-  // 2026-08-26 by injecting optimizedImageUrl(image, 123): the canary exited 1
-  // with "check-image-widths --self-test: FAILED (1/52)", and because "lint" is
-  // an && chain the check never ran, so the operator never saw the line that
-  // names the file and says /_vercel/image answers 400.
+  // Canary BEFORE the check. This one was deliberately left UNPAIRED when the
+  // other three landed, because its --self-test was not fixture-only: three
+  // cases ran checkTree() against the LIVE tree, so an ORDINARY width violation
+  // red the CANARY and the && chain never reached the check. Those cases are
+  // gone -- every one of them duplicated the fail-loud measurement contract
+  // that checkTree() already runs, so the canary bought no coverage and cost a
+  // second 551-file walk. See the block where they used to be for the full
+  // account; do not put them back.
   //
-  // That is the guard switching itself off and blaming itself for a repository
-  // that merely did what the guard exists to catch -- the same failure the note
-  // below records for check-workflow-artifact-policy, whose MEASURED cases were
-  // moved OUT of its canary for exactly this reason. Pairing this one locally
-  // needs that refactor first (move the LIVE cases into the guard's run, after
-  // the verdict); until then it stays CI-only, where architecture-guard.yml:67
-  // runs it in a step of its own. Queued, not forgotten.
+  // Proven independent 2026-08-26, which is the bar any canary must clear
+  // before it is allowed to gate a check in an && chain: with a real violation
+  // injected (optimizedImageUrl(image, 123)) the canary stays GREEN at 49/49
+  // and the check exits 1 naming the file, the line and the remediation. The
+  // coverage the deleted cases claimed is still enforced, on the live tree, by
+  // the guard -- scan dirs pointing nowhere and helpers renamed to nothing both
+  // still exit 1 -- and the canary still PROVES that contract fires, through
+  // its fixture case rather than through the repository.
+  //
+  // Cost 2026-08-26, measured rather than estimated: 2889ms of WORK before the
+  // deletion, 953ms after (mean of 3) -- a 3x drop, because the canary no
+  // longer walks the 551-file tree the check is about to walk anyway. The
+  // check itself is 1837ms, so the pair does 2790ms of work against the old
+  // canary's 2889ms on its own.
+  //
+  // That is a work-time comparison and on its own it flatters this change, so
+  // do not read it as the cost of pairing. Pairing adds a SIXTEENTH `npm run`
+  // to the chain, and therefore one npm spawn that was not being paid here
+  // before -- ~800ms, mean of 3, measured on this machine 2026-08-26. A spawn
+  // is shared overhead for a link that already exists and MARGINAL cost for a
+  // link a diff creates; those are different ledgers and the mojibake note's
+  // reasoning for excluding it does not carry over. Net added cost of pairing
+  // this guard is ~953ms of work PLUS ~800ms of spawn, i.e. the excluded term
+  // is the larger half of what this diff actually adds to `npm run lint`.
+  ["check:image-widths:self-test", "the width and quality rules still fire, driven through checkTree"],
   ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
   // Canary BEFORE the check: the check alone is a diff against an allowlist, so
@@ -137,13 +164,51 @@ export const CHECKS = [
   // in the lint chain as well.
   //
   // SCOPE THAT CLAIM TO THE LINT CHAIN -- it is true there and NOT true of the
-  // local tiers generally, which is a wider set than the chain. Still unpaired
-  // locally, all four with a canary that runs in CI only: check:image-widths
-  // (see the note above it -- blocked on a refactor, not an oversight),
-  // check:plan-hygiene (architecture-guard.yml:77), and check:bundle-budget /
-  // check:first-load-requests (perf-budget.yml:74 and :80). The last three are
-  // CHECKS entries below the chain band, so the chain-shaped fix does not reach
-  // them and they need their own decision. Recorded here rather than asserted
+  // local tiers generally, which is a wider set than the chain. Then scope it
+  // twice more. "Every link of the chain is now paired" is what stood here
+  // until review and it was false in two directions at once.
+  //
+  // TRUE: every chain link that has a canary ANYWHERE now runs it locally,
+  // immediately ahead of its own check. check:image-widths was the last holdout
+  // and joined once its canary was made independent of the live tree.
+  //
+  // FALSE, direction one -- most of the chain has no canary to pair. Counted
+  // 2026-08-26: 16 npm-run links over 12 distinct checks, of which FOUR have a
+  // `:self-test` (mojibake, image-widths, script-conventions,
+  // workflow-artifact-policy). The other eight have none in any tier --
+  // check:integrity, check:legacy-tables, check:legacy-program-rpcs,
+  // check:no-social-word, lint:architecture, check:route-boundaries,
+  // check:rpc-typing, check:wallclock-brand. Each diffs against a tree or an
+  // allowlist with nothing proving its detectors still match, which is the
+  // older and wider gap. Recorded because nothing else records it.
+  //
+  // FALSE, direction two -- the live-subject class closed for ONE guard, not
+  // for the chain. Three of the four paired canaries still assert a fact about
+  // the live subject while gating their own check in this && chain:
+  //
+  //   check:mojibake:self-test  (link 2)   .claude/settings.local.json is
+  //     collected -- see the note at that entry; tracked-file dependent.
+  //   check:script-conventions:self-test  (link 12)   R5 run over the live
+  //     source of scripts/check-ci-budget.mjs -- check-script-conventions.mjs
+  //     :1191 reads it, :1630 asserts r5(referenceSource) is clean. Refactor
+  //     that file's exit tail into a shape R5 scores differently and the canary
+  //     reds ahead of its check.
+  //   check:workflow-artifact-policy:self-test  (link 15)   A5 fan-out measured
+  //     over the live .github/workflows -- check-workflow-artifact-policy.mjs
+  //     :4560. See that entry below.
+  //
+  // Any of the three can red on ordinary work and take its own check offline,
+  // which is exactly the defect this diff removed from check:image-widths.
+  // QUEUED, not fixed here: three separate guards, each owing its own
+  // both-directions proof, and folding them into a diff about a fourth is how a
+  // review round's fixes ship unreviewed.
+  //
+  // Still unpaired locally, all three with a canary that runs in CI only:
+  // check:plan-hygiene (architecture-guard.yml:77), check:bundle-budget and
+  // check:first-load-requests (perf-budget.yml:74 and :80). All three are
+  // CHECKS entries BELOW the chain band, so the chain-shaped fix does not reach
+  // them and they need their own decision -- two of them want a built bundle,
+  // which is not a DB-less local scan. Recorded here rather than asserted
   // closed, because the marker this comment replaced said "queued -- close it in
   // the same shape or say why not" and a claim of closure would have deleted the
   // only record that the class is still open. Also required by the
@@ -166,11 +231,24 @@ export const CHECKS = [
   // check offline. Adding the canary here therefore does not import that
   // failure mode into every local lint run.
   //
-  // Safe ahead of the check for the same reason, verified the same way on
+  // Safe ahead of the check FOR THAT INJECTION, verified the same way on
   // 2026-08-26: an unbounded actions/upload-artifact step injected into
   // workflow-lint.yml left the canary PASS (393 cases) and made the check exit 1
-  // naming "A1 retention-missing" and the step. The canary does not read
-  // .github/workflows at all.
+  // naming "A1 retention-missing" and the step.
+  //
+  // The sentence that used to close this paragraph -- "the canary does not read
+  // .github/workflows at all" -- was FALSE, and review caught it. Case
+  // "measured: no upload in this repository exceeds the fan-out budget" reads
+  // the live directory at check-workflow-artifact-policy.mjs:4560 and asserts
+  // `unreadable === 0 && max <= FANOUT_CAP_LEGS`. So one live-subject
+  // assertion still gates this check: a workflow whose matrix expands past the
+  // cap, or one this parser cannot read, reds the CANARY at link 15 and the
+  // check at link 16 never runs. That case defends itself in its own comment --
+  // it "cannot red on ordinary work, because the only way past it is the rule
+  // genuinely firing, and then the guard is red anyway and names the upload" --
+  // and that is precisely the fallacy, because in an && chain the guard does
+  // not get to run. A1 injection is proven independent; A5 is not. Queued with
+  // the other two live-subject canaries listed at check:script-conventions.
   //
   // ONE REPORTING CAVEAT, queued rather than fixed here because it belongs to
   // runCheck and would change how all of CHECKS is reported: this canary exits 2
