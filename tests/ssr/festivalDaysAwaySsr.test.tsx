@@ -466,7 +466,9 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
    * reordered attribute would otherwise report ZERO cards, reding as "the grid
    * stopped emitting sessions" when the grid is fine.
    */
-  const daySessions = (html: string): Array<{ day: string | null; label: string | null }> => {
+  const daySessions = (
+    html: string,
+  ): Array<{ day: string | null; label: string | null; column: number | null }> => {
     const body = tlBody(html);
     const starts: number[] = [];
     const attrs: string[] = [];
@@ -477,6 +479,39 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     }
     return starts.map((start, i) => ({
       day: attrs[i].match(/\sdata-day="([^"]*)"/)?.[1] ?? null,
+      // THE GRID COLUMN THE CARD WAS PLACED IN, read off its own inline style.
+      //
+      // Nothing asserted this until now, and the gap was measured rather than
+      // suspected: `column: roomStartColumn[gi] + lane` mutated to `+ lane + 1`
+      // -- which moves EVERY card on EVERY fixture one column right -- survived
+      // the whole suite. `sessionColumns` pins how many tracks exist and the
+      // labels pin what is on the cards; between them sat the headline feature
+      // of this grid, rooms across with lanes inside them, ungated.
+      //
+      // Read as a NUMBER and only as a number. The card is placed on a single
+      // track (`gridColumn: cell.column + 2`), while every other element in
+      // this grid that carries the property spans one (`2 / -1` on the row
+      // rule, `1 / -1` on a gap, `N / span L` on a room heading). Anything but
+      // a bare integer here means the card stopped being a single-track element
+      // and the pairing below is answering about a shape it was not written
+      // for, so it reports `null` and the assertion fails rather than coercing
+      // `"2 / -1"` to 2 and passing.
+      column: (() => {
+        // TOLERANT ON EVERY SERIALIZATION AXIS, and the same ones `roomHeadings`
+        // tolerates -- the two readers parse the SAME declaration and a
+        // difference between them is a difference in what reds the gate, not a
+        // difference in what the grid did.
+        //
+        // `[;"]` and not `;`: the declaration is second in the style attribute
+        // today, and anchoring on the separator alone would report `null` for
+        // every card the day something reorders it. `\s*` for the same reason
+        // one axis along: `grid-column: 3` with a single space is a legal
+        // emission, and an untolerated space would red three cases as
+        // `expected [] to deeply equal ['Room A']` -- misattribution on a
+        // public page -- for a character nobody can see.
+        const raw = attrs[i].match(/[;"]grid-column:\s*([^;"]*)/)?.[1]?.trim();
+        return raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : null;
+      })(),
       // The card's accessible name, which is also the only text a session
       // contributes to the document in DOM order -- the visual block beside it
       // is aria-hidden. Reading it here is what lets a case assert ORDER.
@@ -523,6 +558,124 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     if (!m) throw new Error('sessionColumns: .tl-grid declared no repeat() track list');
     return Number(m[1]);
   };
+
+  /**
+   * The ROOM HEADINGS of the open day, each with the track range it claims.
+   *
+   * The other half of a card's position. `sessionColumns` counts tracks and the
+   * reader above says which track a card sits on, and neither can say whether
+   * the card landed under the RIGHT heading -- which is the only form the
+   * defect takes on a public page. A session shown under "Room B" when the
+   * organiser published it in Room A is not a layout wobble, it is the page
+   * stating a wrong fact about a real event, and it is what the shift-by-one
+   * mutant does on the mixed fixture.
+   *
+   * Read in the SERVED coordinate system, 1-based with the time gutter at
+   * column 1, because that is the one the browser resolves. Re-deriving the
+   * `+ 2` offset here would put a copy of the layout's own arithmetic in the
+   * gate, and the two would agree by construction the moment either moved.
+   */
+  const roomHeadings = (
+    html: string,
+  ): Array<{ name: string; start: number; span: number; count: string }> => {
+    const body = tlBody(html);
+    const starts: number[] = [];
+    const attrs: string[] = [];
+    // `<div ` anchored: `tl-room-name` and `tl-room-count` also satisfy
+    // `\btl-room\b` (the boundary sits before the hyphen), and they are the
+    // heading's own children -- matching them would report three headings for
+    // every one rendered and quietly make the pairing below ambiguous.
+    const roomRe = /<div [^>]*class="[^"]*\btl-room\b[^"]*"([^>]*)>/g;
+    for (let m = roomRe.exec(body); m; m = roomRe.exec(body)) {
+      starts.push(m.index);
+      attrs.push(m[1]);
+    }
+    return starts.map((start, i) => {
+      const range = attrs[i].match(/[;"]grid-column:\s*(\d+)\s*\/\s*span\s*(\d+)/);
+      if (!range) {
+        throw new Error(`roomHeadings: heading ${i} declared no "N / span L" column range`);
+      }
+      // Both children matched WITHIN the attribute run, for the reason
+      // `daySessions` gives 120 lines above: requiring `class="..."` to be the
+      // exact and only attribute means a `cn()` wrapper or an added `title`
+      // turns this into a hard throw -- "heading 0 rendered no name" -- while
+      // the grid is perfectly correct. This reader throws rather than
+      // returning null, so an intolerant anchor here is the more expensive
+      // mistake, not the cheaper one.
+      const own = body.slice(start, starts[i + 1] ?? body.length);
+      // Class matched as a WHOLE TOKEN out of the split attribute, not as a
+      // word-boundary pattern in a built RegExp. Two reasons, one of which bit:
+      // a `\b`-style boundary in a template literal is a BACKSPACE character
+      // rather than a boundary unless the backslash survives every transport
+      // between here and the file, and it did not -- three cases red with
+      // "heading 0 rendered no name" against a grid that was perfectly correct.
+      // Token equality also refuses `tl-room-name-suffix`, which a boundary
+      // pattern would have accepted.
+      const childText = (cls: string): string | undefined => {
+        const spanRe = /<span ([^>]*)>([^<]*)<\/span>/g;
+        for (let m = spanRe.exec(own); m; m = spanRe.exec(own)) {
+          const classes = m[1].match(/class="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+          if (classes.includes(cls)) return m[2];
+        }
+        return undefined;
+      };
+
+      const name = childText('tl-room-name');
+      if (name === undefined) throw new Error(`roomHeadings: heading ${i} rendered no name`);
+
+      // THE SESSION COUNT, kept rather than parsed away. `count: g.placed.length`
+      // mutated to `count: 1` survived the whole file: every heading on a live
+      // festival then reads "1 session" over three cards, which is the same
+      // class of wrong-fact-on-a-public-page the column pairing exists to close.
+      // Held as the rendered STRING so the singular/plural fold is asserted too
+      // -- "1 sessions" is visible copy, and a number would throw it away.
+      const count = childText('tl-room-count');
+      if (count === undefined) throw new Error(`roomHeadings: heading ${i} rendered no count`);
+
+      return { name, start: Number(range[1]), span: Number(range[2]), count };
+    });
+  };
+
+  /**
+   * The headings whose track range covers `column` -- the pairing itself.
+   *
+   * A LIST rather than a first-hit lookup, so that NO heading covering the
+   * column (the card is off the end of the room strip -- what shifting every
+   * card one track right does to the last room) and MORE THAN ONE covering it
+   * (overlapping headings, two rooms claiming one track) are both expressible
+   * in one `toEqual([name])`.
+   *
+   * THE OVERLAP HALF IS CURRENTLY UNREACHABLE, and saying so is the point: a
+   * review measured it. Six of the call sites render one room, which cannot
+   * overlap, and both multi-room cases pin `expect(rooms).toEqual([...])`
+   * BEFORE any pairing runs -- so every mutant that overlaps two rooms reds at
+   * the absolute anchor first. Verified on `roomStartColumn[gi] = gi`, the
+   * mutant the collision case names: it reds three assertions earlier. The list
+   * form costs nothing and is the honest shape, but a first-hit lookup would be
+   * indistinguishable across the whole suite today. Do not quote it as covered.
+   */
+  const headingsOver = (
+    rooms: Array<{ name: string; start: number; span: number }>,
+    column: number | null,
+  ): string[] => {
+    // AN UNREADABLE COLUMN IS NOT A MISPLACED ONE. Returning `[]` here would
+    // merge a parser failure into the value that already means "no heading
+    // covers this card", and the two send a reader to opposite files: `[]` from
+    // a real defect points at `roomStartColumn`, `[]` from a failed match
+    // points at the `grid-column` reader 100 lines above. Same red, same
+    // message, two hours apart.
+    if (column === null) {
+      throw new Error('headingsOver: the card declared no readable grid-column');
+    }
+    return rooms.filter((r) => column >= r.start && column < r.start + r.span).map((r) => r.name);
+  };
+
+  /** One named card's column, for the cases that pair sessions by title. */
+  const columnOf = (
+    cards: Array<{ label: string | null; column: number | null }>,
+    title: string,
+  ): number | null => cards.find((c) => c.label?.split(',')[0] === title)?.column ?? null;
+
 
   /** How many hour rows the open day rendered -- one per hour it occupies. */
   const hourRows = (html: string): number =>
@@ -721,6 +874,16 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // 20:00 session (Session 1) before its 22:00 one (Session 5); it needs two
     // cards on one day to mean anything, which is why the fixture has them.
     expect(cards.map((c) => c.label?.split(',')[0])).toEqual(['Session 1', 'Session 5']);
+
+    // THE SINGLE-ROOM SHAPE, which is what production actually serves: the
+    // shared fixture publishes no rooms at all, so this renders the one-column
+    // 'All sessions' grid Tunisia Bachata Festival ships (14 items, no rooms).
+    // Every hand-paired case in this file is a synthetic multi-room day, so
+    // without this the most-served geometry is the one nobody pairs.
+    expect(sessionColumns(html)).toBe(1);
+    expect(roomHeadings(html)).toEqual([
+      { name: 'All sessions', start: 2, span: 1, count: '2 sessions' },
+    ]);
   });
 
   /**
@@ -747,6 +910,25 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     // THE ASSERTION THAT BITES: two lanes, so two session tracks. One track
     // means they share a cell, which is the defect however many cards rendered.
     expect(sessionColumns(html)).toBe(2);
+
+    // ...and the CARDS actually go in them. Two tracks existing is not two
+    // tracks used: `column: roomStartColumn[gi] + lane` mutated to drop `lane`
+    // still declares `repeat(2,` off `group.lanes`, puts both cards on track 2,
+    // and stacks the second over the first exactly as the defect above did --
+    // measured, and green across the whole file before this line.
+    const cols = cards.map((c) => c.column);
+    expect(new Set(cols).size).toBe(2);
+
+    // BOTH TRACKS ARE ROOM A'S, and the heading is pinned in absolute grid
+    // coordinates before the pairing is read. Without the absolute anchor the
+    // pairing is satisfied by any layout that shifts the heading and the cards
+    // TOGETHER, which is a real edit (`roomStartColumn` is one expression) --
+    // so the two assertions cover the two sides, and neither implies the other.
+    //
+    // Track 1 is the time gutter, so one room over two lanes is "2 / span 2".
+    const rooms = roomHeadings(html);
+    expect(rooms).toEqual([{ name: 'Room A', start: 2, span: 2, count: '2 sessions' }]);
+    expect(cols.map((c) => headingsOver(rooms, c))).toEqual([['Room A'], ['Room A']]);
   });
 
   it('bounds a start-after-end typo to one hour instead of the whole day', async () => {
@@ -843,6 +1025,103 @@ describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
     expect(html).toContain('Room A');
     expect(html).toContain('Room not set');
     expect(sessionColumns(html)).toBe(2);
+
+    // THE MISATTRIBUTION ITSELF, which the three assertions above cannot see:
+    // they prove both headings are somewhere on the page and that two tracks
+    // exist, and every one of them stays green while the cards sit under the
+    // WRONG heading. Both strings are in the document either way.
+    //
+    // Pinned absolutely first, in first-appearance order -- Room A leads
+    // because `mx-0` does -- then paired. A card under a heading that says the
+    // room is unknown when the organiser published Room A, or the reverse, is
+    // the page stating a wrong fact about a real event.
+    const rooms = roomHeadings(html);
+    expect(rooms).toEqual([
+      { name: 'Room A', start: 2, span: 1, count: '2 sessions' },
+      { name: 'Room not set', start: 3, span: 1, count: '1 session' },
+    ]);
+
+    expect(headingsOver(rooms, columnOf(cards, 'In a room'))).toEqual(['Room A']);
+    expect(headingsOver(rooms, columnOf(cards, 'Also in a room'))).toEqual(['Room A']);
+    expect(headingsOver(rooms, columnOf(cards, 'Room not published'))).toEqual(['Room not set']);
+  });
+
+  it('starts the second room AFTER the first room lanes, not one track along', async () => {
+    // THE PRODUCTION GEOMETRY, and the one the two cases above cannot express.
+    // London Latin Fest runs three classes at once in a single room while a
+    // second room runs one -- `repeat(4,` under two headings, verified live on
+    // 2026-08-25. Both other fixtures are one room over two lanes, or two rooms
+    // over one lane each, and in BOTH of those `columns += group.lanes` and
+    // `columns += 1` compute the same number: a room only ever advances the
+    // cursor by one, so the accumulator's whole job is invisible.
+    //
+    // WHAT THIS CASE UNIQUELY CATCHES, corrected from what an earlier draft of
+    // this comment claimed. It said the accumulator `columns += group.lanes`
+    // was invisible everywhere else; that is FALSE and was measured false by
+    // the run that first recorded it -- mutating it to `columns += 1` also reds
+    // the abutting case above, at `sessionColumns`, because one room over two
+    // lanes advances the cursor by two there as well.
+    //
+    // What genuinely needs a multi-lane room FOLLOWED BY another room is the
+    // room's START: `roomStartColumn[gi] = gi` numbers rooms 0, 1, 2 and agrees
+    // with the truth on every other fixture in this file, because no other
+    // fixture has a room wide enough for the two to disagree. Under it the
+    // second room's heading lands INSIDE the first room's span, so a Room B
+    // session sits under a heading that also says Room A -- which is why
+    // `headingsOver` returns every covering heading instead of the first one.
+    const day = LOCAL_START;
+    const collision = [
+      { id: 'cl-0', day, title: 'A one', start_time: '16:00:00', end_time: '17:00:00', type: 'class', venue_room: 'Room A' },
+      { id: 'cl-1', day, title: 'A two', start_time: '16:00:00', end_time: '17:00:00', type: 'class', venue_room: 'Room A' },
+      { id: 'cl-2', day, title: 'A three', start_time: '16:00:00', end_time: '17:00:00', type: 'class', venue_room: 'Room A' },
+      { id: 'cl-3', day, title: 'B one', start_time: '16:00:00', end_time: '17:00:00', type: 'class', venue_room: 'Room B' },
+    ];
+    const html = await renderFestival(day, collision, { start: day, end: day });
+
+    // IN DOM ORDER, not sorted. This is the only fixture in the file with more
+    // than two cards sharing ONE row, so it is the strongest statement of the
+    // row-then-column sort available anywhere here -- and that sort is the ARIA
+    // contract the case above records having watched break in silence
+    // (`cells.reverse()` survived every case with zero failing assertions).
+    //
+    // WHAT IT ACTUALLY CATCHES, corrected from a draft that claimed more. It
+    // kills the tie-break reversed -- `b.column - a.column` -- measured. It
+    // does NOT kill a `flow` keyed on room NAME instead of column: Room A sorts
+    // before Room B, and within a room the stable sort falls back to `cells`
+    // construction order, which is already column-ascending, so that mutant
+    // emits byte-identical DOM and runs green here and everywhere else. A
+    // fixture whose room names sort against their column order would be needed
+    // to see it, and none exists. Do not read this line as covering that.
+    const cards = daySessions(html);
+    expect(cards.map((c) => c.label?.split(',')[0])).toEqual([
+      'A one',
+      'A two',
+      'A three',
+      'B one',
+    ]);
+
+    // Three lanes plus one, so four tracks -- the count prod renders.
+    expect(sessionColumns(html)).toBe(4);
+
+    // Room B begins where Room A's lanes END. Track 1 is the time gutter, so
+    // Room A holds 2..4 and Room B starts at 5.
+    const rooms = roomHeadings(html);
+    expect(rooms).toEqual([
+      { name: 'Room A', start: 2, span: 3, count: '3 sessions' },
+      { name: 'Room B', start: 5, span: 1, count: '1 session' },
+    ]);
+
+    // Every card under exactly ONE heading, and its own. The three Room A
+    // sessions take three different tracks between them, which is the
+    // collision actually being laid out rather than stacked.
+    const aCols = ['A one', 'A two', 'A three'].map((t) => columnOf(cards, t));
+    expect(new Set(aCols).size).toBe(3);
+    expect(aCols.map((c) => headingsOver(rooms, c))).toEqual([
+      ['Room A'],
+      ['Room A'],
+      ['Room A'],
+    ]);
+    expect(headingsOver(rooms, columnOf(cards, 'B one'))).toEqual(['Room B']);
   });
 
   /**
