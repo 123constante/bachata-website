@@ -11,9 +11,13 @@
  *
  * Ported from the admin repo's pre-ship with three Website differences:
  *
- *   1. The lint chain is decomposed. "npm run lint" is a single && chain, so the
- *      first failure hides every link after it. Here each link is its own entry
- *      with its own tick, and ALL of them run. Deliberately NO count in this
+ *   1. The lint chain is decomposed -- though no longer for the reason it was.
+ *      "npm run lint" WAS a single && chain whose first failure hid every link
+ *      after it; since 2026-08-26 it is scripts/run-lint-chain.mjs, which runs
+ *      every link too. What survives is that CHECKS is WIDER than that chain
+ *      (test:unit, the build and the perf gates are here and not there) and
+ *      that each entry gets its own tick and its own SKIP reason. Deliberately
+ *      NO count in this
  *      paragraph: the band comment on CHECKS below is the ONE place that number
  *      is maintained, and this second copy of it went stale exactly as a second
  *      copy always does -- it still read "nine-deep" at thirteen links.
@@ -70,15 +74,23 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first SIXTEEN are exactly the npm-run links of the "lint" chain (which
- * also ends in a bare `eslint .`, run by the chain and not listed here),
- * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
- * membership, so this comment is the only thing marking where the chain prefix
- * ends and the non-chain entries (check:plan-hygiene, test:unit, ...) begin.
- * Keep the count accurate when adding a link, or the next editor inserts into
- * the wrong band. It said TEN in the same edit that added check:image-widths and
- * made the count load-bearing, which would have put the next new link above
- * check:wallclock-brand and outside the band it describes (review finding).
+ * The first SIXTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * order. NOT "the npm-run links of the lint chain" any more, and not followed
+ * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
+ * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
+ * package.json's `lint` contains no `npm run` and no bare eslint at all. This
+ * paragraph is the one the header at :16 nominates as authoritative, so it is
+ * the one that must not describe a retired shape.
+ *
+ * tests/reviewScope.test.ts now asserts CHECKS.slice(0, LINKS.length) EQUALS
+ * LINKS -- membership, direction and order -- so a dropped or reordered link
+ * fails there rather than silently changing what the local tier runs. This
+ * comment still marks where the mirrored prefix ends and the non-chain entries
+ * (check:plan-hygiene, test:unit, ...) begin. Keep the count accurate when
+ * adding a link, or the next editor inserts into the wrong band. It said TEN in
+ * the same edit that added check:image-widths and made the count load-bearing,
+ * which would have put the next new link above check:wallclock-brand and
+ * outside the band it describes (review finding).
  */
 export const CHECKS = [
   ["check:integrity", "source integrity (null-byte / control-byte / truncation scan)"],
@@ -98,11 +110,17 @@ export const CHECKS = [
   // one case (collectFiles(['.claude']) must reach settings.local.json), and
   // that passes only because .claude/settings.local.json is TRACKED -- four of
   // its siblings under .claude/ are gitignored. If it is ever untracked this
-  // canary reds at link 2 and blocks the FOURTEEN links behind it, so keep it
-  // tracked or move that case behind a "file exists" guard. Fourteen, not the
-  // thirteen this said until 2026-08-26: pairing check:image-widths took the
-  // chain to 16 links and this second copy of the count went stale in the very
-  // commit that updated the band word, which is what a second copy always does.
+  // canary reds at link 2 -- but it no longer BLOCKS the links behind it, and
+  // the count that stood here ("the FOURTEEN links behind it") is deleted
+  // rather than corrected, because there is nothing left for it to count. It
+  // had already gone stale once, in the very commit that updated the band word,
+  // which is what a second copy always does. Still worth fixing at the source:
+  // keep the file tracked, or put that case behind a "file exists" guard.
+  //
+  // NOT FIXED IN CI, and that is the honest half. architecture-guard.yml runs
+  // this canary at :108 and the guard at :111 as SEPARATE steps, and a failed
+  // step aborts the job -- so there the canary still silences the check. Same
+  // class, different tier, unqueued until someone prices it.
   //
   // Note what that hazard IS, because it has a name now and two siblings: a
   // live-subject assertion sitting in a gating position. See the image-widths
@@ -130,7 +148,7 @@ export const CHECKS = [
   // account; do not put them back.
   //
   // Proven independent 2026-08-26, which is the bar any canary must clear
-  // before it is allowed to gate a check in an && chain: with a real violation
+  // before it is allowed to sit ahead of a check anywhere: with a real violation
   // injected (optimizedImageUrl(image, 123)) the canary stays GREEN at 49/49
   // and the check exits 1 naming the file, the line and the remediation. The
   // coverage the deleted cases claimed is still enforced, on the live tree, by
@@ -184,7 +202,9 @@ export const CHECKS = [
   //
   // FALSE, direction two -- the live-subject class closed for ONE guard, not
   // for the chain. Three of the four paired canaries still assert a fact about
-  // the live subject while gating their own check in this && chain:
+  // the live subject. Locally that no longer gates the check -- the chain runs
+  // to completion since 2026-08-26 -- but in architecture-guard.yml, where the
+  // pairs are separate steps or separate lines of one step, it still does:
   //
   //   check:mojibake:self-test  (link 2)   .claude/settings.local.json is
   //     collected -- see the note at that entry; tracked-file dependent.
@@ -246,8 +266,11 @@ export const CHECKS = [
   // check at link 16 never runs. That case defends itself in its own comment --
   // it "cannot red on ordinary work, because the only way past it is the rule
   // genuinely firing, and then the guard is red anyway and names the upload" --
-  // and that is precisely the fallacy, because in an && chain the guard does
-  // not get to run. A1 injection is proven independent; A5 is not. Queued with
+  // and that is precisely the fallacy: the guard names the upload only if it is
+  // REACHED. Locally it now is -- run-lint-chain.mjs runs every link. In CI it
+  // still is not: architecture-guard.yml:95 runs this pair as two lines of one
+  // `run: |` step, and the shell is `bash -e`.
+  // A1 injection is proven independent; A5 is not. Queued with
   // the other two live-subject canaries listed at check:script-conventions.
   //
   // ONE REPORTING CAVEAT, queued rather than fixed here because it belongs to

@@ -50,6 +50,7 @@ import {
   runCheck,
   smokeServerUrlFrom,
 } from "../scripts/pre-ship.mjs";
+import { LINKS, TAIL } from "../scripts/run-lint-chain.mjs";
 
 const BS = String.fromCharCode(92); // a literal backslash
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -960,18 +961,38 @@ describe("pre-ship CHECKS covers the whole lint chain (anti-under-run)", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
   const ids = new Set(CHECKS.map(([id]: [string, string, string[]?]) => id));
 
-  it("every npm-run link in the lint chain has its own pre-ship entry", () => {
-    const links = [...String(pkg.scripts.lint).matchAll(/npm run ([\w:-]+)/g)].map((m) => m[1]);
-    expect(links.length).toBeGreaterThan(0);
-    for (const link of links) expect(ids.has(link), link).toBe(true);
+  it("pre-ship's CHECKS prefix IS the lint chain -- same links, same order", () => {
+    // Both sides are arrays now (the chain used to be a shell string read with
+    // a regex here), which makes the two-directional assertion a one-liner. It
+    // is worth taking, because the subset form below is blind in the direction
+    // that matters most: DELETE check:wallclock-brand from LINKS and a subset
+    // check still passes while `npm run lint` quietly stops running the guard
+    // and reports "lint PASSED -- 15 of 15 links green". Equality catches a
+    // dropped link, an added one, and a REORDERED one, and it is what stands in
+    // for a link-count floor inside the runner -- see the empty-list case in
+    // tests/lintChain.test.ts for why that floor is deliberately not a number.
+    expect(LINKS.length).toBeGreaterThan(0);
+    expect(CHECKS.slice(0, LINKS.length).map(([id]: [string, string, string[]?]) => id)).toEqual(LINKS);
+  });
+
+  it("every link in the lint chain has its own pre-ship entry", () => {
+    // Kept beside the equality above rather than replaced by it: this one still
+    // holds if the band ever stops being a strict PREFIX of CHECKS, and it is
+    // the assertion whose failure message names the offending link.
+    for (const link of LINKS) expect(ids.has(link), link).toBe(true);
   });
 
   it("the eslint tail of the chain has a dedicated script, run as its own step", () => {
-    expect(String(pkg.scripts.lint).trim().endsWith("eslint .")).toBe(true);
-    expect(pkg.scripts["lint:eslint"]).toBe("eslint .");
+    expect(TAIL).toBe("lint:eslint");
+    expect(pkg.scripts[TAIL]).toBe("eslint .");
     // eslint is NOT a CHECKS entry: it is a ship-scoped ratchet with its own
-    // decision function, because whole-tree eslint is red on main.
-    expect(ids.has("lint:eslint")).toBe(false);
+    // decision function, because whole-tree eslint is red on main. The chain
+    // runner draws the same line locally -- it runs the tail and reports it as
+    // [WARN], and decideExit has no parameter for it.
+    expect(ids.has(TAIL)).toBe(false);
+    // ...and it is NOT one of the gating links either, which is the half a
+    // "not in CHECKS" assertion cannot see.
+    expect(LINKS).not.toContain(TAIL);
   });
 
   it("test:unit is a CHECKS entry; typecheck is its own ratchet step", () => {

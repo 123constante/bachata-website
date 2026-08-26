@@ -26,7 +26,7 @@
     "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",
     "gen:types": "npx --yes supabase@2.109.1 gen types typescript --project-id stsdtacfauprzrdebmzg --schema public > src/integrations/supabase/types.ts",
     "build:dev": "vite build --mode development",
-    "lint": "npm run check:integrity && npm run check:mojibake:self-test && npm run check:mojibake && npm run check:legacy-tables && npm run check:legacy-program-rpcs && npm run check:no-social-word && npm run lint:architecture && npm run check:route-boundaries && npm run check:image-widths:self-test && npm run check:image-widths && npm run check:rpc-typing && npm run check:script-conventions:self-test && npm run check:script-conventions && npm run check:wallclock-brand && npm run check:workflow-artifact-policy:self-test && npm run check:workflow-artifact-policy && eslint .",
+    "lint": "node scripts/run-lint-chain.mjs",
     "lint:architecture": "node scripts/lint-runtime-architecture.mjs",
     "lint:eslint": "eslint .",
     "pre-ship": "node scripts/pre-ship.mjs",
