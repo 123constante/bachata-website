@@ -70,7 +70,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first THIRTEEN are exactly the npm-run links of the "lint" chain (which
+ * The first FIFTEEN are exactly the npm-run links of the "lint" chain (which
  * also ends in a bare `eslint .`, run by the chain and not listed here),
  * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
  * membership, so this comment is the only thing marking where the chain prefix
@@ -82,27 +82,106 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  */
 export const CHECKS = [
   ["check:integrity", "source integrity (null-byte / control-byte / truncation scan)"],
+  // Canary BEFORE the check, same reason as check:script-conventions below.
+  // The regex half is the easy half and check-mojibake.mjs already has a
+  // positive control for it; the canary's substance is SCOPE -- that ROOTS
+  // still contains .claude, that collectFiles actually reaches
+  // .claude/settings.local.json, and that the generated-local-state skip is
+  // driven through its predicate rather than through collectFiles (asserted
+  // the obvious way it passes vacuously in every CI checkout, where those
+  // files are gitignored and absent). A scan that looks nowhere useful is
+  // green over a corrupt tree.
+  //
+  // Safe ahead of the check: verified 2026-08-26 by writing a genuinely corrupt
+  // file into scripts/ -- the canary stayed PASS (11 cases) and the check exited
+  // 1 naming the file, which is the order that must hold. It does read disk for
+  // one case (collectFiles(['.claude']) must reach settings.local.json), and
+  // that passes only because .claude/settings.local.json is TRACKED -- four of
+  // its siblings under .claude/ are gitignored. If it is ever untracked this
+  // canary reds at link 2 and blocks the thirteen links behind it, so keep it
+  // tracked or move that case behind a "file exists" guard.
+  //
+  // Cost 2026-08-26: ~0.3s of work. The npm-spawn figure (~2-3s) is not
+  // recorded as the cost, because it is spawn noise that does not reproduce
+  // between runs and is the same toll every link in the chain pays.
+  ["check:mojibake:self-test", "the detector fires AND the scan still reaches .claude"],
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
+  // NO CANARY PAIRED HERE, and the reason is the point. check-image-widths.mjs's
+  // --self-test is NOT fixture-only: its last three cases (:759-764) run
+  // checkTree() against the LIVE tree and assert it is clean. Put in the chain
+  // ahead of the check, an ORDINARY width violation reds the CANARY -- measured
+  // 2026-08-26 by injecting optimizedImageUrl(image, 123): the canary exited 1
+  // with "check-image-widths --self-test: FAILED (1/52)", and because "lint" is
+  // an && chain the check never ran, so the operator never saw the line that
+  // names the file and says /_vercel/image answers 400.
+  //
+  // That is the guard switching itself off and blaming itself for a repository
+  // that merely did what the guard exists to catch -- the same failure the note
+  // below records for check-workflow-artifact-policy, whose MEASURED cases were
+  // moved OUT of its canary for exactly this reason. Pairing this one locally
+  // needs that refactor first (move the LIVE cases into the guard's run, after
+  // the verdict); until then it stays CI-only, where architecture-guard.yml:67
+  // runs it in a step of its own. Queued, not forgotten.
   ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
   // Canary BEFORE the check: the check alone is a diff against an allowlist, so
-  // it would still pass if the DETECTORS silently stopped matching. The same
-  // pairing exists for check-workflow-artifact-policy, but ONLY in
-  // .github/workflows/architecture-guard.yml -- not in this list and not in the
-  // lint chain, so the local tiers still carry, for that guard, precisely the
-  // blind spot this entry closes for this one (review finding, queued -- close it
-  // in the same shape or say why not). Also required by the anti-under-run
-  // invariant in tests/reviewScope.test.ts -- every npm-run link in the lint chain
-  // needs its own entry here, and adding the alias to lint without this line is
-  // exactly what that test caught.
+  // it would still pass if the DETECTORS silently stopped matching. That pairing
+  // was local-tier for this guard only; check-mojibake and
+  // check-workflow-artifact-policy each had a canary too, but ONLY in
+  // .github/workflows/architecture-guard.yml, and both are now paired here and
+  // in the lint chain as well.
+  //
+  // SCOPE THAT CLAIM TO THE LINT CHAIN -- it is true there and NOT true of the
+  // local tiers generally, which is a wider set than the chain. Still unpaired
+  // locally, all four with a canary that runs in CI only: check:image-widths
+  // (see the note above it -- blocked on a refactor, not an oversight),
+  // check:plan-hygiene (architecture-guard.yml:77), and check:bundle-budget /
+  // check:first-load-requests (perf-budget.yml:74 and :80). The last three are
+  // CHECKS entries below the chain band, so the chain-shaped fix does not reach
+  // them and they need their own decision. Recorded here rather than asserted
+  // closed, because the marker this comment replaced said "queued -- close it in
+  // the same shape or say why not" and a claim of closure would have deleted the
+  // only record that the class is still open. Also required by the
+  // tests/reviewScope.test.ts -- every npm-run link in the lint chain needs its
+  // own entry here, and adding the alias to lint without this line is exactly
+  // what that test caught.
   ["check:script-conventions:self-test", "the six rules are still proven in both directions"],
   ["check:script-conventions", "no guard script reports green without checking"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
+  // Canary BEFORE the check, and the last of the three pairings this repo was
+  // missing locally. Several of that guard's arms are UNREACHABLE on this
+  // repository's own numbers, so its 393 self-test cases are the only thing
+  // proving those arms can fail at all -- reading the check against this tree
+  // cannot tell you, and the guard is green either way.
+  //
+  // Safe to put in a local tier because the five MEASURED drift comparisons are
+  // NOT in the canary: they were deliberately moved into the guard, after the
+  // verdict is printed, precisely so ordinary repo growth (one contract check
+  // added to db-contract-check.yml, a workflow split in two) stops taking the
+  // check offline. Adding the canary here therefore does not import that
+  // failure mode into every local lint run.
+  //
+  // Safe ahead of the check for the same reason, verified the same way on
+  // 2026-08-26: an unbounded actions/upload-artifact step injected into
+  // workflow-lint.yml left the canary PASS (393 cases) and made the check exit 1
+  // naming "A1 retention-missing" and the step. The canary does not read
+  // .github/workflows at all.
+  //
+  // ONE REPORTING CAVEAT, queued rather than fixed here because it belongs to
+  // runCheck and would change how all of CHECKS is reported: this canary exits 2
+  // for "the guard is broken, not the repo" (a checkout with no node_modules),
+  // and runCheck collapses every non-zero exit to ok:false, so the ledger prints
+  // it as an ordinary FAIL. The distinction the exit code was added to draw does
+  // not survive into the ledger.
+  //
+  // Cost 2026-08-26: ~1.7s of work; see the mojibake note on why the npm-spawn
+  // figure is not the number recorded.
+  ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits

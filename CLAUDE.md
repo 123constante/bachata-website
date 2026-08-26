@@ -346,18 +346,46 @@ Dev server must be running at port 8080 for Playwright. Vite dev: `npm run dev`.
 npm run lint
 ```
 
-Chains: `check:integrity` → `check:mojibake` → `check:legacy-tables` →
-`check:legacy-program-rpcs` → `check:no-social-word` → `lint:architecture` →
-`check:route-boundaries` → `check:image-widths` → `check:rpc-typing` →
-`check:script-conventions:self-test` → `check:script-conventions` →
-`check:wallclock-brand` → `check:workflow-artifact-policy` → `eslint .`.
+Chains: `check:integrity` → `check:mojibake:self-test` → `check:mojibake` →
+`check:legacy-tables` → `check:legacy-program-rpcs` → `check:no-social-word` →
+`lint:architecture` → `check:route-boundaries` → `check:image-widths` →
+`check:rpc-typing` → `check:script-conventions:self-test` →
+`check:script-conventions` → `check:wallclock-brand` →
+`check:workflow-artifact-policy:self-test` → `check:workflow-artifact-policy` →
+`eslint .`. Read the chain itself rather than this list; nothing keeps them in
+step:
+
+```bash
+node -e "console.log([...String(require('./package.json').scripts.lint).matchAll(/npm run ([\w:-]+)/g)].map(m=>m[1]).join(' -> '))"
+```
+
+The `:self-test` links are canaries, each sitting immediately before the check
+it proves. A guard that diffs against an allowlist stays GREEN when its
+DETECTORS silently stop matching, so the check alone cannot tell you the rule
+still fires &mdash; only the canary can.
+
+**A canary only belongs in the chain if it is independent of what the check
+judges.** `lint` is an `&&` chain, so a canary that itself reds on an ordinary
+violation aborts before the check runs and reports the guard as broken instead
+of naming the defect. That is why `check:image-widths` is unpaired here: three
+of its self-test cases assert the LIVE tree is clean, so a real bad width reds
+the canary. Prove independence before pairing &mdash; inject the violation, and
+require the canary to stay green while the check goes red.
+
+`scripts/pre-ship.mjs` mirrors the chain link for link, but only its `CHECKS`
+band comment records where the mirrored prefix ends;
+`tests/reviewScope.test.ts` enforces set membership only, so a missing entry
+fails and a REORDERED one does not.
 
 If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
 reference to a table or RPC that has been retired from the DB. Fix the call
 site, not the check.
 
 **`npm run lint` exits non-zero on a clean tree, and that is expected.** The
-final `eslint .` reports ~178 pre-existing errors. **No workflow runs eslint** —
+final `eslint .` reports a few hundred pre-existing errors &mdash; measure the
+count, never quote one from prose. The three copies in the tree disagreed the
+moment anyone checked: this line said 178, `scripts/pre-ship.mjs` says 189 "as
+of 2026-07-30", and a run on 2026-08-26 reported 174. **No workflow runs eslint** —
 `architecture-guard.yml` runs `lint:architecture`, which is a different script.
 So the eslint count is not a CI gate and never has been; every guard ahead of it
 in the chain is. Do NOT read a red `npm run lint` as "this branch broke
