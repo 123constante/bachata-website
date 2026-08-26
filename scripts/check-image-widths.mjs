@@ -779,9 +779,12 @@ export function selfTestFailures() {
   //                     on callSites and not on this.
   //
   // WHAT THEY COST, which is the reason this is a defect and not a tidy-up.
-  // architecture-guard.yml and now "lint" both run the canary BEFORE the check.
-  // "lint" is an && chain, so an ORDINARY width violation -- the single thing
+  // architecture-guard.yml and "lint" both run the canary BEFORE the check.
+  // "lint" WAS an && chain, so an ORDINARY width violation -- the single thing
   // this guard exists to name -- red the CANARY first and the check never ran.
+  // Past tense as of 2026-08-26: "lint" is scripts/run-lint-chain.mjs and runs
+  // every link. architecture-guard.yml is NOT fixed, so read the rest of this
+  // note as live for CI and historical for the local tier.
   // Measured 2026-08-26 by injecting optimizedImageUrl(image, 123): canary
   // exit 1, "FAILED (1/52)", and the operator never saw the line naming the
   // file and saying /_vercel/image answers 400. The guard switched itself off
@@ -795,10 +798,13 @@ export function selfTestFailures() {
   // It did not move them all, and this note claimed otherwise until review on
   // 2026-08-26. One live read survives there -- A5 fan-out over the real
   // .github/workflows, at check-workflow-artifact-policy.mjs:4560 -- and two
-  // more live-subject canaries gate their own checks in the same && chain:
+  // more live-subject canaries sit ahead of their own checks in the same list:
   // check-mojibake's ".claude/settings.local.json is collected" and
   // check-script-conventions' R5 run over the live source of
-  // check-ci-budget.mjs. So the class is OPEN with three instances left; this
+  // check-ci-budget.mjs. They no longer GATE those checks locally -- the chain
+  // runs to completion -- but they still do in architecture-guard.yml, where
+  // the pairs are separate steps or separate lines of one `run: |` under
+  // `bash -e`. So the class is OPEN with three instances left; this
   // guard is one instance of it closed. scripts/pre-ship.mjs carries the list
   // and the line numbers.
   //
