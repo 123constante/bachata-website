@@ -6,8 +6,9 @@
  * indistinguishable from no gate at all, which is the exact failure class this
  * phase exists to close.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "node:fs";
+import os from "node:os";
 import YAML from "yaml";
 import path from "node:path";
 import {
@@ -29,7 +30,9 @@ import {
   classifySurface,
   globToRegExp,
   matchesDeclared,
+  declarationFromArcState,
   resolveDeclaredScope,
+  resolveDeclaration,
   scopeDrift,
   stampCoversHash,
   stampIsFresh,
@@ -42,6 +45,7 @@ import {
   ESLINT_EXTS,
   TYPECHECK_BASELINE,
   decideSmoke,
+  decideDrift,
   decideEslint,
   decideTypecheck,
   countTscErrors,
@@ -385,20 +389,437 @@ describe("resolveDeclaredScope -- env parsing", () => {
     // the gate silently dropped from fatal DECLARED to advisory INFERRED with a
     // line indistinguishable from a ship that declared nothing. loadStamp keeps
     // exactly this distinction for the receipt; the two readers now agree.
-    const arc = path.join(REPO_ROOT, ".claude", "arc-state.json");
-    const had = fs.existsSync(arc);
-    const backup = had ? fs.readFileSync(arc) : null;
+    //
+    // This used to write the garbage to the repo's LIVE .claude/arc-state.json
+    // and restore it in a finally. Interrupt the runner between those two points
+    // -- Ctrl+C, a worker crash, --bail, an OOM -- and the repo is left holding a
+    // corrupt arc-state.json, which hard-FAILs pre-ship and makes the arc
+    // checkpoint hook print "exists but does not parse" on every turn; it also
+    // raced that hook, which reads the same file each turn. The file parameter
+    // exists to remove exactly that, so this is the first caller to use it.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arcstate-corrupt-"));
+    const arc = path.join(dir, "arc-state.json");
     try {
       fs.writeFileSync(arc, "{ not json,, }");
-      withEnv(undefined, () => expect(resolveDeclaredScope().status).toBe("corrupt"));
+      withEnv(undefined, () => expect(resolveDeclaredScope(arc).status).toBe("corrupt"));
       fs.writeFileSync(arc, JSON.stringify({ scope: ["scripts/"] }));
-      withEnv(undefined, () => expect(resolveDeclaredScope()).toEqual({ status: "ok", scope: ["scripts/"] }));
+      withEnv(undefined, () => expect(resolveDeclaredScope(arc)).toEqual({ status: "ok", scope: ["scripts/"] }));
       fs.writeFileSync(arc, JSON.stringify({ phase: 1 }));
-      withEnv(undefined, () => expect(resolveDeclaredScope()).toEqual({ status: "none", scope: null }));
+      withEnv(undefined, () => expect(resolveDeclaredScope(arc)).toEqual({ status: "none", scope: null }));
     } finally {
-      if (backup) fs.writeFileSync(arc, backup);
-      else fs.rmSync(arc, { force: true });
+      fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("the LIVE arc-state.json is never written by this suite", () => {
+    // The claim the file parameter's docstring makes, asserted rather than
+    // trusted: a green run must leave the repo's own declaration byte-identical.
+    // Cheap, and it is the thing that would actually break if a future case
+    // reached for the live path again.
+    const live = path.join(REPO_ROOT, ".claude", "arc-state.json");
+    expect(fs.existsSync(live), "the repo ships an arc-state.json").toBe(true);
+    expect(() => JSON.parse(fs.readFileSync(live, "utf8").replace(/^\uFEFF/, ""))).not.toThrow();
+  });
+});
+
+/**
+ * A CLOSED arc's scope array is a record, not a promise.
+ *
+ * The defect these pin, in full: edge-config-governance closed on 2026-08-24
+ * with phase "done", a closed_at, and its ten-path scope left in place. That
+ * scope kept being read as a live declaration, so scopeDrift ran in the precise
+ * DECLARED mode with severity "error" -- fatal -- against every ship that
+ * touched anything else. Four merged PRs (#298, #299, #302, #303) were scope
+ * drifted by an arc that had finished two days earlier.
+ *
+ * The CONTROL matters as much as the fix here. "Closed arcs stop gating" is one
+ * edit away from "nothing gates", so an OPEN arc with a scope must still come
+ * back "ok" -- otherwise these tests would pass just as happily against a
+ * resolveDeclaredScope that returns "none" unconditionally.
+ */
+describe("resolveDeclaredScope -- a CLOSED arc declares nothing", () => {
+  const OPEN = {
+    arc: "demo",
+    phase: 2,
+    required_model: "claude-opus-5",
+    set_at: iso(Date.now()),
+    scope: ["scripts/"],
+  };
+
+  // The pure half: every loadArcState status, mapped by inclusion. The `note`
+  // is asserted everywhere it is non-empty, because it is the half that keeps a
+  // dropped declaration from being silent -- and an unasserted string is the
+  // one a mutation pass walks straight through.
+  it("CONTROL -- an OPEN arc's scope still declares, and still gates", () => {
+    expect(declarationFromArcState({ status: "ok", arc: OPEN })).toEqual({
+      status: "ok",
+      scope: ["scripts/"],
+      note: 'declared by arc "demo"',
+    });
+    // "inactive" is open too -- it only means there is no model/effort to pin.
+    expect(declarationFromArcState({ status: "inactive", arc: { arc: "demo", set_at: OPEN.set_at, scope: ["src/"] } })).toEqual({
+      status: "ok",
+      scope: ["src/"],
+      note: 'declared by arc "demo"',
+    });
+  });
+
+  it("SICK -> HEALTHY: phase \"done\" and closed_at each end the declaration, and SAY SO", () => {
+    expect(declarationFromArcState({ status: "closed", arc: { ...OPEN, phase: "done" } })).toEqual({
+      status: "none",
+      scope: null,
+      note: 'arc "demo" is CLOSED (phase "done") -- its scope array is a record, not a declaration',
+    });
+    expect(declarationFromArcState({ status: "closed", arc: { ...OPEN, closed_at: "2026-08-24T22:00:00Z" } })).toEqual({
+      status: "none",
+      scope: null,
+      note:
+        'arc "demo" is CLOSED (closed_at 2026-08-24T22:00:00Z) -- ' +
+        "its scope array is a record, not a declaration",
+    });
+  });
+
+  it("an ABANDONED open arc still declares, but the note says it is stale", () => {
+    // Deliberately NOT disarmed on a timer: expiring a live declaration on a
+    // clock is fail-open for any arc that legitimately ran past the window.
+    // Reported instead, so the operator can see it and decide.
+    const old = declarationFromArcState({ status: "ok", arc: { ...OPEN, set_at: "2020-01-01T00:00:00Z" } });
+    expect(old.status).toBe("ok");
+    expect(old.scope).toEqual(["scripts/"]);
+    expect(old.note).toContain("STALE");
+  });
+
+  it("missing is none; corrupt stays corrupt, so a garbled file cannot downgrade the gate", () => {
+    expect(declarationFromArcState({ status: "missing", arc: null })).toEqual({
+      status: "none",
+      scope: null,
+      note: "",
+    });
+    expect(declarationFromArcState({ status: "corrupt", arc: null })).toEqual({
+      status: "corrupt",
+      scope: null,
+      note: "unreadable, not JSON, or not an object",
+    });
+  });
+
+  it("an UNKNOWN status fails LOUD (corrupt) and NAMES the status it could not read", () => {
+    // If loadArcState ever grows a status this reader was not updated with, the
+    // safe direction is the one that keeps gating and says so. "none" would be
+    // a silent downgrade to the advisory heuristic -- the precise hazard the
+    // corrupt/none split exists to prevent. arc-state.mjs is a TWIN COPY edited
+    // from the admin repo too, so this is a live possibility, not a hypothetical
+    // -- and the note must not claim the file was unreadable when it was fine.
+    const unknown = declarationFromArcState({ status: "sabbatical", arc: OPEN });
+    expect(unknown.status).toBe("corrupt");
+    expect(unknown.note).toContain("sabbatical");
+    expect(unknown.note).not.toContain("not JSON");
+    for (const state of [null, {}, { status: undefined }]) {
+      expect(declarationFromArcState(state).status, JSON.stringify(state)).toBe("corrupt");
+    }
+  });
+
+  it("an open arc with an empty or blank-only scope declares nothing", () => {
+    for (const scope of [[], ["  ", ""], "scripts/"]) {
+      expect(declarationFromArcState({ status: "ok", arc: { ...OPEN, scope } }), JSON.stringify(scope)).toEqual({
+        status: "none",
+        scope: null,
+        note: "",
+      });
+    }
+  });
+
+  it("a scope array holding NON-STRINGS is corrupt, not a junk declaration", () => {
+    // String() used to coerce these: [{p:'src/'}, null, 7] became
+    // ["[object Object]", "null", "7"], three entries matching nothing, which
+    // makes EVERY file in the ship foreign and hard-fails the gate against
+    // nonsense. Same standing as a parseable non-object file, same verdict.
+    const junk = declarationFromArcState({ status: "ok", arc: { ...OPEN, scope: [{ p: "src/" }, null, 7] } });
+    expect(junk.status).toBe("corrupt");
+    expect(junk.scope).toBeNull();
+    expect(junk.note).toContain("non-string");
+    // one bad entry is enough, even beside good ones
+    expect(declarationFromArcState({ status: "ok", arc: { ...OPEN, scope: ["src/", 7] } }).status).toBe("corrupt");
+  });
+});
+
+/**
+ * The WIRING half. The block above drives declarationFromArcState directly,
+ * which proves the mapping and nothing about whether resolveDeclaredScope
+ * actually routes through it -- a seam proves one property and hides its
+ * siblings. These go through the real file read, on a temp path rather than
+ * the repo's live .claude/arc-state.json, so nothing here races the arc
+ * checkpoint hook that reads that file every turn.
+ */
+describe("resolveDeclaredScope -- reading a real arc-state file", () => {
+  let dir = "";
+  let prevEnv: string | undefined;
+
+  beforeAll(() => {
+    // In beforeAll, NOT the describe body. The body runs at COLLECTION time, so
+    // it leaked a directory on every run (including runs that filtered this
+    // block out with -t), and a throw -- read-only tmpdir, full disk, a locked
+    // path on this FUSE/NTFS mount -- would fail collection of every case in
+    // this FILE rather than one test. This repo already carries the scar of a
+    // spec that passed 19/19 three times and then collected ZERO tests.
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "arcscope-"));
+
+    // resolveDeclaration checks the env BEFORE it opens the file, so an ambient
+    // REVIEW_SCOPE_DECLARED short-circuits every case below and never reads the
+    // path under test -- including both CONTROLs, and if the ambient value
+    // happened to be "scripts/" the CONTROL would pass for entirely the wrong
+    // reason while the closed-arc cases failed. PowerShell has no
+    // `VAR=value cmd` prefix, so an assignment persists for a whole shell; this
+    // repo has been bitten by precisely that with ADMIN_REPO_DIR.
+    prevEnv = process.env.REVIEW_SCOPE_DECLARED;
+    delete process.env.REVIEW_SCOPE_DECLARED;
+  });
+
+  afterAll(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    if (prevEnv === undefined) delete process.env.REVIEW_SCOPE_DECLARED;
+    else process.env.REVIEW_SCOPE_DECLARED = prevEnv;
+  });
+
+  const write = (name: string, body: string) => {
+    const p = path.join(dir, name);
+    fs.writeFileSync(p, body);
+    return p;
+  };
+  const OPEN = { arc: "demo", phase: 2, required_model: "claude-opus-5", scope: ["scripts/"] };
+
+  it("CONTROL -- an open arc file still declares its scope", () => {
+    expect(resolveDeclaredScope(write("open.json", JSON.stringify(OPEN)))).toEqual({
+      status: "ok",
+      scope: ["scripts/"],
+    });
+  });
+
+  it("the SAME file, closed, declares nothing -- phase \"done\" or closed_at", () => {
+    const done = write("done.json", JSON.stringify({ ...OPEN, phase: "done" }));
+    const dated = write("dated.json", JSON.stringify({ ...OPEN, closed_at: "2026-08-24T22:00:00Z" }));
+    expect(resolveDeclaredScope(done)).toEqual({ status: "none", scope: null });
+    expect(resolveDeclaredScope(dated)).toEqual({ status: "none", scope: null });
+  });
+
+  it("a falsy closed_at is NOT closed -- an arc is only closed when it says so", () => {
+    for (const closed_at of [null, "", 0, false]) {
+      expect(resolveDeclaredScope(write("falsy.json", JSON.stringify({ ...OPEN, closed_at }))), String(closed_at)).toEqual({
+        status: "ok",
+        scope: ["scripts/"],
+      });
+    }
+  });
+
+  it("absent is none; unparseable is corrupt", () => {
+    expect(resolveDeclaredScope(path.join(dir, "nope.json"))).toEqual({ status: "none", scope: null });
+    expect(resolveDeclaredScope(write("bad.json", "{ not json,, }"))).toEqual({ status: "corrupt", scope: null });
+  });
+
+  it("a parseable NON-OBJECT is corrupt, not \"declared nothing\"", () => {
+    // Moved deliberately when this stopped re-deriving the parse: a file that
+    // is not an object cannot be said to have OMITTED a scope array, and the
+    // old hand-rolled reader called "[]" an absent declaration.
+    for (const body of ["[]", "null", "42", '"scripts/"']) {
+      expect(resolveDeclaredScope(write("nonobj.json", body)), body).toEqual({ status: "corrupt", scope: null });
+    }
+  });
+
+  it("a UTF-8 BOM is stripped, not read as corruption", () => {
+    // What PowerShell's Out-File emits. loadArcState has always tolerated it;
+    // the reader this replaced did not, so a BOM downgraded a real declaration
+    // into a corrupt one.
+    const bom = write("bom.json", "\uFEFF" + JSON.stringify(OPEN));
+    expect(resolveDeclaredScope(bom)).toEqual({ status: "ok", scope: ["scripts/"] });
+  });
+
+  it("resolveDeclaration carries the note; resolveDeclaredScope strips it, and they agree", () => {
+    // Two entry points over one reader. If they ever disagree about status or
+    // scope, the gate and the line explaining the gate are describing different
+    // files -- which is the failure this repo has hit before with two copies of
+    // one predicate.
+    const closed = write("noted.json", JSON.stringify({ ...OPEN, phase: "done" }));
+    const full = resolveDeclaration(closed);
+    expect(full.note).toContain("is CLOSED");
+    expect(resolveDeclaredScope(closed)).toEqual({ status: full.status, scope: full.scope });
+    expect(Object.keys(resolveDeclaredScope(closed)).sort()).toEqual(["scope", "status"]);
+
+    const open = write("noted-open.json", JSON.stringify(OPEN));
+    expect(resolveDeclaration(open).note).toContain('declared by arc "demo"');
+    expect(resolveDeclaredScope(open)).toEqual({ status: "ok", scope: ["scripts/"] });
+  });
+
+  it("the env override still wins over the file, closed or not", () => {
+    const prev = process.env.REVIEW_SCOPE_DECLARED;
+    process.env.REVIEW_SCOPE_DECLARED = "src/pages/";
+    try {
+      const done = write("done2.json", JSON.stringify({ ...OPEN, phase: "done" }));
+      expect(resolveDeclaredScope(done)).toEqual({ status: "ok", scope: ["src/pages/"] });
+    } finally {
+      if (prev === undefined) delete process.env.REVIEW_SCOPE_DECLARED;
+      else process.env.REVIEW_SCOPE_DECLARED = prev;
+    }
+  });
+
+  it("end to end: the closed arc that caused this stops the fatal drift verdict", () => {
+    // The live shape of .claude/arc-state.json on 2026-08-24, reduced. Before
+    // the fix this returned mode "declared" / severity "error" -- a hard FAIL
+    // in pre-ship -- for any ship touching a file outside those paths.
+    const closed = write(
+      "edge-config.json",
+      JSON.stringify({
+        arc: "edge-config-governance",
+        phase: "done",
+        closed_at: "2026-08-24T22:00:00Z",
+        scope: [".github/workflows/prod-smoke.yml", "scripts/prove-entry-point-dispatch.mjs"],
+      }),
+    );
+    const ship = ["scripts/lib/review-scope.mjs", "tests/reviewScope.test.ts"];
+    const declared = resolveDeclaredScope(closed).scope;
+    const r = scopeDrift(ship, { declared });
+    expect(r.mode).toBe("inferred");
+    expect(r.severity).toBe("none");
+    expect(r.ok).toBe(true);
+
+    // ... and the same ship against the same scope while the arc is OPEN is
+    // still fatal, which is what says the gate was fixed rather than removed.
+    const open = write(
+      "edge-config-open.json",
+      JSON.stringify({
+        arc: "edge-config-governance",
+        phase: 5,
+        scope: [".github/workflows/prod-smoke.yml", "scripts/prove-entry-point-dispatch.mjs"],
+      }),
+    );
+    const sick = scopeDrift(ship, { declared: resolveDeclaredScope(open).scope });
+    expect(sick.mode).toBe("declared");
+    expect(sick.severity).toBe("error");
+    expect(sick.foreign.map((f: { path: string }) => f.path)).toEqual(ship);
+  });
+});
+
+describe("scopeDrift -- machine-written local state is exempt in BOTH modes", () => {
+  // It used to be filtered on the declared branch only. That was invisible
+  // while a stale closed arc kept every ship in declared mode, and became a
+  // live false positive the moment a closed arc stopped declaring: the ship
+  // that CLOSES an arc rewrites .claude/arc-state.json, so "app file +
+  // arc-state.json" landed in the inferred branch and printed a cross-surface
+  // drift warning about two files the operator had no choice about. An
+  // annoying gate stops being used, which is how it comes to guard nothing.
+  const LOCAL = [
+    ".claude/arc-state.json",
+    ".claude/.review-stamp.json",
+    ".claude/.session-lock.json",
+    ".claude/settings.local.json",
+  ];
+
+  it("INFERRED: none of them counts as a second surface", () => {
+    for (const p of LOCAL) {
+      const r = scopeDrift([p, "src/pages/Index.tsx"], { declared: null });
+      expect(r.ok, p).toBe(true);
+      expect(r.severity, p).toBe("none");
+      expect(r.foreign.map((f: { path: string }) => f.path), p).toEqual([]);
+    }
+  });
+
+  it("DECLARED: unchanged -- still exempt, and still nothing else is", () => {
+    for (const p of LOCAL) {
+      expect(scopeDrift(["scripts/a.mjs", p], { declared: ["scripts/"] }).ok, p).toBe(true);
+    }
+    // The control: a NEIGHBOUR of the exempt list is not exempt. settings.json
+    // is the repo's committed config; only settings.local.json is harness-written.
+    const r = scopeDrift(["scripts/a.mjs", ".claude/settings.json"], { declared: ["scripts/"] });
+    expect(r.ok).toBe(false);
+    expect(r.foreign.map((f: { path: string }) => f.path)).toEqual([".claude/settings.json"]);
+  });
+
+  it("CONTROL -- a genuine cross-surface ship is still flagged in inferred mode", () => {
+    // Otherwise this block would pass just as happily against a scopeDrift that
+    // exempted everything.
+    const r = scopeDrift(["scripts/check-x.mjs", "src/pages/Index.tsx"], { declared: null });
+    expect(r.ok).toBe(false);
+    expect(r.severity).toBe("warn");
+  });
+});
+
+/**
+ * decideDrift: the branch that decides whether a ship is BLOCKED.
+ *
+ * It lived inline in pre-ship's main() with no test anywhere, while this change
+ * simultaneously widened what reaches its corrupt arm and rewrote the message it
+ * prints. A mutant flipping severity "error" to "warn", or dropping the corrupt
+ * arm so an unreadable arc-state.json falls through to scopeDrift with
+ * declared:null, survived the whole suite green -- the exact silent downgrade
+ * the corrupt/none split exists to make impossible.
+ */
+describe("decideDrift -- what actually blocks a ship", () => {
+  const decl = (status: string, scope: string[] | null, note = "") => ({ status, scope, note });
+
+  it("a CORRUPT declaration is FATAL, and never falls through to the heuristic", () => {
+    const r = decideDrift({
+      declaration: decl("corrupt", null, "unreadable, not JSON, or not an object"),
+      files: ["src/pages/Index.tsx"],
+    });
+    expect(r.fatal).toBe(true);
+    expect(r.drift.mode).toBe("declared");
+    expect(r.drift.severity).toBe("error");
+    // and it says WHY, rather than asserting a cause it does not know
+    expect(r.drift.reason).toContain("unreadable, not JSON, or not an object");
+  });
+
+  it("the corrupt reason carries the note, so an UNKNOWN status is not called unreadable", () => {
+    const r = decideDrift({
+      declaration: decl("corrupt", null, 'loadArcState returned a status this reader does not know: "stale"'),
+      files: ["src/App.tsx"],
+    });
+    expect(r.fatal).toBe(true);
+    expect(r.drift.reason).toContain('does not know: "stale"');
+    expect(r.drift.reason).not.toContain("not JSON");
+  });
+
+  it("breaking a DECLARED scope is fatal; the INFERRED heuristic only warns", () => {
+    const declared = decideDrift({
+      declaration: decl("ok", ["scripts/"]),
+      files: ["scripts/a.mjs", "src/pages/Index.tsx"],
+    });
+    expect(declared.drift.mode).toBe("declared");
+    expect(declared.fatal).toBe(true);
+
+    const inferred = decideDrift({
+      declaration: decl("none", null),
+      files: ["scripts/a.mjs", "src/pages/Index.tsx"],
+    });
+    expect(inferred.drift.mode).toBe("inferred");
+    expect(inferred.drift.ok).toBe(false);
+    expect(inferred.fatal).toBe(false);
+    // ... unless the operator asked for it
+    expect(
+      decideDrift({
+        declaration: decl("none", null),
+        files: ["scripts/a.mjs", "src/pages/Index.tsx"],
+        strictScope: true,
+      }).fatal,
+    ).toBe(true);
+  });
+
+  it("a clean ship is not fatal in either mode", () => {
+    expect(decideDrift({ declaration: decl("ok", ["scripts/"]), files: ["scripts/a.mjs"] }).fatal).toBe(false);
+    expect(decideDrift({ declaration: decl("none", null), files: ["src/App.tsx"] }).fatal).toBe(false);
+  });
+
+  it("an unavailable diff is NOT JUDGED -- it never blocks and never pretends to pass a check", () => {
+    const r = decideDrift({ declaration: decl("corrupt", null, "x"), files: [], diffError: "fatal: bad revision" });
+    expect(r.drift.mode).toBe("unknown");
+    expect(r.fatal).toBe(false);
+  });
+
+  it("a closed arc reaches the heuristic -- the end-to-end shape this change is for", () => {
+    const r = decideDrift({
+      declaration: decl("none", null, 'arc "edge-config-governance" is CLOSED (phase "done") -- ...'),
+      files: ["scripts/lib/review-scope.mjs", "tests/reviewScope.test.ts"],
+    });
+    expect(r.drift.mode).toBe("inferred");
+    expect(r.drift.ok).toBe(true);
+    expect(r.fatal).toBe(false);
   });
 });
 

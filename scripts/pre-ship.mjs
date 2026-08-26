@@ -60,7 +60,7 @@ import {
   diffOrigin,
   renamePairs,
   resolveBaseRef,
-  resolveDeclaredScope,
+  resolveDeclaration,
   scopeDrift,
   shipFiles,
   toPosix,
@@ -796,6 +796,44 @@ export function detectReusedServer() {
 }
 
 /**
+ * The scope-drift decision, pure for the same reason every decide* above it is:
+ * this branch decides whether a ship is BLOCKED, and until review it lived
+ * inline in main() with no test anywhere. Nothing asserted that a corrupt
+ * declaration is fatal, so a mutant flipping severity "error" to "warn" -- or
+ * deleting the corrupt branch so an unreadable arc-state.json falls through to
+ * scopeDrift(files, {declared: null}) -- survived the entire suite green. That
+ * is precisely the silent downgrade the corrupt/none split was built to make
+ * impossible, sitting unguarded in the gate that consumes it.
+ *
+ * A DECLARED scope is an explicit promise, so breaking it is fatal. An INFERRED
+ * verdict is a heuristic and only warns unless asked to be strict -- a guard
+ * that reds a legitimate ship gets ignored, and then it guards nothing.
+ *
+ * @param {{declaration: object, files: string[], diffError: string|null,
+ *          strictScope: boolean}} opts
+ * @returns {{drift: object, fatal: boolean}}
+ */
+export function decideDrift({ declaration, files = [], diffError = null, strictScope = false }) {
+  const drift = diffError
+    ? { ok: true, mode: "unknown", severity: "none", foreign: [], reason: "diff unavailable -- not judged" }
+    : declaration && declaration.status === "corrupt"
+      ? {
+          // A garbled declaration must NOT quietly become "declared nothing".
+          // Silently dropping to the advisory heuristic is indistinguishable
+          // from a ship that never declared a scope at all.
+          ok: false,
+          mode: "declared",
+          severity: "error",
+          foreign: [],
+          reason:
+            ".claude/arc-state.json is present, but the declaration cannot be trusted -- " +
+            ((declaration && declaration.note) || "reason not reported"),
+        }
+      : scopeDrift(files, { declared: declaration ? declaration.scope : null });
+  return { drift, fatal: !drift.ok && (drift.severity === "error" || strictScope) };
+}
+
+/**
  * The smoke decision, pure so both directions are unit-testable without a
  * browser. `diffError` is the message from a failed diff computation, or null.
  */
@@ -1237,25 +1275,8 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   // -- scope drift ------------------------------------------------------------
-  const declaration = resolveDeclaredScope();
-  const drift = diffError
-    ? { ok: true, mode: "unknown", severity: "none", foreign: [], reason: "diff unavailable -- not judged" }
-    : declaration.status === "corrupt"
-      ? {
-          // A garbled declaration must NOT quietly become "declared nothing".
-          // Silently dropping to the advisory heuristic is indistinguishable
-          // from a ship that never declared a scope at all.
-          ok: false,
-          mode: "declared",
-          severity: "error",
-          foreign: [],
-          reason: ".claude/arc-state.json is present but unreadable/not JSON -- the declaration cannot be trusted",
-        }
-      : scopeDrift(files, { declared: declaration.scope });
-  // A declared scope is an explicit promise, so breaking it is fatal. An
-  // INFERRED verdict is a heuristic and only warns unless asked to be strict --
-  // a guard that reds a legitimate ship gets ignored, and then it guards nothing.
-  const driftFatal = !drift.ok && (drift.severity === "error" || strictScope);
+  const declaration = resolveDeclaration();
+  const { drift, fatal: driftFatal } = decideDrift({ declaration, files, diffError, strictScope });
 
   // -- repo-only checks -------------------------------------------------------
   // Resolved ONCE, before the loop, and only used by build:ship. A failure here
@@ -1395,6 +1416,11 @@ async function main(argv = process.argv.slice(2)) {
 
   const driftMark = drift.ok ? "[PASS]" : driftFatal ? "[FAIL]" : "[WARN]";
   out.push("   " + driftMark + " scope-drift (" + drift.mode + ") -- " + drift.reason);
+  // WHY the ship is in this mode, whenever there is something to say. Without
+  // it, a declaration dropped because its arc has closed prints exactly what a
+  // repo with no arc-state.json at all prints, and the operator cannot tell a
+  // gate that found nothing to enforce from a gate that quietly stopped.
+  if (declaration.note && drift.mode !== "unknown") out.push("           declaration: " + declaration.note);
   for (const f of drift.foreign) out.push("           unrelated to this ship: " + f.path + "  (" + f.surface + ")");
   if (!drift.ok && !driftFatal) {
     out.push("           advisory only. Set PRE_SHIP_STRICT_SCOPE=1 to make it block,");
