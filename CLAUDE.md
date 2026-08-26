@@ -348,8 +348,8 @@ npm run lint
 
 Chains: `check:integrity` → `check:mojibake:self-test` → `check:mojibake` →
 `check:legacy-tables` → `check:legacy-program-rpcs` → `check:no-social-word` →
-`lint:architecture` → `check:route-boundaries` → `check:image-widths` →
-`check:rpc-typing` → `check:script-conventions:self-test` →
+`lint:architecture` → `check:route-boundaries` → `check:image-widths:self-test` →
+`check:image-widths` → `check:rpc-typing` → `check:script-conventions:self-test` →
 `check:script-conventions` → `check:wallclock-brand` →
 `check:workflow-artifact-policy:self-test` → `check:workflow-artifact-policy` →
 `eslint .`. Read the chain itself rather than this list; nothing keeps them in
@@ -367,10 +367,26 @@ still fires &mdash; only the canary can.
 **A canary only belongs in the chain if it is independent of what the check
 judges.** `lint` is an `&&` chain, so a canary that itself reds on an ordinary
 violation aborts before the check runs and reports the guard as broken instead
-of naming the defect. That is why `check:image-widths` is unpaired here: three
-of its self-test cases assert the LIVE tree is clean, so a real bad width reds
-the canary. Prove independence before pairing &mdash; inject the violation, and
-require the canary to stay green while the check goes red.
+of naming the defect. `check:image-widths` was exactly that: three of its
+self-test cases asserted facts about the LIVE tree &mdash; that it is clean, and
+twice over that the scan had measured something &mdash; so a real bad width red
+the canary and the check never ran. They were deleted &mdash; each duplicated a
+contract `checkTree()` already enforces &mdash; and only then was it paired.
+
+**Prove independence before pairing.** Inject the violation the check exists to
+catch, and require the canary to stay GREEN while the check goes RED. Keep a
+canary to injected fixtures and arithmetic; anything it asserts about the live
+subject can red on ordinary work.
+
+**The chain does not yet satisfy that rule, so do not read "paired" as "safe".**
+Three of the four paired canaries still assert something about the live subject
+while gating their own check: `check:mojibake:self-test`
+(`.claude/settings.local.json` is collected), `check:script-conventions:self-test`
+(R5 over the live source of `check-ci-budget.mjs`) and
+`check:workflow-artifact-policy:self-test` (A5 fan-out over the real
+`.github/workflows`). Eight of the chain's twelve checks have no canary in any
+tier. `scripts/pre-ship.mjs` carries both lists with line numbers and is the
+maintained copy &mdash; count from the chain, not from this paragraph.
 
 `scripts/pre-ship.mjs` mirrors the chain link for link, but only its `CHECKS`
 band comment records where the mirrored prefix ends;
