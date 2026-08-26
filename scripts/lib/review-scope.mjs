@@ -28,6 +28,17 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// The parser this file uses, imported rather than re-derived: it used to
+// hand-roll its own readFileSync + JSON.parse and, in doing so, was the only
+// reader that never looked at phase / closed_at -- see resolveDeclaredScope
+// below for what that cost. NOT the only parser in the repo, and the claim that
+// it was got as far as this comment before review caught it:
+// check-plan-hygiene.mjs:736 still hand-rolls a fourth, inside a bare try/catch
+// that returns null on any failure -- so a corrupt arc-state.json makes its
+// cross-check silently SKIP, which is the same corrupt-presenting-as-absent
+// downgrade this file goes out of its way to prevent. Routing that reader
+// through here too is queued as its own change, not smuggled into this one.
+import { loadArcState, staleness, clip } from "./arc-state.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -566,32 +577,142 @@ export function matchesDeclared(rel, entry) {
  * corrupt stamp is deliberately NOT reported as missing so it cannot downgrade
  * a hard block to a warning. The two readers of .claude JSON now agree.
  *
- * @returns {{status:'none'|'ok'|'corrupt', scope: string[]|null}}
+ * A CLOSED ARC DECLARES NOTHING. The promise is bounded by the work that made
+ * it: once the arc records phase "done" or a closed_at, its scope array is a
+ * record of what that arc touched, not a rule about what the NEXT ship may
+ * touch. This reader used to ignore both fields, and the cost was measured
+ * rather than theoretical -- edge-config-governance closed on 2026-08-24
+ * leaving a 10-path scope in force, so every non-arc ship for the days after
+ * it (#298, #299, #302, #303) was fatally scope-drifted by a promise nobody
+ * had made. loadArcState() already carried the predicate, and both other
+ * readers already honoured it: arc-checkpoint.mjs no-ops on a closed arc, and
+ * check-plan-hygiene.mjs's lintArcState skips its cross-check. This file was
+ * the one reader out of step, which is why it now shares their parser instead
+ * of hand-rolling a fourth opinion about the same eight bytes of JSON.
+ *
+ * Two verdicts moved when this stopped re-deriving the parse, both toward
+ * loadArcState's contract and both deliberate: a UTF-8 BOM (what PowerShell's
+ * Out-File emits) is stripped rather than read as corruption, and a parseable
+ * non-object -- "[]", "null", a bare number -- is now corrupt rather than
+ * "declared nothing", because a file that is not an object cannot be said to
+ * have omitted a scope array.
+ *
+ * `note` is the human-readable WHY, "" when there is nothing worth saying (no
+ * file, or an open arc that simply never declared a scope). Every path that
+ * drops or refuses a declaration fills it in, and pre-ship prints it under the
+ * scope-drift row -- see the closed branch below for why silence there is the
+ * same class of defect as the one this function fixes.
+ *
+ * @param {object} state a loadArcState() verdict
+ * @returns {{status:'none'|'ok'|'corrupt', scope: string[]|null, note: string}}
  */
-export function resolveDeclaredScope() {
+export function declarationFromArcState(state) {
+  const status = state && state.status;
+  const arc = (state && state.arc) || {};
+  const named = clip(typeof arc.arc === "string" && arc.arc ? arc.arc : "(unnamed)", 40);
+
+  // TWO branches decide the verdict, and the second deliberately owns BOTH
+  // "corrupt" and any status this reader does not recognise. An explicit
+  // `status === "corrupt"` line stood here and was removed at review: it was
+  // unreachable AS A DECISION -- corrupt falls through to exactly the same
+  // return -- so no mutant could kill it, while the comment above it claimed it
+  // was the mechanism keeping an untrustworthy declaration from presenting as
+  // an absent one. That mechanism is the fall-through, and it is stated here
+  // instead of asserted by a line that cannot be tested.
+  //
+  // The direction is the point. A verdict this reader cannot interpret fails
+  // LOUD, toward still gating -- never quietly to "none", which is the silent
+  // downgrade to the advisory heuristic that the corrupt/none split exists to
+  // make impossible.
+  if (status === "missing") return { status: "none", scope: null, note: "" };
+  if (status === "closed") {
+    const how = arc.phase === "done" ? 'phase "done"' : "closed_at " + clip(String(arc.closed_at), 30);
+    return {
+      status: "none",
+      scope: null,
+      // NAMED, not silent. Dropping a declaration without saying so is the same
+      // shape as the bug this whole change is about: the report would read
+      // byte-identically to a repo that has no arc-state.json at all, and an
+      // operator who starts a new arc while leaving a stale closed_at in place
+      // would run with the fatal gate off and nothing on screen to say so.
+      note: 'arc "' + named + '" is CLOSED (' + how + ") -- its scope array is a record, not a declaration",
+    };
+  }
+  if (status !== "ok" && status !== "inactive") {
+    return {
+      status: "corrupt",
+      scope: null,
+      note:
+        status === "corrupt"
+          ? "unreadable, not JSON, or not an object"
+          : 'loadArcState returned a status this reader does not know: "' + clip(String(status), 30) + '"',
+    };
+  }
+  if (!Array.isArray(arc.scope)) return { status: "none", scope: null, note: "" };
+  // Same standing as a parseable non-object FILE, and therefore the same
+  // verdict. String() used to coerce these, so a scope of [{...}, null, 7]
+  // became ["[object Object]", "null", "7"] -- three entries matching nothing,
+  // which makes EVERY file in the ship foreign and hard-fails the gate against
+  // nonsense. An array whose entries are not strings has not declared a scope.
+  if (arc.scope.some((s) => typeof s !== "string")) {
+    return { status: "corrupt", scope: null, note: "the scope array holds a non-string entry" };
+  }
+  const parts = arc.scope.map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return { status: "none", scope: null, note: "" };
+  // An OPEN arc's age is REPORTED, never acted on. arc-state.mjs exports
+  // staleness() and arc-checkpoint.mjs warns on it, but expiring a declaration
+  // on a timer would silently disarm a fatal gate for any arc that legitimately
+  // ran longer than the window -- fail-open, on a clock, with nothing on
+  // screen. Saying "set 12 days ago (stale)" makes an ABANDONED declaration
+  // visible without taking the decision away from the operator.
+  const age = staleness(arc);
+  return {
+    status: "ok",
+    scope: parts,
+    note: 'declared by arc "' + named + '"' + (age.stale ? " -- STALE: " + age.reason : ""),
+  };
+}
+
+export const ARC_STATE_FILE = path.join(REPO_ROOT, ".claude", "arc-state.json");
+
+/**
+ * The declaration for THIS ship, WITH its note: the environment override if one
+ * is set, otherwise whatever the arc-state file says. This is what pre-ship
+ * reads, because the note is the half that keeps a dropped declaration from
+ * being silent.
+ *
+ * @param {string} [file] path to the arc-state file. Defaults to the ONE
+ *   declaration this repo ships. A parameter and NOT a second env var on
+ *   purpose: REVIEW_SCOPE_DECLARED is already the documented env override, and
+ *   an env-settable PATH would be a way to point a fatal gate at a file that
+ *   declares whatever the ship happens to need. Tests pass a temp path so they
+ *   never race the live file, or the hooks that read it every turn.
+ * @returns {{status:'none'|'ok'|'corrupt', scope: string[]|null, note: string}}
+ */
+export function resolveDeclaration(file = ARC_STATE_FILE) {
   const env = process.env.REVIEW_SCOPE_DECLARED;
   if (typeof env === "string") {
     const parts = env.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
     // set but empty => an explicit "no declaration", not a corrupt one
-    return parts.length ? { status: "ok", scope: parts } : { status: "none", scope: null };
+    return parts.length
+      ? { status: "ok", scope: parts, note: "declared by REVIEW_SCOPE_DECLARED (env override)" }
+      : { status: "none", scope: null, note: "" };
   }
-  const arcPath = path.join(REPO_ROOT, ".claude", "arc-state.json");
-  let raw;
-  try {
-    if (!fs.existsSync(arcPath)) return { status: "none", scope: null };
-    raw = fs.readFileSync(arcPath, "utf8");
-  } catch {
-    return { status: "corrupt", scope: null };
-  }
-  let arc;
-  try {
-    arc = JSON.parse(raw);
-  } catch {
-    return { status: "corrupt", scope: null };
-  }
-  if (!Array.isArray(arc && arc.scope)) return { status: "none", scope: null };
-  const parts = arc.scope.map((s) => String(s).trim()).filter(Boolean);
-  return parts.length ? { status: "ok", scope: parts } : { status: "none", scope: null };
+  return declarationFromArcState(loadArcState(file));
+}
+
+/**
+ * The same answer without the note, which is the shape this function has always
+ * returned and the one its callers destructure. Kept as the narrow contract
+ * rather than widened in place: `note` is presentation, and a caller that only
+ * needs to know WHETHER a scope was declared should not have to ignore a field.
+ *
+ * @param {string} [file] see resolveDeclaration
+ * @returns {{status:'none'|'ok'|'corrupt', scope: string[]|null}}
+ */
+export function resolveDeclaredScope(file = ARC_STATE_FILE) {
+  const { status, scope } = resolveDeclaration(file);
+  return { status, scope };
 }
 
 /**
@@ -616,6 +737,15 @@ export function resolveDeclaredScope() {
  * owned by the harness, never by the diff, and judging it as scope drift made
  * "commit nothing from it" an unreachable instruction -- the gate reds on the
  * worktree, so declining to stage the file cannot clear it.
+ *
+ * IT APPLIES TO BOTH MODES, despite the name, and the name is kept only because
+ * it is exported and asserted by tests. It used to be consulted on the DECLARED
+ * branch alone, which was invisible while a stale closed arc kept every ship in
+ * declared mode -- and became a live false positive the moment a closed arc
+ * stopped declaring: the ship that CLOSES an arc rewrites arc-state.json, so
+ * "app file + arc-state.json" landed in the inferred branch and printed a
+ * cross-surface drift warning about the two files the operator had no choice
+ * about. Same argument as the paragraph above, one branch further down.
  */
 export const DECLARED_ALWAYS_EXEMPT = [
   /^\.claude\/arc-state\.json$/,
@@ -625,7 +755,14 @@ export const DECLARED_ALWAYS_EXEMPT = [
 ];
 
 export function scopeDrift(files, { declared = null } = {}) {
-  const paths = (files || []).map(toPosix).filter(Boolean);
+  // Dropped ONCE, before anything is judged or counted, so both modes see the
+  // same ship. Filtering inside the declared branch alone left the inferred
+  // branch counting machine-written local state as a surface the ship had
+  // chosen to touch.
+  const paths = (files || [])
+    .map(toPosix)
+    .filter(Boolean)
+    .filter((p) => !DECLARED_ALWAYS_EXEMPT.some((re) => re.test(p)));
   const counts = {};
   for (const p of paths) {
     const s = classifySurface(p);
@@ -634,7 +771,6 @@ export function scopeDrift(files, { declared = null } = {}) {
 
   if (declared && declared.length) {
     const foreign = paths
-      .filter((p) => !DECLARED_ALWAYS_EXEMPT.some((re) => re.test(p)))
       .filter((p) => !declared.some((e) => matchesDeclared(p, e)))
       .map((p) => ({ path: p, surface: classifySurface(p) }));
     return {
