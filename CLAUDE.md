@@ -349,8 +349,8 @@ npm run lint
 Chains: `check:integrity` → `check:mojibake` → `check:legacy-tables` →
 `check:legacy-program-rpcs` → `check:no-social-word` → `lint:architecture` →
 `check:route-boundaries` → `check:image-widths` → `check:rpc-typing` →
-`check:script-conventions` → `check:wallclock-brand` →
-`check:workflow-artifact-policy` → `eslint .`.
+`check:script-conventions:self-test` → `check:script-conventions` →
+`check:wallclock-brand` → `check:workflow-artifact-policy` → `eslint .`.
 
 If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
 reference to a table or RPC that has been retired from the DB. Fix the call

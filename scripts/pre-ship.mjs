@@ -11,9 +11,12 @@
  *
  * Ported from the admin repo's pre-ship with three Website differences:
  *
- *   1. The lint chain is decomposed. "npm run lint" is a nine-deep && chain, so
- *      the first failure hides the other eight. Here each link is its own entry
- *      with its own tick, and ALL of them run.
+ *   1. The lint chain is decomposed. "npm run lint" is a single && chain, so the
+ *      first failure hides every link after it. Here each link is its own entry
+ *      with its own tick, and ALL of them run. Deliberately NO count in this
+ *      paragraph: the band comment on CHECKS below is the ONE place that number
+ *      is maintained, and this second copy of it went stale exactly as a second
+ *      copy always does -- it still read "nine-deep" at thirteen links.
  *
  *   2. typecheck and test:unit ARE run here. Admin drops them because its
  *      pre-commit runs tsc and its pre-push runs test:unit; this repo's
@@ -67,7 +70,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first TWELVE are exactly the npm-run links of the "lint" chain (which
+ * The first THIRTEEN are exactly the npm-run links of the "lint" chain (which
  * also ends in a bare `eslint .`, run by the chain and not listed here),
  * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
  * membership, so this comment is the only thing marking where the chain prefix
@@ -87,6 +90,17 @@ export const CHECKS = [
   ["check:route-boundaries", "every route has an error boundary"],
   ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
+  // Canary BEFORE the check: the check alone is a diff against an allowlist, so
+  // it would still pass if the DETECTORS silently stopped matching. The same
+  // pairing exists for check-workflow-artifact-policy, but ONLY in
+  // .github/workflows/architecture-guard.yml -- not in this list and not in the
+  // lint chain, so the local tiers still carry, for that guard, precisely the
+  // blind spot this entry closes for this one (review finding, queued -- close it
+  // in the same shape or say why not). Also required by the anti-under-run
+  // invariant in tests/reviewScope.test.ts -- every npm-run link in the lint chain
+  // needs its own entry here, and adding the alias to lint without this line is
+  // exactly what that test caught.
+  ["check:script-conventions:self-test", "the six rules are still proven in both directions"],
   ["check:script-conventions", "no guard script reports green without checking"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
