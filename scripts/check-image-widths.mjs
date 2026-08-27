@@ -393,7 +393,12 @@ function describeNumeric(c) {
  * "ok (0 helper call(s) across 0 file(s))" and exit 0 -- a guard that fails open
  * is the dead-check failure this repo exists to kill.
  *
- * @returns {{violations: string[], scanned: number, calls: number}}
+ * `callSites` is the one the measurement contract gates on, and it is what
+ * tests/imageWidths.test.ts destructures -- do not drop it from the return
+ * object on the strength of a signature that used to omit it (it did, until
+ * review on 2026-08-26).
+ *
+ * @returns {{violations: string[], scanned: number, calls: number, callSites: number}}
  */
 export function checkTree(root = ROOT, scanDirs = SCAN_DIRS) {
   const violations = [];
@@ -756,12 +761,56 @@ export function selfTestFailures() {
     rmSync(emptyScanRoot, { recursive: true, force: true });
   }
 
-  // --- and the live tree must be clean right now ---
-  const live = checkTree();
-  expect(`LIVE: tree is clean (${live.violations.join(' | ')})`, live.violations.length === 0);
-  expect(`LIVE: the scan actually found calls (${live.calls})`, live.calls > 0);
-  // The one that matters: calls found somewhere OTHER than the helper module.
-  expect(`LIVE: and found them outside ${HELPER_MODULE} (${live.callSites})`, live.callSites > 0);
+  // NO LIVE-TREE CASES HERE, and the absence is deliberate -- do not put them
+  // back. Three used to sit at this point: the tree is clean, calls > 0, and
+  // callSites > 0. Every one of them duplicated something checkTree() already
+  // asserts on its own run, so the canary bought no coverage and cost a second
+  // 551-file walk:
+  //
+  //   "tree is clean"   IS the guard's verdict. The guard prints it better --
+  //                     with the file, the line and the remediation.
+  //   "callSites > 0"   IS the guard's own violation at the callSites === 0
+  //                     branch of the fail-loud measurement contract below the
+  //                     scan ("A guard that measures nothing is not a pass").
+  //   "calls > 0"       could never arbitrate anything: see the callSites
+  //                     declaration -- findCalls once claimed imageCdn.ts's own
+  //                     two export lines, so the raw count floored at 2 however
+  //                     blind the scanner was. That is why the contract gates
+  //                     on callSites and not on this.
+  //
+  // WHAT THEY COST, which is the reason this is a defect and not a tidy-up.
+  // architecture-guard.yml and "lint" both run the canary BEFORE the check.
+  // "lint" WAS an && chain, so an ORDINARY width violation -- the single thing
+  // this guard exists to name -- red the CANARY first and the check never ran.
+  // Past tense as of 2026-08-26: "lint" is scripts/run-lint-chain.mjs and runs
+  // every link. architecture-guard.yml is NOT fixed, so read the rest of this
+  // note as live for CI and historical for the local tier.
+  // Measured 2026-08-26 by injecting optimizedImageUrl(image, 123): canary
+  // exit 1, "FAILED (1/52)", and the operator never saw the line naming the
+  // file and saying /_vercel/image answers 400. The guard switched itself off
+  // and reported ITSELF as broken about a repository that had done exactly
+  // what the guard was written to catch.
+  //
+  // Same failure, same repository, second instance: check-workflow-artifact-
+  // policy.mjs moved five MEASURED comparisons out of its canary for this
+  // reason, and its header records why.
+  //
+  // It did not move them all, and this note claimed otherwise until review on
+  // 2026-08-26. One live read survives there -- A5 fan-out over the real
+  // .github/workflows, at check-workflow-artifact-policy.mjs:4560 -- and two
+  // more live-subject canaries sit ahead of their own checks in the same list:
+  // check-mojibake's ".claude/settings.local.json is collected" and
+  // check-script-conventions' R5 run over the live source of
+  // check-ci-budget.mjs. They no longer GATE those checks locally -- the chain
+  // runs to completion -- but they still do in architecture-guard.yml, where
+  // the pairs are separate steps or separate lines of one `run: |` under
+  // `bash -e`. So the class is OPEN with three instances left; this
+  // guard is one instance of it closed. scripts/pre-ship.mjs carries the list
+  // and the line numbers.
+  //
+  // The rule itself, which none of that softens: a canary that gates a check
+  // must assert nothing about the live subject -- keep it to injected fixtures
+  // and pure arithmetic, which cannot red on ordinary work.
 
   return { total, failures };
 }

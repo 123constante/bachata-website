@@ -66,6 +66,31 @@ export function seoLandingEventsKey(todayKey: string, windowDays: number) {
   return ['calendar-events', start.toISOString(), end.toISOString(), SEO_LANDING_CITY_SLUG];
 }
 
+/**
+ * Cancelled occurrences are dropped HERE, at the shared fetch, rather than in
+ * each page's own filter.
+ *
+ * `get_calendar_events_v2` returns cancelled nights (it has to -- /event/:id and
+ * the city feed both render the cancellation), but every consumer of THIS seam
+ * is a "what's on" listing, and both of them collapse a recurring series to its
+ * soonest occurrence per event_id. An unfiltered cancelled row therefore does
+ * not merely appear: it WINS the dedup and hides the series' next live date.
+ * Measured 2026-08-25 on /bachata-london-tuesday, after a Tuesday class moved to
+ * Thursdays and its last Tuesday was cancelled in the admin editor -- the RPC
+ * correctly reported is_cancelled, the page listed the dead night anyway, and
+ * the live Thursday date never surfaced.
+ *
+ * At the seam because the two renderers (pages/seo/BachataWeekday for the seven
+ * /bachata-london-{weekday} pages, components/seo/LiveEventsSection for
+ * /london-bachata-guide + /learn-bachata-london) had the identical filter-then-
+ * dedupe shape and the identical omission. Filtering in one of them would have
+ * left the other wrong, which is the drift this module exists to prevent.
+ *
+ * Deliberately `!e.is_cancelled`, so a null/absent flag reads as NOT cancelled:
+ * the failure that costs a dancer their night is hiding a live event, not
+ * listing a dead one. Cancelled nights are still reachable -- the event's own
+ * page carries the banner; these listings just stop advertising them.
+ */
 export function fetchSeoLandingEvents(
   todayKey: string,
   windowDays: number,
@@ -75,7 +100,7 @@ export function fetchSeoLandingEvents(
     range_start: start.toISOString(),
     range_end: end.toISOString(),
     city_slug_param: SEO_LANDING_CITY_SLUG,
-  });
+  }).then((rows) => rows.filter((e) => !e.is_cancelled));
 }
 
 /**

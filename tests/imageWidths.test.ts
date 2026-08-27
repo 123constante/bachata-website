@@ -35,7 +35,13 @@ describe('image-width contract', () => {
   it('passes its own both-directions self-test', () => {
     const { total, failures } = selfTestFailures();
     expect(failures).toEqual([]);
-    expect(total).toBeGreaterThan(40);
+    // BOTH edges, exact, and the floor this replaced is why. `toBeGreaterThan(40)`
+    // had nine cases of slack at 49, so the 2026-08-26 commit that DELETED three
+    // cases passed every gate in the repo without one of them noticing. A canary
+    // can shrink to nothing under a floor with slack in it. The count is
+    // deterministic now that no case reads the live tree, so it can be pinned:
+    // adding or removing a case is meant to touch this line.
+    expect(total).toBe(49);
   });
 
   it('the live tree declares no width or quality Vercel would 400 on', () => {

@@ -11,9 +11,16 @@
  *
  * Ported from the admin repo's pre-ship with three Website differences:
  *
- *   1. The lint chain is decomposed. "npm run lint" is a nine-deep && chain, so
- *      the first failure hides the other eight. Here each link is its own entry
- *      with its own tick, and ALL of them run.
+ *   1. The lint chain is decomposed -- though no longer for the reason it was.
+ *      "npm run lint" WAS a single && chain whose first failure hid every link
+ *      after it; since 2026-08-26 it is scripts/run-lint-chain.mjs, which runs
+ *      every link too. What survives is that CHECKS is WIDER than that chain
+ *      (test:unit, the build and the perf gates are here and not there) and
+ *      that each entry gets its own tick and its own SKIP reason. Deliberately
+ *      NO count in this
+ *      paragraph: the band comment on CHECKS below is the ONE place that number
+ *      is maintained, and this second copy of it went stale exactly as a second
+ *      copy always does -- it still read "nine-deep" at thirteen links.
  *
  *   2. typecheck and test:unit ARE run here. Admin drops them because its
  *      pre-commit runs tsc and its pre-push runs test:unit; this repo's
@@ -53,7 +60,7 @@ import {
   diffOrigin,
   renamePairs,
   resolveBaseRef,
-  resolveDeclaredScope,
+  resolveDeclaration,
   scopeDrift,
   shipFiles,
   toPosix,
@@ -67,28 +74,215 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first TWELVE are exactly the npm-run links of the "lint" chain (which
- * also ends in a bare `eslint .`, run by the chain and not listed here),
- * decomposed, in the chain's own order -- tests/reviewScope.test.ts enforces set
- * membership, so this comment is the only thing marking where the chain prefix
- * ends and the non-chain entries (check:plan-hygiene, test:unit, ...) begin.
- * Keep the count accurate when adding a link, or the next editor inserts into
- * the wrong band. It said TEN in the same edit that added check:image-widths and
- * made the count load-bearing, which would have put the next new link above
- * check:wallclock-brand and outside the band it describes (review finding).
+ * The first SIXTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * order. NOT "the npm-run links of the lint chain" any more, and not followed
+ * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
+ * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
+ * package.json's `lint` contains no `npm run` and no bare eslint at all. This
+ * paragraph is the one the header at :16 nominates as authoritative, so it is
+ * the one that must not describe a retired shape.
+ *
+ * tests/reviewScope.test.ts now asserts CHECKS.slice(0, LINKS.length) EQUALS
+ * LINKS -- membership, direction and order -- so a dropped or reordered link
+ * fails there rather than silently changing what the local tier runs. This
+ * comment still marks where the mirrored prefix ends and the non-chain entries
+ * (check:plan-hygiene, test:unit, ...) begin. Keep the count accurate when
+ * adding a link, or the next editor inserts into the wrong band. It said TEN in
+ * the same edit that added check:image-widths and made the count load-bearing,
+ * which would have put the next new link above check:wallclock-brand and
+ * outside the band it describes (review finding).
  */
 export const CHECKS = [
   ["check:integrity", "source integrity (null-byte / control-byte / truncation scan)"],
+  // Canary BEFORE the check, same reason as check:script-conventions below.
+  // The regex half is the easy half and check-mojibake.mjs already has a
+  // positive control for it; the canary's substance is SCOPE -- that ROOTS
+  // still contains .claude, that collectFiles actually reaches
+  // .claude/settings.local.json, and that the generated-local-state skip is
+  // driven through its predicate rather than through collectFiles (asserted
+  // the obvious way it passes vacuously in every CI checkout, where those
+  // files are gitignored and absent). A scan that looks nowhere useful is
+  // green over a corrupt tree.
+  //
+  // Safe ahead of the check: verified 2026-08-26 by writing a genuinely corrupt
+  // file into scripts/ -- the canary stayed PASS (11 cases) and the check exited
+  // 1 naming the file, which is the order that must hold. It does read disk for
+  // one case (collectFiles(['.claude']) must reach settings.local.json), and
+  // that passes only because .claude/settings.local.json is TRACKED -- four of
+  // its siblings under .claude/ are gitignored. If it is ever untracked this
+  // canary reds at link 2 -- but it no longer BLOCKS the links behind it, and
+  // the count that stood here ("the FOURTEEN links behind it") is deleted
+  // rather than corrected, because there is nothing left for it to count. It
+  // had already gone stale once, in the very commit that updated the band word,
+  // which is what a second copy always does. Still worth fixing at the source:
+  // keep the file tracked, or put that case behind a "file exists" guard.
+  //
+  // NOT FIXED IN CI, and that is the honest half. architecture-guard.yml runs
+  // this canary at :108 and the guard at :111 as SEPARATE steps, and a failed
+  // step aborts the job -- so there the canary still silences the check. Same
+  // class, different tier, unqueued until someone prices it.
+  //
+  // Note what that hazard IS, because it has a name now and two siblings: a
+  // live-subject assertion sitting in a gating position. See the image-widths
+  // block below for the full account and the queue.
+  //
+  // Cost 2026-08-26: ~0.3s of work. The npm spawn is not recorded as the cost
+  // of THIS link, because it is the same toll every link already in the chain
+  // pays. The "~2-3s" this said until review was an estimate nobody ran --
+  // measured on this machine it is ~800ms, mean of 3. See the image-widths note
+  // for why a spawn IS marginal cost for a link a diff ADDS.
+  ["check:mojibake:self-test", "the detector fires AND the scan still reaches .claude"],
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
+  // Canary BEFORE the check. This one was deliberately left UNPAIRED when the
+  // other three landed, because its --self-test was not fixture-only: three
+  // cases ran checkTree() against the LIVE tree, so an ORDINARY width violation
+  // red the CANARY and the && chain never reached the check. Those cases are
+  // gone -- every one of them duplicated the fail-loud measurement contract
+  // that checkTree() already runs, so the canary bought no coverage and cost a
+  // second 551-file walk. See the block where they used to be for the full
+  // account; do not put them back.
+  //
+  // Proven independent 2026-08-26, which is the bar any canary must clear
+  // before it is allowed to sit ahead of a check anywhere: with a real violation
+  // injected (optimizedImageUrl(image, 123)) the canary stays GREEN at 49/49
+  // and the check exits 1 naming the file, the line and the remediation. The
+  // coverage the deleted cases claimed is still enforced, on the live tree, by
+  // the guard -- scan dirs pointing nowhere and helpers renamed to nothing both
+  // still exit 1 -- and the canary still PROVES that contract fires, through
+  // its fixture case rather than through the repository.
+  //
+  // Cost 2026-08-26, measured rather than estimated: 2889ms of WORK before the
+  // deletion, 953ms after (mean of 3) -- a 3x drop, because the canary no
+  // longer walks the 551-file tree the check is about to walk anyway. The
+  // check itself is 1837ms, so the pair does 2790ms of work against the old
+  // canary's 2889ms on its own.
+  //
+  // That is a work-time comparison and on its own it flatters this change, so
+  // do not read it as the cost of pairing. Pairing adds a SIXTEENTH `npm run`
+  // to the chain, and therefore one npm spawn that was not being paid here
+  // before -- ~800ms, mean of 3, measured on this machine 2026-08-26. A spawn
+  // is shared overhead for a link that already exists and MARGINAL cost for a
+  // link a diff creates; those are different ledgers and the mojibake note's
+  // reasoning for excluding it does not carry over. Net added cost of pairing
+  // this guard is ~953ms of work PLUS ~800ms of spawn, i.e. the excluded term
+  // is the larger half of what this diff actually adds to `npm run lint`.
+  ["check:image-widths:self-test", "the width and quality rules still fire, driven through checkTree"],
   ["check:image-widths", "no /_vercel/image width or quality vercel.json would 400"],
   ["check:rpc-typing", "no rpc(x as never) escapes"],
+  // Canary BEFORE the check: the check alone is a diff against an allowlist, so
+  // it would still pass if the DETECTORS silently stopped matching. That pairing
+  // was local-tier for this guard only; check-mojibake and
+  // check-workflow-artifact-policy each had a canary too, but ONLY in
+  // .github/workflows/architecture-guard.yml, and both are now paired here and
+  // in the lint chain as well.
+  //
+  // SCOPE THAT CLAIM TO THE LINT CHAIN -- it is true there and NOT true of the
+  // local tiers generally, which is a wider set than the chain. Then scope it
+  // twice more. "Every link of the chain is now paired" is what stood here
+  // until review and it was false in two directions at once.
+  //
+  // TRUE: every chain link that has a canary ANYWHERE now runs it locally,
+  // immediately ahead of its own check. check:image-widths was the last holdout
+  // and joined once its canary was made independent of the live tree.
+  //
+  // FALSE, direction one -- most of the chain has no canary to pair. Counted
+  // 2026-08-26: 16 npm-run links over 12 distinct checks, of which FOUR have a
+  // `:self-test` (mojibake, image-widths, script-conventions,
+  // workflow-artifact-policy). The other eight have none in any tier --
+  // check:integrity, check:legacy-tables, check:legacy-program-rpcs,
+  // check:no-social-word, lint:architecture, check:route-boundaries,
+  // check:rpc-typing, check:wallclock-brand. Each diffs against a tree or an
+  // allowlist with nothing proving its detectors still match, which is the
+  // older and wider gap. Recorded because nothing else records it.
+  //
+  // FALSE, direction two -- the live-subject class closed for ONE guard, not
+  // for the chain. Three of the four paired canaries still assert a fact about
+  // the live subject. Locally that no longer gates the check -- the chain runs
+  // to completion since 2026-08-26 -- but in architecture-guard.yml, where the
+  // pairs are separate steps or separate lines of one step, it still does:
+  //
+  //   check:mojibake:self-test  (link 2)   .claude/settings.local.json is
+  //     collected -- see the note at that entry; tracked-file dependent.
+  //   check:script-conventions:self-test  (link 12)   R5 run over the live
+  //     source of scripts/check-ci-budget.mjs -- check-script-conventions.mjs
+  //     :1191 reads it, :1630 asserts r5(referenceSource) is clean. Refactor
+  //     that file's exit tail into a shape R5 scores differently and the canary
+  //     reds ahead of its check.
+  //   check:workflow-artifact-policy:self-test  (link 15)   A5 fan-out measured
+  //     over the live .github/workflows -- check-workflow-artifact-policy.mjs
+  //     :4560. See that entry below.
+  //
+  // Any of the three can red on ordinary work and take its own check offline,
+  // which is exactly the defect this diff removed from check:image-widths.
+  // QUEUED, not fixed here: three separate guards, each owing its own
+  // both-directions proof, and folding them into a diff about a fourth is how a
+  // review round's fixes ship unreviewed.
+  //
+  // Still unpaired locally, all three with a canary that runs in CI only:
+  // check:plan-hygiene (architecture-guard.yml:77), check:bundle-budget and
+  // check:first-load-requests (perf-budget.yml:74 and :80). All three are
+  // CHECKS entries BELOW the chain band, so the chain-shaped fix does not reach
+  // them and they need their own decision -- two of them want a built bundle,
+  // which is not a DB-less local scan. Recorded here rather than asserted
+  // closed, because the marker this comment replaced said "queued -- close it in
+  // the same shape or say why not" and a claim of closure would have deleted the
+  // only record that the class is still open. Also required by the
+  // tests/reviewScope.test.ts -- every npm-run link in the lint chain needs its
+  // own entry here, and adding the alias to lint without this line is exactly
+  // what that test caught.
+  ["check:script-conventions:self-test", "the six rules are still proven in both directions"],
   ["check:script-conventions", "no guard script reports green without checking"],
   ["check:wallclock-brand", "wall-clock branded-boundary contract"],
+  // Canary BEFORE the check, and the last of the three pairings this repo was
+  // missing locally. Several of that guard's arms are UNREACHABLE on this
+  // repository's own numbers, so its 393 self-test cases are the only thing
+  // proving those arms can fail at all -- reading the check against this tree
+  // cannot tell you, and the guard is green either way.
+  //
+  // Safe to put in a local tier because the five MEASURED drift comparisons are
+  // NOT in the canary: they were deliberately moved into the guard, after the
+  // verdict is printed, precisely so ordinary repo growth (one contract check
+  // added to db-contract-check.yml, a workflow split in two) stops taking the
+  // check offline. Adding the canary here therefore does not import that
+  // failure mode into every local lint run.
+  //
+  // Safe ahead of the check FOR THAT INJECTION, verified the same way on
+  // 2026-08-26: an unbounded actions/upload-artifact step injected into
+  // workflow-lint.yml left the canary PASS (393 cases) and made the check exit 1
+  // naming "A1 retention-missing" and the step.
+  //
+  // The sentence that used to close this paragraph -- "the canary does not read
+  // .github/workflows at all" -- was FALSE, and review caught it. Case
+  // "measured: no upload in this repository exceeds the fan-out budget" reads
+  // the live directory at check-workflow-artifact-policy.mjs:4560 and asserts
+  // `unreadable === 0 && max <= FANOUT_CAP_LEGS`. So one live-subject
+  // assertion still gates this check: a workflow whose matrix expands past the
+  // cap, or one this parser cannot read, reds the CANARY at link 15 and the
+  // check at link 16 never runs. That case defends itself in its own comment --
+  // it "cannot red on ordinary work, because the only way past it is the rule
+  // genuinely firing, and then the guard is red anyway and names the upload" --
+  // and that is precisely the fallacy: the guard names the upload only if it is
+  // REACHED. Locally it now is -- run-lint-chain.mjs runs every link. In CI it
+  // still is not: architecture-guard.yml:95 runs this pair as two lines of one
+  // `run: |` step, and the shell is `bash -e`.
+  // A1 injection is proven independent; A5 is not. Queued with
+  // the other two live-subject canaries listed at check:script-conventions.
+  //
+  // ONE REPORTING CAVEAT, queued rather than fixed here because it belongs to
+  // runCheck and would change how all of CHECKS is reported: this canary exits 2
+  // for "the guard is broken, not the repo" (a checkout with no node_modules),
+  // and runCheck collapses every non-zero exit to ok:false, so the ledger prints
+  // it as an ordinary FAIL. The distinction the exit code was added to draw does
+  // not survive into the ledger.
+  //
+  // Cost 2026-08-26: ~1.7s of work; see the mojibake note on why the npm-spawn
+  // figure is not the number recorded.
+  ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
@@ -602,6 +796,44 @@ export function detectReusedServer() {
 }
 
 /**
+ * The scope-drift decision, pure for the same reason every decide* above it is:
+ * this branch decides whether a ship is BLOCKED, and until review it lived
+ * inline in main() with no test anywhere. Nothing asserted that a corrupt
+ * declaration is fatal, so a mutant flipping severity "error" to "warn" -- or
+ * deleting the corrupt branch so an unreadable arc-state.json falls through to
+ * scopeDrift(files, {declared: null}) -- survived the entire suite green. That
+ * is precisely the silent downgrade the corrupt/none split was built to make
+ * impossible, sitting unguarded in the gate that consumes it.
+ *
+ * A DECLARED scope is an explicit promise, so breaking it is fatal. An INFERRED
+ * verdict is a heuristic and only warns unless asked to be strict -- a guard
+ * that reds a legitimate ship gets ignored, and then it guards nothing.
+ *
+ * @param {{declaration: object, files: string[], diffError: string|null,
+ *          strictScope: boolean}} opts
+ * @returns {{drift: object, fatal: boolean}}
+ */
+export function decideDrift({ declaration, files = [], diffError = null, strictScope = false }) {
+  const drift = diffError
+    ? { ok: true, mode: "unknown", severity: "none", foreign: [], reason: "diff unavailable -- not judged" }
+    : declaration && declaration.status === "corrupt"
+      ? {
+          // A garbled declaration must NOT quietly become "declared nothing".
+          // Silently dropping to the advisory heuristic is indistinguishable
+          // from a ship that never declared a scope at all.
+          ok: false,
+          mode: "declared",
+          severity: "error",
+          foreign: [],
+          reason:
+            ".claude/arc-state.json is present, but the declaration cannot be trusted -- " +
+            ((declaration && declaration.note) || "reason not reported"),
+        }
+      : scopeDrift(files, { declared: declaration ? declaration.scope : null });
+  return { drift, fatal: !drift.ok && (drift.severity === "error" || strictScope) };
+}
+
+/**
  * The smoke decision, pure so both directions are unit-testable without a
  * browser. `diffError` is the message from a failed diff computation, or null.
  */
@@ -1043,25 +1275,8 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   // -- scope drift ------------------------------------------------------------
-  const declaration = resolveDeclaredScope();
-  const drift = diffError
-    ? { ok: true, mode: "unknown", severity: "none", foreign: [], reason: "diff unavailable -- not judged" }
-    : declaration.status === "corrupt"
-      ? {
-          // A garbled declaration must NOT quietly become "declared nothing".
-          // Silently dropping to the advisory heuristic is indistinguishable
-          // from a ship that never declared a scope at all.
-          ok: false,
-          mode: "declared",
-          severity: "error",
-          foreign: [],
-          reason: ".claude/arc-state.json is present but unreadable/not JSON -- the declaration cannot be trusted",
-        }
-      : scopeDrift(files, { declared: declaration.scope });
-  // A declared scope is an explicit promise, so breaking it is fatal. An
-  // INFERRED verdict is a heuristic and only warns unless asked to be strict --
-  // a guard that reds a legitimate ship gets ignored, and then it guards nothing.
-  const driftFatal = !drift.ok && (drift.severity === "error" || strictScope);
+  const declaration = resolveDeclaration();
+  const { drift, fatal: driftFatal } = decideDrift({ declaration, files, diffError, strictScope });
 
   // -- repo-only checks -------------------------------------------------------
   // Resolved ONCE, before the loop, and only used by build:ship. A failure here
@@ -1201,6 +1416,11 @@ async function main(argv = process.argv.slice(2)) {
 
   const driftMark = drift.ok ? "[PASS]" : driftFatal ? "[FAIL]" : "[WARN]";
   out.push("   " + driftMark + " scope-drift (" + drift.mode + ") -- " + drift.reason);
+  // WHY the ship is in this mode, whenever there is something to say. Without
+  // it, a declaration dropped because its arc has closed prints exactly what a
+  // repo with no arc-state.json at all prints, and the operator cannot tell a
+  // gate that found nothing to enforce from a gate that quietly stopped.
+  if (declaration.note && drift.mode !== "unknown") out.push("           declaration: " + declaration.note);
   for (const f of drift.foreign) out.push("           unrelated to this ship: " + f.path + "  (" + f.surface + ")");
   if (!drift.ok && !driftFatal) {
     out.push("           advisory only. Set PRE_SHIP_STRICT_SCOPE=1 to make it block,");

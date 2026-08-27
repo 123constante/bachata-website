@@ -195,6 +195,7 @@ const TARGETS = [
   { rel: 'scripts/pre-ship.mjs' },
   { rel: 'scripts/prove-entry-point-dispatch.mjs' },
   { rel: 'scripts/rework-share.mjs' },
+  { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
 ];
 

@@ -38,6 +38,36 @@ export const LOCAL_START = '2026-09-04';
 export const LOCAL_END = '2026-09-06';
 
 /**
+ * The date both harnesses pin their clock to, and it lives HERE because its
+ * correctness is a fact about the span above -- not about either test file.
+ *
+ * Every case in both suites depends on the machine's real date falling outside
+ * 2026-09-04..06. That was a COINCIDENCE, not a design: on 5 and 6 September
+ * the mount-gated correction resolves index 1 instead of 0 and cases red
+ * against correct code. The client harness pinned its clock for that reason on
+ * 2026-08-24 and declared the constant locally; the SSR harness did not, and
+ * the constant declared in a file that does not own the span is free to fall
+ * inside it the day the span moves. One definition, beside the dates it is
+ * defined against.
+ *
+ * The check below is why this is a constant and not a comment: move LOCAL_START
+ * or LOCAL_END over this date and both suites fail AT IMPORT, naming the cause,
+ * rather than reding somewhere inside a render with a confusing message.
+ */
+export const OUTSIDE_THE_SPAN = new Date('2026-07-01T12:00:00Z');
+
+{
+  const pinned = OUTSIDE_THE_SPAN.toISOString().slice(0, 10);
+  if (pinned >= LOCAL_START && pinned <= LOCAL_END) {
+    throw new Error(
+      `festivalFixture: OUTSIDE_THE_SPAN (${pinned}) is INSIDE the fixture span ` +
+        `${LOCAL_START}..${LOCAL_END}. Both harnesses assume the clock cannot ` +
+        `collide with the festival; move the pin, do not widen the assumption.`,
+    );
+  }
+}
+
+/**
  * One session on each of the festival's three days. `days` comes from the SPAN
  * (local_start..local_end) via festivalGridDays, not from the schedule -- but
  * the timeline block is still gated on having both days AND hours, and `hours`
@@ -105,6 +135,24 @@ export const SCHEDULE_WITH_EARLY_DAY = [
  */
 export const SPAN_SHRUNK = { start: LOCAL_START, end: '2026-09-05' };
 export const SCHEDULE_SHRUNK = SCHEDULE.slice(0, 2);
+
+/**
+ * THE UNDATED SESSION -- a session whose day the organiser has not published.
+ * `festivalGridDays` appends one extra column for exactly this, because losing
+ * it "was a silent regression: the session became unreachable in the UI", and
+ * `sessionsByDay` buckets it under `''` rather than dropping it.
+ *
+ * Shared because the defect is covered by a PAIR of cases that were split on
+ * purpose: SSR asserts the extra chip renders, the client asserts the card
+ * appears when that chip is tapped. They are only two halves of one defect
+ * while the payload is identical -- duplicated inline, changing the title or
+ * the start time in one file leaves both suites green and the split silently
+ * covering two different things.
+ */
+export const SCHEDULE_WITH_UNDATED = [
+  ...SCHEDULE,
+  { id: 'un-0', day: null, title: 'Day not published', start_time: '20:00:00', type: 'class' },
+];
 
 /**
  * A SECOND festival, for the warm-navigation cases. Different id, different

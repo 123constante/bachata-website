@@ -12,14 +12,14 @@
  *       see the navigation describe; the clamp is now UNGATED
  *   --  the OVERRIDE half of the seed/override split: tab clicks, and the
  *       post-mount clock correction                      -- NOW GATED
- *   --  per-festival state (pickedDayIdx, showAllDays, descExpanded,
- *       lightboxIndex) leaking across a navigation       -- NOT A DEFECT:
+ *   --  per-festival state (pickedDayIdx, descExpanded, lightboxIndex)
+ *       leaking across a navigation                      -- NOT A DEFECT:
  *       both routes key on params.id and remount. NOW GATED, at the key.
  *
  * SETTLED STATE IS NOT ENOUGH, which is the thing to carry away from this
  * file. R1 survived the first version of this harness with zero fail lines
- * because its defect lasts ONE COMMIT: the leaked index renders, stamps
- * data-open on nothing, and defaultedForRef corrects it before act() returns.
+ * because its defect lasts ONE COMMIT: the leaked index renders an empty
+ * grid, and defaultedForRef corrects it before act() returns.
  * So mountFestival now carries a render-boundary probe -- a <Profiler> inside
  * the tree recording what each COMMIT put in the DOM -- and the R1 case
  * asserts over that window rather than over the result. Any future defect of
@@ -28,10 +28,11 @@
  *
  * WHAT THIS CANNOT DO, stated up front so nobody quotes it for more than it
  * covers. jsdom does no layout and does not implement `:has()`. Every CSS
- * claim in this component -- the single-day hide rules, the all-days swipe
- * grid, the `:has()` gating -- is INVISIBLE here. This harness asserts STATE
- * and MARKUP: which cell carries data-open, which tab is active, what survives
- * a rerender. A green run here says nothing about how the page looks.
+ * claim in this component -- the trapped scroll box, the sticky room headers
+ * and session labels, the desktop open-out -- is INVISIBLE here. This harness
+ * asserts STATE and MARKUP: which day the grid says it is showing, whose
+ * sessions are actually in it, which tab is active, what survives a rerender.
+ * A green run here says nothing about how the page looks.
  *
  * MOUNT THE ROUTE, NOT JUST THE PAGE. The navigation cases pass
  * `{ throughRoute: true }`, which mounts app/routes/festival.tsx's own
@@ -67,9 +68,11 @@ import {
   EVENT_UUID_B,
   SLUG_B,
   LOCAL_START,
+  LOCAL_END,
   LOCAL_START_B,
   LOCAL_END_B,
   SCHEDULE,
+  SCHEDULE_WITH_UNDATED,
   SCHEDULE_B,
   SPAN_WITH_EARLY_DAY,
   SCHEDULE_WITH_EARLY_DAY,
@@ -79,6 +82,7 @@ import {
   seedClient,
   installFixtureFetchGate,
   removeFixtureFetchGate,
+  OUTSIDE_THE_SPAN,
 } from '../fixtures/festivalFixture';
 import { installJsdomPolyfills } from './jsdomPolyfills';
 
@@ -95,8 +99,12 @@ import { installJsdomPolyfills } from './jsdomPolyfills';
  *
  * Only Date is faked. setTimeout stays real because userEvent schedules its
  * pointer sequence through it.
+ *
+ * THE DATE ITSELF now comes from the fixture, beside the span it has to miss.
+ * Declared here it was free to fall inside the span the day LOCAL_START moved,
+ * silently -- and the SSR twin, which shares this fixture, had no pin at all.
+ * The fixture throws at import if the two ever collide.
  */
-const OUTSIDE_THE_SPAN = new Date('2026-07-01T12:00:00Z');
 
 beforeAll(() => {
   installJsdomPolyfills();
@@ -210,8 +218,8 @@ async function mountFestival(
   // complete frame the reader could have been shown.
   //
   // A MutationObserver was tried for this first and REVERTED. It reports each
-  // individual DOM mutation, so between React removing data-open from one slot
-  // and adding it to another it observes a document with ZERO open columns --
+  // individual DOM mutation, so between React tearing down one day's cards and
+  // mounting the next it observes a document with NO sessions at all --
   // and it therefore reds against correct code. That is a DOM-patching
   // artefact, not a frame. The distinction between "a mutation happened" and
   // "a commit finished" is the entire difference between the two approaches.
@@ -368,74 +376,87 @@ async function mountFestival(
  * One commit's worth of grid state, as the reader would have seen that frame.
  *
  * The two absent kinds are kept apart deliberately. 'no-body' is the "Festival
- * not found" branch -- the fixture stopped resolving -- while 'no-row' is a
+ * not found" branch -- the fixture stopped resolving -- while 'no-tabs' is a
  * markup regression on a page that did render. One shared message made a
  * fixture failure and a component failure indistinguishable from the output.
  */
 type GridSnapshot =
   | { grid: 'no-body' }
-  | { grid: 'no-row' }
-  | { grid: 'present'; rows: number; slots: number; open: number[]; openPerRow: number[] };
+  | { grid: 'no-tabs' }
+  | { grid: 'present'; tabs: number; open: number; active: number[]; cardDays: number[] };
 
 /**
  * THE ONE DOM READER in this file, so the settled-state assertions and the
  * commit-boundary probe below can never disagree about what "open" means.
  *
- * EVERY .tl-row, not the first. The grid renders one row per distinct hour and
- * stamps data-open per (row, day) CELL, so "which column is open" is a
- * whole-grid property. The fixture pins every session to 20:00 and so has
- * exactly one row -- which is precisely why reading only the first row would
- * have looked correct forever while a half-blank schedule walked past it.
- * `open` is the union across rows and `openPerRow` the per-row count, so rows
- * that DISAGREE are representable rather than silently flattened into one.
+ * IT READS DAYS, NOT COLUMNS, and that is the shape change rather than a
+ * rewording of it. The grid used to render every day as a column and hide all
+ * but one, so the only observable was which column was un-hidden -- what was IN
+ * the open column could not be wrong, because all of it was always there. The
+ * columns are ROOMS now and only the open day is built, so the reader records
+ * three separable facts and lets a case say which it cares about:
  *
- * Non-throwing, unlike openColumns: the probe calls it from inside React's
- * commit phase, where a throw surfaces as an unhandled error rather than as a
- * verdict, and where the grid legitimately may not exist yet.
+ *   open      which day the grid says it is showing
+ *   active    which day CHIPS claim to be selected -- a count, never "the
+ *             first one", because a pick that opened day 2 without closing day
+ *             0 satisfies any identity check and breaks the view
+ *   cardDays  which day each rendered session card belongs to, which is the
+ *             half `open` cannot express: an off-by-one in the day lookup
+ *             leaves `open` correct and puts the NEIGHBOUR's sessions on screen
+ *
+ * Non-throwing, unlike openDay: the probe calls it from inside React's commit
+ * phase, where a throw surfaces as an unhandled error rather than as a verdict,
+ * and where the grid legitimately may not exist yet.
  */
 function snapshotGrid(container: HTMLElement): GridSnapshot {
   const body = container.querySelector('.tl-body');
   if (!body) return { grid: 'no-body' };
-  const rows = Array.from(body.querySelectorAll('.tl-row'));
-  if (rows.length === 0) return { grid: 'no-row' };
+  const tabs = Array.from(container.querySelectorAll('button.day-tab'));
+  if (tabs.length === 0) return { grid: 'no-tabs' };
 
-  const perRow = rows.map((r) => Array.from(r.querySelectorAll(':scope > .slot')));
-  const union = new Set<number>();
-  for (const slots of perRow) {
-    slots.forEach((s, i) => {
-      if (s.hasAttribute('data-open')) union.add(i);
-    });
-  }
+  // -1 for absent or unreadable rather than NaN: NaN compares equal to nothing,
+  // including itself, so a missing stamp would red every case with an
+  // unreadable message instead of naming the one thing that went wrong.
+  const readDay = (el: Element): number => {
+    const raw = el.getAttribute('data-day');
+    return raw !== null && /^\d+$/.test(raw) ? Number(raw) : -1;
+  };
 
   return {
     grid: 'present',
-    rows: rows.length,
-    slots: Math.max(...perRow.map((s) => s.length)),
-    open: [...union].sort((a, b) => a - b),
-    openPerRow: perRow.map((slots) => slots.filter((s) => s.hasAttribute('data-open')).length),
+    tabs: tabs.length,
+    open: readDay(body),
+    active: tabs.flatMap((b, i) => (b.classList.contains('active') ? [i] : [])),
+    cardDays: Array.from(body.querySelectorAll('.tl-ev')).map(readDay),
   };
 }
 
 /**
- * Which 0-based column carries data-open, and HOW MANY do -- the same
- * presence-not-value read the SSR gate uses, for the same reason: the CSS
- * matches on presence, so `data-open="false"` would open every column.
+ * Which 0-based day the timeline is showing.
  *
  * THROWS on every shape a settled assertion must not quietly accept: no page,
- * no rows, no slots, and rows that disagree with each other. A case reading an
- * empty array off a page which rendered no timeline at all would pass for the
- * wrong reason, which is the failure the mount control at the top of this file
- * exists to prevent.
+ * no tabs, no readable stamp, and -- the one worth spelling out -- a grid whose
+ * session cards belong to a DIFFERENT day from the one it claims. A case
+ * reading a number off a page that is displaying someone else's sessions would
+ * pass for the wrong reason, which is the failure this reader exists to
+ * prevent.
+ *
+ * It deliberately does NOT check the day chips. `activeTabs` is asserted
+ * separately by the cases that care, and folding that check in here would make
+ * every one of those assertions unable to fail.
  */
-function openColumns(container: HTMLElement): number[] {
+function openDay(container: HTMLElement): number {
   const snap = snapshotGrid(container);
-  if (snap.grid === 'no-body') throw new Error('openColumns: nothing rendered a .tl-body');
-  if (snap.grid === 'no-row') throw new Error('openColumns: .tl-body has no .tl-row');
-  if (snap.slots === 0) throw new Error('openColumns: .tl-row has no slots');
-  if (snap.openPerRow.some((n) => n !== snap.open.length)) {
+  if (snap.grid === 'no-body') throw new Error('openDay: nothing rendered a .tl-body');
+  if (snap.grid === 'no-tabs') throw new Error('openDay: the page rendered no day tabs');
+  if (snap.open < 0) throw new Error('openDay: .tl-body carries no readable data-day');
+
+  const foreign = snap.cardDays.filter((d) => d !== snap.open);
+  if (foreign.length > 0) {
     throw new Error(
-      `openColumns: rows disagree -- union ${JSON.stringify(snap.open)}, ` +
-        `per-row ${JSON.stringify(snap.openPerRow)}`,
+      `openDay: ${foreign.length} of ${snap.cardDays.length} session cards belong to ` +
+        `another day -- the grid says ${snap.open}, the cards say ` +
+        `${JSON.stringify([...new Set(snap.cardDays)])}`,
     );
   }
   return snap.open;
@@ -457,13 +478,13 @@ function activeTabs(container: HTMLElement): number[] {
 describe('client: FestivalDetail mounts at all', { timeout: 60_000 }, () => {
   it('renders the festival, not the not-found branch', async () => {
     // THE CONTROL FOR EVERY CASE BELOW. If the fixture stops resolving, the
-    // page renders "Festival not found" -- which has no .tl-body, no tabs and
-    // no data-open, so every assertion in this file would pass or throw for a
+    // page renders "Festival not found" -- which has no .tl-body and no tabs,
+    // so every assertion in this file would pass or throw for a
     // reason unrelated to what it claims to test.
     const { container } = await mountFestival(EVENT_UUID, LOCAL_START);
     expect(container.textContent).not.toContain('Festival not found');
     expect(container.querySelector('.tl-body')).not.toBeNull();
-    expect(openColumns(container)).toHaveLength(1);
+    expect(openDay(container)).toBe(0);
     expect(dayTabs(container)).toHaveLength(3);
   });
 });
@@ -476,11 +497,11 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
     // 0), so tapping day 2 can only open column 2 through pickedDayIdx.
     const user = userEvent.setup();
     const { container } = await mountFestival(EVENT_UUID, LOCAL_START);
-    expect(openColumns(container)).toEqual([0]);
+    expect(openDay(container)).toBe(0);
 
     await user.click(dayTabs(container)[2]);
 
-    expect(openColumns(container)).toEqual([2]);
+    expect(openDay(container)).toBe(2);
     // Cardinality, not just position: an override that opened day 2 WITHOUT
     // closing day 0 satisfies a `toContain(2)` and breaks the view.
     expect(activeTabs(container)).toEqual([2]);
@@ -506,7 +527,7 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
     // rather than by luck), so it answers 0 -- the value the seed already had.
     // That agreement is exactly the condition under which the mutant declines
     // to write.
-    expect(openColumns(container)).toEqual([0]);
+    expect(openDay(container)).toBe(0);
     const labelsBefore = dayTabs(container).map((b) => b.textContent);
     expect(labelsBefore).toHaveLength(3);
 
@@ -530,10 +551,52 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
     // pinned, so the reader now sits on the newly-inserted day rather than on
     // the one they were shown. That staleness is real and separately queued --
     // the clamp bounds a stale pick, it does not drop one, and the same
-    // staleness reaches showAllDays, descExpanded and lightboxIndex. What is
+    // staleness reaches descExpanded and lightboxIndex. What is
     // asserted here is only that the effect's pick is a VALUE and not a no-op.
-    expect(openColumns(container)).toEqual([0]);
+    expect(openDay(container)).toBe(0);
     expect(activeTabs(container)).toEqual([0]);
+  });
+
+  it('opens the UNDATED column and shows the session in it', async () => {
+    // THE HALF THE SSR GATE CANNOT REACH. `festivalGridDays` appends a column
+    // for a session with no usable day, and its header records why: losing that
+    // column "was a silent regression: the session became unreachable in the
+    // UI". `sessionsByDay` buckets such a session under `''`, so reading the
+    // open day's key as `null` -- which is what `wallClockDateKey` returns for
+    // it -- and handing the grid `[]` reintroduced exactly that. The chip above
+    // went on counting a session the grid would not show.
+    //
+    // Only a CLICK reaches this column: the seed answers a real span day, and
+    // there is no date to pin on a column that has none.
+    // Landed as a REFETCH rather than through a widened mountFestival: the
+    // lever already exists, it is the production path (an organiser edits the
+    // programme), and it keeps this case from being the only one that mounts
+    // differently from the rest of the file.
+    const user = userEvent.setup();
+    const { container, landRefetch } = await mountFestival(EVENT_UUID, LOCAL_START);
+    expect(dayTabs(container)).toHaveLength(3);
+
+    await landRefetch(
+      SCHEDULE_WITH_UNDATED,
+      { start: LOCAL_START, end: LOCAL_END },
+      IDS_A,
+    );
+
+    // Three span days plus the undated one, appended last.
+    const tabs = dayTabs(container);
+    expect(tabs).toHaveLength(4);
+    expect(openDay(container)).toBe(0);
+
+    await user.click(tabs[3]);
+
+    expect(openDay(container)).toBe(3);
+    expect(activeTabs(container)).toEqual([3]);
+
+    // THE ASSERTION THAT BITES: the session is on screen, not an empty state.
+    const cards = [...container.querySelectorAll('.tl-ev')];
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector('.sr-only')?.textContent).toContain('Day not published');
+    expect(container.textContent).not.toContain('Nothing scheduled');
   });
 
   it('corrects the seeded day against the real clock after mount', async () => {
@@ -556,7 +619,7 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
     const { container } = await mountFestival(EVENT_UUID, LOCAL_START);
 
     expect(dayTabs(container)).toHaveLength(3);
-    expect(openColumns(container)).toEqual([2]);
+    expect(openDay(container)).toBe(2);
     expect(activeTabs(container)).toEqual([2]);
   });
 });
@@ -581,7 +644,7 @@ describe('client: a refetch that SHORTENS the schedule', { timeout: 60_000 }, ()
     const { container, landRefetch } = await mountFestival(EVENT_UUID, LOCAL_START);
 
     await user.click(dayTabs(container)[2]);
-    expect(openColumns(container)).toEqual([2]);
+    expect(openDay(container)).toBe(2);
 
     await landRefetch(SCHEDULE_SHRUNK, SPAN_SHRUNK, IDS_A);
 
@@ -590,17 +653,17 @@ describe('client: a refetch that SHORTENS the schedule', { timeout: 60_000 }, ()
     // this file used to carry went two rounds asserting an unreachable tree.
     expect(dayTabs(container)).toHaveLength(2);
 
-    // Reverting the clamp leaves activeDayIdx at 2 against a 2-column grid:
-    // data-open is stamped on NOTHING, the hide-every-other-slot rule hides
-    // every slot, and the reader gets a BLANK schedule rather than a wrong one.
-    // That mutant reds this line with an empty array.
+    // Reverting the clamp leaves activeDayIdx at 2 against a 2-day festival:
+    // `days[2]` is undefined, the timetable is built from nothing, and the
+    // reader gets the "Nothing scheduled" empty state rather than a wrong day.
+    // That mutant reds this line.
     //
     // PINNED TO THE LAST COLUMN, not merely "in range". The clamp BOUNDS the
     // stale pick without dropping it, so the view silently moves to column 1
     // while pickedDayIdx stays 2. The queued write-back would legitimately
     // change this to [0]; re-recording this line is part of that change rather
     // than a workaround for it.
-    expect(openColumns(container)).toEqual([1]);
+    expect(openDay(container)).toBe(1);
   });
 });
 
@@ -613,7 +676,7 @@ describe('client: a festival-to-festival navigation, through the REAL route', { 
   // `<InitialVisiblePageTransition key={params.id}>`, and app/routes/event.tsx
   // does the same for /event/:id, so a param change REMOUNTS the subtree and
   // every piece of per-festival state -- pickedDayIdx, lightboxIndex,
-  // descExpanded, showAllDays -- is destroyed with it. Both keys have been in
+  // descExpanded -- is destroyed with it. Both keys have been in
   // place since the RR7 framework-mode migration (2567376, 0729ecc).
   //
   // The old R1 case therefore pinned `commits[0].open` to [1] -- the leaked
@@ -647,12 +710,12 @@ describe('client: a festival-to-festival navigation, through the REAL route', { 
     });
 
     await user.click(dayTabs(container)[2]);
-    expect(openColumns(container)).toEqual([2]);
+    expect(openDay(container)).toBe(2);
 
     await navigateTo(EVENT_UUID_B);
 
     expect(dayTabs(container)).toHaveLength(2);
-    expect(openColumns(container)).toEqual([0]);
+    expect(openDay(container)).toBe(0);
   });
 
   it('shows no frame carrying the previous festival day', async () => {
@@ -668,7 +731,7 @@ describe('client: a festival-to-festival navigation, through the REAL route', { 
     );
 
     await user.click(dayTabs(container)[2]);
-    expect(openColumns(container)).toEqual([2]);
+    expect(openDay(container)).toBe(2);
 
     clearCommits();
     await navigateTo(EVENT_UUID_B);
@@ -709,11 +772,15 @@ describe('client: a festival-to-festival navigation, through the REAL route', { 
     // and no single frame has to be named as the discriminating one.
 
     // The probe saw the DESTINATION. Stated by inclusion (every commit carries
-    // B's two columns) rather than by excluding what we recognise: a probe
-    // reading the wrong tree, or one that recorded only pre-navigation frames,
-    // would otherwise satisfy the invariant below without ever having looked
-    // at the render that carries the defect.
-    expect(commits.map((c) => (c.grid === 'present' ? c.slots : c.grid))).toEqual(
+    // B's two day chips, where A has three) rather than by excluding what we
+    // recognise: a probe reading the wrong tree, or one that recorded only
+    // pre-navigation frames, would otherwise satisfy the invariant below
+    // without ever having looked at the render that carries the defect.
+    //
+    // The chip COUNT is what distinguishes the two festivals now that the grid
+    // no longer has one column per day. It is the same discriminator the
+    // previous version read off `slots`, one element over.
+    expect(commits.map((c) => (c.grid === 'present' ? c.tabs : c.grid))).toEqual(
       new Array(commits.length).fill(2),
     );
 
@@ -721,10 +788,20 @@ describe('client: a festival-to-festival navigation, through the REAL route', { 
       if (commit.grid !== 'present') throw new Error(`commit ${i} rendered ${commit.grid}`);
       // The destination's OWN seed, not the origin's leaked pick. Keyed by
       // commit index so a failure names WHICH frame was wrong.
-      expect({ commit: i, open: commit.open }).toEqual({ commit: i, open: [0] });
-      expect({ commit: i, perRow: commit.openPerRow }).toEqual({
+      expect({ commit: i, open: commit.open }).toEqual({ commit: i, open: 0 });
+      // Cardinality, on the channel the reader actually sees: exactly one chip
+      // may claim to be selected, and it must be the one the grid is showing.
+      expect({ commit: i, active: commit.active }).toEqual({ commit: i, active: [0] });
+      // CONTENT, which neither of the two above can express. `open` is a number
+      // the grid writes about itself; this is what it actually put on screen.
+      // An off-by-one in the day lookup leaves both assertions above correct
+      // and shows festival B's OTHER day -- and during a navigation window it
+      // is the frame most likely to carry A's leftovers. Empty is legitimate:
+      // a Suspense-fallback frame has rendered no cards yet, and the chip-count
+      // assertion above is what rejects a window made only of those.
+      expect({ commit: i, foreign: commit.cardDays.filter((d) => d !== 0) }).toEqual({
         commit: i,
-        perRow: new Array(commit.rows).fill(1),
+        foreign: [],
       });
     }
   });
