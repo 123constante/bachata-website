@@ -29,11 +29,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-
-const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
-const GUARD = join(REPO_ROOT, 'scripts', 'integrity-guard.py');
+import { GUARD, PYTHON, REPO_ROOT, runProcess } from './helpers/integrityGuard';
 
 const ALLOWED = new Set([0x09, 0x0a, 0x0d]);
 
@@ -47,22 +44,23 @@ mkdirSync(join(REPO_ROOT, CANARY_DIR), { recursive: true });
 afterAll(() => rmSync(join(REPO_ROOT, CANARY_DIR), { recursive: true, force: true }));
 
 type GuardIssue = { path: string; line: number; code: string; reason: string };
-type GuardResult = { checked: number; issues: GuardIssue[]; ok: boolean };
+type GuardResult = { considered: number; issues: GuardIssue[]; ok: boolean };
 
+/**
+ * Drive the guard through the SHARED runner and return its stdout.
+ *
+ * This used to be a private execFileSync copy that rethrew anything but exit 1,
+ * which was correct until the guard grew an exit 2 for could-not-run -- at which
+ * point two specs held two different tolerances for the same subject. One runner,
+ * one tolerance. 0, 1 and 2 are all verdicts here; anything else is a harness
+ * fault and still throws.
+ */
 function runPython(args: string[]): string {
-  try {
-    return execFileSync('python3', [GUARD, ...args], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 32 * 1024 * 1024,
-      env: { ...process.env, PYTHONUTF8: '1' },
-    });
-  } catch (err) {
-    // Exit 1 is the guard's "corruption detected" signal, not a harness failure.
-    const e = err as { status?: number; stdout?: string };
-    if (e.status !== 1 || !e.stdout) throw err;
-    return e.stdout;
+  const run = runProcess(PYTHON, [GUARD, ...args]);
+  if (![0, 1, 2].includes(run.status)) {
+    throw new Error(`integrity-guard exited ${run.status}: ${run.stderr}`);
   }
+  return run.stdout;
 }
 
 /**
@@ -74,7 +72,7 @@ function runGuard(name: string, body: Buffer): GuardResult {
   const rel = `${CANARY_DIR}/${name}`;
   writeFileSync(join(REPO_ROOT, rel), body);
   const parsed = JSON.parse(runPython(['--files', rel, '--json', '--no-self-check'])) as GuardResult;
-  expect(parsed.checked, `guard checked no files for ${rel}`).toBe(1);
+  expect(parsed.considered, `guard looked at no files for ${rel}`).toBe(1);
   return parsed;
 }
 

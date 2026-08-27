@@ -53,6 +53,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # tests/integrityCouldNotRun.test.ts drives the guard's YAML phase for
+      # real, so a runner without PyYAML reds two cases here as well. Same
+      # reasoning as architecture-guard.yml: assert the dependency, do not
+      # inherit it.
+      - name: Ensure PyYAML (the integrity guard's YAML parser)
+        run: |
+          if python3 -c "import yaml" 2>/dev/null; then
+            echo "PyYAML present"
+          else
+            echo "PyYAML missing -- installing; the guard's YAML phase depends on it"
+            sudo apt-get update -qq
+            sudo apt-get install -y python3-yaml
+            python3 -c "import yaml"
+          fi
+
       - name: Run unit + contract suite
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

@@ -35,8 +35,26 @@ if [ ! -x bin/check-integrity.sh ]; then
 fi
 
 echo "repair-corrupt: scanning for corruption..."
-RAW_OUT="$(bash bin/check-integrity.sh --json 2>/dev/null)" || true
+# The wrapper's stderr is KEPT, not sent to /dev/null. It is where the
+# actionable remedy lives: a mount-truncated scripts/_integrity_ts_parse.cjs
+# makes bin/check-integrity.sh exit 2 printing the exact `git checkout` that
+# repairs it, and discarding that left this script telling the operator to "fix
+# the tooling" about a tracked file it could have restored.
+GUARD_ERR="$(mktemp -t repair-guard-err-XXXXXX)"
+trap 'rm -f "$GUARD_ERR"' EXIT
+set +e
+RAW_OUT="$(bash bin/check-integrity.sh --json 2>"$GUARD_ERR")"
+GUARD_STATUS=$?
+set -e
 
+# TWO filters on the restore list, and both are load-bearing. A could-not-run
+# issue says the parser never looked at the file, so restoring it from HEAD on
+# that basis would silently discard uncommitted edits over a ten-second node
+# hiccup. The producer already guarantees such an issue carries no path (see
+# Issue.__init__ in scripts/integrity-guard.py); this end keeps that guarantee
+# from being the only thing standing between a hung parser and a data loss.
+# Proven load-bearing by mutation: defeat the producer invariant and this
+# filter alone still keeps an unchecked file out of restore_from_head.
 CORRUPT_FILES="$(printf '%s' "$RAW_OUT" | python3 -c "
 import json, sys
 try:
@@ -45,6 +63,8 @@ except Exception:
     sys.exit(0)
 seen = set()
 for issue in data.get('issues', []):
+    if issue.get('could_not_run'):
+        continue
     p = issue.get('path', '')
     if p and p not in seen:
         seen.add(p)
@@ -52,8 +72,43 @@ for issue in data.get('issues', []):
 ")"
 
 if [ -z "$CORRUPT_FILES" ]; then
-    echo "repair-corrupt: no corruption detected. nothing to do."
-    exit 0
+    if [ "$GUARD_STATUS" -eq 0 ]; then
+        echo "repair-corrupt: no corruption detected. nothing to do."
+        exit 0
+    fi
+    # Was an unconditional "nothing to do" + exit 0. The guard exiting 2 means
+    # it COULD NOT CHECK, and reporting that as nothing-to-do is the same
+    # unknown-recorded-as-clean this whole apparatus exists to not have.
+    echo "repair-corrupt: the guard COULD NOT CHECK the tree (exit $GUARD_STATUS)." >&2
+    echo "  Nothing was repaired, and nothing here says the tree is clean." >&2
+    if [ -s "$GUARD_ERR" ]; then
+        sed 's/^/  /' "$GUARD_ERR" >&2
+    fi
+    # Deduped and capped INSIDE python, and computed only in the branch that
+    # prints it. The previous shape piped a generator through `sort -u | head`
+    # under `set -o pipefail`: once the block outgrows the pipe buffer (measured
+    # at ~64 KB, and this block is precisely what grows with the corpus) head
+    # closes the pipe, sort takes SIGPIPE, and the script dies with 141 having
+    # printed nothing at all -- losing the very message it exists to deliver.
+    printf '%s' "$RAW_OUT" | python3 -c "
+import json, sys
+from itertools import islice
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+seen = []
+for issue in data.get('issues', []):
+    if not issue.get('could_not_run'):
+        continue
+    line = f\"[{issue.get('code','')}] {issue.get('reason','')}\"
+    if line not in seen:
+        seen.append(line)
+for line in islice(seen, 10):
+    print('  ' + line)
+" >&2
+    echo "  Fix the tooling (node / PyYAML / the sha pin), then re-run." >&2
+    exit 2
 fi
 
 echo "repair-corrupt: found corruption in:"

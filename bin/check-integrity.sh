@@ -62,11 +62,32 @@ fi
 # repo_root, so we don't need to copy it. But we should at least sanity-check
 # it parses as JS before relying on it.
 if [ -f "$HELPER_SRC" ]; then
-    if ! node --check "$HELPER_SRC" 2>/dev/null; then
+    if ! command -v node >/dev/null 2>&1; then
+        # `node --check` failing because node is ABSENT is not the helper being
+        # corrupt, and this branch used to say it was -- CI went red naming a
+        # tracked file that was perfectly fine. Say what actually happened, and
+        # do NOT exit here: the guard still checks JSON, YAML, SQL and the byte
+        # scans, and a real corruption found there must outrank a could-not-run.
+        # The guard reports the unrun JS/TS phases itself and exits 2.
+        echo "check-integrity: node is not on PATH -- the JS and TS parse phases cannot run." >&2
+        echo "  The guard runs on regardless; it will report those phases as unchecked." >&2
+    elif ! node --check "$HELPER_SRC" 2>/dev/null; then
         echo "check-integrity: TS parse helper is corrupt at $HELPER_SRC" >&2
         echo "  restore: git checkout HEAD -- scripts/_integrity_ts_parse.cjs" >&2
         exit 2
     fi
+fi
+
+# python3 is the guard's INTERPRETER. Probed for the same reason node is probed
+# above, and it matters more: without it nothing runs at all, and `exec python3`
+# on a missing interpreter makes bash exit 127. run-lint-chain.mjs's classify()
+# maps everything that is not 0 or 2 to FAIL, so the tier prints "lint FAILED"
+# and decideExit returns 1 -- a verdict about the TREE, delivered by a guard
+# that never started. 2 is the code that says "could not check".
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "check-integrity: python3 is not on PATH -- the guard cannot run at all." >&2
+    echo "  Nothing was checked, and nothing here is a finding about your tree." >&2
+    exit 2
 fi
 
 # Run from /tmp, pass through args

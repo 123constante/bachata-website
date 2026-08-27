@@ -100,6 +100,10 @@ whatson-shipped.md
 # tests/integrityControlBytes.test.ts writes poisoned fixtures here and removes
 # them in afterAll; a crashed run must not leave litter that reds other guards.
 /.integrity-canary/
+# tests/integrityCouldNotRun.test.ts writes its own fixtures, and needs a
+# directory of its own: vitest runs spec files in parallel workers and the
+# sibling above removes its directory recursively in afterAll.
+/.integrity-canary-cnr/
 # scripts/mutate-workflow-artifact-policy.mjs writes a deliberately-broken copy
 # of a guard next to the original and unlinks it in a finally; Ctrl-C or a
 # timeout in between leaves one behind.
