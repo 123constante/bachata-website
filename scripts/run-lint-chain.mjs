@@ -190,7 +190,7 @@ export function classify(code) {
  *
  * "2 means nothing was violated" is what this said until review, and it is
  * false for link 1: bin/check-integrity.sh exits 2 when the guard's own TS parse
- * helper is corrupt on disk (:68) -- a tracked file, and precisely the mount
+ * helper is corrupt on disk (:77) -- a tracked file, and precisely the mount
  * corruption the integrity apparatus exists to catch. So 2 is not "all clear,
  * merely unmeasured". It is "no violation was REPORTED and at least one link
  * could not answer", which is a weaker and honest claim, and it is why the

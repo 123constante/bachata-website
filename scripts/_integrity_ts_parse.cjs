@@ -5,7 +5,14 @@
  * Reads a JSON array of file paths from stdin, runs the TypeScript
  * compiler's parser on each (syntax-only — no type checking, no module
  * resolution, no lib loading), and writes a JSON array of issues to
- * stdout. Exits 0 always; the Python guard interprets the output.
+ * stdout.
+ *
+ * Exit 0 means the phase RAN: the JSON on stdout is the complete verdict,
+ * empty array included. Exit 3 means it could not run at all, and the Python
+ * guard turns that into a could-not-run TS-RUN issue rather than a pass. This
+ * used to exit 0 with an empty array when the typescript module would not
+ * resolve, which is the no-issue return -- so a missing dependency reported
+ * every tracked TS/TSX/JSX file as CLEAN.
  *
  * Why a batched helper: launching `node` per file is ~80ms overhead.
  * Batching ~500 files runs in ~3-5s vs. 40s per-file.
@@ -24,9 +31,10 @@ try {
     try {
         ts = require('typescript');
     } catch {
-        process.stderr.write('integrity-ts-parse: typescript module not found; skipping TS parse phase\n');
-        process.stdout.write('[]\n');
-        process.exit(0);
+        // NOT `[]` + exit 0. An empty array is the no-issue return, so an
+        // unresolvable typescript reported every TS/TSX/JSX file as clean.
+        process.stderr.write('integrity-ts-parse: typescript module not found; the TS parse phase did NOT run\n');
+        process.exit(3);
     }
 }
 
@@ -37,8 +45,10 @@ process.stdin.on('end', () => {
     try {
         files = JSON.parse(raw);
     } catch (e) {
+        // Same class as the typescript branch above: exit 0 with no stdout made
+        // the guard read `[]` and call the phase clean.
         process.stderr.write(`integrity-ts-parse: bad input: ${e.message}\n`);
-        process.exit(0);
+        process.exit(3);
     }
 
     const issues = [];
