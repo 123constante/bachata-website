@@ -111,6 +111,20 @@
   pointer-events: none;
 }
 
+/* Waitlist variant (P6) — amber rather than gold, and with the gold sweep
+   removed. A queued dancer is a real success and the pill stays legible, but
+   it must not read as "you're on the list": the sweep is the celebratory
+   flourish the active pills carry, so the queued ones do not get it. */
+.gl-pill--waitlist {
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(251, 191, 36, 0.28);
+  color: #fcd34d;
+}
+.gl-pill--waitlist::after {
+  animation: none;
+  background: none;
+}
+
 /* Stacked/row variant — content-width, centered horizontally within
    its parent flex-col container. Used by GuestListBlock for the
    vertical list on the main event page. Names hug their own content;

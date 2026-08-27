@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { triggerMicroConfetti } from '@/lib/confetti';
 import {
+  entryStatus,
+  hasSpotAvailable,
   useEventGuestList,
   type GuestListConfig,
   type GuestListEntry,
@@ -214,7 +216,10 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
 
   if (!data || !enabled) return null;
 
-  const { count, config } = data;
+  const { count, config, waitlist_count: waitlistCount } = data;
+  // P6: `count` is the ACTIVE count. A dancer who is queued is shown in the pills as queued,
+  // and reported separately below, rather than being folded into the headline number.
+  const spotAvailable = hasSpotAvailable(data);
   const hasPrices = shouldRenderPrices(config);
   const hasDescription = Boolean(config.description && config.description.trim());
   const hasArriveBefore = Boolean(config.discount_until && config.discount_until.trim());
@@ -241,7 +246,13 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
     // Fire confetti at the moment of click for perceived-instant celebration.
     // If the server ultimately rejects (race condition), we roll back the
     // optimistic pill but don't retract the confetti — per spec.
-    fireConfetti();
+    //
+    // P6 — HONEST OPTIMISM: only celebrate when there is a spot to celebrate. On a full
+    // night the sign-up still succeeds, but it succeeds onto the WAITLIST, and confetti
+    // followed by an amber "you're #4 in the queue" toast is the page cheering for an
+    // outcome the dancer did not get. `spots_left` is the server's own door number, so
+    // this gate agrees with the ruling that is about to come back.
+    if (spotAvailable) fireConfetti();
 
     try {
       const result = await submit.mutateAsync(trimmed);
@@ -359,13 +370,16 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
           {entries.map((entry) => {
             const k = entryKey(entry);
             const isFresh = freshKeys.has(k);
+            const queued = entryStatus(entry) === 'waitlist';
             return (
               <span
                 key={k}
                 className={cn(
                   'gl-pill rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  queued && 'gl-pill--waitlist',
                   isFresh && 'gl-pill--entering',
                 )}
+                title={queued ? 'On the waitlist' : undefined}
               >
                 <span className="relative z-10">{entry.first_name}</span>
               </span>
@@ -380,10 +394,12 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
         )
       )}
 
-      {/* Count */}
-      {count > 0 && (
+      {/* Count. P6: `count` is active-only, so the queued dancers are reported as their own
+          clause instead of being silently added to the headline. */}
+      {(count > 0 || waitlistCount > 0) && (
         <p className="text-[10px]" style={{ color: 'rgba(240, 230, 233, 0.3)' }}>
           {count} {count === 1 ? 'name' : 'names'} on the guest list
+          {waitlistCount > 0 && ` · ${waitlistCount} on the waitlist`}
         </p>
       )}
     </section>

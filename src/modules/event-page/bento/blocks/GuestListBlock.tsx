@@ -7,6 +7,8 @@ import { triggerMicroConfetti } from '@/lib/confetti';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import {
+  entryStatus,
+  hasSpotAvailable,
   useEventGuestList,
   type GuestListConfig,
   type GuestListEntry,
@@ -209,7 +211,10 @@ export const GuestListBlock = ({
 
   if (!data || !data.enabled) return null;
 
-  const { count, config, cutoff_passed: cutoffPassed } = data;
+  const { count, config, cutoff_passed: cutoffPassed, waitlist_count: waitlistCount } = data;
+  // P6: `count` is the ACTIVE count — the dancers who actually have a spot. Queued dancers
+  // get their own line rather than inflating the headline number.
+  const spotAvailable = hasSpotAvailable(data);
   const hasPrices = shouldRenderPrices(config);
   const hasArriveBefore = Boolean(config.discount_until && config.discount_until.trim());
   const hasDescription = Boolean(config.description && config.description.trim());
@@ -235,7 +240,10 @@ export const GuestListBlock = ({
       return;
     }
 
-    fireConfetti();
+    // P6 — HONEST OPTIMISM: confetti only when there is a spot to celebrate. `spots_left` is
+    // the server's own door number, so on a full night the sign-up goes up amber as a
+    // waitlist entry and the page does not cheer for an outcome the dancer did not get.
+    if (spotAvailable) fireConfetti();
 
     try {
       const result = await submit.mutateAsync(trimmed);
@@ -275,6 +283,11 @@ export const GuestListBlock = ({
           <span className="text-sm" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
             {count === 1 ? 'dancer on the list' : 'dancers on the list'}
           </span>
+          {waitlistCount > 0 && (
+            <span className="text-xs" style={{ color: '#fcd34d' }}>
+              +{waitlistCount} waiting
+            </span>
+          )}
         </div>
 
         {/* B1 — savings headline. Subordinate to the count: text-xs,
@@ -344,14 +357,16 @@ export const GuestListBlock = ({
             {entries.map((entry) => {
               const k = entryKey(entry);
               const isFresh = freshKeys.has(k);
+              const queued = entryStatus(entry) === 'waitlist';
               return (
                 <span
                   key={k}
                   className={cn(
                     'gl-pill gl-pill--stacked rounded-full',
+                    queued && 'gl-pill--waitlist',
                     isFresh && 'gl-pill--entering',
                   )}
-                  title={entry.first_name}
+                  title={queued ? `${entry.first_name} — on the waitlist` : entry.first_name}
                 >
                   <span className="relative z-10">{entry.first_name}</span>
                 </span>
