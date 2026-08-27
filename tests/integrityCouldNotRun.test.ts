@@ -35,7 +35,7 @@
  * attributable to node's absence and to nothing else.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -975,5 +975,85 @@ describe('consumer: bin/repair-corrupt.sh', () => {
       'the wrapper named the repair and this script swallowed it',
     ).toContain('git checkout HEAD -- scripts/_integrity_ts_parse.cjs');
     expect(run.status).toBe(2);
+  });
+});
+
+/**
+ * The env strip, asserted directly.
+ *
+ * WHY THESE EXIST. runProcess strips repo-discovery variables so a git hook's
+ * exported GIT_DIR cannot make a temp-repo `git init` re-initialise the REAL
+ * repository -- an incident that set core.bare=true in the config SHARED by the
+ * main checkout and all seven worktrees. Nothing asserted it. Deleting the
+ * strip outright left this suite fully green, because a plain shell exports
+ * none of these variables and every case here spawns from a plain shell; the
+ * only thing that ever caught it was the pre-push gate, in production, after
+ * the damage. A defence whose removal changes no test is not covered.
+ *
+ * Both edges are pinned on purpose. Asserting only that GIT_DIR disappears is
+ * satisfied by a filter that removes EVERY GIT_* -- which is its own regression,
+ * since that drops the config-isolation variables and hands the temp repo the
+ * contributor's real ~/.gitconfig. So the keeps are asserted present in the
+ * same breath as the discovery vars are asserted gone.
+ */
+describe('runProcess: repo-discovery variables never reach a child', () => {
+  // Reports the child's OWN GIT_* keys, upper-cased so the assertions do not
+  // depend on the case Windows happens to report a variable in.
+  const REPORT_GIT_ENV =
+    'console.log(JSON.stringify(Object.keys(process.env)' +
+    '.filter((k) => k.toUpperCase().startsWith("GIT_"))' +
+    '.map((k) => k.toUpperCase()).sort()))';
+
+  const childGitEnv = (env: NodeJS.ProcessEnv): string[] => {
+    const run = runProcess(process.execPath, ['-e', REPORT_GIT_ENV], { env });
+    expect(run.status, `child failed: ${run.stderr}`).toBe(0);
+    return JSON.parse(run.stdout) as string[];
+  };
+
+  it('strips the discovery set and keeps config isolation and exec path', () => {
+    const seen = childGitEnv({
+      ...process.env,
+      GIT_DIR: '/nonexistent/hostile.git',
+      GIT_WORK_TREE: '/nonexistent/hostile',
+      GIT_INDEX_FILE: '/nonexistent/hostile/index',
+      // INJECTS config rather than isolating it, so it is not in the keep set.
+      GIT_CONFIG_PARAMETERS: "'core.bare'='true'",
+      GIT_EXEC_PATH: '/keep/exec/path',
+      GIT_CONFIG_GLOBAL: '/keep/global/config',
+    });
+
+    // Edge 1 -- an identity filter leaves these behind and reds here.
+    expect(seen, 'GIT_DIR reached the child').not.toContain('GIT_DIR');
+    expect(seen).not.toContain('GIT_WORK_TREE');
+    expect(seen).not.toContain('GIT_INDEX_FILE');
+    expect(seen).not.toContain('GIT_CONFIG_PARAMETERS');
+
+    // Edge 2 -- a blanket GIT_* filter removes these and reds here.
+    expect(seen, 'config isolation was stripped').toContain('GIT_CONFIG_GLOBAL');
+    expect(seen, 'exec path was stripped').toContain('GIT_EXEC_PATH');
+  });
+
+  it('matches the prefix without regard to case', () => {
+    // Windows resolves env lookups case-insensitively while Object.keys reports
+    // the case a variable was SET with, so a case-sensitive filter would pass
+    // this spelling straight through to a git child that still honours it.
+    expect(childGitEnv({ ...process.env, git_dir: '/nonexistent/hostile.git' }))
+      .not.toContain('GIT_DIR');
+  });
+
+  it('builds a temp repo of its own even under a hostile GIT_DIR', () => {
+    // The incident shape, end to end, at the call site rather than the seam.
+    // Without the strip `git init` honours the outer GIT_DIR, the new directory
+    // never gets a .git, and makeTempRepo's own postcondition throws.
+    const outsider = makeTempRepo({});
+    const restore = process.env.GIT_DIR;
+    try {
+      process.env.GIT_DIR = join(outsider, '.git');
+      const root = makeTempRepo({});
+      expect(existsSync(join(root, '.git')), 'temp repo has no .git').toBe(true);
+    } finally {
+      if (restore === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = restore;
+    }
   });
 });

@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -84,6 +85,77 @@ function dirCarries(dir: string, name: string): boolean {
 }
 
 /**
+ * Repo-DISCOVERY variables removed from a child's environment.
+ *
+ * A git hook EXPORTS git's own variables into everything it runs, and
+ * .githooks/pre-push runs `npm run test:unit`. MEASURED on git 2.53.0.windows.1,
+ * a pre-push hook carries GIT_DIR, GIT_EXEC_PATH, GIT_PREFIX and GIT_EDITOR,
+ * and it carries GIT_DIR only when the push runs from a linked worktree. That
+ * last clause is an OBSERVATION, deliberately left without a mechanism: the
+ * obvious explanation -- that a worktree's .git cannot be walked up to -- is
+ * FALSE, since it is a perfectly readable `gitdir:` pointer file. Do not reason
+ * from it that some checkout is exempt and can skip the strip. A pre-commit
+ * hook exports a different set again, including a RELATIVE GIT_INDEX_FILE.
+ *
+ * That worktree-only GIT_DIR is the whole defect. makeTempRepo's `git init`
+ * inherited it and re-initialised the REAL repository instead of its temp
+ * directory -- and `git init` against a LINKED WORKTREE's gitdir writes
+ * core.bare=true into the SHARED config, so `git rev-parse --show-toplevel`
+ * then fails in the main checkout and in every other worktree at once. 28 cases
+ * died with "must be run in a work tree". The quiet half is worse than that
+ * loud one: bin/repair-corrupt.sh's own `git rev-parse --show-toplevel` would
+ * have answered about the real tree, and that script RESTORES FILES.
+ *
+ * Stripped at runProcess rather than at the git helper, because the subjects
+ * shell out to git themselves: bin/check-integrity.sh, bin/repair-corrupt.sh
+ * and the guard all call it, and a temp-repo case is meaningless if any of them
+ * is answering about a different tree.
+ *
+ * KEEP is not a convenience list, and removing every GIT_* would be a
+ * REGRESSION. The config-ISOLATION variables match the same prefix, and
+ * dropping them falls the temp repo back onto the contributor's real
+ * ~/.gitconfig -- the exact failure makeTempRepo's -c pins exist to prevent,
+ * with a global init.templateDir or core.fsmonitor then riding in unpinned.
+ * GIT_EXEC_PATH is kept because it is subcommand DISPATCH, not discovery: on a
+ * relocated or portable git it is what makes `git init` resolve at all, and
+ * dropping it there fails with a message about git rather than about the
+ * subject -- the very shape of the incident above. That git falls back to a
+ * compiled-in exec path was measured on ONE install here and does not
+ * generalise, so it is not relied on. Neither kept variable can point git at
+ * another repository, which is the only thing this filter exists to prevent.
+ * GIT_CONFIG_PARAMETERS and the GIT_CONFIG_COUNT/KEY/VALUE trio are NOT kept:
+ * those INJECT config rather than isolate it, and makeTempRepo pins its own.
+ *
+ * The prefix test is case-INSENSITIVE for the reason pathKey() above exists:
+ * Windows resolves env lookups without regard to case while Object.keys()
+ * reports the case a variable was SET with, so a `git_dir=...` exported by a
+ * wrapper or shell profile would slip past a case-sensitive filter and still be
+ * honoured by every git child -- the strip silently doing nothing at all.
+ *
+ * Caught by the pre-push gate, not by review and not by the 39-mutant battery --
+ * both only ever ran the suite from a shell, where none of these variables
+ * exist. That is also why this needs its own cases rather than the suite's
+ * ambient green: see the two GIT_* cases in tests/integrityCouldNotRun.test.ts.
+ * Before they existed, this function survived its own DELETION with every test
+ * still passing.
+ */
+const GIT_ENV_KEEP = new Set([
+  'GIT_EXEC_PATH',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_NOSYSTEM',
+]);
+
+function withoutGitEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(env).filter(([k]) => {
+      const key = k.toUpperCase();
+      return !key.startsWith('GIT_') || GIT_ENV_KEEP.has(key);
+    }),
+  );
+}
+
+/**
  * Run a process and normalise the result.
  *
  * spawnSync, not execFileSync, and the difference is load-bearing: execFileSync
@@ -106,7 +178,7 @@ export function runProcess(
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
     input: opts.input,
-    env: { ...(opts.env ?? process.env), PYTHONUTF8: '1' },
+    env: { ...withoutGitEnv(opts.env ?? process.env), PYTHONUTF8: '1' },
   });
   if (result.error) throw result.error;
   if (typeof result.status !== 'number') {
@@ -323,7 +395,24 @@ export function makeTempRepo(files: Record<string, string>): string {
       { cwd: root },
     );
 
-  git('init', '-q');
+  const init = git('init', '-q');
+  if (init.status !== 0) {
+    throw new Error(`makeTempRepo: init failed (${init.status}): ${init.stderr}`);
+  }
+  // FAIL CLOSED where the damage actually happens. A status check alone would
+  // NOT have caught the incident withoutGitEnv exists to prevent: that `git
+  // init` exited 0, having cheerfully re-initialised the real repository via an
+  // inherited GIT_DIR. The postcondition that separates the two outcomes is
+  // whether THIS directory got a .git at all, so assert that and not the code.
+  // Without it the first symptom is `commit` failing 40 lines later, with a
+  // message about git rather than about the subject under test.
+  if (!existsSync(join(root, '.git'))) {
+    throw new Error(
+      `makeTempRepo: git init exited 0 but created no .git in ${root} -- it ` +
+        'initialised somewhere else, which means a repo-discovery variable ' +
+        'reached the child. See withoutGitEnv.',
+    );
+  }
   for (const rel of TEMP_REPO_FILES) {
     const dest = join(root, rel);
     mkdirSync(dirname(dest), { recursive: true });
@@ -362,7 +451,10 @@ export function makeTempRepo(files: Record<string, string>): string {
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, body);
   }
-  git('add', '-A');
+  const add = git('add', '-A');
+  if (add.status !== 0) {
+    throw new Error(`makeTempRepo: add failed (${add.status}): ${add.stderr}`);
+  }
   const commit = git(
     '-c', 'user.email=canary@example.invalid', '-c', 'user.name=canary',
     'commit', '-q', '-m', 'canary base',
