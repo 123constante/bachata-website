@@ -152,6 +152,19 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        // Navigation splash mark (app/NavigationSplash.tsx): a breathing scale
+        // plus a ring that expands outward and fades. Uses the theme token
+        // rather than a literal so it follows --primary, like glow-pulse above.
+        "splash-pulse": {
+          "0%, 100%": {
+            transform: "scale(1)",
+            boxShadow: "0 0 0 0 hsl(var(--primary) / 0.3)",
+          },
+          "50%": {
+            transform: "scale(1.07)",
+            boxShadow: "0 0 0 18px hsl(var(--primary) / 0)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -165,6 +178,7 @@ export default {
         "wiggle": "wiggle 0.5s ease-in-out",
         "shake": "shake 0.4s ease-in-out",
         "ticker-scroll": "ticker-scroll 25s linear infinite",
+        "splash-pulse": "splash-pulse 1.6s ease-in-out infinite",
       },
     },
   },

@@ -19,6 +19,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
+import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
 import "@/index.css";
 import "@fontsource-variable/inter";
@@ -160,6 +161,10 @@ export default function Root() {
   return (
     <AppProviders client={queryClient}>
       <ScrollToTop />
+      {/* Pending-navigation feedback. Must sit INSIDE the router context
+          (useNavigation) but outside AppChrome so it overlays the whole
+          document, header and bottom nav included. */}
+      <NavigationSplash />
       <CityProvider>
         <SearchProvider>
           <AppChrome>
