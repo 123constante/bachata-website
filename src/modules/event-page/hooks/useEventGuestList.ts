@@ -1,9 +1,23 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+/**
+ * The status a guest entry holds. `active` = on the list; `waitlist` = queued behind a full
+ * capacity, promoted automatically when a slot frees. The server also stores `ineligible` and
+ * `erased`, but neither is ever published: get_event_guest_list filters to these two.
+ */
+export type GuestListEntryStatus = 'active' | 'waitlist';
+
 export type GuestListEntry = {
   first_name: string;
   created_at: string;
+  /**
+   * Server-set from P6 (migration 20260827210000). Optional because an optimistic row is
+   * created before the server has ruled, and because a cached response from a pre-P6 build
+   * may still be in flight; `entryStatus()` resolves the absent case to 'active', which is
+   * what the pre-P6 payload effectively meant (it published no waitlist rows).
+   */
+  status?: GuestListEntryStatus;
   // Present for server-confirmed rows (real DB id) and for optimistic inserts
   // (temp id of the form `pending-<uuid>`). Optional because existing RPC
   // responses may pre-date this addition.
@@ -24,12 +38,36 @@ export type GuestListConfig = {
   guest_list_class_party_price: number | null;
 };
 
+/**
+ * The public guest-list payload.
+ *
+ * THE THREE COUNTS ARE NOT THE SAME NUMBER (this mirrors the contract stated in the server
+ * migration; keep the two in step):
+ *   * `count` / `active_count` -- how many ACTIVE dancers are in `entries`, the list rendered
+ *     on the page. From P6 `count` is active-only; before P6 it was active+waitlist. The key
+ *     was kept and the semantics corrected.
+ *   * `waitlist_count` -- how many of `entries` are queued.
+ *   * `spots_left` -- capacity minus the DOOR headcount, which also counts permanent VIPs that
+ *     `entries` may not be showing yet. It is the number the server will actually compare
+ *     against when this dancer taps, so it -- not `active_count` -- decides whether the next
+ *     sign-up lands active or on the waitlist. `null` means uncapped.
+ */
 export type EventGuestList = {
   enabled: boolean;
   count: number;
   entries: GuestListEntry[];
   config: GuestListConfig;
   cutoff_passed: boolean;
+  active_count: number;
+  waitlist_count: number;
+  capacity_max: number | null;
+  /**
+   * `null` on an uncapped event, meaning NOT APPLICABLE rather than "no". The server never
+   * consults the flag when there is no cap, so publishing `true` there would promise
+   * waitlisting from a code path that cannot run. Only ever read alongside `capacity_max`.
+   */
+  waitlist_enabled: boolean | null;
+  spots_left: number | null;
 };
 
 const EMPTY_GUEST_LIST: EventGuestList = {
@@ -46,6 +84,11 @@ const EMPTY_GUEST_LIST: EventGuestList = {
     guest_list_class_party_price: null,
   },
   cutoff_passed: false,
+  active_count: 0,
+  waitlist_count: 0,
+  capacity_max: null,
+  waitlist_enabled: null,
+  spots_left: null,
 };
 
 export const eventGuestListQueryKey = (eventId: string | null | undefined) =>
@@ -53,20 +96,71 @@ export const eventGuestListQueryKey = (eventId: string | null | undefined) =>
 
 const normalize = (name: string) => name.trim().toLowerCase();
 
+/** An entry with no status is treated as active -- see GuestListEntry.status. */
+export const entryStatus = (entry: GuestListEntry): GuestListEntryStatus =>
+  entry.status === 'waitlist' ? 'waitlist' : 'active';
+
+/**
+ * Does the next sign-up have a real slot waiting for it?
+ *
+ * `spots_left` is authoritative and `null` means uncapped. This is what gates optimistic
+ * celebration: confetti is honest only when the server is going to say 'active'.
+ */
+export const hasSpotAvailable = (list: EventGuestList | undefined): boolean => {
+  if (!list) return true;
+  if (list.spots_left === null) return true;
+  return list.spots_left > 0;
+};
+
+/**
+ * Rebuild the derived counters from the entries array.
+ *
+ * The counters are NOT maintained incrementally any more. They used to be (`count: prev.count
+ * + 1` on every merge), and that could not survive P6: a waitlist arrival must not bump the
+ * active count, and a promotion arrives as an UPDATE that changes a status without changing
+ * the array length. Deriving them removes the whole class.
+ *
+ * `spots_left` is the exception and is adjusted by DELTA, not recomputed: it is a door count
+ * that includes permanent VIPs the payload may not be displaying, so the client cannot
+ * rebuild it -- but it can track how much this change moved it. A public sign-up lands in the
+ * displayed set for the current night and at the door, so the two move together by one.
+ */
+const withEntries = (prev: EventGuestList, nextEntries: GuestListEntry[]): EventGuestList => {
+  let active = 0;
+  let waitlist = 0;
+  for (const e of nextEntries) {
+    if (entryStatus(e) === 'waitlist') waitlist += 1;
+    else active += 1;
+  }
+  const activeDelta = active - prev.active_count;
+  return {
+    ...prev,
+    entries: nextEntries,
+    count: active,
+    active_count: active,
+    waitlist_count: waitlist,
+    spots_left:
+      prev.spots_left === null ? null : Math.max(0, prev.spots_left - activeDelta),
+  };
+};
+
 /**
  * Insert or upgrade a guest entry in the React Query cache.
  *
- * - If no entry matches by normalized first_name, append the incoming entry
- *   and bump `count`.
+ * - If no entry matches by normalized first_name, append the incoming entry.
  * - If an existing entry matches:
- *     * existing is pending + incoming is confirmed → replace (upgrade id)
+ *     * existing is pending + incoming is confirmed → replace (upgrade id and status)
+ *     * the status changed (a waitlist row promoted to active) → replace
  *     * otherwise → no-op (already present; this is the own-echo case)
+ *
+ * Counters are re-derived by withEntries in every branch that changes the array.
  *
  * Used by:
  *   * useSubmitGuestListEntry.onMutate — inserts a pending row
  *   * useSubmitGuestListEntry.onSuccess — upgrades pending → confirmed
  *   * useGuestListRealtime — upgrades pending when the Supabase realtime
- *     INSERT echoes our own row, or appends if it's someone else's row
+ *     INSERT echoes our own row, appends if it's someone else's row, and
+ *     applies UPDATEs (waitlist → active promotions)
  */
 export const mergeEntry = (
   queryClient: QueryClient,
@@ -85,21 +179,28 @@ export const mergeEntry = (
 
       if (matchIdx >= 0) {
         const existing = prev.entries[matchIdx];
-        // Upgrade a pending row to the confirmed version.
-        if (existing.pending && !entry.pending) {
+        const upgradesPending = Boolean(existing.pending) && !entry.pending;
+        const changesStatus = entryStatus(existing) !== entryStatus(entry);
+
+        if (upgradesPending || changesStatus) {
           const nextEntries = [...prev.entries];
-          nextEntries[matchIdx] = { ...entry };
-          return { ...prev, entries: nextEntries };
+          // The incoming row REPLACES the existing one; only the id falls back, for a
+          // realtime UPDATE that arrives without one. `pending` is taken from the incoming
+          // row alone and never inherited: spreading `...existing` first would leave an
+          // upgraded row marked pending forever, and the collision check skips pending rows
+          // — so the dancer's own name would stop blocking their own duplicate submit.
+          nextEntries[matchIdx] = {
+            ...entry,
+            id: entry.id ?? existing.id,
+            pending: entry.pending === true,
+          };
+          return withEntries(prev, nextEntries);
         }
         // Already present (own-echo or duplicate server push) — skip.
         return prev;
       }
 
-      return {
-        ...prev,
-        entries: [...prev.entries, entry],
-        count: prev.count + 1,
-      };
+      return withEntries(prev, [...prev.entries, entry]);
     },
   );
 };
@@ -119,13 +220,43 @@ export const removeEntry = (
       if (!prev) return prev;
       const idx = prev.entries.findIndex((e) => e.id === id);
       if (idx < 0) return prev;
-      return {
-        ...prev,
-        entries: prev.entries.filter((e) => e.id !== id),
-        count: Math.max(0, prev.count - 1),
-      };
+      return withEntries(prev, prev.entries.filter((e) => e.id !== id));
     },
   );
+};
+
+/**
+ * Narrow the RPC's `Json` return to the payload contract, filling anything the server did not
+ * send. A build talking to a pre-P6 database still renders: the new keys fall back to the
+ * "uncapped, nothing queued" shape, which is what every event in the fleet actually is.
+ */
+const coerceGuestList = (data: unknown): EventGuestList => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return EMPTY_GUEST_LIST;
+  const raw = data as Partial<EventGuestList> & Record<string, unknown>;
+  if (!raw.enabled) return EMPTY_GUEST_LIST;
+
+  const entries = Array.isArray(raw.entries) ? (raw.entries as GuestListEntry[]) : [];
+  const activeCount =
+    typeof raw.active_count === 'number'
+      ? raw.active_count
+      : entries.filter((e) => entryStatus(e) === 'active').length;
+
+  return {
+    enabled: true,
+    entries,
+    config: { ...EMPTY_GUEST_LIST.config, ...(raw.config as GuestListConfig | undefined) },
+    cutoff_passed: Boolean(raw.cutoff_passed),
+    count: typeof raw.count === 'number' ? raw.count : activeCount,
+    active_count: activeCount,
+    waitlist_count:
+      typeof raw.waitlist_count === 'number'
+        ? raw.waitlist_count
+        : entries.filter((e) => entryStatus(e) === 'waitlist').length,
+    capacity_max: typeof raw.capacity_max === 'number' ? raw.capacity_max : null,
+    // Absent (pre-P6 server) and JSON null (P6, uncapped event) both mean "not applicable".
+    waitlist_enabled: typeof raw.waitlist_enabled === 'boolean' ? raw.waitlist_enabled : null,
+    spots_left: typeof raw.spots_left === 'number' ? raw.spots_left : null,
+  };
 };
 
 export const useEventGuestList = (eventId: string | null | undefined) => {
@@ -133,12 +264,11 @@ export const useEventGuestList = (eventId: string | null | undefined) => {
     queryKey: eventGuestListQueryKey(eventId),
     queryFn: async () => {
       if (!eventId) return EMPTY_GUEST_LIST;
-      const { data, error } = await (supabase.rpc as any)('get_event_guest_list', {
+      const { data, error } = await supabase.rpc('get_event_guest_list', {
         p_event_id: eventId,
       });
       if (error) throw new Error(error.message ?? JSON.stringify(error));
-      if (!data || typeof data !== 'object') return EMPTY_GUEST_LIST;
-      return data as EventGuestList;
+      return coerceGuestList(data);
     },
     enabled: Boolean(eventId),
     staleTime: 10_000,

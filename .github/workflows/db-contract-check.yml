@@ -299,6 +299,16 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-guest-entries-contract.mjs
 
+      # Sibling of the step above, wired by the guest-list arc's P6. The RPC had been
+      # installed in prod for weeks with guards.json carrying executor:null, so nothing
+      # ever called it -- an installed check is not a running check.
+      - name: Run guest-list contract check
+        if: always()
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/check-guest-list-contract.mjs
+
       - name: Run program editor Phase 0 schema contract check
         if: always()
         env:

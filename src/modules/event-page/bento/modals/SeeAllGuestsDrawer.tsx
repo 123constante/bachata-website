@@ -5,7 +5,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { BLOCK_COLORS } from '@/modules/event-page/bento/BentoGrid';
-import type { GuestListEntry } from '@/modules/event-page/hooks/useEventGuestList';
+import { entryStatus, type GuestListEntry } from '@/modules/event-page/hooks/useEventGuestList';
 
 type SeeAllGuestsDrawerProps = {
   open: boolean;
@@ -19,12 +19,23 @@ const initialFrom = (name: string): string => {
 };
 
 export const SeeAllGuestsDrawer = ({ open, onOpenChange, entries }: SeeAllGuestsDrawerProps) => {
+  // P6: the headline elsewhere is the ACTIVE count, so this one is too. `entries.length` would
+  // fold queued dancers into the same number the block reports without them, and the two
+  // surfaces would disagree about the same list on the same screen.
+  const activeCount = entries.filter((e) => entryStatus(e) === 'active').length;
+  const waitlistCount = entries.length - activeCount;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="mx-auto w-full max-w-[430px]">
         <DrawerHeader>
           <DrawerTitle>
-            Guest list <span className="text-muted-foreground">({entries.length})</span>
+            Guest list <span className="text-muted-foreground">({activeCount})</span>
+            {waitlistCount > 0 && (
+              <span className="ml-2 text-sm font-normal text-amber-500">
+                +{waitlistCount} waiting
+              </span>
+            )}
           </DrawerTitle>
         </DrawerHeader>
         <div className="max-h-[60vh] overflow-y-auto px-4 pb-6">
@@ -34,20 +45,26 @@ export const SeeAllGuestsDrawer = ({ open, onOpenChange, entries }: SeeAllGuests
             </p>
           ) : (
             <ul className="flex flex-col gap-[6px]">
-              {entries.map((entry, i) => (
-                <li
-                  key={`${entry.first_name}-${entry.created_at}-${i}`}
-                  className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2"
-                >
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                    style={{ background: BLOCK_COLORS.guest }}
+              {entries.map((entry, i) => {
+                const queued = entryStatus(entry) === 'waitlist';
+                return (
+                  <li
+                    key={`${entry.first_name}-${entry.created_at}-${i}`}
+                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2"
                   >
-                    {initialFrom(entry.first_name)}
-                  </div>
-                  <span className="truncate text-sm text-foreground">{entry.first_name}</span>
-                </li>
-              ))}
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                      style={{ background: queued ? '#b45309' : BLOCK_COLORS.guest }}
+                    >
+                      {initialFrom(entry.first_name)}
+                    </div>
+                    <span className="truncate text-sm text-foreground">{entry.first_name}</span>
+                    {queued && (
+                      <span className="ml-auto shrink-0 text-xs text-amber-500">Waitlist</span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
