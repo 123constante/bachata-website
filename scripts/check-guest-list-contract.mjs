@@ -77,7 +77,15 @@ export function loadEnv(base = process.env, readFile = null) {
   return env;
 }
 
-const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : NaN);
+/**
+ * STRICT ON PURPOSE. This was `Number.isFinite(Number(v))`, which coerces before it judges:
+ * `Number(null)`, `Number('')`, `Number([])` and `Number(false)` are all 0, so a payload with
+ * `drift_count: null` -- a plausible shape for a dimension the RPC failed to compute --
+ * graded as "0 drift" and the guard printed OK and exited 0. A JSON number arrives as a
+ * number; anything else is a payload this script has not understood, and NaN routes it to the
+ * malformed branch instead of to a green.
+ */
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
 
 /**
  * Grade one RPC payload. PURE -- no network, no env, no process state.
@@ -85,7 +93,7 @@ const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : NaN);
  * Returns { code, kind, lines }. `kind` names the branch that fired, because four distinct
  * branches return 2 and a canary asserting only on the integer cannot tell them apart.
  */
-export function grade(data) {
+export function grade(data, { driftBaseline = DRIFT_BASELINE } = {}) {
   const driftCount = num(data?.drift_count);
   const payloadChecked = num(data?.payload_events_checked);
   const payloadBreaks = num(data?.payload_contract_breaks);
@@ -127,6 +135,49 @@ export function grade(data) {
     };
   }
 
+  // EACH DIMENSION IS ASSERTED DIRECTLY, not merely through the sum.
+  //
+  // `drift_count` is the RPC's own total (dup + standing + payload_breaks), and gating on it
+  // alone makes this script's headline claim -- "payload_contract_breaks nonzero means the
+  // page and the server disagree" -- true only TRANSITIVELY, via a sum whose COMMENT had
+  // already drifted once in this very migration's history. If the RPC ever stops folding a
+  // dimension into the total, the guard goes quiet about exactly the thing it was wired up
+  // to watch. Reading the named keys costs nothing and does not depend on that arithmetic.
+  const named = [
+    ['payload_contract_breaks', payloadBreaks],
+    ['duplicate_live_name_count', num(data?.duplicate_live_name_count)],
+    ['standing_casefold_dupes', num(data?.standing_casefold_dupes)],
+  ];
+  const unreadable = named.filter(([, v]) => !Number.isFinite(v)).map(([k]) => k);
+  if (unreadable.length > 0) {
+    return {
+      code: 2,
+      kind: 'malformed',
+      lines: [
+        'FAIL: contract RPC returned a malformed payload -- these dimensions are not ' +
+          `numbers: ${unreadable.join(', ')}.`,
+      ],
+    };
+  }
+  // The question is NOT "is any dimension nonzero" -- a raised baseline exists precisely to
+  // tolerate known, accepted drift, and reading it that way would make the baseline
+  // unusable. The question is whether the TOTAL still accounts for its own parts. If the
+  // named dimensions sum to more than `drift_count`, the RPC has stopped folding one in and
+  // the sum can no longer be trusted to carry a breach -- so the breach is reported from the
+  // named keys directly, whatever the baseline says.
+  const namedSum = named.reduce((acc, [, v]) => acc + v, 0);
+  if (namedSum > driftCount) {
+    return {
+      code: 1,
+      kind: 'dimension-break',
+      lines: [
+        `FAIL: drift_count is ${driftCount} but its own dimensions sum to ${namedSum} ` +
+          `(${named.map(([k, v]) => `${k}=${v}`).join(', ')}). The RPC's total no longer ` +
+          'reflects its dimensions -- trust the named keys, not the sum.',
+      ],
+    };
+  }
+
   if (driftCount === 0) {
     const lines = [];
     // The RPC caps its payload scan so an anon caller cannot amplify a request by the fleet
@@ -150,11 +201,11 @@ export function grade(data) {
     return { code: 0, kind: capped ? 'clean-capped' : 'clean', lines };
   }
 
-  if (driftCount <= DRIFT_BASELINE) {
+  if (driftCount <= driftBaseline) {
     return {
       code: 0,
       kind: 'within-baseline',
-      lines: [`WARN: ${driftCount} drift (baseline: ${DRIFT_BASELINE}). No regression.`],
+      lines: [`WARN: ${driftCount} drift (baseline: ${driftBaseline}). No regression.`],
     };
   }
 
@@ -178,7 +229,7 @@ export function grade(data) {
     code: 1,
     kind: 'drift',
     lines: [
-      `FAIL: ${driftCount} drift (baseline: ${DRIFT_BASELINE}). ` +
+      `FAIL: ${driftCount} drift (baseline: ${driftBaseline}). ` +
         (causes.length > 0 ? `Likely: ${causes.join('; ')}.` : 'No dimension named a cause.'),
     ],
   };
@@ -319,6 +370,49 @@ async function selfTest() {
       run: () => grade({ ...healthy, drift_count: 2, standing_casefold_dupes: 2 }).kind,
     },
 
+    // --- the dimensions are asserted DIRECTLY, not only through drift_count ---
+    {
+      name: 'grade: payload breaks with a clean drift_count still FAILS (sum drifted)',
+      expected: 'dimension-break',
+      run: () => grade({ ...healthy, drift_count: 0, payload_contract_breaks: 2 }).kind,
+    },
+    {
+      name: 'main: a drifted sum hiding a payload break exits 1',
+      expected: 1,
+      run: () => withPayload({ ...healthy, drift_count: 0, payload_contract_breaks: 2 }),
+    },
+    {
+      name: 'grade: duplicate_live_name_count is asserted directly too',
+      expected: 'dimension-break',
+      run: () => grade({ ...healthy, drift_count: 0, duplicate_live_name_count: 1 }).kind,
+    },
+    {
+      name: 'grade: a null dimension is malformed, NOT a green (num() is strict)',
+      expected: 'malformed',
+      run: () => grade({ ...healthy, duplicate_live_name_count: null }).kind,
+    },
+    {
+      name: 'main: drift_count null exits 2 rather than reading as 0 drift',
+      expected: 2,
+      run: () => withPayload({ ...healthy, drift_count: null }),
+    },
+
+    // --- the within-baseline branch, which is unreachable at the default baseline ---
+    {
+      name: 'grade: a nonzero baseline absorbs drift at or under it',
+      expected: 'within-baseline',
+      run: () =>
+        grade({ ...healthy, drift_count: 2, duplicate_live_name_count: 2 }, { driftBaseline: 3 })
+          .kind,
+    },
+    {
+      name: 'grade: drift over a raised baseline still fails',
+      expected: 'drift',
+      run: () =>
+        grade({ ...healthy, drift_count: 5, duplicate_live_name_count: 5 }, { driftBaseline: 3 })
+          .kind,
+    },
+
     // --- the cap NOTE. A truncated scan reported as a full one is the bug ARM 6 shipped. ---
     {
       name: 'grade: a capped scan still exits 0 but says so',
@@ -392,7 +486,8 @@ async function selfTest() {
   }
   console.log('');
   console.log(
-    'PASS self-test -- ' + cases.length + ' cases; every exit code and every 2-branch driven.',
+    'PASS self-test -- ' + cases.length + ' cases; every exit code, every 2-branch, and ' +
+      'every grade() kind driven.',
   );
   return true;
 }

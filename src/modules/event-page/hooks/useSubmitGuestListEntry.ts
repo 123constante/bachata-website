@@ -7,6 +7,7 @@ import {
   hasSpotAvailable,
   mergeEntry,
   removeEntry,
+  normalize,
   type EventGuestList,
   type GuestListEntry,
   type GuestListEntryStatus,
@@ -99,9 +100,16 @@ export const useSubmitGuestListEntry = (eventId: string | null | undefined) => {
       // against, so when it has run out the pill goes up amber rather than flashing green and
       // being corrected a moment later.
       const current = queryClient.getQueryData<EventGuestList>(eventGuestListQueryKey(eventId));
-      const optimisticStatus: GuestListEntryStatus = hasSpotAvailable(current)
-        ? 'active'
-        : 'waitlist';
+      // A FULL NIGHT HAS TWO DIFFERENT ENDINGS, and `spots_left` alone cannot tell them
+      // apart. With a waitlist, the server queues the dancer and 'waitlist' is honest. WITHOUT
+      // one, `_claim_entry_slot_v1` rejects and the server answers `capacity_full` -- so an
+      // amber "you're on the waitlist" pill would be a promise the server is about to break,
+      // ripped out a moment later and replaced with a red "the guest list is full". That is
+      // the payload's whole reason for publishing `waitlist_enabled`. Only `false` suppresses
+      // it: `null` is the pre-P6 shape and must keep its old, permissive behaviour.
+      const waitlistPossible = current?.waitlist_enabled !== false;
+      const optimisticStatus: GuestListEntryStatus =
+        hasSpotAvailable(current) || !waitlistPossible ? 'active' : 'waitlist';
 
       const optimistic: GuestListEntry = {
         id: tempId,
@@ -137,9 +145,18 @@ export const useSubmitGuestListEntry = (eventId: string | null | undefined) => {
           // Position is derived from the cache we just updated: how many queued rows sit at
           // or before this one. It is a display nicety, so a miss degrades to no number
           // rather than to a wrong one.
+          //
+          // COUNTED UP TO OUR OWN ROW, not over the whole queue. A plain length is a TOTAL,
+          // and the two diverge in precisely the situation this feature exists for: on a full
+          // night another dancer's waitlist INSERT can land over realtime between the mutation
+          // firing and this callback, and the toast would then tell the dancer they are #4
+          // when they are #3. Ordering is by created_at, the same order the server queues in.
           const list = queryClient.getQueryData<EventGuestList>(eventGuestListQueryKey(eventId));
-          const position = list
-            ? list.entries.filter((e) => entryStatus(e) === 'waitlist').length
+          const ourKey = normalize(context?.firstName ?? '');
+          const queued = (list?.entries ?? []).filter((e) => entryStatus(e) === 'waitlist');
+          const ours = queued.find((e) => normalize(e.first_name) === ourKey);
+          const position = ours
+            ? queued.filter((e) => e.created_at <= ours.created_at).length
             : 0;
           toast({
             title: position > 0 ? `You're on the waitlist — #${position}` : "You're on the waitlist",

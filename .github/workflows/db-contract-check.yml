@@ -307,7 +307,14 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-guest-list-contract.mjs
+        # The canary runs FIRST and bare, like every sibling step in this file. A self-test
+        # with no caller proves nothing -- which is the exact failure mode this guard was
+        # written to end (executor:null meant the RPC was installed and never run). Without
+        # this line someone could invert a verdict in grade() and CI would stay green,
+        # because the only thing exercised would be a live RPC read that is green in prod.
+        run: |
+          node scripts/check-guest-list-contract.mjs --self-test
+          node scripts/check-guest-list-contract.mjs
 
       - name: Run program editor Phase 0 schema contract check
         if: always()

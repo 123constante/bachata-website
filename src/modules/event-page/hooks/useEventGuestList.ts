@@ -18,9 +18,17 @@ export type GuestListEntry = {
    * what the pre-P6 payload effectively meant (it published no waitlist rows).
    */
   status?: GuestListEntryStatus;
-  // Present for server-confirmed rows (real DB id) and for optimistic inserts
-  // (temp id of the form `pending-<uuid>`). Optional because existing RPC
-  // responses may pre-date this addition.
+  /**
+   * Present ONLY for rows this client minted or received over realtime: an optimistic insert
+   * (temp id `pending-<uuid>`), the mutation's own `entry_id`, or a realtime row.
+   *
+   * NOT present on rows hydrated from `get_event_guest_list`. That payload publishes
+   * `first_name` / `created_at` / `status` and NOTHING ELSE -- deliberately, since the entry
+   * uuids must not reach an anon caller. So a freshly loaded list holds entries with no id at
+   * all, and anything that matches on id will silently miss every one of them. Match by
+   * normalized `first_name` (see `removeEntryByName`), which is the key the rest of this
+   * module uses and is unique per night by the dedup index.
+   */
   id?: string;
   // True while the mutation is in flight. Used by mergeEntry to upgrade
   // a pending row to the confirmed one when the realtime INSERT echo
@@ -94,7 +102,9 @@ const EMPTY_GUEST_LIST: EventGuestList = {
 export const eventGuestListQueryKey = (eventId: string | null | undefined) =>
   ['event-guest-list', eventId ?? null] as const;
 
-const normalize = (name: string) => name.trim().toLowerCase();
+/** The list's identity key for a dancer. Exported so callers match rows the same way
+ *  the cache merges them -- the public payload carries no ids, so this IS the key. */
+export const normalize = (name: string) => name.trim().toLowerCase();
 
 /** An entry with no status is treated as active -- see GuestListEntry.status. */
 export const entryStatus = (entry: GuestListEntry): GuestListEntryStatus =>
@@ -124,6 +134,14 @@ export const hasSpotAvailable = (list: EventGuestList | undefined): boolean => {
  * that includes permanent VIPs the payload may not be displaying, so the client cannot
  * rebuild it -- but it can track how much this change moved it. A public sign-up lands in the
  * displayed set for the current night and at the door, so the two move together by one.
+ *
+ * THE DELTA IS NOT CLAMPED, deliberately. It used to be `Math.max(0, ...)`, which made the
+ * adjustment non-reversible and could INVENT a spot on a full night: with `spots_left` at 0,
+ * someone else's arrival clamps the -1 away, and the later removal of that same row adds a
+ * +1 that was never subtracted -- leaving 1 free spot on a night that is still full, which
+ * re-arms confetti and an 'active' optimistic pill the server will waitlist. `spots_left` is
+ * never RENDERED as a number (every consumer is a `> 0` predicate), so letting it go
+ * transiently negative is both harmless and more truthful than a floor.
  */
 const withEntries = (prev: EventGuestList, nextEntries: GuestListEntry[]): EventGuestList => {
   let active = 0;
@@ -139,8 +157,7 @@ const withEntries = (prev: EventGuestList, nextEntries: GuestListEntry[]): Event
     count: active,
     active_count: active,
     waitlist_count: waitlist,
-    spots_left:
-      prev.spots_left === null ? null : Math.max(0, prev.spots_left - activeDelta),
+    spots_left: prev.spots_left === null ? null : prev.spots_left - activeDelta,
   };
 };
 
@@ -208,6 +225,10 @@ export const mergeEntry = (
 /**
  * Remove an entry from the cache by id. Used to roll back an optimistic
  * insert when the mutation fails. Silently no-ops if the id is not found.
+ *
+ * ONLY for rows this client minted -- an optimistic row's tempId. A row hydrated from the
+ * RPC has NO id (see `GuestListEntry.id`), so an id-keyed removal cannot touch it. To drop a
+ * row the server published, use `removeEntryByName`.
  */
 export const removeEntry = (
   queryClient: QueryClient,
@@ -221,6 +242,32 @@ export const removeEntry = (
       const idx = prev.entries.findIndex((e) => e.id === id);
       if (idx < 0) return prev;
       return withEntries(prev, prev.entries.filter((e) => e.id !== id));
+    },
+  );
+};
+
+/**
+ * Remove an entry from the cache by normalized first_name. Silently no-ops if no row matches.
+ *
+ * THIS IS THE ONE THAT WORKS ON SERVER-HYDRATED ROWS. `removeEntry` keys on id, and the
+ * public payload carries none, so it can only ever drop rows this client minted itself. The
+ * de-publish path in useGuestListRealtime -- a row soft-deleted or moved to a status the
+ * payload never publishes -- has to reach rows that came from the RPC, which means matching
+ * on the same key `mergeEntry` already merges on. Unique per night by the dedup index.
+ */
+export const removeEntryByName = (
+  queryClient: QueryClient,
+  eventId: string,
+  firstName: string,
+): void => {
+  const key = normalize(firstName);
+  queryClient.setQueryData<EventGuestList>(
+    eventGuestListQueryKey(eventId),
+    (prev) => {
+      if (!prev) return prev;
+      const next = prev.entries.filter((e) => normalize(e.first_name) !== key);
+      if (next.length === prev.entries.length) return prev;
+      return withEntries(prev, next);
     },
   );
 };

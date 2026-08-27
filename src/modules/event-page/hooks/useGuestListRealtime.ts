@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   mergeEntry,
-  removeEntry,
+  removeEntryByName,
   type GuestListEntry,
   type GuestListEntryStatus,
 } from './useEventGuestList';
@@ -45,6 +45,13 @@ const publishedStatus = (row: RealtimeRow): GuestListEntryStatus | null => {
  * an update usually does not reach us at all; handling it here means that when it does, the
  * list drops the row instead of holding it until the next refetch.
  *
+ * REMOVAL IS BY NAME, NOT BY ID, and the distinction is load-bearing rather than stylistic.
+ * The first draft called removeEntry(.., row.id): correct-looking, and a no-op for every row
+ * the page had actually loaded. `get_event_guest_list` publishes no entry ids, so a hydrated
+ * list holds entries whose `id` is undefined and a real DB uuid matches none of them -- only
+ * rows that had themselves arrived over realtime were removable. It failed at exactly the
+ * moment described above, which is the only moment this code runs.
+ *
  * No-ops when eventId is null/undefined (e.g. still loading).
  */
 export const useGuestListRealtime = (eventId: string | null | undefined) => {
@@ -58,7 +65,7 @@ export const useGuestListRealtime = (eventId: string | null | undefined) => {
 
       const status = publishedStatus(row);
       if (status === null) {
-        removeEntry(queryClient, eventId, row.id);
+        removeEntryByName(queryClient, eventId, row.first_name);
         return;
       }
 

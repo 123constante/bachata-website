@@ -6,6 +6,7 @@ import {
   hasSpotAvailable,
   mergeEntry,
   removeEntry,
+  removeEntryByName,
   type EventGuestList,
   type GuestListEntry,
 } from '../useEventGuestList';
@@ -162,6 +163,69 @@ describe('guest list cache counters', () => {
     const before = read();
     removeEntry(qc, EVENT_ID, 'nope');
     expect(read()).toBe(before);
+  });
+
+  /**
+   * THE SERVER PAYLOAD CARRIES NO ids. get_event_guest_list publishes first_name /
+   * created_at / status and nothing else, so every row on a freshly loaded page has
+   * `id === undefined`. The de-publish path in useGuestListRealtime originally called
+   * removeEntry(.., row.id) with a real DB uuid, which matched none of them: a soft-deleted
+   * dancer stayed on the public list until the next refetch. These two cases seed rows the
+   * way the SERVER does -- with no id at all -- which is what the rest of this suite does
+   * not do, and is why the bug survived it.
+   */
+  it('removeEntry CANNOT drop a server-hydrated row (it has no id)', () => {
+    seed(
+      baseList({
+        entries: [{ first_name: 'Ada', created_at: '2026-08-01T20:00:00Z', status: 'active' }],
+      }),
+    );
+    removeEntry(qc, EVENT_ID, 'any-real-uuid');
+    expect(read().entries).toHaveLength(1);
+  });
+
+  it('removeEntryByName drops a server-hydrated row and re-derives the counters', () => {
+    seed(
+      baseList({
+        entries: [
+          { first_name: 'Ada', created_at: '2026-08-01T20:00:00Z', status: 'active' },
+          { first_name: 'Bea', created_at: '2026-08-01T20:05:00Z', status: 'waitlist' },
+        ],
+        count: 1,
+        active_count: 1,
+        waitlist_count: 1,
+        capacity_max: 3,
+        spots_left: 2,
+      }),
+    );
+    // Case-insensitive and trimmed, the same key mergeEntry merges on.
+    removeEntryByName(qc, EVENT_ID, '  ada  ');
+    expect(read().entries.map((e) => e.first_name)).toEqual(['Bea']);
+    expect(read().active_count).toBe(0);
+    expect(read().waitlist_count).toBe(1);
+    // One active row left, so the door gives a slot back.
+    expect(read().spots_left).toBe(3);
+  });
+
+  it('removeEntryByName no-ops on a name it does not hold', () => {
+    seed(baseList());
+    const before = read();
+    removeEntryByName(qc, EVENT_ID, 'nobody');
+    expect(read()).toBe(before);
+  });
+
+  /**
+   * The spots_left delta used to be Math.max(0, ...), which is not reversible: the clamp
+   * swallows a decrement at 0 and the matching removal then adds back a +1 that was never
+   * subtracted, inventing a free spot on a night that is still full.
+   */
+  it('does not invent a spot when a full night takes an arrival and then loses it', () => {
+    seed(baseList({ capacity_max: 1, spots_left: 0 }));
+    mergeEntry(qc, EVENT_ID, entry({ id: 'b', first_name: 'Bea', status: 'active' }));
+    expect(hasSpotAvailable(read())).toBe(false);
+    removeEntry(qc, EVENT_ID, 'b');
+    expect(read().spots_left).toBe(0);
+    expect(hasSpotAvailable(read())).toBe(false);
   });
 });
 
