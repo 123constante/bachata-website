@@ -140,8 +140,23 @@ async function renderRouteDeep(location: string, opts?: { client?: QueryClient }
 // shell (providers + router + GlobalLayout), which is the slowest thing in the
 // unit suite and was already running at ~85% of the default budget -- so it went
 // red purely from parallel load whenever another test file was added. The work
-// is genuinely slow, not hung; a hang still fails, just 15s later.
-describe('SSR safety: /event/:id render path (node, renderToString)', { timeout: 15_000 }, () => {
+// is genuinely slow, not hung; a hang still fails, just 30s later.
+//
+// SECOND RAISE, 15s -> 30s (2026-08-27), for the reason the paragraph above
+// predicted: tests/client/navigationSplash.test.tsx became only the SECOND
+// jsdom-environment file in the suite, and a jsdom environment costs ~45s to
+// stand up on this machine. Isolated both ways before touching this line --
+// the SSR file passes 6/6 alone, the full suite passes 1099/1099 with the new
+// file removed, and reds only with both present. Nothing about the render path
+// changed.
+//
+// This budget is now load-bearing in a way that will keep drifting: it is sized
+// against how many OTHER files compete for the pool, not against how long this
+// render actually takes. If a third jsdom file lands and this reds again, do
+// not simply raise it a third time -- measure this describe in isolation first,
+// because a raise that outruns a real regression is exactly how this stops
+// gating anything.
+describe('SSR safety: /event/:id render path (node, renderToString)', { timeout: 30_000 }, () => {
   it('imports the real supabase client module in node without throwing', async () => {
     await expect(import('@/integrations/supabase/client')).resolves.toHaveProperty('supabase');
   });
