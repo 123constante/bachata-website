@@ -170,6 +170,7 @@ const TARGETS = [
   { rel: 'scripts/check-ci-budget.mjs' },
   { rel: 'scripts/check-firewall-drift.mjs' },
   { rel: 'scripts/check-first-load-requests.mjs' },
+  { rel: 'scripts/check-guest-list-contract.mjs' },
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
   { rel: 'scripts/check-occurrence-delete-booking-safety.mjs' },
