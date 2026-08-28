@@ -100,6 +100,22 @@ describe("CLI behaviour (what selfTest cannot see from inside)", () => {
     expect(cli(d, ["--render"]).stdout).toContain("index up to date");
   });
 
+  // The PASS line is the operator-facing statement of the arc: none rule, and
+  // selfTest() cannot see it -- it calls run(), never report(). A mutant that
+  // counted arc-less plans as arcs SURVIVED the whole self-test battery with
+  // zero fail lines, so the summary is pinned here instead.
+  it("the PASS line counts arc-less plans separately, never as an arc", () => {
+    const d = mkDir({
+      "live-a.md": plan({ status: "live", arc: "alpha" }, "Alpha live"),
+      "solo-1.md": plan({ status: "live", arc: "none" }, "Solo one"),
+      "solo-2.md": plan({ status: "live", arc: "none" }, "Solo two"),
+    });
+    const r = cli(d);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("1 arc-tagged plan(s) across 1 arc(s)");
+    expect(r.stdout).toContain("2 arc-less (`arc: none`)");
+  });
+
   it("rejects unknown flags instead of silently defaulting (--norender typo)", () => {
     const d = tree();
     const r = cli(d, ["--norender"]);
