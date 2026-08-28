@@ -283,11 +283,7 @@ export function AllEventsList({
   if (groups.length === 0 && remote.length === 0) {
     return (
       <EmptyState>
-        {state.q && showSearchEmpty
-          ? 'No events match your search.'
-          : state.filter !== 'all'
-            ? 'No events match this filter.'
-            : 'Nothing on right now.'}
+        {state.q && showSearchEmpty ? 'No events match your search.' : 'Nothing on right now.'}
       </EmptyState>
     );
   }

@@ -16,7 +16,6 @@ import {
 } from '@/lib/londonDate';
 
 export type MapCategory = 'class' | 'party' | 'mix' | 'fest' | 'social';
-export type MapFilter = 'all' | 'parties' | 'classes' | 'festivals';
 export type MapTab = 'all' | 'tonight' | 'news' | 'cal';
 
 /** One row of get_map_events_v1 -- one occurrence-day. */
@@ -140,15 +139,6 @@ export function categoryColor(e: MapEvent): string {
 
 export function eventScene(e: MapEvent): string {
   return CATEGORY_SCENE[deriveCategory(e)];
-}
-
-/** Category filter taxonomy mirrored from the live site (All/Parties/Classes/Festivals). */
-export function matchesFilter(e: MapEvent, f: MapFilter): boolean {
-  if (f === 'all') return true;
-  if (f === 'parties') return e.has_party;
-  if (f === 'classes') return e.has_class;
-  if (f === 'festivals') return isFestivalFormat(e);
-  return true;
 }
 
 /** Free-text match over title + venue + area (case-insensitive substring). */

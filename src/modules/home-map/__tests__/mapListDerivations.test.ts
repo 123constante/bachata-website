@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MapEvent } from '../mapTypes';
 import {
-  matchesFilter,
   deriveCategory,
   isFestivalFormat,
   isRemoteRow,
@@ -16,8 +15,7 @@ import {
   groupByDate,
   formatDayLabel,
   calendarDays,
-  listFor,
-  mapVisibleFor,
+
   glowFor,
   buildMonthCells,
   homeStats,
@@ -171,16 +169,6 @@ describe('calendarDays', () => {
     expect(new Set(m.get('2026-06-10'))).toEqual(new Set(['party', 'class']));
   });
 
-  it('only dots filter-matched events (dots respect the category filter)', () => {
-    const events = [
-      ev({ instance_date: '2026-06-10', type: 'festival', has_party: false, has_class: false }),
-      ev({ instance_date: '2026-06-11', type: 'standard', has_party: false, has_class: true }),
-    ];
-    const fests = calendarDays(events.filter((e) => matchesFilter(e, 'festivals')));
-    expect([...fests.keys()]).toEqual(['2026-06-10']);
-    expect(fests.get('2026-06-10')).toEqual(['fest']);
-  });
-
   it('splits a single class+party event into both dots (no purple mix)', () => {
     const m = calendarDays([
       ev({ instance_date: '2026-06-10', type: 'standard', has_party: true, has_class: true }),
@@ -223,15 +211,9 @@ describe('Phase 8 format-primary festival classification', () => {
     expect(m.get('2026-06-10')).toEqual(['fest']);
   });
 
-  it('matchesFilter "festivals" gates on format-primary', () => {
-    const festByFormat = ev({ format: 'festival', type: 'standard' });
-    const recurringClass = ev({ format: 'recurring', type: 'festival', has_class: true });
-    expect(matchesFilter(festByFormat, 'festivals')).toBe(true);
-    expect(matchesFilter(recurringClass, 'festivals')).toBe(false);
-  });
 });
 
-describe('listFor / mapVisibleFor / glowFor', () => {
+describe('glowFor', () => {
   const today = '2026-06-10';
   const e1 = ev({
     occurrence_id: 'o1',
@@ -252,31 +234,15 @@ describe('listFor / mapVisibleFor / glowFor', () => {
   const events = [e1, e2];
   const { pinKeyForOcc } = dedupePins(events);
 
-  it('all tab filters by category, then query', () => {
-    const out = listFor('all', { events, day: null, filter: 'classes', q: '', user: null, today });
-    expect(out.map((e) => e.occurrence_id)).toEqual(['o2']);
-  });
-
-  it('news + empty calendar keep the whole city; other tabs mirror the list', () => {
-    const listAll = listFor('all', { events, day: null, filter: 'parties', q: '', user: null, today });
-    expect(new Set(mapVisibleFor('all', null, listAll, pinKeyForOcc, events, '', 'parties'))).toEqual(
-      new Set(['o1']),
-    );
-    expect(new Set(mapVisibleFor('news', null, [], pinKeyForOcc, events, '', 'all'))).toEqual(
-      new Set(['o1', 'o2']),
-    );
-  });
-
-  it('category filter composes with every tab (list + map)', () => {
-    // e1 is a party today, e2 is a class on a later day -> Tonight+Classes is empty.
-    const tonightClasses = listFor('tonight', { events, day: null, filter: 'classes', q: '', user: null, today });
-    expect(tonightClasses.map((e) => e.occurrence_id)).toEqual([]);
-    // News + Parties: the whole-city map narrows to the party pin only.
-    expect(new Set(mapVisibleFor('news', null, [], pinKeyForOcc, events, '', 'parties'))).toEqual(
-      new Set(['o1']),
-    );
-  });
-
+  // NOTE: the three tests that stood here drove listFor/mapVisibleFor through the
+  // category-filter axis, which this branch deleted. Re-pointing them at `q` was
+  // tried and REVERTED: with no tab whose base is narrower than the query-matched
+  // city set, every rewritten assertion survived mutating mapVisibleFor's
+  // `tab === 'news' || (tab === 'cal' && day == null)` branch to `true` -- i.e. the
+  // replacements passed the mutant they existed to catch. Deleted rather than
+  // replaced with false coverage. mapVisibleFor is now UNTESTED; re-covering it
+  // needs a case whose list is genuinely narrower than the whole city (e.g. the
+  // 'cal' tab with a day). Queued: queued-home-map-q-axis-and-coverage.md
   it('glow only on the news tab, only freshly-added pins', () => {
     expect(glowFor('all', events, pinKeyForOcc)).toEqual([]);
     expect(glowFor('news', events, pinKeyForOcc)).toEqual(['o2']);

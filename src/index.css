@@ -1390,7 +1390,7 @@
 }
 /* While the map is in fullscreen "explore" mode, hide the global header +
    bottom nav so the fixed map overlay is genuinely edge-to-edge. The in-map
-   top bar carries the "List" exit + category chips. Targets the stable ids on
+   top bar carries the "List" exit + the map filter field. Targets the stable ids on
    GlobalHeader (id="app-header") and BottomNav (id="app-nav") rather than a
    Tailwind utility class / ARIA label, which could change without warning. */
 body.hm-immersive #app-header,

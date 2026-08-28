@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import type { MapEvent, MapTab, MapFilter, MapCategory } from './mapTypes';
-import { matchesFilter, isRemoteRow } from './mapTypes';
+import type { MapEvent, MapTab, MapCategory } from './mapTypes';
+import { isRemoteRow } from './mapTypes';
 import { isDesktopViewport } from './viewport';
 import {
   dedupePins,
@@ -41,8 +41,6 @@ export interface UseMapListResult {
   setTab: (t: MapTab) => void;
   day: string | null;
   setDay: (d: string | null) => void;
-  filter: MapFilter;
-  setFilter: (f: MapFilter) => void;
   q: string;
   setQ: (q: string) => void;
   /** selection/hover hold the LIST occurrence_id (per-day card). */
@@ -88,7 +86,6 @@ export function useMapList(
   // Calendar tab, seeded here (see initialTab) rather than corrected on mount.
   const [tab, setTabState] = useState<MapTab>(opts.initialTab ?? 'all');
   const [day, setDayState] = useState<string | null>(null);
-  const [filter, setFilterState] = useState<MapFilter>('all');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -109,16 +106,9 @@ export function useMapList(
     listRef.current?.scrollTo({ top: 0 });
   }, []);
 
-  // Changing the category filter clears the selection too, so a preview card for
-  // an event the new filter hides can't linger.
-  const setFilter = useCallback((f: MapFilter) => {
-    setFilterState(f);
-    setSelected(null);
-  }, []);
-
   // Picking a different Calendar day re-filters the day-scoped map; clear the
   // selection so a stale highlight/preview can't survive into the new day
-  // (parity with setTab/setFilter).
+  // (parity with setTab).
   const setDay = useCallback((d: string | null) => {
     setDayState(d);
     setSelected(null);
@@ -147,10 +137,7 @@ export function useMapList(
     () => dedupePins(events.filter((e) => isOnCityMap(e, citySlug))),
     [events, citySlug],
   );
-  const calendarDays = useMemo(
-    () => buildCalendarDays(events.filter((e) => matchesFilter(e, filter))),
-    [events, filter],
-  );
+  const calendarDays = useMemo(() => buildCalendarDays(events), [events]);
   const stats = useMemo(() => homeStats(events, today), [events, today]);
 
   // occurrence_id -> its MapEvent, so a card tap can resolve the event_id it
@@ -162,12 +149,12 @@ export function useMapList(
   }, [events]);
 
   const listEvents = useMemo(
-    () => listFor(tab, { events, day, filter, q, user, today }),
-    [tab, events, day, filter, q, user, today],
+    () => listFor(tab, { events, day, q, user, today }),
+    [tab, events, day, q, user, today],
   );
   const mapVisible = useMemo(
-    () => mapVisibleFor(tab, day, listEvents, pinKeyForOcc, events, q, filter),
-    [tab, day, listEvents, pinKeyForOcc, events, q, filter],
+    () => mapVisibleFor(tab, day, listEvents, pinKeyForOcc, events, q),
+    [tab, day, listEvents, pinKeyForOcc, events, q],
   );
   const glow = useMemo(
     () => glowFor(tab, events, pinKeyForOcc),
@@ -240,8 +227,6 @@ export function useMapList(
     setTab,
     day,
     setDay,
-    filter,
-    setFilter,
     q,
     setQ,
     selected,
