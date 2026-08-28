@@ -3,9 +3,8 @@
 // glow, calendar dots, date grouping) is unit-testable in isolation. Everything
 // is keyed by occurrence_id (string), never array index.
 
-import type { MapEvent, MapCategory, MapFilter, MapTab } from './mapTypes';
+import type { MapEvent, MapCategory, MapTab } from './mapTypes';
 import {
-  matchesFilter,
   matchesQuery,
   distanceMiles,
   startMinutes,
@@ -284,7 +283,6 @@ export function calendarDays(events: MapEvent[]): Map<string, MapCategory[]> {
 export interface ListArgs {
   events: MapEvent[];
   day: string | null;
-  filter: MapFilter;
   q: string;
   user: { lat: number; lng: number } | null;
   today: string;
@@ -297,9 +295,7 @@ export function listFor(tab: MapTab, a: ListArgs): MapEvent[] {
   else if (tab === 'cal') base = a.day == null ? [] : a.events.filter((e) => e.instance_date === a.day);
   else if (tab === 'news') base = newsEvents(a.events, a.today);
   else base = a.events;
-  // Category filter is an orthogonal axis: apply it on every tab so the chips
-  // compose with each lens (Tonight + Classes, What's New + Festivals, ...).
-  return base.filter((e) => matchesFilter(e, a.filter) && matchesQuery(e, a.q));
+  return base.filter((e) => matchesQuery(e, a.q));
 }
 
 /**
@@ -313,11 +309,10 @@ export function mapVisibleFor(
   pinKeyForOcc: Map<string, string>,
   allEvents: MapEvent[],
   q: string,
-  filter: MapFilter,
 ): string[] {
   const source =
     tab === 'news' || (tab === 'cal' && day == null)
-      ? allEvents.filter((e) => matchesFilter(e, filter) && matchesQuery(e, q))
+      ? allEvents.filter((e) => matchesQuery(e, q))
       : listEvents;
   const pins = new Set<string>();
   for (const e of source) {

@@ -15,7 +15,7 @@
 // clears. "Explore the map" promotes the card to a true edge-to-edge overlay
 // (.is-fullscreen in index.css makes .hm-mapcard position:fixed; body.hm-immersive
 // hides the global header + bottom nav), with a top bar carrying a "List" exit
-// pill, a map filter field and the category chips. Back/swipe-back and Escape also
+// pill and a map filter field. Back/swipe-back and Escape also
 // exit; focus moves to the exit pill on open and back to the expand button on
 // close; a one-time hint teaches it.
 //
@@ -28,9 +28,9 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Maximize2, Plus, Minus, Focus, ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from './useMapList';
-import type { MapEvent, MapFilter } from './mapTypes';
+import type { MapEvent } from './mapTypes';
 import { useIsDesktopMapChrome } from './viewport';
-import { CategoryChips, SearchField, focusRing } from './cards/controls';
+import { SearchField, focusRing } from './cards/controls';
 import { MapLocateButton } from './cards/LocateControl';
 import { MapPreviewCard } from './mobile/MapPreviewCard';
 import { MapHintPill } from './mobile/MapHintPill';
@@ -52,14 +52,6 @@ const GREATER_LONDON: [[number, number], [number, number]] = [
 ];
 
 const COACH_KEY = 'hm-fs-coach';
-
-// Partial map: 'all' has no noun (the empty-filter caption only renders when the
-// filter is NOT 'all'), so the lookup is genuinely `string | undefined`.
-const FILTER_NOUN: Partial<Record<MapFilter, string>> = {
-  parties: 'parties',
-  classes: 'classes',
-  festivals: 'festivals',
-};
 
 const ctrlBtn = cn(
   // 36px visual circle; a transparent pseudo extends the tap target to 44px
@@ -84,16 +76,10 @@ function readCoachSeen(): boolean {
 
 export default function HomeMapCard({
   state,
-  loading,
-  error,
   fullscreen,
   setFullscreen,
 }: {
   state: UseMapListResult;
-  /** Feed-load state, so the "no parties this week" caption can't fire while the
-   *  map simply has no data yet. */
-  loading?: boolean;
-  error?: boolean;
   fullscreen: boolean;
   setFullscreen: (v: boolean) => void;
 }) {
@@ -229,12 +215,12 @@ export default function HomeMapCard({
     }
   }, [fullscreen, coachSeen, dismissCoach]);
 
-  // A tab, filter OR day change dismisses any open preview (the event it
-  // described may no longer be on the map -- on the Calendar tab the visible pin
-  // set is day-driven). Selection itself is cleared inside useMapList.
+  // A tab OR day change dismisses any open preview (the event it described may
+  // no longer be on the map -- on the Calendar tab the visible pin set is
+  // day-driven). Selection itself is cleared inside useMapList.
   useEffect(() => {
     setPreview(null);
-  }, [state.tab, state.filter, state.day]);
+  }, [state.tab, state.day]);
 
   const previewEvents = useMemo(() => {
     if (!preview) return [] as MapEvent[];
@@ -283,10 +269,7 @@ export default function HomeMapCard({
     setPreview(null);
   }, [fromPin]);
 
-  const filterNoun = FILTER_NOUN[state.filter];
-  const showEmptyFilter =
-    !loading && !error && !previewOpen && state.filter !== 'all' && state.mapVisible.length === 0;
-  const showCoach = fullscreen && !coachSeen && !previewOpen && !showEmptyFilter;
+  const showCoach = fullscreen && !coachSeen && !previewOpen;
 
   return (
     // Full-bleed layer inside .hm-mapcard. It is positioned (so EventMap's
@@ -375,9 +358,9 @@ export default function HomeMapCard({
         </>
       ) : (
         <>
-          {/* Fullscreen top bar: "List" exit pill + "search this map" + category
-              chips, so the expanded map stays findable, filterable and obviously
-              exitable. Hidden while a preview is open (the preview owns the surface). */}
+          {/* Fullscreen top bar: "List" exit pill + "search this map", so the
+              expanded map stays findable and obviously exitable. Hidden while a
+              preview is open (the preview owns the surface). */}
           {fullscreen && !previewOpen && (
             <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex flex-col gap-2 bg-gradient-to-b from-background/95 via-background/70 to-transparent px-2 pb-6 pt-[max(env(safe-area-inset-top),0.5rem)]">
               <div className="flex items-center gap-2">
@@ -404,16 +387,19 @@ export default function HomeMapCard({
                   className="pointer-events-auto min-w-0 flex-1 bg-background/90 shadow-lg backdrop-blur"
                 />
               </div>
-              <div className="pointer-events-auto overflow-x-auto">
-                <CategoryChips filter={state.filter} setFilter={state.setFilter} />
-              </div>
             </div>
           )}
 
           {/* Control stack -- hidden while a preview is open (it would collide with
               a top-docked card and is redundant mid-preview). In fullscreen the
               expand toggle is replaced by the top-bar "List" pill, and the stack
-              drops below the (taller) top bar. */}
+              drops below the top bar. NOTE: the 6rem offset was calibrated
+              against the OLD two-row top bar (pill/field row + category chips
+              row); that second row is gone, so this constant is now too large by
+              roughly the chips row's height. It is deliberately NOT re-guessed
+              here -- estimating these boxes from Tailwind classes has been wrong
+              before (tabs estimated ~28px, measured 23.7px). Measure the rendered
+              bar and set it. Queued: queued-home-map-q-axis-and-coverage.md */}
           {!previewOpen && (
             <div
               className={cn(
@@ -456,23 +442,11 @@ export default function HomeMapCard({
             </div>
           )}
 
-          {/* Bottom-centre overlay: empty-filter caption > first-run coach hint
-              (fullscreen only) > the one-time "tap a pin" hint. All hide mid-preview. */}
-          {!previewOpen && (showEmptyFilter || showCoach || !fullscreen) && (
+          {/* Bottom-centre overlay: first-run coach hint (fullscreen only) > the
+              one-time "tap a pin" hint. Both hide mid-preview. */}
+          {!previewOpen && (showCoach || !fullscreen) && (
             <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[400] flex justify-center px-3">
-              {showEmptyFilter ? (
-                <button
-                  type="button"
-                  onClick={() => state.setFilter('all')}
-                  className={cn(
-                    'pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur',
-                    focusRing,
-                  )}
-                >
-                  No {filterNoun ?? 'events'} this week &middot;{' '}
-                  <span className="font-bold text-primary">Show all</span>
-                </button>
-              ) : showCoach ? (
+              {showCoach ? (
                 <div className="pointer-events-auto inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-background/90 py-1.5 pl-3 pr-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur">
                   <span className="truncate">
                     Tap a pin for the event &middot; tap <b className="text-primary">List</b> to exit

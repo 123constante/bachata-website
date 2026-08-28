@@ -1,3 +1,5 @@
+import type { MapTab } from '@/modules/home-map/mapTypes';
+
 type ProfileEntryState = 'unauthenticated' | 'zero_roles' | 'single_role' | 'multi_role';
 
 type AnalyticsEventMap = {
@@ -16,6 +18,10 @@ type AnalyticsEventMap = {
   auth_code_send_clicked: { source?: string; route: 'returning' | 'new' | 'unknown' };
   auth_code_verified: { source?: string; route: 'returning' | 'new' | 'unknown' };
   auth_change_email_clicked: { source?: string };
+  /** `tab` is MapTab itself, not a hand-copied union: adding a tab (the planned
+   *  Festivals one) must widen this contract by construction rather than break
+   *  TabBar at a call site unrelated to the change. */
+  home_tab_selected: { tab: MapTab };
 };
 
 declare global {

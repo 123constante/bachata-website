@@ -26,7 +26,7 @@
 // hover hint), and all of that lives in HomeMapCard, where a JS viewport branch
 // is safe. See ./viewport.
 //
-// Layout: [page head][map card][dock: tabs + chips][feed]. The feed is the ONE
+// Layout: [page head][map card][dock: tabs][feed]. The feed is the ONE
 // scroller at every viewport now (the desktop rail used to scroll itself, which
 // made the pin->list scroll measure offsetTop from a different element per
 // breakpoint). `.home-map` scopes the cover-scene CSS; `.home-map-fill` supplies
@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
 import { CATEGORY_COLORS } from './mapTypes';
-import { TabBar, CategoryChips, SearchField, RAIL_PANEL_ID, railTabId } from './cards/controls';
+import { TabBar, SearchField, RAIL_PANEL_ID, railTabId } from './cards/controls';
 import {
   TonightCard,
   NewsRow,
@@ -327,8 +327,6 @@ export default function HomeMapShell({
           <Suspense fallback={<div className="absolute inset-0" style={{ background: '#11121a' }} />}>
             <HomeMapCard
               state={state}
-              loading={loading}
-              error={error}
               fullscreen={fullscreen}
               setFullscreen={setFullscreen}
             />
@@ -343,7 +341,6 @@ export default function HomeMapShell({
       <div ref={sideRef} className="hm-side flex min-h-0 flex-1 flex-col">
         <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
           <TabBar tab={state.tab} setTab={state.setTab} />
-          <CategoryChips filter={state.filter} setFilter={state.setFilter} className="mt-2 pb-0.5" />
         </div>
 
         <div
