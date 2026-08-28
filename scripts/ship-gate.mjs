@@ -42,8 +42,9 @@
  * DELETIONS. A risky file this ship DELETES has no bytes left to hash, so it can
  * never appear in the stamp's `hashes` map -- which left the highest-risk guard
  * edit there is (removing a workflow, a check script, a git hook) green by
- * construction. review-scope's deletedRiskyFiles() finds them and the stamp's
- * `deletions` array attests them by PATH. Same tier posture as edits.
+ * construction. review-scope's shipScope() finds them (through riskyRemovedIn)
+ * and the stamp's `deletions` array attests them by PATH. Same tier posture as
+ * edits.
  *
  * Content hashes (not commit SHAs) are the identity for files that still exist --
  * see scripts/lib/review-scope.mjs. Re-reporting findings with outcomes refreshes
@@ -79,12 +80,11 @@ import path from "node:path";
 import { isEntryPoint } from "./lib/entry-point.mjs";
 import {
   REPO_ROOT,
+  TRUNK_BASE,
   enableScopeCache,
   resolveBaseRef,
   resolveShipBase,
-  tieredScope,
-  deletedRiskyFiles,
-  renamePairs,
+  shipScope,
   riskTier,
   toPosix,
   hashFile,
@@ -196,7 +196,8 @@ export function decide({
      * Rename tolerance survives, narrowed to the renames git actually reports for
      * THIS ship: a path is covered by proxy only when it is the destination of a
      * rename whose SOURCE was stamped at exactly this hash. Same notion of "a
-     * rename" that deletedRiskyFiles() uses, so the two halves cannot disagree. */
+     * rename" that riskyRemovedIn() uses -- shipScope() hands both halves the one
+     * filtered pair list, so they cannot disagree. */
     const src = renameSourceOf(rel);
     if (src !== undefined && stampedHashOf(src) === h) return null;
     return rel + " -- was never reviewed (the stamp holds no entry for this path)";
@@ -305,10 +306,15 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
   let renames = [];
   let baseRef = null;
   let narrowBase = null;
+  let trunkCarried = 0;
+  let trunkError = null;
   try {
-    // ONE base ref for all three halves: tieredScope(), deletedRiskyFiles() and
-    // renamePairs() each default to resolveBaseRef(), and a ref that moved between
-    // the calls would scope them against different ships.
+    // ONE base ref for all the halves, as before -- and now one READ per git
+    // question too. tieredScope(), deletedRiskyFiles() and renamePairs() were
+    // each handed the same baseRef explicitly, but they each went and asked git
+    // again; shipScope() asks once and derives everything from that snapshot,
+    // which matters because it now compares TWO bases and a working tree read
+    // twice can disagree with itself between the reads.
     //
     // resolveShipBase(), NOT resolveBaseRef(). The narrow base is the branch's own
     // upstream, which collapses to an EMPTY scope the moment the branch is pushed
@@ -317,11 +323,19 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
     // narrow base carries no risky content, so the scope can no longer empty
     // BECAUSE A BRANCH GOT PUSHED. narrowBase is kept only to tell the operator
     // when that widening fired. See review-scope.mjs resolveShipBase().
+    //
+    // The narrow base ALSO scopes in everything a merge from main imported, and
+    // shipScope() subtracts exactly that -- see its docblock for why "this ship
+    // does not change it" is a different (and much weaker) claim than "main
+    // reviewed it".
     narrowBase = resolveBaseRef();
     baseRef = resolveShipBase();
-    scope = tieredScope(baseRef);
-    deleted = byTier(deletedRiskyFiles(baseRef));
-    renames = renamePairs(baseRef);
+    const ship = shipScope(baseRef);
+    scope = ship.tiers;
+    deleted = byTier(ship.deleted);
+    renames = ship.renames;
+    trunkCarried = ship.trunkCarried.length;
+    trunkError = ship.trunkError;
   } catch (err) {
     return {
       code: 2,
@@ -398,7 +412,18 @@ export function run({ now = Date.now(), strictSoft = strictSoftFromEnv() } = {})
    * and the whole empty-scope bypass lived in that ambiguity. `widened` is true
    * when the branch's own upstream contributed nothing risky and the trunk was
    * used instead -- the case that used to print a vacuous green. */
-  return { ...verdict, baseRef, widened: baseRef !== narrowBase };
+  return {
+    ...verdict,
+    baseRef,
+    widened: baseRef !== narrowBase,
+    /* A SILENT NARROWING IS A FAIL-OPEN YOU CANNOT SEE. Both fields are part of
+     * the verdict for the same reason baseRef is: the counts above are relative
+     * to a scope this gate subtracted from, and an operator who cannot see the
+     * subtraction cannot tell a green that inspected everything from a green that
+     * inspected less. trunkError says the subtraction did NOT happen. */
+    trunkCarried,
+    trunkError,
+  };
 }
 
 // Realpath-to-realpath (scripts/lib/entry-point.mjs), and nowhere does it
@@ -437,6 +462,24 @@ if (isEntryPoint(import.meta.url)) {
             ? "  (WIDENED to the trunk -- the branch's own upstream carried no risky" +
               " content, which is the shape that used to print a vacuous green)"
             : "")
+      );
+    }
+    /* Two MECHANICAL lines, no advice. Every count printed above is taken after
+     * a subtraction, so the subtraction has to be visible or a narrower green
+     * reads exactly like a wider one. The wording states only what the predicate
+     * computes -- "this ship does not change them" -- and deliberately does NOT
+     * say they were reviewed: content reaches the trunk via --no-verify, via
+     * Dependabot and via other worktrees. See shipScope()'s docblock. */
+    if (verdict.trunkCarried) {
+      console.log(
+        "  excluded: " + verdict.trunkCarried +
+          " path(s) this ship does not change relative to " + TRUNK_BASE
+      );
+    }
+    if (verdict.trunkError) {
+      console.log(
+        "  note: could not read " + TRUNK_BASE + " (" + verdict.trunkError +
+          ") -- scope NOT narrowed"
       );
     }
     for (const r of verdict.reasons) console.log("  - " + r);

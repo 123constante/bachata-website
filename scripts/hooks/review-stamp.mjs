@@ -54,10 +54,9 @@ import {
   recordMintAttempt,
   readStdin,
   enableScopeCache,
-  resolveBaseRef,
-  hashRiskyScope,
-  deletedRiskyFiles,
-  tieredScope,
+  resolveShipBase,
+  shipScope,
+  hashRiskyPaths,
   loadStamp,
   mergeReviewStamp,
   describeProvenance,
@@ -69,13 +68,28 @@ import {
 // FRESH and CLEAN prior coverage) -- the contract and its both-direction tests
 // live on mergeReviewStamp in review-scope.mjs.
 //
-// ONE BASE REF for the whole mint. hashRiskyScope() and deletedRiskyFiles() each
-// default to resolveBaseRef(), so calling them bare would resolve git state
-// twice; a ref that moved in between (a concurrent fetch, an upstream being set)
-// would stamp the two halves against different definitions of "this ship".
-export function writeStamp({ sessionId, findings, baseRef = resolveBaseRef() }) {
-  const hashes = hashRiskyScope(baseRef);
-  const deletions = deletedRiskyFiles(baseRef);
+// ONE BASE REF, and now ONE SNAPSHOT, for the whole mint. The two halves used to
+// be separate defaulted calls, so a ref that moved in between (a concurrent
+// fetch, an upstream being set) would stamp them against different definitions of
+// "this ship". shipScope() resolves the whole question once.
+//
+// THE SAME SCOPE THE GATE ENFORCES. This is the half that has to move with
+// scripts/ship-gate.mjs, not after it: a mint over a WIDER scope than the gate
+// asks about attests files nobody proposed to change, and a mint over a NARROWER
+// one leaves a red the operator has no way to clear. Both halves now derive from
+// shipScope(), so the merge-from-main subtraction cannot apply to one and not the
+// other. BOTH halves also now resolve their BASE the same way, via
+// resolveShipBase() -- the same widen-when-the-narrow-scope-is-empty rule the
+// gate applies. Before this, the mint defaulted to resolveBaseRef() (never
+// widened), so a push whose narrow scope was empty but whose trunk-widened
+// scope was not left the automatic hook mint attesting zero files while the
+// gate demanded review of the widened one -- a review-then-red with no
+// explanation. See runManual's empty-scope refusal below for the case where
+// EVEN THE WIDENED scope is empty.
+export function writeStamp({ sessionId, findings, baseRef = resolveShipBase() }) {
+  const ship = shipScope(baseRef);
+  const hashes = hashRiskyPaths(ship.risky);
+  const deletions = ship.deleted;
   const { stamp: prev } = loadStamp(); // {status, stamp}; corrupt/missing -> null -> clean mint
   const stamp = mergeReviewStamp(prev, {
     sessionId: sessionId || null,
@@ -173,9 +187,10 @@ function runManual() {
    * The fix is to name the base explicitly, which is what REVIEW_SCOPE_BASE is
    * for. DELETIONS COUNT AS SCOPE: a ship whose only risky change is removing a
    * check script has an empty on-disk scope but is emphatically not empty. */
-  const baseRef = resolveBaseRef();
-  const tiers = tieredScope(baseRef);
-  const deletions = deletedRiskyFiles(baseRef);
+  const baseRef = resolveShipBase();
+  const ship = shipScope(baseRef);
+  const tiers = ship.tiers;
+  const deletions = ship.deleted;
   const total = tiers.hard.length + tiers.soft.length + deletions.length;
   if (total === 0) {
     console.error("review-stamp --manual: the risky ship scope is EMPTY -- refusing to stamp.");

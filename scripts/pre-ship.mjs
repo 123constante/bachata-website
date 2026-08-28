@@ -59,10 +59,10 @@ import path from "node:path";
 import {
   diffOrigin,
   renamePairs,
-  resolveBaseRef,
   resolveDeclaration,
+  resolveShipBase,
   scopeDrift,
-  shipFiles,
+  shipScope,
   toPosix,
 } from "./lib/review-scope.mjs";
 import { plansDir } from "./check-plan-hygiene.mjs";
@@ -1241,8 +1241,8 @@ export function runCheck(id, args = [], extraEnv = null, exec = execSync) {
 }
 
 /**
- * Every repo-relative path in THIS ship. Delegates to the library's shipFiles
- * rather than re-deriving it.
+ * Every repo-relative path in THIS ship. Delegates to the library's
+ * resolveShipBase()/shipScope() rather than re-deriving either.
  *
  * The first cut hand-rolled the same git plumbing here and, in doing so,
  * dropped unquoteGitPath -- stripping the wrapping quotes but never decoding
@@ -1252,10 +1252,16 @@ export function runCheck(id, args = [], extraEnv = null, exec = execSync) {
  * exists() filter dropped it, and it was never linted. review-scope.mjs
  * documents that exact bug as having "reported GREEN on unreviewed content".
  * Two copies of a scope predicate is one copy too many.
+ *
+ * Was resolveBaseRef()/shipFiles() until the trunk-carried-scope fix: those
+ * two never subtract what a merge from main carries into the narrow diff, so
+ * a branch that lands main's own recent commits saw them as foreign scope
+ * here even after ship-gate.mjs was fixed to stop reporting the same thing.
+ * See shipScope()'s docblock in review-scope.mjs for the mechanism.
  */
 function changedFiles() {
-  const base = resolveBaseRef();
-  return { base, files: shipFiles(base) };
+  const base = resolveShipBase();
+  return { base, files: shipScope(base).files };
 }
 
 async function main(argv = process.argv.slice(2)) {
