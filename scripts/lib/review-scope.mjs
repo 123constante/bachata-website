@@ -155,6 +155,21 @@ function git(args) {
   });
 }
 
+/** Does `ref` still track `rel`? Used by shipScope()'s rename filter -- a
+ * missing ref (unreadable trunk) answers false, the conservative direction:
+ * treating a source as still-tracked is what KEEPS a rename in own scope. */
+function pathExistsAt(ref, rel) {
+  try {
+    execFileSync("git", ["cat-file", "-e", ref + ":" + rel], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Decode a path as git may print it. With core.quotepath=false most paths are
  * raw already, but git still wraps a name containing a quote/backslash/control
@@ -340,14 +355,78 @@ export function diffOrigin(baseRef) {
  * module -- keeps the uncached, always-correct behaviour. */
 let SCOPE_CACHE_ENABLED = false;
 const SHIP_FILES_CACHE = new Map();
+const TRACKED_CACHE = new Map();
 const RENAME_CACHE = new Map();
+/* THE WORKING-TREE HALF IS BASE-INDEPENDENT, and shipScope() below depends on
+ * it being read ONCE rather than once per base. `git status` answers the same
+ * question whatever ref you diff against, so the two halves of the intersection
+ * must not each go and ask it: a file that appeared between the two reads would
+ * land in one set and not the other, and the one direction that matters --
+ * present in the narrow read, absent from the trunk read -- SUBTRACTS it from
+ * scope. That is the fail-OPEN direction, on the one input (uncommitted work)
+ * that can never be "already at the trunk".
+ *
+ * Cached only when the CLI cache is on, exactly like the two maps above, so the
+ * "the scope is what the tree says NOW" property library callers rely on is
+ * untouched. */
+let STATUS_CACHE = null;
 /** Call once from a short-lived CLI entry point that will not mutate the tree. */
 export function enableScopeCache() {
   SCOPE_CACHE_ENABLED = true;
 }
 export function clearScopeCache() {
   SHIP_FILES_CACHE.clear();
+  TRACKED_CACHE.clear();
   RENAME_CACHE.clear();
+  STATUS_CACHE = null;
+}
+
+/**
+ * `git status --porcelain` over the whole tree, verbatim lines.
+ *
+ * --untracked-files=all is load-bearing. The default (`normal`) COLLAPSES a
+ * wholly-untracked directory into a single "?? src/newfeature/" entry, so every
+ * file inside a brand-new directory was invisible: the eslint ratchet saw one
+ * unlintable path and printed SKIP, and hashFile() on a directory throws EISDIR
+ * so nothing in it was ever hashed or review-gated. That falsified this file's
+ * own header claim that a brand-new untracked file cannot slip through.
+ */
+function statusLines() {
+  if (SCOPE_CACHE_ENABLED && STATUS_CACHE) return STATUS_CACHE;
+  const lines = git([
+    "-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all",
+  ]).split("\n");
+  if (SCOPE_CACHE_ENABLED) STATUS_CACHE = lines;
+  return lines;
+}
+
+/** TRACKED paths differing from `baseRef` (through its merge base). */
+function trackedFiles(baseRef) {
+  if (SCOPE_CACHE_ENABLED) {
+    const cached = TRACKED_CACHE.get(baseRef);
+    if (cached) return cached;
+  }
+  const out = [];
+  for (const f of git(["-c", "core.quotepath=false", "diff", "--name-only", diffOrigin(baseRef)]).split("\n")) {
+    const rel = unquoteGitPath(f.trim());
+    if (rel) out.push(toPosix(rel));
+  }
+  if (SCOPE_CACHE_ENABLED) TRACKED_CACHE.set(baseRef, out);
+  return out;
+}
+
+/** DIRTY or UNTRACKED paths in the working tree. Base-independent. */
+function worktreeFiles(lines = statusLines()) {
+  const out = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let p = line.slice(3).trim();
+    const arrow = p.indexOf(" -> ");
+    if (arrow !== -1) p = p.slice(arrow + 4); // rename/copy: take the destination
+    p = unquoteGitPath(p);
+    if (p) out.push(toPosix(p));
+  }
+  return out;
 }
 
 export function shipFiles(baseRef = resolveBaseRef()) {
@@ -355,27 +434,7 @@ export function shipFiles(baseRef = resolveBaseRef()) {
     const cached = SHIP_FILES_CACHE.get(baseRef);
     if (cached) return cached;
   }
-  const out = new Set();
-  for (const f of git(["-c", "core.quotepath=false", "diff", "--name-only", diffOrigin(baseRef)]).split("\n")) {
-    const rel = unquoteGitPath(f.trim());
-    if (rel) out.add(toPosix(rel));
-  }
-  // --untracked-files=all is load-bearing. The default (`normal`) COLLAPSES a
-  // wholly-untracked directory into a single "?? src/newfeature/" entry, so
-  // every file inside a brand-new directory was invisible: the eslint ratchet
-  // saw one unlintable path and printed SKIP, and hashFile() on a directory
-  // throws EISDIR so nothing in it was ever hashed or review-gated. That
-  // falsified this file's own header claim that a brand-new untracked file
-  // cannot slip through.
-  for (const line of git(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"]).split("\n")) {
-    if (!line.trim()) continue;
-    let p = line.slice(3).trim();
-    const arrow = p.indexOf(" -> ");
-    if (arrow !== -1) p = p.slice(arrow + 4); // rename/copy: take the destination
-    p = unquoteGitPath(p);
-    if (p) out.add(toPosix(p));
-  }
-  const files = [...out].sort();
+  const files = [...new Set([...trackedFiles(baseRef), ...worktreeFiles()])].sort();
   if (SCOPE_CACHE_ENABLED) SHIP_FILES_CACHE.set(baseRef, files);
   return files;
 }
@@ -411,7 +470,7 @@ export function renamePairs(baseRef = resolveBaseRef()) {
     // "R100\told\tnew" / "C75\told\tnew"; everything else has a single path.
     if (parts.length >= 3 && /^[RC]/.test(parts[0].trim())) add(parts[1].trim(), parts[2].trim());
   }
-  for (const line of git(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"]).split("\n")) {
+  for (const line of statusLines()) {
     if (!line.trim()) continue;
     const code = line.slice(0, 2);
     const rest = line.slice(3);
@@ -423,28 +482,22 @@ export function renamePairs(baseRef = resolveBaseRef()) {
 }
 
 /**
- * Risky files in this ship that STILL EXIST on disk (a file staged for deletion
- * carries no content to review). Sorted, unique, repo-relative POSIX.
+ * PURE HALVES of the four scope queries below, taking a files snapshot instead
+ * of a base ref.
+ *
+ * They exist because shipScope() needs the same predicates over a set it has
+ * ALREADY narrowed, and a second copy of "which of these still exist on disk"
+ * or "which rename left the risky tree" is a second thing to keep in step. The
+ * ref-taking exports underneath are one line each and unchanged in behaviour,
+ * so pre-ship and every existing caller are untouched.
  */
-export function riskyFilesInScope(baseRef = resolveBaseRef()) {
-  return shipFiles(baseRef)
-    .filter(isRiskyPath)
-    .filter((rel) => fs.existsSync(path.join(REPO_ROOT, rel)));
+export function riskyExistingIn(files) {
+  return files.filter(isRiskyPath).filter((rel) => fs.existsSync(path.join(REPO_ROOT, rel)));
 }
 
-/**
- * Risky files this ship DELETES. riskyFilesInScope deliberately drops anything
- * not on disk (a deletion carries no content to hash), which left the single
- * highest-risk guard edit there is -- removing a CI workflow, a check script or
- * a git hook -- passing unreviewed by construction. Deletions are tracked here
- * rather than faked into the hash map, so the content-hash contract stays a
- * content-hash contract; Phase 2's ship-gate is what blocks on them.
- */
-export function deletedRiskyFiles(baseRef = resolveBaseRef()) {
+export function riskyRemovedIn(files, renames = []) {
   const out = new Set(
-    shipFiles(baseRef)
-      .filter(isRiskyPath)
-      .filter((rel) => !fs.existsSync(path.join(REPO_ROOT, rel)))
+    files.filter(isRiskyPath).filter((rel) => !fs.existsSync(path.join(REPO_ROOT, rel)))
   );
   /* A RENAME OUT OF THE RISKY TREE IS A REMOVAL. See renamePairs() for the hole:
    * git names only the destination, so `git mv scripts/check-x.mjs archive/x.mjs`
@@ -458,26 +511,161 @@ export function deletedRiskyFiles(baseRef = resolveBaseRef()) {
    * whole content-hash identity exists to provide. The gate's rename tolerance is
    * narrowed to exactly these pairs (see ship-gate's whyFile), so the two halves
    * agree on what a rename is. */
-  for (const { from, to } of renamePairs(baseRef)) {
+  for (const { from, to } of renames) {
     if (isRiskyPath(from) && !isRiskyPath(to)) out.add(from);
   }
   return [...out].sort();
 }
 
+/** Split risky paths by tier. Null-tier is impossible on a risky input. */
+export function tierSplit(rels) {
+  const out = { hard: [], soft: [] };
+  for (const rel of rels) out[riskTier(rel)].push(rel);
+  return out;
+}
+
+/** rel -> CRLF-normalised hash for each path (null where unreadable). */
+export function hashRiskyPaths(rels) {
+  const out = {};
+  for (const rel of rels) out[rel] = hashFile(path.join(REPO_ROOT, rel));
+  return out;
+}
+
+/**
+ * Risky files in this ship that STILL EXIST on disk (a file staged for deletion
+ * carries no content to review). Sorted, unique, repo-relative POSIX.
+ */
+export function riskyFilesInScope(baseRef = resolveBaseRef()) {
+  return riskyExistingIn(shipFiles(baseRef));
+}
+
+/**
+ * Risky files this ship DELETES. riskyFilesInScope deliberately drops anything
+ * not on disk (a deletion carries no content to hash), which left the single
+ * highest-risk guard edit there is -- removing a CI workflow, a check script or
+ * a git hook -- passing unreviewed by construction. Deletions are tracked here
+ * rather than faked into the hash map, so the content-hash contract stays a
+ * content-hash contract; Phase 2's ship-gate is what blocks on them.
+ */
+export function deletedRiskyFiles(baseRef = resolveBaseRef()) {
+  return riskyRemovedIn(shipFiles(baseRef), renamePairs(baseRef));
+}
+
 /** Risky files split by tier: { hard: [...], soft: [...] }. */
 export function tieredScope(baseRef = resolveBaseRef()) {
-  const out = { hard: [], soft: [] };
-  for (const rel of riskyFilesInScope(baseRef)) out[riskTier(rel)].push(rel);
-  return out;
+  return tierSplit(riskyFilesInScope(baseRef));
 }
 
 /** A map of rel -> CRLF-normalised hash for every risky file in scope. */
 export function hashRiskyScope(baseRef = resolveBaseRef()) {
-  const out = {};
-  for (const rel of riskyFilesInScope(baseRef)) {
-    out[rel] = hashFile(path.join(REPO_ROOT, rel));
+  return hashRiskyPaths(riskyFilesInScope(baseRef));
+}
+
+/**
+ * PURE POLICY half of shipScope(): split a ship's paths into the ones it
+ * actually CHANGES relative to the trunk, and the ones it merely carries.
+ *
+ * `trunkFiles === null` means the trunk could not be read, and then NOTHING is
+ * subtracted. That direction is deliberate and is the whole fail-closed story:
+ * an unreadable trunk leaves the scope WIDER, never narrower.
+ *
+ * @param {string[]} files       every path this ship carries, against its base
+ * @param {Set<string>|string[]|null} trunkFiles  the same, against the trunk
+ * @returns {{own:string[], trunkCarried:string[]}}
+ */
+export function shipScopeFilter(files, trunkFiles) {
+  if (!trunkFiles) return { own: [...files], trunkCarried: [] };
+  const t = trunkFiles instanceof Set ? trunkFiles : new Set(trunkFiles);
+  const own = [];
+  const trunkCarried = [];
+  for (const rel of files) (t.has(rel) ? own : trunkCarried).push(rel);
+  return { own, trunkCarried };
+}
+
+/**
+ * THE SCOPE THE REVIEW APPARATUS ACTS ON -- the narrow base's ship, minus every
+ * path this ship does not change relative to the trunk.
+ *
+ * THE DEFECT THIS CLOSES (measured on this repo, 2026-08-27). Updating a branch
+ * from main -- the most ordinary act in the workflow -- puts every file main
+ * moved into the narrow diff, because resolveBaseRef() answers "what is already
+ * pushed to origin/<branch>" and a merge from main is emphatically not that.
+ * Landing #307 on top of #308/#310/#311 put ELEVEN hard-tier files there and the
+ * gate demanded receipts for all of them, under this branch's name. That trains
+ * `--no-verify`, which disables the hard tier too.
+ *
+ * WHAT IS BEING CLAIMED, AND WHAT IS NOT. The claim is NOT "it arrived from main,
+ * so it was reviewed" -- content reaches main via --no-verify, via Dependabot and
+ * via other worktrees, and that inference is exactly the hole resolveShipBase()
+ * exists to close. The claim is narrower and mechanical: a path absent from the
+ * ship computed against the TRUNK is a path this branch does not change relative
+ * to the trunk. Merging this branch would move no bytes into that file. There is
+ * nothing for a reviewer to review, because nothing is being proposed. The gate
+ * protects the trunk; it cannot protect the trunk from what the trunk already is.
+ *
+ * WHY NOT WIDEN THE BASE INSTEAD. That was tried and reverted twice (see
+ * ~/.claude/plans/queued-ship-gate-merge-from-main-lockout-REVERTED.md). Feeding
+ * an intersected COUNT to pickShipBase() is inert on the src/-only shape that
+ * caused the incident, and where it does fire it re-scopes work the branch pushed
+ * and reviewed days ago -- past MAX_STAMP_AGE_MS, so a fresh RED. resolveShipBase()
+ * and pickShipBase() are deliberately UNTOUCHED here: the empty-scope widening
+ * still keys on the RAW narrow count, so a pushed branch still cannot empty its
+ * own scope, and a long-lived branch still is not re-scoped.
+ *
+ * ONE SNAPSHOT PER GIT QUESTION. The working-tree half is read once and shared by
+ * both bases (see statusLines), so uncommitted work is in both sets by
+ * construction and can never be subtracted.
+ *
+ * @returns {{base, files, renames, risky, deleted, tiers, trunkCarried, trunkError}}
+ */
+export function shipScope(baseRef = resolveBaseRef(), { trunk = TRUNK_BASE } = {}) {
+  const status = statusLines();
+  const worktree = worktreeFiles(status);
+  const files = [...new Set([...trackedFiles(baseRef), ...worktree])].sort();
+  const renames = renamePairs(baseRef);
+
+  /* Asking about the trunk must not be able to BREAK the gate. Before this, the
+   * trunk was queried only when the narrow scope was already empty; querying it
+   * on every push means a missing or unfetched origin/main throws, ship-gate
+   * exits 2, and .githooks/pre-push treats 2 as infra and does NOT block. So the
+   * failure is caught and reported, and the scope stays un-narrowed. */
+  let trunkFiles = null;
+  let trunkError = null;
+  if (toPosix(baseRef) !== toPosix(trunk)) {
+    try {
+      trunkFiles = new Set([...trackedFiles(trunk), ...worktree]);
+    } catch (err) {
+      trunkError = clip(String((err && err.message) || err).split("\n")[0], 200);
+    }
   }
-  return out;
+
+  const { own, trunkCarried } = shipScopeFilter(files, trunkFiles);
+  /* A rename whose DESTINATION is trunk-carried is the trunk's rename, not this
+   * ship's -- PROVIDED trunk also no longer has the SOURCE. Content-match alone
+   * is not enough: a branch-authored `git mv old.mjs new.mjs` can land at a
+   * destination that happens to byte-match what trunk independently holds there
+   * (shared boilerplate, or a merge conflict resolved by taking main's side),
+   * while trunk still tracks old.mjs untouched. Dropping the pair on content
+   * match alone would then excuse the branch's own deletion of old.mjs from a
+   * receipt -- exactly the class of edit deletedRiskyFiles()/riskyRemovedIn()
+   * exist to catch. Requiring trunk to have ALSO lost the source path is the
+   * same "did the trunk do this too" question the rest of this function asks by
+   * diff; a rename is the one place that question needs two paths, not one. */
+  const ownSet = new Set(own);
+  const ownRenames = trunkFiles
+    ? renames.filter((p) => ownSet.has(p.to) || pathExistsAt(trunk, p.from))
+    : renames;
+  const risky = riskyExistingIn(own);
+  return {
+    base: baseRef,
+    files: own,
+    renames: ownRenames,
+    risky,
+    deleted: riskyRemovedIn(own, ownRenames),
+    tiers: tierSplit(risky),
+    trunkCarried,
+    trunkError,
+  };
 }
 
 /* == scope drift ============================================================
