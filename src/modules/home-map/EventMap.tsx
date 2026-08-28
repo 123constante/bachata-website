@@ -71,9 +71,38 @@ interface EventMapProps {
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+// Esri's dark canvas, NOT CARTO. CARTO began watermarking keyless traffic --
+// `basemaps.cartocdn.com/dark_all` returns HTTP 200 with "API KEY REQUIRED"
+// burned into the raster, so nothing errors and no guard sees it. It was live
+// on prod. `rastertiles/dark_all` is byte-identical, so it is not a way out;
+// the only CARTO fix is an account + key, which is queued.
+//
+// Esri's tile scheme is /{z}/{y}/{x} -- y BEFORE x, the opposite of the usual
+// XYZ order -- and it has no {s} subdomains and no {r} retina variant.
+const TILE_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+// The label half of the pair. Transparent PNG; must be added AFTER the base.
+const TILE_REF_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
+// MEASURED, not read off a docs page: z<=16 serves real tiles; z17 and z18 both
+// return the same 2521-byte "Map data not yet available" placeholder, which is
+// LIGHT GREY and would read as a broken map on this dark theme. maxNativeZoom
+// pins fetching at 16 and lets Leaflet upscale, so the zoom range is unchanged.
+const TILE_MAX_NATIVE_ZOOM = 16;
+// Deliberately its own constant, seeded from the tile ceiling rather than
+// spelled as it. These are two different facts that happen to share a number:
+// one is Esri's cache depth, the other is a marker-clustering UX threshold.
+// When the queued CARTO key lands and TILE_MAX_NATIVE_ZOOM goes back to 19,
+// this must NOT silently follow it three levels out -- changing how every
+// clustered pin tap behaves in a diff that never mentions clustering.
+const UNCLUSTER_ZOOM = TILE_MAX_NATIVE_ZOOM;
+// VERBATIM from the service's own metadata -- server.arcgisonline.com/ArcGIS/rest/
+// services/Canvas/World_Dark_Gray_Base/MapServer?f=json -> copyrightText. Esri's
+// terms require the service's stated credit, and an abridged "Esri" alone drops
+// HERE, Garmin and the OSM contributors. Re-read that field if the service is
+// ever changed; do not hand-shorten it.
 const ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, and the GIS user community';
 const PIN_SVG =
   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 const ARROW_SVG =
@@ -344,12 +373,93 @@ export default function EventMap({
     };
     elRef.current.addEventListener('error', onCoverError, true);
 
-    L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
+    // TWO layers, because Esri's Dark Gray Canvas is a PAIR: the Base service is
+    // opaque terrain with NO place names, and the labels live in a separate
+    // transparent Reference service. CARTO's dark_all baked both into one raster,
+    // so a straight URL swap silently ships a map with no street or place names
+    // at any zoom -- while the pre-mount placeholder still (a CARTO render) DOES
+    // show them, making the swap visible at mount.
+    // `className` is what lets homeMap.css darken the base WITHOUT darkening the
+    // labels, which are light-on-transparent and would be crushed to unreadable.
+    const baseLayer = L.tileLayer(TILE_URL, {
+      attribution: ATTR,
+      maxZoom: 19,
+      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+      className: 'hm-basetiles',
+    }).addTo(m);
+    const refLayer = L.tileLayer(TILE_REF_URL, {
+      maxZoom: 19,
+      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+      className: 'hm-labeltiles',
+    }).addTo(m);
+
+    // The basemap has no other alarm. CARTO's failure was HTTP 200 with "API KEY
+    // REQUIRED" painted into the raster -- nothing threw, nothing 404'd, and the
+    // smoke suite only counts markers, so it stayed green while prod was broken.
+    // `tileerror` will not catch a watermark, but it DOES catch the failure this
+    // provider can produce (host/CSP/DNS/403), which is currently unobserved.
+    // Fire ONCE PER LAYER: a pan over a dead layer emits one event per tile,
+    // but the two layers are two independent services. A single shared latch
+    // meant one benign Reference 404 (that cache is the sparser of the pair)
+    // permanently silenced a later total Base-layer outage -- the exact
+    // failure this alarm exists for -- and reported it against the wrong URL.
+    // Alarm on a layer that painted NOTHING, not on the first failed tile.
+    // ~95% of this site is mobile, where a single dropped tile <img> is ordinary
+    // network noise. Reporting the first error would emit one Sentry event per
+    // layer per mount -- and the latch resets on EVERY mount (breakpoint
+    // crossing, re-entering home) -- so the steady drip would bury the outage
+    // this alarm exists to surface. The failures it is for (host/CSP/DNS/403)
+    // have a distinguishable shape: zero tiles ever paint. The grace window is
+    // what stops a transient error on a healthy layer's first tile from
+    // impersonating that shape.
+    const TILE_ALARM_GRACE_MS = 8000;
+    const reportedFor = new Set<string>();
+    const loadedFor = new Set<string>();
+    const pendingFor = new Set<string>();
+    const noteTileLoad = (layerName: string) => () => {
+      loadedFor.add(layerName);
+    };
+    const tileErrorHandler =
+      (layerName: string, url: string) =>
+      (ev: { coords?: { x: number; y: number; z: number } }) => {
+        // One tile already painted => the service is reachable => noise.
+        if (reportedFor.has(layerName) || loadedFor.has(layerName)) return;
+        if (pendingFor.has(layerName)) return;
+        pendingFor.add(layerName);
+        const at = ev?.coords ? `z${ev.coords.z}/${ev.coords.y}/${ev.coords.x}` : 'unknown';
+        // safeTimeout, not setTimeout: dispose() clears it, so unmounting inside
+        // the grace window cannot fire this against a removed map.
+        disposer.safeTimeout(() => {
+          pendingFor.delete(layerName);
+          if (loadedFor.has(layerName) || reportedFor.has(layerName)) return;
+          reportedFor.add(layerName);
+          void import('@/lib/sentry')
+            .then(({ captureException }) =>
+              captureException(
+                new Error(`basemap layer painted no tiles in ${TILE_ALARM_GRACE_MS}ms (${layerName} ${at})`),
+                {
+                  context: 'EventMap.tileerror',
+                  tileLayer: layerName,
+                  tileUrl: url,
+                },
+              ),
+            )
+            .catch(() => {});
+        }, TILE_ALARM_GRACE_MS);
+      };
+    baseLayer.on('tileload', noteTileLoad('base'));
+    refLayer.on('tileload', noteTileLoad('reference'));
+    baseLayer.on('tileerror', tileErrorHandler('base', TILE_URL));
+    refLayer.on('tileerror', tileErrorHandler('reference', TILE_REF_URL));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
       maxClusterRadius: compact ? 24 : 28,
-      disableClusteringAtZoom: 17,
+      // 16, not 17, because 16 is the basemap's last NATIVE zoom (see
+      // TILE_MAX_NATIVE_ZOOM). zoomToShowLayer zooms until a marker unclusters,
+      // so at 17 the single most common interaction -- tapping a clustered pin --
+      // always landed the user on 2x-upscaled tiles.
+      disableClusteringAtZoom: UNCLUSTER_ZOOM,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: false,
       // We own every cluster tap (handler below): a residual colocated bundle

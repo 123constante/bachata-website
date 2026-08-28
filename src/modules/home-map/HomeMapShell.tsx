@@ -310,7 +310,17 @@ export default function HomeMapShell({
         )}
         {/* Static attribution while the still is showing -- EventMap's own live
             Leaflet attribution control takes over once mounted, so this must not
-            linger and double up once real tiles are on screen. */}
+            linger and double up once real tiles are on screen.
+            STILL CREDITS CARTO ON PURPOSE, even though the live tiles are now
+            Esri: these stills are baked CARTO renders, so CARTO is the correct
+            credit for the imagery actually on screen at this moment. Swapping
+            this to Esri would credit the wrong provider for this image.
+            OPEN, and NOT a code fix: we host CARTO-derived rasters with no key,
+            which is the same licensing exposure that produced the "API KEY
+            REQUIRED" watermark on the live tiles. Re-render these stills from
+            the current provider, or take a CARTO key. Until then the still and
+            the live map also differ visibly -- different cartography, and the
+            still carries place labels baked in. */}
         {placeholder && !mapMounted && (
           <div className="pointer-events-none absolute bottom-0 right-0 z-10 rounded-tl bg-background/70 px-1 text-[9px] leading-tight text-muted-foreground">
             &copy;{' '}

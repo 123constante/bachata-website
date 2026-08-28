@@ -17,7 +17,11 @@ export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean 
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: blob: https://pub-07f606224cac4f2596903c44df723644.r2.dev https://*.r2.dev https://*.supabase.co https://flagcdn.com https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://*.basemaps.cartocdn.com",
+    // server.arcgisonline.com is the BASEMAP host (was *.basemaps.cartocdn.com,
+    // dropped when CARTO started watermarking keyless tiles). A basemap swap is
+    // not just EventMap's TILE_URL: miss this line and every tile is silently
+    // CSP-blocked, which renders as an empty map with no failed request.
+    "img-src 'self' data: blob: https://pub-07f606224cac4f2596903c44df723644.r2.dev https://*.r2.dev https://*.supabase.co https://flagcdn.com https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://server.arcgisonline.com",
     "media-src 'self' blob: https://*.r2.dev https://*.supabase.co",
     "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
     "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",

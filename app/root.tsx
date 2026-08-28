@@ -78,14 +78,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             warming those connections during the critical path spent two mobile
             TLS handshakes on fonts nothing above the fold waits for. */}
         <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co" />
-        {/* Carto basemap tiles. Leaflet rotates the subdomain across a/b/c/d
-            ({s} in EventMap's tile URL), and the homepage LCP element is one of
-            these tiles -- preconnecting only `a` left b/c/d to a cold connect on
-            the critical path (measured resourceLoadDelay ~3.2s). Warm all four. */}
-        <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossOrigin="" />
-        <link rel="preconnect" href="https://b.basemaps.cartocdn.com" crossOrigin="" />
-        <link rel="preconnect" href="https://c.basemaps.cartocdn.com" crossOrigin="" />
-        <link rel="preconnect" href="https://d.basemaps.cartocdn.com" crossOrigin="" />
+        {/* Basemap tiles -- ONE host. The previous provider sharded over {s}=a-d
+            and needed a preconnect each; Esri serves every tile from one origin.
+            NO crossOrigin: L.tileLayer sets no crossOrigin option, so tiles load
+            as non-CORS <img>. An anonymous-CORS preconnect keys a DIFFERENT
+            socket pool, so the warmed connection is never reused and the tile
+            still pays a cold handshake -- the preconnect costs one and saves
+            none. The old four CARTO links carried the same attribute, so the
+            ~3.2s resourceLoadDelay once credited to them wants re-measuring
+            before it is quoted again. */}
+        <link rel="preconnect" href="https://server.arcgisonline.com" />
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

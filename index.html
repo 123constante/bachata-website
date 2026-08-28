@@ -13,7 +13,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co">
   <link rel="preconnect" href="https://pub-07f606224cac4f2596903c44df723644.r2.dev">
-  <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossorigin>
+  <!-- No crossorigin: Leaflet loads tiles as non-CORS <img>, so an anonymous-CORS
+       preconnect warms a socket the tile request cannot reuse. See app/root.tsx. -->
+  <link rel="preconnect" href="https://server.arcgisonline.com">
   <!-- Decorative Google Fonts are loaded non-blocking via main.tsx; Inter is self-hosted. -->
 
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
