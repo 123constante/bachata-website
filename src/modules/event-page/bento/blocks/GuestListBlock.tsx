@@ -15,6 +15,7 @@ import {
 } from '@/modules/event-page/hooks/useEventGuestList';
 import { useSubmitGuestListEntry } from '@/modules/event-page/hooks/useSubmitGuestListEntry';
 import { CollisionCard } from '@/modules/event-page/components/CollisionCard';
+import { SeeAllGuestsDrawer } from '@/modules/event-page/bento/modals/SeeAllGuestsDrawer';
 import {
   formatSavingsRange,
   type GuestListPricing,
@@ -42,6 +43,17 @@ const CONFETTI_PARTICLE_COUNT = 35;
 const COLLISION_CARD_EXIT_MS = 220;
 const COUNTDOWN_TICK_MS = 60_000;
 const POST_SUBMIT_REMINDER_MS = 5_000;
+
+// Overflow rule for the pill stack. Each pill is its own row (~28px + 6px gap), so an
+// unbounded list grows the tile without limit: the real all-time peak for one night is 58
+// names, which measured at ~1,941px -- roughly five phone screens, with the join form
+// pushed below all of it. Past the threshold the stack truncates and the rest move into
+// the drawer.
+//
+// PILL_CAP < OVERFLOW_THRESHOLD on purpose. At exactly PILL_CAP + 1 the cap would hide a
+// single name behind a button taller than the name it hid.
+const PILL_CAP = 10;
+const OVERFLOW_THRESHOLD = 12;
 
 const MUTED_PRIMARY = 'rgba(240, 230, 233, 0.55)';
 const MUTED_SECONDARY = 'rgba(240, 230, 233, 0.4)';
@@ -112,6 +124,7 @@ export const GuestListBlock = ({
   const [collisionClosing, setCollisionClosing] = useState(false);
   const [postSubmitReminderVisible, setPostSubmitReminderVisible] = useState(false);
   const [explainerExpanded, setExplainerExpanded] = useState(false);
+  const [seeAllOpen, setSeeAllOpen] = useState(false);
 
   // Stable DOM id for aria-controls pairing between the accordion
   // trigger and its region panel. Safe across multiple instances of
@@ -219,6 +232,10 @@ export const GuestListBlock = ({
   const hasArriveBefore = Boolean(config.discount_until && config.discount_until.trim());
   const hasDescription = Boolean(config.description && config.description.trim());
   const isEmpty = entries.length === 0;
+  // Truncation is derived, never stored: `entries` changes under realtime inserts, and a
+  // remembered slice would drift from it. Short lists stay whole -- see OVERFLOW_THRESHOLD.
+  const isOverflowing = entries.length > OVERFLOW_THRESHOLD;
+  const visibleEntries = isOverflowing ? entries.slice(0, PILL_CAP) : entries;
 
   // B1 headline — savings range derived from pricing tiers.
   const savingsLabel = hasPrices
@@ -354,7 +371,7 @@ export const GuestListBlock = ({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1.5">
-            {entries.map((entry) => {
+            {visibleEntries.map((entry) => {
               const k = entryKey(entry);
               const isFresh = freshKeys.has(k);
               const queued = entryStatus(entry) === 'waitlist';
@@ -374,6 +391,29 @@ export const GuestListBlock = ({
             })}
           </div>
         )}
+
+        {/* Reveal for the truncated tail. Labelled with the TOTAL rather than the hidden
+            remainder so it reinforces the headline count instead of competing with it, and
+            so a realtime insert never makes it read as a stale "+N more". */}
+        {isOverflowing && (
+          <button
+            type="button"
+            onClick={() => setSeeAllOpen(true)}
+            className="mx-auto mt-1 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors"
+            style={{
+              border: '0.5px solid rgba(245, 213, 99, 0.28)',
+              color: 'rgba(245, 213, 99, 0.85)',
+            }}
+          >
+            See all {entries.length}
+          </button>
+        )}
+
+        <SeeAllGuestsDrawer
+          open={seeAllOpen}
+          onOpenChange={setSeeAllOpen}
+          entries={entries}
+        />
 
         {/* Collision card — slides in between pill list and input. */}
         {collidingName && (
