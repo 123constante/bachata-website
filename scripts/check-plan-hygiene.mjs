@@ -22,6 +22,15 @@
  * never indexed. Grandfathered files ARE counted in the index footer, so the
  * size of the exclusion stays visible instead of becoming invisible.
  *
+ * "arc: none" DECLARES NO ARC, and is not the same thing as grandfathering.
+ * It is the prevailing house idiom for a standalone plan, and it was being
+ * read as a SLUG -- so every standalone plan joined one bucket where
+ * one-live-per-arc allows exactly one, and two live handovers (the normal,
+ * correct state of that set) read as an error. Such a plan is now exempt from
+ * the ARC rules and from the index's arc sections, and NOTHING else: it stays
+ * tracked, and its status/supersedes keys are linted exactly as a slugged
+ * plan's are. See NO_ARC for why the fail-open shape was rejected.
+ *
  * READ-ONLY BY DEFAULT (review finding 3): every other check:* script in this
  * repo is read-only and pre-ship runs this one as a gate, so the default mode
  * only LINTS. "--render" opts into (re)writing PLANS-INDEX.md, and a stale or
@@ -57,8 +66,16 @@ import os from "node:os";
 import path from "node:path";
 import { isEntryPoint } from "./lib/entry-point.mjs";
 
-/** The status enum, compared case-insensitively. Anything else is a hard error. */
-export const STATUSES = ["live", "superseded", "shipped", "scratch"];
+/**
+ * The status enum, compared case-insensitively. Anything else is a hard error.
+ *
+ * `queued` is a real lifecycle state, not a typo for `scratch`: deferred WITH
+ * intent (there is a plan to come back to) vs. `scratch` (throwaway). DECIDED
+ * 2026-08-28 -- three live plans and most of MEMORY.md's Active work section
+ * already use the idiom; widening the enum keeps the guard from erroring on
+ * real data.
+ */
+export const STATUSES = ["live", "queued", "superseded", "shipped", "scratch"];
 
 export const INDEX_FILENAME = "PLANS-INDEX.md";
 
@@ -74,7 +91,60 @@ export const FRONTMATTER_BYTES = 4096;
 /** Subagent transcript naming, e.g. "audit-the-thing-agent-a23b34c357e08294a.md". */
 export const AGENT_TRANSCRIPT = /-agent-[0-9a-f]{6,}\.md$/i;
 
-const STATUS_RANK = { live: 0, shipped: 1, superseded: 2, scratch: 3 };
+/**
+ * The one `arc:` value that declares NO arc rather than naming one.
+ *
+ * Matched EXACTLY -- trimmed and case-folded, never as a prefix or a substring.
+ * A plan tagged `arc: none open -- two loose ends only` is a real (if ugly)
+ * slug and must keep forming its own bucket; only the bare word is the
+ * sentinel.
+ *
+ * WHY THIS IS AN ARC EXEMPTION AND NOT GRANDFATHERING. The tempting fix was to
+ * treat the value as if the `arc:` key were absent, which would have made the
+ * file grandfathered: never linted. That is a fail-open. When this was written
+ * every one of the three live E_STATUS_ENUM defects in the plans dir sat on an
+ * `arc: none` file, so grandfathering the idiom would have deleted three REAL
+ * errors along with the two false E_MULTI_LIVE ones, and the guard would have
+ * gone green by going blind. An explicit "this belongs to no arc" is strictly
+ * more information than an omitted key, so it must not buy LESS linting than a
+ * slug does -- only exemption from the rules that are meaningless without an
+ * arc: one-live-per-arc, and the index's arc sections.
+ *
+ * The asymmetry with an EMPTY `arc:` value (still grandfathered, below) is
+ * deliberate: empty is indistinguishable from a stray key or a half-written
+ * header, whereas `none` is a deliberate declaration.
+ */
+export const NO_ARC = "none";
+
+/**
+ * True when an `arc:` value declares no arc rather than naming one. The
+ * bucketing predicate is built on this by INCLUSION -- a plan forms an arc
+ * bucket because it carries a real slug, never because it failed to match a
+ * list of things to ignore.
+ *
+ * Of the two normalisations only the CASE FOLD is load-bearing at the call
+ * site: collect() has already trimmed the value, so a drop-the-trim mutant is
+ * equivalent rather than a canary blind spot (checked, not assumed -- the two
+ * halves were mutated separately). The trim stays because this function is
+ * exported and a future caller need not have trimmed.
+ */
+export function declaresNoArc(arc) {
+  return String(arc == null ? "" : arc).trim().toLowerCase() === NO_ARC;
+}
+
+/**
+ * The arc a plan buckets under: its slug, or null when it declares none.
+ *
+ * DERIVED from `arc` on every read rather than stored on the record by
+ * collect(). A stored field would be a second copy of the same fact, and
+ * lintTracked() and renderIndex() are both exported and both take plan records
+ * as arguments -- a hand-built record omitting the field would read as
+ * `undefined`, which is neither a slug nor null, and would quietly collect
+ * every such plan into one phantom bucket. There is no field to omit.
+ */
+const arcSlugOf = (p) => (declaresNoArc(p.arc) ? null : p.arc);
+
+const STATUS_RANK = { live: 0, queued: 1, shipped: 2, superseded: 3, scratch: 4 };
 
 /** Resolve the plans dir: PLANS_DIR wins, else ~/.claude/plans. */
 export function plansDir(env = process.env) {
@@ -216,6 +286,9 @@ export function collect(dir) {
     }
     tracked.push({
       name,
+      // AS DECLARED, always -- messages and the arc-state cross-check quote
+      // what is actually in the file. Whether it is a real slug is derived on
+      // read by arcSlugOf(), never stored alongside it.
       arc,
       status: (fm.fields.get("status") || "").trim().toLowerCase(),
       supersedes: (fm.fields.get("supersedes") || "").trim(),
@@ -283,8 +356,16 @@ export function lintTracked(tracked, allNames = tracked.map((p) => p.name)) {
   const liveByArc = new Map();
   for (const p of tracked) {
     if (p.status !== "live") continue;
-    if (!liveByArc.has(p.arc)) liveByArc.set(p.arc, []);
-    liveByArc.get(p.arc).push(p.name);
+    // INCLUSION: a bucket exists because a plan named a real arc. A plan that
+    // declares `arc: none` (NO_ARC) named no arc, so there is no "same arc"
+    // for two of them to collide in, and any number of them may be live at
+    // once -- which is the normal state of a set of standalone handovers.
+    // This exempts the ARC rule only; the status and supersedes rules above
+    // have already run against these same plans.
+    const slug = arcSlugOf(p);
+    if (slug === null) continue;
+    if (!liveByArc.has(slug)) liveByArc.set(slug, []);
+    liveByArc.get(slug).push(p.name);
   }
   for (const [arc, names] of [...liveByArc].sort()) {
     if (names.length > 1) {
@@ -404,16 +485,29 @@ export function run(dir, { arcState = null } = {}) {
  */
 export function renderIndex({ tracked, grandfathered }) {
   const byArc = new Map();
+  // The index exists to answer "which arcs are live", so a plan that declares
+  // no arc has no section to sit in. It is counted in the footer rather than
+  // dropped silently, for the same reason grandfathered files are: the size of
+  // an exclusion must stay visible instead of becoming invisible.
+  const arcless = [];
   for (const p of tracked) {
-    if (!byArc.has(p.arc)) byArc.set(p.arc, []);
-    byArc.get(p.arc).push(p);
+    const slug = arcSlugOf(p);
+    if (slug === null) {
+      arcless.push(p);
+      continue;
+    }
+    if (!byArc.has(slug)) byArc.set(slug, []);
+    byArc.get(slug).push(p);
   }
   for (const plans of byArc.values()) {
     plans.sort((a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9) || a.name.localeCompare(b.name));
   }
 
   const arcs = [...byArc.keys()].sort();
-  const live = arcs.filter((a) => byArc.get(a).some((p) => p.status === "live"));
+  // "live" here means "open" for section-placement purposes: an arc with a
+  // `queued` plan and nothing else is deferred-with-intent, not finished, so it
+  // must not land under "## Closed arcs" beside shipped/superseded work.
+  const live = arcs.filter((a) => byArc.get(a).some((p) => p.status === "live" || p.status === "queued"));
   const closed = arcs.filter((a) => !live.includes(a));
 
   const out = [
@@ -450,6 +544,12 @@ export function renderIndex({ tracked, grandfathered }) {
       " grandfathered plan file(s) are not indexed: no `arc:` frontmatter, or a" +
       " `-agent-<hex>` subagent transcript. They are never linted either.",
     "",
+    arcless.length +
+      " plan file(s) declare `arc: " +
+      NO_ARC +
+      "`. They belong to no arc, so they are not indexed under one -- but" +
+      " unlike the grandfathered files above they ARE linted, in full.",
+    "",
   );
 
   return out.join("\n");
@@ -474,16 +574,25 @@ function report(dir, res) {
       "\n  Convention: arc plans carry `status: " +
         STATUSES.join("|") +
         "`, `arc: <slug>`, optional `supersedes: <file.md>`.\n" +
-        "  A plan with no `arc:` key is grandfathered and never linted.\n",
+        "  A plan with no `arc:` key is grandfathered and never linted.\n" +
+        "  `arc: " +
+        NO_ARC +
+        "` declares NO arc: linted in full, but exempt from one-live-per-arc.\n",
     );
     return 1;
   }
+  const slugged = res.tracked.filter((p) => arcSlugOf(p) !== null);
+  const arcless = res.tracked.filter((p) => arcSlugOf(p) === null);
   console.log(
     "PASS plan hygiene -- " +
-      res.tracked.length +
+      slugged.length +
       " arc-tagged plan(s) across " +
-      new Set(res.tracked.map((p) => p.arc)).size +
+      new Set(slugged.map((p) => arcSlugOf(p))).size +
       " arc(s), " +
+      arcless.length +
+      " arc-less (`arc: " +
+      NO_ARC +
+      "`), " +
       res.grandfathered.length +
       " grandfathered" +
       (res.arcStateChecked ? ", arc-state cross-check ok" : "") +
@@ -530,6 +639,24 @@ export function selfTest(log = console.log) {
   add("status enum: a valid value passes", { "a.md": plan({ status: "shipped", arc: "alpha" }) }, []);
   add("status enum: values compare case-insensitively (Status: Live)", { "a.md": plan({ Status: "Live", arc: "alpha" }) }, []);
   add("status enum: a bogus value fails", { "a.md": plan({ status: "in-progress", arc: "alpha" }) }, ["E_STATUS_ENUM"]);
+  add("status enum: queued is a valid value, not a typo for scratch", { "a.md": plan({ status: "queued", arc: "alpha" }) }, []);
+  add(
+    "E_MULTI_LIVE: a queued plan beside a live one in the same arc does not trip the one-live-per-arc rule",
+    {
+      "live.md": plan({ status: "live", arc: "alpha" }, "Alpha live"),
+      "queued.md": plan({ status: "queued", arc: "alpha" }, "Alpha queued"),
+    },
+    [],
+  );
+  add(
+    "E_MULTI_LIVE: two live plans in the same arc still trips, queued does not silence it",
+    {
+      "live-1.md": plan({ status: "live", arc: "alpha" }, "Alpha live one"),
+      "live-2.md": plan({ status: "live", arc: "alpha" }, "Alpha live two"),
+      "queued.md": plan({ status: "queued", arc: "alpha" }, "Alpha queued"),
+    },
+    ["E_MULTI_LIVE", "E_MULTI_LIVE"],
+  );
   add("status missing on an arc-tagged plan fails", { "a.md": plan({ arc: "alpha" }) }, ["E_STATUS_MISSING"]);
   add(
     "supersedes: an existing, non-live target passes",
@@ -628,6 +755,71 @@ export function selfTest(log = console.log) {
     ["E_FRONTMATTER_UNTERMINATED"],
   );
   add("an empty arc: value is grandfathered, not an error", { "a.md": plan({ status: "nonsense", arc: "" }) }, []);
+
+  // "arc: none" declares NO arc (NO_ARC). Both directions, and -- because the
+  // rejected fix was to grandfather the idiom -- the cases that separate an
+  // ARC EXEMPTION from a lint exemption. If a future edit turns this into
+  // grandfathering, the three "still linted" cases below go red.
+  add(
+    "arc: none -- three live plans declaring no arc all pass",
+    {
+      "a.md": plan({ status: "live", arc: "none" }),
+      "b.md": plan({ status: "live", arc: "none" }),
+      "c.md": plan({ status: "live", arc: "none" }),
+    },
+    [],
+  );
+  add(
+    "arc: none is exempt from the ARC rule only -- status is STILL linted",
+    { "a.md": plan({ status: "in-progress", arc: "none" }) },
+    ["E_STATUS_ENUM"],
+  );
+  add(
+    "arc: none is exempt from the ARC rule only -- a missing status is STILL linted",
+    { "a.md": plan({ arc: "none" }) },
+    ["E_STATUS_MISSING"],
+  );
+  add(
+    "arc: none is exempt from the ARC rule only -- supersedes is STILL linted",
+    {
+      "old.md": plan({ status: "live", arc: "beta" }),
+      "new.md": plan({ status: "live", arc: "none", supersedes: "old.md" }),
+    },
+    ["E_SUPERSEDES_TARGET_LIVE"],
+  );
+  add(
+    "arc: none is matched EXACTLY -- a real slug merely beginning with it still buckets",
+    {
+      "a.md": plan({ status: "live", arc: "none open -- two loose ends only" }),
+      "b.md": plan({ status: "live", arc: "none open -- two loose ends only" }),
+    },
+    ["E_MULTI_LIVE", "E_MULTI_LIVE"],
+  );
+  // Each casing appears TWICE. The first draft of this case used one plan per
+  // casing and a drop-the-case-fold mutant SURVIVED it with zero fail lines:
+  // two differently-cased values land in two different buckets, so they never
+  // collide and the case passes either way. A pair per casing is what makes
+  // the fold load-bearing -- unfolded, each pair collides and reds.
+  add(
+    "arc: none is matched after case-folding (NONE / None), a PAIR per casing",
+    {
+      "a1.md": plan({ status: "live", arc: "  NONE  " }),
+      "a2.md": plan({ status: "live", arc: "NONE" }),
+      "b1.md": plan({ status: "live", arc: "None" }),
+      "b2.md": plan({ status: "live", arc: "nOnE" }),
+    },
+    [],
+  );
+  add(
+    "the exemption does not DISABLE one-live-per-arc: a real arc still reds beside it",
+    {
+      "n1.md": plan({ status: "live", arc: "none" }),
+      "n2.md": plan({ status: "live", arc: "none" }),
+      "a1.md": plan({ status: "live", arc: "alpha" }),
+      "a2.md": plan({ status: "live", arc: "alpha" }),
+    },
+    ["E_MULTI_LIVE", "E_MULTI_LIVE"],
+  );
   add("CRLF frontmatter parses", { "a.md": "---\r\nstatus: live\r\narc: alpha\r\n---\r\n\r\n# t\r\n" }, []);
 
   // Arc-state cross-check, both directions.
@@ -641,6 +833,11 @@ export function selfTest(log = console.log) {
   add("arc-state: closed_at skips the cross-check", { "b.md": plan({ status: "live", arc: "alpha" }) }, [], ARC({ closed_at: "2026-07-30" }));
   add("arc-state: corrupt (non-object) skips the cross-check", { "b.md": plan({ status: "live", arc: "alpha" }) }, [], "garbage");
   add("arc-state: no plan field skips the cross-check", { "b.md": plan({ status: "live", arc: "alpha" }) }, [], ARC({ plan: undefined }));
+  // The discriminator between the two candidate fixes: an arc-less plan is
+  // still TRACKED, so arc-state naming it reds as a slug MISMATCH. Had
+  // "arc: none" been grandfathered instead, this would red as
+  // E_ARCSTATE_PLAN_UNTRACKED -- a different code, and the wrong diagnosis.
+  add("arc-state: a plan declaring arc: none is a slug MISMATCH, not untracked", { "a.md": plan({ status: "live", arc: "none" }) }, ["E_ARCSTATE_ARC_MISMATCH"], ARC({}));
 
   let failures = 0;
   const check = (name, ok, detail) => {
@@ -695,20 +892,45 @@ export function selfTest(log = console.log) {
   const idxDir = makeDir({
     "live-a.md": plan({ status: "live", arc: "alpha" }, "Alpha live"),
     "old-a.md": plan({ status: "superseded", arc: "alpha" }, "Alpha old"),
+    "queued-a.md": plan({ status: "queued", arc: "alpha" }, "Alpha queued"),
     "done-b.md": plan({ status: "shipped", arc: "beta" }, "Beta shipped"),
     "space plan (v2).md": plan({ status: "scratch", arc: "beta" }, "Spacey"),
     "comment.md": "---\n# internal note\nstatus: shipped\narc: gamma\n---\n\n# Real title\n",
     "legacy.md": "# Legacy\n\nno frontmatter\n",
     "x-agent-a23b34c357e08294a.md": "# transcript\n",
+    "standalone-1.md": plan({ status: "live", arc: "none" }, "Standalone one"),
+    "standalone-2.md": plan({ status: "live", arc: "none" }, "Standalone two"),
   });
   const first = renderIndex(run(idxDir));
   const second = renderIndex(run(idxDir));
   check("index rendering is idempotent (no timestamps, no churn)", first === second);
   check("index puts live arcs before closed arcs", first.indexOf("### alpha") < first.indexOf("### beta"));
+  check(
+    "index ranks queued between live and shipped, never sorted to the bottom",
+    first.indexOf("[Alpha live]") < first.indexOf("[Alpha queued]") && first.indexOf("[Alpha queued]") < first.indexOf("[Alpha old]"),
+  );
+  {
+    const queuedOnlyDir = makeDir({
+      "queued-only.md": plan({ status: "queued", arc: "delta" }, "Delta queued"),
+      "done.md": plan({ status: "shipped", arc: "epsilon" }, "Epsilon shipped"),
+    });
+    const idx = renderIndex(run(queuedOnlyDir));
+    check(
+      "index files a queued-only arc under Live arcs, not Closed arcs (queued is open, deferred-with-intent work)",
+      /## Live arcs[\s\S]*### delta/.test(idx) && !/## Closed arcs[\s\S]*### delta/.test(idx),
+    );
+    fs.rmSync(queuedOnlyDir, { recursive: true, force: true });
+  }
   check("index lists a live arc under Live arcs", /## Live arcs[\s\S]*### alpha/.test(first));
   check("index lists a closed arc under Closed arcs", /## Closed arcs[\s\S]*### beta/.test(first));
   check("index excludes grandfathered files", !first.includes("legacy.md") && !first.includes("x-agent-"));
   check("index footer counts the grandfathered files", first.includes("2 grandfathered plan file(s)"));
+  check("index gives arc: none no arc heading of its own", !first.includes("### none"));
+  check(
+    "index does not list an arc-less plan under any arc",
+    !first.includes("[Standalone one]") && !first.includes("[Standalone two]"),
+  );
+  check("index footer counts the arc-less plans", first.includes("2 plan file(s) declare `arc: none`"));
   check("index never indexes itself", !first.includes(INDEX_FILENAME));
   check("index link targets are URI-safe", first.includes("(space%20plan%20%28v2%29.md)"));
   check(
