@@ -91,7 +91,7 @@ REL_PATH="$FILE_PATH"
 # (which the normalisation above now produces) dirname stabilises at the drive
 # root -- dirname "C:" is "C:" forever -- so a `!= "/"` guard alone spins at
 # 100% CPU for any file with no .git ancestor, hanging this hook with no
-# timeout. Reachable via the declared scratchpad and C:	mp working
+# timeout. Reachable via the declared scratchpad and C:/tmp working
 # directories. Same bug, same fix as safe-write.py's find_repo_root.
 DIR="$(dirname "$FILE_PATH")"
 while [ "$DIR" != "/" ] && [ -n "$DIR" ]; do
