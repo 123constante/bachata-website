@@ -26,6 +26,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcOnce, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -60,10 +61,16 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const { data, error } = await sb.rpc('test_per_date_program_sync_mutation_v1');
-
-if (error) {
-  console.error('RPC failed:', error.message);
+// rpcOnce, NOT rpcWithRetry: this RPC mutates. A timeout leaves you unable to
+// say whether the write landed, so a second attempt risks applying it twice.
+// The transient classification still routes a 57014 to exit 2 -- what it does
+// not do is pretend the call is safe to repeat.
+let data;
+try {
+  data = await rpcOnce(sb, 'test_per_date_program_sync_mutation_v1');
+} catch (e) {
+  exitTransient(e, 'per-date program sync mutation');
+  console.error('RPC failed:', e.message);
   process.exit(2);
 }
 

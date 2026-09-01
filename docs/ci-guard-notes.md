@@ -28,7 +28,17 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - event_attendees FK target (#13)
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
-- Teacher/DJ assignment integrity (#17)
+- Teacher/DJ assignment integrity (#17) &mdash; **REPORT-ONLY since 2026-09-01;
+  its green means nothing.** It compared unassigned counts against a hand-kept
+  CEILING, and that total grows every time a teacher joins the directory before
+  their first booking &mdash; so it red-lit main on every run from 2026-08-28.
+  Verified against prod: four profiles added since the last re-baseline, and the
+  older cohort went 32 -> 31, so nobody LOST an assignment. Rather than
+  re-baseline a fourth time, the script warns and exits 0, printing
+  `WARN (NOT GATING)` on every run. Gating returns with the lost-assignment
+  detector &mdash; plan
+  `~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md`, which carries
+  the restoration checklist.
 - Migration authority arc-closeout (#18)
 - Per-date program canonical / ADR-007 (#19)
 - Occurrence instance_time canonical / ADR-007 (#20)

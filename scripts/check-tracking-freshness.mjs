@@ -21,6 +21,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -55,9 +56,12 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const { data, error } = await sb.rpc('check_event_tracking_health_v1');
-
-if (error) {
+let data;
+try {
+  data = await rpcWithRetry(sb, 'check_event_tracking_health_v1');
+} catch (e) {
+  exitTransient(e, 'tracking freshness');
+  const error = e.cause ?? e;
   const msg = `${error.code || ''} ${error.message || ''}`.trim();
   if (/PGRST202|could not find the function|schema cache|does not exist/i.test(msg)) {
     console.error(

@@ -63,6 +63,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -95,10 +96,12 @@ if (!url || !key) {
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-const { data, error } = await supabase.rpc('check_people_public_read_contract_v1');
-
-if (error) {
-  console.error('RPC failed:', error.message);
+let data;
+try {
+  data = await rpcWithRetry(supabase, 'check_people_public_read_contract_v1');
+} catch (e) {
+  exitTransient(e, 'people public-read contract');
+  console.error('RPC failed:', e.message);
   process.exit(2);
 }
 
