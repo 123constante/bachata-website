@@ -53,6 +53,13 @@ describe('diffAgainstAllowlist', () => {
 });
 
 describe('scanTree (real repo)', () => {
+  // Do NOT delete this case as "redundant with check:rpc-typing" -- that was
+  // tried, reviewed, and reverted. That guard's own printed remediation
+  // ("Shrink the allowlist ... --write") blesses whatever it currently finds,
+  // so the guard cannot witness its OWN detector going blind; and
+  // check-rpc-typing.mjs is recorded R4:no-canary in
+  // script-conventions-allowlist.json, so it has no self-test either. That
+  // leaves this spec the detector's only coverage in any tier.
   it('detects laundered rpc() calls and never reports get_calendar_events_v2 (it is fully typed)', async () => {
     const map = await scanTree();
     const flat = Object.values(map).flatMap((rpcs) => Object.keys(rpcs));
