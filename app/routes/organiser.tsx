@@ -62,13 +62,24 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // resolveEntityInLoader's own row lookup actually matched a row (see that
   // function) -- a syntactically-valid but nonexistent uuid falls back to
   // `id: param` with `slug: null`, so firing these unconditionally burned 3
-  // wasted RPC round trips on every hit to a random/expired/deactivated
-  // organiser id, repeated on every request (no cache tag on a 404). Gating
-  // on ref.slug fires them CONCURRENTLY with the entity fetch below for the
-  // confirmed-to-exist case (the overwhelming majority of real traffic --
-  // every canonical slug URL and every uuid that already resolved), and
-  // otherwise defers to right after the entity check, matching the original
-  // sequential order so a genuine miss never pays for prefetches at all.
+  // wasted RPC round trips on every hit to a random/expired organiser id,
+  // repeated on every request (no cache tag on a 404). Gating on ref.slug
+  // fires them CONCURRENTLY with the entity fetch below for the
+  // row-exists case (the overwhelming majority of real traffic -- every
+  // canonical slug URL and every uuid that already resolved), and otherwise
+  // defers to right after the entity check, matching the original sequential
+  // order so a genuine miss never pays for prefetches at all.
+  //
+  // NOT covered: resolveEntityInLoader matches on row existence only, not
+  // is_active (it has no per-table visibility gate -- see that function's own
+  // comment). A DEACTIVATED organiser found by a still-valid slug therefore
+  // still gets `ref.slug` truthy and fires the 3 prefetches, which
+  // fetchOrganiserEntity's own is_active filter then throws away. 0 organisers
+  // are is_active = false today (measured 2026-09-01, same census as
+  // app/routes/sitemap.tsx), so this is a real but currently-inert gap, not a
+  // live cost -- queued rather than fixed here because closing it means
+  // teaching the shared cross-entity resolveEntityInLoader about a
+  // per-table visibility column, not a one-line change to this file.
   //
   // Prefetch the events the page shows, or the fix trades one thin page for
   // another: an organiser with a real <h1> and no content is still a soft 404 to

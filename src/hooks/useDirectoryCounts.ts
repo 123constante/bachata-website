@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 
 // Live directory counts for the homepage News-tab brand-card stat strip:
 // public teachers and active organisers. Each mirrors the EXACT filter of its
@@ -29,7 +30,7 @@ async function fetchOrganiserCount(): Promise<number> {
   const { count, error } = await supabase
     .from('organiser_profiles')
     .select('id', { count: 'exact', head: true })
-    .not('is_active', 'is', false);
+    .not(...NOT_DEACTIVATED);
   if (error) throw error;
   return count ?? 0;
 }

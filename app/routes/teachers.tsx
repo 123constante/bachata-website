@@ -3,7 +3,7 @@ import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { getPublicName } from "@/lib/name-utils";
+import { resolvePublicName } from "@/lib/publicName";
 import TeacherProfile from "@/pages/TeacherProfile";
 import { createQueryClient } from "@/App";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -52,10 +52,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // id=undefined during the client-side resolve window and error-logs to
       // Sentry. The teacher-profile data itself still client-fetches (meta-only).
       dehydratedState: dehydrate(qc),
-      entityName: getPublicName(
-        { first_name: row.first_name, surname: row.surname, hide_surname: false } as never,
-        "Teacher",
-      ),
+      // resolvePublicName, not getPublicName: mirrors dancers/djs/organiser --
+      // returns null rather than "Teacher" so buildSeoForRoute noindexes a
+      // nameless teacher instead of indexing a placeholder <title>/<h1>.
+      entityName: resolvePublicName({
+        first_name: row.first_name as string | null,
+        surname: row.surname as string | null,
+      }) ?? undefined,
       entitySlug: ref.slug ?? params.id,
       // Phase 5 prep — normalize og:image through /api/og/card?kind=image so
       // WebP/oversized teacher photos render as social cards. Mirrors
@@ -78,7 +81,7 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 export const meta: Route.MetaFunction = ({ data }) => {
   if (!data || data.locked) {
     return [
-      { title: "Coming soon — Teacher — Bachata Calendar" },
+      { title: "Coming soon - Teacher - Bachata Calendar" },
       { name: "robots", content: "noindex,nofollow" },
     ];
   }

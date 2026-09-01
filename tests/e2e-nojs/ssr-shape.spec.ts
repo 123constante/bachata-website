@@ -64,8 +64,15 @@ import 'dotenv/config';
  */
 
 // A UUID rendered as a name. `resolvePublicName` (src/lib/publicName.ts) is what
-// stops one reaching a heading; this is the assertion that it did.
-const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+// stops one reaching a heading; this is the assertion that it did. Anchored to
+// match resolvePublicName's own semantics exactly: the value must BE the id,
+// not merely embed one -- "Chino (<uuid>)" is a legitimate name
+// (tests/publicName.test.ts) and must not trip this. Applied to the WHOLE
+// trimmed <h1> (rendered as bare `{entityName}`, per every profile page) and,
+// for <title>, to the segment before the first " - ": every .detail template
+// in src/lib/seo/buildSeoForRoute.ts is `${entityName} - Bachata <Type>, <city>`,
+// so that segment is the name in isolation, never the whole title string.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Headings that mean "this page has no subject". Deliberately matched against
 // the WHOLE trimmed heading, never as a substring: a dancer legitimately named
@@ -86,13 +93,29 @@ const PLACEHOLDER_HEADINGS = new Set([
  *  coverage to nothing. It is 0 only where the family is genuinely optional --
  *  festivals come and go, and /venue-entity is behind a flag that is OFF in
  *  production, so neither can be required to be non-empty. */
+//  A prefix that the sitemap can never emit is WORSE than a missing entry: it
+//  filters to zero paths, hits test.skip(), and then reads as a covered family in
+//  the suite listing forever. Every prefix below must be one app/routes/sitemap.tsx
+//  actually writes -- check it there before adding one.
 const FAMILIES = [
   { name: 'dancer.detail', prefix: '/dancers/', minUrls: 1 },
   { name: 'organiser.detail', prefix: '/organisers/', minUrls: 1 },
   { name: 'event.detail', prefix: '/event/', minUrls: 1 },
-  { name: 'festival.detail', prefix: '/festival/', minUrls: 0 },
+  // minUrls 0: flag-gated (VITE_ENABLE_TEACHER_DETAIL is false in prod) AND
+  // teacher_profiles is empty (0 rows, measured 2026-09-02), so fetchTeacherProfileIds
+  // returns an empty Set and no /teachers/ URL is emitted today. Listed anyway
+  // because the moment either changes this is the family that needs watching: the
+  // loader resolves entityName from first_name/surname only, while the sitemap's
+  // own filter also accepts display_name (see sitemap.tsx's teacherUrls note).
+  { name: 'teacher.detail', prefix: '/teachers/', minUrls: 0 },
   { name: 'venue.detail', prefix: '/venue-entity/', minUrls: 0 },
 ] as const;
+// NOT listed: festival.detail. A '/festival/' entry sat here with minUrls 0 and
+// could never match -- app/routes/sitemap.tsx maps EVERY published event to
+// `${BASE_URL}/event/${slug || id}`, so festivals are already covered by the
+// event.detail family and the real /festival/:id route is not sitemapped at all.
+// Sitemapping it is a separate question, queued; a dead prefix here was not
+// coverage, it was a permanently-skipped test wearing coverage's clothes.
 
 // How many URLs to sample per family. Evenly spaced across the family's sorted
 // list rather than the first N, so the sample is deterministic (no flake, no
@@ -124,8 +147,15 @@ const FAMILY_TIMEOUT_MS = 6 * 60 * 1000;
 
 function evenlySpaced<T>(items: T[], n: number): T[] {
   if (items.length <= n) return items;
-  const step = items.length / n;
-  return Array.from({ length: n }, (_, i) => items[Math.floor(i * step)]);
+  if (n === 1) return [items[0]];
+  // Space over (length - 1) / (n - 1) so BOTH edges are pinned. The old
+  // items.length / n spacing floored to a last index of roughly length - step,
+  // leaving a ~1/n tail permanently unreachable: 138 rows at n=8 stopped at index
+  // 120, so rows 121-137 were never fetched on any run. That tail is the half most
+  // likely to carry a fresh regression -- sitemapPaths sorts, and dancers are
+  // ordered updated_at desc before slugging, so the newest rows sit at one end.
+  const step = (items.length - 1) / (n - 1);
+  return Array.from({ length: n }, (_, i) => items[Math.round(i * step)]);
 }
 
 async function sitemapPaths(request: APIRequestContext): Promise<string[]> {
@@ -205,10 +235,11 @@ function violations(family: string, shapes: Shape[]): string[] {
           'the loader should pass entityName: undefined so the page is noindexed instead.',
       );
     }
-    if (UUID_RE.test(subject)) {
+    if (UUID_RE.test(subject.trim())) {
       out.push(`[${family}] ${s.path} -- <h1> renders a raw id: "${subject}". Never fall back to an id.`);
     }
-    if (UUID_RE.test(s.title)) {
+    const titleSubject = (s.title.split(' - ')[0] ?? '').trim();
+    if (UUID_RE.test(titleSubject)) {
       out.push(`[${family}] ${s.path} -- <title> renders a raw id: "${s.title}"`);
     }
   }
@@ -294,12 +325,26 @@ test(`${DJ_GROUP_NAME} -- server-rendered pages name their subject (no JS)`, asy
     process.env.VITE_SUPABASE_URL ?? '',
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '',
   );
-  const { data, error } = await supabase.rpc('list_public_djs_v1', { p_city_id: null, p_limit: 1 });
+  // p_limit 100, not 1. At p_limit 1 this sampled a single row out of ~37, so the
+  // 2 id-shaped display_names this check exists for had roughly a 1-in-18 chance of
+  // being looked at -- a green run said almost nothing. Pull the population, then
+  // sample it the same evenly-spaced way the sitemap families are sampled.
+  //
+  // Note what this check can and cannot catch: violations() deliberately skips the
+  // naming rules on a noindex page, because a page that declares it has no
+  // indexable subject is the OPPOSITE of a soft 404. So this asserts the narrower,
+  // correct thing -- no INDEXABLE DJ page renders a raw id -- and breadth of the
+  // sample is what carries it.
+  const { data, error } = await supabase.rpc('list_public_djs_v1', { p_city_id: null, p_limit: 100 });
   expect(error, `list_public_djs_v1 must be anon-callable: ${error?.message ?? ''}`).toBeNull();
   const rows = (data ?? []) as Array<{ id: string }>;
   expect(rows.length, 'list_public_djs_v1 returned zero DJs -- nothing to sample').toBeGreaterThan(0);
 
-  const shapes: Shape[] = [await readShape(page, `/djs/${rows[0].id}`)];
+  const sample = evenlySpaced(rows, SAMPLE);
+  const shapes: Shape[] = [];
+  for (const r of sample) shapes.push(await readShape(page, `/djs/${r.id}`));
+  // eslint-disable-next-line no-console
+  console.log(`[nojs] ${DJ_GROUP_NAME}: checked ${shapes.length} of ${rows.length} DJs`);
   expect(shapes.length, `${DJ_GROUP_NAME}: checked zero URLs`).toBeGreaterThan(0);
   const failures = violations(DJ_GROUP_NAME, shapes);
   expect(
@@ -309,6 +354,11 @@ test(`${DJ_GROUP_NAME} -- server-rendered pages name their subject (no JS)`, asy
 });
 
 test('a genuinely missing entity is a real 404, not a 200 with a not-found heading', async ({ page }) => {
+  // Same cold-compile budget as every other test here: this does three page.goto()s
+  // against three route modules, and under fullyParallel these are often the first
+  // hit on each. Without it the default 60s expires for infrastructure reasons and
+  // reads as "the 404 contract broke".
+  test.setTimeout(FAMILY_TIMEOUT_MS);
   // The other half of the soft-404 contract. A miss must be a 404 so Google
   // de-indexes it, rather than a 200 that claims to be a page -- and it must NOT
   // be a 404 for an entity that merely failed to load, which is why the loaders

@@ -257,32 +257,6 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
   return { title, description, image, type: 'website', url };
 }
 
-async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&select=name,avatar_url,bio`;
-  const res = await supabaseFetch(`/rest/v1/organiser_profiles?${query}`);
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: any = await res.json();
-  const o = Array.isArray(rows) ? rows[0] : null;
-  if (!o || !o.name) return null;
-
-  const title = truncate(o.name, 90);
-
-  let description: string;
-  if (o.bio && String(o.bio).trim()) {
-    description = truncate(o.bio, 160);
-  } else {
-    let base = 'Event organiser';
-    if (o.cities?.name) base += ` in ${o.cities.name}`;
-    description = truncate(base, 160);
-  }
-
-  const image = ogNormalizedImage(firstString(o.avatar_url));
-
-  return { title, description, image, type: 'profile', url };
-}
-
 // ─── HTML renderer ────────────────────────────────────────────────────────────
 
 function buildMetaHtml(meta: OgMeta): string {
@@ -355,18 +329,13 @@ export default async function middleware(request: Request): Promise<Response> {
       }
       break;
     }
-    // UNREACHABLE since 2026-09-01: '/organisers/:path*' was removed from the
-    // matcher above, so this branch and fetchOrganiserMeta are dead. Left in
-    // place DELIBERATELY so the retirement is one line to revert if the SSR route
-    // regresses; delete both when middleware.ts itself goes (SSR roadmap,
-    // commitment 5). 'organisers' stays in CLEAN_LISTINGS -- that is the separate
-    // /city/:slug/organisers canonicalisation, unrelated to this matcher.
-    case 'organisers': {
-      const ref = await resolveRef('organiser_profiles', id);
-      meta = ref ? await fetchOrganiserMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/organisers/${ref.slug || ref.id}`;
-      break;
-    }
+    // 'organisers' was removed here (was UNREACHABLE: '/organisers/:path*' left
+    // the matcher above on 2026-09-01, once the SSR route in app/routes/organiser.tsx
+    // shipped a loader). Deletion, not a comment-only stub, per CLAUDE.md: "if you
+    // are certain that something is unused, you can delete it completely" -- git
+    // history is the revert mechanism, not a dead branch kept compiling. It still
+    // stays in CLEAN_LISTINGS -- that is the separate /city/:slug/organisers
+    // canonicalisation, unrelated to this matcher.
     case 'city': {
       if (!CITY_SLUG_RE.test(id)) return next();
       const isBareCity = segments.length === 2;
@@ -395,7 +364,10 @@ export default async function middleware(request: Request): Promise<Response> {
     // dead URL, so return 404 + noindex and let Google drop it. Slug params for
     // these kinds already returned next() above, so reaching here is a genuine
     // miss. City misses fall through to next() (the SPA still renders a city).
-    const NOINDEX_404_KINDS = ['teachers', 'organisers'];
+    // 'organisers' removed with the case above: /organisers left the matcher, so
+    // kind can never be 'organisers' here. app/routes/organiser.tsx serves the
+    // real 404 now (throwDetailNotFound), which is where the noindex comes from.
+    const NOINDEX_404_KINDS = ['teachers'];
     if (NOINDEX_404_KINDS.includes(kind)) {
       return new Response(
         `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Not found</title><meta name="robots" content="noindex"></head><body><p>Not found.</p></body></html>`,
@@ -424,8 +396,8 @@ export default async function middleware(request: Request): Promise<Response> {
   // convention. A teacher write emits the purge, so a long s-maxage costs no
   // staleness -- the edge entry dies on edit, not on expiry.
   //
-  // Untagged (organisers, city): these ride a TTL, not a purge, because no
-  // organiser/city tag exists yet (wiring one is a cross-repo change: new
+  // Untagged (city): rides a TTL, not a purge, because no city tag exists yet
+  // (wiring one is a cross-repo change: new
   // entity type + admin RPC emission + cacheTags.test.ts conformance). The
   // payload is bot-only OG-card HTML edited by a single operator at low
   // frequency, so an hour of blind staleness on a link preview is the cheap

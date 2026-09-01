@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { resolvePublicName } from '@/lib/publicName';
 import {
   Dialog,
   DialogContent,
@@ -548,7 +549,14 @@ const OrganiserProfile = () => {
   }, [allEvents]);
 
   useSeo(buildSeoForRoute('organiser.detail', {
-    entityName: entity?.name,
+    // resolvePublicName, not entity?.name -- mirrors app/routes/organiser.tsx's
+    // loader (the SSR path this same ['entity', id] cache entry hydrates).
+    // Currently a no-op: this component only ever renders inside
+    // InitialVisiblePageTransition, which sets RouteOwnsHeadContext=true, so
+    // useSeo short-circuits before reading entityName. Kept correct anyway so a
+    // nameless organiser can't reopen the soft-404 this branch closes elsewhere
+    // if that wrapper invariant ever changes.
+    entityName: entity ? (resolvePublicName(entity) ?? undefined) : undefined,
     entitySlug: resolved.slug ?? id ?? undefined,
     cityDisplay: entity?.cities?.name ?? undefined,
     ogImage: entity?.avatar_url ?? undefined,

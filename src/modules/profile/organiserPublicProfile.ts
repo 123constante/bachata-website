@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ORGANISER_PUBLIC_COLS } from '@/lib/organiserPublicCols';
+import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 
 /**
  * Shared query keys + queryFns for an organiser's public profile data: the
@@ -46,16 +47,13 @@ export const organiserOccEventsQueryKey = (id: string | undefined) => ['organise
 export const organiserOccEventsPastQueryKey = (id: string | undefined) =>
   ['organiser-occ-events-past', id] as const;
 
-// `.not('is_active','is',false)` -- NOT `.eq('is_active', true)`: only 2 of 34
-// live organisers have is_active = true and 32 are NULL, so an equality gate
-// would 404 the entire directory.
 export async function fetchOrganiserEntity(id: string) {
   if (!id) throw new Error('Entity ID is required');
   const { data, error } = await supabase
     .from('organiser_profiles')
     .select(ORGANISER_PUBLIC_COLS)
     .eq('id', id)
-    .not('is_active', 'is', false)
+    .not(...NOT_DEACTIVATED)
     .maybeSingle();
   // A TRANSIENT supabase error must propagate as a retryable failure --
   // swallowing it here would 404 a valid organiser on a DB blip. null = a
@@ -83,7 +81,7 @@ export async function fetchOrganiserEvents(id: string): Promise<EventRow[]> {
     .eq('role', 'organiser');
   if (error) return [];
   type Row = { event_id: string; events: EventRow | null };
-  return (data as unknown as Row[])
+  return ((data ?? []) as unknown as Row[])
     .map((r) => r.events)
     .filter((e): e is EventRow => Boolean(e))
     .filter((e) => e.is_active !== false);

@@ -20,7 +20,10 @@ export interface SeoInput {
   description: string;
   canonical?: string;
   ogImage?: string;
-  ogType?: 'website' | 'article';
+  // 'profile' is what middleware.ts emitted for person/organiser OG cards before
+  // those routes moved to SSR. Kept in the union so a detail route can restore it
+  // rather than silently falling back to 'website' (see buildSeoForRoute's SPECS).
+  ogType?: 'website' | 'article' | 'profile';
   noindex?: boolean;
 }
 

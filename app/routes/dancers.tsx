@@ -3,6 +3,7 @@ import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
+import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -29,10 +30,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const dancer = await qc.fetchQuery({
     queryKey: ["dancer-profile", ref.id],
     queryFn: async () => {
+      // Must match app/routes/sitemap.tsx's fetchDancerProfiles() gate exactly --
+      // otherwise a deactivated profile is either sitemapped-but-404 or
+      // resolvable-but-unsitemapped, the same soft-404/discovery mismatch class
+      // this branch closes elsewhere. 0 rows are is_active = false today.
       const { data, error } = await supabase
         .from("dancer_profiles")
         .select(DANCER_PUBLIC_COLS)
         .eq("id", ref.id as string)
+        .not(...NOT_DEACTIVATED)
         .maybeSingle();
       if (error) throw error;
       return (data as Record<string, unknown> | null) ?? null;

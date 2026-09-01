@@ -28,7 +28,7 @@ interface Spec {
   title: (ctx: SeoContext) => string;
   description: (ctx: SeoContext) => string;
   path: (ctx: SeoContext) => string;
-  ogType?: 'website' | 'article';
+  ogType?: 'website' | 'article' | 'profile';
 }
 
 const SPECS: Record<string, Spec> = {
@@ -133,6 +133,16 @@ const SPECS: Record<string, Spec> = {
     title: (c) => `${c.entityName ?? 'Organiser'} - Bachata Organiser, ${city(c)}`,
     description: (c) => `${c.entityName ?? 'This organiser'} runs bachata events in ${city(c)}. Upcoming dates and how to book.`,
     path: (c) => `/organisers/${c.entitySlug ?? ''}`,
+    // Restores what middleware.ts emitted for organiser OG cards before
+    // /organisers left its matcher (2026-09-01). Without this the default
+    // 'website' silently downgrades every organiser link preview -- unfurlers
+    // that branch on og:type=profile lose the profile card layout. The matcher
+    // retirement note in middleware.ts checked og:image, canonical, 404 and
+    // description field by field, but never og:type; this is that gap.
+    // NOTE: dancer.detail and dj.detail have the SAME gap from their own
+    // matcher retirement (2026-07-06) and are deliberately NOT changed here --
+    // pre-existing, out of this branch's scope, queued instead.
+    ogType: 'profile',
   },
   'teacher.detail': {
     title: (c) => `${c.entityName ?? 'Teacher'} - Bachata Teacher, ${city(c)}`,

@@ -14,6 +14,7 @@ import {
   mapDancerPublicProfile,
   type DancerPublicRecord,
 } from "@/modules/profile/dancerPublicProfile";
+import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -58,10 +59,14 @@ const DancerProfile = () => {
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
       if (!id) throw new Error("Dancer ID required");
+      // Same query body as app/routes/dancers.tsx's loader, which dehydrates
+      // this exact ["dancer-profile", id] cache entry -- must match or SSR
+      // hydration and this client fetch disagree on what "found" means.
       const { data, error } = await supabase
         .from("dancer_profiles")
         .select(DANCER_PUBLIC_COLS)
         .eq("id", id)
+        .not(...NOT_DEACTIVATED)
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Dancer not found.");

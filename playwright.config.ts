@@ -66,6 +66,13 @@ export default defineConfig({
     // visit client-only routes). That is why this project is NOT in the default
     // `test:e2e` run and is not wired into e2e-smoke.yml -- run it locally, with
     // .env present, via `npm run test:e2e:nojs`.
+    //
+    // `test:e2e:all` pins --project=chromium for the same reason. It used to be a
+    // bare `playwright test`, which runs EVERY project, so adding this one silently
+    // enrolled the credential-requiring SSR suite into the "run everything under
+    // tests/e2e" script -- 7 failures and minutes of timeout budget for anyone
+    // without real Supabase credentials. A new project must never join a run by
+    // default; name it explicitly.
     {
       name: 'nojs',
       testDir: './tests/e2e-nojs',
