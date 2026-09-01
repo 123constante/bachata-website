@@ -18,6 +18,7 @@ import {
 } from "../detailLoader";
 import { stampOrganiser, ORGANISERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
+import { truncate } from "../truncate";
 import type { Route } from "./+types/organiser";
 
 // -- Why this loader exists --------------------------------------------------
@@ -38,16 +39,6 @@ import type { Route } from "./+types/organiser";
 // `.not('is_active','is',false)` -- NOT `.eq('is_active', true)`: only 2 of 34
 // live organisers have is_active = true and 32 are NULL, so an equality gate
 // would 404 the entire directory.
-/** Mirrors middleware.ts's truncate() exactly (160 chars, ellipsis), because the
- *  organiser bio it serves bots is the one thing the SSR route did not yet
- *  reproduce -- and reproducing it is the precondition for retiring the
- *  /organisers matcher from that file. */
-function truncate(text: string | null | undefined, max: number): string {
-  if (!text) return "";
-  const trimmed = String(text).trim();
-  return trimmed.length <= max ? trimmed : trimmed.slice(0, max - 1).trimEnd() + "\u2026";
-}
-
 async function fetchOrganiserEntity(id: string) {
   // ORGANISER_PUBLIC_COLS, not "*": this loader and OrganiserProfile.tsx's own
   // ['entity', id] query share one cache entry, and select('*') was dehydrating

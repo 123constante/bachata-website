@@ -1,4 +1,12 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+// The Playwright TEST-RUNNER process does not get .env the way the dev-server
+// SUBPROCESS does (Vite loads it internally for that child process only), so
+// without this the DJ test below throws "supabaseUrl is required" even with a
+// real .env present -- a tooling gap, not the "no real credentials" case this
+// file's header is written for. Loaded here, not in playwright.config.ts,
+// because this is the one spec in the suite that talks to Supabase directly.
+import 'dotenv/config';
 
 /**
  * SSR shape, with JavaScript disabled -- the check that would have caught the
@@ -85,14 +93,6 @@ const FAMILIES = [
   { name: 'festival.detail', prefix: '/festival/', minUrls: 0 },
   { name: 'venue.detail', prefix: '/venue-entity/', minUrls: 0 },
 ] as const;
-
-// DJ detail pages are NOT in the sitemap -- which is precisely how a UUID sat in
-// a live <title> unnoticed, since check-gsc.mjs only ever walks sitemap URLs.
-// They are linked from event line-ups and fully crawlable, so they are listed by
-// hand until app/routes/sitemap.tsx enumerates them (SSR roadmap, commitment 4).
-const UNSITEMAPPED: Array<{ name: string; paths: string[] }> = [
-  { name: 'dj.detail (unsitemapped)', paths: ['/djs/dj-chino-bzuk26'] },
-];
 
 // How many URLs to sample per family. Evenly spaced across the family's sorted
 // list rather than the first N, so the sample is deterministic (no flake, no
@@ -275,19 +275,38 @@ for (const fam of FAMILIES) {
   });
 }
 
-for (const group of UNSITEMAPPED) {
-  test(`${group.name} -- server-rendered pages name their subject (no JS)`, async ({ page }) => {
-    test.setTimeout(FAMILY_TIMEOUT_MS);
-    const shapes: Shape[] = [];
-    for (const p of group.paths) shapes.push(await readShape(page, p));
-    expect(shapes.length, `${group.name}: checked zero URLs`).toBeGreaterThan(0);
-    const failures = violations(group.name, shapes);
-    expect(
-      failures,
-      `${failures.length} soft-404-shaped page(s) of ${shapes.length} checked in ${group.name}:\n  ${failures.join('\n  ')}`,
-    ).toHaveLength(0);
-  });
-}
+// DJ detail pages are NOT in the sitemap -- which is precisely how a UUID sat
+// in a live <title> unnoticed, since check-gsc.mjs only ever walks sitemap
+// URLs. They are linked from event line-ups and fully crawlable, but with no
+// sitemap to sample from, this pulls a live id straight from
+// list_public_djs_v1 rather than hard-coding one slug: a hard-coded slug goes
+// stale the moment that DJ is renamed, deactivated, or deleted, redding this
+// suite permanently with nothing in the repo left to fix. Until
+// app/routes/sitemap.tsx enumerates DJs (SSR roadmap, commitment 4), this is
+// the only live source. No credential skip, matching this file's own header:
+// a check that quietly passes when it could not run is worse than no check.
+const DJ_GROUP_NAME = 'dj.detail (unsitemapped)';
+
+test(`${DJ_GROUP_NAME} -- server-rendered pages name their subject (no JS)`, async ({ page }) => {
+  test.setTimeout(FAMILY_TIMEOUT_MS);
+
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL ?? '',
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '',
+  );
+  const { data, error } = await supabase.rpc('list_public_djs_v1', { p_city_id: null, p_limit: 1 });
+  expect(error, `list_public_djs_v1 must be anon-callable: ${error?.message ?? ''}`).toBeNull();
+  const rows = (data ?? []) as Array<{ id: string }>;
+  expect(rows.length, 'list_public_djs_v1 returned zero DJs -- nothing to sample').toBeGreaterThan(0);
+
+  const shapes: Shape[] = [await readShape(page, `/djs/${rows[0].id}`)];
+  expect(shapes.length, `${DJ_GROUP_NAME}: checked zero URLs`).toBeGreaterThan(0);
+  const failures = violations(DJ_GROUP_NAME, shapes);
+  expect(
+    failures,
+    `${failures.length} soft-404-shaped page(s) of ${shapes.length} checked in ${DJ_GROUP_NAME}:\n  ${failures.join('\n  ')}`,
+  ).toHaveLength(0);
+});
 
 test('a genuinely missing entity is a real 404, not a 200 with a not-found heading', async ({ page }) => {
   // The other half of the soft-404 contract. A miss must be a 404 so Google

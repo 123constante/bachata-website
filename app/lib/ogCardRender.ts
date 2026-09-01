@@ -27,6 +27,7 @@ import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
 import interRegularUrl from "./ogCardFonts/Inter-Regular.ttf";
+import { truncate } from "../truncate";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
 
@@ -67,10 +68,6 @@ async function fontRegPath(): Promise<string> {
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function truncate(text: string, max: number): string {
-  const t = (text ?? "").trim();
-  return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + "…";
 }
 function wrapTitle(title: string, maxChars: number): string[] {
   const words = title.split(/\s+/);

@@ -6,6 +6,7 @@ import { teacherTag } from './app/cacheTags';
 // leaf module below for exactly that reason; import it from there, never from
 // detailLoader.ts, even though detailLoader.ts re-exports the same name.
 import { edgeCacheControl } from './app/edgeCacheControl';
+import { truncate } from './app/truncate';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -99,12 +100,6 @@ interface OgMeta {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function truncate(text: string | null | undefined, max: number): string {
-  if (!text) return '';
-  const trimmed = String(text).trim();
-  return trimmed.length <= max ? trimmed : trimmed.slice(0, max - 1).trimEnd() + '\u2026';
-}
 
 function escapeHtml(str: string): string {
   return str
