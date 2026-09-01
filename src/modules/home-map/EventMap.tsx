@@ -18,6 +18,7 @@ import {
   formatTimeRange,
 } from './mapTypes';
 import { groupPinsByLocation } from './mapListDerivations';
+import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -71,38 +72,6 @@ interface EventMapProps {
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
-// Esri's dark canvas, NOT CARTO. CARTO began watermarking keyless traffic --
-// `basemaps.cartocdn.com/dark_all` returns HTTP 200 with "API KEY REQUIRED"
-// burned into the raster, so nothing errors and no guard sees it. It was live
-// on prod. `rastertiles/dark_all` is byte-identical, so it is not a way out;
-// the only CARTO fix is an account + key, which is queued.
-//
-// Esri's tile scheme is /{z}/{y}/{x} -- y BEFORE x, the opposite of the usual
-// XYZ order -- and it has no {s} subdomains and no {r} retina variant.
-const TILE_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-// The label half of the pair. Transparent PNG; must be added AFTER the base.
-const TILE_REF_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
-// MEASURED, not read off a docs page: z<=16 serves real tiles; z17 and z18 both
-// return the same 2521-byte "Map data not yet available" placeholder, which is
-// LIGHT GREY and would read as a broken map on this dark theme. maxNativeZoom
-// pins fetching at 16 and lets Leaflet upscale, so the zoom range is unchanged.
-const TILE_MAX_NATIVE_ZOOM = 16;
-// Deliberately its own constant, seeded from the tile ceiling rather than
-// spelled as it. These are two different facts that happen to share a number:
-// one is Esri's cache depth, the other is a marker-clustering UX threshold.
-// When the queued CARTO key lands and TILE_MAX_NATIVE_ZOOM goes back to 19,
-// this must NOT silently follow it three levels out -- changing how every
-// clustered pin tap behaves in a diff that never mentions clustering.
-const UNCLUSTER_ZOOM = TILE_MAX_NATIVE_ZOOM;
-// VERBATIM from the service's own metadata -- server.arcgisonline.com/ArcGIS/rest/
-// services/Canvas/World_Dark_Gray_Base/MapServer?f=json -> copyrightText. Esri's
-// terms require the service's stated credit, and an abridged "Esri" alone drops
-// HERE, Garmin and the OSM contributors. Re-read that field if the service is
-// ever changed; do not hand-shorten it.
-const ATTR =
-  'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, and the GIS user community';
 const PIN_SVG =
   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 const ARROW_SVG =
@@ -381,85 +350,78 @@ export default function EventMap({
     // show them, making the swap visible at mount.
     // `className` is what lets homeMap.css darken the base WITHOUT darkening the
     // labels, which are light-on-transparent and would be crushed to unreadable.
-    const baseLayer = L.tileLayer(TILE_URL, {
+    // No `maxZoom` here: L.map above sets it explicitly, so Leaflet never
+    // derives _layersMaxZoom and a layer-level value is inert. It was carried
+    // from the CARTO layer, where it was equally inert, and read as if the map
+    // went to 19.
+    L.tileLayer(TILE_URL, {
       attribution: ATTR,
-      maxZoom: 19,
       maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
       className: 'hm-basetiles',
     }).addTo(m);
-    const refLayer = L.tileLayer(TILE_REF_URL, {
-      maxZoom: 19,
+    L.tileLayer(TILE_REF_URL, {
       maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
-      className: 'hm-labeltiles',
     }).addTo(m);
+    // Leaflet's own "Leaflet" credit is optional (`prefix: String|false` is the
+    // documented way to drop it) and Esri's is not. Esri's required credit is 78
+    // chars where CARTO's was 27 and renders 342px wide at the shipped
+    // 9px/weight-500 style, so whether it fits depends on the viewport.
+    // MEASURED IN A BROWSER against the real `.hm-mapcard`, not calculated:
+    //   360px viewport -> card 324px -> TWO lines, 29px, 13.5% of the card
+    //   390px viewport -> card 354px -> ONE line, 17px
+    // So it wraps at <=375px and fits from 390px up. An earlier note here said
+    // "two lines on every common phone"; that was arithmetic, and the browser
+    // disagreed -- the standard iPhone width is fine. Dropping Leaflet's prefix
+    // buys 35px and is what keeps 390px on one line. ATTR must not be
+    // hand-shortened.
+    //
+    // A COLLAPSIBLE "(i)" CHIP WAS BUILT FOR THIS AND REVERTED at review round 2,
+    // which found FIVE defects in ~40 lines of it: preventDefault() on the
+    // container's keydown made the OSM copyright link unreachable by keyboard;
+    // `role="button"` on a container that HOLDS a link is invalid nested
+    // interactive content AND its aria-label became the accessible name, hiding
+    // the very credit the control exists to present; the 18x18 target is under
+    // WCAG 2.2 SC 2.5.8's 24x24; there was no Escape or outside-click dismiss;
+    // and the disableClickPropagation() call was a no-op Leaflet already makes
+    // in Control.Attribution.onAdd, so its comment asserted a dependency that
+    // does not exist. The ARIA defect is not patchable in place -- the correct
+    // shape is a separate toggle BUTTON as a sibling of the credit text, not a
+    // role on its container -- so this is queued as its own piece of work with
+    // those five as acceptance criteria, not carried as a sixth draft here.
+    // Two wrapped lines is the honest cost of the credit until then.
+    m.attributionControl.setPrefix(false);
 
-    // The basemap has no other alarm. CARTO's failure was HTTP 200 with "API KEY
-    // REQUIRED" painted into the raster -- nothing threw, nothing 404'd, and the
-    // smoke suite only counts markers, so it stayed green while prod was broken.
-    // `tileerror` will not catch a watermark, but it DOES catch the failure this
-    // provider can produce (host/CSP/DNS/403), which is currently unobserved.
-    // Fire ONCE PER LAYER: a pan over a dead layer emits one event per tile,
-    // but the two layers are two independent services. A single shared latch
-    // meant one benign Reference 404 (that cache is the sparser of the pair)
-    // permanently silenced a later total Base-layer outage -- the exact
-    // failure this alarm exists for -- and reported it against the wrong URL.
-    // Alarm on a layer that painted NOTHING, not on the first failed tile.
-    // ~95% of this site is mobile, where a single dropped tile <img> is ordinary
-    // network noise. Reporting the first error would emit one Sentry event per
-    // layer per mount -- and the latch resets on EVERY mount (breakpoint
-    // crossing, re-entering home) -- so the steady drip would bury the outage
-    // this alarm exists to surface. The failures it is for (host/CSP/DNS/403)
-    // have a distinguishable shape: zero tiles ever paint. The grace window is
-    // what stops a transient error on a healthy layer's first tile from
-    // impersonating that shape.
-    const TILE_ALARM_GRACE_MS = 8000;
-    const reportedFor = new Set<string>();
-    const loadedFor = new Set<string>();
-    const pendingFor = new Set<string>();
-    const noteTileLoad = (layerName: string) => () => {
-      loadedFor.add(layerName);
-    };
-    const tileErrorHandler =
-      (layerName: string, url: string) =>
-      (ev: { coords?: { x: number; y: number; z: number } }) => {
-        // One tile already painted => the service is reachable => noise.
-        if (reportedFor.has(layerName) || loadedFor.has(layerName)) return;
-        if (pendingFor.has(layerName)) return;
-        pendingFor.add(layerName);
-        const at = ev?.coords ? `z${ev.coords.z}/${ev.coords.y}/${ev.coords.x}` : 'unknown';
-        // safeTimeout, not setTimeout: dispose() clears it, so unmounting inside
-        // the grace window cannot fire this against a removed map.
-        disposer.safeTimeout(() => {
-          pendingFor.delete(layerName);
-          if (loadedFor.has(layerName) || reportedFor.has(layerName)) return;
-          reportedFor.add(layerName);
-          void import('@/lib/sentry')
-            .then(({ captureException }) =>
-              captureException(
-                new Error(`basemap layer painted no tiles in ${TILE_ALARM_GRACE_MS}ms (${layerName} ${at})`),
-                {
-                  context: 'EventMap.tileerror',
-                  tileLayer: layerName,
-                  tileUrl: url,
-                },
-              ),
-            )
-            .catch(() => {});
-        }, TILE_ALARM_GRACE_MS);
-      };
-    baseLayer.on('tileload', noteTileLoad('base'));
-    refLayer.on('tileload', noteTileLoad('reference'));
-    baseLayer.on('tileerror', tileErrorHandler('base', TILE_URL));
-    refLayer.on('tileerror', tileErrorHandler('reference', TILE_REF_URL));
-
+    // NO client-side tile alarm here, deliberately. A `tileerror` watcher was
+    // drafted and cut at review: it is blind to the only basemap failure this
+    // project has actually had (CARTO's HTTP 200 with "API KEY REQUIRED" painted
+    // into the raster -- and Esri's own 200 OK "Map data not yet available"
+    // placeholder is the same class), while firing on every offline or
+    // proxy-blocked mount, on a site that is ~95% mobile. It would have buried
+    // a real outage under connectivity noise and reported nothing for the case
+    // it was written for.
+    // The two failure classes are covered where they can actually be seen:
+    //   - CSP / host drift  -> tests/homeMapTileCsp.test.ts, at build time,
+    //                          before it can reach prod at all.
+    //   - watermark / "not yet available" -> QUEUED as a prod-smoke check on
+    //                          tile BYTE LENGTH, which is an exact detector:
+    //                          2521 B (Base) and 875 B (Reference) are the
+    //                          placeholder, measured 2026-09-01.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
       maxClusterRadius: compact ? 24 : 28,
-      // 16, not 17, because 16 is the basemap's last NATIVE zoom (see
-      // TILE_MAX_NATIVE_ZOOM). zoomToShowLayer zooms until a marker unclusters,
-      // so at 17 the single most common interaction -- tapping a clustered pin --
-      // always landed the user on 2x-upscaled tiles.
-      disableClusteringAtZoom: UNCLUSTER_ZOOM,
+      // UNCHANGED at 17. A draft lowered it to 16 to match the basemap's last
+      // native zoom, so a cluster tap would land on sharp tiles. Cut at review
+      // for two reasons. (1) leaflet.markercluster sets
+      // `_maxZoom = disableClusteringAtZoom - 1` and compares
+      // `Math.round(map._zoom)`, so with `zoomSnap: 0.5` above, 16 unclusters
+      // from an effective 15.5 -- a FULL level earlier than intended, scattering
+      // individual 36px pins across a card that can be 148px tall in dense
+      // central London. (2) A clustering threshold is a UX decision, and it does
+      // not belong in a diff whose subject is the tile provider. The cost of
+      // leaving it is that a cluster tap lands on 2x-upscaled tiles; that is the
+      // honest price of Esri's z16 cache depth and it goes away with the queued
+      // CARTO key.
+      disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: false,
       // We own every cluster tap (handler below): a residual colocated bundle
@@ -668,6 +630,7 @@ export default function EventMap({
     return () => {
       sizeObs?.disconnect();
       elRef.current?.removeEventListener('error', onCoverError, true);
+
       // dispose() cancels any pending timeouts AND marks the map dead, so a
       // deferred call (e.g. flyTo's openPopup) scheduled just before unmount
       // can't fire against the removed map.

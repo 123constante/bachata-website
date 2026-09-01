@@ -43,6 +43,18 @@
   padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
 }
 .home-map .leaflet-control-attribution a { color: #e6e1ef; }
+/* The attribution bar wraps to two lines on NARROW phones and that is
+   deliberate, not an oversight. Esri's required credit is 78 chars against
+   CARTO's 27 and renders 342px wide at this exact 9px/500 style. MEASURED in a
+   browser against the real card: a 360px viewport gives a 324px card and TWO
+   lines (29px, 13.5% of the card); a 390px viewport gives 354px and ONE line.
+   So it wraps at <=375px and fits from 390px up. Esri's terms do not allow
+   shortening the credit.
+   A collapsible "(i)" chip was built here and REVERTED at review round 2 for
+   five defects, three of them accessibility (keyboard-unreachable credit link,
+   invalid nested-interactive ARIA that masked the credit from screen readers,
+   sub-24x24 target). See the block comment in EventMap.tsx; it is queued as its
+   own piece of work. Do not re-add a collapse without those criteria met. */
 
 /* ---- cover scenes (moody gradient placeholders + real flyer support) ---- */
 .home-map .cv { position: relative; overflow: hidden; background: #0c0d10; isolation: isolate; }
