@@ -1,10 +1,17 @@
 {
   "version": 1,
-  "arc": "multicountry-map",
-  "plan": "i-want-find-a-imperative-curry.md",
-  "phase": "P0",
-  "set_at": "2026-08-28T18:20:00Z",
+  "arc": "worktree-repo-root",
+  "plan": "arc-worktree-repo-root.md",
+  "phase": "P1",
+  "set_at": "2026-09-01T13:37:00Z",
   "required_model": "claude-opus-5",
   "required_effort": "high",
-  "note": "P0 is the arc PRECONDITION, not an arc phase: ship the basemap half of fix/home-map-basemap-and-controls, which is what removes the CARTO 'API KEY REQUIRED' watermark from production. Model/effort taken from the tier table (BUILD-visual shipping straight to prod on merge); the plan states none for P0. NO `scope` KEY, DELIBERATELY: declaring one puts pre-ship's scopeDrift into `declared` mode, where ANY worktree file outside the list is a hard error. This worktree carries 11 untracked mockup HTMLs (kept on purpose -- home-map-festivals-tab-mockup.html is prior art for P4) and a dirty scripts/check-occurrence-delete-booking-safety.mjs belonging to another session, so declared mode cannot pass without stashing someone else's work. Inferred mode is the repo's normal posture and WARNs on the foreign guard. That claim was WRONG when written and the miscount is the lesson: a THIRD foreign file was in the worktree, src/lib/encodings.generated.ts -- untracked and NOT gitignored, an admin-repo artefact (its own header names scripts/gen-encodings.mjs and supabase/encodings/registry.json, neither of which exists here) with zero references anywhere in this tree, so a `git add -A` would have committed a stray generated file into the public repo's source. Removed 2026-09-01. Enumerate the untracked set before asserting what inferred mode warns on. Re-add `scope` only alongside a clean worktree. This file also carries a `plan` key that the previous arc (edge-config-governance) never had, which is why check-plan-hygiene's lintArcState skipped its cross-check for that arc's whole life and let its plan pointer stay wrong."
+  "scope": [
+    "scripts/safe-write.py",
+    ".claude/hooks/post-write-check.sh",
+    "tests/helpers/integrityGuard.ts",
+    "tests/integrityCouldNotRun.test.ts",
+    "tests/integrityControlBytes.test.ts"
+  ],
+  "note": "P0 CLOSED 2026-09-01, verdict FIX-BUT-DELETE-THE-RESOLVER: the root is only ever used to locate a SIBLING of the script's own file, so the discovery is deleted rather than replaced -- the idiom safe-edit.py:122-123 already ships. TWO sites need it: scripts/safe-write.py (fails LOUDLY, PARSE_NOT_RUN on stderr) and .claude/hooks/post-write-check.sh (fails SILENTLY, exit 0, no output -- the worst of the three and the one P0's first draft MISSED by spot-checking instead of sweeping; measured inert here, and the guard it skips returns TS1109 on the same file). pre-write-block.sh has NO defect: REL_PATH falls back to the absolute path, a correct argument. pre-exec-guard.mjs's findConfigUpward is a tsconfig walk, not a repo-root walk -- do not touch it. P2 is CANCELLED: the design takes no env input, so there is nothing for GIT_DIR to misdirect. Three of P3's four inherited requirements no longer apply; the Q3 wrong-answer list gained a bash BASH_SOURCE item when the third site was found. Full reasoning in the plan. Phase order: P1 fixtures first (its addLinkedWorktree reproduces the symptom), then P3. rpcTypingGate stays OUT and is expected to red during P1 -- do NOT fix it by re-tuning. QUEUED, not actioned: five bin/ + integrity-guard.py callers already resolve the root via rev-parse and carry the round-4 GIT_DIR exposure; no git-hook path to them was found, but that is a one-variant negative and not a clearance. PREVIOUS VALUE of this file was the CLOSED edge-config-governance record, archived verbatim in queued-p6-rearm-bot-protection.md; it never carried a plan field, which is why lintArcState skipped it for its whole life."
 }
