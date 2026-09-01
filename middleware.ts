@@ -12,10 +12,7 @@ import { edgeCacheControl } from './app/edgeCacheControl';
 export const config = {
   matcher: [
     // Bots keep hitting this edge middleware for the branded OG card + DanceEvent
-    // JSON-LD + noindex-404. /organisers stays matched: the RR7 framework loader
-    // serves HUMANS, but the route meta() is only a fallback head (no loader —
-    // still flag-gated) — the rich card still comes from here until that flag
-    // ships. /event was retired from this list (Phase 5, 2026-07-06): its route
+    // JSON-LD + noindex-404. /event was retired from this list (Phase 5, 2026-07-06): its route
     // now emits equivalent-or-better JSON-LD (BentoPage's buildEventJsonLd) and
     // og:image normalization (resolveOgCardImage in app/detailLoader.ts) itself,
     // verified byte-for-byte identical to this file's own output for a real
@@ -33,12 +30,28 @@ export const config = {
     // /djs + /dancers were retired next (Phase 5, 2026-07-06): both are ungated
     // and their SSR loaders now normalize og:image via normalizeOgImage (same
     // /api/og/card?kind=image src as middleware's fetchDjMeta/fetchDancerMeta —
-    // verified identical on preview for a live DJ + dancer). /teachers STAYS: it
-    // is flag-gated and VITE_ENABLE_TEACHER_DETAIL=false in prod, so its SSR
-    // route serves a coming-soon/noindex page — bots must keep getting the rich
-    // card from here until that flag ships (same reason /organisers stays).
+    // verified identical on preview for a live DJ + dancer).
+    //
+    // /organisers was retired here (2026-09-01) once app/routes/organiser.tsx
+    // gained a loader. BOTH premises of the note that used to keep it are now
+    // false: the route has a loader, and VITE_ENABLE_ORGANISER_DETAIL is true in
+    // prod (production served OrganiserProfile, not the coming-soon gate — which
+    // is how it served "<h1>Organiser not found</h1>" at HTTP 200 on 34 valid
+    // organisers). Checked against this file's own output before removal, field
+    // by field: og:image is the SAME normalizeOgImage/api/og/card?kind=image
+    // src; the canonical is the same /organisers/<slug>; a genuine miss is a
+    // real 404 + X-Robots-Tag: noindex (throwDetailNotFound) where this file
+    // returned its NOINDEX_404 stub; the description prefers the organiser's own
+    // bio exactly as fetchOrganiserMeta did (no organiser has one today, so both
+    // sides fall back — the SSR template is the richer fallback of the two); and
+    // middleware emitted NO JSON-LD for organisers. It also ENDS a cloaking
+    // exposure: bots were served a 1,582-byte document whose body was
+    // "<p>La Familia</p>" while humans got 32,537 bytes. Both now get the page.
+    //
+    // /teachers STAYS: it is flag-gated and VITE_ENABLE_TEACHER_DETAIL=false in
+    // prod, so its SSR route serves a coming-soon/noindex page — bots must keep
+    // getting the rich card from here until that flag ships.
     '/teachers/:path*',
-    '/organisers/:path*',
     '/city/:path*',
   ],
 };
@@ -347,6 +360,12 @@ export default async function middleware(request: Request): Promise<Response> {
       }
       break;
     }
+    // UNREACHABLE since 2026-09-01: '/organisers/:path*' was removed from the
+    // matcher above, so this branch and fetchOrganiserMeta are dead. Left in
+    // place DELIBERATELY so the retirement is one line to revert if the SSR route
+    // regresses; delete both when middleware.ts itself goes (SSR roadmap,
+    // commitment 5). 'organisers' stays in CLEAN_LISTINGS — that is the separate
+    // /city/:slug/organisers canonicalisation, unrelated to this matcher.
     case 'organisers': {
       const ref = await resolveRef('organiser_profiles', id);
       meta = ref ? await fetchOrganiserMeta(ref.id, canonicalUrl) : null;
