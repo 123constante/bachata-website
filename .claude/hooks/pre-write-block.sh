@@ -137,6 +137,12 @@ payload, 2 base never settled, 3 usage/no-op, 4 zero/duplicate/mixed
 match, 5 write path rejected it, 6 base-sha mismatch. All of them mean
 fall back to the full-body path below.
 
+Exit 0 is not always "checked". READ STDERR even on success: when the
+syntax check could not run -- no typescript installed, no node on PATH,
+no repo root above the target -- the write is KEPT and mount-verified,
+exit stays 0, and "PARSE CHECK DID NOT RUN" says so there. It means
+nothing parsed your file, so nothing would have caught a syntax error.
+
 HINT
 )"
     # $() strips trailing newlines; restore the paragraph break so the
