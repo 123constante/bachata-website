@@ -37,6 +37,7 @@ import {
   classifyEndedRoundTrip,
   describeEvents,
 } from './lib/search-past-leak.mjs';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -94,12 +95,13 @@ function assertShape(payload, label) {
 }
 
 async function callRpc(args, label) {
-  const { data, error } = await sb.rpc('search_public_v5', args);
-  if (error) {
-    console.error(`${label}: RPC error: ${error.message}`);
+  try {
+    return await rpcWithRetry(sb, 'search_public_v5', args);
+  } catch (e) {
+    exitTransient(e, `search_public_v5 (${label})`);
+    console.error(`${label}: RPC error: ${e.message}`);
     process.exit(2);
   }
-  return data;
 }
 
 // Test 1: a known query that should match production data.

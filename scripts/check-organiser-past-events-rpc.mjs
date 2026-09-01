@@ -32,6 +32,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -97,13 +98,17 @@ let fixture = null;       // { id, name, rows }
 let sawMissingSignature = false;
 
 for (const org of orgs) {
-  const { data: rows, error } = await sb.rpc('get_organiser_calendar_events_v1', {
-    p_organiser_id: org.id,
-    p_from: fromIso,
-    p_to: toIso,
-    p_include_past: true,
-  });
-  if (error) {
+  let rows;
+  try {
+    rows = await rpcWithRetry(sb, 'get_organiser_calendar_events_v1', {
+      p_organiser_id: org.id,
+      p_from: fromIso,
+      p_to: toIso,
+      p_include_past: true,
+    });
+  } catch (e) {
+    exitTransient(e, `organiser past-events (${org.name})`);
+    const error = e.cause ?? e;
     const msg = error.message || '';
     const code = error.code || '';
     if (NOT_DEPLOYED(msg, code)) { sawMissingSignature = true; break; }
@@ -149,11 +154,12 @@ if (pastCount < 1) {
 }
 
 // Assertion 3: backward-compat - the no-flag call must be future-only.
-const { data: defRows, error: defErr } = await sb.rpc('get_organiser_calendar_events_v1', {
-  p_organiser_id: fixture.id,
-});
-if (defErr) {
-  console.error('Transport error on default (no-flag) call:', defErr.message);
+let defRows;
+try {
+  defRows = await rpcWithRetry(sb, 'get_organiser_calendar_events_v1', { p_organiser_id: fixture.id });
+} catch (e) {
+  exitTransient(e, 'organiser past-events (no-flag call)');
+  console.error('Transport error on default (no-flag) call:', e.message);
   process.exit(2);
 }
 const defPast = (defRows || []).filter((r) => r.is_past === true).length;

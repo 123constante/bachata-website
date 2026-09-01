@@ -24,6 +24,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -59,12 +60,12 @@ const sb = createClient(url, key, {
 });
 
 const LIMIT = 6;
-const { data, error } = await sb.rpc('get_latest_events_v2', {
-  p_city_slug: null,
-  p_limit: LIMIT,
-});
-
-if (error) {
+let data;
+try {
+  data = await rpcWithRetry(sb, 'get_latest_events_v2', { p_city_slug: null, p_limit: LIMIT });
+} catch (e) {
+  exitTransient(e, 'latest-events ordering');
+  const error = e.cause ?? e;
   const msg = `${error.code || ''} ${error.message || ''}`.trim();
   if (/PGRST202|Could not find the function|schema cache|does not exist/i.test(msg)) {
     console.error(

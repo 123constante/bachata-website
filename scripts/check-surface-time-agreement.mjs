@@ -25,6 +25,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 const SAMPLE = 40;
 
@@ -54,29 +55,32 @@ if (!url || !key) {
 }
 const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
-function isTransient(err) {
-  if (!err) return false;
-  const code = String(err.code || '');
-  const msg = String(err.message || '').toLowerCase();
-  return code === '57014' || msg.includes('statement timeout') || msg.includes('canceling statement') ||
-    msg.includes('fetch failed') || msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('network');
-}
-
-async function rpc(fn, args) {
-  let { data, error } = await sb.rpc(fn, args);
-  if (error && isTransient(error)) {
-    await new Promise((r) => setTimeout(r, 2000));
-    ({ data, error } = await sb.rpc(fn, args));
-  }
-  if (error) throw new Error(`${fn}: ${error.message}`);
-  return data;
-}
+// Classification and retry live in scripts/lib/rpc-retry.mjs so this check and
+// its siblings agree on what a 57014 means. What stood here retried once
+// and then threw a BARE Error -- which the catch blocks below folded into
+// `mismatches`, reporting a cold search RPC as a reader disagreeing with the
+// canonical wall clock and exiting 1 for a contract violation that never
+// happened. Observed on main 2026-09-01 (runs 33564348040, 33564636783):
+// "mismatches: 1", the sole entry being a statement timeout.
+const rpc = (fn, args) => rpcWithRetry(sb, fn, args);
 
 // Epoch millis of a wall-stamped timestamp; every column-reader emits the wall clock
 // tagged +00, so equal wall clock => equal instant. null-safe.
 const epoch = (v) => (v == null ? null : Date.parse(v));
 
-const sample = await rpc('_public_time_agreement_sample_v1', { p_limit: SAMPLE });
+// The sampler is the call MOST likely to time out: it is the only aggregate
+// scan in this file, and every downstream call depends on it. Left as a bare
+// top-level await, an exhausted retry became an unhandled rejection and Node
+// exited 1 -- reinstating, on the single most vulnerable call, the exact
+// mis-typing this file was changed to remove. Found at review 2026-09-01.
+let sample;
+try {
+  sample = await rpc('_public_time_agreement_sample_v1', { p_limit: SAMPLE });
+} catch (e) {
+  exitTransient(e, 'surface time-agreement (sampler)');
+  console.error(`surface time-agreement: sampler RPC failed: ${e.message}`);
+  process.exit(2);
+}
 
 const mismatches = [];
 let compared = 0;
@@ -94,7 +98,12 @@ for (const row of sample || []) {
       p_viewer: { role: 'anon', shape: 'snapshot_compat' },
     });
     compatStart = epoch(ev?.occurrence_effective?.starts_at);
-  } catch (e) { mismatches.push(`${row.series_name} [${occ}]: compat RPC error: ${e.message}`); }
+  } catch (e) {
+    // A timeout is infrastructure, not a disagreement -- exit 2 and say so.
+    // Any OTHER RPC failure is still a genuine reader problem and is reported.
+    exitTransient(e, 'surface time-agreement (event page)');
+    mismatches.push(`${row.series_name} [${occ}]: compat RPC error: ${e.message}`);
+  }
 
   // Search: its anchor is this same next-upcoming occurrence.
   let searchStart = null;
@@ -105,7 +114,10 @@ for (const row of sample || []) {
     });
     const hit = (s?.events || []).find((e) => e.id === row.event_id);
     if (hit) { searchStart = epoch(hit.start_time); searchMatched++; }
-  } catch (e) { mismatches.push(`${row.series_name} [${occ}]: search RPC error: ${e.message}`); }
+  } catch (e) {
+    exitTransient(e, 'surface time-agreement (search)');
+    mismatches.push(`${row.series_name} [${occ}]: search RPC error: ${e.message}`);
+  }
 
   const check = (label, val) => {
     if (val == null) return; // reader didn't surface this occurrence -> not a disagreement
