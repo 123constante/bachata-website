@@ -346,10 +346,17 @@ export default function EventMap({
     // opaque terrain with NO place names, and the labels live in a separate
     // transparent Reference service. CARTO's dark_all baked both into one raster,
     // so a straight URL swap silently ships a map with no street or place names
-    // at any zoom -- while the pre-mount placeholder still (a CARTO render) DOES
-    // show them, making the swap visible at mount.
-    // `className` is what lets homeMap.css darken the base WITHOUT darkening the
-    // labels, which are light-on-transparent and would be crushed to unreadable.
+    // at any zoom. (This used to add "-- while the pre-mount placeholder still,
+    // a CARTO render, DOES show them, making the swap visible at mount". Both
+    // halves are false since the stills were re-rendered from this same Esri
+    // pair: same provider, same default view, so mount is a continuation. Struck
+    // rather than reworded -- there is no longer a mismatch to describe.)
+    // NO `className` on either layer, and no CSS filter on the tiles: the pair
+    // renders at Esri's native tone, which is the tone its labels were drawn
+    // for. A `hm-basetiles` hook existed here to darken the base alone; both it
+    // and the rule are gone. Do not reintroduce a class that no selector uses --
+    // it reads as an active styling hook and sends the next reader looking for
+    // a rule that is not there.
     // No `maxZoom` here: L.map above sets it explicitly, so Leaflet never
     // derives _layersMaxZoom and a layer-level value is inert. It was carried
     // from the CARTO layer, where it was equally inert, and read as if the map
@@ -357,7 +364,6 @@ export default function EventMap({
     L.tileLayer(TILE_URL, {
       attribution: ATTR,
       maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
-      className: 'hm-basetiles',
     }).addTo(m);
     L.tileLayer(TILE_REF_URL, {
       maxNativeZoom: TILE_MAX_NATIVE_ZOOM,

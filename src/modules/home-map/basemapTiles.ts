@@ -29,9 +29,8 @@
 // below: at z17-18 the upscale is 4x-8x rather than 2x-4x.
 // This is the honest price of getting the "API KEY REQUIRED" watermark off
 // production today, and it is the strongest argument for the queued CARTO key
-// -- weigh it there, alongside the brightness stopgap in homeMap.css and the
-// two-line attribution. Do not re-derive it from the tile URLs; it is invisible
-// in them.
+// -- weigh it there, alongside the two-line attribution. Do not re-derive it
+// from the tile URLs; it is invisible in them.
 //
 // CHANGING THIS HOST? `app/csp.ts` img-src must change with it, or every tile is
 // silently CSP-blocked and the map renders empty with no failed request. That
@@ -47,13 +46,15 @@ export const TILE_REF_URL =
 // MEASURED over London, and over BOTH services of the pair, not read off a docs
 // page: z<=16 serves real tiles; z17 upward returns a fixed-size "Map data not
 // yet available" placeholder at HTTP 200 -- 2521 bytes on Base, 875 on
-// Reference. It is LIGHT GREY and would read as a broken map on this dark
-// theme. maxNativeZoom pins fetching at 16 and lets Leaflet upscale, so the
+// Reference. maxNativeZoom pins fetching at 16 and lets Leaflet upscale, so the
 // zoom RANGE is unchanged; what changes is that a pinch past 16 is now upscaled
 // where CARTO served native tiles to 19. Queued, not fixed here: Esri's cache
 // depth varies by REGION, so outside London z14-16 may serve that same
-// placeholder -- 200 OK, no tileerror, and homeMap.css's brightness filter
-// darkens it into what reads as empty land. Byte length is an exact detector.
+// placeholder -- 200 OK, no tileerror. Byte length is an EXACT detector and is
+// the only reliable one: that placeholder is a flat #cdcdcd at luma 204.7,
+// against the real basemap's 78 at z16 (both measured 2026-09-01 on the London
+// tile), so it reads as a bright patch rather than as land -- but "looks
+// wrong" is not a check, and nothing in the client sees it.
 export const TILE_MAX_NATIVE_ZOOM = 16;
 
 // VERBATIM from the service's own metadata -- server.arcgisonline.com/ArcGIS/rest/
