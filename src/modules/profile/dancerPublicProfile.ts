@@ -30,7 +30,7 @@ export type DancerPublicRecord = Pick<
 /**
  * The ONE PostgREST column list for a public dancer profile.
  *
- * It used to be written out twice — once in app/routes/dancers.tsx (with a
+ * It used to be written out twice -- once in app/routes/dancers.tsx (with a
  * comment promising it mirrored the page's query "byte-for-byte") and once in
  * src/pages/DancerProfile.tsx. They drifted, both omitting `display_name`, and
  * the dehydrated SSR cache entry therefore matched a page query that was also
@@ -50,7 +50,7 @@ export const DANCER_PUBLIC_COLS =
 
 export type DancerPublicViewModel = {
   id: string;
-  /** `null` when no real name resolves — see @/lib/publicName. Callers render
+  /** `null` when no real name resolves -- see @/lib/publicName. Callers render
    *  their own fallback; SEO callers must pass it through as `undefined` so
    *  buildSeoForRoute noindexes the page instead of indexing a placeholder. */
   displayName: string | null;

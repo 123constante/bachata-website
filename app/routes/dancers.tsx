@@ -49,7 +49,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // .detail route on a FALSY entityName, so a nameless dancer must arrive as
       // undefined. resolvePublicName already refuses to invent one (it returns
       // null rather than "Dancer" or an id), and this is where that null turns
-      // into the routing decision Ricky chose — 200 + noindex, not a 404, so an
+      // into the routing decision Ricky chose -- 200 + noindex, not a 404, so an
       // existing link into a thin profile still resolves.
       entityName: view.displayName ?? undefined,
       entitySlug: ref.slug ?? params.id,

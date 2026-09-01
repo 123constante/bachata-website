@@ -123,7 +123,7 @@ export const STAMP_ONLY_KINDS: string[] = [
   // because there is no 'organiser' emit on the DB side to purge them WITH. That
   // is the whole reason the route pins its edge TTL to zero rather than relying
   // on the 25-hour default this allowlist otherwise waves through. Delete both
-  // entries — and the pin — in the same change that adds the emit.
+  // entries -- and the pin -- in the same change that adds the emit.
   organiserTag(STAMP_PLACEHOLDER_ID),
   ORGANISERS,
   EVENTS,

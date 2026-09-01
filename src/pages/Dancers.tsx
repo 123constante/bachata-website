@@ -343,7 +343,7 @@ const Dancers = () => {
                         {dancer.avatar_url ? (
                           <img src={optimizedImageUrl(dancer.avatar_url, 160)} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" loading="lazy" />
                         ) : (
-                          getAvatarEmoji(dancer.first_name)
+                          getAvatarEmoji(getDisplayName(dancer))
                         )}
                       </motion.div>
                     </div>

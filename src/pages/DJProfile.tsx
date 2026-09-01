@@ -104,7 +104,7 @@ const DJProfile = () => {
   // `dj.display_name` is NOT trustworthy as a name: get_public_dj_v1 builds it
   // as COALESCE(dj_name, first+surname, dp.id::text), so for a profile whose
   // name lives only in dancer_profiles.display_name the RPC hands back the row's
-  // UUID — which then rendered as this page's <h1> and <title> in production.
+  // UUID -- which then rendered as this page's <h1> and <title> in production.
   // resolvePublicName rejects an id-shaped candidate; the RPC's own COALESCE is
   // fixed separately (admin repo migration), and this guard stands regardless so
   // the id can never reach the page again.

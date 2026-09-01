@@ -2,16 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { resolvePublicName, renderPublicName } from '../src/lib/publicName';
 
 // Both directions, per CLAUDE.md's guards law:
-//   POSITIVE — the resolver returns null on exactly the production rows that
+//   POSITIVE -- the resolver returns null on exactly the production rows that
 //              rendered a placeholder or a UUID as an indexed <h1>/<title>.
-//   NEGATIVE — it does NOT return null on legitimate-but-unusual names, because
+//   NEGATIVE -- it does NOT return null on legitimate-but-unusual names, because
 //              a resolver that over-rejects noindexes healthy profiles, which is
 //              a worse outcome than the bug it replaces.
-//   FIDELITY — it returns the RIGHT name, not merely a non-null one.
+//   FIDELITY -- it returns the RIGHT name, not merely a non-null one.
 
 const UUID = '7be16d15-2779-4be8-9ef6-809353520593';
 
-describe('resolvePublicName — the shapes that shipped soft 404s', () => {
+describe('resolvePublicName -- the shapes that shipped soft 404s', () => {
   it('prefers display_name, where the 44 nameless dancer profiles keep their names', () => {
     // The exact production shape: DANCER_COLS omitted display_name, so the page
     // saw only first_name/surname (both null) and rendered "Dancer".
@@ -29,8 +29,24 @@ describe('resolvePublicName — the shapes that shipped soft 404s', () => {
   it('rejects a UUID-shaped name even when it is NOT this row id', () => {
     // The id checks are independent on purpose: a joined person/profile split
     // gives two different uuids, and comparing only against source.id would let
-    // the other one through.
+    // the other one through. This case exercises the SHAPE check alone.
     expect(resolvePublicName({ id: 'abc', display_name: UUID })).toBeNull();
+  });
+
+  it('rejects a name equal to the row id even when the id is NOT UUID-shaped', () => {
+    // This case exercises the EQUALITY check alone -- the other half of the
+    // "belt-and-braces" claim in publicName.ts. Without it, every test that
+    // reached the equality branch also had a UUID-shaped candidate, so the shape
+    // check short-circuited first and a mutant deleting the equality comparison
+    // passed all 16 tests (verified 2026-09-01). Half the resolver's documented
+    // protection was asserted by prose only.
+    expect(resolvePublicName({ id: 'abc', display_name: 'abc' })).toBeNull();
+    // ...and case-insensitively, which is what the .toLowerCase() pair is for.
+    expect(resolvePublicName({ id: 'AbC-123', display_name: 'abc-123' })).toBeNull();
+    // Non-vacuity for this pair: the same shapes with a DIFFERENT id resolve
+    // normally, so the assertions above are about the equality, not about 'abc'
+    // being rejected for some unrelated reason.
+    expect(resolvePublicName({ id: 'xyz', display_name: 'abc' })).toBe('abc');
   });
 
   it('treats whitespace-only as absent (melvin has first_name = " " on prod)', () => {
@@ -38,7 +54,7 @@ describe('resolvePublicName — the shapes that shipped soft 404s', () => {
     expect(resolvePublicName({ id: UUID, display_name: '   ' })).toBeNull();
   });
 
-  it('returns null — never a placeholder — when nothing resolves', () => {
+  it('returns null -- never a placeholder -- when nothing resolves', () => {
     // This null is what makes buildSeoForRoute emit noindex. If it ever became
     // "Dancer"/"DJ"/"Organiser" again, the page would silently rejoin the index
     // as a duplicate-titled soft 404 and nothing else would notice.
@@ -47,7 +63,7 @@ describe('resolvePublicName — the shapes that shipped soft 404s', () => {
   });
 });
 
-describe('resolvePublicName — healthy-but-unusual names stay green', () => {
+describe('resolvePublicName -- healthy-but-unusual names stay green', () => {
   it('keeps a single-word name', () => {
     expect(resolvePublicName({ id: UUID, first_name: 'Melvin', surname: null })).toBe('Melvin');
   });
@@ -57,7 +73,7 @@ describe('resolvePublicName — healthy-but-unusual names stay green', () => {
   });
 
   it('keeps names with accents, punctuation and non-Latin scripts', () => {
-    for (const n of ['José Ángel', "O'Brien", 'Ana-María Ruiz', '陳大文', 'DJ 4Real']) {
+    for (const n of ['Jos\u00e9 \u00c1ngel', "O'Brien", 'Ana-Mar\u00eda Ruiz', '\u9673\u5927\u6587', 'DJ 4Real']) {
       expect(resolvePublicName({ id: UUID, display_name: n })).toBe(n);
     }
   });
@@ -81,7 +97,7 @@ describe('resolvePublicName — healthy-but-unusual names stay green', () => {
   });
 });
 
-describe('resolvePublicName — precedence', () => {
+describe('resolvePublicName -- precedence', () => {
   it('display_name outranks dj_name, name, and first+surname', () => {
     expect(resolvePublicName({
       id: UUID, display_name: 'Curated', dj_name: 'Stage', name: 'Generic',

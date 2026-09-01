@@ -1,12 +1,12 @@
 /**
- * publicName — the single authority for "what is this profile called?".
+ * publicName -- the single authority for "what is this profile called?".
  *
  * Every public profile surface used to answer this question for itself, and the
  * three answers disagreed in three different ways on production (measured
  * 2026-07-28, still true 2026-09-01):
  *
  *   - /dancers/:slug   rendered `<h1>Dancer</h1>` for 44 live profiles, because
- *     the loader's column list omitted `display_name` — where those names
+ *     the loader's column list omitted `display_name` -- where those names
  *     actually live.
  *   - /djs/:slug       rendered a raw UUID as its `<h1>` and `<title>`, because
  *     get_public_dj_v1's COALESCE chain ends in `dp.id::text`.
@@ -18,7 +18,7 @@
  * decision (404, or 200 + noindex) instead of shipping a placeholder that reads
  * to a crawler as real content.
  *
- * NEVER FALL BACK TO AN ID. An id is not a name, and — unlike an empty string —
+ * NEVER FALL BACK TO AN ID. An id is not a name, and -- unlike an empty string --
  * it is truthy, so it silently satisfies every `entityName ?? 'Dancer'` guard
  * and every `!ctx.entityName` noindex test downstream (see
  * src/lib/seo/buildSeoForRoute.ts). That is precisely how a UUID reached the
@@ -50,7 +50,7 @@ export type PublicNameSource = {
  *
  * Candidates are tried in order of authority: the curated `display_name`, then
  * a role-specific stage name, then a generic `name`, then first + surname. A
- * candidate is rejected — not returned — when it is blank, when it is the row's
+ * candidate is rejected -- not returned -- when it is blank, when it is the row's
  * own id, or when it is UUID-shaped from any source. The id checks are
  * deliberately belt-and-braces: `get_public_dj_v1` hands us the id in the
  * `display_name` FIELD, so comparing against `source.id` alone would pass it
@@ -78,7 +78,7 @@ export function resolvePublicName(source: PublicNameSource): string | null {
 
 /**
  * The same resolution, rendered. Use ONLY where a human is looking at a screen
- * and a generic word beats an empty heading — never for `entityName`, a
+ * and a generic word beats an empty heading -- never for `entityName`, a
  * `<title>`, a canonical, or anything a crawler reads as the page's subject,
  * because a placeholder there is indistinguishable from a real name and
  * suppresses the noindex that a nameless profile is supposed to get.

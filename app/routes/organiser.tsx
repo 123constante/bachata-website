@@ -39,12 +39,12 @@ import type { Route } from "./+types/organiser";
 // would 404 the entire directory.
 /** Mirrors middleware.ts's truncate() exactly (160 chars, ellipsis), because the
  *  organiser bio it serves bots is the one thing the SSR route did not yet
- *  reproduce — and reproducing it is the precondition for retiring the
+ *  reproduce -- and reproducing it is the precondition for retiring the
  *  /organisers matcher from that file. */
 function truncate(text: string | null | undefined, max: number): string {
   if (!text) return "";
   const trimmed = String(text).trim();
-  return trimmed.length <= max ? trimmed : trimmed.slice(0, max - 1).trimEnd() + "…";
+  return trimmed.length <= max ? trimmed : trimmed.slice(0, max - 1).trimEnd() + "\u2026";
 }
 
 async function fetchOrganiserEntity(id: string) {
@@ -206,12 +206,18 @@ export const meta: Route.MetaFunction = ({ data }) => {
   // When the flag is OFF, ComingSoonGate renders the placeholder and meta()
   // emits noindex in the raw SSR HTML (the gate's own noindex is a client-only
   // useEffect that never runs on the server).
-  // Narrowed with `in`, not `data.locked`: under this repo's non-strict
-  // tsconfig the boolean discriminant does not narrow the loader's return union,
-  // so `data.locked` leaves every field below a type error (the same five errors
+  // Narrowed with `in`, not `data.locked`: under this repo's non-strict tsconfig
+  // the boolean discriminant does not narrow the loader's return union, so
+  // `data.locked` leaves every field below a type error (the same five errors
   // app/routes/teachers.tsx and venue-entity.tsx still carry). Do not "tidy" this
   // back to the flag without re-running `npm run typecheck`.
-  if (!data || !("entityName" in data)) {
+  //
+  // The key is `dehydratedState`, NOT `entityName`: entityName is deliberately
+  // `undefined` for a nameless organiser, so narrowing on it would make the
+  // correct head depend on an undefined-valued key surviving serialization -- and
+  // if it ever did not, a real organiser would be titled "Coming soon".
+  // dehydratedState is always present and never undefined in that branch.
+  if (!data || !("dehydratedState" in data)) {
     return [
       { title: "Coming soon - Organiser - Bachata Calendar" },
       { name: "robots", content: "noindex,nofollow" },

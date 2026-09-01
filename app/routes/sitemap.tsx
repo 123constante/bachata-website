@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { flags } from "@/lib/featureFlags";
 import { edgeCacheControl } from "../detailLoader";
+import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
 // dead build-time scripts/generate-sitemap.mjs, which `react-router build`
@@ -119,14 +120,26 @@ async function fetchVenues(): Promise<UrlRow[]> {
 }
 
 // dancer_profiles: feed /dancers/:id (public) and /teachers/:id (flag-gated).
+//
+// The name columns are selected so a profile with NO resolvable name can be left
+// out. Those pages are not broken -- they render, and they deliberately emit
+// noindex (app/routes/dancers.tsx, via resolvePublicName) -- but a sitemap is a
+// request to index, so submitting one is a straight contradiction that Google
+// reports as "Submitted URL marked noindex". 2 of 138 rows today.
+//
+// `is_active IS NOT FALSE`, never `= true`: is_active is NULL on most rows, and an
+// equality gate here would empty the directory.
 async function fetchDancerProfiles(): Promise<ProfileRow[]> {
   const { data, error } = await db
     .from("dancer_profiles")
-    .select("id, slug, updated_at")
+    .select("id, slug, updated_at, display_name, first_name, surname")
+    .not("is_active", "is", false)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return (data ?? []) as ProfileRow[];
+  return ((data ?? []) as Array<ProfileRow & PublicNameSource>).filter(
+    (d) => resolvePublicName(d) !== null,
+  ) as ProfileRow[];
 }
 
 // teacher_profiles: which dancer_profiles ids also have a teacher role.
@@ -140,11 +153,18 @@ async function fetchTeacherProfileIds(): Promise<Set<string>> {
 async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   const { data, error } = await db
     .from("organiser_profiles")
-    .select("id, slug, updated_at")
+    .select("id, slug, updated_at, name")
+    // Must match app/routes/organiser.tsx's own visibility gate exactly. That
+    // loader 404s a row this filter would otherwise submit, which Google reports
+    // as "Submitted URL not found (404)". 0 rows are is_active = false today, so
+    // this is a latent mismatch being closed, not a live one being repaired.
+    .not("is_active", "is", false)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return ((data ?? []) as ProfileRow[]).map((o) => ({
+  return ((data ?? []) as Array<ProfileRow & PublicNameSource>)
+    .filter((o) => resolvePublicName(o) !== null)
+    .map((o) => ({
     loc: `${BASE_URL}/organisers/${o.slug || o.id}`,
     lastmod: toDate(o.updated_at),
     changefreq: "weekly",

@@ -44,7 +44,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       dehydratedState: dehydrate(qc),
       // NOT dj.display_name directly: get_public_dj_v1's COALESCE ends in
       // dp.id::text, so that field is the row's UUID for a profile named only in
-      // dancer_profiles.display_name — and a UUID is truthy, so it sailed past
+      // dancer_profiles.display_name -- and a UUID is truthy, so it sailed past
       // buildSeoForRoute's noindex and became the indexed <title>. resolvePublicName
       // returns null there, which noindexes the page instead. Mirrors DJProfile.
       entityName: resolvePublicName(dj as Parameters<typeof resolvePublicName>[0]) ?? undefined,

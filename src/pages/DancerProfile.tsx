@@ -292,7 +292,7 @@ const DancerProfile = () => {
       hero={{
         emoji: '',
         // Empty, not "Dancer": the hero already prints "Dancer" as titleOrange,
-        // so a nameless profile reads "Dancer" once rather than twice — and the
+        // so a nameless profile reads "Dancer" once rather than twice -- and the
         // page's SUBJECT stays unclaimed, which is what the noindex on this same
         // resolution (app/routes/dancers.tsx) is asserting to a crawler.
         titleWhite: dancerView.displayName ?? '',

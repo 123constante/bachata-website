@@ -100,6 +100,15 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
     return { label: 'Newcomer', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' };
   };
 
+  // DancerPublicViewModel.displayName is `string | null` -- null when no real
+  // name resolves (see @/lib/publicName). This component is the HUMAN surface, so
+  // it substitutes a generic label rather than rendering an empty heading; the
+  // page's SEO identity is a separate decision made in app/routes/dancers.tsx,
+  // which passes the null straight through so the page is noindexed. Read it
+  // ONCE here: `.charAt(0)` on the null was a 500 on the two live, sitemapped
+  // profiles that have neither a name nor an avatar.
+  const label = dancer.displayName ?? 'Dancer';
+
   return (
     <>
     <motion.div
@@ -115,12 +124,12 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
             {dancer.avatarUrl ? (
               <img 
                 src={optimizedImageUrl(dancer.avatarUrl, 480)} 
-                alt={dancer.displayName}
+                alt={label}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-8xl">
-                {dancer.displayName.charAt(0)}
+                {label.charAt(0)}
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
@@ -129,7 +138,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
           <div className="relative h-full flex flex-col justify-end p-6 z-10">
             <div className="flex items-center gap-2 mb-2">
               <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-md">
-                {dancer.displayName}
+                {label}
               </h1>
               {dancer.isVerified && (
                 <CheckCircle2 className="w-6 h-6 text-blue-400 fill-blue-400/20" />
