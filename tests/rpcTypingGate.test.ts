@@ -60,5 +60,16 @@ describe('scanTree (real repo)', () => {
     expect(flat.length).toBeGreaterThan(0);
     // ...but get_calendar_events_v2 was routed through the typed boundary in #117.
     expect(flat).not.toContain('get_calendar_events_v2');
-  });
+    // 30s, EXPLICIT, because this case walks the REAL tree and vitest's 5000ms
+    // default was never chosen for that. MEASURED 2026-09-01: scanTree() is
+    // ~860ms uncontended (3 runs: 859/889/852), but under the full suite's
+    // parallel workers on this FUSE mount it crossed 5000ms and blocked a push
+    // -- 5103ms observed -- while passing 3/3 in isolation. The work is not
+    // slow; the DEFAULT is wrong for a whole-tree scan whose cost grows with
+    // the repo, so a green here was always going to expire on ordinary growth.
+    // This does NOT weaken the assertion: the two expects above are unchanged,
+    // and a genuinely hung scan still fails, six times later than before.
+    // Orthogonal to the queued `own-pool` fix, which isolates the worker
+    // instead -- either alone is sufficient, and both together are harmless.
+  }, 30000);
 });
