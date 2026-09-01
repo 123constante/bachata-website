@@ -80,13 +80,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (!ref.id) throwDetailNotFound("Organiser");
   redirectUuidToSlug(ref, request, "/organisers");
 
-  const entity = await qc.fetchQuery({
-    queryKey: ["entity", ref.id],
-    queryFn: () => fetchOrganiserEntity(ref.id as string),
-    staleTime: 5 * 60 * 1000,
-  });
-  if (!entity) throwDetailNotFound("Organiser");
-
+  // A thunk, not an eager promise: `ref.slug` is populated ONLY when
+  // resolveEntityInLoader's own row lookup actually matched a row (see that
+  // function) -- a syntactically-valid but nonexistent uuid falls back to
+  // `id: param` with `slug: null`, so firing these unconditionally burned 3
+  // wasted RPC round trips on every hit to a random/expired/deactivated
+  // organiser id, repeated on every request (no cache tag on a 404). Gating
+  // on ref.slug fires them CONCURRENTLY with the entity fetch below for the
+  // confirmed-to-exist case (the overwhelming majority of real traffic --
+  // every canonical slug URL and every uuid that already resolved), and
+  // otherwise defers to right after the entity check, matching the original
+  // sequential order so a genuine miss never pays for prefetches at all.
+  //
   // Prefetch the events the page shows, or the fix trades one thin page for
   // another: an organiser with a real <h1> and no content is still a soft 404 to
   // Google. prefetchQuery, not fetchQuery -- the page treats each as optional
@@ -101,63 +106,78 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // concurrently, so it finishes well inside a request that was already waiting.
   // Re-measure before assuming that still holds. The team roster stays
   // client-side: two sequential round trips for content no crawler ranks on.
-  await Promise.allSettled([
-    qc.prefetchQuery({
-      queryKey: ["organiser-events", ref.id],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from("event_entities")
-          .select(
-            "event_id, events(id, name, date, start_time, is_active, poster_url, location, city)",
-          )
-          .eq("entity_id", ref.id as string)
-          .eq("role", "organiser");
-        if (error) return [];
-        type Row = { event_id: string; events: Record<string, unknown> | null };
-        return (data as unknown as Row[])
-          .map((r) => r.events)
-          .filter((e): e is Record<string, unknown> => Boolean(e))
-          .filter((e) => e.is_active !== false);
-      },
-      staleTime: 5 * 60 * 1000,
-    }),
-    qc.prefetchQuery({
-      queryKey: ["organiser-occ-events", ref.id],
-      queryFn: async () => {
-        // No `as never` on the name or the args: get_organiser_calendar_events_v1
-        // IS in the generated Database type, so the cast OrganiserProfile still
-        // carries (grandfathered in scripts/rpc-typing-allowlist.json) would only
-        // collapse `data` to never and discard its Returns. check:rpc-typing
-        // refuses a new one.
-        const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
-          p_organiser_id: ref.id as string,
-        });
-        if (error) return [];
-        return data ?? [];
-      },
-      staleTime: 5 * 60 * 1000,
-    }),
-    qc.prefetchQuery({
-      // Same key AND same 10-year window as OrganiserProfile's own past query.
-      // The window is computed from Date.now() inside the queryFn on both sides
-      // and is NOT part of the cache key, so a few milliseconds of drift between
-      // server and client cannot split the entry.
-      queryKey: ["organiser-occ-events-past", ref.id],
-      queryFn: async () => {
-        const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
-        const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-        const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
-          p_organiser_id: ref.id as string,
-          p_from: from,
-          p_to: to,
-          p_include_past: true,
-        });
-        if (error) return [];
-        return data ?? [];
-      },
-      staleTime: 5 * 60 * 1000,
-    }),
-  ]);
+  //
+  // Promise.all, not allSettled: every queryFn below already swallows its own
+  // error to `[]`, so prefetchQuery never rejects -- allSettled's per-item
+  // status was dead weight nothing read.
+  const startFeeds = () =>
+    Promise.all([
+      qc.prefetchQuery({
+        queryKey: ["organiser-events", ref.id],
+        queryFn: async () => {
+          const { data, error } = await supabase
+            .from("event_entities")
+            .select(
+              "event_id, events(id, name, date, start_time, is_active, poster_url, location, city)",
+            )
+            .eq("entity_id", ref.id as string)
+            .eq("role", "organiser");
+          if (error) return [];
+          type Row = { event_id: string; events: Record<string, unknown> | null };
+          return (data as unknown as Row[])
+            .map((r) => r.events)
+            .filter((e): e is Record<string, unknown> => Boolean(e))
+            .filter((e) => e.is_active !== false);
+        },
+        staleTime: 5 * 60 * 1000,
+      }),
+      qc.prefetchQuery({
+        queryKey: ["organiser-occ-events", ref.id],
+        queryFn: async () => {
+          // No `as never` on the name or the args: get_organiser_calendar_events_v1
+          // IS in the generated Database type, so the cast OrganiserProfile still
+          // carries (grandfathered in scripts/rpc-typing-allowlist.json) would only
+          // collapse `data` to never and discard its Returns. check:rpc-typing
+          // refuses a new one.
+          const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
+            p_organiser_id: ref.id as string,
+          });
+          if (error) return [];
+          return data ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+      }),
+      qc.prefetchQuery({
+        // Same key AND same 10-year window as OrganiserProfile's own past query.
+        // The window is computed from Date.now() inside the queryFn on both sides
+        // and is NOT part of the cache key, so a few milliseconds of drift between
+        // server and client cannot split the entry.
+        queryKey: ["organiser-occ-events-past", ref.id],
+        queryFn: async () => {
+          const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
+          const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+          const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
+            p_organiser_id: ref.id as string,
+            p_from: from,
+            p_to: to,
+            p_include_past: true,
+          });
+          if (error) return [];
+          return data ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+      }),
+    ]);
+  const feeds = ref.slug ? startFeeds() : null;
+
+  const entity = await qc.fetchQuery({
+    queryKey: ["entity", ref.id],
+    queryFn: () => fetchOrganiserEntity(ref.id as string),
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!entity) throwDetailNotFound("Organiser");
+
+  await (feeds ?? startFeeds());
 
   const row = entity as Record<string, unknown>;
   return taggedData(
