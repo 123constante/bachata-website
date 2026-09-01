@@ -6,39 +6,6 @@ migrations; all schema authority lives in `bachata-admin-11april`.
 
 ---
 
-## Repository structure
-
-```
-src/
-  App.tsx              Root router (lazy imports with chunk-reload retry)
-  pages/               Route-level page components (40+ pages)
-  modules/
-    event-page/        Event detail page — model, hooks, sections, bento tiles
-    profile/           Profile module
-    vendor/            Vendor portal
-  components/          Shared UI components
-    calendar/          EventCalendar, CalendarGrid, DayDetailModal (EXEMPT from density)
-    layout/            GlobalLayout, GlobalHeader, BottomNav, PageBreadcrumb
-    ui/                shadcn/ui primitives
-    organiser/         Organiser-specific components
-    venue/             Venue-specific components
-  lib/
-    breadcrumbs/       buildBreadcrumbs(), siteIa.ts, JSON-LD
-    featureFlags.ts    VITE_ENABLE_* flags → ComingSoonGate
-    supabase.ts        Supabase client
-    analytics.ts       Event view tracking, search telemetry
-    sentry.ts          Sentry error capture
-    programDayRollover.ts  Day-rollover logic (must mirror admin lib)
-  hooks/               useAuth, useEvents, useCalendarEvents, useAttendance, etc.
-  contexts/            CityContext
-scripts/               CI contract check scripts (see db-contract-check.yml)
-tests/                 Vitest unit tests + Playwright e2e specs
-bin/                   Integrity and session-lock tools
-.github/workflows/     CI: db-contract-check.yml, architecture-guard.yml, integrity.yml
-```
-
----
-
 ## Architecture
 
 ### Routing
@@ -70,12 +37,6 @@ when the flag is false (see `lib/featureFlags.ts`).
   cell against a true 99px).
 - `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
 - `sections/` — page sections
-
-### QueryClient
-
-Defined in App.tsx. Global defaults: `staleTime: 60_000`, `retry: 1`,
-`refetchOnWindowFocus: false`. All query and mutation errors route to Sentry
-via `QueryCache` / `MutationCache` `onError`.
 
 ### Chunk splitting (Vite)
 
@@ -407,22 +368,6 @@ REORDERED one does not.
 If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
 reference to a table or RPC that has been retired from the DB. Fix the call
 site, not the check.
-
----
-
-## Feature flags
-
-Feature flags in `src/lib/featureFlags.ts` gate public-facing listing pages
-behind `<ComingSoonGate>`. Set to `true` in `.env.development` for local work.
-Vercel production env overrides `.env.production`.
-
-| Flag | Controls |
-|------|----------|
-| `VITE_ENABLE_TEACHERS_DIRECTORY` | `/teachers` listing |
-| `VITE_ENABLE_TEACHER_DETAIL` | `/teachers/:id` detail |
-| `VITE_ENABLE_ORGANISERS_DIRECTORY` | `/organisers` listing |
-| `VITE_ENABLE_ORGANISER_DETAIL` | `/organisers/:id` detail |
-| `VITE_ENABLE_VENUE_DETAIL` | `/venues/:id` detail |
 
 ---
 

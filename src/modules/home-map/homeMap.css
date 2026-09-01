@@ -18,12 +18,43 @@
 /* map canvas fills its (relative, sized) parent */
 .home-map__canvas { position: absolute; inset: 0; }
 .home-map .leaflet-container { background: #11121a; font-family: inherit; }
+/* Darken the basemap to sit in the dark theme. MEASURED mean luminance of the
+   same London view: CARTO dark_all (the provider this design was built around)
+   13.7, Esri's dark canvas raw 73.7 -- 5.4x brighter, which reads as a pale slab
+   against #11121a. brightness(0.35) lands at 21.9 and keeps roads and the river
+   legible; 0.55 (37.1) was still visibly light.
+   This is a STOPGAP tied to the Esri swap: CARTO began watermarking keyless
+   tiles, and the fix is an account + key. Delete this rule when that lands --
+   applying it to CARTO's already-near-black tiles would crush them.
+   SCOPED TO .hm-basetiles, NOT the whole tile pane: the Esri label layer sits in
+   the same pane and its type is light-on-transparent, so darkening the pane
+   would crush the place names to unreadable -- the very thing the label layer
+   was added to restore. */
+/* On the TILE IMAGES, not on .hm-basetiles itself. That className lands on the
+   div.leaflet-layer container, and Leaflet transforms that element's CHILDREN
+   (the tile-container levels) during a zoom animation -- so the filter's input
+   changes every frame and the compositor cannot reuse the rasterised result.
+   Filtering each img instead is visually identical and caches per tile.
+   Panning was never affected: there Leaflet transforms an ancestor pane. */
+.home-map .hm-basetiles .leaflet-tile { filter: brightness(0.35) contrast(1.05); }
 .home-map .leaflet-control-attribution {
   background: rgba(12,10,16,.85); color: #cfcad6;
   font-size: 9px; line-height: 1.4; font-weight: 500;
   padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
 }
 .home-map .leaflet-control-attribution a { color: #e6e1ef; }
+/* The attribution bar wraps to two lines on NARROW phones and that is
+   deliberate, not an oversight. Esri's required credit is 78 chars against
+   CARTO's 27 and renders 342px wide at this exact 9px/500 style. MEASURED in a
+   browser against the real card: a 360px viewport gives a 324px card and TWO
+   lines (29px, 13.5% of the card); a 390px viewport gives 354px and ONE line.
+   So it wraps at <=375px and fits from 390px up. Esri's terms do not allow
+   shortening the credit.
+   A collapsible "(i)" chip was built here and REVERTED at review round 2 for
+   five defects, three of them accessibility (keyboard-unreachable credit link,
+   invalid nested-interactive ARIA that masked the credit from screen readers,
+   sub-24x24 target). See the block comment in EventMap.tsx; it is queued as its
+   own piece of work. Do not re-add a collapse without those criteria met. */
 
 /* ---- cover scenes (moody gradient placeholders + real flyer support) ---- */
 .home-map .cv { position: relative; overflow: hidden; background: #0c0d10; isolation: isolate; }

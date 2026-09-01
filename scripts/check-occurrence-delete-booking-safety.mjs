@@ -322,8 +322,13 @@ export function evaluate(data) {
         '\n\n      The check could not see its subject. chokepoints_absent means the three ' +
         'occurrence chokepoints are not on this database; chokepoints_not_deleting means they ' +
         'exist but no longer match the delete pattern (a rename, or a body that moved its ' +
-        'DELETE somewhere the catalog cannot show); data_tables_absent means a table it reads ' +
-        'is gone; cron_scan_blocked means the dormancy premise could not be measured.\n' +
+        'DELETE somewhere the catalog cannot show); data_tables_absent lists what it reads ' +
+        'and cannot see -- a bare name is a MISSING TABLE, and a dotted "table.column" entry ' +
+        'is a table that IS present missing a column the data arms depend on (admin ' +
+        '20260826190000 added event_attendance.occurrence_p5_id, so a step-1 revert lands ' +
+        'here rather than raising 42703 out of an anon-callable check -- do not go looking ' +
+        'for an absent table); cron_scan_blocked means the dormancy premise could not be ' +
+        'measured.\n' +
         '      A blind guard is reported red on purpose: green here would mean "nothing was ' +
         'checked" and read as "nothing is wrong".',
     );

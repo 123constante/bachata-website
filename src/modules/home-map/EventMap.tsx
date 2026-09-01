@@ -18,6 +18,7 @@ import {
   formatTimeRange,
 } from './mapTypes';
 import { groupPinsByLocation } from './mapListDerivations';
+import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -71,9 +72,6 @@ interface EventMapProps {
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 const PIN_SVG =
   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 const ARROW_SVG =
@@ -344,11 +342,85 @@ export default function EventMap({
     };
     elRef.current.addEventListener('error', onCoverError, true);
 
-    L.tileLayer(TILE_URL, { subdomains: 'abcd', attribution: ATTR, maxZoom: 19 }).addTo(m);
+    // TWO layers, because Esri's Dark Gray Canvas is a PAIR: the Base service is
+    // opaque terrain with NO place names, and the labels live in a separate
+    // transparent Reference service. CARTO's dark_all baked both into one raster,
+    // so a straight URL swap silently ships a map with no street or place names
+    // at any zoom -- while the pre-mount placeholder still (a CARTO render) DOES
+    // show them, making the swap visible at mount.
+    // `className` is what lets homeMap.css darken the base WITHOUT darkening the
+    // labels, which are light-on-transparent and would be crushed to unreadable.
+    // No `maxZoom` here: L.map above sets it explicitly, so Leaflet never
+    // derives _layersMaxZoom and a layer-level value is inert. It was carried
+    // from the CARTO layer, where it was equally inert, and read as if the map
+    // went to 19.
+    L.tileLayer(TILE_URL, {
+      attribution: ATTR,
+      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+      className: 'hm-basetiles',
+    }).addTo(m);
+    L.tileLayer(TILE_REF_URL, {
+      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+    }).addTo(m);
+    // Leaflet's own "Leaflet" credit is optional (`prefix: String|false` is the
+    // documented way to drop it) and Esri's is not. Esri's required credit is 78
+    // chars where CARTO's was 27 and renders 342px wide at the shipped
+    // 9px/weight-500 style, so whether it fits depends on the viewport.
+    // MEASURED IN A BROWSER against the real `.hm-mapcard`, not calculated:
+    //   360px viewport -> card 324px -> TWO lines, 29px, 13.5% of the card
+    //   390px viewport -> card 354px -> ONE line, 17px
+    // So it wraps at <=375px and fits from 390px up. An earlier note here said
+    // "two lines on every common phone"; that was arithmetic, and the browser
+    // disagreed -- the standard iPhone width is fine. Dropping Leaflet's prefix
+    // buys 35px and is what keeps 390px on one line. ATTR must not be
+    // hand-shortened.
+    //
+    // A COLLAPSIBLE "(i)" CHIP WAS BUILT FOR THIS AND REVERTED at review round 2,
+    // which found FIVE defects in ~40 lines of it: preventDefault() on the
+    // container's keydown made the OSM copyright link unreachable by keyboard;
+    // `role="button"` on a container that HOLDS a link is invalid nested
+    // interactive content AND its aria-label became the accessible name, hiding
+    // the very credit the control exists to present; the 18x18 target is under
+    // WCAG 2.2 SC 2.5.8's 24x24; there was no Escape or outside-click dismiss;
+    // and the disableClickPropagation() call was a no-op Leaflet already makes
+    // in Control.Attribution.onAdd, so its comment asserted a dependency that
+    // does not exist. The ARIA defect is not patchable in place -- the correct
+    // shape is a separate toggle BUTTON as a sibling of the credit text, not a
+    // role on its container -- so this is queued as its own piece of work with
+    // those five as acceptance criteria, not carried as a sixth draft here.
+    // Two wrapped lines is the honest cost of the credit until then.
+    m.attributionControl.setPrefix(false);
 
+    // NO client-side tile alarm here, deliberately. A `tileerror` watcher was
+    // drafted and cut at review: it is blind to the only basemap failure this
+    // project has actually had (CARTO's HTTP 200 with "API KEY REQUIRED" painted
+    // into the raster -- and Esri's own 200 OK "Map data not yet available"
+    // placeholder is the same class), while firing on every offline or
+    // proxy-blocked mount, on a site that is ~95% mobile. It would have buried
+    // a real outage under connectivity noise and reported nothing for the case
+    // it was written for.
+    // The two failure classes are covered where they can actually be seen:
+    //   - CSP / host drift  -> tests/homeMapTileCsp.test.ts, at build time,
+    //                          before it can reach prod at all.
+    //   - watermark / "not yet available" -> QUEUED as a prod-smoke check on
+    //                          tile BYTE LENGTH, which is an exact detector:
+    //                          2521 B (Base) and 875 B (Reference) are the
+    //                          placeholder, measured 2026-09-01.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
       maxClusterRadius: compact ? 24 : 28,
+      // UNCHANGED at 17. A draft lowered it to 16 to match the basemap's last
+      // native zoom, so a cluster tap would land on sharp tiles. Cut at review
+      // for two reasons. (1) leaflet.markercluster sets
+      // `_maxZoom = disableClusteringAtZoom - 1` and compares
+      // `Math.round(map._zoom)`, so with `zoomSnap: 0.5` above, 16 unclusters
+      // from an effective 15.5 -- a FULL level earlier than intended, scattering
+      // individual 36px pins across a card that can be 148px tall in dense
+      // central London. (2) A clustering threshold is a UX decision, and it does
+      // not belong in a diff whose subject is the tile provider. The cost of
+      // leaving it is that a cluster tap lands on 2x-upscaled tiles; that is the
+      // honest price of Esri's z16 cache depth and it goes away with the queued
+      // CARTO key.
       disableClusteringAtZoom: 17,
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: false,
@@ -558,6 +630,7 @@ export default function EventMap({
     return () => {
       sizeObs?.disconnect();
       elRef.current?.removeEventListener('error', onCoverError, true);
+
       // dispose() cancels any pending timeouts AND marks the map dead, so a
       // deferred call (e.g. flyTo's openPopup) scheduled just before unmount
       // can't fire against the removed map.
