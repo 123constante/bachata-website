@@ -36,20 +36,20 @@ import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
-import { ORGANISER_PUBLIC_COLS } from '@/lib/organiserPublicCols';
+import {
+  type EventRow,
+  type OrgOccRow,
+  fetchOrganiserEntity,
+  fetchOrganiserEvents,
+  fetchOrganiserFutureOccEvents,
+  fetchOrganiserPastOccEvents,
+  organiserEntityQueryKey,
+  organiserEventsQueryKey,
+  organiserOccEventsQueryKey,
+  organiserOccEventsPastQueryKey,
+} from '@/modules/profile/organiserPublicProfile';
 
 // --- Types ---
-
-type EventRow = {
-  id: string;
-  name: string;
-  date: string | null;
-  start_time: string | null;
-  is_active: boolean | null;
-  poster_url: string | null;
-  location: string | null;
-  city: string | null;
-};
 
 type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
 
@@ -63,19 +63,6 @@ type UpcomingListItem =
       location: string | null;
       dates: OrgEvent[];
     };
-
-type OrgOccRow = {
-  event_id: string;
-  name: string | null;
-  occurrence_id: string | null;
-  instance_date: string | null;
-  start_time: string | null;
-  photo_url: string[] | null;
-  cover_image_url: string | null;
-  location: string | null;
-  is_cancelled: boolean | null;
-  is_past: boolean | null;
-};
 
 type TeamMember = {
   id: string;
@@ -410,28 +397,8 @@ const OrganiserProfile = () => {
   });
 
   const { data: entity, isLoading, error } = useQuery({
-    queryKey: ['entity', id],
-    queryFn: async () => {
-      if (!id) throw new Error('Entity ID is required');
-      // ORGANISER_PUBLIC_COLS, not '*': this query and app/routes/organiser.tsx's
-      // loader share one ['entity', id] cache entry, and select('*') was
-      // dehydrating claimed_by/created_by (auth.users UUIDs) into every
-      // organiser page's SSR HTML. Both selects must stay in sync.
-      const { data, error } = await supabase
-        .from('organiser_profiles')
-        .select(ORGANISER_PUBLIC_COLS)
-        .eq('id', id)
-        .not('is_active', 'is', false)
-        .maybeSingle();
-      if (error) throw new Error(error.message ?? JSON.stringify(error));
-      if (!data) return null;
-      let city = null;
-      if (data.city_id) {
-        const { data: cityData } = await supabase.from('cities').select('name, slug').eq('id', data.city_id).maybeSingle();
-        city = cityData;
-      }
-      return { ...data, cities: city };
-    },
+    queryKey: organiserEntityQueryKey(id),
+    queryFn: () => fetchOrganiserEntity(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -441,31 +408,17 @@ const OrganiserProfile = () => {
   const HERO_BG = heroBg(cr, cg, cb);
 
   const { data: allEvents = [] } = useQuery({
-    queryKey: ['organiser-events', id],
-    queryFn: async (): Promise<EventRow[]> => {
-      if (!id) return [];
-      const { data, error } = await supabase
-        .from('event_entities')
-        .select('event_id, events(id, name, date, start_time, is_active, poster_url, location, city)')
-        .eq('entity_id', id)
-        .eq('role', 'organiser');
-      if (error) return [];
-      type Row = { event_id: string; events: EventRow | null };
-      return (data as unknown as Row[]).map((r) => r.events).filter((e): e is EventRow => Boolean(e)).filter((e) => e.is_active !== false);
-    },
+    queryKey: organiserEventsQueryKey(id),
+    queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: futureOccs = [] } = useQuery({
-    queryKey: ['organiser-occ-events', id],
+    queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<OrgOccRow[]> => {
-      const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1' as never, { p_organiser_id: id } as never);
-      if (error) return [];
-      return (data ?? []) as unknown as OrgOccRow[];
-    },
+    queryFn: () => fetchOrganiserFutureOccEvents(id as string),
   });
 
   // Past occurrences. Separate query (and cache key) from the future feed above,
@@ -473,22 +426,13 @@ const OrganiserProfile = () => {
   // yet deployed (PostgREST rejects the unknown param -> we degrade to empty).
   // The server tags each row with is_past (inverse of the 6h-grace keep-window);
   // we keep only is_past rows so today's already-ended events count as past.
+  // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
+  // with app/routes/organiser.tsx's loader prefetch.
   const { data: pastOccs = [] } = useQuery({
-    queryKey: ['organiser-occ-events-past', id],
+    queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<OrgOccRow[]> => {
-      // 3650 days (~10y), not the old 730-day (~2y) cap: the Past nights
-      // accordion groups by year and needs to reach back to when this
-      // organiser actually started, not an arbitrary recent slice -- a 2-year
-      // cap silently hid whole years for any organiser older than that,
-      // contradicting the "hosted since <year>" stat already shown above.
-      const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
-      const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-      const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1' as never, { p_organiser_id: id, p_from: from, p_to: to, p_include_past: true } as never);
-      if (error) return [];
-      return (data ?? []) as unknown as OrgOccRow[];
-    },
+    queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
   const { data: teamMembers = [] } = useQuery({
@@ -617,7 +561,7 @@ const OrganiserProfile = () => {
       const { error } = await supabase.from('organiser_profiles').update({ claimed_by: user.id }).eq('id', id).is('claimed_by', null);
       if (error) throw error;
       toast({ title: 'Profile claimed', description: 'You can now edit this organiser profile.' });
-      queryClient.invalidateQueries({ queryKey: ['entity', id] });
+      queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
     } catch (err) {
       console.error('Claim error:', err);
       toast({ title: 'Failed to claim profile', description: 'Something went wrong. Please try again.', variant: 'destructive' });
@@ -679,7 +623,7 @@ const OrganiserProfile = () => {
       if (error) throw error;
       toast({ title: 'Profile updated' });
       setIsEditOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['entity', id] });
+      queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
     } catch (err) {
       console.error('Save error:', err);
       toast({ title: 'Unable to save changes. Please try again.', variant: 'destructive' });

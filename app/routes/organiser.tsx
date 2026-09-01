@@ -2,10 +2,18 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { createQueryClient } from "@/App";
-import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
-import { ORGANISER_PUBLIC_COLS } from "@/lib/organiserPublicCols";
+import {
+  fetchOrganiserEntity,
+  fetchOrganiserEvents,
+  fetchOrganiserFutureOccEvents,
+  fetchOrganiserPastOccEvents,
+  organiserEntityQueryKey,
+  organiserEventsQueryKey,
+  organiserOccEventsQueryKey,
+  organiserOccEventsPastQueryKey,
+} from "@/modules/profile/organiserPublicProfile";
 import OrganiserProfile from "@/pages/OrganiserProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -34,38 +42,11 @@ import type { Route } from "./+types/organiser";
 // Mirrors app/routes/dancers.tsx / venue-entity.tsx: resolve -> 404 on a genuine
 // miss -> dehydrate the SAME query keys the page reads, so the server renders
 // the real profile and the client hydrates without refetching.
-
-// The entity query, byte-for-byte as OrganiserProfile issues it (['entity', id]).
-// `.not('is_active','is',false)` -- NOT `.eq('is_active', true)`: only 2 of 34
-// live organisers have is_active = true and 32 are NULL, so an equality gate
-// would 404 the entire directory.
-async function fetchOrganiserEntity(id: string) {
-  // ORGANISER_PUBLIC_COLS, not "*": this loader and OrganiserProfile.tsx's own
-  // ['entity', id] query share one cache entry, and select('*') was dehydrating
-  // claimed_by/created_by (auth.users UUIDs) into every organiser page's SSR
-  // HTML. See that constant's own comment for the full reasoning; both selects
-  // must stay in sync, which is the whole point of importing one definition.
-  const { data, error } = await supabase
-    .from("organiser_profiles")
-    .select(ORGANISER_PUBLIC_COLS)
-    .eq("id", id)
-    .not("is_active", "is", false)
-    .maybeSingle();
-  // A TRANSIENT supabase error must propagate as a retryable 500 -- swallowing
-  // it here would 404 + noindex a valid organiser on a DB blip. null = real miss.
-  if (error) throw new Error(error.message ?? JSON.stringify(error));
-  if (!data) return null;
-  let city = null;
-  if (data.city_id) {
-    const { data: cityData } = await supabase
-      .from("cities")
-      .select("name, slug")
-      .eq("id", data.city_id)
-      .maybeSingle();
-    city = cityData;
-  }
-  return { ...data, cities: city };
-}
+//
+// The entity fetch and the three feed prefetches below all come from
+// @/modules/profile/organiserPublicProfile -- the single definition
+// OrganiserProfile.tsx's own client queries also call. See that module's
+// header comment for why (this used to be four hand-copied implementations).
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy.
@@ -110,65 +91,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const startFeeds = () =>
     Promise.all([
       qc.prefetchQuery({
-        queryKey: ["organiser-events", ref.id],
-        queryFn: async () => {
-          const { data, error } = await supabase
-            .from("event_entities")
-            .select(
-              "event_id, events(id, name, date, start_time, is_active, poster_url, location, city)",
-            )
-            .eq("entity_id", ref.id as string)
-            .eq("role", "organiser");
-          if (error) return [];
-          type Row = { event_id: string; events: Record<string, unknown> | null };
-          return (data as unknown as Row[])
-            .map((r) => r.events)
-            .filter((e): e is Record<string, unknown> => Boolean(e))
-            .filter((e) => e.is_active !== false);
-        },
+        queryKey: organiserEventsQueryKey(ref.id as string),
+        queryFn: () => fetchOrganiserEvents(ref.id as string),
         staleTime: 5 * 60 * 1000,
       }),
       qc.prefetchQuery({
-        queryKey: ["organiser-occ-events", ref.id],
-        queryFn: async () => {
-          // No `as never` on the name or the args: get_organiser_calendar_events_v1
-          // IS in the generated Database type, so the cast OrganiserProfile still
-          // carries (grandfathered in scripts/rpc-typing-allowlist.json) would only
-          // collapse `data` to never and discard its Returns. check:rpc-typing
-          // refuses a new one.
-          const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
-            p_organiser_id: ref.id as string,
-          });
-          if (error) return [];
-          return data ?? [];
-        },
+        queryKey: organiserOccEventsQueryKey(ref.id as string),
+        queryFn: () => fetchOrganiserFutureOccEvents(ref.id as string),
         staleTime: 5 * 60 * 1000,
       }),
       qc.prefetchQuery({
-        // Same key AND same 10-year window as OrganiserProfile's own past query.
-        // The window is computed from Date.now() inside the queryFn on both sides
-        // and is NOT part of the cache key, so a few milliseconds of drift between
-        // server and client cannot split the entry.
-        queryKey: ["organiser-occ-events-past", ref.id],
-        queryFn: async () => {
-          const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
-          const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-          const { data, error } = await supabase.rpc("get_organiser_calendar_events_v1", {
-            p_organiser_id: ref.id as string,
-            p_from: from,
-            p_to: to,
-            p_include_past: true,
-          });
-          if (error) return [];
-          return data ?? [];
-        },
+        // Same key AND same 10-year window as OrganiserProfile's own past query
+        // -- guaranteed now, not hand-synced: fetchOrganiserPastOccEvents computes
+        // the window itself, once, for both callers.
+        queryKey: organiserOccEventsPastQueryKey(ref.id as string),
+        queryFn: () => fetchOrganiserPastOccEvents(ref.id as string),
         staleTime: 5 * 60 * 1000,
       }),
     ]);
   const feeds = ref.slug ? startFeeds() : null;
 
   const entity = await qc.fetchQuery({
-    queryKey: ["entity", ref.id],
+    queryKey: organiserEntityQueryKey(ref.id as string),
     queryFn: () => fetchOrganiserEntity(ref.id as string),
     staleTime: 5 * 60 * 1000,
   });
