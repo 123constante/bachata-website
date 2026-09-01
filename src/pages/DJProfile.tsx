@@ -10,7 +10,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { londonTodayKey } from '@/lib/londonDate';
-import { buildFullName } from '@/lib/name-utils';
+import { resolvePublicName } from '@/lib/publicName';
 import { djInkTheme, useDjPageFonts } from '@/components/dj/djPageTheme';
 import {
   DjHero,
@@ -101,12 +101,18 @@ const DJProfile = () => {
   useEffect(() => setMounted(true), []);
   const { data: appearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
 
-  const displayName = dj
-    ? (dj.display_name || dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ')
-    : 'DJ';
+  // `dj.display_name` is NOT trustworthy as a name: get_public_dj_v1 builds it
+  // as COALESCE(dj_name, first+surname, dp.id::text), so for a profile whose
+  // name lives only in dancer_profiles.display_name the RPC hands back the row's
+  // UUID — which then rendered as this page's <h1> and <title> in production.
+  // resolvePublicName rejects an id-shaped candidate; the RPC's own COALESCE is
+  // fixed separately (admin repo migration), and this guard stands regardless so
+  // the id can never reach the page again.
+  const resolvedName = dj ? resolvePublicName(dj) : null;
+  const displayName = resolvedName ?? 'DJ';
 
   const _djSeo = buildSeoForRoute('dj.detail', {
-    entityName: dj?.display_name ?? dj?.dj_name ?? undefined,
+    entityName: resolvedName ?? undefined,
     entitySlug: resolved.slug ?? id ?? undefined,
     ogImage: firstPhoto(dj?.photo_url ?? null) ?? undefined,
     isLoading,
@@ -114,7 +120,7 @@ const DJProfile = () => {
   useSeo(_djSeo);
 
   const djBreadcrumbs = buildBreadcrumbs('dj.detail', {
-    entityName: dj?.display_name ?? dj?.dj_name ?? undefined,
+    entityName: resolvedName ?? undefined,
     isLoading,
   });
 

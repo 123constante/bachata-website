@@ -2,7 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
+import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -16,11 +16,6 @@ import {
 import { stampDancer } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
-
-// Columns mirror DancerProfile's dancer-profile query byte-for-byte so the
-// dehydrated cache entry matches what the page reads (no client refetch).
-const DANCER_COLS =
-  "id, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();
@@ -36,7 +31,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dancer_profiles")
-        .select(DANCER_COLS)
+        .select(DANCER_PUBLIC_COLS)
         .eq("id", ref.id as string)
         .maybeSingle();
       if (error) throw error;
@@ -50,7 +45,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
-      entityName: view.displayName,
+      // `?? undefined` is load-bearing, not tidiness: buildSeoForRoute noindexes a
+      // .detail route on a FALSY entityName, so a nameless dancer must arrive as
+      // undefined. resolvePublicName already refuses to invent one (it returns
+      // null rather than "Dancer" or an id), and this is where that null turns
+      // into the routing decision Ricky chose — 200 + noindex, not a 404, so an
+      // existing link into a thin profile still resolves.
+      entityName: view.displayName ?? undefined,
       entitySlug: ref.slug ?? params.id,
       // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
       // JPEG) so WebP/oversized avatars still render as social link-preview cards.

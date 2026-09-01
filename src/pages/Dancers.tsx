@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { buildFullName } from '@/lib/name-utils';
+import { renderPublicName } from '@/lib/publicName';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 
 type Dancer = {
   id: string;
+  display_name: string | null;
   first_name: string | null;
   surname: string | null;
   favorite_styles: string[] | null;
@@ -72,7 +73,7 @@ const Dancers = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
+          .select('id, display_name, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
           .or('is_active.is.null,is_active.eq.true')
           .order('created_at', { ascending: false });
 
@@ -231,9 +232,10 @@ const Dancers = () => {
     return hash === 0 ? '??' : '??';
   };
 
-  const getDisplayName = (dancer: Dancer) => {
-    return buildFullName(dancer.first_name, dancer.surname) || 'Dancer';
-  };
+  // Same resolver the detail page and its loader use. Without it the listing
+  // showed "Dancer" for every card whose name lives in `display_name`, so the
+  // list and the profile it linked to disagreed about who the person was.
+  const getDisplayName = (dancer: Dancer) => renderPublicName(dancer, 'Dancer');
 
   return (
     <GlobalLayout

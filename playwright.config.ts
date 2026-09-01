@@ -51,5 +51,25 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // The no-JS project. Every other check this repo runs observes the HYDRATED
+    // page, which is why 91 of the sitemap's URLs could be soft 404s to Google
+    // while browser QA looked perfect: hydration repairs the document a moment
+    // after the broken version is painted, and only a client that does not run
+    // JavaScript -- i.e. Googlebot -- ever sees the broken one.
+    //
+    // SEPARATE testDir, NOT the smoke specs. Those specs drive auth steppers and
+    // dashboards, which do not function without JavaScript, so pointing this
+    // project at them would assert nothing about SSR and fail for unrelated
+    // reasons. It also needs REAL Supabase credentials, which the smoke suite
+    // deliberately does not have (see the webServer note above: with a
+    // placeholder key every SSR route 500s by design, and the smoke specs only
+    // visit client-only routes). That is why this project is NOT in the default
+    // `test:e2e` run and is not wired into e2e-smoke.yml -- run it locally, with
+    // .env present, via `npm run test:e2e:nojs`.
+    {
+      name: 'nojs',
+      testDir: './tests/e2e-nojs',
+      use: { ...devices['Desktop Chrome'], javaScriptEnabled: false },
+    },
   ],
 });
