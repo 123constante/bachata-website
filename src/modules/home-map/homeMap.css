@@ -17,7 +17,31 @@
 
 /* map canvas fills its (relative, sized) parent */
 .home-map__canvas { position: absolute; inset: 0; }
-.home-map .leaflet-container { background: #11121a; font-family: inherit; }
+/* The canvas ground is Esri's OWN field tone, not the shell dark. MEASURED off
+   the live Base+Reference pair at this surface's default view (EventMap.tsx:74
+   centre 51.5085,-0.128, zoom 12.5): mean colour #4d4d4f, mean AND modal luma
+   both 77. The shell's #11121a reads at luma 18, so an opaque shell-dark
+   container painted a 4x-darker plate over the pre-mount still and then jumped
+   to grey the instant the first tile landed -- two visible steps on every
+   mount. It also quietly defeated HomeMapShell's stated intent that the still
+   simply be painted over by the tiles: the container's own background covered
+   the still first. Matching the field collapses that to one step, and to none
+   once the placeholder stills are re-rendered from this provider (queued:
+   ~/.claude/plans/queued-home-map-esri-residuals.md item 4).
+   NOT `transparent`, which would also collapse the steps: after mount, a pan
+   into not-yet-fetched tiles would then show the frozen London still through
+   the gap -- real cartography at the wrong place, which reads worse than a
+   flat ground. An opaque field-toned ground is correct in both states.
+   THE THIRD STATE, accepted with eyes open: if NO tile ever paints -- offline,
+   a CSP or host drift, ORB -- the card is now a flat mid-grey slab where it used
+   to be a flat near-black one. Neither is good and neither is detected
+   (EventMap ships no tileerror handler ON PURPOSE: it is blind to the only
+   basemap failure this project has actually had, the 200-OK watermark class,
+   and false-fires on every offline mount). Grey is the right value for the case
+   that happens on every load; the failure case wants a real detector, not a
+   background colour -- queued as residuals item 5, byte-length on a known
+   tile. */
+.home-map .leaflet-container { background: #4d4d4f; font-family: inherit; }
 /* NO FILTER ON THE BASEMAP, deliberately -- the tiles render as Esri ships them.
    A brightness(0.35) contrast(1.05) rule lived here and was removed: it made the
    map read as a featureless black slab on a phone. The measurement that
@@ -39,6 +63,12 @@
   padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
 }
 .home-map .leaflet-control-attribution a { color: #e6e1ef; }
+/* Chip tone RE-CHECKED after the basemap filter came off, since the ground it
+   sits on changed from near-black to Esri's grey field (luma 77). It got
+   better, not worse, so it is unchanged deliberately: text #cfcad6 on this
+   plate measures 11.43:1 and the link #e6e1ef 14.32:1 (both far past 4.5:1),
+   and the plate now reads AS a plate at 2.08:1 against the map where on
+   CARTO's near-black it was 1.05:1 -- i.e. invisible as a container. */
 /* The attribution bar wraps to two lines on NARROW phones and that is
    deliberate, not an oversight. Esri's required credit is 78 chars against
    CARTO's 27 and renders 342px wide at this exact 9px/500 style. MEASURED in a
@@ -102,8 +132,45 @@
 /* ---- poster-image pin marker ---- */
 .home-map .rpinwrap { background: none !important; border: none !important; }
 .home-map .rpin { width: 46px; height: 46px; position: relative; }
+/* THE 1px rgba(0,0,0,.62) RING IS LOAD-BEARING, not decoration. CATEGORY_COLORS
+   were chosen against a near-black basemap; the map is now Esri's unfiltered
+   field (#4d4d4f, relative luminance 0.0745) and three of the five fall under
+   WCAG 1.4.11's 3:1 for a graphical object -- MEASURED at the default view:
+   party 2.07:1, mix 2.44:1, fest 2.51:1 (class 3.57, social 3.71).
+   AND IT CANNOT BE FIXED BY DARKENING. Against a field at 0.0745, PURE BLACK
+   tops out at 2.49:1, so there is no darker colour that passes -- the arithmetic
+   kills the whole family of "make the pins darker" fixes before it starts. The
+   options were a dark separating edge, a light one, or lighter colours; the ring
+   is the dark edge, and it wins because 1.4.11 measures against ADJACENT colour.
+   With it, every category sits on a dark immediate neighbour: 4.12:1 (party) to
+   7.40:1 (social). A light ring (like .rclbubble's) separates the PIN better but
+   drops the colour to 1.70-3.06:1 against the halo -- it spends the exact channel
+   that carries the category. Lightening the palette works too, but
+   CATEGORY_COLORS also paints popup dots, list rows and the legend on the DARK
+   shell, where nothing was wrong.
+   So: do NOT drop this ring to "clean up" the box-shadow, and if the basemap
+   ever goes back to a near-black provider, re-measure rather than assume it is
+   still needed. Numbers and the three rendered candidates:
+   ~/.claude/plans/queued-home-map-esri-residuals.md item 7. */
 .home-map .rpin .pcv { display: block; width: 46px; height: 46px; border-radius: 13px; overflow: hidden;
-  border: 3px solid var(--pc,#E2415C); box-shadow: 0 8px 18px -6px rgba(0,0,0,.78); position: relative; }
+  border: 3px solid var(--pc,#E2415C);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.62), 0 8px 18px -6px rgba(0,0,0,.78); position: relative; }
+/* THE TAIL DELIBERATELY HAS NO RING, and this is the interesting half. The
+   diamond is 12x12 rotated 45deg at bottom:-5px, so its rotated span is
+   y 36.5..53.5 against a 46px card -- it is roughly HALF INSIDE the card, and it
+   paints OVER .pcv (both z-index:auto, ::after later in tree order). That
+   overdraw has always existed and was invisible only because solid var(--pc) on
+   a var(--pc) border is indistinguishable.
+   Put a ring on it and the overdraw becomes a dark outlined lozenge sitting on
+   the poster art of every pin. MEASURED at 6x, two ways round: an outset
+   box-shadow traces the diamond's upper edges across the artwork, and
+   border-bottom/border-right (the two map-facing edges after the rotation) draws
+   the same shape one pixel in. `z-index:-1` hides the overdraw but also hides the
+   protruding half -- the widest point of the diamond is at y=45, ABOVE the card
+   bottom, so all that survives is a nub and the pin loses its marker silhouette.
+   Three attempts, one place, so the ring simply does not go here. It is not
+   needed: 1.4.11 rests on the 46px CARD, which has its ring at 4.12-7.40:1.
+   Do not "finish the job" by adding one -- reproduce it at zoom 6 first. */
 .home-map .rpin::after { content: ""; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%) rotate(45deg);
   width: 12px; height: 12px; background: var(--pc,#E2415C); border-radius: 2px; }
 .home-map .rpin-mono { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center;
@@ -260,9 +327,15 @@
    (className 'rpinwrap rpinloc'); the chip stays unmistakable from the round
    red geographic cluster bubble (.rclbubble). */
 .home-map .rpin-stack { position: relative; width: 46px; height: 46px; }
+/* Same ring as the main card above, for the same reason: these silhouettes carry
+   var(--pc) at the OUTER edge of the stack pin, so they are what the basemap sits
+   against on two of its four sides. Their own opacity (.55/.3) fades the ring in
+   proportion, which is what keeps the stack reading as depth rather than as three
+   equally solid cards. */
 .home-map .rpin-stack::before, .home-map .rpin-stack::after {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 13px;
-  border: 3px solid var(--pc, #E2415C); background: #150c12; }
+  border: 3px solid var(--pc, #E2415C); background: #150c12;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.62); }
 .home-map .rpin-stack::before { transform: translate(5px, -5px); opacity: .55; }
 .home-map .rpin-stack::after { transform: translate(9px, -9px); opacity: .3; }
 .home-map .rpin-count {

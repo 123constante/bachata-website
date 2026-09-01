@@ -346,8 +346,11 @@ export default function EventMap({
     // opaque terrain with NO place names, and the labels live in a separate
     // transparent Reference service. CARTO's dark_all baked both into one raster,
     // so a straight URL swap silently ships a map with no street or place names
-    // at any zoom -- while the pre-mount placeholder still (a CARTO render) DOES
-    // show them, making the swap visible at mount.
+    // at any zoom. (This used to add "-- while the pre-mount placeholder still,
+    // a CARTO render, DOES show them, making the swap visible at mount". Both
+    // halves are false since the stills were re-rendered from this same Esri
+    // pair: same provider, same default view, so mount is a continuation. Struck
+    // rather than reworded -- there is no longer a mismatch to describe.)
     // NO `className` on either layer, and no CSS filter on the tiles: the pair
     // renders at Esri's native tone, which is the tone its labels were drawn
     // for. A `hm-basetiles` hook existed here to darken the base alone; both it

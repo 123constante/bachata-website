@@ -49,6 +49,17 @@ import { AllEventsList } from './cards/AllEventsList';
 import { LocateControl } from './cards/LocateControl';
 import { HomeExploreLinks } from '@/components/home/HomeExploreLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
+// The tile provider's required credit, for the pre-mount still. Safe to import
+// into this EAGER, server-rendered shell: basemapTiles.ts has no imports of its
+// own and pulls in nothing -- which is the whole reason it was split out of
+// EventMap.tsx (that module pulls in Leaflet and three stylesheets).
+// NOT "no side effects", which an earlier draft of this line claimed: TILE_HOSTS
+// runs Array.from(new Set(...new URL(...))) at MODULE EVALUATION, and that now
+// happens during SSR rather than only inside the lazy Leaflet chunk. It is
+// harmless -- two string parses -- but this comment is the standing licence for
+// what may be added to that module later, so it has to say what is actually
+// true. Anything with a real cost or a browser dependency does not belong there.
+import { ATTR } from './basemapTiles';
 
 // Leaflet + every viewport-branched map control. Lazy AND mapMounted-gated, so
 // the module is never even imported on the server.
@@ -311,30 +322,42 @@ export default function HomeMapShell({
         {/* Static attribution while the still is showing -- EventMap's own live
             Leaflet attribution control takes over once mounted, so this must not
             linger and double up once real tiles are on screen.
-            STILL CREDITS CARTO ON PURPOSE, even though the live tiles are now
-            Esri: these stills are baked CARTO renders, so CARTO is the correct
-            credit for the imagery actually on screen at this moment. Swapping
-            this to Esri would credit the wrong provider for this image.
-            OPEN, and NOT a code fix: we host CARTO-derived rasters with no key,
-            which is the same licensing exposure that produced the "API KEY
-            REQUIRED" watermark on the live tiles. Re-render these stills from
-            the current provider, or take a CARTO key. Until then the still and
-            the live map also differ visibly -- different cartography, and the
-            still carries place labels baked in. */}
+            THE CREDIT MUST NAME WHOEVER RENDERED THE STILL, not whoever serves
+            the live tiles -- they were different providers until 2026-09-01 and
+            could be again. They are the same now: the stills under
+            /map-placeholder are Esri Base + Reference composited at this map's
+            own default view, which is why this credits Esri. If you re-render
+            them from another provider, this string moves with them.
+            ATTR, not a hand-written copy. Esri's terms require the service's
+            stated credit verbatim, and a second spelling of it here would be
+            free to drift from the one the live map shows -- the exact failure
+            basemapTiles.ts was split out to prevent. dangerouslySetInnerHTML is
+            what lets ONE constant serve both: ATTR carries an <a> for the OSM
+            copyright link, it is a module constant with no user input anywhere
+            near it, and the alternative is that second spelling. */}
         {placeholder && !mapMounted && (
-          <div className="pointer-events-none absolute bottom-0 right-0 z-10 rounded-tl bg-background/70 px-1 text-[9px] leading-tight text-muted-foreground">
-            &copy;{' '}
-            <a href="https://www.openstreetmap.org/copyright" className="pointer-events-auto underline">
-              OpenStreetMap
-            </a>{' '}
-            &copy;{' '}
-            <a href="https://carto.com/attributions" className="pointer-events-auto underline">
-              CARTO
-            </a>
-          </div>
+          <div
+            className="pointer-events-none absolute bottom-0 right-0 z-10 rounded-tl bg-background/70 px-1 text-[9px] leading-tight text-muted-foreground [&_a]:pointer-events-auto [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: ATTR }}
+          />
         )}
+        {/* #4d4d4f, NOT the shell dark, and it is the SAME defect the
+            .leaflet-container ground was changed for -- this plate is just the
+            one that shows first. `mapMounted` flips the instant hydration
+            commits, but HomeMapCard is ~198 KB of lazy Leaflet, so on any
+            connection slower than hydration this fallback covers the still for
+            the whole chunk download. At #11121a that was still (luma 77) ->
+            flat 18 -> 77: a black flash BETWEEN two identical greys, which
+            matching the ground had made more conspicuous, not less.
+            It stays OPAQUE, and the static credit below depends on that. That
+            credit is gated on `!mapMounted`, but Leaflet's own attribution
+            control does not exist until HomeMapCard actually mounts -- so for
+            this window there is imagery-shaped nothing on screen and no credit,
+            which is only correct while this plate hides the still. MAKE THIS
+            TRANSPARENT AND YOU MUST MOVE THE CREDIT ONTO A REAL on-screen
+            signal (onReady) FIRST, or Esri imagery shows uncredited. */}
         {mapMounted ? (
-          <Suspense fallback={<div className="absolute inset-0" style={{ background: '#11121a' }} />}>
+          <Suspense fallback={<div className="absolute inset-0" style={{ background: '#4d4d4f' }} />}>
             <HomeMapCard
               state={state}
               fullscreen={fullscreen}
@@ -342,6 +365,21 @@ export default function HomeMapShell({
             />
           </Suspense>
         ) : (
+          /* SHELL DARK HERE ON PURPOSE, and deliberately NOT the #4d4d4f the two
+             sibling plates use. This is the no-still branch: the card genuinely
+             has no map yet, so the coherent ground is the page's own
+             (.home-map-fill is #11121a). The grey is specifically for a plate
+             that REPLACES a still -- matching the tone it covers is the whole
+             point of it, and there is nothing to match here. A grey slab in a
+             dark page before any map exists would be worse, not better.
+             Review round 2 called this a common-path miss, reasoning that `/` is
+             prerendered with citySlug null so most visitors land here.
+             DISPROVED with one request: `/` is a 307 to /city/london-gb, so
+             getCityFromPath resolves the slug SYNCHRONOUSLY on the server and
+             the first client render (CityContext.tsx:42) and every visitor gets
+             the placeholder. This branch is reached only by a city with no entry
+             in MAP_PLACEHOLDERS -- none today, but every one the multi-country
+             arc adds. Re-decide it there, WITH a still to compare against. */
           !placeholder && <div className="absolute inset-0" style={{ background: '#11121a' }} />
         )}
       </div>

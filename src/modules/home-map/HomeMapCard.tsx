@@ -284,9 +284,15 @@ export default function HomeMapCard({
           vs DesktopMapHome) gave us that remount for free; the explicit key restores it,
           so a window resize or a tablet rotating across the breakpoint re-inits the map
           with the right options instead of stranding it with the other viewport's. */}
+      {/* UNREACHABLE TODAY -- EventMap below is a STATIC import, so this Suspense
+          has no lazy child and never suspends. Kept, and kept at the basemap's
+          own #4d4d4f rather than the shell dark, because the day someone makes
+          EventMap lazy this plate starts covering the pre-mount still mid-load,
+          which is the exact defect HomeMapShell's own fallback was just fixed
+          for. A dead branch holding the wrong value is a trap, not dead code. */}
       <Suspense
         fallback={
-          <div className="absolute inset-0 animate-pulse" style={{ background: '#11121a' }}>
+          <div className="absolute inset-0 animate-pulse" style={{ background: '#4d4d4f' }}>
             <span className="sr-only">Loading map</span>
           </div>
         }
