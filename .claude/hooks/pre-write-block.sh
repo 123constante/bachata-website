@@ -91,7 +91,10 @@ REL_PATH="$FILE_PATH"
 # (which the normalisation above now produces) dirname stabilises at the drive
 # root -- dirname "C:" is "C:" forever -- so a `!= "/"` guard alone spins at
 # 100% CPU for any file with no .git ancestor, hanging this hook with no
-# timeout. Reachable via the declared scratchpad and C:	mp working
+# timeout. This is the ORDINARY path, not an edge case: the test below is
+# [ -d "$DIR/.git" ], and in a linked git worktree .git is a FILE, so it
+# never matches and EVERY file in the worktree walks to the fixed point.
+# Also reachable via the declared scratchpad and C:/tmp working
 # directories. Same bug, same fix as safe-write.py's find_repo_root.
 DIR="$(dirname "$FILE_PATH")"
 while [ "$DIR" != "/" ] && [ -n "$DIR" ]; do
@@ -137,12 +140,6 @@ payload, 2 base never settled, 3 usage/no-op, 4 zero/duplicate/mixed
 match, 5 write path rejected it, 6 base-sha mismatch. All of them mean
 fall back to the full-body path below.
 
-Exit 0 is not always "checked". READ STDERR even on success: when the
-syntax check could not run -- no typescript installed, no node on PATH,
-no repo root above the target -- the write is KEPT and mount-verified,
-exit stays 0, and "PARSE CHECK DID NOT RUN" says so there. It means
-nothing parsed your file, so nothing would have caught a syntax error.
-
 HINT
 )"
     # $() strips trailing newlines; restore the paragraph break so the
@@ -159,6 +156,15 @@ new content=${CONTENT_LEN:-0} bytes, threshold=${THRESHOLD}).
 
 Source files larger than 2 KB MUST go through a guarded write path,
 which defends against the Cowork mount's silent-truncation bug.
+
+Exit 0 is not always "checked", on EITHER path below. READ STDERR even
+on success: when the syntax check could not run -- no typescript
+installed, no node on PATH, no repo root above the target -- the write
+is KEPT and mount-verified, exit stays 0, and "PARSE CHECK DID NOT RUN"
+says so there. It means nothing parsed your file, so nothing would have
+caught a syntax error. safe-edit delegates the check to safe-write and
+prints "parse-check delegated" either way, so on the surgical path
+stderr is the ONLY signal.
 
 ${SURGICAL_HINT}FULL-BODY path (new files, whole-file rewrites, and any
 safe-edit refusal):
