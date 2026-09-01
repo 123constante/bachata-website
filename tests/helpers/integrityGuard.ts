@@ -22,6 +22,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { expect } from 'vitest';
 
 export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const GUARD = join(REPO_ROOT, 'scripts', 'integrity-guard.py');
@@ -354,6 +355,7 @@ const TEMP_REPO_FILES = [
   'scripts/integrity-guard.py',
   'scripts/_integrity_ts_parse.cjs',
   'scripts/safe-write.py',
+  'scripts/safe-edit.py',
   '.claude/hooks/post-write-check.sh',
   // NOTE: .integrity-guard.sha256 is deliberately NOT copied. It is MINTED from
   // the guard this repo just received -- see makeTempRepo.
@@ -463,4 +465,36 @@ export function makeTempRepo(files: Record<string, string>): string {
     throw new Error(`makeTempRepo: commit failed (${commit.status}): ${commit.stderr}`);
   }
   return root;
+}
+
+/**
+ * Assert that the TS batch helper CANNOT run inside `root`.
+ *
+ * The precondition behind every could-not-run case that leans on a temp repo:
+ * a temp repo has no node_modules, so `typescript` does not resolve and
+ * scripts/_integrity_ts_parse.cjs exits 3. If typescript ever DOES resolve
+ * from the system temp directory, those cases would keep passing while
+ * asserting nothing about the branch they name -- passing for the opposite
+ * reason. This names that outcome instead.
+ *
+ * It lives here, beside makeTempRepo, because it is a fact about the temp repo
+ * rather than about any one spec, and two spec sections need it.
+ *
+ * Called INSIDE each dependent case, never as a standalone `it`: a separate
+ * case cannot fail the cases that rely on it.
+ *
+ * The batch is empty because the helper requires typescript at module load,
+ * before it reads stdin at all -- so the exit is observable without a fixture.
+ * `stdout` is still asserted empty: a resolvable typescript would print `[]`,
+ * which is the no-issue return that this whole arm exists to distinguish from
+ * a phase that never ran.
+ */
+export function assertTsHelperCannotRun(root: string): void {
+  const probe = runProcess('node', [join(root, 'scripts', '_integrity_ts_parse.cjs')], {
+    cwd: root,
+    input: '[]',
+  });
+  expect(probe.status, 'typescript resolved in the temp repo -- precondition gone').toBe(3);
+  expect(probe.stdout, 'an empty verdict is what a consumer reads as clean').toBe('');
+  expect(probe.stderr).toContain('the TS parse phase did NOT run');
 }

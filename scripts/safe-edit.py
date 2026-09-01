@@ -77,7 +77,9 @@ Flags
 -----
     --expect-base-sha SHA   Require the settled base to hash to SHA.
     --no-parse-check        Forwarded to safe-write.py.
-    --quiet                 Print only the result sha256 on stdout.
+    --quiet                 Print only the result sha256 on stdout. It does
+                            NOT silence stderr, and safe-write.py's report of
+                            a parse phase that could not run arrives there.
 
 Exit codes
 ----------
@@ -99,6 +101,13 @@ import re
 import subprocess
 import sys
 import time
+
+# write_via_safe_write's answer for "safe-write.py never started". Distinct
+# from any code safe-write itself returns: its exit 5 means a write LANDED and
+# was rolled back, so reporting a failed spawn as 5 sent the reader to inspect
+# a git diff that cannot show anything and told them a restore had happened
+# when no process had run.
+SPAWN_FAILED = -1
 
 MARKER_OLD = '@@SAFE-EDIT-OLD@@'
 MARKER_NEW = '@@SAFE-EDIT-NEW@@'
@@ -239,13 +248,25 @@ def to_style(s: str, style: str) -> bytes:
 # ---------------------------------------------------------------------
 
 def write_via_safe_write(target: str, body: bytes, style: str,
-                         no_parse_check: bool) -> tuple[int, str]:
+                         no_parse_check: bool) -> int:
     """Hand the patched FULL body to safe-write.py, unchanged.
 
     The body is passed as bytes on the child's stdin (so no text-mode
     newline translation touches it), and the child is told explicitly
     which ending convention the file already uses -- so a surgical edit
     never rewrites the whole file's line endings as a side effect.
+
+    The child's STDERR IS NOT CAPTURED. safe-write.py reports a parse phase
+    that could not run there, unconditionally, precisely so that --quiet --
+    which this function always passes -- cannot suppress it. Capturing that
+    stream and relaying it only on a non-zero exit swallowed the warning on
+    the one path where it matters, since a could-not-run exits 0. Letting the
+    fd through also means this function needs to know nothing about the shape
+    of the child's messages: there is no relayed string to keep in step.
+
+    Only stdout is captured, and only because --quiet makes it empty: a stray
+    child line there would land in the middle of the sha this tool prints for
+    chaining.
     """
     cmd = [sys.executable, SAFE_WRITE_PATH, target,
            '--crlf' if style == 'crlf' else '--lf', '--quiet']
@@ -255,11 +276,12 @@ def write_via_safe_write(target: str, body: bytes, style: str,
     env['PYTHONUTF8'] = '1'
     env['PYTHONIOENCODING'] = 'utf-8'
     try:
-        r = subprocess.run(cmd, input=body, capture_output=True, env=env)
+        r = subprocess.run(cmd, input=body, stdout=subprocess.PIPE, env=env)
     except OSError as exc:
-        return 5, f'could not invoke safe-write.py: {exc}'
-    err = (r.stderr or b'').decode('utf-8', 'replace').strip()
-    return r.returncode, err
+        print(f'safe-edit: could not invoke safe-write.py: {exc}',
+              file=sys.stderr)
+        return SPAWN_FAILED
+    return r.returncode
 
 
 def fail(msg: str, code: int) -> int:
@@ -369,12 +391,16 @@ def main() -> int:
     expected_sha = hashlib.sha256(patched).hexdigest()
 
     # --- Write via the proven full-body path --------------------------
-    rc, err = write_via_safe_write(target, patched, style,
-                                   args.no_parse_check)
+    rc = write_via_safe_write(target, patched, style, args.no_parse_check)
+    if rc == SPAWN_FAILED:
+        print('safe-edit: safe-write.py never started, so NOTHING was written '
+              'and there is nothing to recover -- the file is exactly as it '
+              'was.', file=sys.stderr)
+        return 5
     if rc != 0:
+        # The child printed its own diagnosis to the inherited stderr already,
+        # above this line and in its own words.
         print(f'safe-edit: safe-write.py failed (exit {rc})', file=sys.stderr)
-        if err:
-            print(err, file=sys.stderr)
         print('safe-edit: the write path restores its own backup on failure; '
               'verify with `git diff` before retrying.', file=sys.stderr)
         return 5
@@ -430,11 +456,13 @@ def main() -> int:
                   'top of the current content.', file=sys.stderr)
             return 6
 
-        rc2, err2 = write_via_safe_write(target, data, style, True)
+        rc2 = write_via_safe_write(target, data, style, True)
         if rc2 == 0:
             print('safe-edit: restored the pre-edit content', file=sys.stderr)
         else:
-            print(f'safe-edit: RESTORE ALSO FAILED (exit {rc2}) {err2}',
+            reason = ('the write path never started'
+                      if rc2 == SPAWN_FAILED else f'exit {rc2}')
+            print(f'safe-edit: RESTORE ALSO FAILED ({reason})',
                   file=sys.stderr)
             print('safe-edit: recover with `git checkout -- <path>`',
                   file=sys.stderr)
@@ -467,7 +495,7 @@ def main() -> int:
     print(f'safe-edit: ok ({target}: 1 hunk, -{old_lines}/+{new_lines} lines, '
           f'{len(data)} -> {len(after)} bytes, {style} preserved, '
           f'mount-verified, parse-check '
-          f'{"skipped" if args.no_parse_check else "passed"})')
+          f'{"skipped" if args.no_parse_check else "delegated"})')
     print(f'safe-edit: base   sha256 = {base_sha}')
     print(f'safe-edit: result sha256 = {result_sha}')
     print('safe-edit: chain the next edit with '

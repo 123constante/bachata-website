@@ -32,7 +32,10 @@ Exit codes:
     1  null bytes detected (corruption)
     2  too few lines (truncation suspected)
     3  I/O or argument error
-    4  post-write parse check failed
+    4  post-write parse check failed -- a parser RAN and rejected the
+       content. A parser that could not run at all is NOT this: it keeps
+       exit 0, prints "PARSE CHECK DID NOT RUN" on stderr, and says so in
+       the stdout receipt instead of claiming a pass.
     5  sha256 round-trip mismatch — mount-eventual-consistency bug
        defeated all retries; backup restored
 
@@ -65,6 +68,32 @@ PARSEABLE_JS = {'.js', '.cjs', '.mjs'}
 PARSEABLE_JSON = {'.json'}
 PARSEABLE_YAML = {'.yml', '.yaml'}
 PARSEABLE_PY = {'.py'}
+
+# Parse-check verdicts. FOUR outcomes, not two.
+#
+# "a parser ran and rejected this content" and "no parser ran" are different
+# facts, and collapsing them has cost real content in both directions. Reported
+# as a pass, an absent parser silently disarms the check (that is the fail-open
+# scripts/_integrity_ts_parse.cjs was changed to exit 3 to close). Reported as a
+# failure, it makes this tool restore the backup over perfectly good bytes --
+# which is how a checkout without node_modules ended up with NO write path at
+# all for .ts/.tsx, since safe-edit.py delegates here and
+# .claude/hooks/pre-write-block.sh blocks raw Edit/Write above 2 KB.
+#
+# NOT_RUN is announced on stderr and keeps exit 0. The exit code is deliberate
+# and was Ricky's call on 2026-08-31: a new non-zero here would break every
+# existing caller of this script, and could re-create the same lockout by
+# another route. The stderr line is what makes it visible instead.
+PARSE_PASSED = 'passed'    # a parser ran and found nothing wrong
+PARSE_FAILED = 'failed'    # a parser ran and rejected the content
+PARSE_NOT_RUN = 'not-run'  # a parser was expected and could not run
+PARSE_NA = 'n/a'           # no parser applies to this file at all
+# Set by main(), never returned by parse_check, which is not called at all in
+# this case. It is its own value rather than PARSE_NA because "a parser applies
+# and the caller declined it" is not "no parser applies" -- printing n/a over a
+# .ts written with --no-parse-check states something false, which is the exact
+# conflation the four above exist to end.
+PARSE_SKIPPED = 'skipped'
 
 # Source-code extensions that should default to CRLF in this repo
 CRLF_EXTENSIONS = {
@@ -109,8 +138,14 @@ def find_repo_root(start: str) -> str | None:
 def force_mount_sync() -> None:
     """Force the mount to flush pending writes."""
     try:
-        subprocess.run(['sync'], timeout=SYNC_TIMEOUT_SECONDS, check=False)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # Output captured, not inherited. stderr is now a signal channel --
+        # it is where a could-not-run parse phase is announced -- so a `sync`
+        # that warns (a read-only or network mount, a Windows sync.exe with a
+        # banner) would put a message about the environment into the stream a
+        # caller reads for messages about the file.
+        subprocess.run(['sync'], timeout=SYNC_TIMEOUT_SECONDS, check=False,
+                       capture_output=True)
+    except (OSError, subprocess.TimeoutExpired):
         pass
 
 
@@ -165,77 +200,156 @@ def copy_and_verify(src: str, dst: str, expected_sha: str) -> tuple[bool, str]:
 # Parse-check (delegated to per-language tooling)
 # ──────────────────────────────────────────────────────────────────────
 
-def parse_check(target: str, repo_root: str | None) -> tuple[bool, str]:
+def parse_check(target: str, repo_root: str | None) -> tuple[str, str]:
+    """Classify the just-written file into one of the four PARSE_* verdicts.
+
+    Every arm is split the same way: READING the file back is separated from
+    PARSING what was read, because a read that fails is the mount misbehaving
+    -- the exact condition this whole tool exists for -- and must never be
+    reported as bad content. Each of the JSON, Python and YAML arms used to
+    catch OSError alongside the parse error and return "the file is bad", so a
+    transient read failure restored the backup over content that had just
+    passed a cache-bypassing sha256 verify.
+    """
     ext = os.path.splitext(target)[1].lower()
 
-    if ext in PARSEABLE_JSON:
-        if any(h in target for h in JSONC_HINTS):
-            return True, ''
+    def read_back(label: str) -> tuple[str | None, str]:
+        # UnicodeDecodeError alongside OSError, and it is NOT decoration. This
+        # process wrote UTF-8 and verified the on-disk sha256 from a separate
+        # subprocess; bytes that will not decode afterwards mean the mount is
+        # serving a different generation than the one that was verified. Left
+        # uncaught it escapes parse_check entirely -- a traceback and Python's
+        # default exit 1, which this file's own table calls "null bytes
+        # detected", with no restore and a leaked backup. The YAML arm used to
+        # catch it under a bare `except Exception`; splitting the read out of
+        # that handler is what dropped it.
         try:
             with open(target, 'r', encoding='utf-8-sig') as f:
-                json.load(f)
-            return True, ''
-        except (json.JSONDecodeError, OSError) as exc:
-            return False, f'JSON parse: {exc}'
+                return f.read(), ''
+        except OSError as exc:
+            return None, f'{label}: could not read the file back: {exc}'
+        except UnicodeDecodeError as exc:
+            return None, f'{label}: the file did not read back as UTF-8: {exc}'
+
+    if ext in PARSEABLE_JSON:
+        # Separators normalised BEFORE the substring test. The hints are
+        # forward-slash literals and this is a Windows-first repo, so a
+        # backslash spelling of .claude/settings.local.json -- a file agents
+        # are told to edit, and one that legitimately carries comments --
+        # missed the exemption, was strictly parsed, came back FAILED, and had
+        # the backup copied over the body just written. Measured both
+        # spellings on this branch. chr(92) rather than an escaped literal:
+        # the edit transport collapses a doubled backslash, which is a
+        # syntax error here and was one.
+        hint_path = target.replace(chr(92), '/')
+        if any(h in hint_path for h in JSONC_HINTS):
+            return PARSE_NA, 'JSON with comments permitted -- not strictly parsed'
+        text, why = read_back('JSON')
+        if text is None:
+            return PARSE_NOT_RUN, why
+        try:
+            json.loads(text)
+        except json.JSONDecodeError as exc:
+            return PARSE_FAILED, f'JSON parse: {exc}'
+        return PARSE_PASSED, ''
 
     if ext in PARSEABLE_PY:
+        import ast
+        text, why = read_back('Python')
+        if text is None:
+            return PARSE_NOT_RUN, why
         try:
-            import ast
-            with open(target, 'r', encoding='utf-8-sig') as f:
-                ast.parse(f.read())
-            return True, ''
-        except (SyntaxError, OSError) as exc:
-            return False, f'Python parse: {exc}'
+            ast.parse(text)
+        except SyntaxError as exc:
+            return PARSE_FAILED, f'Python parse: {exc}'
+        return PARSE_PASSED, ''
 
     if ext in PARSEABLE_YAML:
         try:
             import yaml  # type: ignore
-            with open(target, 'r', encoding='utf-8-sig') as f:
-                yaml.safe_load(f)
-            return True, ''
         except ImportError:
-            return True, ''
-        except Exception as exc:
-            return False, f'YAML parse: {exc}'
+            return PARSE_NOT_RUN, 'YAML: PyYAML is not installed'
+        text, why = read_back('YAML')
+        if text is None:
+            return PARSE_NOT_RUN, why
+        try:
+            yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            return PARSE_FAILED, f'YAML parse: {exc}'
+        except Exception as exc:  # noqa: BLE001
+            # Not a YAMLError: the parser itself came apart, which is a phase
+            # that produced no verdict rather than a verdict about the file.
+            return PARSE_NOT_RUN, f'YAML: parser raised {type(exc).__name__}: {exc}'
+        return PARSE_PASSED, ''
 
     if ext in PARSEABLE_JS:
         try:
             r = subprocess.run(['node', '--check', target],
                                capture_output=True, text=True, timeout=10)
-            if r.returncode != 0:
-                msg = (r.stderr or r.stdout).strip().splitlines()
-                first = msg[0] if msg else 'node --check failed'
-                return False, f'node --check: {first[:200]}'
-            return True, ''
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return True, ''
+        except FileNotFoundError:
+            return PARSE_NOT_RUN, 'JS: node is not on PATH'
+        except OSError as exc:
+            # The catch-all under it, and NOT redundant: a node that is present
+            # but not executable raises PermissionError, and a stale PATH entry
+            # raises NotADirectoryError. Neither is a statement about this file,
+            # and uncaught either one exits 1 -- the code this file's own table
+            # gives to null-byte corruption. FileNotFoundError is a subclass, so
+            # it has to stay above this to keep its more useful wording.
+            return PARSE_NOT_RUN, f'JS: node could not be run: {exc}'
+        except subprocess.TimeoutExpired:
+            return PARSE_NOT_RUN, 'JS: node --check timed out after 10s'
+        if r.returncode != 0:
+            msg = (r.stderr or r.stdout).strip().splitlines()
+            first = msg[0] if msg else 'node --check failed'
+            return PARSE_FAILED, f'node --check: {first[:200]}'
+        return PARSE_PASSED, ''
 
     if ext in PARSEABLE_TS:
         if not repo_root:
-            return True, ''
+            return PARSE_NOT_RUN, ('TS: no repo root above the target, so the '
+                                   'batch helper could not be located')
         helper = os.path.join(repo_root, 'scripts', '_integrity_ts_parse.cjs')
         if not os.path.isfile(helper):
-            return True, ''
+            return PARSE_NOT_RUN, f'TS: helper not found at {helper}'
         try:
+            # relpath raises ValueError when the target and the repo root sit
+            # on different Windows drives -- a real shape here, since the
+            # target is whatever the caller passed. It is the same class as
+            # the two below: the helper never ran.
             payload = json.dumps([os.path.relpath(target, repo_root)])
             r = subprocess.run(['node', helper], input=payload,
                                capture_output=True, text=True,
                                cwd=repo_root, timeout=20)
-            if r.returncode != 0:
-                return False, f'TS helper exit {r.returncode}'
+        except ValueError as exc:
+            return PARSE_NOT_RUN, f'TS: could not relativise the target: {exc}'
+        except FileNotFoundError:
+            return PARSE_NOT_RUN, 'TS: node is not on PATH'
+        except OSError as exc:
+            return PARSE_NOT_RUN, f'TS: node could not be run: {exc}'
+        except subprocess.TimeoutExpired:
+            return PARSE_NOT_RUN, 'TS: the batch helper timed out after 20s'
+        if r.returncode != 0:
+            # The helper's contract: exit 0 means the phase RAN and stdout is
+            # the complete verdict, empty array included. Exit 3 is its own
+            # explicit "the TS parse phase did NOT run" (an unresolvable
+            # typescript, or unreadable input); any other non-zero is a crash,
+            # which is equally not a statement about this file's syntax.
+            lines = (r.stderr or '').strip().splitlines()
+            first = lines[0] if lines else 'no message on stderr'
+            return PARSE_NOT_RUN, f'TS: helper exit {r.returncode} -- {first[:200]}'
+        try:
             issues = json.loads(r.stdout or '[]')
-            if issues:
-                first = issues[0]
-                return False, (
-                    f'TS parse: {first.get("path")}:{first.get("line")} '
-                    f'{first.get("message", "")[:160]}'
-                )
-            return True, ''
-        except (FileNotFoundError, subprocess.TimeoutExpired,
-                json.JSONDecodeError):
-            return True, ''
+        except json.JSONDecodeError as exc:
+            return PARSE_NOT_RUN, f'TS: helper stdout was not JSON: {exc}'
+        if issues:
+            first = issues[0]
+            return PARSE_FAILED, (
+                f'TS parse: {first.get("path")}:{first.get("line")} '
+                f'{first.get("message", "")[:160]}'
+            )
+        return PARSE_PASSED, ''
 
-    return True, ''
+    return PARSE_NA, f'no checker for {ext or "(no extension)"}'
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -397,28 +511,59 @@ def main() -> int:
         _cleanup(None, backup_path)
         return 2
 
-    if not args.no_parse_check:
+    if args.no_parse_check:
+        verdict, detail = PARSE_SKIPPED, ''
+    else:
         repo_root = find_repo_root(target_dir)
-        ok, msg = parse_check(args.target, repo_root)
-        if not ok:
+        verdict, detail = parse_check(args.target, repo_root)
+        if verdict == PARSE_FAILED:
             print(f'safe-write: PARSE CHECK FAILED for {args.target}',
                   file=sys.stderr)
-            print(f'  {msg}', file=sys.stderr)
+            print(f'  {detail}', file=sys.stderr)
             if backup_path:
                 shutil.copy(backup_path, args.target)
                 force_mount_sync()
                 print('safe-write: restored previous content from backup',
+                      file=sys.stderr)
+            else:
+                # A NEW file has nothing to restore, so the rejected body is
+                # STILL ON DISK. Said out loud, because the caller contract --
+                # .claude/hooks/pre-write-block.sh -- tells an agent that every
+                # non-zero exit means fall back to the full-body path, from
+                # which it reasonably concludes nothing landed. It did.
+                print(f'safe-write: {args.target} did not exist before this '
+                      'write, so there is no backup to restore -- the '
+                      'REJECTED content is still on disk. Delete it or fix it.',
                       file=sys.stderr)
             _cleanup(None, backup_path)
             return 4
 
     _cleanup(None, backup_path)
 
+    # On STDERR, and unconditionally -- not folded into the stdout receipt
+    # below, which --quiet suppresses and which callers that capture stdout to
+    # chain a sha would swallow. safe-edit.py passes --quiet on every write, so
+    # a stdout-only signal is invisible on the path agents actually use.
+    if verdict == PARSE_NOT_RUN:
+        print(f'safe-write: PARSE CHECK DID NOT RUN for {args.target}',
+              file=sys.stderr)
+        print(f'  {detail}', file=sys.stderr)
+        print('  the write was KEPT and mount-verified, but NOTHING checked '
+              'its syntax.', file=sys.stderr)
+
     if not args.quiet:
         size = len(final_data)
+        if verdict == PARSE_PASSED:
+            receipt = 'parse-check passed'
+        elif verdict == PARSE_SKIPPED:
+            receipt = 'parse-check skipped (--no-parse-check)'
+        elif verdict == PARSE_NOT_RUN:
+            receipt = f'parse-check NOT RUN ({detail})'
+        else:
+            receipt = f'parse-check n/a ({detail})'
         print(
             f'safe-write: ok ({args.target}: {size} bytes, {line_count} lines, '
-            f'sha256={expected_sha[:12]}…, mount-verified, parse-check passed)'
+            f'sha256={expected_sha[:12]}…, mount-verified, {receipt})'
         )
     return 0
 
