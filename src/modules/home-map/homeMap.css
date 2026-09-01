@@ -18,25 +18,21 @@
 /* map canvas fills its (relative, sized) parent */
 .home-map__canvas { position: absolute; inset: 0; }
 .home-map .leaflet-container { background: #11121a; font-family: inherit; }
-/* Darken the basemap to sit in the dark theme. MEASURED mean luminance of the
-   same London view: CARTO dark_all (the provider this design was built around)
-   13.7, Esri's dark canvas raw 73.7 -- 5.4x brighter, which reads as a pale slab
-   against #11121a. brightness(0.35) lands at 21.9 and keeps roads and the river
-   legible; 0.55 (37.1) was still visibly light.
-   This is a STOPGAP tied to the Esri swap: CARTO began watermarking keyless
-   tiles, and the fix is an account + key. Delete this rule when that lands --
-   applying it to CARTO's already-near-black tiles would crush them.
-   SCOPED TO .hm-basetiles, NOT the whole tile pane: the Esri label layer sits in
-   the same pane and its type is light-on-transparent, so darkening the pane
-   would crush the place names to unreadable -- the very thing the label layer
-   was added to restore. */
-/* On the TILE IMAGES, not on .hm-basetiles itself. That className lands on the
-   div.leaflet-layer container, and Leaflet transforms that element's CHILDREN
-   (the tile-container levels) during a zoom animation -- so the filter's input
-   changes every frame and the compositor cannot reuse the rasterised result.
-   Filtering each img instead is visually identical and caches per tile.
-   Panning was never affected: there Leaflet transforms an ancestor pane. */
-.home-map .hm-basetiles .leaflet-tile { filter: brightness(0.35) contrast(1.05); }
+/* NO FILTER ON THE BASEMAP, deliberately -- the tiles render as Esri ships them.
+   A brightness(0.35) contrast(1.05) rule lived here and was removed: it made the
+   map read as a featureless black slab on a phone. The measurement that
+   justified it compared MEAN luminance only, and on that metric it looked right
+   (18.0 against CARTO dark_all's 18.9). Mean was the wrong statistic. CARTO was
+   a near-black ground with bright roads -- p05 2, p50 9, p95 42, a spread of 40
+   -- while the filtered Esri was crushed into a 5.4-27.1 band, spread 21.7, with
+   no true blacks at all. Same average, half the contrast, so there was no
+   structure left to see.
+   Esri's Dark Gray Canvas is a designed PAIR: the light-on-transparent labels of
+   the Reference service are drawn for the Base service at its native tone.
+   Filtering one half and not the other broke a balance the provider had already
+   struck, which is why the fix is to stop filtering rather than to pick a better
+   number. Numbers for all the candidates considered, and the measuring harness:
+   ~/.claude/plans/queued-home-map-esri-residuals.md */
 .home-map .leaflet-control-attribution {
   background: rgba(12,10,16,.85); color: #cfcad6;
   font-size: 9px; line-height: 1.4; font-weight: 500;
