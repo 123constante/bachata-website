@@ -376,8 +376,31 @@ const TEMP_REPO_FILES = [
  * autocrlf is pinned off so what is committed is byte-for-byte what was written
  * -- the restore path compares HEAD against the working tree.
  */
-export function makeTempRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(join(tmpdir(), 'integrity-canary-'));
+export function makeTempRepo(
+  files: Record<string, string>,
+  opts: { parentDir?: string; register?: (dir: string) => void } = {},
+): string {
+  // parentDir exists for ONE case class: a fixture that needs `typescript` to
+  // RESOLVE. Node resolves by walking up, and nothing above the system temp
+  // dir has node_modules -- which is precisely why assertTsHelperCannotRun
+  // holds for the default and why no case has ever driven the TS PASS path.
+  // Nesting the repo under REPO_ROOT inverts that precondition deliberately.
+  // Nothing else changes: git stops at the nearest .git, so a nested repo is
+  // still its own repo, and runProcess still strips the GIT_* discovery
+  // variables. Pair it with assertTsHelperCanRun so the inversion is asserted
+  // rather than assumed -- an unpaired caller that forgets to pass parentDir
+  // gets the OLD precondition back and every case built on it passes
+  // vacuously.
+  const root = mkdtempSync(join(opts.parentDir ?? tmpdir(), 'integrity-canary-'));
+  // REGISTER BEFORE ANYTHING THAT CAN THROW, for the same reason
+  // addLinkedWorktree does. Every caller used to register AFTER this function
+  // returned, so a throw anywhere below -- the init postcondition, a failed
+  // copy, the commit -- leaked the directory with nothing tracking it.
+  // MEASURED, not theoretical: 355 integrity-canary-* repos were sitting in
+  // %TEMP% when this was found. parentDir raises the stakes, because a leak
+  // from a nested caller lands inside the repo working tree rather than in
+  // TEMP, where only this spec's afterAll happens to sweep it.
+  opts.register?.(root);
   // commit.gpgsign and core.hooksPath are pinned for the same reason autocrlf
   // is: a temp repo must not inherit facts from the contributor's global git
   // config. A global `commit.gpgsign=true` -- ordinary on signed-commit setups
@@ -497,4 +520,107 @@ export function assertTsHelperCannotRun(root: string): void {
   expect(probe.status, 'typescript resolved in the temp repo -- precondition gone').toBe(3);
   expect(probe.stdout, 'an empty verdict is what a consumer reads as clean').toBe('');
   expect(probe.stderr).toContain('the TS parse phase did NOT run');
+}
+
+/**
+ * The INVERSE precondition: assert the TS batch helper CAN run inside `root`.
+ *
+ * Required by any case that means to drive the TS PASS path for real. Without
+ * it such a case is vacuous in the most dangerous way: a helper that cannot run
+ * exits 3, safe-write.py reports could-not-run, and a "valid .tsx was accepted"
+ * assertion passes for the OPPOSITE reason -- which is exactly how round 3 of
+ * the worktree walk fix shipped a write lockout with a green mutation table.
+ *
+ * Pair with makeTempRepo's parentDir option; nesting under REPO_ROOT is what
+ * makes typescript resolvable at all.
+ */
+export function assertTsHelperCanRun(root: string): void {
+  const probe = runProcess('node', [join(root, 'scripts', '_integrity_ts_parse.cjs')], {
+    cwd: root,
+    input: '[]',
+  });
+  expect(probe.status, 'typescript did NOT resolve -- the TS pass path is undrivable here').toBe(0);
+  expect(probe.stdout.trim(), 'a resolvable helper returns the empty verdict').toBe('[]');
+}
+
+/**
+ * Add a LINKED WORKTREE of `root` and return its path.
+ *
+ * The fixture the whole .git-is-a-FILE defect class needs. In a linked worktree
+ * .git is a FILE holding a gitdir: pointer, not a directory, so every
+ * hand-rolled walk that tested for a .git DIRECTORY reported "no repo" and
+ * silently disabled the check it was walking for.
+ *
+ * REGISTER BEFORE CREATE. `register` is called on the parent directory before
+ * `git worktree add` runs, because an earlier version registered only on
+ * success: a failed add, or a failed postcondition below, leaked the directory
+ * -- and on the postcondition path left a worktree registered in a repo whose
+ * .git/worktrees entry was then deleted from under it.
+ *
+ * The -c pins cover THIS INVOCATION ONLY, and that is all they need to:
+ * `worktree add` checks files out, so a contributor's global autocrlf would
+ * rewrite the checkout and a global core.hooksPath would run foreign hooks
+ * during the add. They do NOT persist into the new worktree -- it shares the
+ * parent repo's config, exactly as makeTempRepo's per-command pins do not
+ * persist either. Anything run in the worktree afterwards sees the
+ * contributor's global config unless it pins for itself.
+ */
+export function addLinkedWorktree(
+  root: string,
+  branch: string,
+  register: (dir: string) => void,
+): string {
+  const parent = mkdtempSync(join(dirname(root), 'integrity-canary-wt-'));
+  register(parent);
+  const target = join(parent, 'wt');
+  const add = runProcess(
+    'git',
+    [
+      '-c', 'core.autocrlf=false',
+      '-c', 'core.safecrlf=false',
+      '-c', 'commit.gpgsign=false',
+      '-c', 'core.hooksPath=',
+      '-C', root,
+      'worktree', 'add', '-q', '-b', branch, target,
+    ],
+    { cwd: root },
+  );
+  if (add.status !== 0) {
+    throw new Error(`addLinkedWorktree: worktree add failed (${add.status}): ${add.stderr}`);
+  }
+  assertIsLinkedWorktree(target);
+  return target;
+}
+
+/**
+ * FAIL CLOSED on the shape `addLinkedWorktree` exists to produce.
+ *
+ * Extracted from addLinkedWorktree so both branches are REACHABLE FROM A TEST.
+ * Inline they were not: real `git worktree add` produces the right shape, so
+ * neither throw could be driven, and review proved it -- mutating both to
+ * no-ops left all four fixture cases green while the spec's own comments cited
+ * this postcondition as one of the two things pinning the worktree shape. A
+ * guard nothing can kill is a guard nothing is checking.
+ *
+ * existsSync FIRST, and it is not belt-and-braces: statSync on a missing path
+ * throws a raw ENOENT, so an add that exits 0 without producing a .git at all
+ * -- the withoutGitEnv failure shape, where the work lands somewhere else
+ * entirely -- surfaced as an unhandled errno naming a path, with no hint that a
+ * fixture precondition had failed.
+ */
+export function assertIsLinkedWorktree(target: string): void {
+  const dotGit = join(target, '.git');
+  if (!existsSync(dotGit)) {
+    throw new Error(
+      `addLinkedWorktree: worktree add exited 0 but created no .git in ${target} ` +
+        '-- it added somewhere else, which means a repo-discovery variable ' +
+        'reached the child. See withoutGitEnv.',
+    );
+  }
+  if (!statSync(dotGit).isFile()) {
+    throw new Error(
+      `addLinkedWorktree: .git in ${target} is not a FILE -- this fixture cannot ` +
+        'distinguish a gitfile-aware resolver from a .git-directory walk.',
+    );
+  }
 }

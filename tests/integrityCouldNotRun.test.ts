@@ -41,6 +41,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -53,6 +54,9 @@ import {
   PYTHON,
   REPO_ROOT,
   Run,
+  addLinkedWorktree,
+  assertIsLinkedWorktree,
+  assertTsHelperCanRun,
   assertTsHelperCannotRun,
   envWithoutNode,
   makeTempRepo,
@@ -74,10 +78,11 @@ afterAll(() => {
   for (const dir of TEMP_REPOS) rmSync(dir, { recursive: true, force: true });
 });
 
-function tempRepo(files: Record<string, string>): string {
-  const root = makeTempRepo(files);
-  TEMP_REPOS.push(root);
-  return root;
+function tempRepo(files: Record<string, string>, parentDir?: string): string {
+  // register, NOT a push after the call returns. Registering afterwards leaks
+  // the directory whenever makeTempRepo throws partway through -- which is how
+  // %TEMP% accumulated 355 of them.
+  return makeTempRepo(files, { parentDir, register: (d) => TEMP_REPOS.push(d) });
 }
 
 const VALID_JS = 'export const a = 1;\n';
@@ -1049,11 +1054,13 @@ describe('runProcess: repo-discovery variables never reach a child', () => {
     // The incident shape, end to end, at the call site rather than the seam.
     // Without the strip `git init` honours the outer GIT_DIR, the new directory
     // never gets a .git, and makeTempRepo's own postcondition throws.
-    const outsider = makeTempRepo({});
+    // tempRepo, not makeTempRepo: both of these registered nothing, so every
+    // run of this case leaked two repos into %TEMP%.
+    const outsider = tempRepo({});
     const restore = process.env.GIT_DIR;
     try {
       process.env.GIT_DIR = join(outsider, '.git');
-      const root = makeTempRepo({});
+      const root = tempRepo({});
       expect(existsSync(join(root, '.git')), 'temp repo has no .git').toBe(true);
     } finally {
       if (restore === undefined) delete process.env.GIT_DIR;
@@ -1618,5 +1625,155 @@ describe('safe-write.py: a could-not-run parse phase is not a parse failure', ()
       });
     },
     TIMEOUT_MS,
+  );
+});
+
+// P1 of the worktree-repo-root arc. These cases assert the FIXTURES, not any
+// subject's verdict, and that is deliberate: they must read the same before and
+// after P3 deletes the repo-root resolvers. The behaviour cases that DO depend
+// on the fix -- a valid .tsx accepted with a parse that actually ran, a broken
+// one refused with a real diagnostic, the post-write hook silent on health and
+// exit 2 on corruption -- belong to P3 and are not here yet.
+//
+// Why fixture self-tests earn their place: round 3 of this fix shipped a write
+// lockout with a green mutation table because no case could distinguish "the
+// TS path passed" from "the TS path never ran". The precondition pair below is
+// what makes that distinguishable, so the pair itself needs pinning -- a
+// precondition helper that silently stopped discriminating would hand every
+// case built on it a vacuous green.
+describe('fixtures: linked worktrees and the TS-helper precondition pair', () => {
+  const WT_TIMEOUT_MS = 60_000;
+
+  it(
+    'addLinkedWorktree produces a worktree whose .git is a FILE, not a directory',
+    () => {
+      const root = tempRepo({ 'seed.txt': 'seed' });
+      const wt = addLinkedWorktree(root, 'wt-shape', (d) => TEMP_REPOS.push(d));
+      // THE defect class in one assertion. Every hand-rolled walk tested for a
+      // .git DIRECTORY; if this fixture ever produced one, cases built on it
+      // would pass against the exact walk they exist to kill.
+      const st = statSync(join(wt, '.git'));
+      expect(st.isFile(), 'the fixture cannot distinguish a gitfile-aware resolver').toBe(true);
+      expect(st.isDirectory()).toBe(false);
+      expect(readFileSync(join(wt, '.git'), 'utf8')).toMatch(/^gitdir: /);
+    },
+    WT_TIMEOUT_MS,
+  );
+
+  it(
+    'the TS-helper precondition INVERTS on parentDir, and both halves are asserted',
+    () => {
+      // The negative half is the status quo every existing case inherits:
+      // nothing above the system temp dir carries node_modules, so typescript
+      // cannot resolve and the helper exits 3.
+      assertTsHelperCannotRun(tempRepo({ 'seed.txt': 'seed' }));
+
+      // The positive half. Nesting under REPO_ROOT is the ONLY thing that
+      // changes, and it is what makes the TS pass path drivable at all.
+      const nested = tempRepo({ 'seed.txt': 'seed' }, join(REPO_ROOT, CANARY_DIR));
+      assertTsHelperCanRun(nested);
+    },
+    WT_TIMEOUT_MS,
+  );
+
+  it(
+    'the inverted precondition survives into a LINKED WORKTREE of the nested repo',
+    () => {
+      // Asserted separately from the case above because it is a different
+      // claim: a worktree is checked out somewhere else, so "typescript
+      // resolves in the repo" does not by itself mean "typescript resolves
+      // where the subject will actually run". P3's TS cases run in the
+      // worktree, not the repo, and would be vacuous if this did not hold.
+      //
+      // WHAT THIS CASE DOES NOT PROVE, measured not assumed: it does not
+      // independently verify that it was handed a worktree. Mutating
+      // addLinkedWorktree to return the main repo with its postconditions
+      // disarmed leaves this case GREEN -- typescript resolves in the nested
+      // repo too. The worktree shape is pinned by the .git-is-a-FILE case
+      // above and by the helper's own fail-closed postcondition; this case
+      // carries only the resolution claim. Do not read it as covering both.
+      const root = tempRepo({ 'seed.txt': 'seed' }, join(REPO_ROOT, CANARY_DIR));
+      const wt = addLinkedWorktree(root, 'wt-ts-precondition', (d) => TEMP_REPOS.push(d));
+      assertTsHelperCanRun(wt);
+    },
+    WT_TIMEOUT_MS,
+  );
+
+  it(
+    'addLinkedWorktree REGISTERS the parent before it can fail, so a failed add cannot leak',
+    () => {
+      const root = tempRepo({ 'seed.txt': 'seed' });
+      const registered: string[] = [];
+      const keep = (d: string) => {
+        registered.push(d);
+        TEMP_REPOS.push(d);
+      };
+
+      addLinkedWorktree(root, 'wt-dupe', keep);
+      // Same branch name twice: git refuses, so `add` exits non-zero AFTER the
+      // parent directory has already been created on disk.
+      expect(() => addLinkedWorktree(root, 'wt-dupe', keep)).toThrow(/worktree add failed/);
+
+      // The point of register-before-create. Registering only on success left
+      // the failed attempt's directory on disk with nothing tracking it -- and
+      // this assertion is what tells the two orderings apart, since the throw
+      // above happens either way.
+      expect(registered, 'the failed add did not register its parent for cleanup').toHaveLength(2);
+      for (const dir of registered) expect(existsSync(dir)).toBe(true);
+    },
+    WT_TIMEOUT_MS,
+  );
+
+  // The three cases below exist because REVIEW PROVED THE ONES ABOVE BLIND.
+  // Disarming BOTH of addLinkedWorktree's fail-closed postconditions to no-ops
+  // left all four cases green: real `git worktree add` produces the right
+  // shape, so neither throw was reachable from a test, while the comments
+  // above cited that postcondition as pinning the worktree shape. Extracting
+  // assertIsLinkedWorktree is what makes both branches drivable.
+  //
+  // The lesson, recorded because I made it twice: mutating the fixture's
+  // OUTPUT is not mutating the GUARD I added to it. The earlier mutant changed
+  // the return value AND disarmed the postconditions, so the kill came from
+  // the return and masked the blind spot entirely.
+  it('assertIsLinkedWorktree REFUSES a directory with no .git at all', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'integrity-canary-nogit-'));
+    TEMP_REPOS.push(dir);
+    // The withoutGitEnv failure shape: `worktree add` exits 0 having added
+    // somewhere else entirely. Before the extraction this branch could only be
+    // reached by a real repo-discovery leak, i.e. never on a healthy machine.
+    expect(() => assertIsLinkedWorktree(dir)).toThrow(/created no \.git/);
+  });
+
+  it('assertIsLinkedWorktree REFUSES a .git that is a DIRECTORY, not a gitfile', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'integrity-canary-dirgit-'));
+    TEMP_REPOS.push(dir);
+    mkdirSync(join(dir, '.git'));
+    // THE defect class inverted. A .git DIRECTORY is what every hand-rolled
+    // walk was written for, so a fixture that produced one would let cases
+    // pass against the very walk they exist to kill.
+    expect(() => assertIsLinkedWorktree(dir)).toThrow(/is not a FILE/);
+  });
+
+  it(
+    'makeTempRepo REGISTERS before it can throw, so a partial build cannot leak',
+    () => {
+      const registered: string[] = [];
+      // Writing 'a/b' as a file and then mkdir'ing 'a/b' for 'a/b/c' throws on
+      // every platform -- a portable way to fail makeTempRepo AFTER mkdtempSync
+      // has already put a directory on disk.
+      expect(() =>
+        makeTempRepo({ 'a/b': 'x', 'a/b/c': 'y' }, {
+          register: (d) => {
+            registered.push(d);
+            TEMP_REPOS.push(d);
+          },
+        }),
+      ).toThrow();
+      // Registering AFTER the call returns -- what every caller did until now,
+      // and what left 355 repos in %TEMP% -- records nothing when it throws.
+      expect(registered, 'a throwing makeTempRepo registered nothing for cleanup').toHaveLength(1);
+      expect(existsSync(registered[0])).toBe(true);
+    },
+    WT_TIMEOUT_MS,
   );
 });
