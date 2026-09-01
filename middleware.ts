@@ -6,16 +6,14 @@ import { teacherTag } from './app/cacheTags';
 // leaf module below for exactly that reason; import it from there, never from
 // detailLoader.ts, even though detailLoader.ts re-exports the same name.
 import { edgeCacheControl } from './app/edgeCacheControl';
+import { truncate } from './app/truncate';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 export const config = {
   matcher: [
     // Bots keep hitting this edge middleware for the branded OG card + DanceEvent
-    // JSON-LD + noindex-404. /organisers stays matched: the RR7 framework loader
-    // serves HUMANS, but the route meta() is only a fallback head (no loader —
-    // still flag-gated) — the rich card still comes from here until that flag
-    // ships. /event was retired from this list (Phase 5, 2026-07-06): its route
+    // JSON-LD + noindex-404. /event was retired from this list (Phase 5, 2026-07-06): its route
     // now emits equivalent-or-better JSON-LD (BentoPage's buildEventJsonLd) and
     // og:image normalization (resolveOgCardImage in app/detailLoader.ts) itself,
     // verified byte-for-byte identical to this file's own output for a real
@@ -33,12 +31,28 @@ export const config = {
     // /djs + /dancers were retired next (Phase 5, 2026-07-06): both are ungated
     // and their SSR loaders now normalize og:image via normalizeOgImage (same
     // /api/og/card?kind=image src as middleware's fetchDjMeta/fetchDancerMeta —
-    // verified identical on preview for a live DJ + dancer). /teachers STAYS: it
-    // is flag-gated and VITE_ENABLE_TEACHER_DETAIL=false in prod, so its SSR
-    // route serves a coming-soon/noindex page — bots must keep getting the rich
-    // card from here until that flag ships (same reason /organisers stays).
+    // verified identical on preview for a live DJ + dancer).
+    //
+    // /organisers was retired here (2026-09-01) once app/routes/organiser.tsx
+    // gained a loader. BOTH premises of the note that used to keep it are now
+    // false: the route has a loader, and VITE_ENABLE_ORGANISER_DETAIL is true in
+    // prod (production served OrganiserProfile, not the coming-soon gate -- which
+    // is how it served "<h1>Organiser not found</h1>" at HTTP 200 on 34 valid
+    // organisers). Checked against this file's own output before removal, field
+    // by field: og:image is the SAME normalizeOgImage/api/og/card?kind=image
+    // src; the canonical is the same /organisers/<slug>; a genuine miss is a
+    // real 404 + X-Robots-Tag: noindex (throwDetailNotFound) where this file
+    // returned its NOINDEX_404 stub; the description prefers the organiser's own
+    // bio exactly as fetchOrganiserMeta did (no organiser has one today, so both
+    // sides fall back -- the SSR template is the richer fallback of the two); and
+    // middleware emitted NO JSON-LD for organisers. It also ENDS a cloaking
+    // exposure: bots were served a 1,582-byte document whose body was
+    // "<p>La Familia</p>" while humans got 32,537 bytes. Both now get the page.
+    //
+    // /teachers STAYS: it is flag-gated and VITE_ENABLE_TEACHER_DETAIL=false in
+    // prod, so its SSR route serves a coming-soon/noindex page -- bots must keep
+    // getting the rich card from here until that flag ships.
     '/teachers/:path*',
-    '/organisers/:path*',
     '/city/:path*',
   ],
 };
@@ -86,12 +100,6 @@ interface OgMeta {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function truncate(text: string | null | undefined, max: number): string {
-  if (!text) return '';
-  const trimmed = String(text).trim();
-  return trimmed.length <= max ? trimmed : trimmed.slice(0, max - 1).trimEnd() + '\u2026';
-}
 
 function escapeHtml(str: string): string {
   return str
@@ -249,32 +257,6 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
   return { title, description, image, type: 'website', url };
 }
 
-async function fetchOrganiserMeta(id: string, url: string): Promise<OgMeta | null> {
-  const query = `id=eq.${encodeURIComponent(id)}&select=name,avatar_url,bio`;
-  const res = await supabaseFetch(`/rest/v1/organiser_profiles?${query}`);
-  if (!res || !res.ok) return null;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: any = await res.json();
-  const o = Array.isArray(rows) ? rows[0] : null;
-  if (!o || !o.name) return null;
-
-  const title = truncate(o.name, 90);
-
-  let description: string;
-  if (o.bio && String(o.bio).trim()) {
-    description = truncate(o.bio, 160);
-  } else {
-    let base = 'Event organiser';
-    if (o.cities?.name) base += ` in ${o.cities.name}`;
-    description = truncate(base, 160);
-  }
-
-  const image = ogNormalizedImage(firstString(o.avatar_url));
-
-  return { title, description, image, type: 'profile', url };
-}
-
 // ─── HTML renderer ────────────────────────────────────────────────────────────
 
 function buildMetaHtml(meta: OgMeta): string {
@@ -347,12 +329,13 @@ export default async function middleware(request: Request): Promise<Response> {
       }
       break;
     }
-    case 'organisers': {
-      const ref = await resolveRef('organiser_profiles', id);
-      meta = ref ? await fetchOrganiserMeta(ref.id, canonicalUrl) : null;
-      if (meta && ref) meta.canonicalHref = `${SITE_URL}/organisers/${ref.slug || ref.id}`;
-      break;
-    }
+    // 'organisers' was removed here (was UNREACHABLE: '/organisers/:path*' left
+    // the matcher above on 2026-09-01, once the SSR route in app/routes/organiser.tsx
+    // shipped a loader). Deletion, not a comment-only stub, per CLAUDE.md: "if you
+    // are certain that something is unused, you can delete it completely" -- git
+    // history is the revert mechanism, not a dead branch kept compiling. It still
+    // stays in CLEAN_LISTINGS -- that is the separate /city/:slug/organisers
+    // canonicalisation, unrelated to this matcher.
     case 'city': {
       if (!CITY_SLUG_RE.test(id)) return next();
       const isBareCity = segments.length === 2;
@@ -381,7 +364,10 @@ export default async function middleware(request: Request): Promise<Response> {
     // dead URL, so return 404 + noindex and let Google drop it. Slug params for
     // these kinds already returned next() above, so reaching here is a genuine
     // miss. City misses fall through to next() (the SPA still renders a city).
-    const NOINDEX_404_KINDS = ['teachers', 'organisers'];
+    // 'organisers' removed with the case above: /organisers left the matcher, so
+    // kind can never be 'organisers' here. app/routes/organiser.tsx serves the
+    // real 404 now (throwDetailNotFound), which is where the noindex comes from.
+    const NOINDEX_404_KINDS = ['teachers'];
     if (NOINDEX_404_KINDS.includes(kind)) {
       return new Response(
         `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Not found</title><meta name="robots" content="noindex"></head><body><p>Not found.</p></body></html>`,
@@ -410,8 +396,8 @@ export default async function middleware(request: Request): Promise<Response> {
   // convention. A teacher write emits the purge, so a long s-maxage costs no
   // staleness -- the edge entry dies on edit, not on expiry.
   //
-  // Untagged (organisers, city): these ride a TTL, not a purge, because no
-  // organiser/city tag exists yet (wiring one is a cross-repo change: new
+  // Untagged (city): rides a TTL, not a purge, because no city tag exists yet
+  // (wiring one is a cross-repo change: new
   // entity type + admin RPC emission + cacheTags.test.ts conformance). The
   // payload is bot-only OG-card HTML edited by a single operator at low
   // frequency, so an hour of blind staleness on a link preview is the cheap

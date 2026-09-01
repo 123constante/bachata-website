@@ -16,6 +16,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
+import { resolvePublicName } from '@/lib/publicName';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 
@@ -184,7 +185,16 @@ const TeacherProfile = () => {
     enabled: !!id,
   });
   const _teacherSeo = buildSeoForRoute('teacher.detail', {
-    entityName: teacher ? getPublicName(teacher, 'Teacher') : undefined,
+    // resolvePublicName, not getPublicName -- mirrors app/routes/teachers.tsx's
+    // loader (the SSR path this route hydrates). getPublicName's 'Teacher'
+    // fallback is a placeholder a crawler reads as a real name, which is the
+    // soft-404 this branch closes. Identical on hide_surname: the mapped row
+    // above hardcodes it false, so neither helper honours it here.
+    // Currently inert -- TeacherProfile only renders inside
+    // InitialVisiblePageTransition (app/routes/teachers.tsx:100), which sets
+    // RouteOwnsHeadContext=true, so useSeo short-circuits before reading
+    // entityName. Kept correct anyway.
+    entityName: teacher ? (resolvePublicName(teacher) ?? undefined) : undefined,
     entitySlug: resolved.slug ?? id ?? undefined,
     ogImage: teacher?.photo_url ?? undefined,
     isLoading,

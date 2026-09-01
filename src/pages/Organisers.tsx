@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X, CalendarDays, MapPin, Star, Building2, Music } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -270,7 +271,7 @@ const Organisers = () => {
       const { data, error } = await supabase
         .from('organiser_profiles')
         .select('id, slug, name, avatar_url, bio, organisation_category, city_id')
-        .not('is_active', 'is', false)
+        .not(...NOT_DEACTIVATED)
         .order('name');
       if (error) throw error;
 

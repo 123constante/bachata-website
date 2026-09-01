@@ -2,7 +2,8 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
+import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
+import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -17,11 +18,6 @@ import { stampDancer } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
 
-// Columns mirror DancerProfile's dancer-profile query byte-for-byte so the
-// dehydrated cache entry matches what the page reads (no client refetch).
-const DANCER_COLS =
-  "id, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)";
-
 export async function loader({ params, request }: Route.LoaderArgs) {
   const qc = createQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
@@ -34,10 +30,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const dancer = await qc.fetchQuery({
     queryKey: ["dancer-profile", ref.id],
     queryFn: async () => {
+      // Must match app/routes/sitemap.tsx's fetchDancerProfiles() gate exactly --
+      // otherwise a deactivated profile is either sitemapped-but-404 or
+      // resolvable-but-unsitemapped, the same soft-404/discovery mismatch class
+      // this branch closes elsewhere. 0 rows are is_active = false today.
       const { data, error } = await supabase
         .from("dancer_profiles")
-        .select(DANCER_COLS)
+        .select(DANCER_PUBLIC_COLS)
         .eq("id", ref.id as string)
+        .not(...NOT_DEACTIVATED)
         .maybeSingle();
       if (error) throw error;
       return (data as Record<string, unknown> | null) ?? null;
@@ -50,7 +51,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
-      entityName: view.displayName,
+      // `?? undefined` is load-bearing, not tidiness: buildSeoForRoute noindexes a
+      // .detail route on a FALSY entityName, so a nameless dancer must arrive as
+      // undefined. resolvePublicName already refuses to invent one (it returns
+      // null rather than "Dancer" or an id), and this is where that null turns
+      // into the routing decision Ricky chose -- 200 + noindex, not a 404, so an
+      // existing link into a thin profile still resolves.
+      entityName: view.displayName ?? undefined,
       entitySlug: ref.slug ?? params.id,
       // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
       // JPEG) so WebP/oversized avatars still render as social link-preview cards.

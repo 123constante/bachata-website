@@ -10,9 +10,11 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
+  DANCER_PUBLIC_COLS,
   mapDancerPublicProfile,
   type DancerPublicRecord,
 } from "@/modules/profile/dancerPublicProfile";
+import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -57,10 +59,14 @@ const DancerProfile = () => {
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
       if (!id) throw new Error("Dancer ID required");
+      // Same query body as app/routes/dancers.tsx's loader, which dehydrates
+      // this exact ["dancer-profile", id] cache entry -- must match or SSR
+      // hydration and this client fetch disagree on what "found" means.
       const { data, error } = await supabase
         .from("dancer_profiles")
-        .select("id, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)")
+        .select(DANCER_PUBLIC_COLS)
         .eq("id", id)
+        .not(...NOT_DEACTIVATED)
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Dancer not found.");
@@ -72,7 +78,7 @@ const DancerProfile = () => {
   const { user } = useAuth();
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   const _dancerSeo = buildSeoForRoute('dancer.detail', {
-    entityName: dancerView?.displayName,
+    entityName: dancerView?.displayName ?? undefined,
     entitySlug: resolved.slug ?? id ?? undefined,
     ogImage: dancer?.avatar_url ?? undefined,
     isLoading,
@@ -290,7 +296,11 @@ const DancerProfile = () => {
       backHref="/dancers"
       hero={{
         emoji: '',
-        titleWhite: dancerView.displayName,
+        // Empty, not "Dancer": the hero already prints "Dancer" as titleOrange,
+        // so a nameless profile reads "Dancer" once rather than twice -- and the
+        // page's SUBJECT stays unclaimed, which is what the noindex on this same
+        // resolution (app/routes/dancers.tsx) is asserting to a crawler.
+        titleWhite: dancerView.displayName ?? '',
         titleOrange: 'Dancer',
         subtitle: dancerSubtitle,
         largeTitle: true,
@@ -315,7 +325,7 @@ const DancerProfile = () => {
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer">
                     <img
                       src={url}
-                      alt={`${dancerView.displayName} photo ${i + 1}`}
+                      alt={`${dancerView.displayName ?? 'Dancer'} photo ${i + 1}`}
                       className="w-full aspect-square object-cover rounded-xl hover:opacity-80 transition-opacity"
                       loading="lazy"
                     />

@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { flags } from "@/lib/featureFlags";
 import { edgeCacheControl } from "../detailLoader";
+import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
+import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
 // dead build-time scripts/generate-sitemap.mjs, which `react-router build`
@@ -119,14 +121,32 @@ async function fetchVenues(): Promise<UrlRow[]> {
 }
 
 // dancer_profiles: feed /dancers/:id (public) and /teachers/:id (flag-gated).
-async function fetchDancerProfiles(): Promise<ProfileRow[]> {
+//
+// The name columns are selected so a profile with NO resolvable name can be left
+// out. Those pages are not broken -- they render, and they deliberately emit
+// noindex (app/routes/dancers.tsx, via resolvePublicName) -- but a sitemap is a
+// request to index, so submitting one is a straight contradiction that Google
+// reports as "Submitted URL marked noindex". 2 of 138 rows today.
+//
+// Must match app/routes/dancers.tsx's own visibility gate exactly (added
+// alongside this filter) -- same reasoning as the organiser fetch below: a
+// mismatch either submits a URL the route 404s, or silently drops one it still
+// serves. 0 rows are is_active = false today, so this is a latent mismatch
+// being closed, not a live one being repaired.
+// Returns the name columns too, not a bare ProfileRow: /teachers URLs are derived
+// from these same rows but resolve their name from a NARROWER basis (below), and
+// that comparison needs the fields to survive the return type.
+async function fetchDancerProfiles(): Promise<Array<ProfileRow & PublicNameSource>> {
   const { data, error } = await db
     .from("dancer_profiles")
-    .select("id, slug, updated_at")
+    .select("id, slug, updated_at, display_name, first_name, surname")
+    .not(...NOT_DEACTIVATED)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return (data ?? []) as ProfileRow[];
+  return ((data ?? []) as Array<ProfileRow & PublicNameSource>).filter(
+    (d) => resolvePublicName(d) !== null,
+  );
 }
 
 // teacher_profiles: which dancer_profiles ids also have a teacher role.
@@ -140,11 +160,18 @@ async function fetchTeacherProfileIds(): Promise<Set<string>> {
 async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   const { data, error } = await db
     .from("organiser_profiles")
-    .select("id, slug, updated_at")
+    .select("id, slug, updated_at, name")
+    // Must match app/routes/organiser.tsx's own visibility gate exactly. That
+    // loader 404s a row this filter would otherwise submit, which Google reports
+    // as "Submitted URL not found (404)". 0 rows are is_active = false today, so
+    // this is a latent mismatch being closed, not a live one being repaired.
+    .not(...NOT_DEACTIVATED)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return ((data ?? []) as ProfileRow[]).map((o) => ({
+  return ((data ?? []) as Array<ProfileRow & PublicNameSource>)
+    .filter((o) => resolvePublicName(o) !== null)
+    .map((o) => ({
     loc: `${BASE_URL}/organisers/${o.slug || o.id}`,
     lastmod: toDate(o.updated_at),
     changefreq: "weekly",
@@ -178,8 +205,25 @@ export async function loader() {
       changefreq: "weekly",
       priority: "0.6",
     }));
+    // The name filter is NARROWER here than for /dancers, and deliberately so.
+    // fetchDancerProfiles keeps a row whose only name is display_name, which is
+    // right for /dancers/:id -- its loader selects display_name and renders it.
+    // app/routes/teachers.tsx cannot: it names the page from
+    // get_public_teacher_detail_v1, whose result set has no display_name column
+    // (first_name/surname only), so resolvePublicName returns null there and
+    // buildSeoForRoute noindexes the page. Submitting such a URL would be the
+    // inverse of this branch's bug -- a sitemap entry Google reports as
+    // "Submitted URL marked noindex" -- so the sitemap must resolve the teacher
+    // name on the SAME basis the teacher route has available.
+    //
+    // Zero impact today: teacher_profiles has 0 rows (measured 2026-09-02), so
+    // teacherIds is empty and no /teachers URL is emitted at all; the flag is off
+    // in prod besides. This closes the trap before teachers are seeded, rather
+    // than after. If the RPC ever returns display_name, widen this back to plain
+    // resolvePublicName(d) and delete this note.
     const teacherUrls: UrlRow[] = dancerRows
       .filter((d) => teacherIds.has(d.id))
+      .filter((d) => resolvePublicName({ first_name: d.first_name, surname: d.surname }) !== null)
       .map((d) => ({
         loc: `${BASE_URL}/teachers/${d.slug || d.id}`,
         lastmod: toDate(d.updated_at),

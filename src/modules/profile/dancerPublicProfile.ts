@@ -1,5 +1,5 @@
 import type { Database } from "@/integrations/supabase/types";
-import { buildFullName } from "@/lib/name-utils";
+import { resolvePublicName } from "@/lib/publicName";
 import { getPhotoUrl, parsePartnerDetails } from "@/lib/utils";
 
 type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
@@ -7,6 +7,7 @@ type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
 export type DancerPublicRecord = Pick<
   DancerRow,
   | "id"
+  | "display_name"
   | "first_name"
   | "surname"
   | "nationality"
@@ -26,9 +27,33 @@ export type DancerPublicRecord = Pick<
   | "partner_details"
 > & { cities?: { name: string } | null; email?: string | null };
 
+/**
+ * The ONE PostgREST column list for a public dancer profile.
+ *
+ * It used to be written out twice -- once in app/routes/dancers.tsx (with a
+ * comment promising it mirrored the page's query "byte-for-byte") and once in
+ * src/pages/DancerProfile.tsx. They drifted, both omitting `display_name`, and
+ * the dehydrated SSR cache entry therefore matched a page query that was also
+ * wrong, so nothing disagreed and nothing failed. Two hand-synchronised copies
+ * cannot be kept in sync by a comment; there is now one definition, imported by
+ * both, and `DancerPublicRecord` above is what it must satisfy.
+ */
+//
+// ONE LINE, and `as const`, both load-bearing. supabase-js infers the row type
+// from the select string's LITERAL type; a concatenation (`"a, b" + "c, d"`)
+// widens it to `string`, PostgREST's inference collapses to GenericStringError,
+// and every consumer needs a cast that then hides real column mistakes. Wrapping
+// it here rather than at each call site is the whole point -- the cast this
+// replaced is what let the two copies drift in the first place.
+export const DANCER_PUBLIC_COLS =
+  "id, display_name, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)" as const;
+
 export type DancerPublicViewModel = {
   id: string;
-  displayName: string;
+  /** `null` when no real name resolves -- see @/lib/publicName. Callers render
+   *  their own fallback; SEO callers must pass it through as `undefined` so
+   *  buildSeoForRoute noindexes the page instead of indexing a placeholder. */
+  displayName: string | null;
   avatarUrl: string | null;
   city: string | null;
   nationality: string | null;
@@ -101,7 +126,12 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
         ? parsePartnerDetails(rawPartnerDetails as Record<string, unknown>)
         : "";
 
-  const displayName = buildFullName(record.first_name, record.surname) || "Dancer";
+  // Was `buildFullName(first_name, surname) || "Dancer"`, which shipped the
+  // literal string "Dancer" as the <h1> and <title> of 44 live profiles whose
+  // names are in `display_name`. The placeholder ALSO defeated the noindex in
+  // buildSeoForRoute (it only fires on a falsy entityName), so each one was
+  // indexed as a duplicate-titled soft 404.
+  const displayName = resolvePublicName(record);
 
   const currentYear = new Date().getFullYear();
   const yearsDancing =

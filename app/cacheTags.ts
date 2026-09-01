@@ -37,6 +37,7 @@ export const dancerTag = (id: string) => `dancer-${id}`;
 export const djTag = (id: string) => `dj-${id}`;
 export const teacherTag = (id: string) => `teacher-${id}`;
 export const venueTag = (id: string) => `venue-${id}`;
+export const organiserTag = (id: string) => `organiser-${id}`;
 
 const ENTITY_TAG: Record<EntityType, (id: string) => string> = {
   event: eventTag,
@@ -69,6 +70,14 @@ export const DANCERS = "dancers";
 export const DJS = "djs";
 export const TEACHERS = "teachers";
 export const VENUES = "venues";
+// Organisers are NOT a REVALIDATABLE_ENTITY_TYPE and must not become one on the
+// strength of this constant: the admin's _emit_cache_revalidation_v1 has no
+// 'organiser' entity type, so a purge mapping here would be a lie that the
+// conformance test below would then certify as healthy. The tag exists so
+// /organisers/:id stamps a real, purgeable name the day an emit lands; until
+// then the route ships edgeTtlBoundSeconds: 0 (see app/routes/organiser.tsx),
+// which is what actually keeps an un-purgeable page from going stale.
+export const ORGANISERS = "organisers";
 
 // ── STAMP side: the exact Vercel-Cache-Tag string each route puts on its
 // response. Centralized so route files can't drift from the taxonomy. ─────────
@@ -79,6 +88,7 @@ export const stampDancer = (id: string) => [dancerTag(id), DANCERS].join(",");
 export const stampDj = (id: string) => [djTag(id), DJS].join(",");
 export const stampTeacher = (id: string) => [teacherTag(id), TEACHERS].join(",");
 export const stampVenue = (id: string) => [venueTag(id), VENUES].join(",");
+export const stampOrganiser = (id: string) => [organiserTag(id), ORGANISERS].join(",");
 export const stampHome = (citySlug: string) => [HOME_FEED, cityTag(citySlug)].join(",");
 export const stampFestivalsList = () => FESTIVALS_LIST;
 export const stampSeoLanding = () => SEO_LANDING;
@@ -97,6 +107,7 @@ export const ALL_ROUTE_STAMPS: string[] = [
   stampDj(STAMP_PLACEHOLDER_ID),
   stampTeacher(STAMP_PLACEHOLDER_ID),
   stampVenue(STAMP_PLACEHOLDER_ID),
+  stampOrganiser(STAMP_PLACEHOLDER_ID),
   stampHome(STAMP_PLACEHOLDER_SLUG),
   stampFestivalsList(),
   stampSeoLanding(),
@@ -108,6 +119,13 @@ export const ALL_ROUTE_STAMPS: string[] = [
 // for the home page is HOME_FEED). Anything stamped-but-unpurged that is NOT
 // here fails the conformance test.
 export const STAMP_ONLY_KINDS: string[] = [
+  // organiser-<id> + organisers: stamped by /organisers/:id, purged by nothing,
+  // because there is no 'organiser' emit on the DB side to purge them WITH. That
+  // is the whole reason the route pins its edge TTL to zero rather than relying
+  // on the 25-hour default this allowlist otherwise waves through. Delete both
+  // entries -- and the pin -- in the same change that adds the emit.
+  organiserTag(STAMP_PLACEHOLDER_ID),
+  ORGANISERS,
   EVENTS,
   FESTIVALS,
   DANCERS,

@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
-import { buildFullName } from '@/lib/name-utils';
+import { renderPublicName } from '@/lib/publicName';
 
 type DJCard = {
   id: string;
@@ -74,7 +74,12 @@ const DJs = () => {
         ) : (
           <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {djs.map((dj) => {
-              const displayName = dj.display_name || dj.dj_name || buildFullName(dj.first_name, dj.surname) || 'DJ';
+              // Measured on prod 2026-09-01: list_public_djs_v1 returns a UUID-shaped
+              // display_name for 2 of its 37 rows, the same id fallback
+              // get_public_dj_v1 carries. A UUID is truthy, so the old `||` chain
+              // rendered it as the card label -- linking to a detail page that now
+              // correctly refuses to. Same resolver as the detail page and /dancers.
+              const displayName = renderPublicName(dj, 'DJ');
               const coverPhoto = Array.isArray(dj.photo_url)
                 ? (dj.photo_url[0] ?? null)
                 : ((dj.photo_url as string | null) ?? null);

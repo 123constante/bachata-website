@@ -11,7 +11,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { buildFullName } from '@/lib/name-utils';
+import { renderPublicName } from '@/lib/publicName';
+import { getInitials } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 
 type Dancer = {
   id: string;
+  display_name: string | null;
   first_name: string | null;
   surname: string | null;
   favorite_styles: string[] | null;
@@ -72,7 +74,7 @@ const Dancers = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
+          .select('id, display_name, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
           .or('is_active.is.null,is_active.eq.true')
           .order('created_at', { ascending: false });
 
@@ -225,15 +227,25 @@ const Dancers = () => {
     navigate(item.type === 'festival' ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
-  const getAvatarEmoji = (name: string | null | undefined) => {
-    if (!name) return '??';
-    const hash = name.charCodeAt(0) % 2;
-    return hash === 0 ? '??' : '??';
-  };
+  // Same resolver the detail page and its loader use. Without it the listing
+  // showed "Dancer" for every card whose name lives in `display_name`, so the
+  // list and the profile it linked to disagreed about who the person was.
+  const getDisplayName = (dancer: Dancer) => renderPublicName(dancer, 'Dancer');
 
-  const getDisplayName = (dancer: Dancer) => {
-    return buildFullName(dancer.first_name, dancer.surname) || 'Dancer';
-  };
+  // Initials, not an emoji. This replaces `getAvatarEmoji`, whose every branch
+  // returned the literal two-character string "??" -- U+003F question marks,
+  // verified against the raw bytes on origin/main as well as here. That is a
+  // mojibake-collapsed emoji pair, and it had been rendering on every
+  // avatar-less dancer card in production. check:mojibake cannot catch it: the
+  // corruption had already completed, leaving plain ASCII behind, so there is
+  // no suspect byte sequence left to detect. Initials keep Unicode out of this
+  // path entirely, which is what stops the cp1252 round-trip recurring here.
+  //
+  // Derived from the RESOLVED name, not the raw row: getInitials reads
+  // first_name/surname/name and knows nothing about display_name, so a dancer
+  // named only in display_name would fall back to placeholder initials while
+  // the card heading right below showed their real name.
+  const getAvatarFallback = (dancer: Dancer) => getInitials({ name: getDisplayName(dancer) }, 'BC');
 
   return (
     <GlobalLayout
@@ -341,7 +353,12 @@ const Dancers = () => {
                         {dancer.avatar_url ? (
                           <img src={optimizedImageUrl(dancer.avatar_url, 160)} alt={getDisplayName(dancer)} className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover" loading="lazy" />
                         ) : (
-                          getAvatarEmoji(dancer.first_name)
+                          // Same geometry as the <img> above, so a card with a
+                          // photo and one without line up instead of the
+                          // fallback inheriting the parent's text-2xl.
+                          <span className="flex w-8 h-8 md:w-12 md:h-12 items-center justify-center rounded-full bg-secondary/30 text-secondary-foreground border border-secondary/20 text-[10px] md:text-sm font-bold">
+                            {getAvatarFallback(dancer)}
+                          </span>
                         )}
                       </motion.div>
                     </div>
