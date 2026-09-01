@@ -53,6 +53,21 @@ describe('diffAgainstAllowlist', () => {
 });
 
 describe('scanTree (real repo)', () => {
+  // Wall time here tracks machine LOAD, not the detector: this case walks the
+  // real tree (SCAN_PATHS = src, app, tests, middleware.ts) off disk while the
+  // rest of the parallel pool runs. Measured: ~0.8s alone, ~2.6s in the full
+  // 87-file pool, and 5056ms on the pre-push run that blocked d39d261 -- a red
+  // that named rpc-typing for what was purely a scheduling problem. The 20000
+  // below is ~4x that worst observed figure. Raise it HERE only, never
+  // globally.
+  //
+  // Do NOT delete this case as "redundant with check:rpc-typing" -- that was
+  // tried and reverted. The guard's own printed remediation
+  // ("Shrink the allowlist ... --write") blesses whatever it currently finds,
+  // so the guard cannot witness its OWN detector going blind; and
+  // check-rpc-typing.mjs is recorded R4:no-canary in
+  // script-conventions-allowlist.json, so it has no self-test either. That
+  // makes this spec the detector's only coverage in any tier.
   it('detects laundered rpc() calls and never reports get_calendar_events_v2 (it is fully typed)', async () => {
     const map = await scanTree();
     const flat = Object.values(map).flatMap((rpcs) => Object.keys(rpcs));
@@ -60,5 +75,5 @@ describe('scanTree (real repo)', () => {
     expect(flat.length).toBeGreaterThan(0);
     // ...but get_calendar_events_v2 was routed through the typed boundary in #117.
     expect(flat).not.toContain('get_calendar_events_v2');
-  });
+  }, 20000);
 });
