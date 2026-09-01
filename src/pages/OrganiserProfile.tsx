@@ -36,6 +36,7 @@ import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
+import { ORGANISER_PUBLIC_COLS } from '@/lib/organiserPublicCols';
 
 // --- Types ---
 
@@ -412,9 +413,13 @@ const OrganiserProfile = () => {
     queryKey: ['entity', id],
     queryFn: async () => {
       if (!id) throw new Error('Entity ID is required');
+      // ORGANISER_PUBLIC_COLS, not '*': this query and app/routes/organiser.tsx's
+      // loader share one ['entity', id] cache entry, and select('*') was
+      // dehydrating claimed_by/created_by (auth.users UUIDs) into every
+      // organiser page's SSR HTML. Both selects must stay in sync.
       const { data, error } = await supabase
         .from('organiser_profiles')
-        .select('*')
+        .select(ORGANISER_PUBLIC_COLS)
         .eq('id', id)
         .not('is_active', 'is', false)
         .maybeSingle();

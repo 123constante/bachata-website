@@ -5,6 +5,7 @@ import { createQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
+import { ORGANISER_PUBLIC_COLS } from "@/lib/organiserPublicCols";
 import OrganiserProfile from "@/pages/OrganiserProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -48,9 +49,14 @@ function truncate(text: string | null | undefined, max: number): string {
 }
 
 async function fetchOrganiserEntity(id: string) {
+  // ORGANISER_PUBLIC_COLS, not "*": this loader and OrganiserProfile.tsx's own
+  // ['entity', id] query share one cache entry, and select('*') was dehydrating
+  // claimed_by/created_by (auth.users UUIDs) into every organiser page's SSR
+  // HTML. See that constant's own comment for the full reasoning; both selects
+  // must stay in sync, which is the whole point of importing one definition.
   const { data, error } = await supabase
     .from("organiser_profiles")
-    .select("*")
+    .select(ORGANISER_PUBLIC_COLS)
     .eq("id", id)
     .not("is_active", "is", false)
     .maybeSingle();
