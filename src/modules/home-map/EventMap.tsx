@@ -62,7 +62,11 @@ import {
 } from './mapTypes';
 import { groupPinsByLocation } from './mapListDerivations';
 import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
-import { VECTOR_ATTR, vectorStyleUrl } from './vectorBasemap';
+import {
+  VECTOR_ATTR,
+  vectorStyleUrl,
+  vectorTransformRequest,
+} from './vectorBasemap';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -439,8 +443,14 @@ export default function EventMap({
       // below caps at native z16 and Leaflet upscales above it; this source's
       // TileJSON reports maxzoom 22 against the map's own maxZoom of 18, so
       // the whole range is native and that upscale regression is gone.
+      // transformRequest is LOAD-BEARING, not a nicety: the style's own
+      // `sources[].url` carries no token, and that URL answers "Token
+      // Required." at HTTP 200 -- so without this MapLibre reads an error body
+      // as its TileJSON and never requests a tile. See TOKEN SCOPE in
+      // vectorBasemap.ts; this shipped missing and blanked the live map.
       L.maplibreGL({
         style: vectorStyle,
+        transformRequest: vectorTransformRequest(),
         attributionControl: { customAttribution: VECTOR_ATTR },
       }).addTo(m);
 
@@ -449,10 +459,14 @@ export default function EventMap({
       // was present at BUILD time -- never that the endpoint accepted it. Two
       // failures get past it and leave a permanently empty ground at HTTP 200:
       //
-      //   - The style endpoint is referrer-locked to bachatacalendar.co.uk and
-      //     localhost:8080, so it 401s on EVERY Vercel preview deployment,
-      //     on any new domain, and after a key regen. PRODUCTION IS ON THE
-      //     ALLOWLIST, so this is a preview-environment defect, not a live one.
+      //   - The style endpoint is referrer-locked, so it 401s on EVERY Vercel
+      //     preview deployment, on any new domain, and after a key regen. It
+      //     401ed in PRODUCTION too, for hours on 2026-09-02: the allowlist
+      //     held the apex only, every host 308s to www, so the one host a
+      //     real visitor ever loads was the single entry that was missing.
+      //     www is now listed. Do NOT restore the sentence this replaces --
+      //     "production is on the allowlist" argued the reviewer out of
+      //     exactly the defect that shipped. The allowlist is per-HOST.
       //   - maplibre-gl v6 hard-requires WebGL2 (iOS < 15, older Android
       //     WebViews, GPU-blocklisted browsers).
       //

@@ -156,9 +156,13 @@ describe('home map vector basemap vs CSP connect-src', () => {
     //
     // What that leaves open, stated rather than papered over: if Esri moves
     // tiles, glyphs or sprites to a host not on this list, THIS SUITE STAYS
-    // GREEN and the map draws nothing. That failure is caught by the runtime
-    // fallback in EventMap (a style/GPU error swaps in the raster pair), not
-    // here. Do not read this case as coverage of the whole list.
+    // GREEN and the map draws nothing. NOTHING CATCHES THAT TODAY. The
+    // sentence here used to say the runtime fallback in EventMap did; that
+    // fallback was reverted at review round 2 and is still only queued, so
+    // the claim was false and pointed the next reader away from the gap --
+    // the same shape as the referrer comment that argued a reviewer out of
+    // the defect that shipped. Do not read this case as coverage of the
+    // whole list, and do not restore a fallback claim until one exists.
     expect(new Set(VECTOR_HOSTS).size).toBe(VECTOR_HOSTS.length);
     for (const host of VECTOR_HOSTS) {
       expect(host, `${host} is not a bare host`).toMatch(/^[a-z0-9.-]+\.arcgis\.com$/);
