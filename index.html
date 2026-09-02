@@ -14,7 +14,11 @@
   <link rel="preconnect" href="https://stsdtacfauprzrdebmzg.supabase.co">
   <link rel="preconnect" href="https://pub-07f606224cac4f2596903c44df723644.r2.dev">
   <!-- No crossorigin: Leaflet loads tiles as non-CORS <img>, so an anonymous-CORS
-       preconnect warms a socket the tile request cannot reuse. See app/root.tsx. -->
+       preconnect warms a socket the tile request cannot reuse. See app/root.tsx.
+       This host is the FALLBACK basemap only since the vector swap; the three
+       hosts the vector map really fetches get no hint, deliberately and
+       pending measurement. The reasoning is in app/root.tsx -- read it there
+       before adding any, because they need the opposite keying. -->
   <link rel="preconnect" href="https://server.arcgisonline.com">
   <!-- Decorative Google Fonts are loaded non-blocking via main.tsx; Inter is self-hosted. -->
 

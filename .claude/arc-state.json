@@ -1,17 +1,23 @@
 {
   "version": 1,
-  "arc": "worktree-repo-root",
-  "plan": "arc-worktree-repo-root.md",
-  "phase": "P1",
-  "set_at": "2026-09-01T13:37:00Z",
+  "arc": "home-map-vector-basemap",
+  "plan": "HANDOVER-2026-09-02-vector-basemap-PR1-BUILT-awaiting-review.md",
+  "phase": "PR1",
+  "set_at": "2026-09-02T11:16:50Z",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "scope": [
-    "scripts/safe-write.py",
-    ".claude/hooks/post-write-check.sh",
-    "tests/helpers/integrityGuard.ts",
-    "tests/integrityCouldNotRun.test.ts",
-    "tests/integrityControlBytes.test.ts"
+    "app/csp.ts",
+    "app/root.tsx",
+    "index.html",
+    "package.json",
+    "package-lock.json",
+    "src/modules/home-map/EventMap.tsx",
+    "src/modules/home-map/basemapTiles.ts",
+    "src/modules/home-map/vectorBasemap.ts",
+    "tests/chunkClassifier.test.ts",
+    "tests/homeMapTileCsp.test.ts",
+    "vite.chunks.ts"
   ],
-  "note": "P0 CLOSED 2026-09-01, verdict FIX-BUT-DELETE-THE-RESOLVER: the root is only ever used to locate a SIBLING of the script's own file, so the discovery is deleted rather than replaced -- the idiom safe-edit.py:122-123 already ships. TWO sites need it: scripts/safe-write.py (fails LOUDLY, PARSE_NOT_RUN on stderr) and .claude/hooks/post-write-check.sh (fails SILENTLY, exit 0, no output -- the worst of the three and the one P0's first draft MISSED by spot-checking instead of sweeping; measured inert here, and the guard it skips returns TS1109 on the same file). pre-write-block.sh has NO defect: REL_PATH falls back to the absolute path, a correct argument. pre-exec-guard.mjs's findConfigUpward is a tsconfig walk, not a repo-root walk -- do not touch it. P2 is CANCELLED: the design takes no env input, so there is nothing for GIT_DIR to misdirect. Three of P3's four inherited requirements no longer apply; the Q3 wrong-answer list gained a bash BASH_SOURCE item when the third site was found. Full reasoning in the plan. Phase order: P1 fixtures first (its addLinkedWorktree reproduces the symptom), then P3. rpcTypingGate stays OUT and is expected to red during P1 -- do NOT fix it by re-tuning. QUEUED, not actioned: five bin/ + integrity-guard.py callers already resolve the root via rev-parse and carry the round-4 GIT_DIR exposure; no git-hook path to them was found, but that is a one-variant negative and not a clearance. PREVIOUS VALUE of this file was the CLOSED edge-config-governance record, archived verbatim in queued-p6-rearm-bot-protection.md; it never carried a plan field, which is why lintArcState skipped it for its whole life."
+  "note": "PR1 of the map arc: swaps the home-map basemap from Esri raster to Esri VECTOR via MapLibre through the Leaflet adapter. REPLACES the stale worktree-repo-root P1 declaration this branch inherited -- that arc shipped as PR #323 and its full reasoning lives in arc-worktree-repo-root.md, so nothing is lost here. Reviewed at high in TWO rounds. Round 1: 11 findings, all folded as edits. Round 2 produced a MUTATION RECEIPT against round 1's own fix -- a runtime style/GPU fallback -- and it was REVERTED rather than patched, per the pre-stated stopping rule; see queued-home-map-runtime-fallback-REVERTED.md for the acceptance criteria, including that any re-landing must RED against the mutant that killed it. /security-review: no HIGH or MEDIUM findings. KNOWN GAP SHIPPING: no runtime fallback, so the referrer-locked style endpoint 401s on every Vercel PREVIEW deploy and renders a blank map card at HTTP 200 -- production is on the allowlist and is unaffected. KNOWN PRE-EXISTING RED, not from this ship: tests/sitemapEdgeTtl.test.ts fails in test:unit:timing, reproduced identically in the main checkout on a different branch, while live /sitemap.xml serves 200. Do NOT re-tune that test as part of this arc."
 }

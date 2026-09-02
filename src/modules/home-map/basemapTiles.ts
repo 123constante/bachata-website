@@ -1,4 +1,22 @@
 /**
+ * THIS IS NOW THE FALLBACK BASEMAP, not the one users normally see. The live
+ * ground is Esri VECTOR through MapLibre -- see `vectorBasemap.ts`, which also
+ * carries the measurements behind the swap. EventMap uses the raster pair below
+ * only when `vectorStyleUrl()` returns null, i.e. when no VITE_ARCGIS_API_KEY
+ * reached the build. Everything in this header still describes that path
+ * accurately and still applies when it is taken; what has changed is how often
+ * it is taken, which should be never.
+ *
+ * ATTR, though, is still on screen for EVERY visitor: HomeMapShell credits the
+ * pre-mount placeholder stills with it, and those stills are Esri raster
+ * renders until they are re-rendered from the vector style. Do not delete it
+ * as dead code -- see the comment on VECTOR_ATTR for why the two coexist.
+ *
+ * The retina note below is the reason the vector swap happened at all, and it
+ * is NOT a defect of the fallback so much as of the provider: the pair has no
+ * @2x variant (measured byte-identical), so it is half-resolution on a DPR>=2
+ * phone at every zoom.
+ *
  * Basemap tile constants -- their OWN module, with no side-effectful imports, so
  * that `tests/homeMapTileCsp.test.ts` can bind the tile host to the CSP img-src
  * allowlist by importing BOTH artefacts and comparing them. Kept inside
