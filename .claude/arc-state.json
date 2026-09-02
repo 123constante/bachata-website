@@ -1,17 +1,33 @@
 {
   "version": 1,
-  "arc": "worktree-repo-root",
-  "plan": "arc-worktree-repo-root.md",
-  "phase": "P1",
-  "set_at": "2026-09-01T13:37:00Z",
+  "arc": "series-termination",
+  "plan": "arc-series-termination.md",
+  "phase": "P4",
+  "set_at": "2026-09-02T08:10:00Z",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "scope": [
-    "scripts/safe-write.py",
-    ".claude/hooks/post-write-check.sh",
-    "tests/helpers/integrityGuard.ts",
-    "tests/integrityCouldNotRun.test.ts",
-    "tests/integrityControlBytes.test.ts"
+    "src/modules/event-page/bento/lifecycleBanner.ts",
+    "src/modules/event-page/bento/EventEndedBanner.tsx",
+    "src/modules/event-page/bento/EventEndedRecord.tsx",
+    "src/modules/event-page/bento/utils/endedRun.ts",
+    "src/modules/event-page/bento/blocks/DateBlock.tsx",
+    "src/modules/event-page/bento/BentoPage.tsx",
+    "src/modules/event-page/buildEventPageModel.ts",
+    "src/modules/event-page/useEventPageQuery.ts",
+    "src/modules/event-page/types.ts",
+    "src/modules/event-page/sections/MoreEventsSection.tsx",
+    "src/modules/event-page/bento/EventCancelledBanner.tsx",
+    "src/modules/event-page/bento/EventPausedBanner.tsx",
+    "src/modules/event-page/__tests__/buildEventPageModel.ended.test.ts",
+    "src/modules/event-page/bento/__tests__/lifecycleBanner.test.ts",
+    "src/modules/event-page/bento/utils/__tests__/endedRun.test.ts",
+    "src/pages/FestivalDetail.tsx",
+    "src/modules/event-page/endedShareDescription.ts",
+    "tests/endedShareDescription.test.ts",
+    "app/routes/event.tsx",
+    "tests/sitemapEdgeTtl.test.ts",
+    ".gitignore"
   ],
-  "note": "P0 CLOSED 2026-09-01, verdict FIX-BUT-DELETE-THE-RESOLVER: the root is only ever used to locate a SIBLING of the script's own file, so the discovery is deleted rather than replaced -- the idiom safe-edit.py:122-123 already ships. TWO sites need it: scripts/safe-write.py (fails LOUDLY, PARSE_NOT_RUN on stderr) and .claude/hooks/post-write-check.sh (fails SILENTLY, exit 0, no output -- the worst of the three and the one P0's first draft MISSED by spot-checking instead of sweeping; measured inert here, and the guard it skips returns TS1109 on the same file). pre-write-block.sh has NO defect: REL_PATH falls back to the absolute path, a correct argument. pre-exec-guard.mjs's findConfigUpward is a tsconfig walk, not a repo-root walk -- do not touch it. P2 is CANCELLED: the design takes no env input, so there is nothing for GIT_DIR to misdirect. Three of P3's four inherited requirements no longer apply; the Q3 wrong-answer list gained a bash BASH_SOURCE item when the third site was found. Full reasoning in the plan. Phase order: P1 fixtures first (its addLinkedWorktree reproduces the symptom), then P3. rpcTypingGate stays OUT and is expected to red during P1 -- do NOT fix it by re-tuning. QUEUED, not actioned: five bin/ + integrity-guard.py callers already resolve the root via rev-parse and carry the round-4 GIT_DIR exposure; no git-hook path to them was found, but that is a one-variant negative and not a clearance. PREVIOUS VALUE of this file was the CLOSED edge-config-governance record, archived verbatim in queued-p6-rearm-bot-protection.md; it never carried a plan field, which is why lintArcState skipped it for its whole life."
+  "note": "P4b BUILT 2026-09-02, NOT PUSHED. THE PUSH IS THE GATED STEP (Vercel auto-deploys main). SUPERSEDED: the old note here said P4a would flip the occurrence ORDER BY to descending for ended series. That draft was REVERTED at review. What shipped is P4a (event.ended_on, ledger 20260902140000) plus P4c (event.ran_from + occurrence_effective resolved from the stored ended_on, ledger 20260902230000), with the 52-row window DELIBERATELY UNTOUCHED -- a capped array cannot carry both ends of a run. Both ends are SCALARS; never re-derive either from snapshot.occurrences. CONSEQUENCE: occurrence_effective for an ended series is now the LAST night, so the date tile shows the closing date, not the first-ever one. The DESIGN-CLOSED row saying Date tile = First night described pre-P4c behaviour. DESIGN CLOSED (claude-fable-5 step), unchanged: Approach B Archive Entry; sticky slate banner, never the red cancelled shape; ENDED cap + desaturated date tile; raffle and tickets suppressed on isEnded (not on past); banner precedence ended STACKS above cancelled (selectLifecycleBanners returns a LIST) while cancelled still replaces paused; forward door = MoreEventsSection with a new blocks prop, door [organiser] + its others-fallback, bottom [thisWeek, calendarPill]; og:description only (the R2-baked flyer image is OUT and queued); JSON-LD dates unchanged on purpose. W11 fix (drop paused from the admin editor publicUrl condition) is admin-side and NOT part of this deploy. TWO FILES IN THE SCOPE ARRAY ARE NOT P4b RENDER CODE, both carried because they were blocking this ship's gate and neither is this arc's doing: (1) tests/sitemapEdgeTtl.test.ts -- its no-op query-builder mock listed select/eq/neq/order/limit, and #329 (3cfa9e5) added .not(...NOT_DEACTIVATED) to the loader's fetchDancerProfiles, which is not flag-gated; the missing method threw, the loader's catch 500'd, and test:unit:timing has been red on main since. One word added to the list, proved in both directions. (2) .gitignore -- 14 untracked root-level home-map-*-mockup.html / nav-loading-*.html scratch files from another session sat in this shared checkout and fatally scope-drifted the ship. The block they belong in already ignores this exact class by pattern (/*-mockups.html, /tmp_*.html, ...); these slipped it on naming alone, so two anchored patterns were added rather than anyone's files being moved or deleted."
 }

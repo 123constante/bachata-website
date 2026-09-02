@@ -87,6 +87,34 @@ export type EventPageSnapshot = {
     location: string | null;
     status: string | null;
     lifecycleStatus: string | null;
+    /** Series-termination arc P4a: the date a series stopped running, from
+     *  event_series_p5.ended_on. Non-null ONLY when lifecycleStatus is 'ended'
+     *  (a BEFORE trigger coerces it to NULL on every other status).
+     *
+     *  A naive 'YYYY-MM-DD' London date, NOT an instant. Format it from its own
+     *  parts -- never through Date/Intl, which would shift it a day either side
+     *  of a BST boundary.
+     *
+     *  This and `ranFrom` are the two ends of the run, and they are SCALARS for
+     *  a reason: `occurrences` is a capped 52-row WINDOW and carries neither end
+     *  reliably. Its server-side order is
+     *  `ORDER BY (materialised_start_utc >= now()) DESC, materialised_start_utc ASC`
+     *  -- future rows are taken FIRST, and an ended series can still hold future
+     *  rows (the P3 prune spares curated ones, and cancelled rows are not
+     *  archived). 29 of 72 live series already exceed the cap. Never re-derive
+     *  either end from the array. */
+    endedOn: string | null;
+    /** Series-termination arc P4c: the first night the series actually ran, from
+     *  the RPC's `event.ran_from` scalar. Same naive 'YYYY-MM-DD' London shape as
+     *  `endedOn`, and the same warning about the array applies.
+     *
+     *  NOT the same definition as min(localDate) over `occurrences`, which is
+     *  what this module computed before P4c: `ran_from` counts only 'scheduled'
+     *  rows (cancelled nights are excluded) and keys on `occurrence_date`, where
+     *  the array admits cancelled nights and derives `local_date` from
+     *  `materialised_start_utc`, which an override can shift across a day
+     *  boundary. "The first night it actually ran" is the intended meaning. */
+    ranFrom: string | null;
     isPublished: boolean;
     createdBy: string | null;
     imageUrl: string | null;
@@ -185,6 +213,18 @@ export type EventPageModel = {
     isCancelled: boolean;
     cancellationReasonLabel: string | null;
     isPaused: boolean;
+    // Series-termination arc P4. SERIES-level: this night no longer runs at all.
+    // Distinct from the per-occurrence `past` flag, which is equally true of a
+    // past date on a series that still runs every week.
+    isEnded: boolean;
+    // 'YYYY-MM-DD' London date, or null when the series has not ended -- and also
+    // null on an ended series whose payload predates the migration that exposes
+    // it, which is why every consumer must render a date-free form.
+    endedOn: string | null;
+    // First night of the run, 'YYYY-MM-DD', null unless isEnded. Read straight
+    // from the RPC's `event.ran_from` scalar (P4c) -- NOT derived from the
+    // occurrences window, which carries neither end of a long run.
+    ranFrom: string | null;
   };
   identity: {
     title: string;

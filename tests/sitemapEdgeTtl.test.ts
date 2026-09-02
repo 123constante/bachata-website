@@ -26,8 +26,16 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
 // Chainable no-op query builder: every method returns itself, and the object
 // resolves (via `then`) to an empty, error-free result -- enough for every
 // fetcher in the sitemap loader to complete with zero rows.
+//
+// THIS LIST MUST TRACK THE LOADER'S QUERY METHODS. A method the loader calls
+// and this list omits is `undefined`, the fetcher throws, and the loader's own
+// catch turns it into `new Response(..., { status: 500 })` -- so the spec reds
+// on a header mismatch and says nothing about what actually broke. `not` was
+// the one that got away: #329 (3cfa9e5) added `.not(...NOT_DEACTIVATED)` to
+// fetchDancerProfiles, which is not flag-gated and so runs on every call, and
+// this spec has been red on main ever since.
 const emptyQuery: Record<string, unknown> = {};
-for (const method of ['select', 'eq', 'neq', 'order', 'limit']) {
+for (const method of ['select', 'eq', 'neq', 'not', 'order', 'limit']) {
   emptyQuery[method] = () => emptyQuery;
 }
 (emptyQuery as { then: PromiseLike<unknown>['then'] }).then = (resolve) =>

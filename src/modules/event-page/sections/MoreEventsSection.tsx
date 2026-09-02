@@ -36,12 +36,29 @@ type OtherOrganiser = {
   avatarUrl: string | null;
 };
 
+// Series-termination arc P4b. An ended page renders this section TWICE: once
+// high up as the "forward door" directly under the tombstone, once in its usual
+// place at the foot of the page. `blocks` splits the content between the two so
+// nothing appears in both. Defaults to all three, so every existing call site --
+// and every page that is not a tombstone -- is unchanged.
+export type MoreEventsBlock = 'organiser' | 'thisWeek' | 'calendarPill';
+
+const ALL_BLOCKS: readonly MoreEventsBlock[] = ['organiser', 'thisWeek', 'calendarPill'];
+
 type Props = {
   currentEventId: string | null;
   organiserId: string | null;
   organiserName: string | null;
   citySlug: string | null;
   cityName: string | null;
+  /** Which blocks this instance renders. The other-organisers strip rides with
+   *  'organiser': it is that block's empty state, and it is what stops the door
+   *  under a tombstone from rendering as an empty promise. */
+  blocks?: readonly MoreEventsBlock[];
+  /** Landmark label. Two <section>s carrying the same aria-label on one page are
+   *  indistinguishable in a screen reader's landmark list, so the door names
+   *  itself rather than repeating "More events". */
+  sectionLabel?: string;
 };
 
 // "More from {Organiser}" -- one P5-native call returns each of the organiser's
@@ -270,7 +287,14 @@ export const MoreEventsSection = ({
   organiserName,
   citySlug,
   cityName,
+  blocks = ALL_BLOCKS,
+  sectionLabel = 'More events',
 }: Props) => {
+  // All three queries run on EVERY instance, whatever `blocks` says -- hooks
+  // cannot be conditional, and it costs no extra network: both instances share
+  // react-query keys, so each RPC is fetched once. It is also load-bearing: the
+  // de-dupe below needs the organiser list even on the instance that does not
+  // render it, or the door and the bottom strip would show the same event twice.
   const { data: organiserEvents = [] } = useOrganiserEvents(organiserId, currentEventId);
   const { data: thisWeekRaw = [] } = useThisWeekEvents(citySlug, currentEventId);
   const { data: otherOrganisers = [] } = useOtherOrganisers(organiserId, citySlug);
@@ -282,16 +306,31 @@ export const MoreEventsSection = ({
     return thisWeekRaw.filter((e) => !seen.has(e.id)).slice(0, 4);
   }, [organiserEvents, thisWeekRaw]);
 
+  const wants = (block: MoreEventsBlock) => blocks.includes(block);
+
   const hasOrganiserEvents = organiserEvents.length > 0 && Boolean(organiserName);
   // Fallback strip: only when organiser has no events of their own to show.
   // Keeps the page from showing two strips of unrelated content.
   const showOtherOrganisers = !hasOrganiserEvents && otherOrganisers.length > 0;
   const hasThisWeek = thisWeekEvents.length > 0;
-  if (!hasOrganiserEvents && !showOtherOrganisers && !hasThisWeek) return null;
+
+  const showOrganiser = wants('organiser') && hasOrganiserEvents;
+  const showFallback = wants('organiser') && showOtherOrganisers;
+  const showThisWeek = wants('thisWeek') && hasThisWeek;
+  // The pill is a destination, not content: it renders only above something. An
+  // earlier draft let it count as content so it could not vanish from a tombstone
+  // whose city had a quiet week -- but that made the early return unreachable on
+  // every DEFAULT call site too, turning a prop-scoped refactor into a site-wide
+  // render change (an event with no organiser events, no fallback and a quiet week
+  // went from rendering nothing to rendering a bare link home). Not worth smuggling
+  // in here. On an ended page the door above still carries the organiser strip, so
+  // the record card's "what else is on below" is not left pointing at nothing.
+  const showCalendarPill = wants('calendarPill') && (showOrganiser || showFallback || showThisWeek);
+  if (!showOrganiser && !showFallback && !showThisWeek) return null;
 
   return (
-    <section className="mt-4 space-y-4" aria-label="More events">
-      {hasOrganiserEvents && (
+    <section className="mt-4 space-y-4" aria-label={sectionLabel}>
+      {showOrganiser && (
         <div>
           <SectionTitle>More from {organiserName}</SectionTitle>
           <div className="flex justify-center gap-1.5">
@@ -304,7 +343,7 @@ export const MoreEventsSection = ({
         </div>
       )}
 
-      {showOtherOrganisers && (
+      {showFallback && (
         <div>
           <SectionTitle>Other organisers you might like</SectionTitle>
           <div className="grid grid-cols-2 gap-1.5">
@@ -315,7 +354,7 @@ export const MoreEventsSection = ({
         </div>
       )}
 
-      {hasThisWeek && (
+      {showThisWeek && (
         <div>
           <SectionTitle>Don&rsquo;t miss this week{cityName ? ` in ${cityName}` : ''}</SectionTitle>
           <div className="grid grid-cols-4 gap-1.5">
@@ -326,20 +365,22 @@ export const MoreEventsSection = ({
         </div>
       )}
 
-      <div className="flex justify-center pt-1">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-widest no-underline transition-colors"
-          style={{
-            color: 'hsl(var(--bento-accent))',
-            borderColor: 'hsl(var(--bento-accent) / 0.4)',
-            background: 'hsl(var(--bento-accent) / 0.10)',
-          }}
-        >
-          See full calendar
-          <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
+      {showCalendarPill && (
+        <div className="flex justify-center pt-1">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-widest no-underline transition-colors"
+            style={{
+              color: 'hsl(var(--bento-accent))',
+              borderColor: 'hsl(var(--bento-accent) / 0.4)',
+              background: 'hsl(var(--bento-accent) / 0.10)',
+            }}
+          >
+            See full calendar
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+      )}
     </section>
   );
 };

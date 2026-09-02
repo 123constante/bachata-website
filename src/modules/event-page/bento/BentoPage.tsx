@@ -23,6 +23,7 @@ import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserC
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
+import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
 import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { PromoBlock } from '@/modules/event-page/bento/blocks/PromoBlock';
@@ -37,7 +38,10 @@ import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActi
 import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventActions';
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { EventPausedBanner } from '@/modules/event-page/bento/EventPausedBanner';
-import { selectLifecycleBanner } from '@/modules/event-page/bento/lifecycleBanner';
+import { EventEndedBanner } from '@/modules/event-page/bento/EventEndedBanner';
+import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
+import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
+import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
@@ -74,6 +78,14 @@ const ERROR_COPY: Record<
 };
 
 // Loading shimmer placeholder sized to fill a tile's content region.
+// Series-termination arc P4b. MoreEventsSection renders twice on an ended page
+// -- the forward door above the grid, the usual strip below it -- and these two
+// sets partition its content so nothing appears in both. Module scope, not
+// inline literals: a fresh array each render would change MoreEventsSection's
+// prop identity on every parent render for no reason.
+const DOOR_BLOCKS: readonly MoreEventsBlock[] = ['organiser'];
+const BOTTOM_BLOCKS: readonly MoreEventsBlock[] = ['thisWeek', 'calendarPill'];
+
 const TileShimmer = () => (
   <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/20" />
 );
@@ -119,6 +131,16 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   useEffect(() => {
     setPast(state === 'ready' ? isPast(occurrence) : false);
   }, [state, occurrence]);
+
+  // Series-termination arc P4. The SERIES has stopped for good -- not to be
+  // confused with `past` above, which is a property of the one occurrence being
+  // viewed and is equally true of last Tuesday on a class that still runs every
+  // week. Null runRange (no ended_on in the payload) is a live state, not a
+  // defensive one: it is what every page serves until the P4a migration lands.
+  const isEnded = state === 'ready' && pageModel.page.isEnded;
+  const runRange = isEnded
+    ? formatRunRange(pageModel.page.ranFrom, pageModel.page.endedOn)
+    : null;
 
   useSeo(
     buildSeoForRoute('event.detail', {
@@ -202,6 +224,14 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // advertise a prize draw or show a past winner (raffle audit #1).
     if (pageModel.schedule.isCancelled) hidden.add('raffle');
 
+    // Same rule one scope up (arc P4): a series that will never run again must
+    // not advertise a prize draw. Measured on prod before this landed -- the
+    // ended course still rendered "ENTRIES CLOSED -- WINNER DRAWN SOON", a
+    // pending promise on a page whose whole job is to say nothing is pending.
+    // Note `past` does NOT cover this: the raffle is deliberately visible on a
+    // past date of a series that still runs, so the winner can be seen.
+    if (isEnded) hidden.add('raffle');
+
     // 'dates' slot is shown only for bounded courses (Weeks Ladder).
     // Layout is driven by SHAPE, not genre: an ongoing class/party/social renders
     // the clean per-day SCHEDULE tile, so it must not enumerate its whole
@@ -217,7 +247,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     if (!eventVideo) hidden.add('video');
 
     return hidden;
-  }, [isLoading, past, pageModel, guestList, raffleConfig, snapshot, eventVideo]);
+  }, [isLoading, past, isEnded, pageModel, guestList, raffleConfig, snapshot, eventVideo]);
 
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
@@ -287,6 +317,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         return (
           <DateBlock
             occurrence={occurrence}
+            isEnded={isEnded}
             // DateBlock still renders the date when past -- just not clickable.
             onClick={past ? undefined : () => setCalendarOpen(true)}
           />
@@ -370,10 +401,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     }
   };
 
-  // Which lifecycle banner to show (cancelled outranks paused -- see
-  // selectLifecycleBanner). Null until the snapshot is ready.
-  const lifecycleBanner =
-    state === 'ready' ? selectLifecycleBanner(pageModel.page) : null;
+  // Which lifecycle banners to show, in render order -- 'ended' STACKS above a
+  // cancellation rather than replacing it, so this is a list. Empty until the
+  // snapshot is ready. See selectLifecycleBanners for the precedence rules.
+  const lifecycleBanners =
+    state === 'ready' ? selectLifecycleBanners(pageModel.page) : [];
 
   return (
     <GlobalLayout
@@ -403,10 +435,26 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         aria-hidden="true"
       />
 
-      {lifecycleBanner === 'cancelled' && (
-        <EventCancelledBanner reasonLabel={pageModel.page.cancellationReasonLabel} />
+      {/* ONE sticky wrapper for the whole stack. The banners used to carry
+          `sticky top-[60px]` individually, which was fine while only one could
+          ever render -- two siblings sharing a top offset overlap on scroll
+          instead of stacking. */}
+      {lifecycleBanners.length > 0 && (
+        <div className="sticky top-[60px] z-30 w-full">
+          {lifecycleBanners.map((banner) =>
+            banner === 'ended' ? (
+              <EventEndedBanner key={banner} runRange={runRange} />
+            ) : banner === 'cancelled' ? (
+              <EventCancelledBanner
+                key={banner}
+                reasonLabel={pageModel.page.cancellationReasonLabel}
+              />
+            ) : (
+              <EventPausedBanner key={banner} />
+            ),
+          )}
+        </div>
       )}
-      {lifecycleBanner === 'paused' && <EventPausedBanner />}
 
       <div
         className="mx-auto w-full max-w-[430px] px-2 pb-32 pt-4"
@@ -416,16 +464,48 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           opacity: pageModel.page.isCancelled ? 0.92 : undefined,
         }}
       >
-        {past && (
-          <div
-            className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
-            style={{
-              background: 'hsl(var(--bento-surface-raised))',
-              color: 'hsl(var(--bento-fg-muted))',
-            }}
-          >
-            This event has ended.
-          </div>
+        {/* An ended SERIES gets the record card; the thin strip stays for the
+            ordinary case of a past date on a series that still runs. Showing
+            both would say the same thing twice in two registers. */}
+        {isEnded ? (
+          <EventEndedRecord
+            runRange={runRange}
+            eventFormat={pageModel.identity.eventFormat}
+            eventType={pageModel.identity.eventType}
+          />
+        ) : (
+          past && (
+            <div
+              className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
+              style={{
+                background: 'hsl(var(--bento-surface-raised))',
+                color: 'hsl(var(--bento-fg-muted))',
+              }}
+            >
+              This event has ended.
+            </div>
+          )
+        )}
+
+        {/* The forward door (arc P4b). A tombstone's job is to answer "is this
+            still on?" and then hand the visitor somewhere alive, so the
+            organiser's own upcoming nights are promoted ABOVE the bento grid --
+            the one place on this page a dancer is still looking for a plan.
+            It is the same component as the bottom strip with the content split
+            between them, not a second copy: 'organiser' here, 'thisWeek' + the
+            calendar pill below, so nothing appears twice. The others-in-this-city
+            fallback rides with 'organiser', which is what keeps the door from
+            rendering as an empty promise. */}
+        {isEnded && (
+          <MoreEventsSection
+            blocks={DOOR_BLOCKS}
+            sectionLabel="Still running from this organiser"
+            currentEventId={eventId}
+            organiserId={snapshot?.organisers[0]?.id ?? null}
+            organiserName={snapshot?.organisers[0]?.displayName ?? null}
+            citySlug={snapshot?.locationDefault?.city?.slug ?? null}
+            cityName={snapshot?.locationDefault?.city?.name ?? null}
+          />
         )}
 
         {state === 'ready' && !past && <TapHintSticker />}
@@ -440,7 +520,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
 
+        {/* On an ended page the organiser strip has already run as the door
+            above, so this instance drops it and keeps this-week + the calendar
+            pill. Every other page passes no `blocks` at all and gets all three,
+            exactly as before. */}
         <MoreEventsSection
+          blocks={isEnded ? BOTTOM_BLOCKS : undefined}
           currentEventId={eventId}
           organiserId={snapshot?.organisers[0]?.id ?? null}
           organiserName={snapshot?.organisers[0]?.displayName ?? null}
@@ -463,7 +548,15 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       <EventStickyActionBar
         eventId={eventId}
         directionsUrl={buildDirectionsUrl(pageModel.location)}
-        ticketUrl={past || !!occurrence?.isCancelled || pageModel.page.isPaused ? null : pageModel.actions.ticketUrl}
+        // isEnded is listed even though `past` is true for every ended series
+        // today: they are different facts, and relying on the coincidence would
+        // make ticket suppression depend on the occurrence clock rather than on
+        // the series being over.
+        ticketUrl={
+          past || isEnded || !!occurrence?.isCancelled || pageModel.page.isPaused
+            ? null
+            : pageModel.actions.ticketUrl
+        }
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

@@ -34,8 +34,22 @@ const formatShortDateLabel = (value: WallClock | null): string | null =>
     year: 'numeric',
   });
 
+// Every lifecycle fact the page model carries, in its "nothing is known yet"
+// form. The non-ready states (loading / error / not-found) all need the same
+// set, and W8 in the admin repo was exactly the bug of a new lifecycle value
+// being added to some of a repeated literal and not the rest -- so this is one
+// owner rather than four copies to keep in step.
+const NO_LIFECYCLE = {
+  isCancelled: false,
+  cancellationReasonLabel: null,
+  isPaused: false,
+  isEnded: false,
+  endedOn: null,
+  ranFrom: null,
+} as const;
+
 const EMPTY_PAGE_MODEL: EventPageModel = {
-  page: { state: 'loading', canEdit: false, title: '', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false },
+  page: { state: 'loading', canEdit: false, title: '', message: null, ...NO_LIFECYCLE },
   identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, eventFormat: null, level: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
@@ -68,6 +82,31 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const wholeEventCancellationReason = isWholeEventCancelled
     ? occurrence?.cancellationReasonLabel ?? null
     : null;
+  // Series-termination arc P4. The series has stopped running for good. The DB
+  // guarantees endedOn is non-null exactly when this is true, but the client is
+  // not entitled to assume the migration exposing it has been applied yet -- so
+  // isEnded is read from the lifecycle alone and the date is treated as optional
+  // everywhere downstream. That is what lets the render ship before P4a.
+  const isEnded = snapshot.event.lifecycleStatus === 'ended';
+  // First night of the run -- the SCALAR the RPC emits (P4c), never re-derived.
+  //
+  // This used to be min(localDate) over `snapshot.occurrences`, and that was only
+  // ever correct by coincidence. The array is a capped 52-row window whose
+  // server-side order takes FUTURE rows first
+  // (`ORDER BY (materialised_start_utc >= now()) DESC, materialised_start_utc ASC`),
+  // and an ended series can still hold future rows -- the P3 prune spares curated
+  // ones and cancelled rows are never archived. A series with 52+ of them returns
+  // no history at all, so min(localDate) would have printed a FUTURE date as the
+  // start of the run. 29 of 72 live series are already over the cap.
+  //
+  // The definition also differs, deliberately: ran_from counts only 'scheduled'
+  // rows and keys on occurrence_date, where the array admits cancelled nights and
+  // derives local_date from materialised_start_utc, which an override can shift
+  // across a day boundary. "The first night it actually ran" is the intent.
+  //
+  // Still optional downstream: a payload served before the P4c migration carries
+  // no ran_from, and the render must fall back to date-free copy.
+  const ranFrom = isEnded ? snapshot.event.ranFrom : null;
   const scheduleRawDate = occurrence?.startsAt ?? occurrence?.localDate ?? snapshot.event.date ?? null;
   const scheduleDate = formatDateLabel(scheduleRawDate);
   const startLabel = formatTimeLabel(occurrence?.startsAt ?? null);
@@ -104,6 +143,12 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       isCancelled: isWholeEventCancelled,
       cancellationReasonLabel: wholeEventCancellationReason,
       isPaused: snapshot.event.lifecycleStatus === 'paused',
+      // Series-termination arc P4. isEnded is the SERIES fact; it is independent
+      // of `past`, which is a property of the one occurrence being viewed and is
+      // equally true of a past date on a series that still runs every week.
+      isEnded,
+      endedOn: isEnded ? snapshot.event.endedOn : null,
+      ranFrom,
     },
     identity: {
       title: snapshot.event.name ?? 'Event',
@@ -222,20 +267,20 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
 
 export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: BuildEventPageModelArgs): EventPageModel => {
   if (isLoading) {
-    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null, isCancelled: false, cancellationReasonLabel: null, isPaused: false } };
+    return { ...EMPTY_PAGE_MODEL, page: { state: 'loading', canEdit, title: 'Loading event', message: null, ...NO_LIFECYCLE } };
   }
 
   if (hasError && !snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.', isCancelled: false, cancellationReasonLabel: null, isPaused: false },
+      page: { state: 'error', canEdit, title: 'Unable to Load Event', message: 'Please try again in a moment.', ...NO_LIFECYCLE },
     };
   }
 
   if (!snapshot) {
     return {
       ...EMPTY_PAGE_MODEL,
-      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed.", isCancelled: false, cancellationReasonLabel: null, isPaused: false },
+      page: { state: 'not-found', canEdit, title: 'Event Not Found', message: "The event you're looking for doesn't exist or has been removed.", ...NO_LIFECYCLE },
     };
   }
 
@@ -251,6 +296,9 @@ export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: 
         isCancelled: readyPageModel.page.isCancelled,
         cancellationReasonLabel: readyPageModel.page.cancellationReasonLabel,
         isPaused: readyPageModel.page.isPaused,
+        isEnded: readyPageModel.page.isEnded,
+        endedOn: readyPageModel.page.endedOn,
+        ranFrom: readyPageModel.page.ranFrom,
       },
     };
   }
