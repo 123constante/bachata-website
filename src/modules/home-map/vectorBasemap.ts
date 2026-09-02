@@ -15,11 +15,43 @@
  *   Esri STATIC basemap tiles     1,495,442      6       2.83
  *   THIS (Esri vector, open)        256,536      4       DPR-native
  *
- * Vector is the CHEAPEST retina-grade option on tiles at every viewport, and
- * the gap widens with the card: 356,554 B on the 700x450 desktop card against
- * CARTO's 1,238,521 and static's 4,763,315. Its whole price is the one-time
- * MapLibre renderer, which is lazy, hash-immutable, and sits behind the
- * placeholder still.
+ * Vector is the cheapest retina-grade option ON TILES, and the gap widens with
+ * the card: 356,554 B on the 700x450 desktop card against CARTO's 1,238,521
+ * and static's 4,763,315.
+ *
+ * BUT THE TILE ROW IS NOT THE BILL, and an earlier version of this comment
+ * stopped there and read as an unqualified win. The renderer is not a
+ * rounding error against these numbers -- it is LARGER than any of them.
+ * Measured from this branch's own production build, gzipped:
+ *
+ *   vendor-maplibre.js       250,570
+ *   maplibre-gl-worker.js    134,699
+ *   vendor-maplibre.css       10,585
+ *   ----------------------------------
+ *   renderer total           395,854
+ *
+ * So the honest comparison, per COLD first visit:
+ *
+ *   raster z13 (what is live today, blurry)      77,294
+ *   raster + detectRetina (same sharpness tier) 311,838
+ *   THIS (tiles + renderer)                     652,390
+ *
+ * Against the retina raster alternative that is +340,552 B cold and -55,302 B
+ * warm, i.e. it pays for itself at roughly the SIXTH repeat map view. Against
+ * what is actually live it is +575,096 B cold and never breaks even, because
+ * the live option is cheaper on tiles too -- there the entire return is
+ * sharpness. On a ~95%-mobile site that trade is a JUDGEMENT, and it was made
+ * deliberately; it is not a free win, and nobody should re-derive it as one.
+ *
+ * "Lazy, hash-immutable and behind the placeholder still" is TRUE OF THE
+ * MODULE AND FALSE OF THE FETCH: `HomeMapShell.tsx` prewarms the same dynamic
+ * import at module scope, so ~261 KB of that renderer starts downloading right
+ * after hydration on every homepage load, whether or not the visitor ever
+ * looks at the map. `check:bundle-budget` stays green through all of it
+ * because the ratchet cannot see lazy chunks. Whether that prefetch should
+ * survive this weight increase is a live question with the numbers already
+ * taken -- see `queued-home-map-renderer-weight.md`. Do not treat the green
+ * budget as evidence that it is fine.
  *
  * DO NOT re-price this from per-tile figures at z13-15. The plan that led here
  * did exactly that and concluded "1.9x": the map opens at 12.5, MapLibre
@@ -27,13 +59,23 @@
  * (61,337 B for `open`, against 25,272 at z14). A per-tile average over the
  * wrong zooms is a real measurement of the wrong thing.
  *
- * TOKEN SCOPE -- probed, not assumed. Only the STYLE endpoint is gated: it is
- * 401 without our referrer AND 401 without a token. The tile server, the
- * sprite and the glyph endpoints all answer 200 with no token and no Referer
- * whatsoever. So there is no `transformRequest` here and none is needed -- the
- * key rides on the style URL alone, and the API embeds its own token into the
- * style's `glyphs` URL when it serves it. If you ever see a 401 on a TILE,
- * that is a service policy change, not a missing header.
+ * TOKEN SCOPE. Two endpoints are gated, not one, and the second cost a live
+ * blank map on 2026-09-02:
+ *
+ *   - The STYLE endpoint: 401 without our referrer AND 401 without a token.
+ *   - The source's TileJSON root (`.../VectorTileServer`, no path suffix):
+ *     `{"error":{"code":499,"message":"Token Required."}}` -- served at
+ *     **HTTP 200**. MapLibre parses that body as the TileJSON, finds no
+ *     `tiles` array, and therefore requests NOT ONE TILE. No failed request,
+ *     no `error` event, no console line: a flat empty ground at 200.
+ *
+ * The individual `/tile/{z}/{y}/{x}.pbf`, the sprite and the glyphs really do
+ * answer 200 with no token and no Referer. The comment this replaces probed
+ * exactly those, then generalised to "the tile server" -- and a status-code
+ * probe of the root would have passed too, because the refusal IS a 200. That
+ * is why `vectorTransformRequest()` below exists and why it must stay: the API
+ * embeds a token into the style's `glyphs` URL but into neither `sources[].url`
+ * nor `sprite`. Probe the ROOT with its BODY, never the tiles with their status.
  *
  * The key is a PUBLIC, referrer-locked client key BY DESIGN. Verified: 200 for
  * `https://bachatacalendar.co.uk` and `http://localhost:8080`, 401 for any
@@ -41,7 +83,22 @@
  * intended use of this credential type, not a leak. Its referrer list lives on
  * ArcGIS item 0229d184e8404c53ad90fa782c78f440, and CHANGING that list
  * invalidates the key value -- see the regen trap in the handover before
- * touching it.
+ * touching it. The list is per-HOST: the apex and `www` are two entries, and
+ * holding only the apex is what blanked the live map on 2026-09-02, because
+ * every host 308s to www.
+ *
+ * THIS WHOLE MECHANISM RESTS ON A HEADER IN ANOTHER FILE. A referrer lock can
+ * only work if the browser actually sends a Referer, so the basemap silently
+ * depends on `vercel.json` `Referrer-Policy: strict-origin-when-cross-origin`
+ * (vercel.json:136 at the time of writing). Tightening that to `no-referrer`
+ * or `same-origin` -- an ordinary, sensible-looking security hardening that
+ * nobody would connect to a map -- makes EVERY style request 401 and blanks
+ * the ground. Nothing catches it: no test, no gate, no console error, and the
+ * 401 arrives on a request no user-visible code awaits. This is the same
+ * cross-file coupling `tests/homeMapTileCsp.test.ts` was written to fence for
+ * the CSP hosts, and it deserves the same artefact comparison; until it has
+ * one, this paragraph is the only thing standing between that edit and a dead
+ * map, so do not delete it when the header next gets tidied.
  */
 
 /** Style family. `open` (Overture/OSM) over `arcgis` (World_Basemap_v2) was
@@ -113,8 +170,78 @@ export const VECTOR_HOSTS: readonly string[] = [
  * raster pair instead, which is why `basemapTiles.ts` is still wired up and
  * still in img-src.
  */
-export function vectorStyleUrl(): string | null {
+/**
+ * The configured key, TRIMMED, or null.
+ *
+ * The trim is not tidiness. `VITE_ARCGIS_API_KEY` reaching the build with a
+ * trailing newline or a stray space is the single most likely way this value
+ * goes wrong -- it is pasted through a dashboard -- and a non-empty-but-wrong
+ * key is WORSE than a missing one: `vectorStyleUrl()` returns non-null, the
+ * caller reads that as "vector is configured", the raster fallback is never
+ * added, and the style 401s to a permanently blank ground. On 2026-09-02 this
+ * env var was set to the .env FILE PATH and did exactly that, live.
+ *
+ * Whitespace is the one corruption class a local guard can actually catch;
+ * everything else needs the runtime fallback that is still queued. Catch it.
+ */
+function configuredKey(): string | null {
   const key = import.meta.env.VITE_ARCGIS_API_KEY;
-  if (typeof key !== 'string' || key.length === 0) return null;
+  if (typeof key !== 'string') return null;
+  const trimmed = key.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+export function vectorStyleUrl(): string | null {
+  const key = configuredKey();
+  if (key === null) return null;
   return `${STYLE_BASE}/${STYLE_FAMILY}/${STYLE_NAME}?token=${encodeURIComponent(key)}`;
+}
+
+/** Host whose requests need the token appended. Scheme and trailing slash are
+ *  part of the literal on purpose: a bare `includes()` on the bare hostname
+ *  would also match `https://evil.test/?x=basemaps-api.arcgis.com/`, i.e. it
+ *  would post our key to somebody else's origin. */
+const TILE_ORIGIN = 'https://basemaps-api.arcgis.com/';
+
+/**
+ * MapLibre `transformRequest`, or undefined when no key is configured.
+ *
+ * WHAT THIS IS FOR, and it is not belt-and-braces: the style document Esri
+ * serves carries a token in its `glyphs` URL but in NEITHER `sources[].url`
+ * NOR `sprite`. The source URL is the TileJSON root, which answers
+ * `{"error":{"code":499,"message":"Token Required."}}` at HTTP 200 -- so
+ * without this, MapLibre reads an error body as its TileJSON, finds no `tiles`
+ * array, and silently never requests a tile. See TOKEN SCOPE at the top.
+ *
+ * Scoped to the tile origin alone, so the key is never appended to the sprite
+ * CDN or to any third-party URL a future style might name. Requests that
+ * already carry a token (the glyphs) are left exactly as served -- appending a
+ * second `token=` would change a URL Esri built for itself.
+ */
+export function vectorTransformRequest():
+  | ((url: string) => { url: string })
+  | undefined {
+  const key = configuredKey();
+  if (key === null) return undefined;
+  return (url: string) => {
+    if (!url.startsWith(TILE_ORIGIN)) return { url };
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return { url };
+    }
+    // PARSED, not `url.includes('token=')`. A substring test passes on an
+    // EMPTY `?token=`, on any differently-named param that happens to end in
+    // `token=` (`?refreshtoken=`), and on a path segment -- and every one of
+    // those skips signing, which lands on the silent 200-with-an-error-body
+    // failure this module's header exists to warn about. It also means a
+    // token Esri embedded itself could never be re-signed once it expires.
+    const existing = parsed.searchParams.get('token');
+    if (existing !== null && existing.length > 0) return { url };
+    // `set` percent-encodes for us, so the RAW key goes in here -- passing an
+    // already-encoded value would double-encode the `%` signs.
+    parsed.searchParams.set('token', key);
+    return { url: parsed.toString() };
+  };
 }
