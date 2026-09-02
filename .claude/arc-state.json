@@ -1,9 +1,9 @@
 {
   "version": 1,
   "arc": "home-map-vector-basemap",
-  "plan": "HANDOVER-2026-09-02-vector-basemap-PR1-BUILT-awaiting-review.md",
+  "plan": "HANDOVER-2026-09-02-vector-round2-pending.md",
   "phase": "PR1",
-  "set_at": "2026-09-02T11:16:50Z",
+  "set_at": "2026-09-02T16:05:00Z",
   "required_model": "claude-opus-5",
   "required_effort": "high",
   "scope": [
@@ -19,5 +19,5 @@
     "tests/homeMapTileCsp.test.ts",
     "vite.chunks.ts"
   ],
-  "note": "PR1 of the map arc: swaps the home-map basemap from Esri raster to Esri VECTOR via MapLibre through the Leaflet adapter. REPLACES the stale worktree-repo-root P1 declaration this branch inherited -- that arc shipped as PR #323 and its full reasoning lives in arc-worktree-repo-root.md, so nothing is lost here. Reviewed at high in TWO rounds. Round 1: 11 findings, all folded as edits. Round 2 produced a MUTATION RECEIPT against round 1's own fix -- a runtime style/GPU fallback -- and it was REVERTED rather than patched, per the pre-stated stopping rule; see queued-home-map-runtime-fallback-REVERTED.md for the acceptance criteria, including that any re-landing must RED against the mutant that killed it. /security-review: no HIGH or MEDIUM findings. KNOWN GAP SHIPPING: no runtime fallback, so the referrer-locked style endpoint 401s on every Vercel PREVIEW deploy and renders a blank map card at HTTP 200 -- production is on the allowlist and is unaffected. KNOWN PRE-EXISTING RED, not from this ship: tests/sitemapEdgeTtl.test.ts fails in test:unit:timing, reproduced identically in the main checkout on a different branch, while live /sitemap.xml serves 200. Do NOT re-tune that test as part of this arc."
+  "note": "PR1 of the map arc: swaps the home-map basemap from Esri raster to Esri VECTOR via MapLibre through the Leaflet adapter. FOLLOW-UP SHIP (commit 1bf29e6, 2026-09-02): the first PR1 shipped BLANK. Esri's style embeds a token in `glyphs` but in neither `sources[].url` nor `sprite`, and the unsigned TileJSON root refuses at HTTP 200 with an error body, so MapLibre requested zero tiles. Fixed by vectorTransformRequest(); reviewed at high in two rounds and gated by tests/homeMapVectorToken.test.ts, mutation-checked against six mutants plus a green control. CORRECTION TO THIS NOTE'S OWN EARLIER TEXT: it used to read 'production is on the allowlist and is unaffected'. THAT WAS FALSE and it is the claim that cost a live outage -- the ArcGIS referrer allowlist is per-HOST, it held the apex only, and every host 308s to www, so the one host real visitors load was the entry missing. www is now listed. Do not restore that sentence in any spelling. KNOWN GAP STILL SHIPPING: there is no runtime fallback, so WebGL2-less browsers (iOS < 15, older Android WebViews, GPU-blocklisted) get a permanently blank ground. THIS BLOCKS ARMING PRODUCTION: VITE_ARCGIS_API_KEY must NOT be added to the Vercel production env until queued-home-map-runtime-fallback-REVERTED.md lands. Merging is fine; arming is the act that exposes the device class. KNOWN PRE-EXISTING RED, not from this ship: tests/sitemapEdgeTtl.test.ts fails in test:unit:timing, reproduced identically in the main checkout on a different branch, while live /sitemap.xml serves 200. Do NOT re-tune that test as part of this arc. Cause identified 2026-09-02 for whoever does own it: #329 (3cfa9e5) added .filter() and .not() to app/routes/sitemap.tsx, and the spec's hand-rolled chainable mock allowlists only select/eq/neq/order/limit -- so the loader throws and returns 500. Adding those two names to that list makes it pass; unit-tests.yml has been red on main since 09-01 because of it."
 }
