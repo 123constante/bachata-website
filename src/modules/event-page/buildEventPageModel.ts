@@ -288,17 +288,18 @@ export const buildEventPageModel = ({ snapshot, canEdit, isLoading, hasError }: 
   if ((snapshot.event.isPublished === false || snapshot.event.status === 'draft') && !canEdit) {
     return {
       ...readyPageModel,
+      // SPREAD, not a re-listing. This branch wants the READY lifecycle values
+      // (it has a snapshot; the page is merely not public yet), so it is not a
+      // NO_LIFECYCLE site -- but hand-copying the six fields put it back in the
+      // W8 bug class the constant was introduced to close: a seventh lifecycle
+      // field would be added to NO_LIFECYCLE and to the ready builder and missed
+      // HERE, silently, on every draft/unpublished event.
       page: {
+        ...readyPageModel.page,
         state: 'unavailable',
         canEdit,
         title: 'Event Not Available',
         message: 'This event is not publicly available yet.',
-        isCancelled: readyPageModel.page.isCancelled,
-        cancellationReasonLabel: readyPageModel.page.cancellationReasonLabel,
-        isPaused: readyPageModel.page.isPaused,
-        isEnded: readyPageModel.page.isEnded,
-        endedOn: readyPageModel.page.endedOn,
-        ranFrom: readyPageModel.page.ranFrom,
       },
     };
   }

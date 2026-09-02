@@ -55,7 +55,7 @@ export const buildEventShareDescription = (
   // One predicate, computed once in the loader, used by both.
   if (isFestival) return stored;
 
-  const noun = runNoun(snap.event.format, snap.event.type);
+  const noun = runNoun(snap.event.format, snap.event.type, snap.event.category);
   const range = formatRunRange(snap.event.ranFrom, snap.event.endedOn);
   const ran =
     range === null

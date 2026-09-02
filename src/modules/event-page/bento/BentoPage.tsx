@@ -42,6 +42,7 @@ import { EventEndedBanner } from '@/modules/event-page/bento/EventEndedBanner';
 import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
+import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
 import { wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
@@ -142,6 +143,20 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     ? formatRunRange(pageModel.page.ranFrom, pageModel.page.endedOn)
     : null;
 
+  // "There is nothing here to act on any more", by EITHER route: this occurrence
+  // is behind us, or the SERIES has stopped for good. Every affordance that
+  // offers a dancer an action on a date reads this rather than `past` alone.
+  //
+  // They are not the same fact and the gap is REACHABLE, not theoretical. isPast()
+  // adds a 6-hour grace window (dancers may still be socialising), so a series
+  // ended on the day of its final night -- which P2 permits, ended_on <= today --
+  // has `past === false` until about 04:00 the next morning. In that window the
+  // tombstone used to render a guest list, promo codes, a group-chat CTA and an
+  // "add to calendar" for a run that will never happen again. Ticket suppression
+  // was already written this way, on exactly this reasoning; its siblings were
+  // not, and the comment on the ticket line asserted the coincidence held.
+  const over = past || isEnded;
+
   useSeo(
     buildSeoForRoute('event.detail', {
       entityName: state === 'ready' ? pageModel.identity.title : undefined,
@@ -187,7 +202,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     const hidden = new Set<BentoBlockId>();
     if (isLoading) return hidden;
 
-    const hasPromo = pageModel.promoCodes.items.length > 0 && !past;
+    const hasPromo = pageModel.promoCodes.items.length > 0 && !over;
     // Promo and City are mutually exclusive -- they share the top-right 1-col
     // slot next to Date. Whichever one is not showing is marked hidden.
     if (hasPromo) {
@@ -207,7 +222,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     if (!body || !body.trim()) hidden.add('description');
 
     // Guest list hides when disabled, past event, or data hasn't resolved yet.
-    if (past || !guestList || !guestList.enabled) hidden.add('guest');
+    if (over || !guestList || !guestList.enabled) hidden.add('guest');
 
     // Organiser card hides when no organiser is linked. Per the Phase 1
     // decision: every event should have one, so this is a defensive guard.
@@ -247,7 +262,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     if (!eventVideo) hidden.add('video');
 
     return hidden;
-  }, [isLoading, past, isEnded, pageModel, guestList, raffleConfig, snapshot, eventVideo]);
+  }, [isLoading, past, isEnded, over, pageModel, guestList, raffleConfig, snapshot, eventVideo]);
 
   if (state === 'not-found' || state === 'error' || state === 'unavailable') {
     const copy = ERROR_COPY[state];
@@ -319,7 +334,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             occurrence={occurrence}
             isEnded={isEnded}
             // DateBlock still renders the date when past -- just not clickable.
-            onClick={past ? undefined : () => setCalendarOpen(true)}
+            onClick={over ? undefined : () => setCalendarOpen(true)}
           />
         );
       case 'dates':
@@ -472,6 +487,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             runRange={runRange}
             eventFormat={pageModel.identity.eventFormat}
             eventType={pageModel.identity.eventType}
+            eventCategory={snapshot?.event.category ?? null}
           />
         ) : (
           past && (
@@ -500,6 +516,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <MoreEventsSection
             blocks={DOOR_BLOCKS}
             sectionLabel="Still running from this organiser"
+            fallbackSectionLabel="Other organisers in this city"
             currentEventId={eventId}
             organiserId={snapshot?.organisers[0]?.id ?? null}
             organiserName={snapshot?.organisers[0]?.displayName ?? null}
@@ -508,13 +525,13 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           />
         )}
 
-        {state === 'ready' && !past && <TapHintSticker />}
+        {state === 'ready' && !over && <TapHintSticker />}
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
 
         {/* Group-chat CTA — hidden on past/cancelled occurrences, matching the
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}
-        {!past && !occurrence?.isCancelled && (
+        {!over && !occurrence?.isCancelled && (
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
         )}
 
@@ -526,6 +543,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             exactly as before. */}
         <MoreEventsSection
           blocks={isEnded ? BOTTOM_BLOCKS : undefined}
+          // A tombstone must always offer a way off itself: the record card
+          // promises "have a look at what else is on below", and both the door
+          // and this strip can legitimately render nothing (an organiser whose
+          // only series just ended, in a city with a quiet week).
+          pillIsTheWayOut={isEnded}
           currentEventId={eventId}
           organiserId={snapshot?.organisers[0]?.id ?? null}
           organiserName={snapshot?.organisers[0]?.displayName ?? null}
@@ -553,7 +575,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         // make ticket suppression depend on the occurrence clock rather than on
         // the series being over.
         ticketUrl={
-          past || isEnded || !!occurrence?.isCancelled || pageModel.page.isPaused
+          over || !!occurrence?.isCancelled || pageModel.page.isPaused
             ? null
             : pageModel.actions.ticketUrl
         }
@@ -563,7 +585,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             .filter(Boolean)
             .join(' at ') || null
         }
-        canAddToCalendar={!past && !!occurrence?.startsAt}
+        canAddToCalendar={!over && !!occurrence?.startsAt}
         onAddToCalendar={() => setCalendarOpen(true)}
       />
 
@@ -592,9 +614,20 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                     occurrence?.endsAt ?? null,
                     occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
                   )?.toISOString() ?? null,
-                description: pageModel.description.body,
+                // Series-termination arc P4b. The SAME sentence og:description
+                // carries, from the SAME owner -- runNoun's docblock warns that
+                // two copies of this copy would drift, and that the drift would
+                // only ever be visible in a share preview. Without it the rich
+                // result kept the stored sales pitch ("Join me every Sunday this
+                // June") on a page whose banner says the run has finished.
+                // isFestival is FALSE by construction here: EventPage routes a
+                // festival to FestivalDetail, so BentoPage never renders for one.
+                description: isEnded
+                  ? buildEventShareDescription(snapshot, false)
+                  : pageModel.description.body,
                 image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
                 isCancelled: occurrence?.isCancelled ?? false,
+                isEnded,
                 venue: snapshot.locationDefault?.venue
                   ? {
                       name: snapshot.locationDefault.venue.name,

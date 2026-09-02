@@ -1,4 +1,4 @@
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+﻿import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "react-router";
 import { stampEvent } from "../cacheTags";
 import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
@@ -165,10 +165,10 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
   return cacheHeaders(loaderHeaders);
 }
 
-// Route-level SEO for the SSR document — for EVERY visitor, bots included. The
+// Route-level SEO for the SSR document -- for EVERY visitor, bots included. The
 // note that used to stand here said middleware.ts still intercepted bot UAs for
 // /event and that this was only a fallback head; that is false and was false when
-// written. middleware.ts's matcher is ['/teachers/:path*', '/city/:path*'] — /event
+// written. middleware.ts's matcher is ['/teachers/:path*', '/city/:path*'] -- /event
 // was retired from it in Phase 5 (2026-07-06), once this route's own JSON-LD
 // (BentoPage's buildEventJsonLd) and og:image normalization (resolveOgCardImage in
 // ../detailLoader) were verified byte-identical to what middleware emitted. So this

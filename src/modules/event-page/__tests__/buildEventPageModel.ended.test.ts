@@ -149,9 +149,13 @@ describe('buildEventPageModel -- ended-series derivation', () => {
     expect(model(buildSnapshot({ lifecycleStatus: 'live' })).page.isEnded).toBe(false);
   });
 
-  // The unavailable/error/not-found branches share one NO_LIFECYCLE literal, so
-  // a new lifecycle field cannot be added to some of them and missed on others
-  // (the W8 bug class). Assert the defaults actually reach a non-ready state.
+  // The loading/error/not-found branches share one NO_LIFECYCLE literal, so a new
+  // lifecycle field cannot be added to some of them and missed on others (the W8
+  // bug class). `unavailable` is NOT one of them and never was -- it has a
+  // snapshot and wants the REAL lifecycle values, so it spreads readyPageModel
+  // .page instead. An earlier version of this comment said all three shared the
+  // literal while unavailable hand-copied six fields; the comment was the defect.
+  // Assert the defaults actually reach a non-ready state.
   it('carries lifecycle defaults through the non-ready states', () => {
     const loading = buildEventPageModel({
       snapshot: null,

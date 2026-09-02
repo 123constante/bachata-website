@@ -29,6 +29,37 @@ describe('runNoun', () => {
   it('does not fall through to type when format is present', () => {
     expect(runNoun('recurring', 'festival')).toBe('night');
   });
+
+  // THE COMMON PATH, and it was wrong. `format` is the STRUCTURAL shape and
+  // `category` is the discovery GENRE, so a weekly bachata class is
+  // format='recurring' -- and reading shape alone called it a "night". "This
+  // night has finished and is no longer running." for a class, in the share
+  // preview and on the record card both. Most of what this arc ends is recurring.
+  it('names a class, workshop and masterclass from CATEGORY, not shape', () => {
+    expect(runNoun('recurring', null, 'class')).toBe('class');
+    expect(runNoun('recurring', null, 'workshop')).toBe('workshop');
+    expect(runNoun('recurring', null, 'masterclass')).toBe('masterclass');
+    expect(runNoun('one_off', null, 'class')).toBe('class');
+  });
+
+  it('keeps the community word for a party, whatever its shape', () => {
+    expect(runNoun('recurring', null, 'party')).toBe('night');
+    expect(runNoun('one_off', 'party', 'party')).toBe('night');
+  });
+
+  // Shape still outranks genre where the two disagree on a bounded run: a course
+  // categorised 'class' is a course, which is the more specific English word.
+  it('lets course and festival outrank category', () => {
+    expect(runNoun('course', null, 'class')).toBe('course');
+    expect(runNoun('festival', null, 'party')).toBe('festival');
+  });
+
+  // Legacy-only rows carry no category at all; the default must survive it.
+  it('tolerates a missing category', () => {
+    expect(runNoun('recurring', null)).toBe('night');
+    expect(runNoun('recurring', null, null)).toBe('night');
+    expect(runNoun('recurring', null, 'something-new')).toBe('night');
+  });
 });
 
 describe('formatLongDate', () => {

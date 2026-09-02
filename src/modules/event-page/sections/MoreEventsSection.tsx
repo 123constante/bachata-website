@@ -59,6 +59,16 @@ type Props = {
    *  indistinguishable in a screen reader's landmark list, so the door names
    *  itself rather than repeating "More events". */
   sectionLabel?: string;
+  /** Label used INSTEAD of `sectionLabel` when this instance ends up rendering
+   *  the other-organisers fallback rather than the organiser's own events. The
+   *  door is labelled "Still running from this organiser", which is a false
+   *  statement to a screen-reader user when what rendered is a grid of DIFFERENT
+   *  organisers -- the opposite of the fact the tombstone exists to state. */
+  fallbackSectionLabel?: string;
+  /** Let the "See full calendar" pill stand alone, without another block above
+   *  it. Off by default so ordinary pages keep rendering nothing when they have
+   *  nothing; on for a tombstone, where the pill is the way off a dead-end page. */
+  pillIsTheWayOut?: boolean;
 };
 
 // "More from {Organiser}" -- one P5-native call returns each of the organiser's
@@ -289,6 +299,8 @@ export const MoreEventsSection = ({
   cityName,
   blocks = ALL_BLOCKS,
   sectionLabel = 'More events',
+  fallbackSectionLabel,
+  pillIsTheWayOut = false,
 }: Props) => {
   // All three queries run on EVERY instance, whatever `blocks` says -- hooks
   // cannot be conditional, and it costs no extra network: both instances share
@@ -317,19 +329,36 @@ export const MoreEventsSection = ({
   const showOrganiser = wants('organiser') && hasOrganiserEvents;
   const showFallback = wants('organiser') && showOtherOrganisers;
   const showThisWeek = wants('thisWeek') && hasThisWeek;
-  // The pill is a destination, not content: it renders only above something. An
-  // earlier draft let it count as content so it could not vanish from a tombstone
-  // whose city had a quiet week -- but that made the early return unreachable on
-  // every DEFAULT call site too, turning a prop-scoped refactor into a site-wide
-  // render change (an event with no organiser events, no fallback and a quiet week
-  // went from rendering nothing to rendering a bare link home). Not worth smuggling
-  // in here. On an ended page the door above still carries the organiser strip, so
-  // the record card's "what else is on below" is not left pointing at nothing.
-  const showCalendarPill = wants('calendarPill') && (showOrganiser || showFallback || showThisWeek);
-  if (!showOrganiser && !showFallback && !showThisWeek) return null;
+  // The pill is a destination, not content: normally it renders only above
+  // something. An earlier draft let it count as content everywhere so it could
+  // not vanish from a tombstone whose city had a quiet week -- but that made the
+  // early return unreachable on every DEFAULT call site too, turning a
+  // prop-scoped refactor into a site-wide render change (an ordinary event with
+  // no organiser events, no fallback and a quiet week went from rendering
+  // nothing to rendering a bare link home). That draft was reverted.
+  //
+  // `pillIsTheWayOut` is the same idea SCOPED TO THE CALL SITE THAT NEEDS IT, so
+  // the default stays byte-identical. The tombstone's own copy promises "have a
+  // look at what else is on below", and the earlier reasoning here -- that the
+  // door above still carries the organiser strip -- only holds while the
+  // organiser HAS other live events. get_organiser_next_occurrences_v1 gates on
+  // lifecycle_status = 'live', so an organiser whose only series is the one that
+  // just ended has none: the door hits its own early return, this instance hits
+  // this one, and the tombstone becomes a hard dead end with no link off it.
+  const showCalendarPill =
+    wants('calendarPill') && (pillIsTheWayOut || showOrganiser || showFallback || showThisWeek);
+  if (!showOrganiser && !showFallback && !showThisWeek && !showCalendarPill) return null;
 
   return (
-    <section className="mt-4 space-y-4" aria-label={sectionLabel}>
+    <section
+      className="mt-4 space-y-4"
+      // The label has to describe what ACTUALLY rendered. showFallback is the
+      // organiser block's empty state -- a grid of OTHER organisers -- so a door
+      // labelled "Still running from this organiser" would tell a screen-reader
+      // user the organiser is still running events and then land them on a list
+      // of people who are not that organiser.
+      aria-label={showFallback && !showOrganiser ? (fallbackSectionLabel ?? sectionLabel) : sectionLabel}
+    >
       {showOrganiser && (
         <div>
           <SectionTitle>More from {organiserName}</SectionTitle>

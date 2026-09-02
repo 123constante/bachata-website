@@ -1,11 +1,14 @@
-import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
+﻿import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
 import type { RunRange } from '@/modules/event-page/bento/utils/endedRun';
 
 type EventEndedRecordProps = {
   runRange: RunRange | null;
-  /** 'course' | 'festival' | anything else. Drives one noun, nothing more. */
+  /** Structural shape: one_off | recurring | course | festival. */
   eventFormat: string | null;
   eventType: string | null;
+  /** Discovery genre: party | class | workshop | masterclass. Without it a
+   *  weekly CLASS reads as a "night", because its format is 'recurring'. */
+  eventCategory: string | null;
 };
 
 // Series-termination arc P4 -- the record card ("Archive Entry", approach B).
@@ -18,8 +21,13 @@ type EventEndedRecordProps = {
 // runRange null => date-free copy. That is the state of every page served before
 // the P4a migration exposes ended_on, so it is a live path and not a fallback
 // that only exists in theory.
-export const EventEndedRecord = ({ runRange, eventFormat, eventType }: EventEndedRecordProps) => {
-  const noun = runNoun(eventFormat, eventType);
+export const EventEndedRecord = ({
+  runRange,
+  eventFormat,
+  eventType,
+  eventCategory,
+}: EventEndedRecordProps) => {
+  const noun = runNoun(eventFormat, eventType, eventCategory);
   return (
     <div
       className="mb-3 rounded-xl border p-3"

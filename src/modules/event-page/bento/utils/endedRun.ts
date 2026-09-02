@@ -70,10 +70,24 @@ export const formatLongDate = (iso: string | null | undefined): string | null =>
  * word: the on-page record card and the og:description a share preview shows.
  * Two copies would drift, and the drift would only ever be visible in WhatsApp.
  */
-export const runNoun = (format: string | null, type: string | null): string => {
+export const runNoun = (
+  format: string | null,
+  type: string | null,
+  category: string | null = null,
+): string => {
   const shape = format ?? type;
   if (shape === 'course') return 'course';
   if (shape === 'festival') return 'festival';
+  // CATEGORY, not shape, decides between a class and a night. `format` is the
+  // STRUCTURAL shape (one_off | recurring | course | festival) and `category` is
+  // the discovery GENRE (party | class | workshop | masterclass) -- so a weekly
+  // bachata class is format='recurring', and reading shape alone called it a
+  // "night": "This night has finished and is no longer running." for a class,
+  // in the WhatsApp preview and on the record card both. Most of what this arc
+  // will end is recurring, so this is the common path, not an edge case.
+  if (category === 'class' || category === 'workshop' || category === 'masterclass') {
+    return category;
+  }
   return 'night';
 };
 

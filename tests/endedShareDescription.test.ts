@@ -27,7 +27,7 @@ const TAIL = 'See what else is on at Bachata Calendar.';
 // leaving it asserting a field the subject no longer looks at.
 type ShareFields = Pick<
   EventPageSnapshot['event'],
-  'description' | 'lifecycleStatus' | 'format' | 'type' | 'ranFrom' | 'endedOn'
+  'description' | 'lifecycleStatus' | 'format' | 'type' | 'category' | 'ranFrom' | 'endedOn'
 >;
 
 const snap = (event: Partial<ShareFields>): EventPageSnapshot =>
@@ -37,6 +37,7 @@ const snap = (event: Partial<ShareFields>): EventPageSnapshot =>
       lifecycleStatus: 'live',
       format: 'course',
       type: 'course',
+      category: 'class',
       ranFrom: null,
       endedOn: null,
       ...event,
@@ -72,7 +73,14 @@ describe('buildEventShareDescription', () => {
   it('names the last night when the run was a single date', () => {
     expect(
       buildEventShareDescription(
-        snap({ lifecycleStatus: 'ended', ranFrom: '2026-06-28', endedOn: '2026-06-28', format: 'party' }),
+        snap({
+          lifecycleStatus: 'ended',
+          ranFrom: '2026-06-28',
+          endedOn: '2026-06-28',
+          format: 'one_off',
+          type: 'party',
+          category: 'party',
+        }),
         false,
       ),
     ).toBe(`This night has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
@@ -111,6 +119,39 @@ describe('buildEventShareDescription', () => {
         false,
       ),
     ).toBe(`This festival has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
+  });
+
+  // A weekly class is format='recurring', so before the category fix the preview
+  // read "This night has finished" for a bachata class. This is the common shape
+  // for what this arc ends, not an edge case.
+  it('calls a recurring CLASS a class, not a night', () => {
+    expect(
+      buildEventShareDescription(
+        snap({
+          lifecycleStatus: 'ended',
+          format: 'recurring',
+          type: 'class',
+          category: 'class',
+          endedOn: '2026-06-28',
+        }),
+        false,
+      ),
+    ).toBe(`This class has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
+  });
+
+  it('still calls a recurring PARTY a night', () => {
+    expect(
+      buildEventShareDescription(
+        snap({
+          lifecycleStatus: 'ended',
+          format: 'recurring',
+          type: 'party',
+          category: 'party',
+          endedOn: '2026-06-28',
+        }),
+        false,
+      ),
+    ).toBe(`This night has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
 
   it('emits the ended copy even when the series never had a description', () => {
