@@ -35,6 +35,10 @@ describe("classifyChunk -- the pinned vendor groups", () => {
     ["@radix-ui/react-tooltip", "vendor-ui"],
     ["@radix-ui/react-use-callback-ref", "vendor-ui"],
     ["@radix-ui/react-dialog", "vendor-ui-modal"],
+    ["maplibre-gl", "vendor-maplibre"],
+    ["@maplibre/maplibre-gl-leaflet", "vendor-maplibre"],
+    ["leaflet", "vendor-leaflet"],
+    ["leaflet.markercluster", "vendor-leaflet"],
   ])("%s -> %s", (pkg, group) => {
     expect(classifyChunk(id(pkg))).toBe(group);
   });
@@ -91,11 +95,32 @@ describe("classifyChunk -- the needles are bounded on both sides", () => {
     expect(classifyChunk("/repo/node_modules/some-lib/dist/sonner/index.js")).toBeUndefined();
     expect(classifyChunk("/repo/node_modules/some-lib/src/react-dialog/x.js")).toBeUndefined();
     expect(classifyChunk("/repo/node_modules/@scope/pkg/lib/aria-hidden/i.js")).toBeUndefined();
+    // The two map groups get the same treatment. `maplibre` in particular was
+    // written as a bare unbounded substring first, which this case rejects.
+    expect(classifyChunk("/repo/node_modules/some-lib/dist/maplibre/index.js")).toBeUndefined();
+    expect(classifyChunk("/repo/node_modules/some-lib/vendor/leaflet/index.js")).toBeUndefined();
   });
 
   it("returns early for anything outside node_modules -- the OTHER half of the bound", () => {
     expect(classifyChunk("/repo/src/lib/sonner/toast.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/vendor/framer-motion.ts")).toBeUndefined();
+  });
+
+  it("pins the commonjs helper by its VIRTUAL id, not by the bare word", () => {
+    // This branch is the one exception to the rule the case above states: it
+    // sits BEFORE the node_modules gate, so it is the only needle that can
+    // reach a first-party path, and it needs its own bound. Rollup's real id
+    // carries a leading NUL, which nothing on disk can.
+    expect(classifyChunk("\0commonjsHelpers.js")).toBe("vendor-react");
+
+    // The hole this closes: before the id was bounded, every one of these was
+    // silently reassigned to vendor-react -- a first-party module by that
+    // name, and the hashed copy that rollup-built packages ship inside their
+    // own dist. The second must fall through to its PACKAGE's group instead.
+    expect(classifyChunk("/repo/src/lib/commonjsHelpers.ts")).toBeUndefined();
+    expect(
+      classifyChunk("/repo/node_modules/leaflet/dist/commonjsHelpers-a1b2c3.js"),
+    ).toBe("vendor-leaflet");
   });
 
   it("ignores anything outside node_modules before testing a single needle", () => {

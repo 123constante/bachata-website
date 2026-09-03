@@ -230,12 +230,45 @@ const VENDOR_UI_MODAL_NEEDLES = toNeedles(VENDOR_UI_MODAL_PACKAGES);
 // holds.
 const RADIX_HOOK_NEEDLE = "node_modules/@radix-ui/react-use-";
 
+// Rollup's CommonJS interop helper, by its EXACT virtual id. The leading NUL is
+// the whole reason this is a bounded literal and not the substring
+// "commonjsHelpers": that bare needle sits ahead of the node_modules gate, so
+// it was the one branch in this file that could match a path outside
+// node_modules, and it would have silently pulled a first-party
+// `src/lib/commonjsHelpers.ts`, or a vendored rollup-built
+// `commonjsHelpers-<hash>.js`, into vendor-react. No real module id contains a
+// NUL, so this cannot reach a file on disk. Value verified against the
+// installed toolchain (`HELPERS_ID` in vite's bundled @rollup/plugin-commonjs),
+// not assumed -- if a Vite upgrade renames it, the pin silently stops working,
+// and what catches that is `check:bundle-budget` (the routes gain a chunk and
+// ~50 KB), not this file.
+const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
+
 /**
  * Rollup `manualChunks`: the group name a module id belongs to, or
  * undefined to leave it to rollup. Pure and total -- every branch is a
  * substring test on the id, so the test can drive it with literal paths.
  */
 export function classifyChunk(id: string): string | undefined {
+  // BEFORE the node_modules gate, and that placement is the whole point.
+  // Rollup's CommonJS interop helper is a VIRTUAL module -- COMMONJS_HELPERS_ID
+  // -- so it has no node_modules in its id, the early return below never sees
+  // it, and rollup is free to file it in whichever chunk it likes. Every CJS
+  // package in the tree (react and react-dom included) imports that helper, so
+  // whichever chunk receives it is acquired as a STATIC import by essentially
+  // every other chunk in the build.
+  //
+  // MEASURED, not feared: adding vendor-leaflet below captured this helper, and
+  // all eight budgeted routes immediately gained 50.9 KB gz and one first-load
+  // chunk -- /faq and the landing pages included, none of which mount a map.
+  // vendor-maplibre sits one branch away from doing the same thing with 250 KB.
+  //
+  // This is the tslib rule's twin (see below) and it is here for the same
+  // reason: the defect is not "this package is heavy", it is "a shared runtime
+  // helper landed in a heavy chunk and dragged the chunk everywhere". Pinning
+  // it to vendor-react is safe because vendor-react is already in every route's
+  // first load, so the edge it creates costs nothing new.
+  if (id.includes(COMMONJS_HELPERS_ID)) return "vendor-react";
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after
@@ -280,6 +313,51 @@ export function classifyChunk(id: string): string | undefined {
   if (id.includes("@sentry")) return "vendor-sentry";
   if (id.includes("@tanstack")) return "vendor-query";
   if (id.includes("@supabase")) return "vendor-supabase";
+  // maplibre-gl is the vector basemap renderer and it is BY FAR the heaviest
+  // package in the tree: 277.7 KB gz across maplibre-gl.mjs and the
+  // maplibre-gl-shared.mjs it imports (measured, not read off a badge -- the
+  // two are a real import edge, so neither number stands alone). It is pinned
+  // here for ONE reason, and it is not first-load weight: nothing eager
+  // imports it. HomeMapCard is lazy and mapMounted-gated, so this chunk is
+  // only ever fetched after hydration, behind the placeholder still.
+  //
+  // What the pin buys is CACHE ISOLATION. Left unpinned it files inside
+  // HomeMapCard's chunk, and every edit to our own map code -- a pin tweak, a
+  // popup string -- re-hashes 278 KB of unchanged vendor with it. Our map code
+  // is ~61 KB gz and changes often; the renderer changes on version bumps.
+  // TWO needles, both bounded to a whole directory under node_modules, per the
+  // rule the rest of this file follows and tests/chunkClassifier.test.ts pins.
+  // A bare `includes("maplibre")` would also swallow a nested vendor folder --
+  // node_modules/some-lib/dist/maplibre/ -- which is the exact case that test
+  // file calls out. The adapter joins the renderer deliberately: it is
+  // meaningless without maplibre-gl and the two version together.
+  if (
+    id.includes("node_modules/maplibre-gl/") ||
+    id.includes("node_modules/@maplibre/")
+  ) {
+    return "vendor-maplibre";
+  }
+  // Leaflet has to be pinned BECAUSE maplibre is, and the reason is worth
+  // recording: the adapter above statically imports leaflet, so with only the
+  // maplibre rule in place rollup HOISTED leaflet into vendor-maplibre --
+  // measured, not feared. That left a chunk named for one renderer carrying
+  // another, and it broke the cache argument in both directions: a maplibre
+  // version bump re-hashed leaflet and vice versa. markercluster meanwhile
+  // stayed behind in HomeMapCard, so the leaflet stack was split across two
+  // chunks for no reason at all.
+  //
+  // Three groups, each with its own change rate: vendor-maplibre (~294 KB gz,
+  // moves on version bumps), vendor-leaflet (~42 KB gz, moves almost never),
+  // and HomeMapCard (~19 KB gz of our own map code, moves constantly). None of
+  // them is in any route's first load -- HomeMapCard is lazy AND mapMounted-
+  // gated -- so the extra split costs a request at MAP MOUNT, not on the
+  // first-load graph the request ratchet watches.
+  if (
+    id.includes("node_modules/leaflet/") ||
+    id.includes("node_modules/leaflet.markercluster/")
+  ) {
+    return "vendor-leaflet";
+  }
   // lucide ships one ES module per icon and rollup honours that
   // literally: 19 single-icon requests in /parties' first load at
   // 55847dd, 47 icon-only chunks across the build.

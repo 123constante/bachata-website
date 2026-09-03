@@ -3,6 +3,49 @@ import L from 'leaflet';
 import 'leaflet.markercluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
+// Side-effect import: the adapter augments the `L` namespace with
+// `L.maplibreGL`, so it must come AFTER leaflet above. It pulls maplibre-gl
+// itself (a real ESM import, not a global), which is why maplibre-gl is a
+// direct dependency and gets its own manual chunk in vite.chunks.ts.
+import '@maplibre/maplibre-gl-leaflet';
+import { setWorkerUrl } from 'maplibre-gl';
+// STATIC, and the cost of that is accepted rather than unnoticed: these two
+// imports make vendor-maplibre (~250 KB gz + a 134 KB worker) a static edge of
+// this chunk, so it is fetched at map mount even on the branch that draws the
+// raster pair and never touches MapLibre. That waste is real in exactly ONE
+// state -- a build with no VITE_ARCGIS_API_KEY -- and in that state the deploy
+// is already misconfigured and wants fixing, not optimising around. Making it
+// a dynamic import would buy that one case and put an await on the mount path
+// that markers, markercluster and the pin CSS all sit behind. Not worth it;
+// revisit if the raster path ever becomes a state we ship on purpose.
+// `?worker&url` and NOT a plain `?url`, for two separate reasons.
+//
+// WHY IT IS NEEDED AT ALL. MapLibre resolves its own worker with
+// `new URL(`./${name}`, import.meta.url)` where `name` is computed at runtime
+// -- maplibre-gl.mjs, function `wi()`. Vite only rewrites the LITERAL
+// `new URL('./file', import.meta.url)` form, so it emits no asset for the
+// computed one, and the built chunk asks for a sibling that was never
+// written. Measured on both sides: a 404 for maplibre-gl-worker.mjs in dev,
+// and `find build -iname '*worker*'` empty after a production build. The map
+// draws nothing, fetches no tile, and reports no error -- the placeholder
+// still simply never gets covered.
+//
+// WHY NOT `?url`. The worker is not self-contained: it imports
+// maplibre-gl-shared.mjs. `?url` would emit that one file verbatim and its
+// import would 404 in turn. `?worker&url` makes Vite BUNDLE the worker with
+// its dependencies and hand back the hashed asset URL.
+//
+// The URL is same-origin, which also decides the CSP shape: MapLibre only
+// falls back to its blob-module shim when the worker URL is CROSS-origin
+// (`Oi()` -> `Ci()` is an origin comparison). A same-origin URL goes straight
+// to `new Worker(url, {type:'module'})`.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+// MapLibre positions its canvas from these rules; without them the ground
+// layer does not sit where Leaflet expects it.
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+// Module scope, so it is set before any Map is constructed below.
+setWorkerUrl(maplibreWorkerUrl);
 import './homeMap.css';
 import { cn } from '@/lib/utils';
 import { optimizedImageUrl } from '@/lib/imageCdn';
@@ -19,6 +62,11 @@ import {
 } from './mapTypes';
 import { groupPinsByLocation } from './mapListDerivations';
 import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
+import {
+  VECTOR_ATTR,
+  vectorStyleUrl,
+  vectorTransformRequest,
+} from './vectorBasemap';
 
 /** Imperative handle the parent (useMapList) drives the map through. */
 export interface MapApi {
@@ -346,11 +394,21 @@ export default function EventMap({
     // opaque terrain with NO place names, and the labels live in a separate
     // transparent Reference service. CARTO's dark_all baked both into one raster,
     // so a straight URL swap silently ships a map with no street or place names
-    // at any zoom. (This used to add "-- while the pre-mount placeholder still,
-    // a CARTO render, DOES show them, making the swap visible at mount". Both
-    // halves are false since the stills were re-rendered from this same Esri
-    // pair: same provider, same default view, so mount is a continuation. Struck
-    // rather than reworded -- there is no longer a mismatch to describe.)
+    // at any zoom.
+    //
+    // THE "MOUNT IS A CONTINUATION" NOTE THAT USED TO SIT HERE IS NOW FALSE ON
+    // THE BRANCH THAT ACTUALLY RUNS, and is corrected rather than left to be
+    // inherited on faith. It said the pre-mount stills were re-rendered from
+    // "this same Esri pair: same provider, same default view". That is still
+    // true of the RASTER pair below -- and the raster pair is now the fallback,
+    // not the default. The stills under /map-placeholder are Esri RASTER Dark
+    // Gray; the ground that mounts is Esri VECTOR open/dark-gray, different
+    // cartography off Overture/OSM data at a different tone. So the visible
+    // jump at mount that #321 removed is BACK on the vector path, and
+    // mapPlaceholders.ts states the rule this breaks in its own words:
+    // re-render, do not hand-edit, whenever the tile provider changes.
+    // Re-rendering them is PR 2 of this arc, deliberately not smuggled in here
+    // -- but nobody should read this block as saying it is already done.
     // NO `className` on either layer, and no CSS filter on the tiles: the pair
     // renders at Esri's native tone, which is the tone its labels were drawn
     // for. A `hm-basetiles` hook existed here to darken the base alone; both it
@@ -361,25 +419,102 @@ export default function EventMap({
     // derives _layersMaxZoom and a layer-level value is inert. It was carried
     // from the CARTO layer, where it was equally inert, and read as if the map
     // went to 19.
-    L.tileLayer(TILE_URL, {
-      attribution: ATTR,
-      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
-    }).addTo(m);
-    L.tileLayer(TILE_REF_URL, {
-      maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
-    }).addTo(m);
+    // BASEMAP. Vector through MapLibre when a key is configured; the legacy
+    // raster pair when it is not. That fallback is not defensive padding --
+    // VITE_ARCGIS_API_KEY is a BUILD-time var, so a deploy that forgets it
+    // would otherwise serve a map that draws nothing at HTTP 200, with no
+    // failed request and no error. See vectorBasemap.ts for the byte
+    // measurements behind the swap and for the token-scope probe.
+    const vectorStyle = vectorStyleUrl();
+    if (vectorStyle) {
+      // ONE Leaflet layer, which is the whole point of the adapter: markers,
+      // markercluster, popups, the pin CSS and every interaction below stay
+      // untouched, and MapLibre only draws the ground. The adapter forces
+      // `attributionControl: false` on the MapLibre map it constructs, so
+      // there is no second credit painted inside the canvas.
+      //
+      // customAttribution rather than letting the adapter read the style's
+      // own `source.attribution` (which it does by default): that field is
+      // byte-identical to VECTOR_ATTR except it carries a raw copyright sign
+      // and NO link, and the OpenStreetMap credit wants one. The two must
+      // stay in step -- re-read the service field, never hand-shorten it.
+      //
+      // No maxNativeZoom analogue is needed or wanted here. The raster pair
+      // below caps at native z16 and Leaflet upscales above it; this source's
+      // TileJSON reports maxzoom 22 against the map's own maxZoom of 18, so
+      // the whole range is native and that upscale regression is gone.
+      // transformRequest is LOAD-BEARING, not a nicety: the style's own
+      // `sources[].url` carries no token, and that URL answers "Token
+      // Required." at HTTP 200 -- so without this MapLibre reads an error body
+      // as its TileJSON and never requests a tile. See TOKEN SCOPE in
+      // vectorBasemap.ts; this shipped missing and blanked the live map.
+      L.maplibreGL({
+        style: vectorStyle,
+        transformRequest: vectorTransformRequest(),
+        attributionControl: { customAttribution: VECTOR_ATTR },
+      }).addTo(m);
+
+      // THERE IS NO RUNTIME FALLBACK HERE, AND THAT IS A KNOWN GAP, not an
+      // oversight. `vectorStyleUrl()` returning non-null proves a key STRING
+      // was present at BUILD time -- never that the endpoint accepted it. Two
+      // failures get past it and leave a permanently empty ground at HTTP 200:
+      //
+      //   - The style endpoint is referrer-locked, so it 401s on EVERY Vercel
+      //     preview deployment, on any new domain, and after a key regen. It
+      //     401ed in PRODUCTION too, for hours on 2026-09-02: the allowlist
+      //     held the apex only, every host 308s to www, so the one host a
+      //     real visitor ever loads was the single entry that was missing.
+      //     www is now listed. Do NOT restore the sentence this replaces --
+      //     "production is on the allowlist" argued the reviewer out of
+      //     exactly the defect that shipped. The allowlist is per-HOST.
+      //   - maplibre-gl v6 hard-requires WebGL2 (iOS < 15, older Android
+      //     WebViews, GPU-blocklisted browsers).
+      //
+      // A fallback WAS built here and REVERTED at review round 2, for a reason
+      // worth carrying: `on('error')` attached after `.addTo()` cannot see the
+      // GPU failure at all. maplibre's constructor runs `_setupPainter()`
+      // SYNCHRONOUSLY and then `if (!this.painter) return`
+      // (maplibre-gl-dev.mjs:23273-23275), and the adapter constructs that Map
+      // inside onAdd -- so the error is dispatched to zero listeners before
+      // addTo returns, and the early return means no style request follows to
+      // raise a second one. The listener must be attached BEFORE construction.
+      //
+      // The reason it was reverted rather than patched: a mutant disabling the
+      // whole handler kept all 1368 tests green. Nothing in this repo mounts
+      // EventMap, so a pure predicate spec gates none of this. Re-landing it
+      // needs a jsdom mount test (jsdom's null webgl2 context gives the GPU
+      // case for free) that REDS against that mutant -- not another predicate.
+    } else {
+      L.tileLayer(TILE_URL, {
+        attribution: ATTR,
+        maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+      }).addTo(m);
+      L.tileLayer(TILE_REF_URL, {
+        maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
+      }).addTo(m);
+    }
     // Leaflet's own "Leaflet" credit is optional (`prefix: String|false` is the
-    // documented way to drop it) and Esri's is not. Esri's required credit is 78
-    // chars where CARTO's was 27 and renders 342px wide at the shipped
-    // 9px/weight-500 style, so whether it fits depends on the viewport.
-    // MEASURED IN A BROWSER against the real `.hm-mapcard`, not calculated:
+    // documented way to drop it) and Esri's is not.
+    //
+    // THE MEASUREMENT BELOW IS ABOUT `ATTR`, WHICH IS NOW THE FALLBACK STRING.
+    // Scoped explicitly, because it was taken before the vector swap and the
+    // default path no longer renders the string it describes. ATTR is 76
+    // visible chars and renders 342px wide at the shipped 9px/weight-500
+    // style. MEASURED IN A BROWSER against the real `.hm-mapcard`, not
+    // calculated:
     //   360px viewport -> card 324px -> TWO lines, 29px, 13.5% of the card
     //   390px viewport -> card 354px -> ONE line, 17px
-    // So it wraps at <=375px and fits from 390px up. An earlier note here said
-    // "two lines on every common phone"; that was arithmetic, and the browser
-    // disagreed -- the standard iPhone width is fine. Dropping Leaflet's prefix
-    // buys 35px and is what keeps 390px on one line. ATTR must not be
-    // hand-shortened.
+    // So it wraps at <=375px and fits from 390px up. Dropping Leaflet's prefix
+    // buys 35px and is what keeps 390px on one line.
+    //
+    // VECTOR_ATTR IS NOT MEASURED. Esri's terms make it a longer credit -- 101
+    // visible chars against ATTR's 76 -- so the 390px result above cannot be
+    // assumed to carry over, and it is the one most users see. It is NOT
+    // restated here as a proportional estimate on purpose: the note this
+    // replaces did exactly that ("two lines on every common phone"), and the
+    // browser disagreed with the arithmetic. Put it in a browser before
+    // quoting a number. Neither string may be hand-shortened either way --
+    // both are provider-required.
     //
     // A COLLAPSIBLE "(i)" CHIP WAS BUILT FOR THIS AND REVERTED at review round 2,
     // which found FIVE defects in ~40 lines of it: preventDefault() on the
