@@ -16,6 +16,13 @@ export type EventJsonLdInput = {
   description?: string | null;
   image?: string[] | null;
   isCancelled?: boolean | null;
+  /** Series-termination arc P4b: the SERIES has stopped for good. Suppresses the
+   *  offers node entirely -- see the offers block for why that overrides the
+   *  otherwise-unconditional fallback Offer. NOT wired to eventStatus: schema.org
+   *  has no "finished" value, and an event that RAN is not EventCancelled. Google
+   *  reads past-ness off startDate/endDate, so the honest node is one with no
+   *  claim about availability at all. */
+  isEnded?: boolean | null;
   venue?: {
     name?: string | null;
     address?: string | null;
@@ -98,7 +105,16 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
     node.performer = { '@type': 'PerformingGroup', name: 'Bachata Artists' };
   }
 
-  // Offers: always emit at least one Offer pointing at the event URL.
+  // Offers: always emit at least one Offer pointing at the event URL -- EXCEPT
+  // for a series that has ended. Both branches below assert
+  // `availability: InStock`, so an ended run with no tickets still told Google a
+  // ticket was in stock, on the same page whose banner and og:description say it
+  // has finished. Omitting the node is the only honest option in the vocabulary:
+  // SoldOut is false (nothing sold out) and Discontinued describes a product
+  // line, not a run that simply reached its last night. `offers` is recommended
+  // for rich results, not required, and a finished event has nothing on sale.
+  if (e.isEnded) return node;
+
   const realOffers = (e.offers ?? []).filter((o) => o && (o.url || o.price));
   if (realOffers.length > 0) {
     node.offers = realOffers.map((o) => {

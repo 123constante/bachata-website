@@ -1,4 +1,4 @@
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+﻿import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "react-router";
 import { stampEvent } from "../cacheTags";
 import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
@@ -11,6 +11,7 @@ import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
 import EventPage from "@/pages/EventPage";
 import type { Route } from "./+types/event";
 
@@ -116,7 +117,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // early-returns a skeleton -- no h1, no JSON-LD in the crawled HTML at the
   // festival's sitemap-canonical URL. Sniff with the same helper the client
   // uses (useEventPage) and prefetch, in parallel with the og:image resolve.
-  const festivalPrefetch = sniffIsFestival(snap, festivalDetail)
+  // Computed ONCE and reused: the share-copy gate below needs the same answer,
+  // and the two drifting apart is a page that says "finished" over a page still
+  // selling passes (see buildEventShareDescription).
+  const isFestival = sniffIsFestival(snap, festivalDetail);
+  const festivalPrefetch = isFestival
     ? qc.prefetchQuery({
         queryKey: festivalEventQueryKey(eventId),
         queryFn: () => fetchFestivalEventRow(eventId),
@@ -144,7 +149,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
-      description: snap?.event?.description ?? null,
+      description: buildEventShareDescription(snap, isFestival),
       ogImage,
       slug,
     },
@@ -160,14 +165,18 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
   return cacheHeaders(loaderHeaders);
 }
 
-// Route-level SEO for the SSR document (humans + non-bot crawlers). Social/search
-// BOT UAs are still served the branded OG card + DanceEvent JSON-LD by
-// middleware.ts (its /event matcher is restored), so this is the fallback head,
-// not the primary bot payload — though og:image is now the SAME normalized,
-// R2-baked-or-/api/og/card URL middleware itself would serve (see
-// resolveOgCardImage in ../detailLoader), so a crawler that reaches this
-// document directly still gets a renderable preview. Emits a PER-PAGE
-// canonical (root.tsx's static homepage canonical would otherwise
+// Route-level SEO for the SSR document -- for EVERY visitor, bots included. The
+// note that used to stand here said middleware.ts still intercepted bot UAs for
+// /event and that this was only a fallback head; that is false and was false when
+// written. middleware.ts's matcher is ['/teachers/:path*', '/city/:path*'] -- /event
+// was retired from it in Phase 5 (2026-07-06), once this route's own JSON-LD
+// (BentoPage's buildEventJsonLd) and og:image normalization (resolveOgCardImage in
+// ../detailLoader) were verified byte-identical to what middleware emitted. So this
+// head IS what WhatsApp, Facebook and Googlebot read, which is why the ended-series
+// share copy (buildEventShareDescription, called from the loader) is computed
+// server-side rather than anywhere in the client render.
+//
+// Emits a PER-PAGE canonical (root.tsx's static homepage canonical would otherwise
 // self-canonicalize every event to "/").
 export const meta: Route.MetaFunction = ({ data }) => {
   const canonical = data?.slug ? `${SITE_ORIGIN}/event/${data.slug}` : SITE_ORIGIN;

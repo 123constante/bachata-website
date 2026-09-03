@@ -2922,7 +2922,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       />
 
 
-      {isCancelled && <EventCancelledBanner reasonLabel={cancellationReasonLabel} />}
+      {/* Series-termination arc P4b: the sticky wrapper is REQUIRED here.
+          EventCancelledBanner used to carry `sticky top-[60px] z-30 w-full` on its
+          own root; that moved to a wrapper in BentoPage so an ended banner could
+          stack above it without the two siblings overlapping at a shared offset.
+          This call site is the other consumer, and without the wrapper the red
+          banner would simply scroll away on a cancelled festival. */}
+      {isCancelled && (
+        <div className="sticky top-[60px] z-30 w-full">
+          <EventCancelledBanner reasonLabel={cancellationReasonLabel} />
+        </div>
+      )}
 
       {/* HERO */}
 

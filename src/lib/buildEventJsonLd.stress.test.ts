@@ -200,4 +200,66 @@ describe('buildEventJsonLd — stress test', () => {
       expect(() => JSON.stringify(buildEventJsonLd(i))).not.toThrow();
     }
   });
+
+  // Series-termination arc P4b. The page's banner and og:description say the run
+  // has finished; the JSON-LD on the SAME page was telling Google a ticket was
+  // InStock. Both offers branches assert availability, including the fallback
+  // that fires when there are no tickets at all -- so passing an empty array was
+  // not enough and the suppression had to live here.
+  describe('an ended series', () => {
+    const ENDED = {
+      name: 'June Styling Course',
+      url: 'https://bachatacalendar.co.uk/event/june-styling',
+      startDate: '2026-06-28T13:00:00+01:00',
+      isEnded: true,
+    };
+
+    it('emits NO offers node at all, with or without tickets', () => {
+      expect(buildEventJsonLd(ENDED).offers).toBeUndefined();
+      expect(
+        buildEventJsonLd({
+          ...ENDED,
+          offers: [{ url: 'https://t.example.com', name: 'Standard', price: '10', currency: 'GBP' }],
+        }).offers,
+      ).toBeUndefined();
+    });
+
+    // The other direction: a live event must still always carry one, which is
+    // what the fallback Offer branch exists for.
+    it('still emits the fallback offer for a live event with no tickets', () => {
+      const live = buildEventJsonLd({ ...ENDED, isEnded: false });
+      expect(live.offers).toEqual({
+        '@type': 'Offer',
+        url: ENDED.url,
+        availability: 'https://schema.org/InStock',
+      });
+    });
+
+    // eventStatus is deliberately NOT touched. schema.org has no "finished"
+    // value, and a run that reached its last night was not EventCancelled --
+    // saying so would be a new false statement, worse than the one being fixed.
+    // Google reads past-ness off startDate/endDate.
+    it('keeps EventScheduled -- an ended run was not cancelled', () => {
+      expect(buildEventJsonLd(ENDED).eventStatus).toBe('https://schema.org/EventScheduled');
+      expect(buildEventJsonLd({ ...ENDED, isCancelled: true }).eventStatus).toBe(
+        'https://schema.org/EventCancelled',
+      );
+    });
+
+    // Everything above offers still has to survive the early return.
+    it('keeps name, dates, venue and organiser', () => {
+      const out = buildEventJsonLd({
+        ...ENDED,
+        endDate: '2026-06-28T15:00:00+01:00',
+        description: 'This course has finished and is no longer running.',
+        venue: { name: 'Dance Attic', city: 'london' },
+        organiser: { name: 'Alex Boneva' },
+      });
+      expect(out.name).toBe('June Styling Course');
+      expect(out.endDate).toBe('2026-06-28T15:00:00+01:00');
+      expect(out.description).toBe('This course has finished and is no longer running.');
+      expect(out.location).toBeTruthy();
+      expect(out.organizer).toBeTruthy();
+    });
+  });
 });

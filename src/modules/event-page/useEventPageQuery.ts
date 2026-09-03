@@ -151,6 +151,12 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
       location: asString(event.location),
       status: asString(event.status),
       lifecycleStatus: asString(event.lifecycle_status),
+      // asString, deliberately: ended_on and ran_from are naive London date
+      // strings and must reach the view as-stored. asWallClockOrNull would brand
+      // them timestamps, which is what licenses the Date/Intl math that shifts a
+      // 'YYYY-MM-DD' by a day either side of a BST boundary.
+      endedOn: asString(event.ended_on),
+      ranFrom: asString(event.ran_from),
       isPublished: event.is_published !== false,
       createdBy: asString(event.created_by),
       imageUrl:

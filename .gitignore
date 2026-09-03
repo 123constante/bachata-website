@@ -57,12 +57,13 @@ whatson-shipped.md
 # Anchored to repo root only - assets in public/, src/, etc. are unaffected.
 # To commit an intentional one: git add -f <file>
 /*.png
-/*-mockups.html
+/*-mockup*.html
 /*-designs.html
 /*-options.html
 /*-styles.html
 /festival-timetable-*.html
 /organiser-profile-*.html
+/nav-loading-*.html
 /tmp_*.html
 
 # Playwright test output (regenerated each run)
