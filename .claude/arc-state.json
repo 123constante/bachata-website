@@ -1,7 +1,7 @@
 {
   "version": 1,
   "arc": "home-map-vector-basemap",
-  "plan": "HANDOVER-2026-09-02-vector-round2-pending.md",
+  "plan": "HANDOVER-2026-09-02-vector-PR1-SHIPPED-prod-unarmed.md",
   "phase": "PR1",
   "set_at": "2026-09-02T16:05:00Z",
   "required_model": "claude-opus-5",
