@@ -393,7 +393,9 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-attendees-fk-target.mjs
 
-      - name: Run teacher/DJ event-program assignment integrity contract check
+      # REPORT-ONLY -- exits 0 on drift. Named so the board does not imply a
+      # gate that is not there. See docs/ci-guard-notes.md #17.
+      - name: Run teacher/DJ assignment integrity (REPORT-ONLY, does not gate)
         if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
