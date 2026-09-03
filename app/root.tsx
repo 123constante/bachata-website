@@ -88,17 +88,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ~3.2s resourceLoadDelay once credited to them wants re-measuring
             before it is quoted again.
 
-            THIS HOST IS NOW THE FALLBACK PATH ONLY. The default basemap is
-            vector (see vectorBasemap.ts), which never touches
-            server.arcgisonline.com -- it fetches basemapstyles-api.arcgis.com,
-            basemaps-api.arcgis.com and cdn.arcgis.com. The raster pair is
-            reached only when the build has no VITE_ARCGIS_API_KEY, so on a
-            correctly configured deploy this hint warms a socket nothing uses.
-            It is KEPT anyway, on the same "measure before you touch a
-            preconnect" grounds as the retraction above: removing it is itself
-            an unmeasured change, and it is the standing hint for the one state
-            where the map has no other host to reach. Retune the whole block at
-            once, with numbers.
+            THIS HOST IS NO LONGER THE DEFAULT PATH -- and it is not a dead
+            hint either. The default basemap is vector (see vectorBasemap.ts),
+            which never touches server.arcgisonline.com: it fetches
+            basemapstyles-api.arcgis.com, basemaps-api.arcgis.com and
+            cdn.arcgis.com. TWO states reach the raster pair now. A build with
+            no VITE_ARCGIS_API_KEY, and -- since hasWebgl2() joined the branch
+            in EventMap.tsx -- every visitor whose browser cannot run MapLibre
+            at all: iOS < 15, older Android WebViews, GPU-blocklisted Chrome.
+            The sentence struck here said this hint "warms a socket nothing
+            uses" on a correctly configured deploy. That is now false for a
+            whole device class, and it was the half of the argument the
+            keep/remove decision leaned on. KEPT, as before, and now for a
+            first-order reason rather than on caution alone. Retune the whole
+            block at once, with numbers.
 
             The three vector hosts deliberately get NO hint yet, and that is a
             decision rather than an oversight. They would need the OPPOSITE
