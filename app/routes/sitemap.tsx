@@ -20,6 +20,10 @@ const BASE_URL = "https://www.bachatacalendar.co.uk";
 // Generated DB types lag the live schema (events.slug etc. - same pre-existing
 // cast issue as app/routes/event.tsx's entity-resolve), so the fetchers below
 // go through an untyped handle and shape their own rows.
+//
+// The query-builder methods called below are MIRRORED in the mock in
+// tests/sitemapEdgeTtl.test.ts (its ALLOWED set). Adding one here without
+// adding it there makes that spec throw; it will name the method for you.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -240,7 +244,12 @@ export async function loader() {
       ...[...events, ...venueUrls, ...dancerUrls, ...teacherUrls, ...organiserUrls].map(urlEntry),
       "</urlset>",
     ].join("\n");
-  } catch {
+  } catch (error) {
+    // Log the CAUSE before discarding it. Five fetchers feed this try block, and
+    // a bare rethrow tells neither the server log nor Sentry which one failed --
+    // so a live /sitemap.xml 500 leaves no record at all, and in tests the
+    // failure is an opaque `Response { status: 500 }`.
+    console.error("[sitemap] generation failed", error);
     throw new Response("sitemap generation failed", { status: 500 });
   }
 

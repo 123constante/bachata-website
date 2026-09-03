@@ -23,34 +23,79 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
   return { ...actual, edgeCacheControl: vi.fn(() => SENTINEL) };
 });
 
-// Chainable no-op query builder: every method returns itself, and the object
-// resolves (via `then`) to an empty, error-free result -- enough for every
-// fetcher in the sitemap loader to complete with zero rows.
-const emptyQuery: Record<string, unknown> = {};
-for (const method of ['select', 'eq', 'neq', 'order', 'limit']) {
-  emptyQuery[method] = () => emptyQuery;
-}
-(emptyQuery as { then: PromiseLike<unknown>['then'] }).then = (resolve) =>
-  Promise.resolve({ data: [], error: null }).then(resolve as never);
+// Chainable no-op query builder: each ALLOWED method returns the builder, and
+// the builder resolves (via `then`) to an empty, error-free result -- enough
+// for every fetcher in the sitemap loader to complete with zero rows.
+//
+// ALLOWED is a closed list rather than a permissive catch-all: a method the
+// real PostgrestBuilder would reject must red here too, so anything outside it
+// stays `undefined` and still makes the chain throw. The Proxy's only job is to
+// RECORD the name on the way past. Without that record the failure is mute --
+// app/routes/sitemap.tsx rethrows a bare `new Response(..., { status: 500 })`,
+// discarding the cause, so the spec dies on a serialized `Response { status:
+// 500 }` naming no method. That is how `.not()` (#329) got past this mock.
+//
+// `unmocked` is asserted BEFORE the header, because a missing method throws out
+// of the loader and would otherwise end the test before the name is reported.
+const ALLOWED = new Set(['select', 'eq', 'neq', 'order', 'limit', 'not']);
+const unmocked = new Set<string>();
+
+const emptyQuery: Record<string, unknown> = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      if (prop === 'then') {
+        return (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({ data: [], error: null }).then(resolve);
+      }
+      if (ALLOWED.has(prop)) return () => emptyQuery;
+      unmocked.add(prop);
+      return undefined;
+    },
+  },
+) as Record<string, unknown>;
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { from: () => emptyQuery },
 }));
 
+// Every flag ON, so all five fetchers actually run. Under the shipped defaults
+// three of them (fetchVenues, fetchOrganiserProfiles, fetchTeacherProfileIds)
+// are skipped, and a builder method missing from ALLOWED in any of those three
+// goes undetected: with the flags off, deleting 'neq' -- reached only by
+// fetchVenues -- leaves this spec GREEN. The flags are read per-call inside the
+// loader, so turning them on here costs nothing but a few more empty chains.
 vi.mock('@/lib/featureFlags', () => ({
   flags: {
-    teachersDirectory: false,
-    organisersDirectory: false,
-    venueDetail: false,
-    organiserDetail: false,
-    teacherDetail: false,
+    teachersDirectory: true,
+    organisersDirectory: true,
+    venueDetail: true,
+    organiserDetail: true,
+    teacherDetail: true,
   },
 }));
 
 describe('sitemap edge TTL', () => {
   it('calls edgeCacheControl() -- not a restated literal -- for its header', async () => {
     const { loader } = await import('../app/routes/sitemap');
-    const result = await loader();
-    expect(result.headers.get('Vercel-CDN-Cache-Control')).toBe(SENTINEL);
+
+    let result: Response | undefined;
+    let thrown: unknown;
+    try {
+      result = await loader();
+    } catch (error) {
+      thrown = error;
+    }
+
+    // First, so an unmocked builder method is REPORTED BY NAME rather than
+    // surfacing as the loader's opaque rethrown 500.
+    expect(
+      [...unmocked],
+      "loader called builder methods absent from the mock's ALLOWED set",
+    ).toEqual([]);
+    if (thrown) throw thrown;
+
+    expect(result?.headers.get('Vercel-CDN-Cache-Control')).toBe(SENTINEL);
   });
 });
