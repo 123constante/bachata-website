@@ -10,14 +10,36 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import '@maplibre/maplibre-gl-leaflet';
 import { setWorkerUrl } from 'maplibre-gl';
 // STATIC, and the cost of that is accepted rather than unnoticed: these two
-// imports make vendor-maplibre (~250 KB gz + a 134 KB worker) a static edge of
-// this chunk, so it is fetched at map mount even on the branch that draws the
-// raster pair and never touches MapLibre. That waste is real in exactly ONE
-// state -- a build with no VITE_ARCGIS_API_KEY -- and in that state the deploy
-// is already misconfigured and wants fixing, not optimising around. Making it
-// a dynamic import would buy that one case and put an await on the mount path
-// that markers, markercluster and the pin CSS all sit behind. Not worth it;
-// revisit if the raster path ever becomes a state we ship on purpose.
+// imports make vendor-maplibre a static edge of this chunk, so the whole
+// renderer is fetched at map mount even on the branch that draws the raster
+// pair and never touches MapLibre. Measured from a production build, gzipped:
+//
+//   vendor-maplibre.js       250,570
+//   maplibre-gl-worker.js    134,699
+//   vendor-maplibre.css       10,585
+//   ----------------------------------
+//   fetched and never executed 395,854
+//
+// THE PARAGRAPH THIS REPLACES SAID THAT WASTE WAS REAL "in exactly ONE state
+// -- a build with no VITE_ARCGIS_API_KEY", where "the deploy is already
+// misconfigured and wants fixing, not optimising around", and closed "revisit
+// if the raster path ever becomes a state we ship on purpose." THAT TRIGGER
+// HAS FIRED. `hasWebgl2()` in the branch below makes the raster pair a
+// deliberately shipped state for a whole device class -- iOS < 15, older
+// Android WebViews, GPU-blocklisted Chrome -- so those bytes now land on the
+// WEAKEST devices we serve, on a site that is ~95% mobile, and no
+// misconfiguration is involved. The old sentence is struck rather than
+// softened: it read as a standing argument against ever revisiting this, and
+// it was the first thing a reader would have used to dismiss the question.
+//
+// It is still static here, deliberately, because moving it is a measured perf
+// change and not a fold-in: a dynamic import puts an await on the mount path
+// that markers, markercluster and the pin CSS all sit behind, and it moves a
+// manual chunk boundary that `vite.chunks.ts` and the first-load request
+// ratchet are both tuned against. `queued-home-map-renderer-weight.md` already
+// holds the numbers for that decision, including the module-scope prefetch in
+// HomeMapShell.tsx that starts this download on every homepage load whether or
+// not the visitor ever looks at the map.
 // `?worker&url` and NOT a plain `?url`, for two separate reasons.
 //
 // WHY IT IS NEEDED AT ALL. MapLibre resolves its own worker with
@@ -64,6 +86,7 @@ import { groupPinsByLocation } from './mapListDerivations';
 import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
 import {
   VECTOR_ATTR,
+  hasWebgl2,
   vectorStyleUrl,
   vectorTransformRequest,
 } from './vectorBasemap';
@@ -425,8 +448,14 @@ export default function EventMap({
     // would otherwise serve a map that draws nothing at HTTP 200, with no
     // failed request and no error. See vectorBasemap.ts for the byte
     // measurements behind the swap and for the token-scope probe.
+    // TWO gates, and they answer different questions. `vectorStyleUrl()` is a
+    // BUILD-time fact: a key string was present when this bundle was made.
+    // `hasWebgl2()` is a RUNTIME fact about the device in front of us, and
+    // without it a WebGL2-less browser gets a permanently blank ground at HTTP
+    // 200 -- see that function's header for the mechanism, and for the three
+    // gaps it still does NOT cover.
     const vectorStyle = vectorStyleUrl();
-    if (vectorStyle) {
+    if (vectorStyle && hasWebgl2()) {
       // ONE Leaflet layer, which is the whole point of the adapter: markers,
       // markercluster, popups, the pin CSS and every interaction below stay
       // untouched, and MapLibre only draws the ground. The adapter forces
@@ -454,10 +483,10 @@ export default function EventMap({
         attributionControl: { customAttribution: VECTOR_ATTR },
       }).addTo(m);
 
-      // THERE IS NO RUNTIME FALLBACK HERE, AND THAT IS A KNOWN GAP, not an
-      // oversight. `vectorStyleUrl()` returning non-null proves a key STRING
-      // was present at BUILD time -- never that the endpoint accepted it. Two
-      // failures get past it and leave a permanently empty ground at HTTP 200:
+      // THE GAP THAT REMAINS, now that the WebGL2 half is closed by the branch
+      // condition above. This layer is now only ever constructed on a device
+      // that can actually draw it. What nothing here gates is the STYLE
+      // endpoint:
       //
       //   - The style endpoint is referrer-locked, so it 401s on EVERY Vercel
       //     preview deployment, on any new domain, and after a key regen. It
@@ -467,23 +496,25 @@ export default function EventMap({
       //     www is now listed. Do NOT restore the sentence this replaces --
       //     "production is on the allowlist" argued the reviewer out of
       //     exactly the defect that shipped. The allowlist is per-HOST.
-      //   - maplibre-gl v6 hard-requires WebGL2 (iOS < 15, older Android
-      //     WebViews, GPU-blocklisted browsers).
       //
-      // A fallback WAS built here and REVERTED at review round 2, for a reason
-      // worth carrying: `on('error')` attached after `.addTo()` cannot see the
-      // GPU failure at all. maplibre's constructor runs `_setupPainter()`
-      // SYNCHRONOUSLY and then `if (!this.painter) return`
-      // (maplibre-gl-dev.mjs:23273-23275), and the adapter constructs that Map
-      // inside onAdd -- so the error is dispatched to zero listeners before
-      // addTo returns, and the early return means no style request follows to
-      // raise a second one. The listener must be attached BEFORE construction.
+      // That one is ASYNCHRONOUS, and a listener attached here AFTER `.addTo()`
+      // would genuinely see it -- unlike the WebGL2 failure, which is
+      // dispatched to zero listeners inside the constructor and is why the
+      // gate above is a synchronous pre-flight instead. So the reason the 401
+      // is still unhandled is not that it cannot be handled. It is that
+      // nothing in this repo can GATE the handler: reaching a style request at
+      // all needs a live painter, jsdom has no GPU, and the mount test that
+      // gates the WebGL2 half is therefore blind to this half. Covering it
+      // means a mocked adapter or a fetch pre-flight, and both were left out
+      // of this change deliberately rather than shipped unproven -- the first
+      // draft of this fallback was REVERTED at review round 2 for exactly
+      // that, a mutant disabling the whole handler having kept every one of
+      // the repo's then-1368 tests green.
       //
-      // The reason it was reverted rather than patched: a mutant disabling the
-      // whole handler kept all 1368 tests green. Nothing in this repo mounts
-      // EventMap, so a pure predicate spec gates none of this. Re-landing it
-      // needs a jsdom mount test (jsdom's null webgl2 context gives the GPU
-      // case for free) that REDS against that mutant -- not another predicate.
+      // Its acceptance criteria -- including "a transient 5xx must not latch
+      // the session to raster" and "the two credits must not co-exist after a
+      // swap" -- are in `queued-home-map-runtime-fallback-REVERTED.md`. Do not
+      // add a swap here without one that reds against its own mutant.
     } else {
       L.tileLayer(TILE_URL, {
         attribution: ATTR,

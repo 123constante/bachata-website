@@ -1,11 +1,17 @@
 /**
  * THIS IS NOW THE FALLBACK BASEMAP, not the one users normally see. The live
  * ground is Esri VECTOR through MapLibre -- see `vectorBasemap.ts`, which also
- * carries the measurements behind the swap. EventMap uses the raster pair below
- * only when `vectorStyleUrl()` returns null, i.e. when no VITE_ARCGIS_API_KEY
- * reached the build. Everything in this header still describes that path
- * accurately and still applies when it is taken; what has changed is how often
- * it is taken, which should be never.
+ * carries the measurements behind the swap. Everything in this header still
+ * describes the raster path accurately and still applies when it is taken.
+ *
+ * TWO STATES TAKE IT, and the second is not rare. `vectorStyleUrl()` returning
+ * null, i.e. no VITE_ARCGIS_API_KEY reached the build -- and `hasWebgl2()`
+ * returning false, i.e. the browser cannot run MapLibre at all (iOS < 15,
+ * older Android WebViews, GPU-blocklisted Chrome). The sentence struck here
+ * said the only change was "how often it is taken, which should be never".
+ * That was true of the first state and is false of the second: this is the
+ * basemap a whole device class sees on every visit, so treat it as live code
+ * rather than as a path that only a misconfiguration reaches.
  *
  * ATTR, though, is still on screen for EVERY visitor: HomeMapShell credits the
  * pre-mount placeholder stills with it, and those stills are Esri raster

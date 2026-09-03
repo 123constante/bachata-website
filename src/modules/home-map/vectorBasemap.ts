@@ -197,6 +197,109 @@ export function vectorStyleUrl(): string | null {
   return `${STYLE_BASE}/${STYLE_FAMILY}/${STYLE_NAME}?token=${encodeURIComponent(key)}`;
 }
 
+/**
+ * Whether this browser can host MapLibre's renderer at all.
+ *
+ * WHY A SECOND GATE, when `vectorStyleUrl()` already guards the branch: that
+ * function proves a key STRING existed at BUILD time. It says nothing about
+ * the device. maplibre-gl v6 hard-requires WebGL2 -- `_setupPainter()` calls
+ * `getContext('webgl2')`, and on null it fires a GPUInitializationError and
+ * RETURNS, leaving `this.painter` undefined, whereupon the Map constructor
+ * early-returns (`maplibre-gl-dev.mjs:26064-26080`, and the `if (!this.painter)
+ * return` at :23274-23275). Nothing throws. The layer is added, the ground is
+ * permanently empty, no request fails, and `getAttribution()` still paints
+ * Esri's vector credit over the blank -- then unmount throws
+ * `Cannot read properties of undefined (reading 'destroy')` out of the effect
+ * cleanup, because the adapter's `onRemove` calls `_glMap.remove()` and
+ * MapLibre's `remove()` destroys a painter that was never built. All three
+ * symptoms are reproduced by `tests/client/homeMapVectorFallback.test.tsx`.
+ * On a ~95%-mobile site the affected set is iOS < 15, older Android WebViews
+ * and every GPU-blocklisted Chrome: a device class, not an edge case.
+ *
+ * SYNCHRONOUS BY DESIGN. The first draft of this fallback listened for that
+ * error instead, and was reverted: the constructor dispatches it before
+ * `.addTo()` returns, so a listener attached after `addTo` sees ZERO events,
+ * and the early return means no style request follows to raise a second one.
+ * A pre-flight probe needs no listener -- and the reason it is preferred over
+ * the equivalent post-`addTo` `getMaplibreMap()?.painter === undefined` test
+ * is that the MapLibre Map is then never constructed on an unsupported
+ * device. There is no layer to unwind, no second credit to remove, and no
+ * `removeLayer` path to get wrong; `EventMap.tsx` folds this straight into
+ * the branch condition it already had.
+ *
+ * WHAT IT DOES NOT PROVE, said plainly because a non-null context reads like a
+ * guarantee and is not one. Three gaps remain, and they are different sizes:
+ *
+ *   - IT ASKS AN EASIER QUESTION THAN THE RENDERER WILL. This calls
+ *     `getContext('webgl2')` bare, while MapLibre asks with `stencil: true`
+ *     and `powerPreference: 'high-performance'` (its
+ *     `canvasContextAttributes` defaults at `maplibre-gl-dev.mjs:23066-23072`,
+ *     merged with the four hard-coded in `_setupPainter()` at
+ *     `:26065-26071`). A device that grants the plain context and refuses
+ *     MapLibre's passes this probe. A shared attribute bag closing exactly
+ *     that WAS built here and REVERTED at review round 2: its assertion was
+ *     proven blind by mutation twice in the same place -- once on `stencil`,
+ *     then on `failIfMajorPerformanceCaveat` -- so it is queued with a hard
+ *     receipt requirement rather than patched a third time. Nor does a granted
+ *     context promise `new Painter(gl)` then succeeds on it.
+ *   - It answers for the instant it runs. A context lost between here and
+ *     MapLibre's own `getContext` -- GPU-process crash, backgrounded WebView,
+ *     eviction at the browser's live-context cap -- lands on the identical
+ *     painterless map. That window is narrow, and it is the one place the
+ *     unguarded `m.remove()` in EventMap's cleanup can still throw.
+ *   - It is entirely silent about the style endpoint. A 401 there (every
+ *     Vercel preview, any new host, any key regen) still leaves a blank
+ *     ground, and no probe of the DEVICE could ever see it.
+ *
+ * All three are asynchronous or need a live GPU, so none can be gated by the
+ * jsdom mount test that gates this one -- and shipping ungated code here is
+ * exactly what got the first draft reverted. They are queued with their own
+ * acceptance criteria: see `queued-home-map-runtime-fallback-REVERTED.md`.
+ *
+ * NOT MEMOISED, deliberately. It runs once per EventMap mount -- a handful of
+ * times per session, since a breakpoint change remounts the component -- and
+ * the probe context is released immediately below. A module-level cache would
+ * buy nothing measurable and cost both a staleness hazard and a reset seam in
+ * every test that wants to see both answers.
+ */
+export function hasWebgl2(): boolean {
+  // Guarded for the node-environment suites that import this module for its
+  // host list and its URL builders (`tests/homeMapTileCsp.test.ts`), where
+  // there is no document at all. `false` is the honest answer there: no
+  // document means no canvas means no renderer.
+  if (typeof document === 'undefined') return false;
+  let gl: WebGL2RenderingContext | null = null;
+  try {
+    gl = document.createElement('canvas').getContext('webgl2');
+  } catch {
+    // Hardened and privacy-hardened browsers throw out of getContext rather
+    // than returning null. Same answer either way.
+    gl = null;
+  }
+  // `!gl`, NOT `gl === null`. A spec-compliant getContext returns null, but the
+  // browsers this probe is aimed at are exactly the ones that do not comply:
+  // anti-fingerprinting extensions and privacy shims REPLACE
+  // `HTMLCanvasElement.prototype.getContext`, and one returning `undefined`
+  // walked straight through the strict compare, threw a TypeError on the
+  // `gl.getExtension` below, had that swallowed by the "the extension is
+  // optional" catch, and returned TRUE with no context at all -- the exact
+  // blank ground this function exists to prevent, reached THROUGH it. The
+  // throwing-browser case that motivated the strict compare is already covered
+  // by the outer catch above.
+  if (!gl) return false;
+  // Release the probe's context rather than leaving it to GC. Browsers cap the
+  // number of live WebGL contexts and evict the oldest once the cap is hit,
+  // and the very next thing that happens on this path is MapLibre asking for
+  // one of its own.
+  try {
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch {
+    // The extension is optional. Failing to release a context is not a reason
+    // to report the device unsupported.
+  }
+  return true;
+}
+
 /** Host whose requests need the token appended. Scheme and trailing slash are
  *  part of the literal on purpose: a bare `includes()` on the bare hostname
  *  would also match `https://evil.test/?x=basemaps-api.arcgis.com/`, i.e. it
