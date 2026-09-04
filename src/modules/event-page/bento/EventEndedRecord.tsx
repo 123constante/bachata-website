@@ -13,10 +13,16 @@ type EventEndedRecordProps = {
 
 // Series-termination arc P4 -- the record card ("Archive Entry", approach B).
 //
-// Sits at the top of the bento column, under the sticky banner. The banner is
-// the signal you cannot miss; this is the statement you read. It carries the
-// run's dates because the banner is one line and gets truncated by its own pill
-// on narrow screens.
+// Sits at the top of the bento column and is now the ONLY statement that the
+// series has finished (2026-09-04). It used to sit under a sticky
+// EventEndedBanner -- "the signal you cannot miss" to this card's "statement you
+// read" -- but both printed the same run dates, so an ended page opened by
+// saying the same thing twice in two registers. The banner was removed, not this
+// card, because this one is the superset: the dates, a format-aware sentence,
+// and the lead-in to the still-running door below it.
+//
+// It carries the run's dates for the reason that always applied: a one-line
+// banner truncates them behind its own pill on narrow screens.
 //
 // runRange null => date-free copy. That is the state of every page served before
 // the P4a migration exposes ended_on, so it is a live path and not a fallback
