@@ -38,7 +38,6 @@ import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActi
 import { buildDirectionsUrl } from '@/modules/event-page/bento/utils/eventActions';
 import { EventCancelledBanner } from '@/modules/event-page/bento/EventCancelledBanner';
 import { EventPausedBanner } from '@/modules/event-page/bento/EventPausedBanner';
-import { EventEndedBanner } from '@/modules/event-page/bento/EventEndedBanner';
 import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
@@ -453,13 +452,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       {/* ONE sticky wrapper for the whole stack. The banners used to carry
           `sticky top-[60px]` individually, which was fine while only one could
           ever render -- two siblings sharing a top offset overlap on scroll
-          instead of stacking. */}
+          instead of stacking. Only cancelled and paused reach here now; 'ended'
+          is stated once, by the record card below. */}
       {lifecycleBanners.length > 0 && (
         <div className="sticky top-[60px] z-30 w-full">
           {lifecycleBanners.map((banner) =>
-            banner === 'ended' ? (
-              <EventEndedBanner key={banner} runRange={runRange} />
-            ) : banner === 'cancelled' ? (
+            banner === 'cancelled' ? (
               <EventCancelledBanner
                 key={banner}
                 reasonLabel={pageModel.page.cancellationReasonLabel}
@@ -481,7 +479,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       >
         {/* An ended SERIES gets the record card; the thin strip stays for the
             ordinary case of a past date on a series that still runs. Showing
-            both would say the same thing twice in two registers. */}
+            both would say the same thing twice in two registers.
+            That reasoning was right and this comment used to be the ONLY place
+            it held: the sticky EventEndedBanner rendered above regardless, with
+            the same run dates, so an ended page opened by saying it twice
+            anyway. The banner is gone (2026-09-04) and this card is now the
+            single statement -- which is what the comment always claimed. */}
         {isEnded ? (
           <EventEndedRecord
             runRange={runRange}

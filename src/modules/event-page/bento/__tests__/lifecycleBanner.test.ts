@@ -17,8 +17,12 @@ describe('selectLifecycleBanners', () => {
     expect(sel({ isPaused: true })).toEqual(['paused']);
   });
 
-  it('returns "ended" when only ended', () => {
-    expect(sel({ isEnded: true })).toEqual(['ended']);
+  // 'ended' takes NO banner (2026-09-04). The record card in the bento column is
+  // the single statement that the series has finished; a banner as well printed
+  // the same run dates directly above it. Asserted rather than deleted, because
+  // "no banner" is the design and a re-added one must fail here first.
+  it('returns NO banner when only ended', () => {
+    expect(sel({ isEnded: true })).toEqual([]);
   });
 
   // Regression: cancelled and paused can co-occur (independent DB fields).
@@ -28,26 +32,22 @@ describe('selectLifecycleBanners', () => {
     expect(sel({ isCancelled: true, isPaused: true })).toEqual(['cancelled']);
   });
 
-  // Series-termination arc P4. An ended series can have had its final night
-  // called off. Ended does NOT replace cancelled -- it STACKS above it, because
-  // the cancelled banner is the only surface carrying the reason label.
-  // Asserted as an ordered pair: the order is the design, not an accident.
-  it('stacks "ended" above "cancelled", in that order', () => {
-    expect(sel({ isEnded: true, isCancelled: true })).toEqual(['ended', 'cancelled']);
+  // Series-termination arc P4, revised 2026-09-04. An ended series can have had
+  // its final night called off. The cancelled banner still renders -- it is the
+  // only surface carrying the reason label -- and it now renders ALONE, with the
+  // record card stating that the series has finished.
+  it('shows only cancelled when an ended series had its final night called off', () => {
+    expect(sel({ isEnded: true, isCancelled: true })).toEqual(['cancelled']);
   });
 
   // Defence in depth. lifecycle_status is a single column, so ended and paused
   // cannot both be true against a healthy DB -- but if they ever were, the page
-  // must not stack "no longer running" on top of "back soon", which contradict
-  // each other. Ended wins alone.
+  // must not show "back soon" on a page whose record card says the run is over.
   it('suppresses "paused" when ended is somehow also set', () => {
-    expect(sel({ isEnded: true, isPaused: true })).toEqual(['ended']);
+    expect(sel({ isEnded: true, isPaused: true })).toEqual([]);
   });
 
-  it('drops "paused" but keeps the stack when all three are set', () => {
-    expect(sel({ isEnded: true, isPaused: true, isCancelled: true })).toEqual([
-      'ended',
-      'cancelled',
-    ]);
+  it('drops "paused" and keeps only cancelled when all three are set', () => {
+    expect(sel({ isEnded: true, isPaused: true, isCancelled: true })).toEqual(['cancelled']);
   });
 });
