@@ -11,9 +11,15 @@
  *   5. Default p_include_past=false returns only upcoming events (start-anchored
  *      proxy -- the payload carries no end_time; deliberately loose).
  *   6. p_include_past=true broadens to include past events.
- *   6b. The default view excludes every DEFINITELY-past event while
- *      p_include_past=true still surfaces them -- the decisive proof that the
- *      upcoming filter is applied at all. Needs no complete result set.
+ *   6b. The default view excludes every DEFINITELY-past event that is not
+ *      flagged is_ended, while p_include_past=true still surfaces them -- the
+ *      decisive proof that the upcoming filter is applied at all. Needs no
+ *      complete result set.
+ *   6c. And the ended half of that same contract: an ended series that DOES
+ *      appear must come back from a search of its own name, still flagged.
+ *      Arc P2 exempts lifecycle_status='ended' from the upcoming filter on
+ *      purpose, so 6b's exemption is only honest beside a test that the
+ *      exempted row is being surfaced for the reason the arc claims.
  *   7. Fuzzy: a near-miss ("bachatta") still resolves (results OR a suggestion).
  *   8. Filters narrow: p_event_type constrains the events section
  *      (soft-passes when the unfiltered base is already empty).
@@ -26,6 +32,11 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import {
+  partitionDefinitelyPast,
+  classifyEndedRoundTrip,
+  describeEvents,
+} from './lib/search-past-leak.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -163,20 +174,26 @@ const MAX_EVENT_SPAN_HOURS = 5 * 24;
 const RPC_PAST_GRACE_HOURS = 6;
 const oldestAllowedStart =
   Date.now() - (RPC_PAST_GRACE_HOURS + MAX_EVENT_SPAN_HOURS) * 60 * 60 * 1000;
-for (const ev of upcomingOnly.events) {
-  if (!ev.start_time) {
-    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has null start_time`);
-  }
-  const t = Date.parse(ev.start_time);
-  if (Number.isNaN(t)) {
-    throw new Error(`upcoming-only: event ${ev.id} (${ev.name}) has unparseable start_time ${ev.start_time}`);
-  }
-  if (t < oldestAllowedStart) {
-    throw new Error(
-      `upcoming-only: event ${ev.id} (${ev.name}) has start_time ${ev.start_time}, more than ` +
-        `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span in the past`,
-    );
-  }
+//
+// Rows flagged is_ended are exempt, and the exemption belongs HERE as much as
+// in 6b: this probe asks for 12 and the RPC orders `is_ended ASC` before
+// relevance, so an ended series is the last row of the section and shows up
+// here only once fewer than 12 live events match. That is a corpus accident,
+// not a contract difference -- leaving the exemption out of one of the two
+// call sites would make the same payload legal in one and a violation in the
+// other. See scripts/lib/search-past-leak.mjs for why ended rows are past on
+// purpose.
+const { leaked: leakedNarrow } = partitionDefinitelyPast(
+  upcomingOnly.events,
+  oldestAllowedStart,
+  'upcoming-only',
+);
+if (leakedNarrow.length > 0) {
+  throw new Error(
+    `upcoming-only: ${describeEvents(leakedNarrow)} -- start_time more than ` +
+      `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span in the past, ` +
+      'and not flagged is_ended',
+  );
 }
 
 // Test 6: p_include_past=true returns >= the upcoming-only count.
@@ -239,43 +256,105 @@ const includePastWide = await callRpc(
 );
 assertShape(includePastWide, 'include-past-wide');
 
-/** Started too long ago for any still-running event to have that start. */
-function isDefinitelyPast(ev, label) {
-  if (!ev.start_time) {
-    throw new Error(`${label}: event ${ev.id} (${ev.name}) has null start_time`);
-  }
-  const t = Date.parse(ev.start_time);
-  if (Number.isNaN(t)) {
-    throw new Error(
-      `${label}: event ${ev.id} (${ev.name}) has unparseable start_time ${ev.start_time}`,
-    );
-  }
-  return t < oldestAllowedStart;
-}
+const { leaked: pastReachable } = partitionDefinitelyPast(
+  includePastWide.events,
+  oldestAllowedStart,
+  'include-past-wide',
+);
+const { leaked, endedPast: endedInDefault } = partitionDefinitelyPast(
+  upcomingWide.events,
+  oldestAllowedStart,
+  'upcoming-wide',
+);
 
-// (a) the filter has something to exclude.
-const pastReachable = includePastWide.events.filter((e) => isDefinitelyPast(e, 'include-past-wide'));
+// (a) the filter has something to exclude -- and something it is NOT allowed
+// to exempt. Counting ended rows here would let the whole proof go vacuous the
+// day the only definitely-past matches are ended ones: every subject of (b)
+// would be exempt, (b) would pass over an empty set, and (a) would still say
+// the corpus was rich enough to prove something.
 if (pastReachable.length === 0) {
   throw new Error(
-    'p_include_past=true surfaced NO event older than the 6h grace + 5d max span. Either the ' +
-      'corpus genuinely holds no past events (implausible for a live calendar), or include_past ' +
-      'is no longer widening the query. Without at least one, the exclusion test below would ' +
-      'pass vacuously -- so this fails rather than reporting a green it has not earned.',
+    'p_include_past=true surfaced NO non-ended event older than the 6h grace + 5d max span. ' +
+      'Either the corpus genuinely holds no past events (implausible for a live calendar), or ' +
+      'include_past is no longer widening the query. Without at least one, the exclusion test ' +
+      'below would pass vacuously -- so this fails rather than reporting a green it has not earned.',
   );
 }
 
 // (b) and the default view excludes every one of them.
-const leaked = upcomingWide.events.filter((e) => isDefinitelyPast(e, 'upcoming-wide'));
 if (leaked.length > 0) {
-  const shown = leaked
-    .slice(0, 3)
-    .map((e) => `${e.id} (${e.name}) @ ${e.start_time}`)
-    .join('; ');
   throw new Error(
     `the default (upcoming) view returned ${leaked.length} event(s) that started more than ` +
-      `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span ago, so no reading of ` +
-      `"still running" covers them: ${shown}. The upcoming filter ` +
-      '(materialised_end_utc > now() - 6h) is no longer being applied.',
+      `${RPC_PAST_GRACE_HOURS}h grace + ${MAX_EVENT_SPAN_HOURS}h max span ago, are not flagged ` +
+      `is_ended, and so are covered by no reading of "still running": ${describeEvents(leaked)}. ` +
+      'The upcoming filter (materialised_end_utc > now() - 6h) is no longer being applied.',
+  );
+}
+
+// (c) the other half of the same contract, so the exemption in (b) cannot fail
+// open. Arc P2 does not merely TOLERATE an ended series in the default view --
+// it requires one, marked, because search is the surface where silence is the
+// failure. Assert it the way a visitor meets it: search the series by its own
+// name and require the same row back, still flagged.
+//
+// This arm is opportunistic by construction. An ended series sorts last
+// (`ORDER BY sc.is_ended ASC`) and the section is capped at 50, so whether one
+// appears above depends on how many live events match "bachata" -- measured at
+// exactly 50 on 2026-09-04, one row either side of the cap. That is the same
+// condition under which (b)'s exemption does anything at all, so when this is
+// skipped the exemption is inert and nothing has been waved through.
+//
+// Driven against prod once, 2026-09-04, through the same code with p_query
+// "styling" (8 events, leaked 0, endedPast 1): June Styling Course round-trips
+// by name with is_ended true. The hardcoded "bachata" probe cannot reach it
+// today, so treat a WARN here as "not exercised this run", never as evidence
+// the arm does not work.
+if (endedInDefault.length > 0) {
+  const ended = endedInDefault[0];
+  if (!ended.name || !ended.name.trim()) {
+    throw new Error(
+      `the default view surfaced ended event ${ended.id} with no name, so a visitor has no ` +
+        'query that could reach it -- the tombstone is unreachable by search.',
+    );
+  }
+  const byName = await callRpc(
+    { p_query: ended.name.trim(), p_city_slug: null, p_section_limit: PROBE_LIMIT },
+    `search_public_v5("${ended.name.trim()}")`,
+  );
+  assertShape(byName, 'ended-by-name');
+  const echoed = byName.events.find((e) => e.id === ended.id);
+  const verdict = classifyEndedRoundTrip({
+    echoed,
+    sectionLength: byName.events.length,
+    probeLimit: PROBE_LIMIT,
+  });
+  if (verdict === 'unflagged') {
+    throw new Error(
+      `ended series ${ended.id} (${ended.name}) came back from a name search with is_ended=` +
+        `${JSON.stringify(echoed.is_ended)}. It is exempt from the upcoming filter BECAUSE it ` +
+        'is flagged ended; unflagged, the same row is an ordinary past-event leak.',
+    );
+  }
+  if (verdict === 'silent') {
+    throw new Error(
+      `ended series ${ended.id} (${ended.name}) is returned for a broad query but NOT for a ` +
+        `search of its own name, which came back with room to spare (${byName.events.length} of ` +
+        `${PROBE_LIMIT}), so nothing was clipped. Arc P2 exists so a visitor searching a night ` +
+        'that has stopped gets the answer marked rather than silence; this is that silence.',
+    );
+  }
+  if (verdict === 'clipped') {
+    console.warn(
+      `[WARN] ended series ${ended.id} (${ended.name}) did not appear in a search of its own ` +
+        `name, but that section came back full (${byName.events.length} = the RPC cap), so this ` +
+        'cannot tell clipping from silence. The ended-series round trip is unproven this run.',
+    );
+  }
+} else {
+  console.warn(
+    '[WARN] no ended series appeared in the default view this run, so the ended-series arm of ' +
+      'the upcoming filter was not exercised. It sorts last and the section is capped, so this ' +
+      'is a corpus accident -- and the exemption in (b) is inert in exactly the same case.',
   );
 }
 
