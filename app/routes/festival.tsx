@@ -20,6 +20,7 @@ import {
 } from "../detailLoader";
 import { stampFestival } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
+import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import type { Route } from "./+types/festival";
 
 // /festival/:id — resolves events slug→uuid then prefetches the three queries
@@ -219,9 +220,25 @@ export const meta: Route.MetaFunction = ({ data }) => {
   // it, for the reason endedShareDescription's own docblock gives -- appending
   // would leave the sell ("...location and tickets") in the preview, which is
   // the whole defect. Title, canonical and og:image are unaffected.
-  return seoInputToMeta(
-    data?.endedDescription ? { ...seo, description: data.endedDescription } : seo,
-  );
+  const input = data?.endedDescription
+    ? { ...seo, description: data.endedDescription }
+    : seo;
+  // Clipped at the input, matching /event (app/routes/event.tsx) -- and clipped
+  // in meta() rather than the loader because BOTH candidate strings have to
+  // pass through it and only one of them comes from the loader.
+  //
+  // Neither is stored copy: unlike /event this route never emits the raw
+  // description, so there is no 5,536-character string to catch here. What it
+  // does emit is a template, `<name> - dates, line-up, location and tickets.`,
+  // whose 40-character suffix leaves a 120-character budget for the festival
+  // name -- and the ended sentence, measured at 142 worst-case. So this clip is
+  // a no-op for every festival with a name under 120 characters, which today is
+  // all of them. It is here so the bound is a property of the head rather than
+  // of the current data, since the name is organiser-entered and unbounded.
+  return seoInputToMeta({
+    ...input,
+    description: truncate(input.description, HEAD_DESCRIPTION_MAX),
+  });
 };
 
 export default function FestivalRoute({ loaderData, params }: Route.ComponentProps) {
