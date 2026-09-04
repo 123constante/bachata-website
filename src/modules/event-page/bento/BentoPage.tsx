@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
+import { SITE_ORIGIN } from '@/lib/seo';
 import { useEventPage } from '@/modules/event-page/useEventPage';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
@@ -156,14 +156,49 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // not, and the comment on the ticket line asserted the coincidence held.
   const over = past || isEnded;
 
-  useSeo(
-    buildSeoForRoute('event.detail', {
-      entityName: state === 'ready' ? pageModel.identity.title : undefined,
-      entitySlug: resolvedEventSlug ?? eventId ?? undefined,
-      ogImage: snapshot?.event.imageUrl ?? undefined,
-      isLoading: state !== 'ready',
-    }),
-  );
+  // No useSeo() here, and that is deliberate. /event/:id is a React Router
+  // FRAMEWORK route, so its meta() export owns the document head -- title,
+  // description, canonical, og/twitter -- including the ended-run copy this
+  // page's tombstone mirrors (app/routes/event.tsx, buildEventShareDescription).
+  // Every framework route THAT RENDERS A PAGE wraps in InitialVisiblePageTransition,
+  // which sets RouteOwnsHeadContext, and useSeo() returns before touching the head
+  // under it. Read that qualifier as load-bearing: routes/catchall.tsx is a
+  // framework route too and deliberately does NOT wrap, so the pages it hosts still
+  // use useSeo as their SOLE head manager. Counted across all 33 components that
+  // call useSeo, because the shape matters more than the total:
+  //
+  //   15  reachable ONLY through a framework route -- inert. These three are them.
+  //   15  reachable ONLY through the catchall -- LIVE (Dancers, DJs, SearchResults,
+  //       Venues, Tonight, Cities, ...). Deleting one drops that page's title,
+  //       description and canonical to root.tsx's site-wide defaults.
+  //    3  Index, Parties and Classes -- reachable BOTH ways, and the trap. Each has
+  //       a framework route (/parties, /classes, /city/:slug) AND a catchall mount
+  //       (/city/:slug/parties, /city/:slug/classes, /city/:slug/calendar --
+  //       AnimatedRoutes.tsx, plain PageTransition, no provider). Their useSeo is
+  //       dead on the first URL and LIVE on the second. Do not read "it has a
+  //       framework route" as "its useSeo is dead".
+  //
+  // So none of this generalises from these three files by route type alone --
+  // check where the component is MOUNTED, both ways, before deleting another.
+  //
+  // A useSeo(buildSeoForRoute('event.detail', ...)) call stood here and had been
+  // inert since S4 (2026-07-05) while reading as the live head manager -- which is
+  // how arc W17 came to be filed as "the client overwrites the ended
+  // og:description". It does not: measured on prod 2026-09-04, the hydrated DOM of
+  // an ended event still carries the loader's sentence. On THIS page, change the
+  // head in app/routes/event.tsx's meta().
+  //
+  // DELETED rather than annotated-and-kept, which is what OrganiserProfile.tsx and
+  // TeacherProfile.tsx do with their own inert calls. The reason is NOT that theirs
+  // agree with their route while this one disagreed -- an earlier draft of this
+  // comment said that and it is false, caught in review: app/routes/organiser.tsx
+  // overrides `description` with the truncated bio, and both routes have a locked /
+  // no-data meta() branch, so a woken call there would contradict the document too.
+  // Their "kept correct anyway" note claims more than it can. The reason to delete
+  // is simpler and survives that correction: the call was dead, and if some future
+  // wrapper change woke it, it would write buildSeoForRoute's template ending
+  // "dates, line-up, location and tickets" over an ended run's tombstone copy --
+  // exactly the bug W17 imagined. That is not a fallback worth keeping.
 
   const calendarInput: CalendarEventInput | null = useMemo(() => {
     if (!eventId) return null;

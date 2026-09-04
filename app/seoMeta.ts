@@ -7,9 +7,18 @@ import { SITE_NAME, SITE_ORIGIN, DEFAULT_OG_IMAGE } from "@/lib/seo";
 // routes call this from meta() so the SSR/prerendered document ships complete,
 // per-page SEO instead of inheriting root.tsx's site-wide defaults.
 //
-// NOTE: those routes still mount useSeo() (in the page component) which re-applies
-// the same values post-hydration + animates the title. Values match, so no SEO
-// harm; reconciling the two (suppress useSeo on SSR'd routes) is Phase-3 slice S4.
+// NOTE: a page component on such a route may still MOUNT useSeo(), but on THAT route
+// it no longer RUNS. Slice S4 shipped in 1fcca09 (2026-07-05): useSeo returns on
+// RouteOwnsHeadContext, which InitialVisiblePageTransition provides on every
+// framework route that renders a page -- EXCEPT routes/catchall.tsx, which is a
+// framework route that deliberately does not wrap, and where useSeo is still the
+// sole head manager. Do not read this note as "useSeo is dead": three components
+// (Index, Parties, Classes) are mounted BOTH ways and are live on the catchall's
+// /city/:slug/* URLs. See the census in BentoPage.tsx before deleting one.
+// This note used to say those calls "re-apply the same values post-hydration" and
+// that S4 was still pending -- stale from the day S4 landed, and half the reason
+// arc W17 was filed as a client-side overwrite of an ended og:description that
+// never happened. A call site cannot be judged without the context it reads.
 export function seoInputToMeta(input: SeoInput): Array<Record<string, string>> {
   const title = input.title.includes(SITE_NAME) ? input.title : `${input.title} | ${SITE_NAME}`;
   const canonical = input.canonical ?? SITE_ORIGIN;
