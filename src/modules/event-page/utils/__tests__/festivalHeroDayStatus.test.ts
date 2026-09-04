@@ -121,3 +121,39 @@ describe('computeHeroDayStatus — malformed input', () => {
     ).toEqual({ label: 'Today' });
   });
 });
+
+describe('computeHeroDayStatus -- an ended series (arc W14)', () => {
+  // The observed defect: a festival whose run has ended but whose PROGRAMME days
+  // still read forward. The keys here come from get_public_festival_detail_v2's
+  // span, built by _p5_festival_span_v1 off event_series_program_day_p5 -- and
+  // the arc's P5a constraint trigger governs occurrences, not programme days, so
+  // nothing in the database stops this pairing. Without the guard the hero prints
+  // "In 2 days" directly above a record card that says the festival has finished.
+  it('makes no timing claim when the programme still reads forward', () => {
+    expect(computeHeroDayStatus(base({ isEnded: true }))).toBeNull();
+  });
+
+  it('makes none on the start day either', () => {
+    expect(computeHeroDayStatus(base({ todayKey: '2026-08-10', isEnded: true }))).toBeNull();
+  });
+
+  // The loudest one: "Happening now" over a finished run.
+  it('never says "Happening now" for a run that has ended', () => {
+    expect(computeHeroDayStatus(base({ todayKey: '2026-08-11', isEnded: true }))).toBeNull();
+  });
+
+  it('is silent in every cancellation state, since it never reaches that logic', () => {
+    for (const cancellationState of ALL_STATES) {
+      expect(computeHeroDayStatus(base({ isEnded: true, cancellationState }))).toBeNull();
+    }
+  });
+
+  // The other direction, and the half a "returns null" test cannot prove on its
+  // own: the guard must not have swallowed the ordinary case. Omitting isEnded
+  // entirely is how every caller that predates W14 still calls this.
+  it('leaves a live festival exactly as it was -- the flag defaults to false', () => {
+    expect(computeHeroDayStatus(base({ isEnded: false }))).toEqual({ label: 'In 2 days' });
+    expect(computeHeroDayStatus(base())).toEqual({ label: 'In 2 days' });
+    expect(computeHeroDayStatus(base({ todayKey: '2026-08-11' }))).toEqual({ label: 'Happening now' });
+  });
+});

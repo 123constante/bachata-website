@@ -41,10 +41,19 @@ export async function fetchFestivalEventRow(
 // Why that RPC and not a direct event_series_p5 read: it is anon-callable
 // SECURITY DEFINER, its snapshot_compat branch resolves
 // `legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)` -- exactly
-// the pure-P5 case -- and it filters lifecycle_status IN ('live','paused'),
+// the pure-P5 case -- and it filters lifecycle_status IN ('live','paused','ended'),
 // returning NULL otherwise, so it IS the visibility gate. A direct table read
 // would not be one: event_series_p5's anon RLS is still behind
 // FF_DB_SELF_SERVE_RLS.
+//
+// That list said ('live','paused') until 2026-09-04. It was true when written and
+// the series-termination arc's P4a migration widened it; measured against the
+// live function body that day. The correction matters: read the old version and
+// a pure-P5 festival that has ENDED looks like a hard 404, so the ended treatment
+// on this page would read as unreachable code. It is reachable on both branches
+// -- a bridged series arrives through the legacy read above, whose lifecycle
+// filter is `events.lifecycle_status = 'published'`, which is what 'ended' mirrors
+// to.
 //
 // The returned object carries the SAME ten keys as FESTIVAL_EVENT_SELECT so the
 // `as FestivalEvent` cast in FestivalDetail and the dehydrated

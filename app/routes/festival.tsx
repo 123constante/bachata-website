@@ -5,6 +5,7 @@ import { pinDayAndBound } from "@/lib/londonDate";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-page/festivalEventQuery";
+import { endedRunSentence } from "@/modules/event-page/endedShareDescription";
 // Aliased: the page component below is also called FestivalDetail.
 import type { FestivalDetail as FestivalDetailData } from "@/modules/event-page/types";
 import FestivalDetail from "@/pages/FestivalDetail";
@@ -121,6 +122,49 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // a stale key in the emitted document -- see pinDayAndBound.
   const { dayKey: todayKey, boundSeconds } = pinDayAndBound(festivalTz);
 
+  // Series-termination arc W14 -- the ended share copy, for THIS url too.
+  //
+  // /event/<slug> and /festival/<slug> both serve this page, and only the first
+  // had ended-aware share copy: this route takes its description from the
+  // festival.detail SEO template, which ends "...dates, line-up, location and
+  // tickets". On a finished festival that is the same defect W14 names, one URL
+  // over -- and /festival is the surface the festival.detail spec calls
+  // canonical, so it is the one a share is most likely to carry.
+  //
+  // READ RAW, at the SAME strictness the component uses, and that is the whole
+  // point of these lines rather than an implementation detail. The first version
+  // ran the payload through parseEventPageSnapshot -- the CLIENT'S contract
+  // check, which THROWS on a payload missing any required key (event_id,
+  // event.actions, location_default, attendance). Two things went wrong with
+  // that. Unguarded it turned a swallowed prefetch failure into a 500 on a live
+  // festival page, to decide one line of copy (caught by
+  // tests/festivalLoaderEdgeTtl). And once guarded with try/catch it produced a
+  // subtler bug: FestivalDetailInner reads `lifecycle_status` straight off the
+  // raw payload, so an ended payload missing a key the PARSER wants -- but not
+  // one this decision needs -- rendered the tombstone while the document shipped
+  // "...dates, line-up, location and tickets". That is exactly the page/preview
+  // contradiction W14 exists to remove, re-created in the other direction.
+  //
+  // One reader, one strictness. endedRunSentence owns the sentence (the /event
+  // route reaches it through buildEventShareDescription), so both URLs still
+  // emit the same string, and this cannot throw on any payload shape. Null on
+  // every other lifecycle: the template below is right for a live festival.
+  const shareSnap = qc.getQueryData(["festival-snapshot", eventId]) as
+    | { event?: Record<string, unknown> | null }
+    | undefined;
+  const shareEvent = shareSnap?.event ?? null;
+  const asText = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
+  const endedDescription =
+    shareEvent?.lifecycle_status === "ended"
+      ? endedRunSentence({
+          format: asText(shareEvent.format),
+          type: asText(shareEvent.type),
+          category: asText(shareEvent.category),
+          ranFrom: asText(shareEvent.ran_from),
+          endedOn: asText(shareEvent.ended_on),
+        })
+      : null;
+
   // `zoneResolved` overrides the bound entirely: with the detail prefetch failed
   // the pin rests on a GUESSED calendar, and edgeCacheControl's own rule is that
   // not knowing how long the content stays true means caching none of it. The
@@ -135,6 +179,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       cityDisplay: (festival.city as string | null) ?? undefined,
       ogImage,
       todayKey,
+      endedDescription,
     },
     // The same events.id is reachable at /event/:id AND /festival/:id, so tag
     // both surfaces — a single edit to that row purges both pages.
@@ -163,15 +208,21 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
   return cacheHeaders(loaderHeaders);
 }
 
-export const meta: Route.MetaFunction = ({ data }) =>
-  seoInputToMeta(
-    buildSeoForRoute("festival.detail", {
-      entityName: data?.entityName,
-      entitySlug: data?.entitySlug,
-      cityDisplay: data?.cityDisplay,
-      ogImage: data?.ogImage,
-    }),
+export const meta: Route.MetaFunction = ({ data }) => {
+  const seo = buildSeoForRoute("festival.detail", {
+    entityName: data?.entityName,
+    entitySlug: data?.entitySlug,
+    cityDisplay: data?.cityDisplay,
+    ogImage: data?.ogImage,
+  });
+  // W14: an ended run replaces the description outright rather than prefixing
+  // it, for the reason endedShareDescription's own docblock gives -- appending
+  // would leave the sell ("...location and tickets") in the preview, which is
+  // the whole defect. Title, canonical and og:image are unaffected.
+  return seoInputToMeta(
+    data?.endedDescription ? { ...seo, description: data.endedDescription } : seo,
   );
+};
 
 export default function FestivalRoute({ loaderData, params }: Route.ComponentProps) {
   return (

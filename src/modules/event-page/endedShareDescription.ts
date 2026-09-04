@@ -23,40 +23,46 @@
 import type { EventPageSnapshot } from '@/modules/event-page/types';
 import { formatRunRange, runNoun } from '@/modules/event-page/bento/utils/endedRun';
 
+// THE FESTIVAL GATE IS GONE (arc W14, 2026-09-04), and it is worth knowing why
+// it was here rather than re-deriving it.
+//
+// Until W14 a festival-routed series rendered NO tombstone: EventPage sends it
+// to FestivalDetail, which had no record card and went on showing passes and a
+// Get Tickets button. Promising "this festival has finished" in a share preview
+// and then landing the reader on a page selling passes is worse than a stale
+// invitation, so festivals kept their stored copy and the gate carried a comment
+// saying it held only "until the ended treatment reaches FestivalDetail".
+//
+// It has. FestivalDetail now renders EventEndedRecord in place of its hero CTA
+// and suppresses the passes grid, the ticket pill, promo codes, the raffle, the
+// group chat and add-to-calendar, and its JSON-LD emits no offers node. The
+// premise the gate rested on is false, so the gate goes rather than being
+// re-scoped -- the two surfaces now say the same thing.
+//
+// One consequence to keep: this function is the ONLY owner of the sentence, and
+// FestivalDetail derives its noun from the same three fields via the same
+// runNoun. Do not add a format-specific branch here without adding one there.
 /**
- * @param snap        the event_view_p5 snapshot, or null when it could not load
- * @param isFestival  the LOADER'S sniffIsFestival answer -- the same predicate
- *                    that decides whether the page renders FestivalDetail. Never
- *                    re-derive it here; see the comment on the gate below.
+ * The sentence itself, from the five fields it is built out of.
+ *
+ * SPLIT OUT of buildEventShareDescription because a SECOND caller needs it and
+ * cannot supply an EventPageSnapshot: FestivalDetail's JSON-LD `description`
+ * (arc W14). On the standalone /festival/:id mount that component holds only the
+ * RAW snake_case event_view_p5 payload -- there is no parsed snapshot to hand in
+ * -- and without this split the only ways to serve it were a second copy of the
+ * sentence, or running the snapshot parser somewhere it can throw. runNoun's own
+ * docblock rules out the first: two copies of this copy drift, and the drift is
+ * only ever visible to someone reading a tombstone.
  */
-export const buildEventShareDescription = (
-  snap: EventPageSnapshot | null,
-  isFestival: boolean,
-): string | null => {
-  const stored = snap?.event?.description ?? null;
-  if (snap?.event?.lifecycleStatus !== 'ended') return stored;
-
-  // A festival-routed series does NOT render the tombstone: EventPage sends it to
-  // FestivalDetail (src/pages/EventPage.tsx), which has no ended banner, no record
-  // card, and still shows passes and ticket CTAs. Promising "this festival has
-  // finished" in the share preview and then landing the reader on a page selling
-  // passes is worse than a stale invitation, so festivals keep their stored copy
-  // until the ended treatment reaches FestivalDetail.
-  //
-  // THE CALLER'S `isFestival`, NOT A LOCAL RE-DERIVATION. This test was first
-  // written as `(format ?? type) === 'festival'`, which is NARROWER than the
-  // predicate that actually does the routing: sniffIsFestival also returns true
-  // on a content sniff -- two or more distinct schedule days, or any passes --
-  // whatever `format` says. An ended series that qualified only on the sniff
-  // would have been shared as "this course has finished" and then landed the
-  // reader on a page still selling passes: the exact defect this gate exists to
-  // stop. It also read wrong the other way, suppressing the ended copy for a
-  // legacy `type = 'festival'` row that renders the tombstone perfectly well.
-  // One predicate, computed once in the loader, used by both.
-  if (isFestival) return stored;
-
-  const noun = runNoun(snap.event.format, snap.event.type, snap.event.category);
-  const range = formatRunRange(snap.event.ranFrom, snap.event.endedOn);
+export const endedRunSentence = (p: {
+  format: string | null;
+  type: string | null;
+  category: string | null;
+  ranFrom: string | null;
+  endedOn: string | null;
+}): string => {
+  const noun = runNoun(p.format, p.type, p.category);
+  const range = formatRunRange(p.ranFrom, p.endedOn);
   const ran =
     range === null
       ? ''
@@ -64,4 +70,25 @@ export const buildEventShareDescription = (
         ? ` It ran ${range.from} to ${range.to}.`
         : ` Its last night was ${range.to}.`;
   return `This ${noun} has finished and is no longer running.${ran} See what else is on at Bachata Calendar.`;
+};
+
+/**
+ * The og:description an event page ships: the stored copy, replaced outright
+ * by the ended sentence once the run has finished.
+ *
+ * @param snap  the event_view_p5 snapshot, or null when it could not load
+ */
+export const buildEventShareDescription = (
+  snap: EventPageSnapshot | null,
+): string | null => {
+  const stored = snap?.event?.description ?? null;
+  if (snap?.event?.lifecycleStatus !== 'ended') return stored;
+
+  return endedRunSentence({
+    format: snap.event.format,
+    type: snap.event.type,
+    category: snap.event.category,
+    ranFrom: snap.event.ranFrom,
+    endedOn: snap.event.endedOn,
+  });
 };

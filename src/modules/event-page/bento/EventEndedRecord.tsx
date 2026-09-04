@@ -9,6 +9,10 @@ type EventEndedRecordProps = {
   /** Discovery genre: party | class | workshop | masterclass. Without it a
    *  weekly CLASS reads as a "night", because its format is 'recurring'. */
   eventCategory: string | null;
+  /** Extra classes on the card root. The one caller that passes anything is
+   *  FestivalDetail, which uses it to hang the `--ended-record-*` overrides
+   *  below off its own scoped stylesheet -- see the palette note. */
+  className?: string;
 };
 
 // Series-termination arc P4 -- the record card ("Archive Entry", approach B).
@@ -27,19 +31,31 @@ type EventEndedRecordProps = {
 // runRange null => date-free copy. That is the state of every page served before
 // the P4a migration exposes ended_on, so it is a live path and not a fallback
 // that only exists in theory.
+//
+// PALETTE. Every colour reads `var(--ended-record-*, <the bento token>)`, so the
+// bento page gets exactly what it always got and a second surface can restyle
+// the card by declaring those five variables on it. That is not decoration: the
+// bento tokens are forest-green + tarnished brass on :root (src/index.css), and
+// this same card now also renders inside FestivalDetail's `.cinematic-festival`
+// scope, which is black + orange. Hard-coded bento colours there would land a
+// ballroom-green tile in the middle of a cinematic hero. The alternative --
+// a festival-native copy of the card -- was rejected on the rule runNoun's own
+// docblock states: two copies of this copy drift, and the drift is only ever
+// visible to someone reading a tombstone.
 export const EventEndedRecord = ({
   runRange,
   eventFormat,
   eventType,
   eventCategory,
+  className,
 }: EventEndedRecordProps) => {
   const noun = runNoun(eventFormat, eventType, eventCategory);
   return (
     <div
-      className="mb-3 rounded-xl border p-3"
+      className={`mb-3 rounded-xl border p-3${className ? ` ${className}` : ''}`}
       style={{
-        borderColor: 'hsl(var(--bento-accent) / 0.18)',
-        background: 'hsl(var(--bento-surface-raised))',
+        borderColor: 'var(--ended-record-border, hsl(var(--bento-accent) / 0.18))',
+        background: 'var(--ended-record-bg, hsl(var(--bento-surface-raised)))',
       }}
       data-testid="event-ended-record"
     >
@@ -47,13 +63,13 @@ export const EventEndedRecord = ({
         <>
           <div
             className="text-[9px] font-black tracking-[0.14em]"
-            style={{ color: 'hsl(var(--bento-accent))' }}
+            style={{ color: 'var(--ended-record-accent, hsl(var(--bento-accent)))' }}
           >
             RAN
           </div>
           <div
             className="mt-0.5 text-lg font-extrabold leading-tight tracking-[-0.02em]"
-            style={{ color: 'hsl(var(--bento-fg))' }}
+            style={{ color: 'var(--ended-record-fg, hsl(var(--bento-fg)))' }}
           >
             {runRange.kind === 'range' ? (
               <>
@@ -67,7 +83,7 @@ export const EventEndedRecord = ({
       )}
       <div
         className={`text-xs leading-relaxed ${runRange ? 'mt-1.5' : ''}`}
-        style={{ color: 'hsl(var(--bento-fg-muted))' }}
+        style={{ color: 'var(--ended-record-fg-muted, hsl(var(--bento-fg-muted)))' }}
       >
         This {noun} has finished and is no longer running. Have a look at what else is on
         below.

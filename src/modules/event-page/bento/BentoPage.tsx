@@ -623,10 +623,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                 // only ever be visible in a share preview. Without it the rich
                 // result kept the stored sales pitch ("Join me every Sunday this
                 // June") on a page whose banner says the run has finished.
-                // isFestival is FALSE by construction here: EventPage routes a
-                // festival to FestivalDetail, so BentoPage never renders for one.
+                // The second `isFestival` argument is gone (arc W14): the helper
+                // no longer branches on it, now that FestivalDetail renders the
+                // ended treatment too.
                 description: isEnded
-                  ? buildEventShareDescription(snapshot, false)
+                  ? buildEventShareDescription(snapshot)
                   : pageModel.description.body,
                 image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
                 isCancelled: occurrence?.isCancelled ?? false,
