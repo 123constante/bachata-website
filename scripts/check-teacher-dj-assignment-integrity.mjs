@@ -58,7 +58,22 @@ import { createClient } from '@supabase/supabase-js';
 // event_program_people row (Richards, Carbonero, Davids, Sobolewska, Somos,
 // Quinonez). That is ordinary roster churn -- a DJ is listed in the directory
 // before their first booking -- not a dropped assignment.
-const BASELINE_TEACHERS_UNASSIGNED = 32; // active teachers with no epp row
+//
+// 2026-09-04: teacher ceiling 32 -> 36. Measured live the same day: 36 active
+// teachers hold no event_program_people row, and EXACTLY 32 of them carry a
+// teaching role created on or before the 2026-07-24 re-baseline. The four
+// above it were all created after it -- "York & Lisa" (23 Aug), Gabriel Bravo
+// and Mauricio Reyes (27 Aug), Sarah "La Morena" (31 Aug) -- so this is the
+// same directory expansion the two notes above describe: a teacher listed
+// before their first lineup. Nothing was DROPPED; a dropped assignment would
+// have had to be masked by a pre-baseline profile picking one up in the same
+// window, and the pre-baseline count is unmoved at 32.
+//
+// DJ ceiling unchanged at 6. It read 7 for the whole 2026-08-27 -> 2026-09-03
+// red streak and fell back to 6 on 2026-09-03 when one DJ picked up a lineup:
+// drift moving DOWN on unchanged code is what roster churn looks like, and it
+// is why this ceiling is not raised to the streak's high-water mark.
+const BASELINE_TEACHERS_UNASSIGNED = 36; // active teachers with no epp row
 const BASELINE_DJS_UNASSIGNED = 6;       // active DJs with no epp row
 
 function loadEnv() {
