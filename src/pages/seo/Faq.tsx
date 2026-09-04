@@ -7,7 +7,7 @@
  */
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, SITE_ORIGIN, type SeoInput } from '@/lib/seo';
+import { SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 
 interface Faq {
   q: string;
@@ -295,8 +295,9 @@ const FaqJsonLd = () => {
   );
 };
 
-// Shared with the framework route (app/routes/faq.tsx) so the route's meta()
-// and the client useSeo() emit identical head tags from one source.
+// The head input for this page. Its sole consumer is the framework route's meta()
+// (app/routes/faq.tsx); it was shared with a client useSeo() call here too until
+// arc W22 deleted that call as inert.
 export const SEO_INPUT: SeoInput = {
   title: 'Bachata in London - FAQ',
   description:
@@ -305,7 +306,11 @@ export const SEO_INPUT: SeoInput = {
 };
 
 const Faq = () => {
-  useSeo(SEO_INPUT);
+  // No useSeo() here: this page renders only under app/routes/faq.tsx, which wraps
+  // in InitialVisiblePageTransition and so sets RouteOwnsHeadContext -- useSeo
+  // returns before touching the head. That route's meta() owns it, from SEO_INPUT
+  // above. Which useSeo calls are inert and which are live is a census, not a rule
+  // of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
   return (
     <GlobalLayout showSubheader={false}>

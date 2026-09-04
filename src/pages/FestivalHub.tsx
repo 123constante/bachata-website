@@ -9,7 +9,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from "@/integrations/supabase/client";
 import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
@@ -54,7 +53,11 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
 );
 
 const FestivalHubInner = () => {
-  useSeo(buildSeoForRoute('festivals'));
+  // No useSeo() here: FestivalHub renders only under app/routes/festivals.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from the
+  // same buildSeoForRoute('festivals'). Which useSeo calls are inert and which are
+  // live is a census, not a rule of thumb -- see BentoPage.tsx (arc W22).
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();

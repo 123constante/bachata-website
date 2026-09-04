@@ -12,14 +12,15 @@
 
 import { Link } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
+import { SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
-// Shared with the framework route (app/routes/bachata-parties-london.tsx) so the
-// route's meta() and the client useSeo() emit identical head tags from one
-// source. Canonical now uses SITE_ORIGIN -- the old hardcoded host was non-www,
-// contradicting the site-wide www canonical.
+// The head input for this page. Its sole consumer is the framework route's
+// meta() (app/routes/bachata-parties-london.tsx); it was shared with a client
+// useSeo() call here too until arc W22 deleted that call as inert. Canonical
+// uses SITE_ORIGIN -- the old hardcoded host was non-www, contradicting the
+// site-wide www canonical.
 export const SEO_INPUT: SeoInput = {
   title: "Bachata Parties in London - The Complete Guide",
   description:
@@ -29,7 +30,11 @@ export const SEO_INPUT: SeoInput = {
 };
 
 const BachataPartiesLondon = () => {
-  useSeo(SEO_INPUT);
+  // No useSeo() here: this page renders only under app/routes/bachata-parties-london.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from
+  // SEO_INPUT above. Which useSeo calls are inert and which are live is a census,
+  // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
   return (
     <GlobalLayout showSubheader={false}>

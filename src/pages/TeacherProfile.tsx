@@ -13,10 +13,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
-import { resolvePublicName } from '@/lib/publicName';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 
@@ -184,22 +183,18 @@ const TeacherProfile = () => {
     },
     enabled: !!id,
   });
-  const _teacherSeo = buildSeoForRoute('teacher.detail', {
-    // resolvePublicName, not getPublicName -- mirrors app/routes/teachers.tsx's
-    // loader (the SSR path this route hydrates). getPublicName's 'Teacher'
-    // fallback is a placeholder a crawler reads as a real name, which is the
-    // soft-404 this branch closes. Identical on hide_surname: the mapped row
-    // above hardcodes it false, so neither helper honours it here.
-    // Currently inert -- TeacherProfile only renders inside
-    // InitialVisiblePageTransition (app/routes/teachers.tsx:100), which sets
-    // RouteOwnsHeadContext=true, so useSeo short-circuits before reading
-    // entityName. Kept correct anyway.
-    entityName: teacher ? (resolvePublicName(teacher) ?? undefined) : undefined,
-    entitySlug: resolved.slug ?? id ?? undefined,
-    ogImage: teacher?.photo_url ?? undefined,
-    isLoading,
-  });
-  useSeo(_teacherSeo);
+  // No useSeo() here. TeacherProfile renders only under app/routes/teachers.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's loader + meta() own it,
+  // running resolvePublicName (not getPublicName, whose 'Teacher' fallback is a
+  // placeholder a crawler reads as a real name) over the same row, so the soft-404
+  // is closed on the served HTML.
+  //
+  // A call stood here, annotated as inert but 'kept correct anyway'. That claimed
+  // more than it could: the route's meta() has a locked / no-data branch, so a
+  // woken call would contradict the document rather than back it up. Deleted for
+  // the reason BentoPage.tsx gives, whose census also says which useSeo calls are
+  // LIVE -- do not generalise from route type (arc W22).
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
 

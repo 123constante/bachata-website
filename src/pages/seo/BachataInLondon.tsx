@@ -18,7 +18,7 @@
 
 import { Link } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
+import { SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import { buildOrganizationJsonLd } from "@/lib/buildOrganizationJsonLd";
 import LiveEventsSection from "@/components/seo/LiveEventsSection";
 import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
@@ -124,8 +124,9 @@ const ArticleJsonLd = () => {
   );
 };
 
-// Shared with the framework route (app/routes/london-bachata-guide.tsx) so the
-// route's meta() and the client useSeo() emit identical head tags from one source.
+// The head input for this page. Its sole consumer is the framework route's meta()
+// (app/routes/london-bachata-guide.tsx); it was shared with a client useSeo() call
+// here too until arc W22 deleted that call as inert.
 export const SEO_INPUT: SeoInput = {
   title: "London Bachata Guide - Styles, Venues & Where to Start",
   description:
@@ -141,7 +142,11 @@ export const SEO_INPUT: SeoInput = {
  * served stale for a day. See LiveEventsSectionProps.serverTodayKey.
  */
 const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
-  useSeo(SEO_INPUT);
+  // No useSeo() here: this page renders only under app/routes/london-bachata-guide.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from
+  // SEO_INPUT above. Which useSeo calls are inert and which are live is a census,
+  // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
   return (
     <GlobalLayout showSubheader={false}>
