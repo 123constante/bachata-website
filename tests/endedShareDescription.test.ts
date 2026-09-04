@@ -4,16 +4,29 @@
  * WhatsApp, Slack or Facebook preview shows, and the only part of the tombstone
  * that travels away from the page.
  *
- * WHY THIS FILE EXISTS. The festival gate below was first written as
- * `(format ?? type) === 'festival'`, a LOCAL re-derivation of a routing decision
- * the loader had already made two lines above it with sniffIsFestival(). The two
- * are not the same predicate -- sniffIsFestival also returns true on a content
- * sniff (>= 2 distinct schedule days, or any passes) whatever `format` says --
- * so an ended series that qualified only on the sniff would have been SHARED as
- * "this course has finished" and then landed the reader on FestivalDetail, a
- * page with no tombstone that still sells passes. That is the exact harm the
- * gate exists to prevent, and nothing failed: the branch had no test, and no
- * ended festival exists on prod to see it on. Case 5 is that regression.
+ * WHY THIS FILE EXISTS -- and what changed under it (arc W14, 2026-09-04).
+ *
+ * It was written for a FESTIVAL GATE that no longer exists. The subject used to
+ * take a second argument, the loader's sniffIsFestival answer, and return the
+ * STORED sales copy whenever it was true: a festival-routed series rendered no
+ * tombstone at all, so promising "this festival has finished" in a preview and
+ * then landing the reader on FestivalDetail -- a page still selling passes --
+ * was the worse of two wrongs. The gate had itself been a bug once, first
+ * written as a LOCAL `(format ?? type) === 'festival'` re-derivation of a
+ * routing decision the loader had already made; that is narrower than
+ * sniffIsFestival, which also fires on a content sniff (>= 2 distinct schedule
+ * days, or any passes) whatever `format` says.
+ *
+ * W14 removed the gate by removing its PREMISE: FestivalDetail now renders the
+ * ended record in place of its hero CTA and suppresses its passes grid, ticket
+ * pill, promo codes, raffle, group chat, add-to-calendar and JSON-LD offers, so
+ * the two surfaces agree and the copy travels for every shape.
+ *
+ * The two tests that pinned the gate are kept, INVERTED -- both ways it read
+ * wrong now give the same answer -- plus one that fails if a gating argument
+ * comes back by any route. That last one was itself mutation-tested: an earlier
+ * `expect(fn.length).toBe(1)` did NOT arm, because a parameter declared with a
+ * default does not count toward Function.length.
  */
 import { describe, expect, it } from 'vitest';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
@@ -46,17 +59,16 @@ const snap = (event: Partial<ShareFields>): EventPageSnapshot =>
 
 describe('buildEventShareDescription', () => {
   it('leaves a live series entirely alone', () => {
-    expect(buildEventShareDescription(snap({}), false)).toBe(STORED);
+    expect(buildEventShareDescription(snap({}))).toBe(STORED);
   });
 
   it('returns null when the snapshot could not load', () => {
-    expect(buildEventShareDescription(null, false)).toBeNull();
+    expect(buildEventShareDescription(null)).toBeNull();
   });
 
   it('REPLACES the sales copy on an ended series, and states the run', () => {
     const out = buildEventShareDescription(
       snap({ lifecycleStatus: 'ended', ranFrom: '2026-06-07', endedOn: '2026-06-28' }),
-      false,
     );
     expect(out).toBe(`This course has finished and is no longer running. It ran 7 to 28 June 2026. ${TAIL}`);
     // The invitation is GONE, not prefixed -- appending would leave "Join me
@@ -65,7 +77,7 @@ describe('buildEventShareDescription', () => {
   });
 
   it('reads properly with no dates at all (a pre-P4c payload)', () => {
-    expect(buildEventShareDescription(snap({ lifecycleStatus: 'ended' }), false)).toBe(
+    expect(buildEventShareDescription(snap({ lifecycleStatus: 'ended' }))).toBe(
       `This course has finished and is no longer running. ${TAIL}`,
     );
   });
@@ -81,42 +93,62 @@ describe('buildEventShareDescription', () => {
           type: 'party',
           category: 'party',
         }),
-        false,
       ),
     ).toBe(`This night has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
 
-  it('keeps the stored copy for a festival, which renders no tombstone', () => {
+  // INVERTED BY W14. This asserted STORED until FestivalDetail grew a tombstone,
+  // so it is the defect W14 fixed, seen from the share preview.
+  it('gives an ended FESTIVAL the ended copy, now that its page renders one', () => {
     expect(
       buildEventShareDescription(
         snap({ lifecycleStatus: 'ended', format: 'festival', type: 'festival', endedOn: '2026-06-28' }),
-        true,
       ),
-    ).toBe(STORED);
+    ).toBe(`This festival has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
 
-  // THE REGRESSION. format says 'course', so the old `(format ?? type) ===
-  // 'festival'` test passed it straight through to the ended copy -- but the
-  // loader's sniffIsFestival said festival on the CONTENT (multi-day schedule or
-  // passes), so the reader would have landed on FestivalDetail. Driven by the
-  // caller's answer, this is stored copy.
-  it('keeps the stored copy for a CONTENT-sniffed festival whose format says otherwise', () => {
+  // ALSO INVERTED. format says 'course' but the loader's sniffIsFestival said
+  // festival on the CONTENT (multi-day schedule or passes), so the reader lands
+  // on FestivalDetail -- which now renders the record and derives its noun from
+  // these same three fields. Preview and page say "course" together, which is
+  // the point: FestivalDetail must never hard-code the word "festival".
+  it('gives a CONTENT-sniffed festival the ended copy in its OWN noun', () => {
     expect(
       buildEventShareDescription(
         snap({ lifecycleStatus: 'ended', format: 'course', type: 'course', endedOn: '2026-06-28' }),
-        true,
       ),
-    ).toBe(STORED);
+    ).toBe(`This course has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
 
-  // The same bug's other face: a legacy row with type 'festival' and no format
-  // renders the tombstone perfectly well when the sniff says it is not one, so
-  // suppressing the ended copy for it was wrong too.
-  it('still emits the ended copy for a legacy festival TYPE the sniff rejects', () => {
+  // The guard against the gate coming back. Calls THROUGH a signature that has
+  // it and asserts a second argument changes nothing, which catches both the
+  // required and the defaulted shape; asserting arity alone catches only the
+  // required one, and the defaulted one is the likelier way it would return.
+  it('cannot be gated by a second argument, whatever a caller passes', () => {
+    const ended = snap({
+      lifecycleStatus: 'ended',
+      format: 'festival',
+      type: 'festival',
+      endedOn: '2026-06-28',
+    });
+    const expected = `This festival has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`;
+    const withGate = buildEventShareDescription as unknown as (
+      s: EventPageSnapshot | null,
+      isFestival?: boolean,
+    ) => string | null;
+    expect(withGate(ended, true)).toBe(expected);
+    expect(withGate(ended, false)).toBe(expected);
+    expect(buildEventShareDescription(ended)).toBe(expected);
+  });
+
+  // A legacy row with type 'festival' and no format. It read wrong under the old
+  // gate too -- the sniff said "not a festival", so the ended copy was emitted
+  // for a page that DID render the tombstone. Same answer now, for a simpler
+  // reason: there is no gate.
+  it('emits the ended copy for a legacy festival TYPE with no format', () => {
     expect(
       buildEventShareDescription(
         snap({ lifecycleStatus: 'ended', format: null, type: 'festival', endedOn: '2026-06-28' }),
-        false,
       ),
     ).toBe(`This festival has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
@@ -134,7 +166,6 @@ describe('buildEventShareDescription', () => {
           category: 'class',
           endedOn: '2026-06-28',
         }),
-        false,
       ),
     ).toBe(`This class has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
@@ -149,20 +180,19 @@ describe('buildEventShareDescription', () => {
           category: 'party',
           endedOn: '2026-06-28',
         }),
-        false,
       ),
     ).toBe(`This night has finished and is no longer running. Its last night was 28 June 2026. ${TAIL}`);
   });
 
   it('emits the ended copy even when the series never had a description', () => {
     expect(
-      buildEventShareDescription(snap({ lifecycleStatus: 'ended', description: null }), false),
+      buildEventShareDescription(snap({ lifecycleStatus: 'ended', description: null })),
     ).toBe(`This course has finished and is no longer running. ${TAIL}`);
   });
 
   it('passes a paused or cancelled series through untouched -- ended is the only trigger', () => {
     for (const lifecycleStatus of ['paused', 'draft', 'archived']) {
-      expect(buildEventShareDescription(snap({ lifecycleStatus }), false)).toBe(STORED);
+      expect(buildEventShareDescription(snap({ lifecycleStatus }))).toBe(STORED);
     }
   });
 });

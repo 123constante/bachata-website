@@ -41,6 +41,11 @@ import { festivalEventQueryKey, fetchFestivalEventRow } from "@/modules/event-pa
 
 import { EventCancelledBanner } from "@/modules/event-page/bento/EventCancelledBanner";
 
+import { EventEndedRecord } from "@/modules/event-page/bento/EventEndedRecord";
+import { formatRunRange } from "@/modules/event-page/bento/utils/endedRun";
+import { MoreEventsSection } from "@/modules/event-page/sections/MoreEventsSection";
+import { endedRunSentence } from "@/modules/event-page/endedShareDescription";
+
 import { resolveFestivalDefaultDay } from "@/modules/event-page/utils/festivalDefaultDay";
 import {
   computeHeroDayStatus,
@@ -262,6 +267,19 @@ const CINEMATIC_CSS = `
 /* Hero CTA */
 
 .cinematic-festival .hero-cta{margin-top:28px;display:flex;gap:10px;position:relative;z-index:5;flex-wrap:wrap;justify-content:center;align-items:flex-start;width:100%;max-width:100%}
+
+/* Series-termination arc W14 -- the ended record, in the slot the CTAs vacate.
+   Constrained and left-aligned because the card is prose (a date and a
+   sentence), and the hero's centred, letter-spaced Bebas treatment is built for
+   two-word buttons: a centred paragraph under a 16vw title reads as a caption,
+   not a statement. The width bound matches the hero's own text measure. */
+.cinematic-festival .hero-ended{margin-top:28px;position:relative;z-index:5;width:100%;max-width:440px;text-align:left}
+
+/* The card ships bento-palette defaults (forest green + brass) and reads each
+   colour through an --ended-record-* override. This is that override: the
+   cinematic page is black + orange, and the un-overridden card would land a
+   ballroom-green tile inside it. Copy and structure stay in the one component. */
+.cinematic-festival .ended-record{--ended-record-bg:rgba(255,255,255,0.04);--ended-record-border:rgba(251,146,60,0.32);--ended-record-accent:#fb923c;--ended-record-fg:#fff;--ended-record-fg-muted:rgba(255,255,255,0.72)}
 
 .cinematic-festival .btn{padding:14px 36px;border:1px solid;font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:13px;text-decoration:none;text-transform:uppercase;transition:all .2s;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 
@@ -1883,6 +1901,21 @@ type FestivalSnapshotPayload = {
     is_cancelled?: boolean | null;
     cancellation_reason_label?: string | null;
   } | null;
+  // Series-termination arc W14. The snake_case half of the ended facts, for the
+  // standalone /festival/:id mount that reads the raw event_view_p5 payload
+  // rather than the parsed snapshot EventPage hands down. Same three keys
+  // useEventPageQuery.parseEventPageSnapshot maps to lifecycleStatus / endedOn /
+  // ranFrom -- verified against the live compat RPC on 2026-09-04, which admits
+  // lifecycle_status IN ('live','paused','ended') and emits ended_on and
+  // ran_from as naive 'YYYY-MM-DD' London dates.
+  event?: {
+    lifecycle_status?: string | null;
+    ended_on?: string | null;
+    ran_from?: string | null;
+    format?: string | null;
+    type?: string | null;
+    category?: string | null;
+  } | null;
   [key: string]: unknown;
 };
 
@@ -1992,6 +2025,42 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     (typeof snapshotPayload?.occurrence_effective?.cancellation_reason_label === "string"
       ? (snapshotPayload.occurrence_effective.cancellation_reason_label as string)
       : null);
+
+  // Series-termination arc W14 -- the SERIES has stopped for good.
+  //
+  // Read off the same two snapshot shapes as isCancelled above, and for the same
+  // reason: EventPage hands down a parsed camelCase snapshot, while a standalone
+  // /festival/:id mount holds only the raw event_view_p5 payload. Reading one of
+  // the two would have made the tombstone appear on exactly one of the two URLs
+  // that serve this page.
+  //
+  // isCancelled and isEnded are INDEPENDENT: a festival can finish its run with
+  // its final day called off, so the cancelled banner still renders above this.
+  const endedSource = propSnapshot?.event ?? null;
+  const isEnded =
+    endedSource !== null
+      ? endedSource.lifecycleStatus === "ended"
+      : snapshotPayload?.event?.lifecycle_status === "ended";
+  // ended_on is authoritative; ran_from may legitimately be missing, and a null
+  // range is the date-free copy path rather than a defensive one (see endedRun).
+  const endedRanFrom = endedSource
+    ? endedSource.ranFrom
+    : (snapshotPayload?.event?.ran_from ?? null);
+  const endedOn = endedSource
+    ? endedSource.endedOn
+    : (snapshotPayload?.event?.ended_on ?? null);
+  const endedRunRange = isEnded ? formatRunRange(endedRanFrom, endedOn) : null;
+  // The NOUN is derived from the real format/type/category, never hard-coded to
+  // "festival". This page is reached by sniffIsFestival, which is BROADER than
+  // format === 'festival' -- it also routes a multi-day-schedule or passes-carrying
+  // series here whatever its format says. Hard-coding the word would print "This
+  // festival has finished" on a course, and would contradict the og:description,
+  // which derives the same noun from the same three fields (endedShareDescription).
+  const endedFormat = endedSource ? endedSource.format : (snapshotPayload?.event?.format ?? null);
+  const endedType = endedSource ? endedSource.type : (snapshotPayload?.event?.type ?? null);
+  const endedCategory = endedSource
+    ? endedSource.category
+    : (snapshotPayload?.event?.category ?? null);
 
   // How much do we know about cancellation? THREE states, not two -- see
   // computeHeroDayStatus for why the distinction is load-bearing. Derived as a
@@ -2326,8 +2395,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // pure predicate, where the unit gate can reach them. This predicate was wrong
   // three commits running while it was inline here and untestable.
   const heroDayStatus = useMemo(
-    () => computeHeroDayStatus({ startKey, endKey, todayKey, isCancelled, cancellationState }),
-    [startKey, endKey, todayKey, isCancelled, cancellationState],
+    () => computeHeroDayStatus({ startKey, endKey, todayKey, isCancelled, cancellationState, isEnded }),
+    [startKey, endKey, todayKey, isCancelled, cancellationState, isEnded],
   );
 
   // The grid's day columns and its session days, as plain 'YYYY-MM-DD' keys.
@@ -2883,9 +2952,30 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
               // stamp: Google read startDate 1h late all BST season).
               startDate: startIso ?? "",
               isCancelled,
+              // Series-termination arc W14. buildEventJsonLd returns BEFORE the
+              // offers block when this is set, so `offers` below is passed and
+              // then dropped -- deliberately, so the decision has one owner
+              // rather than a second copy of the rule at this call site. Both of
+              // that function's offer branches assert availability: InStock, so
+              // without this a finished festival told Google its passes were on
+              // sale from the same document whose record card says it has ended.
+              isEnded,
               endDate: endIso,
-              description:
-                festivalDetail?.identity.description ?? festival.description ?? null,
+              // W14: the rich result must not keep the sales pitch on a page
+              // whose record card says the run has finished -- BentoPage makes
+              // exactly this swap, and its comment is the reasoning. Same
+              // sentence, same owner (endedRunSentence), same three fields the
+              // record card derives its noun from, so the page, the
+              // og:description and the structured data cannot disagree.
+              description: isEnded
+                ? endedRunSentence({
+                    format: endedFormat,
+                    type: endedType,
+                    category: endedCategory,
+                    ranFrom: endedRanFrom,
+                    endedOn,
+                  })
+                : (festivalDetail?.identity.description ?? festival.description ?? null),
               image: posterUrl ? [posterUrl] : null,
               venue: venue
                 ? {
@@ -3014,7 +3104,33 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
-        {/* CTAs */}
+        {/* CTAs -- or, for a series that has ended, the record card that REPLACES
+            them (series-termination arc W14).
+
+            Placed here rather than above the hero, where the cancelled banner
+            sits, because the two states want different treatments. A cancellation
+            is an alarm a visitor has to act on, so it is sticky and interrupts;
+            an ended run is a record, and the honest place for it is exactly where
+            the "Get Tickets" button would have been, directly under the date
+            line that gives it context. Substituting it there is also what stops
+            the defect this item names: the page cannot both say "finished" and
+            offer the sell, because they are the same slot.
+
+            The record is the ONLY thing in this branch -- no "Tickets TBA"
+            fallback, which on a finished festival would read as a promise. */}
+        {isEnded ? (
+
+          <div className="hero-ended">
+            <EventEndedRecord
+              className="ended-record"
+              runRange={endedRunRange}
+              eventFormat={endedFormat}
+              eventType={endedType}
+              eventCategory={endedCategory}
+            />
+          </div>
+
+        ) : (
 
         <div className="hero-cta">
 
@@ -3036,11 +3152,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
           )}
 
-          
+
 
         </div>
 
-        {calUrls && (
+        )}
+
+        {!isEnded && calUrls && (
           <div className="cal-cta">
             <details className="cal-wrap cal-wrap-desktop">
               <summary className="cal-pill" aria-label="Add to calendar" title="Add to calendar">
@@ -3072,7 +3190,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
           </div>
         )}
 
-        <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />
+        {/* W14: a discount code on a finished run is an offer that cannot be
+            taken. BentoPage drops promo codes on the same reasoning. */}
+        {!isEnded && <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />}
 
       </section>
 
@@ -3658,8 +3778,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
-      {/* Community — "Join the group chat" band (renders only when a link is set) */}
-      <FestivalGroupChatSection url={festivalDetail?.links.groupChatUrl ?? null} />
+      {/* Community — "Join the group chat" band (renders only when a link is set).
+          W14: not on an ended run. BentoPage hides its GroupChatBlock on the same
+          rule -- a dead date must not advertise a chat to join for it. */}
+      {!isEnded && <FestivalGroupChatSection url={festivalDetail?.links.groupChatUrl ?? null} />}
 
       {/* FAQ -- renders only when events.faq is populated (P10) */}
 
@@ -3767,11 +3889,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
-      {/* RAFFLE — festival-native slot-machine band (FestivalRaffleSection.tsx) */}
-      <FestivalRaffleSection eventId={festivalId} />
+      {/* RAFFLE — festival-native slot-machine band (FestivalRaffleSection.tsx).
+          W14: hidden on an ended run, exactly as BentoPage adds 'raffle' to its
+          hidden blocks when isEnded -- an entry form for a draw that has already
+          happened (or will never happen) is the clearest form of this defect. */}
+      {!isEnded && <FestivalRaffleSection eventId={festivalId} />}
 
-      {/* TICKETS */}
-      {(ticketUrl || passes.length > 0) && (
+      {/* TICKETS — the section W14 exists for. Promising "this festival has
+          finished" in the record card above and then rendering a priced pass
+          grid with a Get Tickets button below is worse than a stale invitation,
+          which is why the ended share copy was gated shut until this landed. */}
+      {!isEnded && (ticketUrl || passes.length > 0) && (
         <section className="tickets">
           <div className="lab">Now Booking</div>
           <h2>Reserve Your Pass.</h2>
@@ -3807,6 +3935,38 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       )}
 
 
+
+      {/* THE WAY OFF THE PAGE (arc W14, added after review).
+          EventEndedRecord's copy ends "Have a look at what else is on below",
+          and until this landed that promise was FALSE on this route: BentoPage
+          keeps it with a MoreEventsSection door plus a bottom strip, and this
+          page had neither -- while the same change suppressed the raffle, group
+          chat, promo codes and the whole tickets section, making a finished
+          festival a longer dead end than before, at the one moment an onward
+          link matters most. A tombstone must always offer a way off itself.
+
+          Ended only: a live festival's page ends on its ticket CTA, and that is
+          not a state this arc has any business restyling.
+
+          All three blocks, unlike BentoPage -- it splits them because it renders
+          the door ABOVE its grid and the strip below, and splitting avoids
+          showing the organiser twice. There is one instance here, so it carries
+          the lot. `pillIsTheWayOut` for the reason BentoPage gives: the
+          organiser strip and this-week can both legitimately come back empty (an
+          organiser whose only series just ended, in a quiet week), and the
+          calendar pill is what keeps the promise from being empty too. */}
+      {isEnded && (
+        <MoreEventsSection
+          pillIsTheWayOut
+          sectionLabel="Still running from this organiser"
+          fallbackSectionLabel="Other organisers in this city"
+          currentEventId={festivalId || null}
+          organiserId={organiserId}
+          organiserName={organiser?.displayName ?? null}
+          citySlug={festivalDetail?.location.city?.slug ?? null}
+          cityName={festivalDetail?.location.city?.name ?? festival.city ?? null}
+        />
+      )}
 
       <footer>
 
@@ -4017,10 +4177,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       <EventStickyActionBar
         eventId={festivalId || null}
         directionsUrl={directionsUrl}
-        ticketUrl={ticketUrl}
+        // W14: the sticky bar is the last surface that can still sell a finished
+        // run, and it follows the reader down the whole page. Directions and
+        // Share stay -- a record is a thing people still look up and pass on --
+        // but the ticket pill and add-to-calendar are actions on a date that
+        // will not happen. Same split BentoPage makes on `over`.
+        ticketUrl={isEnded ? null : ticketUrl}
         shareTitle={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
         shareSubtitle={shareSubtitle}
-        canAddToCalendar={!!calUrls}
+        canAddToCalendar={!isEnded && !!calUrls}
         onAddToCalendar={() => setIsCalSheetOpen(true)}
         accentColor="#fb923c"
       />

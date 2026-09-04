@@ -117,9 +117,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // early-returns a skeleton -- no h1, no JSON-LD in the crawled HTML at the
   // festival's sitemap-canonical URL. Sniff with the same helper the client
   // uses (useEventPage) and prefetch, in parallel with the og:image resolve.
-  // Computed ONCE and reused: the share-copy gate below needs the same answer,
-  // and the two drifting apart is a page that says "finished" over a page still
-  // selling passes (see buildEventShareDescription).
+  //
+  // It used to feed buildEventShareDescription too, gating the ended share copy
+  // shut for anything that routed to FestivalDetail. That gate is GONE (arc
+  // W14): FestivalDetail now renders the ended record and suppresses its passes
+  // grid, ticket CTAs, promo codes and offers node, so the share copy and the
+  // page agree whichever way the sniff goes. Its only remaining job here is the
+  // festival-event prefetch below.
   const isFestival = sniffIsFestival(snap, festivalDetail);
   const festivalPrefetch = isFestival
     ? qc.prefetchQuery({
@@ -149,7 +153,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
-      description: buildEventShareDescription(snap, isFestival),
+      description: buildEventShareDescription(snap),
       ogImage,
       slug,
     },

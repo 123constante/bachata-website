@@ -25,6 +25,10 @@ export interface HeroDayStatusInput {
   todayKey: string | null | undefined;
   isCancelled: boolean;
   cancellationState: CancellationState;
+  /** Series-termination arc W14: the SERIES has stopped for good
+   *  (event_series_p5.lifecycle_status = 'ended'). Optional, and absent means
+   *  false -- every caller that does not know about ended behaves as before. */
+  isEnded?: boolean;
 }
 
 /**
@@ -60,12 +64,28 @@ export const computeHeroDayStatus = ({
   todayKey,
   isCancelled,
   cancellationState,
+  isEnded = false,
 }: HeroDayStatusInput): HeroDayStatus => {
   // A cancelled festival makes no timing claim at all. Without this, a cancelled
   // mid-run festival rendered "Happening now" directly above its own cancellation
   // banner. The countdown this replaced hid itself once the start passed, so it
   // never contradicted the banner; a day-status line runs the whole event and does.
   if (isCancelled) return null;
+  // Nor does one that has ENDED, and for the same reason one line up (arc W14).
+  //
+  // This is not covered by the past-date branches below, and the gap is
+  // REACHABLE rather than theoretical. The keys this function reads come from
+  // get_public_festival_detail_v2's span, which _p5_festival_span_v1 derives from
+  // event_series_program_day_p5 -- the PROGRAMME days. The arc's P5a constraint
+  // trigger stops an ended series holding a future scheduled OCCURRENCE; it says
+  // nothing about programme days, so an ended festival whose programme still
+  // reads forward lands in `daysUntil > 0` and prints "In 20 days" directly above
+  // a record card saying it has finished. Observed exactly that way while
+  // browser-testing W14.
+  //
+  // Deliberately ABOVE the key validation: this is a claim we decline to make,
+  // not a computation we cannot perform.
+  if (isEnded) return null;
   // Still in flight: the detail query can resolve before the snapshot one, and
   // answering in that window is what flashed "Happening now" at a cancelled event.
   if (cancellationState === 'pending') return null;
