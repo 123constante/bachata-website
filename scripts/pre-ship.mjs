@@ -458,8 +458,18 @@ export const CHECK_SKIPS = {
  * "npx tsc --noEmit" reads a different tsconfig and reports 0, the false-green
  * this file's own header warns about; the ratchet's own
  * "react-router typegen && tsc -p tsconfig.app.json --noEmit" is what said 91.
+ *
+ * 91 -> 88 on 2026-09-04, offer taken a third time -- but note what this move is
+ * NOT. It is not a ship tightening the ratchet on its way past: main measured 88
+ * BEFORE arc W22 (at 4b5c356) and 88 after it (at 75b0f6d), so the three errors
+ * had already gone in some earlier merge and this constant simply lagged them.
+ * Every pre-ship run in between printed "lower TYPECHECK_BASELINE to 88" and was
+ * read as advice rather than a finding. A lagging ratchet is not slack, it is
+ * three errors of silent headroom a later ship could spend without tripping
+ * anything. Measured on the merge commit itself with the authoritative command,
+ * per the rule above -- a bare "npx tsc --noEmit" still reads 0 here.
  */
-export const TYPECHECK_BASELINE = 91;
+export const TYPECHECK_BASELINE = 88;
 
 const TSC_FILE_ERROR = /^[^\s(].*\([0-9]+,[0-9]+\): error TS[0-9]+/gm;
 const TSC_ANY_ERROR = /error TS[0-9]+/g;
