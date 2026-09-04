@@ -20,7 +20,7 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 
-import { useSeo, buildSeoForRoute, useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
+import { useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
 
 import { VideoEmbed } from "@/components/VideoEmbed";
 
@@ -2011,8 +2011,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 
 
-  const effectiveSnapshot = propSnapshot ?? snapshotPayload;
-
   // Whole-festival cancelled state -- from the parsed snapshot (camelCase, via
   // EventPage) or the raw event_view_p5 payload (snake_case, standalone
   // /festival/:id mount). Drives the visible banner + JSON-LD eventStatus.
@@ -2084,15 +2082,17 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const { data: festivalDetail } = useFestivalDetailQuery(festivalId, Boolean(festivalId));
 
-  useSeo(
-    buildSeoForRoute('festival.detail', {
-      entityName: festival?.name,
-      entitySlug: resolvedSlug ?? undefined,
-      cityDisplay: (festival?.city as string | null | undefined) ?? undefined,
-      ogImage: festival?.poster_url ?? undefined,
-      isLoading: isFestivalLoading,
-    }),
-  );
+  // No useSeo() here -- see the same note in BentoPage.tsx. Both URLs that
+  // serve this page (/festival/:id and /event/:id) are framework routes whose
+  // meta() owns the head: app/routes/festival.tsx builds the very same
+  // buildSeoForRoute('festival.detail', ...) input and swaps in W14's ended
+  // description over it. RouteOwnsHeadContext makes any useSeo() call in this
+  // subtree inert, so the one that stood here changed nothing (arc W17). Deleted
+  // rather than annotated-and-kept for the reason BentoPage.tsx gives: on an ended
+  // run this call's input and the route's meta() DISAGREE, so keeping it stores
+  // the defect instead of a fallback. That note also carries the correction worth
+  // reading before you generalise from either file -- the catchall route does not
+  // wrap, and useSeo is genuinely live on the pages it hosts.
 
 
 

@@ -4,7 +4,7 @@ import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BentoPage } from '@/modules/event-page/bento/BentoPage';
 import { useEventPage } from '@/modules/event-page/useEventPage';
-import { useSeo, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Festivals hit /event/:slugOrId when linked from calendars that don't know the type.
@@ -58,13 +58,12 @@ const EventPageInner = () => {
   // branches share the same query cache.
   const { isFestival, snapshot } = useEventPage(validId, requestedOccurrenceId);
 
-  // Emit noindex SEO when the URL param can't resolve to a real event (after
-  // the resolve query has settled). Avoids indexing /event/garbage-string.
-  useSeo(
-    notFound
-      ? { title: 'Event not found', description: 'This event link is invalid or has been removed.', noindex: true }
-      : null,
-  );
+  // No useSeo() noindex here any more. The route loader resolves the param
+  // server-side and throws 404 + X-Robots-Tag: noindex before this component
+  // renders (app/routes/event.tsx), so /event/garbage-string never reaches the
+  // branch below -- and useSeo() is inert on a framework route regardless
+  // (RouteOwnsHeadContext; arc W17). The fallback render stays for the case
+  // where the client resolve later contradicts the loader.
 
   if (resolving && !validId) {
     return <FestivalFallback />;
