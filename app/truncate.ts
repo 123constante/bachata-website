@@ -14,6 +14,25 @@
 // file's own header.
 const ELLIPSIS = String.fromCharCode(8230);
 
+/**
+ * The clip length for anything that lands in a document head description --
+ * `meta[name=description]`, `og:description`, `twitter:description`.
+ *
+ * 160 because app/routes/organiser.tsx already truncated its bio at 160 and was
+ * the only truncation in the repo, because Google renders roughly 155-160
+ * characters of a snippet anyway, and because one number across all three tags
+ * is easier to hold than three. Named rather than spelled three times for the
+ * reason this module exists at all: the last drift here was a hand-copied
+ * definition, and a hand-copied CONSTANT drifts exactly the same way.
+ *
+ * Sized against the longest string the app itself generates: the ended-run
+ * sentence (src/modules/event-page/endedShareDescription.ts) tops out at 142
+ * characters -- noun "masterclass" plus a two-full-date range -- so the clip
+ * cannot mangle it. What it is for is STORED copy, which is written to sell a
+ * run and has been measured at 5,536 characters on one live event.
+ */
+export const HEAD_DESCRIPTION_MAX = 160;
+
 /** Trim `text`, then clip to `max` characters with a trailing ellipsis if it
  *  overflows. Returns '' for null/undefined/blank input. */
 export function truncate(text: string | null | undefined, max: number): string {

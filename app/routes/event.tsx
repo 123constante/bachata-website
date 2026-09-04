@@ -9,6 +9,7 @@ import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-pag
 import type { EventPageSnapshot, FestivalDetail } from "@/modules/event-page/types";
 import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@/modules/event-page/festivalEventQuery";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
@@ -153,7 +154,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
-      description: buildEventShareDescription(snap),
+      // Clipped HERE, at the input, rather than inside seoInputToMeta or the
+      // meta() below. The stored description is long-form marketing prose --
+      // it is written to SELL the run, and one live event ships 5,536
+      // characters of it -- and buildEventShareDescription returns it raw.
+      // seoMeta's helper is shared by every route and should keep emitting
+      // what it is handed, so the route that knows the copy is unbounded is
+      // the one that bounds it. One clip covers both tags meta() emits below.
+      //
+      // `|| null` because truncate() returns '' for blank input and meta()
+      // falls back with `??`, which does not fire on '': without it a
+      // description-less event would ship an EMPTY description tag instead of
+      // the generic sentence. The ended-run sentence is unaffected either way
+      // -- measured at 142 characters worst-case, see HEAD_DESCRIPTION_MAX.
+      description: truncate(buildEventShareDescription(snap), HEAD_DESCRIPTION_MAX) || null,
       ogImage,
       slug,
     },

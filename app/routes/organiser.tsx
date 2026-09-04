@@ -26,7 +26,7 @@ import {
 } from "../detailLoader";
 import { stampOrganiser, ORGANISERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
-import { truncate } from "../truncate";
+import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import type { Route } from "./+types/organiser";
 
 // -- Why this loader exists --------------------------------------------------
@@ -150,7 +150,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       // serves it to bots today. Without this the matcher retirement would be a
       // DOWNGRADE for every organiser who wrote one: they would trade a real
       // description for the generic "<name> runs bachata events in <city>".
-      bioDescription: truncate(row.bio as string | null, 160) || undefined,
+      bioDescription: truncate(row.bio as string | null, HEAD_DESCRIPTION_MAX) || undefined,
       ogImage: normalizeOgImage({
         rawUrl: row.avatar_url as string | null,
         request,
