@@ -15,7 +15,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
+import { SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 
 interface StyleMeta {
   slug: "sensual" | "dominican";
@@ -122,9 +122,10 @@ const STYLES: Record<string, StyleMeta> = {
   },
 };
 
-// Shared with the framework route (app/routes/bachata-style-parties.tsx) so the
-// route's meta() and the client useSeo() derive identical head tags from the
-// pathname. Canonical now uses SITE_ORIGIN -- the old hardcoded host was
+// The head input for both /bachata-london-{sensual,dominican}-parties. Its sole
+// consumer is the framework route's meta() (app/routes/bachata-style-parties.tsx);
+// it was shared with a client useSeo() call here too until arc W22 deleted that
+// call as inert. Canonical uses SITE_ORIGIN -- the old hardcoded host was
 // non-www, contradicting the site-wide www canonical.
 export function styleSeoInput(pathname: string): SeoInput {
   const styleMatch = pathname.match(/\/bachata-london-(sensual|dominican)-parties/);
@@ -144,7 +145,11 @@ const BachataStyleParties = () => {
   const styleMatch = location.pathname.match(/\/bachata-london-(sensual|dominican)-parties/);
   const meta = styleMatch ? STYLES[styleMatch[1]] : undefined;
 
-  useSeo(styleSeoInput(location.pathname));
+  // No useSeo() here: this page renders only under app/routes/bachata-style-parties.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from the
+  // same styleSeoInput(pathname) above. Which useSeo calls are inert and which are
+  // live is a census, not a rule of thumb -- see BentoPage.tsx (arc W22).
 
   if (!meta) {
     return (

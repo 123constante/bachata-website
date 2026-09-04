@@ -11,8 +11,9 @@ import type { Route } from "./+types/bachata-weekday";
 // ONE module serving all seven weekday landing pages (registered per path in
 // app/routes.ts with explicit ids weekday-monday ... weekday-sunday):
 //   /bachata-london-{monday|tuesday|...|sunday}
-// meta() derives the weekday from the pathname via the same helper the page's
-// useSeo() uses, so server and client emit identical head tags.
+// meta() derives the weekday from the pathname via weekdaySeoInput, and is that
+// helper's only consumer: the page called it through useSeo() too until arc W22,
+// which no-opped under this route's InitialVisiblePageTransition and was deleted.
 //
 // On-demand SSR + tagged ISR (moved off build-time prerender, which shipped
 // "(0 events)" and zero /event/ links as the INDEXED HTML -- the whole point of

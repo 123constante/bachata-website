@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
-import { resolvePublicName } from '@/lib/publicName';
+import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import {
   Dialog,
   DialogContent,
@@ -548,20 +547,18 @@ const OrganiserProfile = () => {
     return earliest === null ? null : new Date(earliest).getFullYear();
   }, [allEvents]);
 
-  useSeo(buildSeoForRoute('organiser.detail', {
-    // resolvePublicName, not entity?.name -- mirrors app/routes/organiser.tsx's
-    // loader (the SSR path this same ['entity', id] cache entry hydrates).
-    // Currently a no-op: this component only ever renders inside
-    // InitialVisiblePageTransition, which sets RouteOwnsHeadContext=true, so
-    // useSeo short-circuits before reading entityName. Kept correct anyway so a
-    // nameless organiser can't reopen the soft-404 this branch closes elsewhere
-    // if that wrapper invariant ever changes.
-    entityName: entity ? (resolvePublicName(entity) ?? undefined) : undefined,
-    entitySlug: resolved.slug ?? id ?? undefined,
-    cityDisplay: entity?.cities?.name ?? undefined,
-    ogImage: entity?.avatar_url ?? undefined,
-    isLoading,
-  }));
+  // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's loader + meta() own it,
+  // running resolvePublicName over the same ['entity', id] row this page hydrates,
+  // so the nameless-organiser soft-404 is closed on the served HTML.
+  //
+  // A call stood here, annotated as inert but 'kept correct anyway' in case the
+  // wrapper invariant changed. That claimed more than it could: the route's meta()
+  // overrides `description` with the truncated bio and has a locked / no-data
+  // branch, so a woken call would contradict the document rather than back it up.
+  // Deleted for the reason BentoPage.tsx gives, whose census also says which
+  // useSeo calls are LIVE -- do not generalise from route type (arc W22).
 
   const handleClaim = async () => {
     if (!id || !user?.id) return;

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
   DANCER_PUBLIC_COLS,
@@ -77,13 +77,12 @@ const DancerProfile = () => {
   });
   const { user } = useAuth();
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
-  const _dancerSeo = buildSeoForRoute('dancer.detail', {
-    entityName: dancerView?.displayName ?? undefined,
-    entitySlug: resolved.slug ?? id ?? undefined,
-    ogImage: dancer?.avatar_url ?? undefined,
-    isLoading,
-  });
-  useSeo(_dancerSeo);
+  // No useSeo() here: DancerProfile renders only under app/routes/dancers.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's loader + meta() own it,
+  // building the same buildSeoForRoute('dancer.detail', ...) input from the row it
+  // already fetched. Which useSeo calls are inert and which are live is a census,
+  // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
 
 

@@ -17,7 +17,7 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { useSeo, SITE_ORIGIN, type SeoInput } from '@/lib/seo';
+import { SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 import { eventHref } from '@/lib/seo/eventHref';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { type WallClock, formatWallClockLocalIntl, wallClockDateKey } from '@/lib/time/wallClock';
@@ -117,9 +117,9 @@ const ItemListJsonLd = ({ events, canonicalBase }: ItemListJsonLdProps) => {
   );
 };
 
-// Shared with the framework route (app/routes/bachata-weekday.tsx) so the
-// route's meta() and the client useSeo() derive identical head tags from the
-// pathname -- one source for all seven /bachata-london-{weekday} pages.
+// The head input for all seven /bachata-london-{weekday} pages. Its sole consumer
+// is the framework route's meta() (app/routes/bachata-weekday.tsx); it was shared
+// with a client useSeo() call here too until arc W22 deleted that call as inert.
 export function weekdaySeoInput(pathname: string): SeoInput {
   const weekdayMatch = pathname.match(/^\/bachata-london-([a-z]+)\/?$/i);
   const meta = weekdayMatch ? WEEKDAYS[weekdayMatch[1].toLowerCase()] : undefined;
@@ -186,7 +186,12 @@ const BachataWeekday = ({ serverTodayKey }: { serverTodayKey?: string }) => {
     ? `${SITE_ORIGIN}/bachata-london-${meta.slug}`
     : `${SITE_ORIGIN}/`;
 
-  useSeo(weekdaySeoInput(location.pathname));
+  // No useSeo() here: this page renders only under app/routes/bachata-weekday.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from the
+  // same weekdaySeoInput(pathname) above. The `canonical` built just above is still
+  // live: it feeds the ItemList JSON-LD below, not the head. Which useSeo calls are
+  // inert and which are live is a census, not a rule of thumb -- BentoPage.tsx (W22).
 
   if (!meta) {
     return (

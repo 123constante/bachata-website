@@ -164,10 +164,15 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // which sets RouteOwnsHeadContext, and useSeo() returns before touching the head
   // under it. Read that qualifier as load-bearing: routes/catchall.tsx is a
   // framework route too and deliberately does NOT wrap, so the pages it hosts still
-  // use useSeo as their SOLE head manager. Counted across all 33 components that
-  // call useSeo, because the shape matters more than the total:
+  // use useSeo as their SOLE head manager. Counted across the 33 components that
+  // called useSeo when this census was taken -- 18 still do -- because the shape
+  // matters more than the total:
   //
-  //   15  reachable ONLY through a framework route -- inert. These three are them.
+  //   15  reachable ONLY through a framework route -- inert, and all 15 are now
+  //       deleted: these three in W17/W19, the other 12 in W22 (the six seo/
+  //       landing pages, FestivalHub, and the five detail pages -- Dancer, DJ,
+  //       Teacher, Organiser, VenueEntity). Nothing is left in this bucket, so a
+  //       useSeo call you find today is LIVE on at least one of its URLs.
   //   15  reachable ONLY through the catchall -- LIVE (Dancers, DJs, SearchResults,
   //       Venues, Tonight, Cities, ...). Deleting one drops that page's title,
   //       description and canonical to root.tsx's site-wide defaults.

@@ -9,8 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import {
-  useSeo,
-  buildSeoForRoute,
   useEntitySlugOrId,
   useCanonicalReplaceState,
   SITE_ORIGIN,
@@ -410,17 +408,12 @@ const VenueEntity = () => {
     enabled: mounted && !!id && !!venue,
   });
 
-  useSeo(
-    buildSeoForRoute('venue.detail', {
-      entityName: venue?.name,
-      entitySlug: resolved.slug ?? id ?? undefined,
-      cityDisplay: venue?.city_name ?? undefined,
-      ogImage: Array.isArray(venue?.image_url)
-        ? venue?.image_url[0]
-        : (venue?.image_url ?? undefined),
-      isLoading,
-    }),
-  );
+  // No useSeo() here: VenueEntity renders only under app/routes/venue-entity.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's loader + meta() own it,
+  // including the noindex-when-locked branch behind its ComingSoonGate. Which
+  // useSeo calls are inert and which are live is a census, not a rule of thumb --
+  // see BentoPage.tsx before deleting another (arc W22).
 
   const backHref = fromEventId ? '/event/' + fromEventId : '/venues';
 

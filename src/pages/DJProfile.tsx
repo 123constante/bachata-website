@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { useSeo, buildSeoForRoute, useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
@@ -111,13 +111,12 @@ const DJProfile = () => {
   const resolvedName = dj ? resolvePublicName(dj) : null;
   const displayName = resolvedName ?? 'DJ';
 
-  const _djSeo = buildSeoForRoute('dj.detail', {
-    entityName: resolvedName ?? undefined,
-    entitySlug: resolved.slug ?? id ?? undefined,
-    ogImage: firstPhoto(dj?.photo_url ?? null) ?? undefined,
-    isLoading,
-  });
-  useSeo(_djSeo);
+  // No useSeo() here: DJProfile renders only under app/routes/djs.tsx, which wraps
+  // in InitialVisiblePageTransition and so sets RouteOwnsHeadContext -- useSeo
+  // returns before touching the head. That route's loader + meta() own it, and run
+  // resolvePublicName over the same row, so the UUID-as-name guard above holds on
+  // the served HTML too. Which useSeo calls are inert and which are live is a
+  // census, not a rule of thumb -- see BentoPage.tsx (arc W22).
 
   const djBreadcrumbs = buildBreadcrumbs('dj.detail', {
     entityName: resolvedName ?? undefined,
