@@ -109,48 +109,32 @@ export default function CityMap() {
     [setParams],
   );
 
-  /** Did WE push the entry that is currently on top? Only then may closing the
-   *  panel pop it. A visitor who landed directly on a ?venue= link has no entry
-   *  of ours underneath, and navigate(-1) there would walk them off the site. */
-  const pushedRef = useRef(false);
-
   const selectVenue = useCallback(
     (rep: string | null) => {
       // Re-selecting the open venue is not a new place, so it must not stack a
       // second entry that back would then have to pop twice.
       if (rep === selected) return;
 
+      // CLOSING REPLACES; it does not pop. An earlier draft called
+      // navigate(-1) to leave no residue, and that discarded the WHOLE query
+      // string with it -- so a filter set while the panel was open vanished
+      // when the panel did (measured: tap a pin, tap Parties, close, and
+      // ?type=parties was gone). Replacing keeps every other parameter, and
+      // back still means "the state before I opened this", which is what back
+      // should mean anyway.
       if (rep == null) {
-        // CLOSING. Pop our own entry when we own one, so the panel session
-        // leaves no residue: without this, select-then-close leaves an entry
-        // whose only effect is a back press that appears to do nothing.
-        if (pushedRef.current) {
-          pushedRef.current = false;
-          navigate(-1);
-          return;
-        }
         patch({ venue: null }, false);
         return;
       }
 
-      // Opening from nothing pushes ONE entry for the whole panel session;
-      // moving pin-to-pin inside that session replaces, so back is never a way
-      // to walk backwards through every pin the visitor tried.
-      if (selected == null && !pushedRef.current) {
-        pushedRef.current = true;
-        patch({ venue: rep }, true);
-        return;
-      }
-      patch({ venue: rep }, false);
+      // Opening from nothing PUSHES one entry, which is what makes the
+      // hardware back button close the panel instead of leaving the page.
+      // Moving pin-to-pin replaces, so back is never a walk backwards through
+      // every pin the visitor tried.
+      patch({ venue: rep }, selected == null);
     },
-    [patch, selected, navigate],
+    [patch, selected],
   );
-
-  // A back/forward that changes the venue param out from under us must not
-  // leave pushedRef claiming an entry we no longer sit on.
-  useEffect(() => {
-    if (selected == null) pushedRef.current = false;
-  }, [selected]);
 
   // ---- data ---------------------------------------------------------------
   const rangeStart = todayKey;
