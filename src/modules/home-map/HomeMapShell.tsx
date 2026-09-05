@@ -357,7 +357,17 @@ export default function HomeMapShell({
             {/* citySlug is non-null here by construction: showMapCard gates this
                 whole block on it. The assertion is the narrowing TypeScript
                 cannot do across that boundary, not a claim about the data. */}
-            <HomeMapCard state={state} cityName={cityName} citySlug={citySlug as string} />
+            <HomeMapCard
+              state={state}
+              cityName={cityName}
+              citySlug={citySlug as string}
+              /* The card derives its headline from the rows it was given, and
+                 an empty array is indistinguishable from "no events" -- so on a
+                 failed or in-flight fetch it asserted "0 venues on the map" and
+                 "0 tonight" beside the feed's own RetryNotice, stating a fact
+                 about London next to a notice saying we could not load it. */
+              notReady={loading || error ? (error ? 'error' : 'loading') : null}
+            />
           </Suspense>
         ) : (
           /* SHELL DARK HERE ON PURPOSE, and deliberately NOT the #4d4d4f the two

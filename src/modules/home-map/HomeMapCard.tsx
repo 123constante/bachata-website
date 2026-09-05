@@ -62,10 +62,16 @@ export default function HomeMapCard({
   state,
   cityName,
   citySlug,
+  notReady = null,
 }: {
   state: UseMapListResult;
   cityName: string;
   citySlug: string;
+  /** 'loading' or 'error' when the rows behind this card are not trustworthy;
+   *  null once they are. The card counts what it was GIVEN, and an empty array
+   *  reads exactly like "no events on in London" -- so without this the title
+   *  claimed a measured zero next to the feed's own retry notice. */
+  notReady?: 'loading' | 'error' | null;
 }) {
   const navigate = useNavigate();
 
@@ -92,11 +98,19 @@ export default function HomeMapCard({
       ? `/city/${citySlug}/map?from=tonight`
       : `/city/${citySlug}/map`;
 
-  const title = tonightIsEmpty
-    ? `Nothing on tonight \u2014 ${drawn} venues on the map`
-    : state.tab === 'tonight'
-      ? `${drawn} venues tonight`
-      : `${drawn} venues on the map`;
+  // A COUNT IS A CLAIM, so it is only made about rows we actually have.
+  // While the fetch is in flight or has failed, `drawn` is 0 because the
+  // array is empty -- not because London is empty -- and the card used to
+  // say so in confident numbers beside the feed's own retry notice.
+  const title = notReady
+    ? notReady === 'error'
+      ? 'The map could not load'
+      : `Loading the map\u2026`
+    : tonightIsEmpty
+      ? `Nothing on tonight \u2014 ${drawn} venues on the map`
+      : state.tab === 'tonight'
+        ? `${drawn} venues tonight`
+        : `${drawn} venues on the map`;
 
   // THE LADDER, and why Tonight normally has no chips. Measured over 28 days,
   // the event count equalled the venue count on 25 of them -- so a "N tonight"
@@ -106,7 +120,8 @@ export default function HomeMapCard({
   // The empty-Tonight case is the exception and gets the ladder back: when the
   // answer is "nothing", "13 in the next 3 days" is the useful next thing to
   // say, and a dead end is the one outcome this card must not produce.
-  const showLadder = state.tab !== 'tonight' || tonightIsEmpty;
+  // Chips are counts too, so they go with the title on a bad fetch.
+  const showLadder = !notReady && (state.tab !== 'tonight' || tonightIsEmpty);
 
   const openMap = useCallback(() => navigate(mapHref), [navigate, mapHref]);
 

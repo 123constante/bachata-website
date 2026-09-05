@@ -402,3 +402,24 @@
 .home-map--compact .rpin-stack::after { transform: translate(7px, -7px); }
 .home-map--compact .rpin-count {
   top: -6px; right: -6px; min-width: 17px; height: 17px; font-size: 10.5px; border-width: 1.25px; }
+
+/* THE TEASER'S HOOK BAR -- the gradient scrim under the title, chips and CTA.
+   Position and padding come from the JSX's Tailwind classes; this rule is the
+   half that cannot: a gradient the text has to be legible against.
+
+   It was MISSING. The class was on the element and defined nowhere, so the
+   white title and the chips rendered straight onto Esri's basemap -- legible
+   over dark water, unreadable over pale streets, and varying with wherever the
+   visitor happened to pan. Found at review; the prototype the design was judged
+   from carried this gradient all along.
+
+   pointer-events stays off (set in the JSX) so the scrim never eats a drag that
+   starts low in the card; only the CTA inside it takes pointer events. */
+.hm-hook {
+  background: linear-gradient(
+    to top,
+    rgba(8, 9, 13, 0.93) 12%,
+    rgba(8, 9, 13, 0.55) 55%,
+    transparent
+  );
+}
