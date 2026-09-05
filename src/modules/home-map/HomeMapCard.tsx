@@ -68,7 +68,6 @@ export default function HomeMapCard({
   citySlug: string;
 }) {
   const navigate = useNavigate();
-  const mapHref = `/city/${citySlug}/map`;
 
   // TONIGHT, WITH NOTHING ON. Some weeknights the tab's filter is empty, and an
   // empty map with no message is indistinguishable from a broken one -- which is
@@ -80,6 +79,18 @@ export default function HomeMapCard({
   const visible = tonightIsEmpty ? allOccIds : state.mapVisible;
 
   const drawn = useMemo(() => drawnVenueCount(state.pins, visible), [state.pins, visible]);
+
+  // THE HANDOFF. Opening from the Tonight tab carries that filter to the map
+  // page, which shows it as a REMOVABLE chip -- arriving at a near-empty map
+  // with no way to see or drop a filter you did not set is indistinguishable
+  // from a map that is simply missing venues.
+  // Not carried when tonight is empty: the card is drawing every venue in that
+  // state and saying so, and handing over a filter that yields nothing would
+  // make the map page contradict the card that opened it.
+  const mapHref =
+    state.tab === 'tonight' && !tonightIsEmpty
+      ? `/city/${citySlug}/map?from=tonight`
+      : `/city/${citySlug}/map`;
 
   const title = tonightIsEmpty
     ? `Nothing on tonight \u2014 ${drawn} venues on the map`

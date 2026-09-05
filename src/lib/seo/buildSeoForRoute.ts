@@ -62,6 +62,14 @@ const SPECS: Record<string, Spec> = {
     description: (c) => `Every bachata venue in ${city(c)} - dance floors, addresses, opening nights and what's on at each.`,
     path: () => '/venues',
   },
+  'city.map': {
+    title: (c) => `Bachata Map of ${city(c)}`,
+    description: (c) =>
+      `Every bachata venue in ${city(c)} on one map - find what's on near you, see each venue's regular nights, and filter by parties, classes or courses.`,
+    // The real path carries the city slug, so the page passes canonicalPath and
+    // this is only the fallback for a build with no city in hand.
+    path: (c) => `/city/${c.entitySlug ?? 'london-gb'}/map`,
+  },
   teachers: {
     title: (c) => `Bachata Teachers in ${city(c)}`,
     description: (c) => `Bachata teachers in ${city(c)} - find an instructor, browse their classes, learn their style.`,

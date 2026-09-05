@@ -82,7 +82,7 @@ import {
   CATEGORY_LABEL,
   formatTimeRange,
 } from './mapTypes';
-import { groupPinsByLocation } from './mapListDerivations';
+import { groupPinsByLocation, type LocationGroup } from './mapListDerivations';
 import { TILE_URL, TILE_REF_URL, TILE_MAX_NATIVE_ZOOM, ATTR } from './basemapTiles';
 import {
   VECTOR_ATTR,
@@ -129,9 +129,23 @@ interface EventMapProps {
   onClusterSelect?: (occIds: string[]) => void;
   center?: [number, number];
   zoom?: number;
-  /** 'popup' (desktop): Leaflet popup on pin tap. 'none' (mobile): no popup --
-   *  the parent renders an inline preview card; a background tap clears it. */
-  popupMode?: 'popup' | 'none';
+  /** 'popup': a Leaflet popup bound per marker on pin tap. 'none': no popup --
+   *  the parent renders an inline preview card; a background tap clears it.
+   *  'venue' (/city/:slug/map): ONE standalone popup per location, whose body
+   *  the PAGE supplies via venuePanelHtml. See the venue branch in the marker
+   *  effect for why it is a standalone popup and not bindPopup. */
+  popupMode?: 'popup' | 'none' | 'venue';
+  /** VENUE MODE. The panel body for a tapped location. The page builds it
+   *  because the page owns the night derivation and the venue-link lookup;
+   *  EventMap owns Leaflet and nothing else. Any element inside carrying a
+   *  `data-href` is wired for navigation when the popup opens. */
+  venuePanelHtml?: (g: LocationGroup) => string;
+  /** VENUE MODE. A `data-href` row inside the panel was activated. */
+  onPanelNavigate?: (href: string) => void;
+  /** VENUE MODE. The tapped location's representative occurrence_id, or null
+   *  when the panel closed. The page holds this as its selection and pushes a
+   *  history entry for it, so BACK closes the panel before leaving the page. */
+  onVenueSelect?: (repOccId: string | null) => void;
   /** Smaller pins + clusters for the mobile inset map card. */
   compact?: boolean;
   /** Constrain panning (mobile: keep the city in view). */
@@ -160,6 +174,36 @@ const PIN_SVG =
   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 const ARROW_SVG =
   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+/** VENUE MODE: anchor one standalone panel to a marker.
+ *
+ *  Standalone rather than bindPopup because bindPopup also installs Leaflet's
+ *  own click -> _openPopup on the marker, which fights ours -- measured in the
+ *  prototype, where the SECOND tap on a pin left no popup in the DOM at all.
+ *  `_rep` is stamped on the popup so popupclose can tell a dismissal from a
+ *  replacement. */
+function openVenuePopup(m: L.Map, mk: L.Marker, html: string, rep: string): void {
+  const popup = L.popup({
+    className: 'rmap-pop rmap-venue',
+    // Fixed rather than a range: at Leaflet's default the night names wrapped to
+    // three lines and the panel read as far worse than it is -- measured in the
+    // prototype, which is why the number is pinned rather than left to content.
+    maxWidth: 268,
+    minWidth: 268,
+    keepInView: true,
+    autoPanPadding: [24, 24],
+    // The caller's `selected` owns every close path. Leaflet's own
+    // autoClose/closeOnClick would fire popupclose from a second source and
+    // race it.
+    autoClose: false,
+    closeOnClick: false,
+  })
+    .setLatLng(mk.getLatLng())
+    .setContent(html);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (popup as any)._rep = rep;
+  m.openPopup(popup);
+}
 
 /** Escape user-supplied strings flowing into Leaflet innerHTML (XSS guard). */
 function esc(s: string | null | undefined): string {
@@ -392,6 +436,9 @@ export default function EventMap({
   userCoords,
   teaser = false,
   onTeaserTap,
+  venuePanelHtml,
+  onPanelNavigate,
+  onVenueSelect,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -406,15 +453,38 @@ export default function EventMap({
   // The markers currently added to the cluster group (drives fit-to-pins).
   const shownRef = useRef<L.Marker[]>([]);
   const didInitialFit = useRef(false);
+  // VENUE MODE: the repOccId whose panel is currently open, so a close event
+  // can tell "the user dismissed this" from "a newer panel replaced it".
+  const openRepRef = useRef<string | null>(null);
+  // Bumped when a clustered marker has been revealed. The highlight effects run
+  // off `selected`, which does NOT change across a reveal, so without this the
+  // ring is applied to an _icon that did not exist yet and never re-applied.
+  const [revealTick, setRevealTick] = useState(0);
   // Stash the map's fit-to-visible-pins fn so the visibility effect (which runs
   // outside the init closure) can trigger the one-time initial framing.
   const fitRef = useRef<((animate: boolean) => void) | null>(null);
-  const cb = useRef({ onSelect, onHover, onOpenEvent, onClusterSelect, onTeaserTap });
+  const cb = useRef({
+    onSelect,
+    onHover,
+    onOpenEvent,
+    onClusterSelect,
+    onTeaserTap,
+    venuePanelHtml,
+    onPanelNavigate,
+    onVenueSelect,
+  });
   cb.current.onSelect = onSelect;
   cb.current.onHover = onHover;
   cb.current.onOpenEvent = onOpenEvent;
   cb.current.onClusterSelect = onClusterSelect;
   cb.current.onTeaserTap = onTeaserTap;
+  // Re-read every render for the same reason the others are here: the init
+  // effect runs once with [] deps, so a closure captured there would hold the
+  // FIRST venuePanelHtml forever -- and that one closes over the first render's
+  // rows, which on this page is the empty array React Query starts with.
+  cb.current.venuePanelHtml = venuePanelHtml;
+  cb.current.onPanelNavigate = onPanelNavigate;
+  cb.current.onVenueSelect = onVenueSelect;
 
   // Fingerprint occurrence_id AND updated_at so a CONTENT-only change (cover
   // swap, cancellation, time edit) on an event already on the map re-triggers the
@@ -737,6 +807,18 @@ export default function EventMap({
         cb.current.onTeaserTap?.();
         return;
       }
+      // VENUE MODE: a cluster tap ALWAYS zooms and never selects. The rule is
+      // flat on purpose -- the alternative below picks between zooming and
+      // listing a colocated bundle, and on this page a bundle already has a
+      // per-venue panel that a zoom can reach. One behaviour means a user
+      // learns "tapping a number zooms in" from the first tap and it stays
+      // true, instead of a control that usually zooms and occasionally does
+      // something else. Same-coord venues are separated by the marker effect's
+      // venue-mode offset, so the zoom always has somewhere to land.
+      if (popupMode === 'venue') {
+        ev.layer.zoomToBounds({ padding: [48, 48], animate: !prefersReducedMotion() });
+        return;
+      }
       const cluster = ev.layer;
       const children = cluster.getAllChildMarkers();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -875,6 +957,65 @@ export default function EventMap({
       // (Marker/cluster clicks don't bubble to the map 'click', so this only fires
       // on empty map.)
       m.on('click', () => cb.current.onSelect?.(null));
+    } else if (popupMode === 'venue') {
+      // A tap on empty ground clears the selection, which closes the panel via
+      // the sync effect below. Marker and cluster clicks do not bubble here, so
+      // this only ever fires on bare map.
+      m.on('click', () => cb.current.onVenueSelect?.(null));
+
+      // Leaflet's own close button, and the implicit close when another pin is
+      // tapped, both land here. Report the clear only when the popup that
+      // closed is still the one we believe is open: opening B over A fires
+      // close(A) BEFORE open(B), so an unguarded null would race the new
+      // selection on every pin-to-pin tap.
+      m.on('popupclose', (e: L.PopupEvent) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rep = (e.popup as any)._rep as string | undefined;
+        if (!rep || openRepRef.current !== rep) return;
+        openRepRef.current = null;
+        cb.current.onVenueSelect?.(null);
+      });
+
+      m.on('popupopen', (e: L.PopupEvent) => {
+        const el = e.popup.getElement();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        openRepRef.current = ((e.popup as any)._rep as string | undefined) ?? null;
+        if (!(el instanceof HTMLElement)) return;
+        // iOS Safari dead-tap fix -- the same one the desktop popup path below
+        // carries, and it is NOT optional here: on a real iPhone WebKit
+        // computes pointer-events:none on the Leaflet popup subtree where
+        // Chromium computes auto on identical DOM, so every row in this panel
+        // is dead to touch and the taps land on <html>. Neither Chromium nor
+        // Playwright's hasTouch reproduces it; the receipt is hardware.
+        el.style.pointerEvents = 'auto';
+        const panel = el.querySelector('.vpanel');
+        if (panel instanceof HTMLElement) panel.style.pointerEvents = 'auto';
+
+        // Every row that declares a destination gets both listeners. Leaflet's
+        // touch handling suppresses the synthetic click inside a popup on
+        // mobile, so `click` alone is a dead panel on a phone; preventDefault
+        // on the touch path stops the later synthetic click firing it twice.
+        const rows = Array.from(el.querySelectorAll('[data-href]'));
+        const wired: { node: Element; fn: (ev: Event) => void }[] = [];
+        for (const node of rows) {
+          const fn = (rev: Event) => {
+            const href = node.getAttribute('data-href');
+            if (!href) return;
+            rev.preventDefault();
+            rev.stopPropagation();
+            cb.current.onPanelNavigate?.(href);
+          };
+          node.addEventListener('touchstart', fn);
+          node.addEventListener('click', fn);
+          wired.push({ node, fn });
+        }
+        m.once('popupclose', () => {
+          for (const w of wired) {
+            w.node.removeEventListener('touchstart', w.fn);
+            w.node.removeEventListener('click', w.fn);
+          }
+        });
+      });
     } else {
       m.on('popupopen', (e: L.PopupEvent) => {
         const el = e.popup.getElement();
@@ -1016,7 +1157,21 @@ export default function EventMap({
     const next = new Map<string, L.Marker>();
     const occIdx = new Map<string, L.Marker>();
     for (const g of groups) {
-      const off = g.offsetIndex * 0.00002;
+      // COINCIDENT VENUES. Two venues at one address share a rounded coord, so
+      // without an offset the second marker sits exactly under the first and is
+      // unreachable at every zoom -- silently and permanently.
+      //
+      // 0.00002deg is ~2m, which separates nothing a finger can use; it exists
+      // so markercluster still bundles them. That is fine where a colocated
+      // bundle has its own list (popupMode 'popup'/'none'), and NOT fine here,
+      // where each venue owns a panel that can only be opened from its own pin.
+      // Venue mode uses 0.00025deg. Applied to both axes at London's latitude
+      // that is 27.8m of latitude and 17.3m of longitude, so ~33m apart on the
+      // diagonal; taking the conservative latitude component alone it is 37px
+      // at the cluster group's disableClusteringAtZoom of 17 and 75px at 18.
+      // Either way the pins are separately tappable by the zoom a cluster tap
+      // lands on, which is the property that matters.
+      const off = g.offsetIndex * (popupMode === 'venue' ? 0.00025 : 0.00002);
       // TEASER pins are DECORATION. They are what makes the card say "here is
       // where things are", and nothing more: no click handler, no keyboard stop,
       // no tooltip. That is not a simplification, it is what makes "any tap
@@ -1048,7 +1203,13 @@ export default function EventMap({
                 : `${CATEGORY_LABEL[deriveCategory(g.rep)]}: ${g.rep.name}`,
             }),
       });
-      if (popupMode !== 'none') {
+      // 'popup' only. Venue mode deliberately does NOT bindPopup: bindPopup
+      // also installs Leaflet's own click -> _openPopup handler on the marker,
+      // which then runs alongside ours and fights it -- measured in the
+      // prototype, where the SECOND tap on a pin left no popup in the DOM at
+      // all. Venue mode opens a standalone L.popup from the selection effect
+      // instead, so there is exactly one thing deciding what is open.
+      if (popupMode === 'popup') {
         if (g.isStack) {
           mk.bindPopup(stackPopupHtml(g.members), {
             className: 'rmap-pop rmap-stack',
@@ -1069,6 +1230,7 @@ export default function EventMap({
       }
       /* eslint-disable @typescript-eslint/no-explicit-any */
       (mk as any)._occ = g.repOccId;
+      (mk as any)._group = g;
       (mk as any)._members = new Set(g.memberOccs);
       (mk as any)._stackAll = g.members;
       (mk as any)._stack = g.members;
@@ -1079,6 +1241,15 @@ export default function EventMap({
       // A multi-event location lists its events; a single one selects/previews.
       // Stacks don't fire onSelect (avoids a stale .sel ring under the open list).
       mk.on('click', () => {
+        // VENUE MODE: one rule for every pin, stacked or not. The page's
+        // selection is the single source of truth for what is open -- this
+        // reports the tap and the sync effect below opens the panel, so a
+        // selection made from the LIST under the map and one made from a pin
+        // travel the identical path.
+        if (popupMode === 'venue') {
+          cb.current.onVenueSelect?.(g.repOccId);
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const stack = (mk as any)._stack as MapEvent[];
         if (stack && stack.length >= 2) {
@@ -1195,6 +1366,58 @@ export default function EventMap({
     });
   }, [hovered, visKey, eventsKey]);
 
+  // ---- VENUE MODE: the open panel is a pure function of `selected` ----------
+  // Declarative on purpose. A pin tap, a list-row tap, a browser BACK that pops
+  // the panel's history entry, and Leaflet's own close button all move ONE
+  // value, and this effect makes the DOM agree with it. There is no path where
+  // a highlighted pin has no panel, or a panel outlives its highlight, because
+  // the same `selected` drives both this and the highlight effect below.
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || popupMode !== 'venue') return;
+    // Already showing what was asked for: re-opening would tear down the wired
+    // rows and re-pan the map on every unrelated re-render.
+    if (openRepRef.current === selected) return;
+    if (!selected) {
+      m.closePopup();
+      return;
+    }
+    const mk = markers.current.get(selected);
+    // A selection whose pin is not currently ON the map -- filtered out, or a
+    // stale id from a restored URL -- closes rather than anchoring a panel to
+    // empty ground. The popupclose guard then reports the clear, so the page's
+    // selection and the map agree again in one step.
+    if (!mk || !shownRef.current.includes(mk)) {
+      m.closePopup();
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = (mk as any)._group as LocationGroup | undefined;
+    const html = g ? cb.current.venuePanelHtml?.(g) : undefined;
+    if (!html) return;
+
+    // REVEAL BEFORE OPENING. A marker bundled into a cluster has no _icon in
+    // the DOM at all, so anchoring a panel to it puts the panel over a cluster
+    // bubble with no pin under it, and the selection ring lands on nothing.
+    // Found by running it: selecting a venue from the LIST is the common way in,
+    // and at London's default zoom most venues start clustered.
+    // zoomToShowLayer expands/zooms until the marker is real, then calls back.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(mk as any)._icon && clusterRef.current) {
+      clusterRef.current.zoomToShowLayer(mk, () => {
+        // The map can be gone by the time a zoom animation finishes.
+        if (!mapRef.current) return;
+        setRevealTick((t) => t + 1);
+        openVenuePopup(mapRef.current, mk, html, selected);
+      });
+      return;
+    }
+    openVenuePopup(m, mk, html, selected);
+    // Every value this effect reads is either listed or a ref, so there is no
+    // exhaustive-deps suppression here -- and there must not be one, or a real
+    // missing dependency would be silenced along with it.
+  }, [selected, popupMode, eventsKey, visKey]);
+
   // ---- selection highlight -------------------------------------------------
   useEffect(() => {
     markers.current.forEach((mk) => {
@@ -1205,7 +1428,10 @@ export default function EventMap({
       const members = (mk as any)._members as Set<string>;
       el.classList.toggle('sel', !!selected && members.has(selected));
     });
-  }, [selected, visKey, eventsKey]);
+    // revealTick: a marker un-clustered by zoomToShowLayer gets its _icon AFTER
+    // `selected` last changed, so without this the ring is applied to an
+    // element that did not exist yet and is never re-applied.
+  }, [selected, visKey, eventsKey, revealTick]);
 
   return (
     <>

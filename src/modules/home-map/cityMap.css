@@ -1,0 +1,139 @@
+/* /city/:slug/map -- the full map page.
+   Scoped to this route; the homepage teaser's rules live in homeMap.css. */
+
+.cmap-shell {
+  /* Tall enough to be a map rather than a strip, capped so the filters and the
+     first list rows are still on screen on a phone without scrolling. */
+  height: clamp(320px, 52vh, 560px);
+  /* Leaflet's control CORNERS are z-index:1000 while .leaflet-container is
+     z-index:auto, so they do NOT stay inside the map -- they compete in the
+     page's stacking context and paint over anything below 1000. Measured in the
+     prototype, where a map's attribution drew a strip across an overlay above
+     it. Making this a stacking context traps them. Same fix, same reason, as
+     .hm-mapcard in index.css. */
+  position: relative;
+  z-index: 0;
+  background: #4d4d4f;
+}
+
+@media (min-width: 768px) {
+  .cmap-shell { height: clamp(420px, 60vh, 640px); }
+}
+
+.cmap-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #40404a 0%, #35353d 100%);
+}
+
+/* ---- control stack ------------------------------------------------------- */
+.cmap-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  /* Above Leaflet's own panes (400-700) but below its popup (700+) so an open
+     panel is never covered by a control the user cannot see past. */
+  z-index: 650;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cmap-ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 36px, over WCAG 2.2 SC 2.5.8's 24x24 minimum with room to spare -- these
+     are the controls a thumb uses one-handed. */
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.92);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(4px);
+}
+
+.cmap-ctrl:hover { background: hsl(var(--background)); }
+.cmap-ctrl:disabled { opacity: 0.6; }
+
+/* ---- the venue panel (Leaflet popup content) ----------------------------- */
+/* Width is fixed at 268px in the popup options too. At Leaflet's default the
+   night names wrapped to three lines and the panel read as far worse than it
+   is -- measured in the prototype, which is why the number is pinned on both
+   sides rather than left to content. */
+.rmap-venue .leaflet-popup-content-wrapper {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rmap-venue .leaflet-popup-content {
+  margin: 0;
+  width: 268px !important;
+}
+
+.rmap-venue .leaflet-popup-tip {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+}
+
+.vpanel { font-size: 13px; }
+
+.vhead,
+.vnight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vhead { border-bottom: 1px solid hsl(var(--border)); }
+.vhead-body,
+.vnight-body { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
+
+.vh-name { font-weight: 800; line-height: 1.2; }
+.vh-meta,
+.vn-meta { color: hsl(var(--muted-foreground)); font-size: 11px; margin-top: 1px; }
+.vn-name { font-weight: 700; line-height: 1.2; }
+
+.vnights { list-style: none; margin: 0; padding: 0; max-height: 216px; overflow-y: auto; }
+.vnight-li + .vnight-li { border-top: 1px solid hsl(var(--border) / 0.6); }
+
+a.vhead:hover,
+a.vnight:hover { background: hsl(var(--muted) / 0.35); }
+
+.vchev { flex: 0 0 auto; color: hsl(var(--muted-foreground)); font-size: 16px; line-height: 1; }
+/* The static heading has no chevron to reserve room for, and no hover. */
+.vhead--static .vchev { display: none; }
+
+.vtype {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  /* --vt is set inline from CATEGORY_COLORS -- see venuePanelHtml. */
+  color: var(--vt, hsl(var(--muted-foreground)));
+  border: 1px solid var(--vt, hsl(var(--border)));
+  background: color-mix(in srgb, var(--vt, transparent) 12%, transparent);
+}
+
+.vcancel {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #e2415c;
+  border: 1px solid #e2415c;
+}
+
+.vempty { margin: 0; padding: 12px; color: hsl(var(--muted-foreground)); font-size: 12px; }

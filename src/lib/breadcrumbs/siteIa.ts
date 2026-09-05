@@ -65,6 +65,11 @@ export const SITE_IA = {
   festivals:  { label: 'Festivals',  path: '/festivals',  parent: 'experience' },
   // /tonight is a parties-themed quick filter - sits under Parties.
   tonight:    { label: 'Tonight',    path: '/tonight',    parent: 'parties' },
+  // /city/:slug/map. No `path`: the real one carries a city slug, and this is
+  // always the LAST crumb, which by the builder's own invariant never has one.
+  // It sits under Venues because it IS the venue finder - the list under the
+  // map is one row per venue, not per event.
+  'city.map': { label: 'Map',                             parent: 'venues' },
 
   // -------- Entity-bearing detail routes --------------------------------------
   // entityName is supplied at the call site. The placeholder label is what
