@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import 'leaflet/dist/leaflet.css';
@@ -140,6 +140,19 @@ interface EventMapProps {
   minZoom?: number;
   /** The user's location ("you are here" dot); null hides/removes it. */
   userCoords?: { lat: number; lng: number } | null;
+  /** TEASER MODE (the homepage card). The map stays a real, live, DRAGGABLE map
+   *  -- the pan feel is the half worth keeping -- and everything that lets
+   *  someone half-use it in a 148px card goes: no zoom of any kind, no keyboard
+   *  pan, no pin focus, no popups, no cluster zoom. Any tap anywhere, pin or
+   *  empty ground, calls `onTeaserTap`.
+   *
+   *  Turning interaction off is a LIST, not a flag: miss one entry and a
+   *  gesture survives that the design says is gone. The full list lives in the
+   *  constructor below, spelled out by name for exactly that reason. */
+  teaser?: boolean;
+  /** Teaser mode only: any tap on the map. Leaflet suppresses `click` after a
+   *  drag, so this is genuinely tap-not-drag with no threshold of our own. */
+  onTeaserTap?: () => void;
 }
 
 const LONDON: [number, number] = [51.5085, -0.128];
@@ -242,6 +255,44 @@ function locationIcon(
   });
 }
 
+/** The TEASER's pin: a category-coloured dot, and nothing else.
+ *
+ *  The full pin is a 36x40 cover-image bubble, sized when this card could be
+ *  236px tall. At a flat 148px those bubbles are roughly a third of the card
+ *  and the map reads as a pile of thumbnails rather than as a picture of where
+ *  things are -- and a teaser pin is decoration, not a control, so a poster and
+ *  a label are detail nobody can act on.
+ *
+ *  Size carries ONE bit: how many DISTINCT EVENTS run at this venue.
+ *
+ *  THRESHOLDS MEASURED, NOT INHERITED. The prototype scaled dots at 5 and 12,
+ *  but it scaled by OCCURRENCES -- min 1, median 13, max 41 across London, a
+ *  range those thresholds split sensibly. What reaches this function is
+ *  `members.length` from groupPinsByLocation, which counts DISTINCT EVENTS,
+ *  and that does not spread: measured 2026-09-05 over 29 London venues it is
+ *  min 1, median 1, max 4, with 19 venues on exactly 1. The prototype's
+ *  thresholds put ALL 29 in the smallest bucket -- a scale that renders one
+ *  value, which is worse than no scale because it looks like it is saying
+ *  something.
+ *
+ *  Occurrence counts are not reachable here: EventMap is given `pins`, already
+ *  deduped one per event+venue, so the number the prototype used does not
+ *  survive to this point. Re-splitting on the range that does exist keeps the
+ *  approved look and drops the false precision.
+ *
+ *  Deliberately three fixed sizes, not a ramp: three sizes read as three
+ *  categories, where a continuous scale over a 1-4 range reads as noise.
+ *  If the data ever spreads, re-measure before touching these numbers. */
+function teaserDotIcon(count: number, color: string): L.DivIcon {
+  const s = count >= 4 ? 14 : count >= 2 ? 11 : 9;
+  return L.divIcon({
+    className: 'rdot',
+    html: `<span class="rdot-i" style="width:${s}px;height:${s}px;background:${color}"></span>`,
+    iconSize: [s, s],
+    iconAnchor: [s / 2, s / 2],
+  });
+}
+
 function popupHtml(e: MapEvent): string {
   const cat = deriveCategory(e);
   const color = CATEGORY_COLORS[cat];
@@ -339,6 +390,8 @@ export default function EventMap({
   maxBounds,
   minZoom = 9,
   userCoords,
+  teaser = false,
+  onTeaserTap,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -356,11 +409,12 @@ export default function EventMap({
   // Stash the map's fit-to-visible-pins fn so the visibility effect (which runs
   // outside the init closure) can trigger the one-time initial framing.
   const fitRef = useRef<((animate: boolean) => void) | null>(null);
-  const cb = useRef({ onSelect, onHover, onOpenEvent, onClusterSelect });
+  const cb = useRef({ onSelect, onHover, onOpenEvent, onClusterSelect, onTeaserTap });
   cb.current.onSelect = onSelect;
   cb.current.onHover = onHover;
   cb.current.onOpenEvent = onOpenEvent;
   cb.current.onClusterSelect = onClusterSelect;
+  cb.current.onTeaserTap = onTeaserTap;
 
   // Fingerprint occurrence_id AND updated_at so a CONTENT-only change (cover
   // swap, cancellation, time edit) on an event already on the map re-triggers the
@@ -376,16 +430,53 @@ export default function EventMap({
   const visKey = useMemo(() => visible.join(','), [visible]);
   const glowKey = useMemo(() => glow.join(','), [glow]);
 
+  // THE LIVE CREDIT, and why it is state rather than a constant. Which string
+  // is correct depends on which ground actually mounted: the vector branch
+  // below credits VECTOR_ATTR, the raster pair credits ATTR, and they are
+  // DIFFERENT strings for different providers -- not drift. The branch runs
+  // inside the init effect, so the only honest way for the teaser's own credit
+  // control to name the right one is to be told by that branch.
+  // ATTR is the seed because the raster pair is the path every WebGL2-less
+  // device takes and the one production is on today; a wrong-but-present
+  // credit for one frame is still a credit, where an empty seed would render
+  // an empty panel.
+  const [liveCredit, setLiveCredit] = useState<string>(ATTR);
+  const [creditOpen, setCreditOpen] = useState(false);
+
   // ---- init once -----------------------------------------------------------
   useEffect(() => {
     if (!elRef.current) return;
     const m = L.map(elRef.current, {
       zoomControl: false,
-      attributionControl: true,
+      // TEASER: Leaflet's own credit control is OFF, and this component renders
+      // the credit itself instead -- see the control at the end of this file.
+      // The two are deliberately welded together in ONE component so "teaser
+      // mode" and "a credit exists" cannot come apart: there is no prop a
+      // caller can set that turns the credit off, and no way to render this
+      // map in teaser mode without the control being in the tree.
+      attributionControl: !teaser,
       minZoom,
       maxZoom: 18,
       zoomSnap: 0.5,
       fadeAnimation: false,
+      // TEASER: pan only. Every gesture is named individually and set false,
+      // because "turning interaction off" is a list -- a flag that only killed
+      // scrollWheelZoom would leave pinch, double-tap and the keyboard alive,
+      // and each of those is a way to half-use a card that is not a tool.
+      // `dragging` stays TRUE on purpose: the pan feel is the whole point.
+      // `tap: false` disables Leaflet's own synthetic-tap shim so a touch tap
+      // arrives as one ordinary `click`, which is what onTeaserTap listens for.
+      ...(teaser
+        ? {
+            dragging: true,
+            scrollWheelZoom: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            tap: false,
+          }
+        : {}),
       ...(maxBounds ? { maxBounds, maxBoundsViscosity: 0.8 } : {}),
     }).setView(center, zoom);
     mapRef.current = m;
@@ -482,6 +573,12 @@ export default function EventMap({
         transformRequest: vectorTransformRequest(),
         attributionControl: { customAttribution: VECTOR_ATTR },
       }).addTo(m);
+      // Tell the teaser's credit control which ground actually mounted. Set on
+      // BOTH branches, from inside the branch, so the two can never disagree:
+      // a credit chosen anywhere else would be a second decision about which
+      // provider is on screen, and the two would drift the first time this
+      // condition changed.
+      setLiveCredit(VECTOR_ATTR);
 
       // THE GAP THAT REMAINS, now that the WebGL2 half is closed by the branch
       // condition above. This layer is now only ever constructed on a device
@@ -523,6 +620,7 @@ export default function EventMap({
       L.tileLayer(TILE_REF_URL, {
         maxNativeZoom: TILE_MAX_NATIVE_ZOOM,
       }).addTo(m);
+      setLiveCredit(ATTR);
     }
     // Leaflet's own "Leaflet" credit is optional (`prefix: String|false` is the
     // documented way to drop it) and Esri's is not.
@@ -561,7 +659,14 @@ export default function EventMap({
     // role on its container -- so this is queued as its own piece of work with
     // those five as acceptance criteria, not carried as a sixth draft here.
     // Two wrapped lines is the honest cost of the credit until then.
-    m.attributionControl.setPrefix(false);
+    //
+    // GUARDED because teaser mode constructs the map with
+    // `attributionControl: false`, which leaves `m.attributionControl`
+    // UNDEFINED -- this line then threw inside the mount effect, the whole
+    // EventMap subtree hit its error boundary, and the homepage rendered with
+    // no map at all. Caught by running it, not by the typechecker: Leaflet's
+    // types declare `attributionControl` as always present.
+    m.attributionControl?.setPrefix(false);
 
     // NO client-side tile alarm here, deliberately. A `tileerror` watcher was
     // drafted and cut at review: it is blind to the only basemap failure this
@@ -580,7 +685,14 @@ export default function EventMap({
     //                          placeholder, measured 2026-09-01.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cl = (L as any).markerClusterGroup({
-      maxClusterRadius: compact ? 24 : 28,
+      // TEASER: effectively NO clustering. The prototypes this card was judged
+      // from drew every venue as its own dot -- 29 of them -- and clustering
+      // them into 11 counted bubbles is a different picture, not a smaller one.
+      // A dot is 9-14px, so 29 of them are legible where 29 cover-bubbles were
+      // not; clustering existed to make the BIG pins survivable, and it is not
+      // needed once they are dots. 0 rather than removing the group entirely so
+      // every add/remove/visibility path below stays on one code path.
+      maxClusterRadius: teaser ? 0 : compact ? 24 : 28,
       // UNCHANGED at 17. A draft lowered it to 16 to match the basemap's last
       // native zoom, so a cluster tap would land on sharp tiles. Cut at review
       // for two reasons. (1) leaflet.markercluster sets
@@ -618,6 +730,13 @@ export default function EventMap({
     // separate them, so list their combined events instead.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cl.on('clusterclick', (ev: any) => {
+      // TEASER: a cluster is still a tap on the map, and the design has exactly
+      // one rule for that. Return BEFORE reading children -- zooming to bounds
+      // here would be a zoom the teaser says does not exist.
+      if (teaser) {
+        cb.current.onTeaserTap?.();
+        return;
+      }
       const cluster = ev.layer;
       const children = cluster.getAllChildMarkers();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -678,6 +797,28 @@ export default function EventMap({
         (p) => Math.abs(p.lat - mLat) <= OUTLIER_DEG && Math.abs(p.lng - mLng) <= OUTLIER_DEG,
       );
       const b = L.latLngBounds(core.length ? core : pts);
+      if (teaser) {
+        // Fit the LONGITUDE span and let latitude CROP. A plain fitBounds fits
+        // BOTH axes, so on a wide short card the LIMITING axis is height:
+        // measured at 824x105 (~8:1) against London bounds of ~1.9:1 it zoomed
+        // out until the pins were a small cluster with Cardiff on screen. The
+        // 148px mobile card is ~2.6:1 and has a milder version of the same
+        // problem. Cropping top and bottom is the right trade for a card whose
+        // job is "here is where things are" rather than "read this map":
+        // a hairline latitude span at the data's centre makes width the
+        // limiting axis, so the pins fill the card at every aspect ratio.
+        const c = b.getCenter();
+        const EPS = 0.0004;
+        m.fitBounds(
+          L.latLngBounds([c.lat - EPS, b.getWest()], [c.lat + EPS, b.getEast()]),
+          // No vertical padding: there is nothing to pad against once latitude
+          // is deliberately overflowing. maxZoom 12 stops a single-pin city (or
+          // a hard tab filter) refitting to street level, where the basemap's
+          // own labels blow up and the card reads as broken.
+          { padding: [26, 0], maxZoom: 12, animate },
+        );
+        return;
+      }
       m.fitBounds(b, { padding: [24, 24], maxZoom: 13, animate });
     };
     fitRef.current = doFitVisible;
@@ -721,10 +862,18 @@ export default function EventMap({
     };
     onReady?.(api);
 
-    // Mobile: no Leaflet popup -- a background-map tap clears the inline preview.
-    // (Marker/cluster clicks don't bubble to the map 'click', so this only fires
-    // on empty map.)
-    if (popupMode === 'none') {
+    // TEASER: one rule -- any tap opens the map page. Marker clicks do not bubble
+    // to the map's 'click', which is exactly why teaser pins are built
+    // non-interactive below: with no marker handler in the way the tap lands on
+    // the map itself, so pin and empty ground genuinely take the same path
+    // rather than two paths that happen to agree. Clusters DO stay interactive
+    // (they are their own layer), so their own handler routes here too.
+    if (teaser) {
+      m.on('click', () => cb.current.onTeaserTap?.());
+    } else if (popupMode === 'none') {
+      // Mobile: no Leaflet popup -- a background-map tap clears the inline preview.
+      // (Marker/cluster clicks don't bubble to the map 'click', so this only fires
+      // on empty map.)
       m.on('click', () => cb.current.onSelect?.(null));
     } else {
       m.on('popupopen', (e: L.PopupEvent) => {
@@ -868,18 +1017,36 @@ export default function EventMap({
     const occIdx = new Map<string, L.Marker>();
     for (const g of groups) {
       const off = g.offsetIndex * 0.00002;
+      // TEASER pins are DECORATION. They are what makes the card say "here is
+      // where things are", and nothing more: no click handler, no keyboard stop,
+      // no tooltip. That is not a simplification, it is what makes "any tap
+      // opens the map page" ONE rule -- an interactive marker swallows the click
+      // instead of letting it reach the map, so pin and empty ground would take
+      // two different paths that merely happen to agree today.
+      //
+      // The a11y cost is paid deliberately and elsewhere: a teaser pin is not a
+      // control, so it must not be a tab stop announcing a name that leads
+      // nowhere. The CARD is the one focusable control, with one accessible
+      // name -- which is also the shape the reverted attribution chip's finding
+      // 2 was about (nested interactive content inside a container control).
       const mk = L.marker([g.lat + off, g.lng + off], {
-        icon: locationIcon(g.rep, g.venueName, g.members.length, size, anchor, popAnchor),
-        // a11y: focusable via keyboard (Tab to reach, Enter/Space to open); title
-        // gives screen readers an accessible name for the otherwise-graphic pin.
-        keyboard: true,
-        riseOnHover: true,
-        title: g.isStack
-          ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
-          : `${g.rep.name}${g.rep.venue_name ? `, ${g.rep.venue_name}` : ''}`,
-        alt: g.isStack
-          ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
-          : `${CATEGORY_LABEL[deriveCategory(g.rep)]}: ${g.rep.name}`,
+        icon: teaser
+          ? teaserDotIcon(g.members.length, CATEGORY_COLORS[deriveCategory(g.rep)])
+          : locationIcon(g.rep, g.venueName, g.members.length, size, anchor, popAnchor),
+        ...(teaser
+          ? { interactive: false, keyboard: false, riseOnHover: false }
+          : {
+              // a11y: focusable via keyboard (Tab to reach, Enter/Space to open); title
+              // gives screen readers an accessible name for the otherwise-graphic pin.
+              keyboard: true,
+              riseOnHover: true,
+              title: g.isStack
+                ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
+                : `${g.rep.name}${g.rep.venue_name ? `, ${g.rep.venue_name}` : ''}`,
+              alt: g.isStack
+                ? `${g.members.length} events at ${g.venueName ?? 'this location'}`
+                : `${CATEGORY_LABEL[deriveCategory(g.rep)]}: ${g.rep.name}`,
+            }),
       });
       if (popupMode !== 'none') {
         if (g.isStack) {
@@ -1002,6 +1169,20 @@ export default function EventMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [glowKey, visKey, eventsKey]);
 
+  // Escape closes the credit panel. Bound on the document rather than on the
+  // panel, because the panel is not focus-trapped: the button keeps focus after
+  // the click that opened it, so a keydown on the panel itself would never
+  // fire. Only bound while the panel is open, so it cannot swallow Escape from
+  // anything else on the page.
+  useEffect(() => {
+    if (!creditOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCreditOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [creditOpen]);
+
   // ---- hover highlight -----------------------------------------------------
   useEffect(() => {
     markers.current.forEach((mk) => {
@@ -1026,5 +1207,63 @@ export default function EventMap({
     });
   }, [selected, visKey, eventsKey]);
 
-  return <div ref={elRef} className={cn('home-map home-map__canvas', compact && 'home-map--compact')} />;
+  return (
+    <>
+      <div ref={elRef} className={cn('home-map home-map__canvas', compact && 'home-map--compact')} />
+      {teaser && (
+        /* THE TEASER'S CREDIT CONTROL.
+         *
+         * A 22px "i" in the card's top-right that opens the live basemap's own
+         * credit, verbatim. Leaflet's control is off in teaser mode (see the
+         * constructor) because its plate wraps to two lines on any card under
+         * ~390px wide and takes 29px of a 148px card -- measured, and Esri's
+         * terms do not allow shortening the string to make it fit.
+         *
+         * WHAT THIS IS, HONESTLY: Esri documents a popup/menu allowance for
+         * attribution, but every instance of that wording is scoped to STATIC
+         * maps, and this is a live tile layer. So this placement is a judgement
+         * call rather than a documented permission. It was made deliberately,
+         * with that stated. If it ever needs unwinding, the fix is to drop
+         * `teaser` here and let Leaflet's control render -- nothing else
+         * depends on this control existing.
+         *
+         * The three defects that killed the previous attempt at this chip are
+         * fixed rather than repeated: it is a real <button> with a real
+         * accessible name (not a div with a click handler), `aria-expanded`
+         * tracks the panel, the tap target is 24px via a transparent inset on a
+         * 22px circle, and no interactive content is nested inside any other
+         * interactive content. */
+        <div className="hm-credit">
+          <button
+            type="button"
+            className="hm-credit-btn"
+            aria-label="Map data credits"
+            aria-expanded={creditOpen}
+            onClick={() => setCreditOpen((v) => !v)}
+          >
+            i
+          </button>
+          {creditOpen && (
+            <div className="hm-credit-panel" role="dialog" aria-label="Map data credits">
+              {/* dangerouslySetInnerHTML for the same reason HomeMapShell's
+                  static credit uses it: the credit constants carry an <a> for
+                  the OpenStreetMap copyright link, they are module constants
+                  with no user input anywhere near them, and the alternative is
+                  a second, hand-written spelling of a string the terms require
+                  verbatim. */}
+              <span dangerouslySetInnerHTML={{ __html: liveCredit }} />
+              <button
+                type="button"
+                className="hm-credit-close"
+                aria-label="Close map credits"
+                onClick={() => setCreditOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
 }

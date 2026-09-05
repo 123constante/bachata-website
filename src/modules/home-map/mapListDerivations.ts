@@ -413,7 +413,22 @@ export interface HomeStats {
   thisWeek: number;
   /** distinct venues with an upcoming listing */
   venues: number;
+  /** OCCURRENCES in the next 3 days, today included */
+  next3: number;
+  /** OCCURRENCES in a ROLLING 30 days, today included -- not a calendar month */
+  month30: number;
 }
+
+// WHY next3/month30 COUNT OCCURRENCES AND tonight COUNTS EVENTS. They are not
+// the same unit, deliberately. Over a 3- or 30-day window an occurrence is what
+// you can actually go to -- a weekly night running four times in a month is four
+// nights out, and collapsing it to one event would understate the window by the
+// exact factor that makes a recurring listing valuable. Within ONE day the two
+// units coincide (an event has at most one instance per date), so `tonight`
+// staying event-distinct costs nothing and buys something: the map card's
+// "tonight" chip and the page head's "N on tonight" are ten pixels apart and
+// must never disagree, and they are now the same number by construction rather
+// than by two derivations happening to agree.
 
 /** Shift a 'YYYY-MM-DD' date string by n days (pure, tz-safe). */
 function shiftDate(dateStr: string, n: number): string {
@@ -429,15 +444,27 @@ function shiftDate(dateStr: string, n: number): string {
  */
 export function homeStats(events: MapEvent[], today = todayStr()): HomeStats {
   const weekEnd = shiftDate(today, 7);
+  // INCLUSIVE last days, so "next 3 days" is today + 2 and "this month" is
+  // today + 29 -- 3 and 30 days of listings, not 4 and 31. The 7-day window
+  // above is exclusive and stays that way; changing it would move a number
+  // that already ships in the page head.
+  const d3End = shiftDate(today, 2);
+  const m30End = shiftDate(today, 29);
   const tonight = new Set<string>();
   const week = new Set<string>();
   const venues = new Set<string>();
+  let next3 = 0;
+  let month30 = 0;
   for (const e of events) {
     if (e.venue_name) venues.add(e.venue_name);
     if (e.instance_date === today) tonight.add(e.event_id);
     if (e.instance_date && e.instance_date >= today && e.instance_date < weekEnd) week.add(e.event_id);
+    if (e.instance_date && e.instance_date >= today) {
+      if (e.instance_date <= d3End) next3 += 1;
+      if (e.instance_date <= m30End) month30 += 1;
+    }
   }
-  return { tonight: tonight.size, thisWeek: week.size, venues: venues.size };
+  return { tonight: tonight.size, thisWeek: week.size, venues: venues.size, next3, month30 };
 }
 /** Parse 'YYYY-MM-DD' into numeric calendar parts (no tz). */
 function parseYMD(s: string): { y: number; mo: number; d: number } | null {

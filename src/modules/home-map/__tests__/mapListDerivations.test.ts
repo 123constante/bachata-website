@@ -320,6 +320,42 @@ describe('homeStats', () => {
     const out = homeStats(events, today);
     expect(out.thisWeek).toBe(0); // both outside the window
     expect(out.venues).toBe(0); // null venues ignored
+    expect(out.next3).toBe(0); // 06-01 is past, 06-25 is beyond 06-12
+    // 06-25 IS inside the rolling 30 days even though it is outside the week.
+    // The windows are independent, and this fixture is the one that proves it:
+    // an assertion of 0 here would have passed only if month30 were broken.
+    expect(out.month30).toBe(1);
+  });
+
+  // The ladder the map card's chips render. Both edges are pinned: a row ON the
+  // last included day must count, and the row one day past it must not. A test
+  // that only checks the inside of a window cannot tell an off-by-one from a
+  // correct bound.
+  it('counts OCCURRENCES in the 3-day and rolling-30-day windows, both edges pinned', () => {
+    const events = [
+      ev({ occurrence_id: 'y', event_id: 'e0', instance_date: '2026-06-09' }), // yesterday
+      ev({ occurrence_id: 'a', event_id: 'e1', instance_date: '2026-06-10' }), // today
+      ev({ occurrence_id: 'b', event_id: 'e1', instance_date: '2026-06-12' }), // last day of next3
+      ev({ occurrence_id: 'c', event_id: 'e1', instance_date: '2026-06-13' }), // first day past it
+      ev({ occurrence_id: 'd', event_id: 'e2', instance_date: '2026-07-09' }), // last day of month30
+      ev({ occurrence_id: 'e', event_id: 'e2', instance_date: '2026-07-10' }), // first day past it
+    ];
+    const out = homeStats(events, today);
+    // OCCURRENCES, not distinct events: a, b are the same event_id and both count.
+    expect(out.next3).toBe(2); // 06-10, 06-12; yesterday and 06-13 excluded
+    expect(out.month30).toBe(4); // + 06-13 and 07-09; 07-10 is day 31
+  });
+
+  // Within one day the two units coincide, which is what lets the card's chip
+  // and the page head's "N on tonight" be the same number by construction.
+  it('agrees with tonight on today, where occurrences and events coincide', () => {
+    const events = [
+      ev({ occurrence_id: 't1', event_id: 'e1', instance_date: '2026-06-10' }),
+      ev({ occurrence_id: 't2', event_id: 'e2', instance_date: '2026-06-10' }),
+    ];
+    const out = homeStats(events, today);
+    expect(out.tonight).toBe(2);
+    expect(out.next3).toBe(2);
   });
 });
 describe('festivalRangeLabel', () => {

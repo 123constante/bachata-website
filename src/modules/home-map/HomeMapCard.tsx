@@ -1,491 +1,176 @@
-// Festival Map home -- the Leaflet card and ALL of its chrome. The one place on
-// the homepage where a JS viewport branch is legal.
+// Festival Map home -- the TEASER card.
 //
-// It is legal here for a structural reason, not by luck: this module is lazy AND
-// gated behind HomeMapShell's `mapMounted` flag (Leaflet touches `window` at
-// module load), so it is never imported on the server and never rendered on the
-// first client render. There is therefore no server markup for a viewport branch
-// to disagree with, and useIsDesktopMapChrome can seed itself synchronously from
-// matchMedia. Everything the SERVER renders -- head, dock, feed -- is in
-// HomeMapShell and is CSS-responsive with no JS branch at all. Keep it that way:
-// see ./viewport for why (React #421, and why UA sniffing is not an option).
+// This module used to carry two full map chromes (mobile: fullscreen + inline
+// preview + coach pill; desktop: zoom/locate/reframe stack + native popups +
+// pin->feed scroll sync) and was the one place on the homepage where a JS
+// viewport branch was legal. Both are GONE, and with them the exception: the
+// card is now the same thing at every viewport and the only difference is its
+// height, which is CSS (.hm-mapcard). Nothing here branches on the viewport, so
+// there is no longer a viewport branch to justify -- see ./viewport for why that
+// matters (React #421, and why UA sniffing is not an option).
 //
-// Mobile chrome: a compact popup-less map in an inset bento card. A pin tap opens
-// an inline MapPreviewCard, a cluster tap lists its events, a background tap
-// clears. "Explore the map" promotes the card to a true edge-to-edge overlay
-// (.is-fullscreen in index.css makes .hm-mapcard position:fixed; body.hm-immersive
-// hides the global header + bottom nav), with a top bar carrying a "List" exit
-// pill and a map filter field. Back/swipe-back and Escape also
-// exit; focus moves to the exit pill on open and back to the expand button on
-// close; a one-time hint teaches it.
+// What the card is now: a real, live, DRAGGABLE Leaflet map -- the pan feel is
+// the half worth keeping -- with a hook bar over its foot and exactly one rule
+// for interaction. Any tap, on a pin or on empty ground, opens the map page.
+// No zoom of any kind, no controls, no preview, no fullscreen. Everything that
+// let someone half-use a map inside a 148px card now lives on
+// /city/:citySlug/map, where there is room for it.
 //
-// Desktop chrome: the dominant map beside the rail -- native popups, a top-right
-// zoom/locate/reframe stack and the self-dismissing MapHint. No fullscreen (the
-// map is already half the screen) and no inline preview (a pin tap scrolls the
-// feed to the card instead -- see useMapList.fromPin).
+// It stays lazy AND mapMounted-gated by HomeMapShell (Leaflet touches `window`
+// at module load), so it is still never imported on the server.
 
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Maximize2, Plus, Minus, Focus, ChevronLeft, X } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from './useMapList';
-import type { MapEvent } from './mapTypes';
-import { useIsDesktopMapChrome } from './viewport';
-import { SearchField, focusRing } from './cards/controls';
-import { MapLocateButton } from './cards/LocateControl';
-import { MapPreviewCard } from './mobile/MapPreviewCard';
-import { MapHintPill } from './mobile/MapHintPill';
-import { MapHint } from './MapHint';
-
-// STATIC import (not lazy): this module is itself only ever imported lazily
-// and mapMounted-gated by HomeMapShell, so EventMap's ~198.6 KB JS + ~29.6 KB
-// CSS already never reach the server or the first client render. Making it
-// static here lets Vite fetch that chunk IN PARALLEL with HomeMapCard's own
-// chunk instead of only starting after HomeMapCard resolves -- collapsing a
-// two-hop waterfall into one.
+import { focusRing } from './cards/controls';
 import EventMap from './EventMap';
 
-// Constrain the mobile map to Greater London so a fling rubber-bands back rather
-// than drifting to empty ocean (EventMap applies maxBoundsViscosity).
+// Constrain the teaser to Greater London so a fling rubber-bands back rather
+// than drifting to empty ocean (EventMap applies maxBoundsViscosity). The card
+// cannot zoom out, so without this a hard drag strands it on blank sea with no
+// way back except reloading.
 const GREATER_LONDON: [[number, number], [number, number]] = [
   [51.25, -0.55],
   [51.72, 0.34],
 ];
 
-const COACH_KEY = 'hm-fs-coach';
+const noop = () => {};
 
-const ctrlBtn = cn(
-  // 36px visual circle; a transparent pseudo extends the tap target to 44px
-  // (WCAG 2.5.5) without growing the layout box, so the vertical stack still
-  // fits the clamped map card. gap-2 keeps adjacent 44px hit areas from overlapping.
-  "relative grid h-9 w-9 place-items-center rounded-full bg-background/80 text-foreground shadow-md backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-muted",
-  focusRing,
-);
-
-const zoomBtn =
-  'grid h-11 w-11 place-items-center bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary';
-
-type Preview = { kind: 'single' | 'cluster'; ids: string[]; dock: 'top' | 'bottom' };
-
-function readCoachSeen(): boolean {
-  try {
-    return localStorage.getItem(COACH_KEY) === '1';
-  } catch {
-    return false;
+/** Distinct venues among the pins the map is ACTUALLY drawing right now.
+ *
+ *  The hook's headline number is derived from the same `visible` list the map
+ *  is given, never from the whole city, so the title can never claim a count
+ *  the card is not showing. That is the entire reason this is computed here
+ *  rather than read off `stats.venues`: on the Tonight tab those two numbers
+ *  are different, and the one the eye can check is this one. */
+function drawnVenueCount(pins: UseMapListResult['pins'], visible: string[]): number {
+  const shown = new Set(visible);
+  const venues = new Set<string>();
+  for (const p of pins) {
+    if (!shown.has(p.occurrence_id)) continue;
+    // Fall back to the coordinate when a row has no venue name: two unnamed
+    // pins at different places are two venues, and collapsing them onto one
+    // empty-string key would undercount exactly what the map is drawing.
+    venues.add(p.venue_name ?? `@${p.lat},${p.lng}`);
   }
+  return venues.size;
 }
 
 export default function HomeMapCard({
   state,
-  fullscreen,
-  setFullscreen,
+  cityName,
+  citySlug,
 }: {
   state: UseMapListResult;
-  fullscreen: boolean;
-  setFullscreen: (v: boolean) => void;
+  cityName: string;
+  citySlug: string;
 }) {
-  const { apiRef } = state;
-  const desktop = useIsDesktopMapChrome();
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const expandBtnRef = useRef<HTMLButtonElement>(null);
-  const exitPillRef = useRef<HTMLButtonElement>(null);
-  const prevFs = useRef(false);
-  const latestFsRef = useRef(false);
-  const [coachSeen, setCoachSeen] = useState(readCoachSeen);
-  // Preview is local (set only by map interactions) so a FEED card tap -- which
-  // also sets state.selected before navigating -- can't flash a preview open.
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const navigate = useNavigate();
+  const mapHref = `/city/${citySlug}/map`;
 
-  const dismissCoach = useCallback(() => {
-    setCoachSeen(true);
-    try {
-      localStorage.setItem(COACH_KEY, '1');
-    } catch {
-      /* private mode / blocked storage -- the hint just reappears next session */
-    }
-  }, []);
+  // TONIGHT, WITH NOTHING ON. Some weeknights the tab's filter is empty, and an
+  // empty map with no message is indistinguishable from a broken one -- which is
+  // this arc's founding defect one layer up (a watermarked basemap served at
+  // HTTP 200 that nothing could see). So the card falls back to every venue and
+  // the title says why, rather than painting a blank fenced view of London.
+  const tonightIsEmpty = state.tab === 'tonight' && state.mapVisible.length === 0;
+  const allOccIds = useMemo(() => state.pins.map((p) => p.occurrence_id), [state.pins]);
+  const visible = tonightIsEmpty ? allOccIds : state.mapVisible;
 
-  // Fullscreen AND the inline preview are mobile-only chrome (the expand button is
-  // the only way into one, and the desktop branch never renders the other). If the
-  // viewport crosses the breakpoint, shed both: an orphaned fullscreen would strand a
-  // user under a fixed overlay with no visible way back, and an orphaned preview --
-  // which desktop simply stops rendering rather than clearing -- would spring back
-  // open, for a pin that may no longer be selected, the moment the viewport narrowed
-  // again.
-  useEffect(() => {
-    if (!desktop) return;
-    setPreview(null);
-    if (fullscreen) setFullscreen(false);
-  }, [desktop, fullscreen, setFullscreen]);
+  const drawn = useMemo(() => drawnVenueCount(state.pins, visible), [state.pins, visible]);
 
-  // iOS Safari resolves svh / safe-area after first paint and on every URL-bar
-  // show/hide; without a re-measure the map can stay mis-sized or blank (audit
-  // #4). Watch the container + visualViewport + orientation. The ResizeObserver
-  // also covers the desktop case (the split is a fixed %, so the map cell only
-  // changes size when the window does).
-  useEffect(() => {
-    const invalidate = () => apiRef.current?.invalidate();
-    let ro: ResizeObserver | undefined;
-    if (wrapRef.current && typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(invalidate);
-      ro.observe(wrapRef.current);
-    }
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', invalidate);
-    window.addEventListener('orientationchange', invalidate);
-    return () => {
-      ro?.disconnect();
-      vv?.removeEventListener('resize', invalidate);
-      window.removeEventListener('orientationchange', invalidate);
-    };
-  }, [apiRef]);
+  const title = tonightIsEmpty
+    ? `Nothing on tonight \u2014 ${drawn} venues on the map`
+    : state.tab === 'tonight'
+      ? `${drawn} venues tonight`
+      : `${drawn} venues on the map`;
 
-  // Enter/exit fullscreen changes the map cell size (inset card <-> fixed
-  // overlay) -- re-measure once it settles so Leaflet repaints at the new size.
-  useEffect(() => {
-    const t = window.setTimeout(() => apiRef.current?.invalidate(), 80);
-    const t2 = window.setTimeout(() => apiRef.current?.invalidate(), 320);
-    return () => {
-      window.clearTimeout(t);
-      window.clearTimeout(t2);
-    };
-  }, [fullscreen, apiRef]);
+  // THE LADDER, and why Tonight normally has no chips. Measured over 28 days,
+  // the event count equalled the venue count on 25 of them -- so a "N tonight"
+  // chip beside a title that already says "N venues tonight" repeats the
+  // title's own number. Dropping it takes the overlay from 76px to 58px, which
+  // is 19 more pixels of visible map in a 148px card.
+  // The empty-Tonight case is the exception and gets the ladder back: when the
+  // answer is "nothing", "13 in the next 3 days" is the useful next thing to
+  // say, and a dead end is the one outcome this card must not produce.
+  const showLadder = state.tab !== 'tonight' || tonightIsEmpty;
 
-  // Fullscreen hides the global header + bottom nav (a body class drives the
-  // global CSS in index.css) so the map overlay is truly edge-to-edge. Removed
-  // on exit and on unmount (e.g. navigating away) so the chrome never sticks hidden.
-  useEffect(() => {
-    document.body.classList.toggle('hm-immersive', fullscreen);
-    return () => document.body.classList.remove('hm-immersive');
-  }, [fullscreen]);
-
-  // Back-to-exit + Escape-to-exit. Entering pushes a history entry so Android
-  // back / browser back / swipe-back closes the map first instead of leaving the
-  // page; Escape and the List pill mirror it for keyboards/taps.
-  //
-  // The cleanup must pop the entry we pushed on a UI exit (pill/Escape) but NOT
-  // when the browser already popped it (back button) nor when the component
-  // unmounts mid-fullscreen during a forward navigation (tap a pin -> event
-  // page), where the entry must stay so Back returns here. The effect closure's
-  // `fullscreen` is always true (the body early-returns otherwise), so it can't
-  // discriminate -- instead:
-  //   popped (per-run flag): the back button set it via onPop -> skip back().
-  //   latestFsRef (latest value, set in the layout effect below, which runs
-  //     before this useEffect cleanup): false => a real UI exit -> pop the entry;
-  //     true => unmounting while still fullscreen (forward nav) -> leave it.
-  useEffect(() => {
-    if (!fullscreen) return;
-    let popped = false;
-    window.history.pushState({ hmFs: true }, '');
-    const onPop = () => {
-      popped = true;
-      setFullscreen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
-    };
-    window.addEventListener('popstate', onPop);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      window.removeEventListener('keydown', onKey);
-      if (!popped && !latestFsRef.current) window.history.back();
-    };
-  }, [fullscreen, setFullscreen]);
-
-  // Mirror the latest fullscreen value for the back-button cleanup above. A
-  // layout effect, so it is already up to date when that cleanup runs. (The
-  // feed's `inert` is the shell's job -- it owns that element.)
-  useLayoutEffect(() => {
-    latestFsRef.current = fullscreen;
-  }, [fullscreen]);
-
-  // Focus management (useEffect, post-paint so focus moves after the enter
-  // animation has started). On open: move focus to the exit pill. On close:
-  // return focus to the expand button and auto-dismiss the one-time coach hint.
-  useEffect(() => {
-    if (fullscreen) {
-      prevFs.current = true;
-      const id = window.requestAnimationFrame(() => exitPillRef.current?.focus());
-      return () => window.cancelAnimationFrame(id);
-    }
-    if (prevFs.current) {
-      prevFs.current = false;
-      expandBtnRef.current?.focus();
-      if (!coachSeen) dismissCoach();
-    }
-  }, [fullscreen, coachSeen, dismissCoach]);
-
-  // A tab OR day change dismisses any open preview (the event it described may
-  // no longer be on the map -- on the Calendar tab the visible pin set is
-  // day-driven). Selection itself is cleared inside useMapList.
-  useEffect(() => {
-    setPreview(null);
-  }, [state.tab, state.day]);
-
-  const previewEvents = useMemo(() => {
-    if (!preview) return [] as MapEvent[];
-    return preview.ids
-      .map((id) => state.eventsByOcc.get(id))
-      .filter((e): e is MapEvent => Boolean(e));
-  }, [preview, state.eventsByOcc]);
-
-  const previewOpen = previewEvents.length > 0;
-  // dock is captured at tap time (below) and read from state -- a pure render,
-  // no live ref read. Defaults to the bottom edge.
-  const dock: 'top' | 'bottom' = preview?.dock ?? 'bottom';
-  const previewKey = preview ? `${preview.kind}:${preview.ids.join(',')}` : '';
-
-  // Flip the card to the top edge when the tapped pin sits in the lower half so
-  // the card never covers it. Captured imperatively at the moment of the tap
-  // (geometry is current), then stored in state.
-  const { fromPin } = state;
-  const dockFor = useCallback(
-    (occId: string): 'top' | 'bottom' => (apiRef.current?.pinHalf(occId) === 'bottom' ? 'top' : 'bottom'),
-    [apiRef],
-  );
-
-  // Map interaction handlers (pin / cluster / background). A single pin both
-  // highlights (state.fromPin) and opens the local preview; a cluster clears the
-  // single selection and lists its children; null clears everything. A pin tap is
-  // also taken as "hint understood" -> persist the coach dismissal.
-  const handlePinSelect = useCallback(
-    (occId: string | null) => {
-      fromPin(occId);
-      setPreview(occId ? { kind: 'single', ids: [occId], dock: dockFor(occId) } : null);
-      if (occId && !coachSeen) dismissCoach();
-    },
-    [fromPin, dockFor, coachSeen, dismissCoach],
-  );
-  const handleClusterSelect = useCallback(
-    (occIds: string[]) => {
-      fromPin(null);
-      setPreview(occIds.length ? { kind: 'cluster', ids: occIds, dock: 'bottom' } : null);
-      if (occIds.length && !coachSeen) dismissCoach();
-    },
-    [fromPin, coachSeen, dismissCoach],
-  );
-  const closePreview = useCallback(() => {
-    fromPin(null);
-    setPreview(null);
-  }, [fromPin]);
-
-  const showCoach = fullscreen && !coachSeen && !previewOpen;
+  const openMap = useCallback(() => navigate(mapHref), [navigate, mapHref]);
 
   return (
-    // Full-bleed layer inside .hm-mapcard. It is positioned (so EventMap's
-    // absolutely-positioned canvas fills it) but creates no stacking context, so
-    // the overlay z-indexes below still resolve against Leaflet's panes exactly
-    // as they did when these controls were direct children of the card.
-    <div ref={wrapRef} className="absolute inset-0">
-      {/* The two branches are the SAME component in the SAME slot, so React would
-          reconcile in place rather than remount -- and EventMap builds its Leaflet
-          instance in a mount-only effect, freezing minZoom / maxBounds / popupMode at
-          whatever the FIRST viewport asked for. The old two-component split (MobileMapHome
-          vs DesktopMapHome) gave us that remount for free; the explicit key restores it,
-          so a window resize or a tablet rotating across the breakpoint re-inits the map
-          with the right options instead of stranding it with the other viewport's. */}
-      {/* UNREACHABLE TODAY -- EventMap below is a STATIC import, so this Suspense
-          has no lazy child and never suspends. Kept, and kept at the basemap's
-          own #4d4d4f rather than the shell dark, because the day someone makes
-          EventMap lazy this plate starts covering the pre-mount still mid-load,
-          which is the exact defect HomeMapShell's own fallback was just fixed
-          for. A dead branch holding the wrong value is a trap, not dead code. */}
-      <Suspense
-        fallback={
-          <div className="absolute inset-0 animate-pulse" style={{ background: '#4d4d4f' }}>
-            <span className="sr-only">Loading map</span>
-          </div>
-        }
-      >
-        {desktop ? (
-          <EventMap
-            key="desktop"
-            events={state.pins}
-            visible={state.mapVisible}
-            glow={state.glow}
-            selected={state.mapSelected}
-            hovered={state.mapHovered}
-            onSelect={state.fromPin}
-            onHover={state.setHovered}
-            onReady={state.onMapReady}
-            onOpenEvent={state.openEvent}
-            userCoords={state.geo.coords}
-          />
-        ) : (
-          <EventMap
-            key="mobile"
-            events={state.pins}
-            visible={state.mapVisible}
-            glow={state.glow}
-            selected={state.mapSelected}
-            hovered={state.mapHovered}
-            onSelect={handlePinSelect}
-            onClusterSelect={handleClusterSelect}
-            onHover={state.setHovered}
-            onReady={state.onMapReady}
-            onOpenEvent={state.openEvent}
-            userCoords={state.geo.coords}
-            popupMode="none"
-            compact
-            maxBounds={GREATER_LONDON}
-            minZoom={10}
-          />
-        )}
-      </Suspense>
+    // Full-bleed layer inside .hm-mapcard. Positioned so EventMap's absolutely
+    // positioned canvas fills it, and it creates no stacking context of its own,
+    // so the hook below still resolves against Leaflet's panes.
+    <div className="absolute inset-0">
+      <EventMap
+        events={state.pins}
+        visible={visible}
+        glow={state.glow}
+        // Nothing on the teaser is selectable, so nothing is selected or
+        // hovered. Passing state.mapSelected here would paint a selected-pin
+        // ring for a selection made in the FEED, on a pin that cannot be
+        // tapped -- an affordance pointing at nothing.
+        selected={null}
+        hovered={null}
+        onSelect={noop}
+        onHover={noop}
+        onReady={state.onMapReady}
+        teaser
+        onTeaserTap={openMap}
+        popupMode="none"
+        compact
+        maxBounds={GREATER_LONDON}
+        minZoom={10}
+      />
 
-      {desktop ? (
-        <>
-          {/* First-visit hint that the pins are interactive. Self-dismisses. */}
-          <div className="pointer-events-none absolute left-3 top-3 z-[500]">
-            <MapHint />
-          </div>
-          {/* Map controls (top-right): zoom, locate, reframe. */}
-          <div className="absolute right-3 top-3 z-50 flex flex-row gap-1.5">
-            <button type="button" onClick={() => apiRef.current?.zoom(1)} aria-label="Zoom in" className={zoomBtn}>
-              <Plus className="h-[18px] w-[18px]" />
-            </button>
-            <button type="button" onClick={() => apiRef.current?.zoom(-1)} aria-label="Zoom out" className={zoomBtn}>
-              <Minus className="h-[18px] w-[18px]" />
-            </button>
-            <MapLocateButton
-              geo={state.geo}
-              baseClassName={zoomBtn}
-              onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
-            />
-            <button
-              type="button"
-              onClick={() => apiRef.current?.reset?.()}
-              aria-label="Fit map to all events"
-              className={`${zoomBtn} !text-primary`}
-            >
-              <Focus className="h-[18px] w-[18px]" />
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Fullscreen top bar: "List" exit pill + "search this map", so the
-              expanded map stays findable and obviously exitable. Hidden while a
-              preview is open (the preview owns the surface). */}
-          {fullscreen && !previewOpen && (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] flex flex-col gap-2 bg-gradient-to-b from-background/95 via-background/70 to-transparent px-2 pb-6 pt-[max(env(safe-area-inset-top),0.5rem)]">
-              <div className="flex items-center gap-2">
-                <button
-                  ref={exitPillRef}
-                  type="button"
-                  onClick={() => setFullscreen(false)}
-                  aria-label="Back to the list"
-                  className={cn(
-                    'pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/90 py-2 pl-2 pr-3.5 text-sm font-bold text-foreground shadow-lg backdrop-blur hover:bg-muted',
-                    focusRing,
-                  )}
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                  List
-                </button>
-                <SearchField
-                  value={state.q}
-                  onChange={state.setQ}
-                  filter
-                  placeholder="Filter by name or venue"
-                  ariaLabel="Filter events on the map"
-                  matchCount={state.q ? state.mapVisible.length : null}
-                  className="pointer-events-auto min-w-0 flex-1 bg-background/90 shadow-lg backdrop-blur"
-                />
-              </div>
-            </div>
+      {/* The hook: a gradient bar over the FOOT of the map, not a strip below it
+          and not a badge. pointer-events:none on the bar itself, so the gradient
+          never eats a drag that starts low in the card -- only the CTA inside it
+          takes pointer events. */}
+      <div className="hm-hook pointer-events-none absolute inset-x-0 bottom-0 z-[500] px-3 pb-2 pt-7">
+        <p className="truncate text-[13.5px] font-bold tracking-tight text-white">{title}</p>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          {showLadder && (
+            <>
+              <Chip n={state.stats.tonight} label="tonight" />
+              <Chip n={state.stats.next3} label="next 3 days" />
+              <Chip n={state.stats.month30} label="this month" />
+            </>
           )}
-
-          {/* Control stack -- hidden while a preview is open (it would collide with
-              a top-docked card and is redundant mid-preview). In fullscreen the
-              expand toggle is replaced by the top-bar "List" pill, and the stack
-              drops below the top bar. NOTE: the 6rem offset was calibrated
-              against the OLD two-row top bar (pill/field row + category chips
-              row); that second row is gone, so this constant is now too large by
-              roughly the chips row's height. It is deliberately NOT re-guessed
-              here -- estimating these boxes from Tailwind classes has been wrong
-              before (tabs estimated ~28px, measured 23.7px). Measure the rendered
-              bar and set it. Queued: queued-home-map-q-axis-and-coverage.md */}
-          {!previewOpen && (
-            <div
-              className={cn(
-                'absolute left-2 z-[500] flex flex-col gap-2',
-                fullscreen ? 'top-[calc(env(safe-area-inset-top)_+_6rem)]' : 'top-2',
-              )}
-            >
-              {!fullscreen && (
-                <button
-                  ref={expandBtnRef}
-                  type="button"
-                  onClick={() => setFullscreen(true)}
-                  aria-label="Explore the full map"
-                  className={ctrlBtn}
-                >
-                  <Maximize2 className="h-[18px] w-[18px]" />
-                </button>
-              )}
-              <button type="button" onClick={() => apiRef.current?.zoom(1)} aria-label="Zoom in" className={ctrlBtn}>
-                <Plus className="h-[18px] w-[18px]" />
-              </button>
-              <button type="button" onClick={() => apiRef.current?.zoom(-1)} aria-label="Zoom out" className={ctrlBtn}>
-                <Minus className="h-[18px] w-[18px]" />
-              </button>
-              <MapLocateButton
-                geo={state.geo}
-                baseClassName={ctrlBtn}
-                onRecenter={() => apiRef.current?.panToUser(state.geo.coords)}
-              />
-              {fullscreen && (
-                <button
-                  type="button"
-                  onClick={() => apiRef.current?.reset?.()}
-                  aria-label="Fit map to all events"
-                  className={cn(ctrlBtn, '!text-primary')}
-                >
-                  <Focus className="h-[18px] w-[18px]" />
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Bottom-centre overlay: first-run coach hint (fullscreen only) > the
-              one-time "tap a pin" hint. Both hide mid-preview. */}
-          {!previewOpen && (showCoach || !fullscreen) && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[400] flex justify-center px-3">
-              {showCoach ? (
-                <div className="pointer-events-auto inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-background/90 py-1.5 pl-3 pr-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur">
-                  <span className="truncate">
-                    Tap a pin for the event &middot; tap <b className="text-primary">List</b> to exit
-                  </span>
-                  <button
-                    type="button"
-                    onClick={dismissCoach}
-                    aria-label="Dismiss hint"
-                    className={cn(
-                      'grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground',
-                      focusRing,
-                    )}
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </div>
-              ) : (
-                <MapHintPill />
-              )}
-            </div>
-          )}
-
-          {previewOpen && (
-            <MapPreviewCard
-              key={previewKey}
-              events={previewEvents}
-              dock={dock}
-              onClose={closePreview}
-              onOpen={state.fromCard}
-            />
-          )}
-        </>
-      )}
+          {/* The ONE focusable control in the card, and the only one that needs
+              to be: a real <a>, so it is crawlable, middle-clickable and
+              openable in a new tab, and so keyboard and screen-reader users
+              reach the map page without the map itself pretending to be a
+              button. A tap anywhere else on the card is handled by Leaflet and
+              routed through onTeaserTap -- the same destination by a different
+              road, which is why this link must not also cover the card. */}
+          <Link
+            to={mapHref}
+            aria-label={`Open the full map: ${drawn} venues in ${cityName}`}
+            className={cn(
+              'pointer-events-auto ml-auto inline-flex items-center gap-0.5 rounded-full bg-primary px-2.5 py-1',
+              'text-[11.5px] font-bold text-primary-foreground',
+              focusRing,
+            )}
+          >
+            Open map
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
     </div>
+  );
+}
+
+/** One ladder chip. Zero is still worth showing: "0 tonight" beside "13 next 3
+ *  days" is information, and hiding it would make the row's width jump around
+ *  by day of week. */
+function Chip({ n, label }: { n: number; label: string }) {
+  return (
+    <span className="rounded-full border border-white/15 bg-white/10 px-2 py-[2.5px] text-[10.5px] font-semibold text-[#cfd5e4]">
+      <b className="font-bold text-white">{n}</b> {label}
+    </span>
   );
 }

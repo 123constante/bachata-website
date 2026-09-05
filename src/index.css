@@ -1315,86 +1315,72 @@
    HERE rather than in Tailwind utilities so the fullscreen and desktop rules
    below can simply undo it, instead of fighting utility specificity. */
 .home-map-fill .hm-mapcard {
-  flex: 0 0 clamp(148px, 32%, 236px);
+  /* A FLAT 148px, not a clamp. The clamp was sized around a control stack that
+     no longer exists in this card, and no clamp actually delivered the height
+     the design was judged at: `clamp(148px, 32%, 236px)` resolves to the 236
+     cap on an ordinary phone, and the carved `clamp(104px, 16%, 148px)`
+     resolves to ~128px there and only reaches 148 above a 925px-tall viewport.
+     Every prototype this was decided from was built at a flat 148. */
+  flex: 0 0 148px;
   margin-inline: 0.75rem;
   border: 1px solid hsl(var(--border));
   border-radius: 1rem;
+  /* Leaflet's control CORNERS are z-index:1000 while .leaflet-container is
+     z-index:auto, so they do NOT stay inside the map -- they compete in the
+     page's stacking context and paint over anything below 1000. Measured in the
+     prototype: the card's own attribution drew a strip across the middle of an
+     overlay above it. z-index:0 makes the card a stacking context and traps its
+     controls inside. This also replaces the old `.is-fullscreen` z-index:1000,
+     which sat above the Radix dialog's z-50. */
+  position: relative;
+  z-index: 0;
+}
+@media (min-width: 768px) {
+  /* DESKTOP: the same teaser, sized for the screen it is on. Behaviour is
+     identical -- pan only, any tap opens the map page -- and the difference is
+     height alone, which is why it is CSS and not a JS viewport branch. At 148px
+     a 1180px-wide window renders the map as a 105px band that reads as a strip
+     rather than a map. */
+  .home-map-fill .hm-mapcard {
+    flex: 0 0 260px;
+  }
 }
 
-/* Calendar tab: lift the month grid above the fold by ordering the feed above the
-   map. The map keeps its clamped size (a flex `order` change, not a resize), so
-   Leaflet needs no re-measure. The page head stays first (default order 0).
-   Mobile only -- the desktop split already shows the grid and the map at once. */
-@media (max-width: 767px) {
-  .home-map-fill.is-cal:not(.is-fullscreen) .hm-side { order: 1; }
-  .home-map-fill.is-cal:not(.is-fullscreen) .hm-mapcard { order: 2; }
-}
+/* The `.is-cal` reorder is GONE, and so is the idea behind it. It ordered
+   .hm-side ABOVE .hm-mapcard on the Calendar tab to lift the month grid above
+   the fold -- but doing so raises the tab row by exactly the card's height,
+   which is the same jump REMOVING the card causes. So the reorder never bought
+   what a later plan claimed it bought (a demotion that avoids the jump), and
+   the tab that used it now removes the card outright, as does What's New.
+   HomeMapShell no longer emits the class. Do not reintroduce this to "soften"
+   the jump: the jump is accepted, and this does not soften it. */
 
-/* DESKTOP (>=768px): the dominant map beside the discovery rail. A GRID, not a
-   flex row: the page head has to sit ABOVE the dock+feed inside the right-hand
-   column while the map spans the full height on the left -- and it has to do that
-   from the SAME DOM order that stacks correctly on mobile. Explicit placement,
-   so the absolutely-positioned skip link never claims a track. */
+/* DESKTOP (>=768px). The two-column GRID is gone with the desktop map chrome it
+   existed to hold: a 55% full-height map beside the rail, with its own control
+   stack, native popups and pin -> feed scroll sync. That was a SECOND full map
+   experience living on the homepage, and the whole point of the teaser is that
+   there is one, on /city/:citySlug/map. Desktop now stacks exactly as mobile
+   does -- head, card, dock, feed -- and differs only in the card's height (the
+   260px rule above). One layout, one behaviour, no JS viewport branch.
+   The height rule stays: the feed is the one scroller and it has to scroll
+   inside the viewport rather than growing the page. */
 @media (min-width: 768px) {
   .home-map-fill {
-    display: grid;
-    grid-template-columns: 55% minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
     height: calc(100vh - 60px); /* no bottom nav on desktop home */
     height: calc(100svh - 60px);
     min-height: 0; /* the portrait floor would overflow the viewport here */
   }
-  .home-map-fill .hm-mapcard {
-    grid-column: 1;
-    grid-row: 1 / -1;
-    margin-inline: 0;
-    border: 0;
-    border-right: 1px solid hsl(var(--border));
-    border-radius: 0;
-  }
-  .home-map-fill .hm-pagehead {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .home-map-fill .hm-side {
-    grid-column: 2;
-    grid-row: 2;
-    min-height: 0;
-  }
 }
 
-/* Fullscreen "explore the map" (mobile chrome only -- the expand button is the
-   only way in and HomeMapCard renders it below 768px only): the card becomes a
-   true edge-to-edge overlay ABOVE the global header + bottom nav, so the expanded
-   map is genuinely immersive. The feed stays mounted underneath (covered, and
-   `inert` so it leaves the tab order) so exit restores the list scroll. Relies on
-   no transformed ancestor on the home route (PageTransition is intentionally
-   dropped there) so position:fixed is viewport-relative.
-
-   Higher specificity than the desktop block above, so it also unwinds the rail
-   border/grid placement if the viewport is somehow resized while expanded. */
-.home-map-fill.is-fullscreen .hm-mapcard {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  margin-inline: 0;
-  border: 0;
-  border-radius: 0;
-  animation: hm-fs-enter 0.22s ease-out;
-}
-/* Enter cue: the map grows into fullscreen so it reads as the same map, not a
-   new page. Exit is instant (the card returns to its inset slot). */
-@keyframes hm-fs-enter { from { opacity: 0.35; transform: scale(0.985); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) {
-  .home-map-fill.is-fullscreen .hm-mapcard { animation: none; }
-}
-/* While the map is in fullscreen "explore" mode, hide the global header +
-   bottom nav so the fixed map overlay is genuinely edge-to-edge. The in-map
-   top bar carries the "List" exit + the map filter field. Targets the stable ids on
-   GlobalHeader (id="app-header") and BottomNav (id="app-nav") rather than a
-   Tailwind utility class / ARIA label, which could change without warning. */
-body.hm-immersive #app-header,
-body.hm-immersive #app-nav { display: none !important; }
+/* FULLSCREEN IS DELETED. It was mobile-only chrome ("explore the map") that
+   made .hm-mapcard a fixed edge-to-edge overlay at z-index:1000 and hid the
+   global header and bottom nav via body.hm-immersive. The teaser is not a tool,
+   so there is nothing to expand into: /city/:citySlug/map is the full
+   experience, and it is a real page with a real back button rather than a fixed
+   overlay pretending to be one.
+   Deleting this also closes the queued z-index inversion -- that z-index:1000
+   sat above the Radix dialog's z-50, and was survivable only because fullscreen
+   and a modal could not coexist. Closed by deletion, not by a fix. */
 
 /* Soft fade at the foot of the feed so rows dissolve toward the nav rather than
    hard-cutting. A pointer-events:none overlay pinned to the bottom of .hm-side

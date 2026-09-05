@@ -63,6 +63,54 @@
   padding: 2px 7px; border-radius: 8px 0 0 0; backdrop-filter: blur(4px);
 }
 .home-map .leaflet-control-attribution a { color: #e6e1ef; }
+
+/* ---- the TEASER's pin: a category-coloured dot ---------------------------
+   Not the cover-image bubble the full map uses. That is 36x40, sized when this
+   card could be 236px tall; at a flat 148px the bubbles are about a third of
+   the card. A teaser pin is decoration -- it says "here is where things are"
+   and nothing more -- so it carries no poster, no label and no tap target.
+   The ring is what keeps a dot legible over both the light grey Esri field and
+   the near-black pre-mount ground, without needing a per-tone rule. */
+.rdot { pointer-events: none; }
+.rdot-i {
+  display: block; border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- the TEASER's credit control (EventMap, teaser mode only) -------------
+   Leaflet's own plate is off in teaser mode: it wraps to two lines on any card
+   under ~390px wide and takes 29px of a 148px card, and the credit cannot be
+   shortened to make it fit. This replaces it with a 22px control that opens the
+   live basemap's credit verbatim.
+   Positioned against .hm-mapcard's own stacking context. z-index 600 clears
+   the hook (500); it does not need to clear Leaflet's control corners (1000)
+   because in teaser mode there are no Leaflet controls -- zoomControl and
+   attributionControl are both off. */
+.hm-credit { position: absolute; top: 7px; right: 7px; z-index: 600; }
+.hm-credit-btn {
+  width: 22px; height: 22px; border-radius: 50%; position: relative; cursor: pointer;
+  background: rgba(10, 11, 16, 0.72); border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cfd5e4; font-size: 10px; font-weight: 800; line-height: 1;
+  display: grid; place-items: center; backdrop-filter: blur(3px);
+}
+/* 24px minimum tap target (WCAG 2.5.8) without growing the 22px visual circle.
+   A sub-24px target was one of the three accessibility defects that killed the
+   previous version of this control. */
+.hm-credit-btn::before { content: ''; position: absolute; inset: -1px; }
+.hm-credit-btn:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+.hm-credit-panel {
+  position: absolute; top: 26px; right: 0; width: max-content; max-width: 250px;
+  background: rgba(9, 10, 15, 0.975); border: 1px solid hsl(var(--border));
+  border-radius: 10px; padding: 8px 22px 8px 10px;
+  font-size: 9.5px; line-height: 1.5; color: #d3ced9;
+}
+.hm-credit-panel a { color: #e6e1ef; text-decoration: underline; }
+.hm-credit-close {
+  position: absolute; top: 2px; right: 3px; width: 20px; height: 20px;
+  border: 0; background: none; color: #8b92a3; cursor: pointer; font-size: 13px;
+  line-height: 1;
+}
+.hm-credit-close:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 1px; }
 /* Chip tone RE-CHECKED after the basemap filter came off, since the ground it
    sits on changed from near-black to Esri's grey field (luma 77). It got
    better, not worse, so it is unchanged deliberately: text #cfcad6 on this

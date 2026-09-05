@@ -3,14 +3,14 @@
 // New UI (not the exempt DayDetailModal) so density rules apply. Used by both the
 // home shell's Calendar tab (HomeMapShell), lazily -- see the note there.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { focusRing } from './controls';
 import type { UseMapListResult } from '../useMapList';
 import { buildMonthCells, formatDayLabel } from '../mapListDerivations';
 import { isRemoteRow } from '../mapTypes';
-import { isDesktopViewport } from '../viewport';
+
 import { CategoryDot, EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
@@ -25,20 +25,16 @@ export function CalendarPanel({ state }: { state: UseMapListResult }) {
   const { citySlug } = useCity();
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Seed the soonest day that has events (else today) once per Calendar entry,
-  // on DESKTOP only: its tall rail looks empty with no day picked (audit #14),
-  // while on mobile the seed would pop the day modal open the instant you tap
-  // the Calendar tab. The viewport is read inside the effect, never during
-  // render -- this component is lazy and only ever mounts client-side, but a
-  // render-time viewport branch is the one thing this page must never grow
-  // (see ../viewport). Runs on mount only, so a manual Clear is respected.
-  useEffect(() => {
-    if (!isDesktopViewport() || state.day) return;
-    const dates = [...state.calendarDays.keys()].filter((d) => d >= today).sort();
-    state.setDay(dates[0] ?? today);
-    setModalOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once on mount
-  }, []);
+  // GRID FIRST, on desktop too. This used to seed the soonest day with events
+  // and OPEN THE DAY MODAL on mount, on desktop only, because the tall rail
+  // looked empty with no day picked (audit #14). That rail is gone -- desktop
+  // now stacks exactly as mobile does -- so the argument for it has gone with
+  // it, and what remains is a modal that opens itself before anyone asks for
+  // anything. Tapping the Calendar tab now lands on the month grid at every
+  // viewport, and a day modal only ever opens because someone picked a day.
+  //
+  // DayDetailModal itself is NOT touched: it is on CLAUDE.md's
+  // density-exclusion list. This deletes the auto-open, not the modal.
 
   // View month: seed from the selected day, else the current month.
   const [view, setView] = useState(() => {
