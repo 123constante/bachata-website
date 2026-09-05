@@ -1294,9 +1294,23 @@ export default function EventMap({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((mk as any)._renderedCount !== count) {
         const rep = count >= 2 ? repOf(vis) : vis[0];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mk.setIcon(locationIcon(rep, (mk as any)._venueName, count, size, anchor, popAnchor));
-        if (popupMode !== 'none') {
+        // TEASER stays a DOT here. The marker effect builds teaser icons as
+        // dots, and this re-icon had no teaser branch -- so the moment a filter
+        // changed a venue's visible count (the Tonight tab, or any typed
+        // search) the pin swapped to the 36x40 cover-image bubble the teaser
+        // design exists to avoid, on a card only 148px tall. The count still
+        // drives the dot's SIZE, which is the whole point of re-iconing.
+        mk.setIcon(
+          teaser
+            ? teaserDotIcon(count, CATEGORY_COLORS[deriveCategory(rep)])
+            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              locationIcon(rep, (mk as any)._venueName, count, size, anchor, popAnchor),
+        );
+        // 'popup' ONLY, not "anything that is not none". Venue mode never calls
+        // bindPopup (it opens a standalone popup instead), so this was a no-op
+        // there by luck rather than by intent -- and building the HTML for a
+        // popup that does not exist is work done for nothing on every filter.
+        if (popupMode === 'popup') {
           mk.setPopupContent(count >= 2 ? stackPopupHtml(vis) : popupHtml(vis[0]));
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
