@@ -13,9 +13,9 @@
 // entry makes a selected venue shareable and reload-safe for free.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Minus, Plus, Maximize } from 'lucide-react';
+import { ChevronRight, Minus, Plus, Maximize } from 'lucide-react';
 
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -39,8 +39,12 @@ import {
   type MapTypeFilter,
   type VenueRow,
 } from '@/modules/home-map/cityMapModel';
-import { regularNights } from '@/modules/home-map/venueNights';
-import { venuePanelHtml, dateLabel } from '@/modules/home-map/venuePanelHtml';
+import {
+  dateLabel,
+  regularNights,
+  type VenueNight,
+} from '@/modules/home-map/venueNights';
+
 import { CATEGORY_COLORS, CATEGORY_LABEL } from '@/modules/home-map/mapTypes';
 import { SearchField, focusRing } from '@/modules/home-map/cards/controls';
 import { MapLocateButton } from '@/modules/home-map/cards/LocateControl';
@@ -64,7 +68,6 @@ export default function CityMap() {
   // before it has re-anchored.
   const citySlug = slug ?? contextSlug ?? null;
   const todayKey = useLondonToday();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
   useSeo(
@@ -171,13 +174,33 @@ export default function CityMap() {
   const venueHrefByName = useMemo(() => {
     const m = new Map<string, string>();
     if (!flags.venueDetail) return m;
+    // AMBIGUOUS NAMES ARE INDEXED TO NOTHING.
+    //
+    // Two venues sharing a name is not something a name-join can resolve, and
+    // guessing one produces a confidently WRONG link -- worse than the missing
+    // link this whole approach was chosen on the promise of degrading to.
+    // Counting first and indexing only the unambiguous also covers the reason
+    // a city filter was considered here: the directory is global (44 London,
+    // plus Gammarth and Budapest today), so a London venue sharing a name with
+    // a foreign one is exactly the ambiguous case and already loses its link.
+    // That makes deriving a display name from the slug -- a second copy of
+    // logic that lives in pages/Index.tsx and is not exported -- unnecessary.
+    //
+    // Measured on the live directory: 46 venues, ZERO duplicate names. This
+    // changes nothing visible today and closes the hole before it opens.
+    const seen = new Map<string, string[]>();
     for (const v of publicVenues ?? []) {
       if (!v.name) continue;
       // Case- and whitespace-insensitive, because that is the class of
       // difference a human typing the same venue into two systems produces.
       // Anything beyond that is a different venue until proven otherwise.
-      m.set(v.name.trim().toLowerCase(), `/venue-entity/${v.slug ?? v.id}`);
+      const key = v.name.trim().toLowerCase();
+      const href = `/venue-entity/${v.slug ?? v.id}`;
+      const prev = seen.get(key);
+      if (prev) prev.push(href);
+      else seen.set(key, [href]);
     }
+    for (const [key, hrefs] of seen) if (hrefs.length === 1) m.set(key, hrefs[0]);
     return m;
   }, [publicVenues]);
 
@@ -187,26 +210,25 @@ export default function CityMap() {
     [venueHrefByName],
   );
 
-  // ---- the panel ----------------------------------------------------------
-  // Built from the RAW rows, never from model.pins: dedupePins has already
+  // ---- the selected venue's nights ----------------------------------------
+  // Derived from the RAW rows, never from model.pins: dedupePins has already
   // collapsed every event to one soonest day by the time it makes a pin, so a
   // pattern derived from pins would call every night in the city a one-off.
-  const buildPanel = useCallback(
-    (g: LocationGroup) =>
-      venuePanelHtml({
-        venueName: g.venueName,
-        area: g.area,
-        venueHref: venueHref(g.venueName),
-        nights: regularNights(events, {
-          eventIds: new Set(g.members.map((e) => e.event_id)),
-          coordKey: `${g.lat.toFixed(4)},${g.lng.toFixed(4)}`,
-          today: todayKey,
-        }),
-      }),
-    [events, todayKey, venueHref],
+  const selectedRow = useMemo(
+    () => model.rows.find((r) => r.repOccId === selected) ?? null,
+    [model.rows, selected],
   );
-
-  const openHref = useCallback((href: string) => navigate(href), [navigate]);
+  const selectedNights = useMemo<VenueNight[]>(
+    () =>
+      selectedRow
+        ? regularNights(events, {
+            eventIds: selectedRow.eventIds,
+            coordKey: selectedRow.coordKey,
+            today: todayKey,
+          })
+        : [],
+    [selectedRow, events, todayKey],
+  );
 
   // ---- map controls -------------------------------------------------------
   const apiRef = useRef<MapApi | null>(null);
@@ -287,8 +309,6 @@ export default function CityMap() {
                 onHover={() => {}}
                 onReady={onMapReady}
                 popupMode="venue"
-                venuePanelHtml={buildPanel}
-                onPanelNavigate={openHref}
                 onVenueSelect={selectVenue}
                 userCoords={geo.status === 'granted' ? geo.coords : null}
                 minZoom={9}
@@ -442,6 +462,8 @@ export default function CityMap() {
                 key={r.repOccId}
                 row={r}
                 selected={r.repOccId === selected}
+                nights={r.repOccId === selected ? selectedNights : null}
+                venueHref={r.repOccId === selected ? venueHref(r.venueName) : null}
                 onSelect={selectVenue}
               />
             ))}
@@ -454,54 +476,142 @@ export default function CityMap() {
 
 /** One venue in the list under the map.
  *
- *  A BUTTON, not a link: it selects a pin on this page rather than navigating,
- *  and the destinations (the venue, each night) live inside the panel it opens.
- *  Making it a link to somewhere would give the row two meanings and take the
- *  pin-selection one away from keyboard users. */
+ *  Collapsed it is a BUTTON that selects the matching pin -- not a link, because
+ *  it acts on this page rather than navigating, and making it a link would take
+ *  the pin-selection meaning away from keyboard users.
+ *
+ *  SELECTED, it spans the grid and expands in place to show that venue's
+ *  regular nights. This is where the Leaflet popup used to be. Everything the
+ *  popup needed and got wrong -- escaping, touch handling that fought its own
+ *  scrolling, a lifecycle nothing owned, an iOS pointer-events workaround no
+ *  local browser can verify -- is absent here because these are real React
+ *  nodes: React escapes text, the browser handles the taps, and unmounting is
+ *  what closing means.
+ *
+ *  Nothing interactive nests inside anything interactive: the heading button
+ *  and the night links are SIBLINGS. That is the shape the reverted attribution
+ *  chip got wrong. */
 function VenueCard({
   row,
   selected,
+  nights,
+  venueHref,
   onSelect,
 }: {
   row: VenueRow;
   selected: boolean;
+  /** The venue's regular nights, only when selected. */
+  nights: VenueNight[] | null;
+  /** /venue-entity href, or null when the flag is off or the name is not
+   *  unambiguously in the public directory. */
+  venueHref: string | null;
   onSelect: (rep: string) => void;
 }) {
   return (
-    <li data-venue={row.repOccId}>
-      <button
-        type="button"
-        onClick={() => onSelect(row.repOccId)}
-        aria-pressed={selected}
+    <li data-venue={row.repOccId} className={cn(selected && 'col-span-full')}>
+      <div
         className={cn(
-          'flex h-full w-full flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors',
-          focusRing,
-          selected
-            ? 'border-primary bg-primary/10'
-            : 'border-border hover:border-primary/40',
+          'h-full rounded-xl border transition-colors',
+          selected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40',
         )}
       >
-        <span className="line-clamp-2 text-sm font-bold leading-tight">
-          {row.venueName ?? 'Unnamed venue'}
-        </span>
-        {row.area && (
-          <span className="truncate text-[11px] text-muted-foreground">{row.area}</span>
+        <button
+          type="button"
+          onClick={() => onSelect(row.repOccId)}
+          aria-expanded={selected}
+          className={cn(
+            'flex w-full flex-col items-start gap-1 p-3 text-left',
+            focusRing,
+          )}
+        >
+          <span className="line-clamp-2 text-sm font-bold leading-tight">
+            {row.venueName ?? 'Unnamed venue'}
+          </span>
+          {row.area && (
+            <span className="truncate text-[11px] text-muted-foreground">{row.area}</span>
+          )}
+          <span className="text-[11px] text-muted-foreground">
+            {row.visibleCount} {row.visibleCount === 1 ? 'night' : 'nights'}{' '}
+            {row.nextDate ? <>&middot; {dateLabel(row.nextDate, false)}</> : null}
+          </span>
+          <span className="flex items-center gap-1" aria-hidden="true">
+            {row.categories.map((c) => (
+              <i
+                key={c}
+                title={CATEGORY_LABEL[c]}
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: CATEGORY_COLORS[c] }}
+              />
+            ))}
+          </span>
+        </button>
+
+        {selected && nights && (
+          <div className="border-t border-primary/25 px-3 pb-3 pt-2">
+            {nights.length === 0 ? (
+              // NEVER an empty expansion. A venue that opens onto nothing is
+              // indistinguishable from a broken one -- this arc's founding
+              // defect one layer up -- and it is reachable whenever a filter
+              // hides every night at a venue whose pin is still drawn.
+              <p className="text-[11px] text-muted-foreground">
+                Nothing listed here under the current filter.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {nights.map((n) => (
+                  <li key={n.eventId}>
+                    <Link
+                      to={`/event/${n.eventId}?occurrenceId=${n.nextOccId}`}
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-primary/10',
+                        focusRing,
+                      )}
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-[13px] font-bold leading-tight">
+                          {n.name}
+                        </span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {n.pattern}
+                          {n.nextDate ? ` · next ${dateLabel(n.nextDate, !n.isWeekly)}` : ''}
+                          {n.time ? ` · ${n.time}` : ''}
+                        </span>
+                      </span>
+                      <span
+                        className="ml-auto shrink-0 rounded-full border px-2 py-[1px] text-[10px] font-bold"
+                        style={{
+                          color: CATEGORY_COLORS[n.category],
+                          borderColor: CATEGORY_COLORS[n.category],
+                        }}
+                      >
+                        {CATEGORY_LABEL[n.category]}
+                      </span>
+                      {n.isCancelled && (
+                        <span className="shrink-0 text-[10px] font-bold text-[#E2415C]">
+                          Cancelled
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {venueHref && (
+              <Link
+                to={venueHref}
+                className={cn(
+                  'mt-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10',
+                  focusRing,
+                )}
+              >
+                View venue
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            )}
+          </div>
         )}
-        <span className="mt-auto text-[11px] text-muted-foreground">
-          {row.visibleCount} {row.visibleCount === 1 ? 'night' : 'nights'}{' '}
-          {row.nextDate ? <>&middot; {dateLabel(row.nextDate, false)}</> : null}
-        </span>
-        <span className="flex items-center gap-1" aria-hidden="true">
-          {row.categories.map((c) => (
-            <i
-              key={c}
-              title={CATEGORY_LABEL[c]}
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: CATEGORY_COLORS[c] }}
-            />
-          ))}
-        </span>
-      </button>
+      </div>
     </li>
   );
 }

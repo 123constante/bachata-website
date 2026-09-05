@@ -131,20 +131,24 @@ interface EventMapProps {
   zoom?: number;
   /** 'popup': a Leaflet popup bound per marker on pin tap. 'none': no popup --
    *  the parent renders an inline preview card; a background tap clears it.
-   *  'venue' (/city/:slug/map): ONE standalone popup per location, whose body
-   *  the PAGE supplies via venuePanelHtml. See the venue branch in the marker
-   *  effect for why it is a standalone popup and not bindPopup. */
+   *  'venue' (/city/:slug/map): pins SELECT and nothing else. No popup of any
+   *  kind -- the page renders the tapped venue's detail in its own list, in
+   *  ordinary React DOM.
+   *
+   *  A Leaflet popup WAS the surface here, and it was reverted at review. Its
+   *  body had to be an innerHTML string injected into Leaflet's DOM, and that
+   *  one fact generated a whole family of defects that ordinary React cannot
+   *  have: a popup lifecycle nothing owned (panels stacking, panels outliving
+   *  the pin they point at, panels opened by a finished zoom for a selection
+   *  already let go of), hand-rolled escaping, hand-rolled touch handling that
+   *  fought the list's own scrolling, a specificity fight with the shipped
+   *  popup CSS, and an iOS pointer-events workaround that no local browser can
+   *  verify. Selecting is the half worth keeping; rendering belongs to the page. */
   popupMode?: 'popup' | 'none' | 'venue';
-  /** VENUE MODE. The panel body for a tapped location. The page builds it
-   *  because the page owns the night derivation and the venue-link lookup;
-   *  EventMap owns Leaflet and nothing else. Any element inside carrying a
-   *  `data-href` is wired for navigation when the popup opens. */
-  venuePanelHtml?: (g: LocationGroup) => string;
-  /** VENUE MODE. A `data-href` row inside the panel was activated. */
-  onPanelNavigate?: (href: string) => void;
   /** VENUE MODE. The tapped location's representative occurrence_id, or null
-   *  when the panel closed. The page holds this as its selection and pushes a
-   *  history entry for it, so BACK closes the panel before leaving the page. */
+   *  when the selection was cleared (a tap on bare map, or a pin that a filter
+   *  removed). The page holds this as its selection and pushes a history entry
+   *  for it, so BACK clears the selection before leaving the page. */
   onVenueSelect?: (repOccId: string | null) => void;
   /** Smaller pins + clusters for the mobile inset map card. */
   compact?: boolean;
@@ -174,36 +178,6 @@ const PIN_SVG =
   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
 const ARROW_SVG =
   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-
-/** VENUE MODE: anchor one standalone panel to a marker.
- *
- *  Standalone rather than bindPopup because bindPopup also installs Leaflet's
- *  own click -> _openPopup on the marker, which fights ours -- measured in the
- *  prototype, where the SECOND tap on a pin left no popup in the DOM at all.
- *  `_rep` is stamped on the popup so popupclose can tell a dismissal from a
- *  replacement. */
-function openVenuePopup(m: L.Map, mk: L.Marker, html: string, rep: string): void {
-  const popup = L.popup({
-    className: 'rmap-pop rmap-venue',
-    // Fixed rather than a range: at Leaflet's default the night names wrapped to
-    // three lines and the panel read as far worse than it is -- measured in the
-    // prototype, which is why the number is pinned rather than left to content.
-    maxWidth: 268,
-    minWidth: 268,
-    keepInView: true,
-    autoPanPadding: [24, 24],
-    // The caller's `selected` owns every close path. Leaflet's own
-    // autoClose/closeOnClick would fire popupclose from a second source and
-    // race it.
-    autoClose: false,
-    closeOnClick: false,
-  })
-    .setLatLng(mk.getLatLng())
-    .setContent(html);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (popup as any)._rep = rep;
-  m.openPopup(popup);
-}
 
 /** Escape user-supplied strings flowing into Leaflet innerHTML (XSS guard). */
 function esc(s: string | null | undefined): string {
@@ -238,14 +212,14 @@ function repOf(list: MapEvent[]): MapEvent {
 /** The poster body of a pin (cover image or monogram on a scene gradient). */
 function posterCore(e: MapEvent): string {
   const color = categoryColor(e);
-  const scene = eventScene(e); // always compute â€” used up-front (no cover) or on img error
+  const scene = eventScene(e); // always compute -- used up-front (no cover) or on img error
   const mono = esc(monogram(e.name));
   if (e.cover_image_url) {
     // A 404/expired cover would otherwise render as a broken-image icon (Chrome
     // ORB-blocks the failed response). The delegated `error` listener on the map
     // container (see the init effect) reads data-scene, hides the img, promotes
     // the .cv container to the scene gradient, and reveals the pre-baked monogram
-    // â€” the exact no-cover fallback DOM. (Can't use inline onerror: the site CSP
+    // -- the exact no-cover fallback DOM. (Can't use inline onerror: the site CSP
     // blocks inline handlers.) The scene class can't be present up-front: its
     // ::before (z-index 1) sits ABOVE .cv-fill (z-index 0) and would mask a good
     // flyer. The monogram is pre-baked with inline display:none because
@@ -436,8 +410,6 @@ export default function EventMap({
   userCoords,
   teaser = false,
   onTeaserTap,
-  venuePanelHtml,
-  onPanelNavigate,
   onVenueSelect,
 }: EventMapProps) {
   const elRef = useRef<HTMLDivElement>(null);
@@ -456,49 +428,11 @@ export default function EventMap({
   // VENUE MODE: the repOccId whose panel is currently open, so a close event
   // can tell "the user dismissed this" from "a newer panel replaced it".
   const openRepRef = useRef<string | null>(null);
-  // The popup INSTANCE that is open. `map.closePopup()` with no argument only
-  // ever closes `map._popup`, so with more than one panel alive it cannot
-  // close the right one -- holding the instance is what makes closing
-  // deterministic rather than "whichever Leaflet thinks is current".
-  const openPopupRef = useRef<L.Popup | null>(null);
-  // True while WE are closing a panel. A close we initiated must not be
-  // reported back to the page as a user dismissal: the page's selection is
-  // already whatever caused the close, and reporting null would undo it.
-  const silentCloseRef = useRef(false);
   // `selected` as of the latest render, for async callbacks that must compare
   // against the CURRENT selection rather than the one they were queued with.
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
 
-  /**
-   * THE ONE OWNER of "close the venue panel that is open".
-   *
-   * Every close goes through here so the popup instance, the rep id and the
-   * reporting decision move together. Three defects came from not having this:
-   * panels stacked up because nothing removed the previous one, a panel
-   * survived a filter that hid its pin, and a panel opened by a finished zoom
-   * animation could not be closed at all.
-   *
-   * `silent` says whether the page needs telling. A close we perform BECAUSE
-   * the page's selection changed is silent -- the page already knows, and
-   * reporting null would undo the very selection that caused the close. A
-   * close we decide on our own (the pin is no longer on the map) is not.
-   */
-  const closeVenuePanel = useCallback((silent: boolean) => {
-    const m = mapRef.current;
-    const popup = openPopupRef.current;
-    openPopupRef.current = null;
-    openRepRef.current = null;
-    if (!m || !popup) return;
-    silentCloseRef.current = silent;
-    try {
-      // The INSTANCE, not the bare call: closePopup() with no argument closes
-      // map._popup, which is not necessarily this one.
-      m.closePopup(popup);
-    } finally {
-      silentCloseRef.current = false;
-    }
-  }, []);
   // Bumped when a clustered marker has been revealed. The highlight effects run
   // off `selected`, which does NOT change across a reveal, so without this the
   // ring is applied to an _icon that did not exist yet and never re-applied.
@@ -512,8 +446,6 @@ export default function EventMap({
     onOpenEvent,
     onClusterSelect,
     onTeaserTap,
-    venuePanelHtml,
-    onPanelNavigate,
     onVenueSelect,
   });
   cb.current.onSelect = onSelect;
@@ -521,20 +453,14 @@ export default function EventMap({
   cb.current.onOpenEvent = onOpenEvent;
   cb.current.onClusterSelect = onClusterSelect;
   cb.current.onTeaserTap = onTeaserTap;
-  // Re-read every render for the same reason the others are here: the init
-  // effect runs once with [] deps, so a closure captured there would hold the
-  // FIRST venuePanelHtml forever -- and that one closes over the first render's
-  // rows, which on this page is the empty array React Query starts with.
-  cb.current.venuePanelHtml = venuePanelHtml;
-  cb.current.onPanelNavigate = onPanelNavigate;
   cb.current.onVenueSelect = onVenueSelect;
 
   // Fingerprint occurrence_id AND updated_at so a CONTENT-only change (cover
   // swap, cancellation, time edit) on an event already on the map re-triggers the
   // marker/popup rebuild effects below. Keying on occurrence_id alone froze the
-  // Leaflet popup HTML against field changes â€” a stale/deleted cover URL then
+  // Leaflet popup HTML against field changes -- a stale/deleted cover URL then
   // rendered as a broken image (ORB-blocked 404), and a cancelled/rescheduled
-  // event kept showing its old state â€” even though React Query already had the
+  // event kept showing its old state -- even though React Query already had the
   // fresh row. updated_at is the audit-log curation instant (bumps on any edit).
   const eventsKey = useMemo(
     () => events.map((e) => `${e.occurrence_id}:${e.updated_at ?? ''}`).join(','),
@@ -598,12 +524,12 @@ export default function EventMap({
     const disposer = new MapDisposer(mapRef);
 
     // Cover-image error fallback (CSP-safe). The pins/popups are Leaflet
-    // innerHTML strings, so we can't use an inline onerror attribute â€” the site's
+    // innerHTML strings, so we can't use an inline onerror attribute -- the site's
     // strict CSP (script-src nonce, no 'unsafe-inline') blocks inline event
     // handlers. Instead delegate one real listener on the map container in the
     // CAPTURE phase (the `error` event does NOT bubble). A 404/expired cover
-    // (which Chrome ORB-blocks â†’ a broken-image icon) is hidden and its `.cv`
-    // container promoted to the scene gradient (+ monogram for pins) â€” the exact
+    // (which Chrome ORB-blocks -> a broken-image icon) is hidden and its `.cv`
+    // container promoted to the scene gradient (+ monogram for pins) -- the exact
     // no-cover fallback DOM. The scene token rides on the img's data-scene attr.
     const onCoverError = (ev: Event) => {
       const img = ev.target as HTMLElement | null;
@@ -1001,101 +927,22 @@ export default function EventMap({
       // on empty map.)
       m.on('click', () => cb.current.onSelect?.(null));
     } else if (popupMode === 'venue') {
-      // A tap on empty ground clears the selection, which closes the panel via
-      // the sync effect below. Marker and cluster clicks do not bubble here, so
-      // this only ever fires on bare map.
+      // VENUE MODE opens NOTHING. A tap on a pin selects it and a tap on bare
+      // ground clears the selection; the page renders the selected venue's
+      // detail in its own list, in ordinary React DOM.
+      //
+      // A Leaflet popup was the surface here and was reverted at review. The
+      // whole family of defects it produced -- panels that stacked because
+      // nothing owned closing them, a panel outliving the pin it pointed at, a
+      // finished zoom opening a panel for a selection already dropped, plus
+      // hand-rolled escaping, hand-rolled touch handling that fought the list's
+      // own scrolling, and an iOS pointer-events workaround unverifiable in any
+      // browser we have -- existed because the body was an innerHTML string in
+      // Leaflet's DOM. None of them are reachable from a React subtree.
+      //
+      // Marker and cluster clicks do not bubble to the map, so this only ever
+      // fires on bare map.
       m.on('click', () => cb.current.onVenueSelect?.(null));
-
-      // What lands here is a USER dismissal -- Leaflet's own close button. Our
-      // own closes route through closeVenuePanel, which raises silentCloseRef
-      // for the duration precisely so they are not reported back as one: the
-      // page's selection is already whatever caused the close, and reporting
-      // null would undo it.
-      m.on('popupclose', (e: L.PopupEvent) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rep = (e.popup as any)._rep as string | undefined;
-        if (!rep) return; // not a venue panel
-        if (silentCloseRef.current) return; // ours, and already accounted for
-        if (openPopupRef.current === e.popup) openPopupRef.current = null;
-        openRepRef.current = null;
-        cb.current.onVenueSelect?.(null);
-      });
-
-      m.on('popupopen', (e: L.PopupEvent) => {
-        const el = e.popup.getElement();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        openRepRef.current = ((e.popup as any)._rep as string | undefined) ?? null;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((e.popup as any)._rep) openPopupRef.current = e.popup as L.Popup;
-        if (!(el instanceof HTMLElement)) return;
-        // iOS Safari dead-tap fix -- the same one the desktop popup path below
-        // carries, and it is NOT optional here: on a real iPhone WebKit
-        // computes pointer-events:none on the Leaflet popup subtree where
-        // Chromium computes auto on identical DOM, so every row in this panel
-        // is dead to touch and the taps land on <html>. Neither Chromium nor
-        // Playwright's hasTouch reproduces it; the receipt is hardware.
-        el.style.pointerEvents = 'auto';
-        const panel = el.querySelector('.vpanel');
-        if (panel instanceof HTMLElement) panel.style.pointerEvents = 'auto';
-
-        // Every row that declares a destination gets both listeners. Leaflet's
-        // touch handling suppresses the synthetic click inside a popup on
-        // mobile, so `click` alone is a dead panel on a phone; preventDefault
-        // on the touch path stops the later synthetic click firing it twice.
-        // A TAP IS A TOUCH THAT DID NOT MOVE. Navigating on `touchstart` --
-        // which is what this did, copied from the shipped card handler -- means
-        // any swipe that BEGINS on a row navigates instead of scrolling, and
-        // .vnights is a scrolling list. It also fired on touch-DOWN, before the
-        // finger lifted, which is wrong even where nothing scrolls.
-        // So: remember where the touch started, and on touchend navigate only
-        // if it stayed within TAP_SLOP. preventDefault there suppresses the
-        // synthetic click that would otherwise fire the same row twice.
-        const TAP_SLOP = 10;
-        const rows = Array.from(el.querySelectorAll('[data-href]'));
-        const wired: { node: Element; onStart: (e: Event) => void; onEnd: (e: Event) => void; onClick: (e: Event) => void }[] = [];
-        for (const node of rows) {
-          let sx = 0;
-          let sy = 0;
-          let tracking = false;
-          const go = (rev: Event) => {
-            const href = node.getAttribute('data-href');
-            if (!href) return;
-            rev.preventDefault();
-            rev.stopPropagation();
-            cb.current.onPanelNavigate?.(href);
-          };
-          const onStart = (rev: Event) => {
-            const t = (rev as TouchEvent).changedTouches?.[0];
-            // A multi-touch gesture is never a tap; leave it to the scroller.
-            tracking = !!t && (rev as TouchEvent).touches.length === 1;
-            sx = t?.clientX ?? 0;
-            sy = t?.clientY ?? 0;
-          };
-          const onEnd = (rev: Event) => {
-            if (!tracking) return;
-            tracking = false;
-            const t = (rev as TouchEvent).changedTouches?.[0];
-            if (!t) return;
-            if (Math.abs(t.clientX - sx) > TAP_SLOP || Math.abs(t.clientY - sy) > TAP_SLOP) return;
-            go(rev);
-          };
-          // Pointer devices never fire the touch pair, so click still carries
-          // them -- and on touch it is already suppressed by the preventDefault
-          // above, so a row cannot navigate twice.
-          const onClick = (rev: Event) => go(rev);
-          node.addEventListener('touchstart', onStart, { passive: true });
-          node.addEventListener('touchend', onEnd);
-          node.addEventListener('click', onClick);
-          wired.push({ node, onStart, onEnd, onClick });
-        }
-        m.once('popupclose', () => {
-          for (const w of wired) {
-            w.node.removeEventListener('touchstart', w.onStart);
-            w.node.removeEventListener('touchend', w.onEnd);
-            w.node.removeEventListener('click', w.onClick);
-          }
-        });
-      });
     } else {
       m.on('popupopen', (e: L.PopupEvent) => {
         const el = e.popup.getElement();
@@ -1460,76 +1307,39 @@ export default function EventMap({
     });
   }, [hovered, visKey, eventsKey]);
 
-  // ---- VENUE MODE: the open panel is a pure function of `selected` ----------
-  // Declarative on purpose. A pin tap, a list-row tap, a browser BACK that pops
-  // the panel's history entry, and Leaflet's own close button all move ONE
-  // value, and this effect makes the DOM agree with it. There is no path where
-  // a highlighted pin has no panel, or a panel outlives its highlight, because
-  // the same `selected` drives both this and the highlight effect below.
+  // ---- VENUE MODE: bring the selected pin into view --------------------------
+  // There is no panel to manage any more, so this does two things only: reveal
+  // a selected pin that markercluster has bundled away, and report a selection
+  // that cannot be shown so the page can drop it.
   useEffect(() => {
-    const m = mapRef.current;
-    if (!m || popupMode !== 'venue') return;
+    if (popupMode !== 'venue' || !mapRef.current) return;
     const mk = selected ? markers.current.get(selected) : undefined;
     const onMap = !!mk && shownRef.current.includes(mk);
 
-    // ANYTHING that is not "a panel for a currently-visible selection"
-    // resolves to CLOSED, and it does so BEFORE the already-showing shortcut.
-    // Order is the whole fix: a filter that hides the selected pin does not
-    // change `selected`, so an `openRepRef === selected` early return sitting
-    // above this left the panel anchored over ground with no pin under it. The
-    // visibility effect is declared earlier, so shownRef is already current.
-    if (!selected) {
-      // The page moved the selection, so it does not need telling.
-      closeVenuePanel(true);
+    // A selection whose pin is not on the map -- filtered out, or a stale id
+    // from a shared ?venue= link that matches nothing -- is reported so the
+    // page clears it. Unconditional, because there is no popup whose absence
+    // could stand in for "nothing to do": an earlier draft returned early when
+    // no popup was open, which left exactly this case uncleared.
+    if (selected && !onMap) {
+      cb.current.onVenueSelect?.(null);
       return;
     }
-    if (!onMap) {
-      // WE decided this -- the pin was filtered out, or the id came from a
-      // restored URL and matches nothing. The page must learn, or its
-      // selection and the map stay disagreed.
-      closeVenuePanel(false);
-      return;
-    }
-    // Already showing what was asked for: re-opening would tear down the wired
-    // rows and re-pan the map on every unrelated re-render.
-    if (openRepRef.current === selected) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g = (mk as any)._group as LocationGroup | undefined;
-    const html = g ? cb.current.venuePanelHtml?.(g) : undefined;
-    if (!html) return;
+    if (!selected || !mk) return;
 
-    // REVEAL BEFORE OPENING. A marker bundled into a cluster has no _icon in
-    // the DOM at all, so anchoring a panel to it puts the panel over a cluster
-    // bubble with no pin under it, and the selection ring lands on nothing.
-    // Found by running it: selecting a venue from the LIST is the common way in,
-    // and at London's default zoom most venues start clustered.
+    // A bundled marker has no _icon in the DOM, so the selection ring would
+    // land on nothing and the pin the list is pointing at would be invisible.
     // zoomToShowLayer expands/zooms until the marker is real, then calls back.
-    // Close-before-open, explicitly. Leaflet's own openOn would do it, but the
-    // panel sets autoClose:false to keep `selected` the sole owner of closing
-    // -- and that ALSO disables the close-before-open, so without this line a
-    // second panel simply joined the first on screen and the first could no
-    // longer be reached by any close path.
-    closeVenuePanel(true);
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(mk as any)._icon && clusterRef.current) {
       clusterRef.current.zoomToShowLayer(mk, () => {
-        const map = mapRef.current;
-        // A zoom animation takes time, and both the map and the selection can
-        // move during it. Opening for a selection that is no longer current
-        // strands a panel that the selection path can never close: openRepRef
-        // would name a venue the page has already let go of.
-        if (!map || selectedRef.current !== selected) return;
+        // A zoom animation takes time and both the map and the selection can
+        // move during it; re-icon only for the selection still current.
+        if (!mapRef.current || selectedRef.current !== selected) return;
         setRevealTick((t) => t + 1);
-        openVenuePopup(map, mk, html, selected);
       });
-      return;
     }
-    openVenuePopup(m, mk, html, selected);
-    // Every value this effect reads is either listed or a ref, so there is no
-    // exhaustive-deps suppression here -- and there must not be one, or a real
-    // missing dependency would be silenced along with it.
-  }, [selected, popupMode, eventsKey, visKey, closeVenuePanel]);
+  }, [selected, popupMode, eventsKey, visKey]);
 
   // ---- selection highlight -------------------------------------------------
   useEffect(() => {

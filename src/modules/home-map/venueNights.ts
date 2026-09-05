@@ -26,6 +26,41 @@ const WEEKDAY_PLURAL = [
   'Saturdays',
 ];
 
+// Singular weekday names and short months, for dateLabel below. Weekdays are
+// spelled in FULL per the house copy rule ("Friday", never "Fri"); months stay
+// short, because the rule is about weekdays and "11 September" costs a line
+// wrap in a list cell that "11 Sep" does not.
+const WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+const MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/**
+ * '11 Sep', or 'Friday 11 Sep' when the weekday is worth saying.
+ *
+ * Built from the key's own parts, never `new Date('2026-09-13')` -- that parses
+ * as UTC midnight and prints the previous weekday for a London date once BST
+ * puts the browser an hour ahead. weekdayOfKey is the sanctioned helper and is
+ * UTC-noon anchored for exactly this reason.
+ */
+export function dateLabel(key: string, withWeekday: boolean): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) return '';
+  const day = Number(m[3]);
+  const month = MONTHS_SHORT[Number(m[2]) - 1] ?? '';
+  const stem = `${day} ${month}`.trim();
+  return withWeekday ? `${WEEKDAYS[weekdayOfKey(key)]} ${stem}` : stem;
+}
+
 /**
  * Rounded-coordinate key at the same ~11m precision dedupePins and
  * groupPinsByLocation use, so a venue identified on the map resolves to the

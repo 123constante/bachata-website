@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MapEvent } from '../mapTypes';
-import { regularNights, venueCoordKey } from '../venueNights';
+import { dateLabel, regularNights, venueCoordKey } from '../venueNights';
 
 const base: MapEvent = {
   occurrence_id: 'o',
@@ -72,6 +72,30 @@ describe('venueCoordKey', () => {
   it('gives a stable key for a coordless row rather than throwing', () => {
     expect(venueCoordKey(null, null)).toBe(',');
     expect(venueCoordKey(undefined, undefined)).toBe(',');
+  });
+});
+
+// Ported here when venuePanelHtml.ts was deleted with the reverted Leaflet
+// popup: dateLabel outlived that module and its coverage had to move with it,
+// not vanish with the file.
+describe('dateLabel', () => {
+  it('gives day and short month, with the full weekday when asked', () => {
+    expect(dateLabel('2026-09-11', false)).toBe('11 Sep');
+    expect(dateLabel('2026-09-11', true)).toBe('Friday 11 Sep');
+  });
+
+  it('spells the weekday in full, never abbreviated', () => {
+    expect(dateLabel('2026-09-12', true)).toBe('Saturday 12 Sep');
+    expect(dateLabel('2026-09-13', true)).toBe('Sunday 13 Sep');
+  });
+
+  it('does not zero-pad the day', () => {
+    expect(dateLabel('2026-09-01', false)).toBe('1 Sep');
+  });
+
+  it('returns empty for a malformed key rather than NaN', () => {
+    expect(dateLabel('not-a-date', true)).toBe('');
+    expect(dateLabel('', false)).toBe('');
   });
 });
 
