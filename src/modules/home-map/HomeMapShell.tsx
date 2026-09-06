@@ -32,7 +32,7 @@
 // breakpoint). `.home-map` scopes the cover-scene CSS; `.home-map-fill` supplies
 // the shell height + the responsive layout.
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
@@ -185,8 +185,6 @@ export default function HomeMapShell({
   error?: boolean;
   onRetry?: () => void;
 }) {
-  const sideRef = useRef<HTMLDivElement>(null);
-
   // The map is client-only (Leaflet touches `window` at module load). An EFFECT
   // sets this -- effects run after React has finished hydrating, so the resulting
   // re-render can never land inside a still-hydrating Suspense boundary. Never
@@ -390,7 +388,7 @@ export default function HomeMapShell({
       </div>
       )}
 
-      <div ref={sideRef} className="hm-side flex min-h-0 flex-1 flex-col">
+      <div className="hm-side flex min-h-0 flex-1 flex-col">
         <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
           <TabBar tab={state.tab} setTab={state.setTab} />
         </div>
