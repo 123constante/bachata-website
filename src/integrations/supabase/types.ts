@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -77,6 +77,27 @@ export type Database = {
           snapshot_before?: Json | null
           success?: boolean
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      admin_app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
         }
         Relationships: []
       }
@@ -2093,6 +2114,7 @@ export type Database = {
           created_at: string | null
           id: string
           occurrence_id: string
+          occurrence_p5_id: string | null
           status: string
           updated_at: string
           user_id: string
@@ -2101,6 +2123,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           occurrence_id: string
+          occurrence_p5_id?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -2109,6 +2132,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           occurrence_id?: string
+          occurrence_p5_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -2126,6 +2150,13 @@ export type Database = {
             columns: ["occurrence_id"]
             isOneToOne: false
             referencedRelation: "calendar_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_attendance_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -2352,6 +2383,7 @@ export type Database = {
           id: string
           is_permanent: boolean
           occurrence_id: string | null
+          occurrence_p5_id: string | null
           qr_token: string | null
           status: string
         }
@@ -2364,6 +2396,7 @@ export type Database = {
           id?: string
           is_permanent?: boolean
           occurrence_id?: string | null
+          occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
         }
@@ -2376,6 +2409,7 @@ export type Database = {
           id?: string
           is_permanent?: boolean
           occurrence_id?: string | null
+          occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
         }
@@ -2399,6 +2433,13 @@ export type Database = {
             columns: ["occurrence_id"]
             isOneToOne: false
             referencedRelation: "calendar_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_guest_list_entries_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -2541,6 +2582,13 @@ export type Database = {
             columns: ["occurrence_id"]
             isOneToOne: false
             referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_occurrence_added_session_p5_venue_room_id_fkey"
+            columns: ["venue_room_id"]
+            isOneToOne: false
+            referencedRelation: "venue_rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -3310,37 +3358,53 @@ export type Database = {
           },
         ]
       }
-      event_promotions: {
+      event_promotion_log_p5: {
         Row: {
           channel: string | null
-          event_id: string
           id: string
           note: string | null
+          occurrence_date: string
+          occurrence_id: string | null
           promoted_at: string
           promoted_by: string | null
+          series_id: string
+          stamped_occurrence_id: string
         }
         Insert: {
           channel?: string | null
-          event_id: string
           id?: string
           note?: string | null
+          occurrence_date: string
+          occurrence_id?: string | null
           promoted_at?: string
           promoted_by?: string | null
+          series_id: string
+          stamped_occurrence_id: string
         }
         Update: {
           channel?: string | null
-          event_id?: string
           id?: string
           note?: string | null
+          occurrence_date?: string
+          occurrence_id?: string | null
           promoted_at?: string
           promoted_by?: string | null
+          series_id?: string
+          stamped_occurrence_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "event_promotions_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "event_promotion_log_p5_occurrence_id_fkey"
+            columns: ["occurrence_id"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_promotion_log_p5_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -3759,6 +3823,7 @@ export type Database = {
           default_start_date: string | null
           default_ticket_url: string | null
           default_venue_id: string | null
+          ended_on: string | null
           facebook_url: string | null
           featured: boolean | null
           festival_id: string | null
@@ -3777,6 +3842,7 @@ export type Database = {
           organiser_ids: string[] | null
           passes: Json | null
           promo_codes: Json | null
+          promotion_touch_override: number | null
           recurrence_rule: Json | null
           removed_dates: string[]
           slug: string | null
@@ -3804,6 +3870,7 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          ended_on?: string | null
           facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
@@ -3822,6 +3889,7 @@ export type Database = {
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
+          promotion_touch_override?: number | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
@@ -3849,6 +3917,7 @@ export type Database = {
           default_start_date?: string | null
           default_ticket_url?: string | null
           default_venue_id?: string | null
+          ended_on?: string | null
           facebook_url?: string | null
           featured?: boolean | null
           festival_id?: string | null
@@ -3867,6 +3936,7 @@ export type Database = {
           organiser_ids?: string[] | null
           passes?: Json | null
           promo_codes?: Json | null
+          promotion_touch_override?: number | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
@@ -4698,6 +4768,7 @@ export type Database = {
           consumed_at: string | null
           entry_id: string
           entry_table: string
+          erased_at: string | null
           event_id: string
           issued_at: string
           issued_by: string | null
@@ -4707,6 +4778,7 @@ export type Database = {
           consumed_at?: string | null
           entry_id: string
           entry_table: string
+          erased_at?: string | null
           event_id: string
           issued_at?: string
           issued_by?: string | null
@@ -4716,6 +4788,7 @@ export type Database = {
           consumed_at?: string | null
           entry_id?: string
           entry_table?: string
+          erased_at?: string | null
           event_id?: string
           issued_at?: string
           issued_by?: string | null
@@ -4765,6 +4838,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      guest_entry_purge_archive_v1: {
+        Row: {
+          archived_at: string
+          entry: Json
+          id: number
+          purge_reason: string
+        }
+        Insert: {
+          archived_at?: string
+          entry: Json
+          id?: number
+          purge_reason: string
+        }
+        Update: {
+          archived_at?: string
+          entry?: Json
+          id?: number
+          purge_reason?: string
+        }
+        Relationships: []
       }
       guest_list_standing_exclusions: {
         Row: {
@@ -5374,6 +5468,7 @@ export type Database = {
       og_render: {
         Row: {
           attempts: number
+          bake_request_id: number | null
           cover_hash: string | null
           cover_source_url: string | null
           created_at: string
@@ -5390,6 +5485,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          bake_request_id?: number | null
           cover_hash?: string | null
           cover_source_url?: string | null
           created_at?: string
@@ -5406,6 +5502,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          bake_request_id?: number | null
           cover_hash?: string | null
           cover_source_url?: string | null
           created_at?: string
@@ -5429,6 +5526,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      og_scrape_issued_request: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          issued_at: string
+          occurrence_id: string | null
+          request_id: number
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          issued_at?: string
+          occurrence_id?: string | null
+          request_id: number
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          issued_at?: string
+          occurrence_id?: string | null
+          request_id?: number
+        }
+        Relationships: []
+      }
+      og_scrape_ledger_fault: {
+        Row: {
+          kind: string
+          occurred_at: string
+          request_id: number | null
+          sqlstate: string | null
+        }
+        Insert: {
+          kind: string
+          occurred_at?: string
+          request_id?: number | null
+          sqlstate?: string | null
+        }
+        Update: {
+          kind?: string
+          occurred_at?: string
+          request_id?: number | null
+          sqlstate?: string | null
+        }
+        Relationships: []
+      }
+      og_scrape_outcome_log: {
+        Row: {
+          app_usage_call_count: number | null
+          bucket_start: string
+          first_graph_response_id: number | null
+          last_graph_response_id: number | null
+          ok: number
+          other_error: number
+          posts: number
+          rate_limited: number
+          recorded_at: string
+          unattributed_errors: number
+          unattributed_timeouts: number
+          updated_at: string
+        }
+        Insert: {
+          app_usage_call_count?: number | null
+          bucket_start: string
+          first_graph_response_id?: number | null
+          last_graph_response_id?: number | null
+          ok: number
+          other_error: number
+          posts: number
+          rate_limited: number
+          recorded_at?: string
+          unattributed_errors: number
+          unattributed_timeouts: number
+          updated_at?: string
+        }
+        Update: {
+          app_usage_call_count?: number | null
+          bucket_start?: string
+          first_graph_response_id?: number | null
+          last_graph_response_id?: number | null
+          ok?: number
+          other_error?: number
+          posts?: number
+          rate_limited?: number
+          recorded_at?: string
+          unattributed_errors?: number
+          unattributed_timeouts?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       onboarding_targets: {
         Row: {
@@ -6840,6 +7027,24 @@ export type Database = {
           show_winner_publicly?: boolean
           slug?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      raffle_pseudonym_pepper: {
+        Row: {
+          created_at: string
+          id: boolean
+          pepper: string
+        }
+        Insert: {
+          created_at?: string
+          id?: boolean
+          pepper: string
+        }
+        Update: {
+          created_at?: string
+          id?: boolean
+          pepper?: string
         }
         Relationships: []
       }
@@ -8455,6 +8660,26 @@ export type Database = {
       }
     }
     Functions: {
+      _added_session_room_ok_legacy_v1: {
+        Args: {
+          p_legacy_occurrence_id: string
+          p_legacy_session_id: string
+          p_room_id: string
+        }
+        Returns: boolean
+      }
+      _added_session_room_ok_p5_v1: {
+        Args: { p_occurrence_id: string; p_room_id: string }
+        Returns: boolean
+      }
+      _added_session_room_owner_occurrence_v1: {
+        Args: { p_legacy_session_id: string }
+        Returns: string
+      }
+      _app_setting_int_v1: {
+        Args: { p_default: number; p_key: string; p_max: number; p_min: number }
+        Returns: number
+      }
       _arc_gates_internal_counts_v1: { Args: never; Returns: Json }
       _assert_can_edit_occurrence_p5: {
         Args: { p_actor: string; p_occurrence_id: string }
@@ -8513,6 +8738,10 @@ export type Database = {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
+      _cmd_series_end_run_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
       _cmd_series_remove_date_p5: {
         Args: { p_actor_id: string; p_payload: Json; p_series_id: string }
         Returns: Json
@@ -8529,7 +8758,15 @@ export type Database = {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
+      _cmd_series_skip_date_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
       _cmd_series_stop_repeating_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
+      _cmd_series_unskip_date_p5: {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
@@ -8572,8 +8809,72 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: string[]
       }
+      _effective_occurrence_boolean_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: boolean
+        }
+        Returns: boolean
+      }
+      _effective_occurrence_jsonb_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: Json
+        }
+        Returns: Json
+      }
+      _effective_occurrence_text_array_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: string[]
+        }
+        Returns: string[]
+      }
+      _effective_occurrence_text_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: string
+        }
+        Returns: string
+      }
+      _effective_occurrence_time_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: string
+        }
+        Returns: string
+      }
+      _effective_occurrence_uuid_array_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: string[]
+        }
+        Returns: string[]
+      }
+      _effective_occurrence_uuid_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+          p_series: string
+        }
+        Returns: string
+      }
+      _effective_occurrence_venue_p5: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
       _emit_cache_revalidation_v1: {
         Args: { p_entity_id: string; p_entity_type: string; p_extra?: Json }
+        Returns: undefined
+      }
+      _emit_occurrence_venue_cache_v1: {
+        Args: { p_reason: string; p_series_id: string }
         Returns: undefined
       }
       _ensure_festival_legacy_bridge_v1: {
@@ -8613,8 +8914,48 @@ export type Database = {
         }[]
       }
       _floor_test_probe: { Args: never; Returns: string }
+      _foreign_room_census_v1: {
+        Args: { p_event_id?: string; p_venue_override?: string }
+        Returns: {
+          event_rooms: number
+          items: number
+          meta_rooms: number
+          section_rooms: number
+        }[]
+      }
       _get_occurrence_program_p5_native_v1: {
         Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      _guest_entry_retention_anchor_v1: {
+        Args: {
+          p_created_at: string
+          p_deleted_at: string
+          p_event_id: string
+          p_is_permanent: boolean
+          p_occurrence_id: string
+        }
+        Returns: string
+      }
+      _guest_erase_identity_v1: {
+        Args: { p_entry_id: string; p_entry_table: string }
+        Returns: Json
+      }
+      _guest_list_door_headcount_v1: {
+        Args: { p_bucket?: string; p_event_id: string }
+        Returns: number
+      }
+      _guest_normalize_name_v1: { Args: { p_name: string }; Returns: string }
+      _guest_resolve_occurrence_pair_v1: {
+        Args: { p_id: string }
+        Returns: Record<string, unknown>
+      }
+      _guest_restore_entry_v1: {
+        Args: { p_emit_revalidation?: boolean; p_entry_id: string }
+        Returns: Json
+      }
+      _guest_unexclude_restore_v1: {
+        Args: { p_event_id: string }
         Returns: Json
       }
       _is_city_ambassador: {
@@ -8634,6 +8975,7 @@ export type Database = {
         Args: { p_id: string; p_type: string; p_user: string }
         Returns: boolean
       }
+      _is_uuid_text_v1: { Args: { p_text: string }; Returns: boolean }
       _log_legacy_read: { Args: { _surface: string }; Returns: undefined }
       _map_role_to_profile_type: { Args: { p_role: string }; Returns: string }
       _materialise_series_occurrences_p5_v1: {
@@ -8682,6 +9024,18 @@ export type Database = {
         Args: { p_profile_type: string; p_role: string }
         Returns: string
       }
+      _occurrence_date_has_bookings_v1: {
+        Args: {
+          p_legacy_event_id: string
+          p_mirror_ids: string[]
+          p_occurrence_date: string
+        }
+        Returns: boolean
+      }
+      _occurrence_delete_safety_status_v1: {
+        Args: { p_facts: Json }
+        Returns: string
+      }
       _occurrence_idempotent_check: {
         Args: { p_actor: string; p_key: string }
         Returns: boolean
@@ -8690,6 +9044,67 @@ export type Database = {
         Args: { p_actor: string; p_key: string }
         Returns: undefined
       }
+      _occurrence_is_curated_v1: {
+        Args: { p_mirror_ids: string[]; p_p5_occurrence_id: string }
+        Returns: boolean
+      }
+      _occurrence_mirror_ids_v1: {
+        Args: {
+          p_legacy_event_id: string
+          p_linked_co_id: string
+          p_occurrence_date: string
+        }
+        Returns: string[]
+      }
+      _occurrence_override_blank_to_null_v1: {
+        Args: { p_value: string }
+        Returns: string
+      }
+      _occurrence_override_json_text_array_v1: {
+        Args: { p_field: string; p_value: Json }
+        Returns: string[]
+      }
+      _occurrence_override_owns_p5: {
+        Args: {
+          ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
+          p_key: string
+        }
+        Returns: boolean
+      }
+      _occurrence_override_post_state_all_null_v1: {
+        Args: {
+          p_cancellation_reason_label: string
+          p_city_id: string
+          p_cover_image_url: string
+          p_custom_local_end_time: string
+          p_custom_local_start_time: string
+          p_description: string
+          p_featured: boolean
+          p_gallery: string[]
+          p_level: string
+          p_music_styles: string[]
+          p_organiser_ids: string[]
+          p_passes: Json
+          p_promo_codes: Json
+          p_ticket_url: string
+          p_title: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
+      _occurrence_override_read_rule_classify_v1: {
+        Args: { p_body: string }
+        Returns: Json
+      }
+      _occurrence_override_read_rule_empty_v1: {
+        Args: { p_reads: boolean }
+        Returns: Json
+      }
+      _occurrence_override_unknown_key_p5: {
+        Args: { p_key: string; p_like: unknown }
+        Returns: unknown
+      }
+      _og_bake_reconcile: { Args: never; Returns: undefined }
       _og_cover_token: { Args: { p_url: string }; Returns: string }
       _og_enqueue: {
         Args: {
@@ -8708,8 +9123,42 @@ export type Database = {
         }
         Returns: number
       }
+      _og_scrape_backoff_state: { Args: never; Returns: Json }
       _og_scrape_drain: { Args: never; Returns: undefined }
+      _og_scrape_snapshot_outcomes: { Args: never; Returns: number }
       _og_sweep: { Args: never; Returns: undefined }
+      _p5_cancel_future_occurrences_on_end_v1: {
+        Args: { p_series_id: string }
+        Returns: number
+      }
+      _p5_festival_date_census_v1: {
+        Args: { p_series_id: string }
+        Returns: {
+          held_dates: string
+          is_festival: boolean
+          n_dates: number
+          n_past: number
+          series_name: string
+        }[]
+      }
+      _p5_festival_extra_dates_remedy_v1: {
+        Args: { p_already_festival: boolean; p_n_past: number }
+        Returns: string
+      }
+      _p5_festival_headline_start_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
+      _p5_festival_span_v1: {
+        Args: { p_series_id: string; p_timezone?: string }
+        Returns: {
+          ends_at: string
+          local_end: string
+          local_start: string
+          program_day_count: number
+          starts_at: string
+        }[]
+      }
       _p5_native_people_v1: { Args: { p_people: Json }; Returns: Json }
       _p5_occ_wall_end_v1: {
         Args: {
@@ -8732,9 +9181,25 @@ export type Database = {
           headline_start: string
         }[]
       }
+      _p5_occurrence_program_end_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
+      _p5_series_is_multiday_v1: {
+        Args: { p_series_id: string }
+        Returns: boolean
+      }
+      _p5_series_last_run_date_v1: {
+        Args: { p_series_id: string }
+        Returns: string
+      }
       _p5_series_legacy_type_v1: {
         Args: { p_category: string; p_format: string }
         Returns: string
+      }
+      _p5_series_public_page_visibility_v1: {
+        Args: { p_legacy_event_id: string; p_lifecycle_status: string }
+        Returns: boolean
       }
       _p5_series_public_visibility_v1: {
         Args: { p_legacy_event_id: string; p_lifecycle_status: string }
@@ -8757,8 +9222,26 @@ export type Database = {
         Args: { p_person_id: string }
         Returns: boolean
       }
+      _phone_punct_strip_v1: { Args: { p_raw: string }; Returns: string }
       _promote_waitlist_v1: {
         Args: { p_event_id: string; p_kind: string; p_occurrence_id?: string }
+        Returns: number
+      }
+      _promotion_runway_days_v1: {
+        Args: {
+          p_created_date: string
+          p_occurrence_date: string
+          p_prev_date: string
+          p_promotion_class: string
+        }
+        Returns: number
+      }
+      _promotion_thresholds_v1: {
+        Args: { p_runway_days: number; p_touch_target: number }
+        Returns: number[]
+      }
+      _promotion_touch_target_v1: {
+        Args: { p_override?: number; p_runway_days: number }
         Returns: number
       }
       _public_anchor_occurrence_p5_v1: {
@@ -8807,6 +9290,12 @@ export type Database = {
         Returns: boolean
       }
       _raffle_event_venue_v1: { Args: { p_event_id: string }; Returns: string }
+      _raffle_pepper_v1: { Args: never; Returns: string }
+      _raffle_phone_pseudonym_key_v1: {
+        Args: { p_pepper: string; p_phone: string }
+        Returns: string
+      }
+      _raffle_phone_pseudonym_v1: { Args: { p_phone: string }; Returns: string }
       _raffle_record_draw_v1: {
         Args: {
           p_actor_id: string
@@ -8838,6 +9327,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      _raffle_snapshot_strip_identity_v1: {
+        Args: { p_fragment: Json }
+        Returns: Json
       }
       _raffle_throttle_allow_v1: {
         Args: {
@@ -8876,7 +9369,31 @@ export type Database = {
           name: string
         }[]
       }
+      _room_label_on_drop_v1: {
+        Args: { p_room_text: string; p_venue_room_id: string }
+        Returns: string
+      }
+      _room_usable_for_event_v1: {
+        Args: { p_event_venue_id: string; p_room_id: string }
+        Returns: boolean
+      }
+      _room_usable_for_legacy_occurrence_v1: {
+        Args: { p_legacy_occurrence_id: string; p_room_id: string }
+        Returns: boolean
+      }
+      _room_usable_for_occurrence_p5_v1: {
+        Args: { p_occurrence_id: string; p_room_id: string }
+        Returns: boolean
+      }
       _safe_text_to_time_p5: { Args: { p: string }; Returns: string }
+      _scope_added_session_rooms_for_occurrence_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      _scope_program_rooms_to_venue_v1: {
+        Args: { p_event_id: string; p_meta: Json; p_venue_id: string }
+        Returns: Json
+      }
       _secdef_probe: { Args: never; Returns: string }
       _seed_p5_program_from_legacy_v1: {
         Args: { p_series_id: string }
@@ -9391,6 +9908,7 @@ export type Database = {
         Returns: Json
       }
       admin_event_workspace_p5: { Args: { p_series_id: string }; Returns: Json }
+      admin_get_app_settings_v1: { Args: never; Returns: Json }
       admin_get_broken_reference_queue: {
         Args: { p_limit?: number }
         Returns: {
@@ -10246,6 +10764,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_log_promotion_p5_v1: {
+        Args: {
+          p_channel?: string
+          p_note?: string
+          p_occurrence_date: string
+          p_series_id: string
+        }
+        Returns: Json
+      }
       admin_log_raffle_winner_contact_v1: {
         Args: {
           p_channel?: string
@@ -10278,10 +10805,6 @@ export type Database = {
           p_first_name: string
           p_phone_e164: string
         }
-        Returns: Json
-      }
-      admin_mark_event_promoted_v1: {
-        Args: { p_channel?: string; p_event_id: string; p_note?: string }
         Returns: Json
       }
       admin_mark_raffle_entry_eligible_v1: {
@@ -10407,26 +10930,29 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: Json
       }
-      admin_promotion_radar_v1: {
-        Args: { p_horizon_days?: number; p_window?: string }
+      admin_promotion_candidates_v1: {
+        Args: never
         Returns: {
-          clicks_window: number
+          city_name: string
           cover_url: string
-          ctr: number
-          days_since_promoted: number
+          days_overdue: number
           days_until: number
-          engagement_score: number
-          event_id: string
-          event_kind: string
-          is_ready: boolean
+          format: string
+          is_due: boolean
+          is_established: boolean
           last_promoted_at: string
-          missing: string[]
           name: string
-          next_occurrence_at: string
-          priority_score: number
-          staleness_score: number
-          urgency_score: number
-          views_window: number
+          next_threshold: number
+          occurrence_date: string
+          occurrence_id: string
+          promotion_class: string
+          rank_score: number
+          runway_days: number
+          series_id: string
+          touch_count: number
+          touch_override: number
+          touch_target: number
+          venue_name: string
         }[]
       }
       admin_publish_custom_date_series_v1: {
@@ -10514,6 +11040,10 @@ export type Database = {
       admin_resolve_user_by_email: {
         Args: { p_email: string }
         Returns: string
+      }
+      admin_restore_guest_list_entry_v1: {
+        Args: { p_entry_id: string }
+        Returns: Json
       }
       admin_restore_raffle_preset_v1: {
         Args: { p_preset_id: string }
@@ -10913,6 +11443,10 @@ export type Database = {
             Args: { p_id: string; p_idempotency_key?: string; p_people: Json }
             Returns: Json
           }
+      admin_set_app_setting_v1: {
+        Args: { p_key: string; p_value: Json }
+        Returns: Json
+      }
       admin_set_event_rooms_v1: {
         Args: { p_event_id: string; p_rooms: Json }
         Returns: Json
@@ -10986,6 +11520,10 @@ export type Database = {
       }
       admin_set_series_lifecycle_v1: {
         Args: { p_series_id: string; p_status: string }
+        Returns: Json
+      }
+      admin_set_series_promotion_touches_v1: {
+        Args: { p_series_id: string; p_touches: number }
         Returns: Json
       }
       admin_set_session_attribute_override_v1: {
@@ -11091,6 +11629,10 @@ export type Database = {
           p_profile_id: string
           p_role: string
         }
+        Returns: Json
+      }
+      admin_unlog_promotion_p5_v1: {
+        Args: { p_occurrence_date: string; p_series_id: string }
         Returns: Json
       }
       admin_unlog_raffle_winner_v1: {
@@ -11269,6 +11811,7 @@ export type Database = {
         Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
       }
+      check_added_session_room_contract_v1: { Args: never; Returns: Json }
       check_admin_list_occurrences_null_venue_tolerance_v1: {
         Args: never
         Returns: Json
@@ -11298,6 +11841,7 @@ export type Database = {
       check_event_series_p5_slug_presence_v1: { Args: never; Returns: Json }
       check_event_tracking_health_v1: { Args: never; Returns: Json }
       check_events_time_constraint_health_v1: { Args: never; Returns: Json }
+      check_festival_detail_span_v1: { Args: never; Returns: Json }
       check_festival_occurrence_span_v1: { Args: never; Returns: Json }
       check_festival_publish_readiness_v1: {
         Args: { p_series_id?: string }
@@ -11346,12 +11890,14 @@ export type Database = {
       }
       check_no_materialised_utc_miscast_v1: { Args: never; Returns: Json }
       check_occurrence_added_session_contract_v1: { Args: never; Returns: Json }
+      check_occurrence_delete_booking_safety_v1: { Args: never; Returns: Json }
       check_occurrence_instance_end_canonical_v1: { Args: never; Returns: Json }
       check_occurrence_instance_time_canonical_v1: {
         Args: never
         Returns: Json
       }
       check_occurrence_integrity_v1: { Args: never; Returns: Json }
+      check_occurrence_override_read_rule_v1: { Args: never; Returns: Json }
       check_occurrence_p5_materialised_canonical_v1: {
         Args: never
         Returns: Json
@@ -11388,8 +11934,10 @@ export type Database = {
       check_person_substrate_consistency_v1: { Args: never; Returns: Json }
       check_phase5_1_schema_conformance_v1: { Args: never; Returns: Json }
       check_phase5_backfill_drift_v1: { Args: never; Returns: Json }
+      check_phone_drift_v1: { Args: never; Returns: Json }
       check_program_data_store_drift_v1: { Args: never; Returns: Json }
       check_program_day_integrity_v1: { Args: never; Returns: Json }
+      check_program_day_offset_canonical_v1: { Args: never; Returns: Json }
       check_program_items_day_section_nullability_v1: {
         Args: never
         Returns: Json
@@ -13087,6 +13635,7 @@ export type Database = {
           created_at: string | null
           id: string
           occurrence_id: string
+          occurrence_p5_id: string | null
           status: string
           updated_at: string
           user_id: string
@@ -13218,12 +13767,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -13247,11 +13796,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -13272,11 +13821,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -13297,11 +13846,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -13314,11 +13863,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
