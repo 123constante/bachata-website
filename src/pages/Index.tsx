@@ -15,6 +15,7 @@ import {
   instantToLondonWallClockStamp,
 } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { cityDisplayFromSlug } from '@/lib/cityDisplayName';
 import { renderEventListJsonLd } from '@/lib/buildEventListJsonLd';
 import { renderWebsiteJsonLd } from '@/lib/buildWebsiteJsonLd';
 import { renderOrganizationJsonLd } from '@/lib/buildOrganizationJsonLd';
@@ -61,16 +62,14 @@ const Index = ({
   const { citySlug } = useCity();
   const { pathname } = useLocation();
 
-  // Derive a display name from the slug. Slugs are '{city}-{country}' (e.g.
-  // 'london-gb'); drop a trailing 2-letter country code and title-case every
-  // remaining word so multi-word cities render correctly ('new-york-us' ->
-  // 'New York', not 'New').
-  const cityDisplayName = useMemo(() => {
-    if (!citySlug) return 'Your City';
-    const parts = citySlug.split('-');
-    if (parts.length > 1 && parts[parts.length - 1].length === 2) parts.pop();
-    return parts.map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
-  }, [citySlug]);
+  // The derivation moved to lib/cityDisplayName so /city/:slug/map can share it
+  // rather than carry a second copy. 'Your City' stays HERE: it is this page's
+  // placeholder for a visitor with no city yet, and the SEO layer wants its own
+  // fallback instead.
+  const cityDisplayName = useMemo(
+    () => cityDisplayFromSlug(citySlug) ?? 'Your City',
+    [citySlug],
+  );
 
   // Reactive London-calendar "today", seeded from the server's day so the first
   // client render reproduces the cached HTML byte for byte; it then rolls over
