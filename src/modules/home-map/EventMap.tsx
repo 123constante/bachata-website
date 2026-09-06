@@ -1157,7 +1157,6 @@ export default function EventMap({
       }
       /* eslint-disable @typescript-eslint/no-explicit-any */
       (mk as any)._occ = g.repOccId;
-      (mk as any)._group = g;
       (mk as any)._members = new Set(g.memberOccs);
       (mk as any)._stackAll = g.members;
       (mk as any)._stack = g.members;
