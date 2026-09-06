@@ -1,0 +1,384 @@
+{
+  "date": "2026-09-06T14:50:43.087Z",
+  "path": "/city/london-gb",
+  "method": "playwright chromium, CDP 4x CPU + 150ms/1.6Mbps, latin-square passes, run 0 of each block is a warm-up (warmup:true) and is excluded from every median",
+  "passes": [
+    [
+      "ctl",
+      "del",
+      "idle"
+    ],
+    [
+      "del",
+      "idle",
+      "ctl"
+    ],
+    [
+      "idle",
+      "ctl",
+      "del"
+    ]
+  ],
+  "rows": [
+    {
+      "variant": "ctl",
+      "pass": 1,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4346,
+      "paint": 10410
+    },
+    {
+      "variant": "ctl",
+      "pass": 1,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 3576,
+      "paint": 9428
+    },
+    {
+      "variant": "ctl",
+      "pass": 1,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 3660,
+      "paint": 9498
+    },
+    {
+      "variant": "ctl",
+      "pass": 1,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 3626,
+      "paint": 9893
+    },
+    {
+      "variant": "ctl",
+      "pass": 1,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 3577,
+      "paint": 9648
+    },
+    {
+      "variant": "del",
+      "pass": 1,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4250,
+      "paint": 9602
+    },
+    {
+      "variant": "del",
+      "pass": 1,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4557,
+      "paint": 9672
+    },
+    {
+      "variant": "del",
+      "pass": 1,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 5014,
+      "paint": 9787
+    },
+    {
+      "variant": "del",
+      "pass": 1,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 5587,
+      "paint": 9571
+    },
+    {
+      "variant": "del",
+      "pass": 1,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 5197,
+      "paint": 9578
+    },
+    {
+      "variant": "idle",
+      "pass": 1,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4887,
+      "paint": 9983
+    },
+    {
+      "variant": "idle",
+      "pass": 1,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4540,
+      "paint": 9756
+    },
+    {
+      "variant": "idle",
+      "pass": 1,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 4564,
+      "paint": 9623
+    },
+    {
+      "variant": "idle",
+      "pass": 1,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 4065,
+      "paint": 10091
+    },
+    {
+      "variant": "idle",
+      "pass": 1,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 4375,
+      "paint": 9876
+    },
+    {
+      "variant": "del",
+      "pass": 2,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4443,
+      "paint": 9872
+    },
+    {
+      "variant": "del",
+      "pass": 2,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4138,
+      "paint": 9597
+    },
+    {
+      "variant": "del",
+      "pass": 2,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 4472,
+      "paint": 9794
+    },
+    {
+      "variant": "del",
+      "pass": 2,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 4287,
+      "paint": 9618
+    },
+    {
+      "variant": "del",
+      "pass": 2,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 3966,
+      "paint": 9358
+    },
+    {
+      "variant": "idle",
+      "pass": 2,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4840,
+      "paint": 10109
+    },
+    {
+      "variant": "idle",
+      "pass": 2,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4270,
+      "paint": 10182
+    },
+    {
+      "variant": "idle",
+      "pass": 2,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 4080,
+      "paint": 9357
+    },
+    {
+      "variant": "idle",
+      "pass": 2,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 4370,
+      "paint": 9662
+    },
+    {
+      "variant": "idle",
+      "pass": 2,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 4896,
+      "paint": 9705
+    },
+    {
+      "variant": "ctl",
+      "pass": 2,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4139,
+      "paint": 10496
+    },
+    {
+      "variant": "ctl",
+      "pass": 2,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4105,
+      "paint": 9829
+    },
+    {
+      "variant": "ctl",
+      "pass": 2,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 3664,
+      "paint": 10053
+    },
+    {
+      "variant": "ctl",
+      "pass": 2,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 3562,
+      "paint": 9446
+    },
+    {
+      "variant": "ctl",
+      "pass": 2,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 3776,
+      "paint": 10233
+    },
+    {
+      "variant": "idle",
+      "pass": 3,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 4632,
+      "paint": 9931
+    },
+    {
+      "variant": "idle",
+      "pass": 3,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4345,
+      "paint": 9607
+    },
+    {
+      "variant": "idle",
+      "pass": 3,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 5525,
+      "paint": 9971
+    },
+    {
+      "variant": "idle",
+      "pass": 3,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 4436,
+      "paint": 10222
+    },
+    {
+      "variant": "idle",
+      "pass": 3,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 4210,
+      "paint": 9561
+    },
+    {
+      "variant": "ctl",
+      "pass": 3,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 3826,
+      "paint": 9677
+    },
+    {
+      "variant": "ctl",
+      "pass": 3,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 3954,
+      "paint": 9806
+    },
+    {
+      "variant": "ctl",
+      "pass": 3,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 3898,
+      "paint": 9862
+    },
+    {
+      "variant": "ctl",
+      "pass": 3,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 3600,
+      "paint": 9509
+    },
+    {
+      "variant": "ctl",
+      "pass": 3,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 3996,
+      "paint": 10021
+    },
+    {
+      "variant": "del",
+      "pass": 3,
+      "run": 0,
+      "warmup": true,
+      "mapReq": 5542,
+      "paint": 10168
+    },
+    {
+      "variant": "del",
+      "pass": 3,
+      "run": 1,
+      "warmup": false,
+      "mapReq": 4110,
+      "paint": 9939
+    },
+    {
+      "variant": "del",
+      "pass": 3,
+      "run": 2,
+      "warmup": false,
+      "mapReq": 4427,
+      "paint": 9797
+    },
+    {
+      "variant": "del",
+      "pass": 3,
+      "run": 3,
+      "warmup": false,
+      "mapReq": 4110,
+      "paint": 9530
+    },
+    {
+      "variant": "del",
+      "pass": 3,
+      "run": 4,
+      "warmup": false,
+      "mapReq": 4067,
+      "paint": 9400
+    }
+  ]
+}

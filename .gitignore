@@ -42,6 +42,12 @@ storybook-static
 # React Router framework-mode generated types + build output (spike/rr7-framework-mode)
 .react-router
 build
+# Per-variant production-build snapshots used by the map-renderer perf A/B
+# (one full `npm run build` per variant, copied over build/ in turn). They are
+# a measurement prerequisite, not an artefact of it, and each one is ~30 MB.
+# The harness that consumes them is queued rather than shipped; this line stays
+# so a sweep run from a working tree cannot drop 90 MB into a commit.
+build-*/
 
 # Playwright output and dev screenshots
 .playwright-mcp/

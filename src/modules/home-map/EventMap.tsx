@@ -36,10 +36,14 @@ import { setWorkerUrl } from 'maplibre-gl';
 // change and not a fold-in: a dynamic import puts an await on the mount path
 // that markers, markercluster and the pin CSS all sit behind, and it moves a
 // manual chunk boundary that `vite.chunks.ts` and the first-load request
-// ratchet are both tuned against. `queued-home-map-renderer-weight.md` already
-// holds the numbers for that decision, including the module-scope prefetch in
-// HomeMapShell.tsx that starts this download on every homepage load whether or
-// not the visitor ever looks at the map.
+// ratchet are both tuned against. `queued-home-map-renderer-weight.md` holds
+// the numbers for that decision.
+//
+// This download happens on every homepage load regardless -- not because of
+// the module-scope prefetch this comment used to blame (that is deleted, and
+// it only ever moved the fetch earlier), but because HomeMapShell mounts
+// HomeMapCard from an unconditional effect on the default tab. "Whether or not
+// the visitor ever looks at the map" was the wrong axis: nobody has to look.
 // `?worker&url` and NOT a plain `?url`, for two separate reasons.
 //
 // WHY IT IS NEEDED AT ALL. MapLibre resolves its own worker with

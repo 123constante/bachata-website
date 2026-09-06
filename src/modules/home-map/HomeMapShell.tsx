@@ -65,14 +65,51 @@ import { ATTR } from './basemapTiles';
 // the module is never even imported on the server.
 const HomeMapCard = lazyWithRetry(() => import('./HomeMapCard'));
 
-// Prewarm the SAME dynamic import at module scope so the chunk fetch races
-// hydration instead of waiting for the mapMounted effect to fire first (which
-// only runs after hydration commits). This does not mount anything early --
-// mapMounted below is untouched -- it only starts the network fetch sooner.
-// Guarded on `document` so the SSR pass never touches it.
-if (typeof document !== 'undefined') {
-  void import('./HomeMapCard').catch(() => {});
-}
+// THE MODULE-SCOPE PREWARM IS GONE, and the reason is that it worked exactly
+// as designed and bought nothing. It fired `import('./HomeMapCard')` here so
+// the chunk fetch would race hydration rather than wait for the mapMounted
+// effect. Measured on production builds (4x CPU, simulated 4G, latin-square
+// passes, n=12 per arm, warm-up run of each block excluded) it does start the
+// fetch sooner -- first vendor-maplibre request 3662ms with it against 4357ms
+// without, and it led in all three passes -- and the map paints at the same
+// moment regardless: 9818ms with it against 9608ms WITHOUT, i.e. nominally
+// faster deleted, well inside overlapping ranges. Paint is gated on a later
+// serial stage (the 134,699 B gz worker, then tiles), so winning ~700ms at that
+// gate changes nothing downstream of it.
+//
+// (An earlier sweep put that fetch gap at 2.3s. Its pass order was not a
+// latin square -- one arm never ran last -- so within-pass drift was confounded
+// with the variant. The rebalanced run is the one quoted here; the direction
+// survived, the magnitude did not.)
+//
+// What it cost was paid on a route that never mounts the map at all. On
+// /city/:slug/calendar the tab seeds to 'cal' (Index.tsx initialTab), so
+// showMapCard is false and HomeMapCard is never rendered -- while this line
+// pulled its whole 331,870 B gz graph anyway, across the LCP window. Deleting
+// it moved that route's LCP from 7318ms to 5903ms, ranges not overlapping in
+// any of six runs each. That sweep ran two passes rather than a full square,
+// so `del` alone held the same slot in both and its position residual cannot
+// be read directly. The two arms that DID move bound it: ctl (1st then 3rd)
+// swung 283ms and idle (3rd then 1st) 148ms, against a 1415ms effect.
+//
+// Do NOT reintroduce it, and do not reach for requestIdleCallback either:
+// that variant was measured too and is dominated, because a 2s-timeout idle
+// callback still pulls the same bytes across the same window -- calendar LCP
+// 7074ms (no better than keeping this), the worst homepage TBT of the three,
+// and a fetch start of 4373ms, i.e. no earlier than deleting outright.
+//
+// Every figure above re-derives BY HAND from artefacts committed beside this
+// change -- no tooling needed, and none is referenced, because the harnesses
+// that produced them were held back from this PR (see the plan):
+//   perf/ab/<variant>-p<n>.json   Lighthouse runs, per surface, per pass
+//   perf/ab/map-paint.json        mapReq + paint, every run, warm-ups flagged
+// Take the per-metric MEDIAN over both/all passes of one variant, DISCARDING
+// the first run of each file (`warmup: true` in map-paint.json, run index 0
+// elsewhere). That exclusion is not cosmetic -- the first run of a block pays
+// for a cold server, a cold JIT and a cold upstream RPC, and dropping it moves
+// one arm's median from 5920.7 to 5903.2. Quote a figure the same way or it
+// will not match the comment.
+// Narrative, method and the residual left unfixed: `queued-home-map-renderer-weight.md`.
 
 // On /city/:slug/calendar the Calendar tab now IS the first render (the tab is
 // seeded from the pathname -- see UseMapListOptions.initialTab; it used to be
@@ -338,7 +375,10 @@ export default function HomeMapShell({
         {/* #4d4d4f, NOT the shell dark, and it is the SAME defect the
             .leaflet-container ground was changed for -- this plate is just the
             one that shows first. `mapMounted` flips the instant hydration
-            commits, but HomeMapCard is ~198 KB of lazy Leaflet, so on any
+            commits, but HomeMapCard is 331,870 B gz of lazy renderer (it said
+            "~198 KB of lazy Leaflet" until the MapLibre vector swap took it to
+            1.68x that, or 2.36x once the 134,699 B gz worker follows at mount;
+            the fallback below only matters more at the new weight), so on any
             connection slower than hydration this fallback covers the still for
             the whole chunk download. At #11121a that was still (luma 77) ->
             flat 18 -> 77: a black flash BETWEEN two identical greys, which

@@ -1,0 +1,120 @@
+{
+  "label": "idle-p1",
+  "base": "http://127.0.0.1:4173",
+  "date": "2026-09-06T10:25:41.073Z",
+  "commit": "1268a9bf4b51e9394f5d931150551a588804a380",
+  "runsPerSurface": 4,
+  "method": "lighthouse mobile, simulated 4G (check-lighthouse.mjs flag parity), per-metric median",
+  "surfaces": {
+    "city_london-gb": {
+      "path": "/city/london-gb",
+      "medians": {
+        "score": 79.5,
+        "lcp": 3774.3739999999993,
+        "fcp": 3330.467499999999,
+        "tbt": 170.75,
+        "cls": 0.00023162798213949659,
+        "si": 4239.24380332727,
+        "ttfb": 900
+      },
+      "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute",
+      "runs": [
+        {
+          "score": 90,
+          "lcp": 2371.926,
+          "fcp": 1921.926,
+          "tbt": 196,
+          "cls": 0.00023162798213949659,
+          "si": 4973.122923012281,
+          "ttfb": 909,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 79,
+          "lcp": 3779.6160000000023,
+          "fcp": 3337.0200000000013,
+          "tbt": 162.5,
+          "cls": 0,
+          "si": 3934.3118704990993,
+          "ttfb": 828,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 78,
+          "lcp": 3775.5,
+          "fcp": 3331.875,
+          "tbt": 179,
+          "cls": 0.00023162798213949659,
+          "si": 4525.299982974546,
+          "ttfb": 1239,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        },
+        {
+          "score": 80,
+          "lcp": 3773.2479999999987,
+          "fcp": 3329.0599999999977,
+          "tbt": 124.99999999999955,
+          "cls": 0.00023162798213949659,
+          "si": 3953.1876236799953,
+          "ttfb": 891,
+          "lcpElement": "div.home-map-fill > div.hm-mapcard > picture > img.absolute"
+        }
+      ]
+    },
+    "city_london-gb_calendar": {
+      "path": "/city/london-gb/calendar",
+      "medians": {
+        "score": 70,
+        "lcp": 7052.450974999999,
+        "fcp": 3209.3952500000014,
+        "tbt": 45.75,
+        "cls": 0.0018963694444169312,
+        "si": 3209.3952500000014,
+        "ttfb": 9.5
+      },
+      "lcpElement": "div.hm-side > div#hm-rail-panel > div.space-y-3 > p.px-1",
+      "runs": [
+        {
+          "score": 70,
+          "lcp": 7198.0248,
+          "fcp": 3061.7562,
+          "tbt": 72,
+          "cls": 0.0018963694444169312,
+          "si": 3061.7562,
+          "ttfb": 13,
+          "lcpElement": "div.hm-side > div#hm-rail-panel > div.space-y-3 > p.px-1"
+        },
+        {
+          "score": 70,
+          "lcp": 7068.909375000001,
+          "fcp": 3217.5312500000023,
+          "tbt": 68,
+          "cls": 0.0018963694444169312,
+          "si": 3217.5312500000023,
+          "ttfb": 8,
+          "lcpElement": "div.hm-side > div#hm-rail-panel > div.space-y-3 > p.px-1"
+        },
+        {
+          "score": 69,
+          "lcp": 7034.454675000001,
+          "fcp": 3524.31175,
+          "tbt": 23.5,
+          "cls": 0.0018963694444169312,
+          "si": 3524.31175,
+          "ttfb": 11,
+          "lcpElement": "div.hm-side > div#hm-rail-panel > div.space-y-3 > p.px-1"
+        },
+        {
+          "score": 70,
+          "lcp": 7035.992574999997,
+          "fcp": 3201.2592500000005,
+          "tbt": 0,
+          "cls": 0.0018963694444169312,
+          "si": 3201.2592500000005,
+          "ttfb": 7,
+          "lcpElement": "div.hm-side > div#hm-rail-panel > div.space-y-3 > p.px-1"
+        }
+      ]
+    }
+  }
+}

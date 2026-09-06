@@ -44,14 +44,19 @@
  * deliberately; it is not a free win, and nobody should re-derive it as one.
  *
  * "Lazy, hash-immutable and behind the placeholder still" is TRUE OF THE
- * MODULE AND FALSE OF THE FETCH: `HomeMapShell.tsx` prewarms the same dynamic
- * import at module scope, so ~261 KB of that renderer starts downloading right
- * after hydration on every homepage load, whether or not the visitor ever
- * looks at the map. `check:bundle-budget` stays green through all of it
- * because the ratchet cannot see lazy chunks. Whether that prefetch should
- * survive this weight increase is a live question with the numbers already
- * taken -- see `queued-home-map-renderer-weight.md`. Do not treat the green
- * budget as evidence that it is fine.
+ * MODULE AND FALSE OF THE FETCH, though not for the reason this paragraph used
+ * to give. It said a module-scope prefetch in `HomeMapShell.tsx` pulled the
+ * renderer "whether or not the visitor ever looks at the map". The prefetch is
+ * gone (measured; it started the fetch ~695ms earlier and the map painted at the
+ * same moment), and that clause was never true of the homepage anyway:
+ * `mapMounted` is set by an unconditional effect and `showMapCard` is true on
+ * the default tab, so HomeMapCard mounts on its own moments after hydration
+ * and its 331,870 B gz graph is fetched on every homepage load with or without
+ * any prefetch. Looking at the map was never the trigger.
+ *
+ * `check:bundle-budget` stays green through all of it because the ratchet
+ * cannot see lazy chunks. Do not treat the green budget as evidence that this
+ * weight is fine -- that part stood, and still does.
  *
  * DO NOT re-price this from per-tile figures at z13-15. The plan that led here
  * did exactly that and concluded "1.9x": the map opens at 12.5, MapLibre
