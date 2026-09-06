@@ -32,7 +32,7 @@
 // breakpoint). `.home-map` scopes the cover-scene CSS; `.home-map-fill` supplies
 // the shell height + the responsive layout.
 
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
@@ -84,11 +84,6 @@ if (typeof document !== 'undefined') {
 const CalendarPanel = lazyWithRetry(() =>
   import('./cards/CalendarPanel').then((m) => ({ default: m.CalendarPanel })),
 );
-
-// A layout effect on the client, a (never-run) effect on the server. The shell is
-// server-rendered, and React warns loudly that useLayoutEffect cannot be encoded into the
-// server output -- but we genuinely want the pre-paint timing on the client.
-const useIsoLayoutEffect = typeof document !== 'undefined' ? useLayoutEffect : useEffect;
 
 // Tagline keyword colours == the map category colours, so the head doubles as a
 // pin/chip legend.
@@ -191,7 +186,6 @@ export default function HomeMapShell({
   onRetry?: () => void;
 }) {
   const sideRef = useRef<HTMLDivElement>(null);
-  const [fullscreen, setFullscreen] = useState(false);
 
   // The map is client-only (Leaflet touches `window` at module load). An EFFECT
   // sets this -- effects run after React has finished hydrating, so the resulting
@@ -200,37 +194,38 @@ export default function HomeMapShell({
   const [mapMounted, setMapMounted] = useState(false);
   useEffect(() => setMapMounted(true), []);
 
-  // Fullscreen lives HERE, not in the card, because it drives the shell: the
-  // `is-fullscreen` class turns the card into a fixed edge-to-edge overlay, and
-  // the feed underneath must leave the tab order. `inert` is set in a layout
-  // effect (pre-paint) so screen readers and touch can't reach the covered feed
-  // for even one frame. It always starts false, so the server renders the
-  // ordinary inset layout.
-  // The FEED stays mounted in fullscreen (covered by the overlay) so leaving restores its
-  // scroll position -- but it must leave the tab order and the a11y tree, or a screen
-  // reader could walk out of the modal map into content the sighted user cannot see.
-  // `inert` in a LAYOUT effect, so it lands before paint rather than a frame late.
-  // (The page head needs no such thing: it is unmounted outright below.)
+  // FULLSCREEN IS GONE, along with the `inert` layout effect that guarded the
+  // covered feed and the body.hm-immersive header/nav hiding. The teaser is not
+  // a tool, so there is nothing to expand into -- /city/:citySlug/map is the
+  // full experience now, and it is a real page with a real back button rather
+  // than a fixed overlay pretending to be one. Deleting it also removes
+  // `.home-map-fill.is-fullscreen .hm-mapcard`'s `z-index: 1000`, which sat
+  // above the Radix dialog's z-50 and was a latent inversion nothing exercised.
   //
-  // useIsoLayoutEffect, not useLayoutEffect: this shell SERVER-RENDERS now, and React
-  // warns that a layout effect "does nothing on the server". Degrading to useEffect there
-  // costs nothing -- `fullscreen` is always false on the server, so the effect is a no-op
-  // on that pass anyway.
-  useIsoLayoutEffect(() => {
-    if (sideRef.current) sideRef.current.inert = fullscreen;
-  }, [fullscreen]);
+  // THE CARD IS NOT SHOWN ON EVERY TAB. All Events and Tonight get it; What's
+  // New and Calendar do not. The rule used to be "demote on What's New, remove
+  // on Calendar", justified by the tab row not jumping -- and that was false:
+  // the demotion reordered .hm-side ABOVE .hm-mapcard, which raises the tab row
+  // by exactly the card's height, the same jump removal causes. Demoting bought
+  // nothing on the axis it was chosen for and paid a live Leaflet map parked
+  // under a feed nobody scrolls to. The ~149px jump is ACCEPTED on both tabs;
+  // do not add a sticky header or a fade to soften it.
+  //
+  // citySlug is required, not optional: the card's entire purpose is to open
+  // /city/:citySlug/map, and a card that cannot say where it goes should not be
+  // on screen. No city, no card -- the still and the dark box below still render.
+  const showMapCard = !!citySlug && (state.tab === 'all' || state.tab === 'tonight');
 
   const placeholder = citySlug ? MAP_PLACEHOLDERS[citySlug] : undefined;
 
   return (
     <div
-      className={cn(
-        'home-map-fill home-map relative isolate w-full overflow-hidden',
-        fullscreen && 'is-fullscreen',
-        state.tab === 'cal' && 'is-cal',
-      )}
+      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden')}
     >
-      {!fullscreen && (
+      {/* The skip link only has something to skip when the card is on screen.
+          On What's New and Calendar the map is not rendered at all, so a link
+          offering to skip it would name a landmark that is not there. */}
+      {showMapCard && (
         <a
           href={`#${RAIL_PANEL_ID}`}
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[700] focus:rounded focus:bg-primary focus:px-3 focus:py-1.5 focus:text-sm focus:font-bold focus:text-primary-foreground"
@@ -244,11 +239,10 @@ export default function HomeMapShell({
           shipped a heading no human ever saw, and desktop had none at all. One visible
           heading now serves both.
 
-          Unmounted in fullscreen (as the old mobile surface did): the expanded map is a
-          modal dialog, and taking the head out of the document beats merely hiding it.
-          `fullscreen` is client-only state that always starts false, so the server still
-          renders this -- it is a STATE branch, not a viewport branch, and is SSR-safe. */}
-      {!fullscreen && (
+          It used to be unmounted in fullscreen, because the expanded map was a modal
+          dialog and taking the head out of the document beat merely hiding it. Fullscreen
+          is gone, so there is no modal state left to step out of and the head renders
+          unconditionally, on every tab. */}
       <header className="hm-pagehead shrink-0 px-3 pb-1 pt-2 md:px-4 md:pb-2 md:pt-3">
         <h1 className="truncate text-base font-extrabold tracking-tight">
           What&rsquo;s on in {cityName}
@@ -285,18 +279,20 @@ export default function HomeMapShell({
           )}
         </p>
       </header>
-      )}
 
-      {/* Map card. Sizing/positioning are entirely CSS (.hm-mapcard, and
-          .is-fullscreen for the overlay) so the box is the right size on the
-          very first paint, before any JS runs -- that is what keeps the map
-          swap free of layout shift (WS15). Until it mounts, a pre-rendered
-          basemap still (below) or the plain dark box fills it. */}
+      {/* Map card. Sizing is entirely CSS (.hm-mapcard: a flat 148px, 260px from
+          768px up) so the box is the right size on the very first paint, before
+          any JS runs -- that is what keeps the map swap free of layout shift
+          (WS15). Until it mounts, a pre-rendered basemap still (below) or the
+          plain dark box fills it.
+          The whole block is REMOVED, not hidden, on What's New and Calendar:
+          `display:none` would leave Leaflet mounted at zero size, which is the
+          worst of both -- it still costs a live map and still moves the tab row. */}
+      {showMapCard && (
       <div
         className="hm-mapcard relative overflow-hidden"
-        role={fullscreen ? 'dialog' : 'region'}
-        aria-modal={fullscreen || undefined}
-        aria-label={fullscreen ? `Full screen map of what's on in ${cityName}` : 'Event map'}
+        role="region"
+        aria-label="Event map"
       >
         {/* Unconditional placeholder layer: renders identically on the server and
             the client's first render (there is no JS branch gating it), so it adds
@@ -358,10 +354,19 @@ export default function HomeMapShell({
             signal (onReady) FIRST, or Esri imagery shows uncredited. */}
         {mapMounted ? (
           <Suspense fallback={<div className="absolute inset-0" style={{ background: '#4d4d4f' }} />}>
+            {/* citySlug is non-null here by construction: showMapCard gates this
+                whole block on it. The assertion is the narrowing TypeScript
+                cannot do across that boundary, not a claim about the data. */}
             <HomeMapCard
               state={state}
-              fullscreen={fullscreen}
-              setFullscreen={setFullscreen}
+              cityName={cityName}
+              citySlug={citySlug as string}
+              /* The card derives its headline from the rows it was given, and
+                 an empty array is indistinguishable from "no events" -- so on a
+                 failed or in-flight fetch it asserted "0 venues on the map" and
+                 "0 tonight" beside the feed's own RetryNotice, stating a fact
+                 about London next to a notice saying we could not load it. */
+              notReady={loading || error ? (error ? 'error' : 'loading') : null}
             />
           </Suspense>
         ) : (
@@ -383,9 +388,8 @@ export default function HomeMapShell({
           !placeholder && <div className="absolute inset-0" style={{ background: '#11121a' }} />
         )}
       </div>
+      )}
 
-      {/* Feed stays mounted in fullscreen (covered by the fixed map overlay) so
-          leaving fullscreen restores the list scroll. */}
       <div ref={sideRef} className="hm-side flex min-h-0 flex-1 flex-col">
         <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
           <TabBar tab={state.tab} setTab={state.setTab} />

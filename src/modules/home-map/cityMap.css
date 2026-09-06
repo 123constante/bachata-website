@@ -1,0 +1,58 @@
+/* /city/:slug/map -- the full map page.
+   Scoped to this route; the homepage teaser's rules live in homeMap.css. */
+
+.cmap-shell {
+  /* Tall enough to be a map rather than a strip, capped so the filters and the
+     first list rows are still on screen on a phone without scrolling. */
+  height: clamp(320px, 52vh, 560px);
+  /* Leaflet's control CORNERS are z-index:1000 while .leaflet-container is
+     z-index:auto, so they do NOT stay inside the map -- they compete in the
+     page's stacking context and paint over anything below 1000. Measured in the
+     prototype, where a map's attribution drew a strip across an overlay above
+     it. Making this a stacking context traps them. Same fix, same reason, as
+     .hm-mapcard in index.css. */
+  position: relative;
+  z-index: 0;
+  background: #4d4d4f;
+}
+
+@media (min-width: 768px) {
+  .cmap-shell { height: clamp(420px, 60vh, 640px); }
+}
+
+.cmap-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #40404a 0%, #35353d 100%);
+}
+
+/* ---- control stack ------------------------------------------------------- */
+.cmap-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  /* Above Leaflet's own panes (400-700) but below its popup (700+) so an open
+     panel is never covered by a control the user cannot see past. */
+  z-index: 650;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cmap-ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 36px, over WCAG 2.2 SC 2.5.8's 24x24 minimum with room to spare -- these
+     are the controls a thumb uses one-handed. */
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.92);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(4px);
+}
+
+.cmap-ctrl:hover { background: hsl(var(--background)); }
+.cmap-ctrl:disabled { opacity: 0.6; }

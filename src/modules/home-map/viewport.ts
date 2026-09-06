@@ -17,8 +17,6 @@
 // effect-set `mapMounted` flag, because Leaflet touches `window` at module
 // load). That is what makes the sync-initialised hook below safe.
 
-import { useEffect, useState } from 'react';
-
 /** Must stay in lockstep with useIsMobile's MOBILE_BREAKPOINT and the 767px
  *  media queries in index.css, or the CSS layout and the map chrome disagree at
  *  the boundary. */
@@ -34,21 +32,15 @@ export function isDesktopViewport(): boolean {
   return window.matchMedia(DESKTOP_MQ).matches;
 }
 
-/**
- * Reactive viewport test, seeded SYNCHRONOUSLY from matchMedia on the first
- * render. That is correct here and ONLY here: every caller is inside
- * HomeMapCard, which never renders on the server or during hydration, so there
- * is no server snapshot to disagree with. Do not lift this into a component the
- * server renders -- use a CSS media query there instead.
- */
-export function useIsDesktopMapChrome(): boolean {
-  const [desktop, setDesktop] = useState(isDesktopViewport);
-  useEffect(() => {
-    const mql = window.matchMedia(DESKTOP_MQ);
-    const onChange = () => setDesktop(mql.matches);
-    onChange(); // a resize between mount and effect must not be missed
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, []);
-  return desktop;
-}
+// useIsDesktopMapChrome is DELETED. It was the reactive viewport test that
+// picked between the map card's two chromes, and it was justified by a narrow
+// argument -- seeding synchronously from matchMedia is only safe because every
+// caller sat inside HomeMapCard, which never server-renders. There is now one
+// chrome at every viewport (the difference is the card's height, which is CSS),
+// so the hook has no callers and the exception it needed no longer has to be
+// argued. Do not reintroduce it to branch a server-rendered component: use a
+// media query. The imperative isDesktopViewport() above survives because it is
+// read inside handlers and effects, never during render. (No caller count here
+// on purpose: this comment said "two callers" while CalendarPanel had already
+// dropped its import, and a number in prose has nobody maintaining it. WHERE it
+// is read is the load-bearing fact; how many read it is not.)
