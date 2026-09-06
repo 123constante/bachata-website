@@ -48,7 +48,7 @@ export const WeeksLadderBlock = ({
             <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>Course finished</span>
           ) : (
             <>
-              <span>{weekCount}-week progressive course</span>
+              <span>{weekCount}-week course</span>
               {level && (
                 <span style={{ color: 'hsl(var(--bento-fg-muted))' }}>&middot; {level}</span>
               )}
