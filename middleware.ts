@@ -7,6 +7,15 @@ import { teacherTag } from './app/cacheTags';
 // detailLoader.ts, even though detailLoader.ts re-exports the same name.
 import { edgeCacheControl } from './app/edgeCacheControl';
 import { truncate } from './app/truncate';
+// Same dependency-free-leaf rule as the two imports above: the city canonical
+// rule and the OG copy for self-canonical city subpages live in app/ so they
+// can be imported by the Edge bundle AND covered by a spec (app/cityCanonical.test.ts).
+// Importing middleware.ts from a test is not an option -- it pulls in @vercel/edge.
+import {
+  cityCanonicalPath,
+  citySelfCanonicalListing,
+  citySubpageSeo,
+} from './app/cityCanonical';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -64,14 +73,9 @@ const BOT_UA_PATTERN =
 // bots keep the OG-card HTML so WhatsApp/Facebook link previews still work.
 const SEARCH_BOT_PATTERN = /googlebot|bingbot/i;
 
-// Clean (non-city-prefixed) public listing routes. City-prefixed duplicates
-// (/city/:slug/<listing>) canonicalise onto these so equity consolidates on the
-// prerendered clean pages instead of splitting across the /city/* variants.
-const CLEAN_LISTINGS = new Set([
-  'parties', 'classes', 'tonight', 'venues', 'discounts', 'practice-partners',
-  'choreography', 'dancers', 'festivals', 'teachers', 'djs', 'organisers',
-  'cities', 'videographers', 'vendors', 'search',
-]);
+// CLEAN_LISTINGS moved to app/cityCanonical.ts with the rest of the city
+// canonical rule -- it had no other reader here, and inside this file it had
+// no spec.
 
 const SITE_URL = process.env.SITE_URL ?? 'https://www.bachatacalendar.co.uk';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
@@ -235,7 +239,18 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
   return { title, description, image, type: 'profile', url };
 }
 
-async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> {
+// `selfListing` is the self-canonical city subpage this URL is (from
+// citySelfCanonicalListing), or null for a bare city / a city-prefixed
+// duplicate of a clean listing. A subpage that is its own canonical must not
+// be described by the CITY's card: it would be indexed under the homepage's
+// own title with the city's generic description, which is a thin duplicate
+// rather than the page itself. Social bots get the same correction, so a
+// shared /city/:slug/map link previews as the map instead of the city.
+async function fetchCityMeta(
+  slug: string,
+  url: string,
+  selfListing: string | null,
+): Promise<OgMeta | null> {
   const query = `slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&select=name,description,hero_image_url`;
   const res = await supabaseFetch(`/rest/v1/cities?${query}`);
   if (!res || !res.ok) return null;
@@ -245,11 +260,22 @@ async function fetchCityMeta(slug: string, url: string): Promise<OgMeta | null> 
   const c = Array.isArray(rows) ? rows[0] : null;
   if (!c || !c.name) return null;
 
-  const title = truncate(`Bachata in ${c.name}`, 90);
+  // The SLUG, not c.name: src/pages/CityMap.tsx titles this same URL from
+  // cityDisplayFromSlug(slug), and the two must not disagree. citySubpageSeo's
+  // header carries the full reasoning and the copy this gives up.
+  const sub = citySubpageSeo(selfListing, slug);
 
-  const rawDesc = c.description && String(c.description).trim()
-    ? c.description
-    : `Bachata classes, socials and festivals in ${c.name}.`;
+  const title = truncate(sub ? sub.title : `Bachata in ${c.name}`, 90);
+
+  // The subpage description wins over the city's own DB description on purpose:
+  // on /city/:slug/map the page IS the map, and the city blurb describes the
+  // homepage. Both still ride the same 160-char truncate, so a long city name
+  // cannot make a subpage card the one over-length description on the site.
+  const rawDesc = sub
+    ? sub.description
+    : c.description && String(c.description).trim()
+      ? c.description
+      : `Bachata classes, socials and festivals in ${c.name}.`;
   const description = truncate(rawDesc, 160);
 
   const image = ogNormalizedImage(c.hero_image_url);
@@ -344,14 +370,17 @@ export default async function middleware(request: Request): Promise<Response> {
       // serves dist/index.html) rather than the thin city skeleton; social bots
       // still get the OG card so link previews keep working.
       if (isBareCity && isSearchBot) return next();
-      meta = await fetchCityMeta(id, canonicalUrl);
+      // /city/:slug/map is a DISTINCT page (src/pages/CityMap.tsx, routed at
+      // AnimatedRoutes.tsx), not a city-prefixed duplicate of a clean listing,
+      // and it already declares itself canonical client-side via useSeo. Until
+      // this arm existed, the ternary's fallback told every search crawler its
+      // canonical was the homepage -- i.e. the page could not be indexed as
+      // itself, while the SPA said the opposite. cityCanonicalPath() owns the
+      // whole rule now, including that fallback.
+      const selfListing = citySelfCanonicalListing(segments);
+      meta = await fetchCityMeta(id, canonicalUrl, selfListing);
       if (meta) {
-        const listing = segments[2];
-        meta.canonicalHref = isBareCity
-          ? `${SITE_URL}/`
-          : CLEAN_LISTINGS.has(listing)
-            ? `${SITE_URL}/${listing}`
-            : `${SITE_URL}/`;
+        meta.canonicalHref = `${SITE_URL}${cityCanonicalPath(segments)}`;
       }
       break;
     }
