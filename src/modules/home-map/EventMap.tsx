@@ -1318,10 +1318,26 @@ export default function EventMap({
 
     // A selection whose pin is not on the map -- filtered out, or a stale id
     // from a shared ?venue= link that matches nothing -- is reported so the
-    // page clears it. Unconditional, because there is no popup whose absence
-    // could stand in for "nothing to do": an earlier draft returned early when
-    // no popup was open, which left exactly this case uncleared.
-    if (selected && !onMap) {
+    // page clears it.
+    //
+    // NOT unconditional, and the earlier draft's two failures are different
+    // ones. It must not return early merely because no popup is open (that
+    // left a stale id uncleared), and it must not fire when there are NO PINS
+    // AT ALL: with an empty pin set the map has nothing to judge against, so
+    // "this id matches nothing" is indistinguishable from "the rows have not
+    // arrived yet". The unconditional form therefore stripped every COLD-loaded
+    // ?venue= before its rows landed -- measured 10 of 10 cold loads, which is
+    // precisely the shared-link and reload case this URL state exists for. A
+    // warm in-SPA navigation hid it, because the rows were already cached.
+    //
+    // Once any pin exists this is safe: the marker-build and visibility effects
+    // above are declared earlier, so they have already run for this commit and
+    // a miss here is a real miss, which still clears. eventsKey is empty
+    // exactly when `events` is, and is already a dependency -- `events` itself
+    // is a fresh array identity each render, which is why this effect keys on
+    // the string rather than the array.
+    const hasPins = eventsKey !== '';
+    if (selected && !onMap && hasPins) {
       cb.current.onVenueSelect?.(null);
       return;
     }

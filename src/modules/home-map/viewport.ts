@@ -39,5 +39,8 @@ export function isDesktopViewport(): boolean {
 // chrome at every viewport (the difference is the card's height, which is CSS),
 // so the hook has no callers and the exception it needed no longer has to be
 // argued. Do not reintroduce it to branch a server-rendered component: use a
-// media query. The imperative isDesktopViewport() above survives because its
-// two callers read it inside handlers and effects, never during render.
+// media query. The imperative isDesktopViewport() above survives because it is
+// read inside handlers and effects, never during render. (No caller count here
+// on purpose: this comment said "two callers" while CalendarPanel had already
+// dropped its import, and a number in prose has nobody maintaining it. WHERE it
+// is read is the load-bearing fact; how many read it is not.)

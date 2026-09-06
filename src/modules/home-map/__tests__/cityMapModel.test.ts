@@ -130,6 +130,30 @@ describe('buildCityMapModel', () => {
     expect([...(a?.eventIds ?? [])].sort()).toEqual(['a', 'a-second']);
   });
 
+  // BOTH SIDES, because only the pair pins the rule. The unfiltered case alone
+  // passed happily while eventIds was the whole group -- which is exactly the
+  // defect: the card counted through the filter and expanded through the group,
+  // so a "1 night" card under ?type=classes opened onto a Party. Measured live
+  // on three London venues before the fix (Unit3 Studios, Forge, Dance Attic).
+  it('narrows eventIds to the members that pass the filter, not the whole group', () => {
+    const mixed = [
+      ev({ occurrence_id: 'm1', event_id: 'm-class', venue_name: 'Mixed', lat: 51.6, lng: -0.2,
+           has_party: false, has_class: true }),
+      ev({ occurrence_id: 'm2', event_id: 'm-party', venue_name: 'Mixed', lat: 51.6, lng: -0.2,
+           has_party: true, has_class: false }),
+    ];
+
+    const all = buildCityMapModel(mixed, args()).rows.find((r) => r.venueName === 'Mixed');
+    expect(all?.visibleCount).toBe(2);
+    expect([...(all?.eventIds ?? [])].sort()).toEqual(['m-class', 'm-party']);
+
+    const classes = buildCityMapModel(mixed, args({ type: 'classes' }))
+      .rows.find((r) => r.venueName === 'Mixed');
+    // The count and the set must agree -- that agreement IS the fix.
+    expect(classes?.visibleCount).toBe(1);
+    expect([...(classes?.eventIds ?? [])]).toEqual(['m-class']);
+  });
+
   it('narrows to today on from=tonight', () => {
     const rows = [
       ev({ occurrence_id: 't', event_id: 't', instance_date: TODAY, venue_name: 'Tonight Only' }),

@@ -22,6 +22,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+import { cityDisplayFromSlug } from '@/lib/cityDisplayName';
 import { useCity } from '@/contexts/CityContext';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { addDaysToKey } from '@/lib/londonDate';
@@ -70,8 +71,13 @@ export default function CityMap() {
   const todayKey = useLondonToday();
   const [params, setParams] = useSearchParams();
 
+  // cityDisplay is passed, not left to the SEO layer's CITY_DEFAULT. Without it
+  // the title and description hardcoded "London" under a canonical carrying the
+  // real slug -- latent while London is the only active city, and wrong the day
+  // it is not. The derivation is shared with Index rather than copied.
   useSeo(
     buildSeoForRoute('city.map', {
+      cityDisplay: cityDisplayFromSlug(citySlug),
       canonicalPath: citySlug ? `/city/${citySlug}/map` : undefined,
     }),
   );
@@ -114,9 +120,18 @@ export default function CityMap() {
 
   const selectVenue = useCallback(
     (rep: string | null) => {
-      // Re-selecting the open venue is not a new place, so it must not stack a
-      // second entry that back would then have to pop twice.
-      if (rep === selected) return;
+      // RE-SELECTING THE OPEN VENUE CLOSES IT. This used to return early, which
+      // made the heading's aria-expanded a promise the page could not keep: a
+      // second tap and Enter were both no-ops (measured), so keyboard and
+      // screen-reader users had no way to collapse at all -- closing by tapping
+      // bare map is pointer-only. Folding the re-select into the null branch
+      // keeps what the early return was actually protecting: closing REPLACES
+      // rather than pushes, so a toggle still cannot stack a second history
+      // entry that back would have to pop twice.
+      const next = rep === selected ? null : rep;
+      // Nothing open and nothing asked for: no navigation at all, rather than a
+      // replace that rewrites the URL to itself on every stray call.
+      if (next == null && selected == null) return;
 
       // CLOSING REPLACES; it does not pop. An earlier draft called
       // navigate(-1) to leave no residue, and that discarded the WHOLE query
@@ -125,7 +140,7 @@ export default function CityMap() {
       // ?type=parties was gone). Replacing keeps every other parameter, and
       // back still means "the state before I opened this", which is what back
       // should mean anyway.
-      if (rep == null) {
+      if (next == null) {
         patch({ venue: null }, false);
         return;
       }
@@ -134,7 +149,7 @@ export default function CityMap() {
       // hardware back button close the panel instead of leaving the page.
       // Moving pin-to-pin replaces, so back is never a walk backwards through
       // every pin the visitor tried.
-      patch({ venue: rep }, selected == null);
+      patch({ venue: next }, selected == null);
     },
     [patch, selected],
   );
@@ -551,10 +566,18 @@ function VenueCard({
             {nights.length === 0 ? (
               // NEVER an empty expansion. A venue that opens onto nothing is
               // indistinguishable from a broken one -- this arc's founding
-              // defect one layer up -- and it is reachable whenever a filter
-              // hides every night at a venue whose pin is still drawn.
+              // defect one layer up.
+              //
+              // THE REACHABLE CASE IS NOT A FILTER, whatever this comment used
+              // to claim. It said "whenever a filter hides every night at a
+              // venue whose pin is still drawn", which was never the mechanism:
+              // eventIds ignored the filter entirely. Now that eventIds carries
+              // exactly the members the card counted, a counted card cannot
+              // expand to zero on filtering at all. What DOES reach here is a
+              // member with no instance_date -- buildCityMapModel counts it,
+              // regularNights skips it -- so the copy names dates, not filters.
               <p className="text-[11px] text-muted-foreground">
-                Nothing listed here under the current filter.
+                No dates listed for this venue yet.
               </p>
             ) : (
               <ul className="space-y-1.5">

@@ -54,7 +54,10 @@ export interface VenueRow {
   lng: number;
   /** Rounded key, for resolving this venue's raw rows in regularNights. */
   coordKey: string;
-  /** The distinct events at this venue-coordinate. */
+  /** The distinct events at this venue-coordinate that PASS THE FILTER.
+   *  Filtered rather than the whole group, because the expansion in CityMap
+   *  resolves this set against the raw rows: an unfiltered set made a card
+   *  whose count is filtered ("1 night") expand to nights the filter excludes. */
   eventIds: Set<string>;
   /** Distinct events currently passing the filter. */
   visibleCount: number;
@@ -137,7 +140,12 @@ export function buildCityMapModel(rows: MapEvent[], a: CityMapArgs): CityMapMode
       lat: g.lat,
       lng: g.lng,
       coordKey: venueCoordKey(g.lat, g.lng),
-      eventIds: new Set(g.members.map((e) => e.event_id)),
+      // FILTERED (`shown`), never the whole group. regularNights resolves this
+      // set against the raw rows to build the expansion, so the unfiltered set
+      // made a card whose count is filtered expand to nights the filter had
+      // excluded. Measured live under ?type=classes before the fix: Unit3
+      // Studios read "1 night" and opened onto two, one of them a Party.
+      eventIds: new Set(shown.map((e) => e.event_id)),
       visibleCount: shown.length,
       nextDate: next,
       categories: CATEGORY_ORDER.filter((c) => cats.has(c)),
