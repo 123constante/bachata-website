@@ -33,8 +33,7 @@ type ShareArgs = {
 
 /**
  * Share the current event URL. Native share sheet first, then clipboard copy,
- * then a WhatsApp deep-link fallback. Mirrors the classic EventActionBar share
- * behaviour so telemetry and UX stay consistent across surfaces.
+ * then a WhatsApp deep-link fallback.
  */
 export async function shareEvent({ eventId, title, subtitle, source }: ShareArgs): Promise<void> {
   const url = window.location.href;

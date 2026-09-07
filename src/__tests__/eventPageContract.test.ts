@@ -7,7 +7,7 @@
  * 1. Add the field to REQUIRED_EVENT_FIELDS below
  * 2. Implement extraction in useEventPageQuery.ts parseEventPageSnapshot()
  * 3. Map it in buildEventPageModel.ts buildReadyPageModel()
- * 4. Add display logic to EventPageScreen.tsx or its sections
+ * 4. Add display logic to bento/BentoPage.tsx or its tiles
  *
  * This test will FAIL at compile time if any field in the contract is
  * missing from the EventPageSnapshot or EventPageModel types.
