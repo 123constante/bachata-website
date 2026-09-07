@@ -91,8 +91,19 @@ const SPECS: Record<string, Spec> = {
     path: () => '/dancers',
   },
   discounts: {
-    title: () => `Bachata Discounts & Offers`,
-    description: (c) => `Discount codes, early-bird tickets and member offers for bachata events in ${city(c)}.`,
+    // Must not collide with the `organisers` spec above, which is the SAME
+    // two words -- two indexed pages competing on one title. /organisers is
+    // every organiser; this route is the subset with a date up.
+    //
+    // Deliberately NOT city-interpolated: Discounts.tsx passes no SeoContext,
+    // so `city(c)` resolves to the default on every route, including the live
+    // /city/:slug/discounts -- it would print "in London" for whatever city
+    // the URL actually names. The same limit applies to the description below,
+    // which is left as-is only because London is the one active city in the
+    // catalog today; both need the context threaded through before either can
+    // name a city truthfully. Flagged here rather than half-fixed.
+    title: () => `Bachata Organisers With Upcoming Events`,
+    description: (c) => `Bachata organisers with events coming up in ${city(c)} - no membership or discount programme exists yet.`,
     path: () => '/discounts',
   },
   practicePartners: {

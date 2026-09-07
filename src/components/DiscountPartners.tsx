@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import { Badge } from '@/components/ui/badge';
 import { Ticket, MapPin, CalendarDays } from 'lucide-react';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
@@ -18,6 +17,15 @@ interface PartnerWithEvent {
   next_event_name?: string | null;
   next_event_date?: string | null;
 }
+
+const SectionHeader = () => (
+  <div className="text-center mb-6">
+    <h2 className="text-2xl font-bold mb-2">Active organisers</h2>
+    <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+      Organisers with an upcoming event.
+    </p>
+  </div>
+);
 
 export const DiscountPartners = () => {
   const { citySlug } = useCity();
@@ -59,25 +67,34 @@ export const DiscountPartners = () => {
     return (
       <section className="py-12 px-4 mb-16">
         <div className="max-w-6xl mx-auto text-center">
-            <p className="text-muted-foreground animate-pulse">Loading partners...</p>
+            <p className="text-muted-foreground animate-pulse">Loading organisers...</p>
         </div>
       </section>
     )
   }
 
-  if (!partners || partners.length === 0) return null;
+  // NO empty state, and no error state, ON PURPOSE -- render nothing instead.
+  //
+  // This RPC gates on `op.is_active = true`, so it returns 0 rows for London
+  // today while SEVEN organisers do have upcoming active events and simply
+  // are not flagged. Any sentence here about organiser activity is therefore
+  // false: emptiness is an admin flag state, not an absence of events. Two
+  // drafts of that sentence were written and both were wrong, which is why
+  // there is now no sentence to be wrong.
+  //
+  // Returning null also covers a failed fetch, and does it without dropping
+  // rows we already have: on a background refetch error React Query KEEPS
+  // `data`, so cached organisers keep rendering rather than being replaced by
+  // an error box, while a failure with nothing cached simply shows nothing.
+  if (!partners || partners.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-12 px-4 mb-16">
       <div className="max-w-6xl mx-auto">
         <ScrollReveal animation="fadeUp">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-4">Partnering with London's Best</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              We work with the top promoters and studios to bring you exclusive per-event savings.
-              Subject to availability. More partners added monthly.
-            </p>
-          </div>
+          <SectionHeader />
         </ScrollReveal>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
