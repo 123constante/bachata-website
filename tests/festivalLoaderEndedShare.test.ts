@@ -55,6 +55,28 @@ vi.mock('@/modules/event-page/useFestivalDetailQuery', () => ({
   }),
 }));
 
+// Whichever case runs FIRST pays for `await import('../app/routes/festival')`
+// below, which pulls react-router, getSupabase and @/lib/seo through the
+// transformer. That is import cost charged to a test, not test cost.
+//
+// MEASURED 2026-09-07 on an otherwise idle machine, this file alone:
+//   case 1  5286ms   <- against vitest's 5000ms default
+//   case 2  1747ms
+//   file    transform 14.39s, tests 20.06s
+// So it exceeds the default while running ALONE; the parallel suite only makes
+// an already-negative margin worse. That is why it read as a flake for three
+// days: the reds were real and the greens were luck.
+//
+// The budget goes on EVERY case because any of them can be the one that runs
+// first and pays. 60s matches the measured-budget fix already proven by
+// mutation in tests/middlewareCityCanonical.test.ts, the sibling with the same
+// signature.
+//
+// Do NOT raise `testTimeout` globally in vitest.config.ts instead: that would
+// hide genuinely slow tests everywhere, and nothing here is slow -- one import
+// is expensive.
+const IMPORT_BUDGET_MS = 60_000;
+
 const runLoader = async () => {
   const { loader } = await import('../app/routes/festival');
   return loader({
@@ -108,7 +130,7 @@ describe('/festival/:id loader -- ended share copy', () => {
     // null is what lets festival.detail's own template stand, which is exactly
     // what this route served before W14.
     expect(endedDescriptionOf(result)).toBeNull();
-  });
+  }, IMPORT_BUDGET_MS);
 
   it('emits the ended sentence, replacing the sell, for a real ended payload', async () => {
     rpc.payload = endedPayload;
@@ -119,7 +141,7 @@ describe('/festival/:id loader -- ended share copy', () => {
     // REPLACED, not prefixed. The stored copy sells passes, and leaving it in
     // the preview is the defect the whole ended treatment exists to stop.
     expect(description).not.toContain('Passes from');
-  });
+  }, IMPORT_BUDGET_MS);
 
   // THE ASYMMETRY CASE (review finding, 2026-09-04). This payload is ENDED and
   // carries every field the sentence needs, but is missing keys the CLIENT'S
@@ -145,7 +167,7 @@ describe('/festival/:id loader -- ended share copy', () => {
     expect(endedDescriptionOf(await runLoader())).toBe(
       'This festival has finished and is no longer running. It ran 1 to 4 May 2026. See what else is on at Bachata Calendar.',
     );
-  });
+  }, IMPORT_BUDGET_MS);
 
   it('leaves a LIVE festival with no ended copy, so the template stands', async () => {
     rpc.payload = {
@@ -153,5 +175,5 @@ describe('/festival/:id loader -- ended share copy', () => {
       event: { ...endedPayload.event, lifecycle_status: 'live', ended_on: null, ran_from: null },
     };
     expect(endedDescriptionOf(await runLoader())).toBeNull();
-  });
+  }, IMPORT_BUDGET_MS);
 });
