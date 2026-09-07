@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
  * cohort nobody tests on, on a ~95% mobile site.
  *
  * It has already been shipped wrong once. A fallback derived from the page
- * shell (`max-w-2xl px-3 sm:px-4` in EventPageScreen, which does not render the
- * bento at all) instead of the real wrapper handed a tablet a 155.5px cell
+ * shell (`max-w-2xl px-3 sm:px-4` in the since-deleted EventPageScreen, which
+ * did not render the bento at all) instead of the real wrapper handed a tablet a 155.5px cell
  * against a true 99px -- the cover block's min-height became 478px rather than
  * 309px, ~170px of dead tile under the artwork.
  *

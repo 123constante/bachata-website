@@ -397,7 +397,8 @@
   /* No container queries (iOS Safari < 16): rebuild the same formula from the
      viewport. The grid's container is BentoPage.tsx's `mx-auto w-full
      max-w-[430px] px-2` (BentoPage.tsx:412, which renders <BentoGrid> at :433)
-     -- NOT the wider `max-w-2xl px-3 sm:px-4` page shell in EventPageScreen.
+     -- NOT the wider `max-w-2xl px-3 sm:px-4` shell of the since-deleted
+     EventPageScreen, which never rendered the bento at all.
      So the inline size is min(100vw, 430px) - 16px, and the cell is
      (min(100vw, 430px) - 34px) / 4, constant at 99px once the max-width binds
      at 430px. Sanity: 320px -> 71.5, 375px -> 85.25, 412px -> 94.5, which is

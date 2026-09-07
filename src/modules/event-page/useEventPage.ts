@@ -1,21 +1,13 @@
 import { useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { buildEventPageModel } from '@/modules/event-page/buildEventPageModel';
 import { useEventPageQuery } from '@/modules/event-page/useEventPageQuery';
-import { useEventPageRsvpMutation, type RsvpStatus } from '@/modules/event-page/useEventPageRsvpMutation';
 import { useFestivalDetailQuery } from '@/modules/event-page/useFestivalDetailQuery';
 import { sniffIsFestival } from '@/modules/event-page/festivalEventQuery';
 
 export const useEventPage = (eventId?: string | null, occurrenceId?: string | null) => {
-  const { user } = useAuth();
   const query = useEventPageQuery(eventId, occurrenceId);
   const { canEdit } = useEventPermissions(eventId ?? undefined, query.data?.event.createdBy ?? undefined);
-  const rsvpMutation = useEventPageRsvpMutation({
-    eventId,
-    occurrenceId: query.data?.occurrenceId ?? null,
-    userId: user?.id ?? null,
-  });
 
   // Always call get_public_festival_detail_v2 -- the RPC runs for every
   // published event, not just festivals. The isFestival gate lives in sniffIsFestival
@@ -64,7 +56,5 @@ export const useEventPage = (eventId?: string | null, occurrenceId?: string | nu
     eventSchedule: !isFestival ? (festivalQuery.data?.schedule ?? null) : null,
     error: query.error ?? null,
     isLoading: query.isLoading,
-    isRsvpPending: rsvpMutation.isPending,
-    setRsvp: (status: RsvpStatus) => rsvpMutation.mutateAsync({ status }),
   };
 };

@@ -31,10 +31,12 @@ when the flag is false (see `lib/featureFlags.ts`).
   `EventPage.tsx:90`. Owns the `mx-auto w-full max-w-[430px] px-2` wrapper that
   the `--bento-cell` fallback in `src/index.css` is derived from; that coupling
   is guarded by `tests/bentoCellContract.test.ts`.
-- `EventPageScreen.tsx` — UNUSED, zero importers. Do NOT derive layout from it.
-  Its wider `max-w-2xl px-3 sm:px-4` shell does not render the bento, and
-  trusting this entry cost a shipped regression (a tablet got a 155.5px bento
-  cell against a true 99px).
+- `EventPageScreen.tsx` -- DELETED 2026-09-07, along with `sections/EventActionBar.tsx`
+  and `useEventPageRsvpMutation.ts`. All three had zero live importers. Do NOT
+  restore them from git history to derive layout: the wider
+  `max-w-2xl px-3 sm:px-4` shell never rendered the bento, and trusting that
+  entry cost a shipped regression (a tablet got a 155.5px bento cell against a
+  true 99px).
 - `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
 - `sections/` — page sections
 

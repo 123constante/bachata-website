@@ -235,9 +235,11 @@ export const BentoGrid = ({
   // the width from BentoPage.tsx:412 (`mx-auto w-full max-w-[430px] px-2`,
   // which renders us at :433) as (min(100vw, 430px) - 34px) / 4, constant at
   // 99px from 430px up. If that wrapper's max-width or padding ever changes,
-  // the index.css fallback must change with it -- deriving it from the wider
-  // page shell in EventPageScreen instead hands a tablet a 155.5px cell
-  // against a true 99px. The 95px this used to hard-code was measured on this
+  // the index.css fallback must change with it -- deriving it from a wider
+  // page shell instead hands a tablet a 155.5px cell against a true 99px, a
+  // regression that actually shipped (it was derived from the since-deleted
+  // EventPageScreen shell, `max-w-2xl px-3 sm:px-4`, which never rendered the
+  // bento at all). The 95px this used to hard-code was measured on this
   // same container and was correct; its only fault was never moving.
   const cell = 'var(--bento-cell)';
 
