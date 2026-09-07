@@ -38,7 +38,18 @@ when the flag is false (see `lib/featureFlags.ts`).
   entry cost a shipped regression (a tablet got a 155.5px bento cell against a
   true 99px).
 - `bento/` — bento tile components (schedule, people, raffle, vendor, etc.)
-- `sections/` — page sections
+- `sections/` -- MOSTLY DEAD, and unmarked dead code in this module has already
+  cost one shipped regression. `EventPageScreen.tsx` was the main importer and
+  was deleted 2026-09-07; most files here now have no importer at all. A
+  minority are still live, reached from `FestivalDetail.tsx`, `BentoPage.tsx`,
+  `JoinGuestListDialog.tsx`, or imported for their types from
+  `EventScheduleGrid`. Do NOT assume a file here renders: editing a dead one
+  typechecks clean and leaves the tests green while `/event/:id` is completely
+  unchanged. No count is pinned here for the same reason none is pinned on the
+  check counts -- a number in prose has no writer maintaining it, and three
+  instruments disagreed (15 / 21 / 26) the day this was written. Prove the one
+  you are about to touch has an importer:
+  `grep -rnE "^\s*(import|export)\b.*\bEventInfoSection\b" --include=*.ts --include=*.tsx src`
 
 ### Chunk splitting (Vite)
 
