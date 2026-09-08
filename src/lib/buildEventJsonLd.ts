@@ -1,8 +1,7 @@
 /**
  * buildEventJsonLd — returns a Schema.org Event JSON-LD blob for an
  * individual event detail page. Emitted as an inline <script> so search
- * engines (and rich-result previews) can index the event with full
- * date/location/organizer/performer/offers data.
+ * engines (and rich-result previews) can index the event.
  *
  * Mirrors buildVenueJsonLd.ts's "optional fields just drop out" philosophy.
  * The caller stringifies and inlines via dangerouslySetInnerHTML.
@@ -85,24 +84,33 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
     address: postal,
   };
 
-  // Organizer: always emit (default to Bachata Calendar if no event organiser).
+  // Organizer: emit ONLY when a real organiser resolves. The default below
+  // named Bachata Calendar as the organiser of every event it does not run --
+  // on the homepage list that was 25 of 25 nodes, each a different business's
+  // night. `organizer` is recommended, not required, so an event with no
+  // organiser on file omits it rather than crediting us with someone's work.
   const org = e.organiser ?? null;
-  node.organizer = {
-    '@type': 'Organization',
-    name: org?.name || 'Bachata Calendar',
-    url: org?.url || 'https://bachatacalendar.co.uk',
-  };
+  const orgName = org?.name?.trim();
+  if (orgName) {
+    const organizer: Record<string, unknown> = {
+      '@type': 'Organization',
+      name: orgName,
+    };
+    if (org?.url) organizer.url = org.url;
+    node.organizer = organizer;
+  }
 
-  // Performer: always emit at least a generic PerformingGroup so the
-  // recommended field isn't missing. If real names are present, list them.
+  // Performer: emit ONLY real names. The generic "Bachata Artists"
+  // PerformingGroup existed to keep a recommended field from being missing,
+  // and did it by naming a group that does not exist on every event with no
+  // lineup on file. A missing recommended field costs a rich-result warning;
+  // an invented performer is a false statement about who is playing.
   const performers = (e.performers ?? []).filter((p) => p?.name?.trim());
   if (performers.length > 0) {
     node.performer = performers.map((p) => ({
       '@type': p.type ?? 'Person',
       name: p.name.trim(),
     }));
-  } else {
-    node.performer = { '@type': 'PerformingGroup', name: 'Bachata Artists' };
   }
 
   // Offers: always emit at least one Offer pointing at the event URL -- EXCEPT

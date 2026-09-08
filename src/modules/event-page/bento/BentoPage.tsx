@@ -680,9 +680,16 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                       city: snapshot.locationDefault.city?.name,
                     }
                   : { city: snapshot.locationDefault?.city?.name ?? null },
-                organiser: snapshot.organisers[0]
+                // A resolved organiser row with no displayName is not evidence
+                // that WE run the night: naming ourselves here republished the
+                // same misattribution the builder's fallback was struck for, one
+                // level up. No name, no organizer node. Row zero deliberately --
+                // buildEventPageModel.ts:119 defines the primary organiser as
+                // organisers[0], so searching the list for any named organiser
+                // would credit a non-primary and disagree with the page body.
+                organiser: snapshot.organisers[0]?.displayName
                   ? {
-                      name: snapshot.organisers[0].displayName ?? 'Bachata Calendar',
+                      name: snapshot.organisers[0].displayName,
                       url: snapshot.organisers[0].website,
                     }
                   : null,
