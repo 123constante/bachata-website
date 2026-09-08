@@ -35,14 +35,17 @@ export interface BuildEventListJsonLdInput {
 // City slugs are stored as `<city>-<country>` (e.g. `london-gb`). Strip the
 // 2-letter country suffix before turning the rest into a Title Case display
 // name so Schema.org's addressLocality reads like "London" not "London gb".
-const slugToLocality = (slug: string): string => {
-  if (!slug) return slug;
+// Returns null for a slug that resolves to nothing, so the caller omits the
+// field rather than emitting an empty string.
+const slugToLocality = (slug: string | null | undefined): string | null => {
+  if (!slug) return null;
   const withoutCountry = slug.replace(/-[a-z]{2}$/i, '');
-  return withoutCountry
+  const locality = withoutCountry
     .split('-')
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+  return locality || null;
 };
 
 export const buildEventListJsonLd = ({
@@ -65,7 +68,12 @@ export const buildEventListJsonLd = ({
     if (!startDate) continue;
 
     const eventUrl = `${origin}${eventHref(e)}`;
-    const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
+    // A row with no city_slug used to be called London. Every row this feed
+    // emits today IS London (the Phase-Q gate above holds every other timezone
+    // out), which is exactly what made the default invisible rather than
+    // harmless: it was a claim the data had never supported, waiting for the
+    // gate to lift. Unknown locality, no addressLocality.
+    const locality = slugToLocality(e.city_slug);
     // Description: emit only what the row actually carries. The template this
     // replaces was generated prose that described nothing -- and 0 of the 25
     // rows this page emits today carry a real description, so every description
@@ -111,15 +119,35 @@ export const buildEventListJsonLd = ({
     if (Array.isArray(e.photo_url) && e.photo_url.length > 0) {
       event.image = [e.photo_url[0]];
     }
-    event.location = {
-      '@type': 'Place',
-      name: e.location || locality,
-      address: {
-        '@type': 'PostalAddress',
-        addressLocality: locality,
-        addressCountry: 'GB',
-      },
-    };
+    // addressCountry was the literal 'GB' here too, and is DELETED rather than
+    // derived -- same call as buildEventJsonLd. Deriving it here is worse than
+    // there, not better: the Phase-Q gate above only skips rows with a non-null
+    // non-London timezone, so a row with a null city_timezone and a foreign
+    // city_slug would emit a real foreign country beside a startDate converted
+    // in Europe/London. A correct country on a wrong instant is a new false
+    // claim, not a fixed one. The gate leak has to be closed before the
+    // derivation lands here at all; both are queued together.
+    const address: Record<string, string> = { '@type': 'PostalAddress' };
+    if (locality) address.addressLocality = locality;
+    const placeName = e.location || locality;
+    // city_slug is genuinely nullable on the wire (eventRpcs' NullableWireCol:
+    // rows predating the backfill), so with no `location` string either, this
+    // Place would carry an address object with no address in it. An empty
+    // container states nothing while looking like it states something; emit
+    // only what has content, and omit `location` when there is none.
+    //
+    // `placeName` alone is the whole condition here, unlike buildEventJsonLd
+    // where a street address can exist without a name. `address` gains only
+    // `addressLocality`, from `locality` -- and `placeName` is
+    // `e.location || locality`, so a filled address implies a name. An
+    // `|| hasAddress` disjunct here was dead: mutating it away left all 17
+    // cases green because no input can reach it.
+    if (placeName) {
+      const place: Record<string, unknown> = { '@type': 'Place' };
+      place.name = placeName;
+      if (locality) place.address = address;
+      event.location = place;
+    }
 
     itemListElement.push({
       '@type': 'ListItem',

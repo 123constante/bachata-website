@@ -135,4 +135,68 @@ describe('buildEventListJsonLd -- claims the data evidences', () => {
     expect(build({ is_cancelled: true }).eventStatus).toBe('https://schema.org/EventCancelled');
     expect(build({ is_cancelled: false }).eventStatus).toBe('https://schema.org/EventScheduled');
   });
+
+  // honest-claims P5b. addressCountry was the literal 'GB' and the locality
+  // defaulted to the literal 'London'. The Phase-Q gate means every row that
+  // reaches the Place today IS London, so neither was visibly false here -- and
+  // that is the point: both were claims the data had never been asked for,
+  // waiting on a gate to lift. buildEventJsonLd, which has no such gate, was
+  // already publishing addressCountry GB for a Tunisian resort.
+  describe('location is derived from the row, not defaulted', () => {
+    // The builder returns Record<string, unknown>, so the Place has to be read
+    // through a shape. It names only the keys these cases assert, and claims
+    // nothing: an omitted location makes the read THROW rather than pass.
+    type PostalAddressNode = { addressLocality?: string; addressCountry?: string };
+    type PlaceNode = { name?: string; address?: PostalAddressNode };
+    const placeOf = (over: Record<string, unknown> = {}) => build(over).location as PlaceNode;
+    const addressOf = (over: Record<string, unknown> = {}) => placeOf(over).address;
+
+    it('derives addressLocality from city_slug, and asserts NO country', () => {
+      const address = addressOf({ city_slug: 'london-gb' });
+      expect(address?.addressLocality).toBe('London');
+      // addressCountry is deleted, not derived -- honest-claims P5b.
+      expect(address?.addressCountry).toBeUndefined();
+    });
+
+    it('strips the country suffix before Title Casing a multi-word city', () => {
+      expect(addressOf({ city_slug: 'milton-keynes-gb' })?.addressLocality).toBe('Milton Keynes');
+    });
+
+    it('omits both when the row carries no city_slug, rather than saying London GB', () => {
+      // `location` still resolves here, so the Place keeps its name and an
+      // address is emitted only if something fills it.
+      const address = addressOf({ city_slug: null });
+      expect(address).toBeUndefined();
+      expect(placeOf({ city_slug: null }).name).toBe('Venue');
+    });
+
+    // city_slug is genuinely nullable on the wire (eventRpcs' NullableWireCol:
+    // rows predating the backfill). With no `location` string either, the first
+    // draft of P5b emitted an address object holding nothing but its @type and
+    // pinned that here as correct -- a container shaped like a claim with none
+    // in it.
+    it('omits location entirely when neither a venue string nor a slug resolves', () => {
+      const item = build({ city_slug: null, location: '' });
+      expect(item.location).toBeUndefined();
+      expect(JSON.stringify(item)).not.toContain('PostalAddress');
+    });
+
+    // The Phase-Q gate above only skips a NON-NULL non-London timezone, so a
+    // row with a null city_timezone and a foreign city_slug reaches the Place.
+    // An earlier draft of this phase derived addressCountry here and pinned
+    // 'TN' as desired -- which would have paired a correct country with a
+    // startDate converted in Europe/London, a NEW false claim rather than a
+    // fixed one. Asserting no country is what keeps the leak merely a gap.
+    it('states no country even when the gate leaks a foreign row through', () => {
+      const address = addressOf({ city_slug: 'gammarth-tn', city_timezone: null });
+      expect(address?.addressLocality).toBe('Gammarth');
+      expect(address?.addressCountry).toBeUndefined();
+    });
+
+    it('omits Place.name only when there is neither a venue string nor a locality', () => {
+      expect(placeOf({ location: 'Makondo Bar' }).name).toBe('Makondo Bar');
+      expect(placeOf({ location: '', city_slug: 'london-gb' }).name).toBe('London');
+      expect(build({ location: '', city_slug: null }).location).toBeUndefined();
+    });
+  });
 });

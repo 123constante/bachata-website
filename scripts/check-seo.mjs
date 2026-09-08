@@ -7,7 +7,8 @@
 //   - non-empty meta description
 //   - at least one <h1> (this assertion alone catches the festival-skeleton bug)
 //   - parseable JSON-LD; event pages must carry an Event node with
-//     name/startDate/location/eventStatus/offers (missing offer price = WARN)
+//     name/startDate/location/eventStatus (offers is RECOMMENDED, not
+//     required: a missing node and a priceless offer are both WARNs)
 //   - no unexpected noindex
 //   - homepage + the 9 event-bearing SEO landing pages: a minimum number of
 //     crawlable /event/ links in the server HTML (see STATIC_PAGES)
@@ -77,6 +78,23 @@ let BYPASS = null;
 // Sampled per prefix from the live sitemap. Event pages get 3 samples so a
 // festival-format event (which regressed to a skeleton in July 2026) is likely
 // in the pool even without type information in the sitemap.
+//
+// WHICH pages these are is NOT stable between runs, and the mechanism is worth
+// knowing before you chase a gate that went green and red on identical code
+// (2026-09-08 cost a triage). parseSitemapSample takes `slice(0, n)` in sitemap
+// DOCUMENT ORDER, and app/routes/sitemap.tsx:98 orders events
+// `updated_at DESC`. So these three are always "the three most recently edited
+// events" -- any organiser edit in the admin rotates the sample, with no deploy
+// and no code change. Established by reading both ends, not inferred: on
+// 2026-09-08 the first three /event/ <loc> entries were exactly the three the
+// run sampled.
+//
+// This is left ROTATING on purpose. Pinning a fixed set would trade the
+// guard's best property -- it looks at whatever was touched most recently,
+// which is where fresh data defects actually are -- for a quieter board. What
+// made the rotation feel like a flake was a hard assertion that shipped code
+// legitimately did not satisfy (see the offers block in auditHtml); that is
+// fixed at the assertion, which is where it belonged.
 const PREFIX_SAMPLE = { '/event/': 3, '/dancers/': 1, '/organisers/': 1 };
 
 // Static pages: [path, minEventLinks]
@@ -314,12 +332,51 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
     if (!ev) {
       failures.push('no Event JSON-LD node');
     } else {
-      for (const field of ['name', 'startDate', 'location', 'eventStatus', 'offers']) {
+      // HARD-REQUIRED here. eventStatus is Recommended and is kept hard
+      // anyway, which is safe for a reason worth stating: buildEventJsonLd
+      // emits it unconditionally, from no organiser data, so it cannot red on
+      // a data gap. That is exactly what `offers` could not promise, and the
+      // distinction -- not the required/recommended label -- is why offers
+      // moved to a warn below and this did not.
+      for (const field of ['name', 'startDate', 'location', 'eventStatus']) {
         if (ev[field] == null) failures.push(`Event JSON-LD missing ${field}`);
       }
-      const offers = Array.isArray(ev.offers) ? ev.offers : [ev.offers];
-      if (ev.offers != null && !offers.some((o) => o && o.price != null)) {
-        warns.push('no offer carries a price (organiser data gap, not a code failure)');
+      // A `location.address` assertion belongs here and is NOT being added.
+      // It was built in this phase as a hard failure and reverted at review:
+      // it reintroduced the exact defect this change removed from `offers` --
+      // a merge gate that reds on ORGANISER data rather than on code, on a
+      // rotating sitemap sample -- and it rejected a shape buildEventJsonLd is
+      // tested to emit (a Place with a venue name and nothing else resolvable).
+      // A WARN would be the honest strength, and `addr[k] != null` was the
+      // wrong content test besides ('' counted as content). Queued whole rather
+      // than shipped half-right: queued-seo-location-address-assertion.md.
+      // offers: WARN, never a failure (honest-claims P5b).
+      //
+      // This was a hard failure, and that made the guard a merge gate INSISTING
+      // on a claim the site could not evidence. buildEventJsonLd satisfied it by
+      // emitting a fabricated Offer -- `{ url: <the event's own page>,
+      // availability: InStock }` -- on every event with no ticket rows, which is
+      // most of them. The guard pinned the fabrication as contract exactly the
+      // way the stress test's own performer case did, and
+      // deleting the fabrication would have red the gate on nearly every
+      // /event/ page sampled.
+      //
+      // It was ALSO wrong on its own terms before this phase touched anything:
+      // an ENDED series omits offers by design (arc P4b), so the gate had been
+      // failing on main whenever the sitemap sample happened to include one --
+      // 2026-09-08, /event/event-26e15b85, from code nobody had changed.
+      //
+      // Google lists offers under RECOMMENDED properties, so a missing node
+      // costs a rich-result warning and nothing more. A warn is the honest
+      // strength: it stays visible without blocking a merge, and without
+      // pressuring the next author to invent a node to clear it.
+      if (ev.offers == null) {
+        warns.push('no offers node (recommended, not required -- an event with no ticket data omits it)');
+      } else {
+        const offers = Array.isArray(ev.offers) ? ev.offers : [ev.offers];
+        if (!offers.some((o) => o && o.price != null)) {
+          warns.push('no offer carries a price (organiser data gap, not a code failure)');
+        }
       }
     }
   }
@@ -486,7 +543,15 @@ async function selfTest() {
       '@type': 'Event',
       name: 'X',
       startDate: '2026-09-01T20:00',
-      location: { '@type': 'Place', name: 'Y' },
+      // A REAL Place: name plus an address that carries something. The old
+      // fixture had no address at all, so every case in this battery treated an
+      // addressless Place as healthy and the guard's blindness to it was
+      // invisible here too.
+      location: {
+        '@type': 'Place',
+        name: 'Y',
+        address: { '@type': 'PostalAddress', addressLocality: 'London' },
+      },
       eventStatus: 'https://schema.org/EventScheduled',
       offers: { '@type': 'Offer', price: '10' },
       ...overrides,
@@ -496,6 +561,8 @@ async function selfTest() {
   };
   const sitemap = (...locs) => `<urlset>${locs.map((l) => `<loc>${l}</loc>`).join('')}</urlset>`;
   const fails = (html, opts, needle) => auditHtml('/x', html, opts).failures.some((f) => f.includes(needle));
+  // The offers-rule warns, isolated from any other warn auditHtml may grow.
+  const offerWarns = (r) => r.warns.filter((w) => w.includes('offer'));
   const clean = (html, opts) => auditHtml('/x', html, opts).failures.length === 0;
   const throws = (fn) => { try { fn(); return false; } catch { return true; } };
   const res = (measured, eventAsserted, linkPageChecked = false) => ({ measured, eventAsserted, linkPageChecked });
@@ -550,18 +617,113 @@ async function selfTest() {
       fails(page({ jsonLd: eventLd({ location: undefined }) }), { isEvent: true }, 'Event JSON-LD missing location')],
     ['fires: Event JSON-LD missing eventStatus',
       fails(page({ jsonLd: eventLd({ eventStatus: undefined }) }), { isEvent: true }, 'Event JSON-LD missing eventStatus')],
-    ['fires: Event JSON-LD missing offers',
-      fails(page({ jsonLd: eventLd({ offers: undefined }) }), { isEvent: true }, 'Event JSON-LD missing offers')],
+    // offers is RECOMMENDED, not required (honest-claims P5b). These three
+    // cases are the whole rule, and the first two are the ones that matter:
+    // the old canary asserted the hard failure, which is how a guard came to
+    // pin a fabricated Offer as contract. Assert the WARN and assert that
+    // nothing fails -- checking only the warn would stay green if a future
+    // edit put 'offers' back in the required list AND left the warn in place.
+    // These count OFFERS warns, not TOTAL warns. Pinning the total made three
+    // cases hostage to any unrelated warn a future author adds to auditHtml --
+    // they would red on ordinary work while reading as "the offers rule is
+    // broken", which is the failure mode a canary is supposed to prevent, not
+    // cause. Counting the matching subset keeps the discrimination (exactly one
+    // offers warn, and the right one) without the coupling.
+    ['warn boundary: a missing offers node warns and does NOT fail',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: undefined }) }), { isEvent: true });
+        return r.failures.length === 0
+          && offerWarns(r).length === 1
+          && offerWarns(r)[0].includes('no offers node');
+      })()],
+    // Two cases were removed here rather than kept, both unkillable:
+    //   - `!fails(..., 'Event JSON-LD missing offers')` was a NEGATIVE assertion
+    //     mislabelled `fires:`. It passes whenever fails() returns false --
+    //     including if fails() broke, or if auditHtml stopped producing any
+    //     failure at all -- and the case above already asserts the stronger
+    //     `failures.length === 0` on identical input.
+    //   - an `endDate`-carrying variant billed as covering the ended-series red
+    //     on /event/event-26e15b85. auditHtml never reads endDate, so it was
+    //     byte-equivalent to the case above and asserted nothing whatever about
+    //     endedness -- a false sense of coverage sitting exactly where this
+    //     phase's motivating defect was. The ended-series behaviour lives in
+    //     buildEventJsonLd and is covered by its stress test; this guard reads
+    //     rendered HTML and genuinely cannot see it. Saying so beats a case
+    //     that looks like it can.
+    ['silent: a Place with a name and no address is NOT failed here (see auditHtml)',
+      clean(page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y' } }) }), { isEvent: true })],
     ['fires: unparseable JSON-LD block',
       fails(page({ jsonLd: '<script type="application/ld+json">{nope</script>' }), {}, 'unparseable JSON-LD')],
     ['survives: a JSON-LD block of literal null does not throw (it once killed the run)',
       (() => { try { return clean(page({ jsonLd: '<script type="application/ld+json">null</script>' }), {}); } catch { return false; } })()],
     ['silent: a complete healthy event page',
       clean(page({ jsonLd: eventLd() }), { isEvent: true })],
+    // The MESSAGE, not just the count. Counting alone let a mutant survive the
+    // battery on 2026-09-08: collapsing `if (ev.offers == null)` to `if (true)`
+    // makes the price branch unreachable, so a priced-offer gap reports "no
+    // offers node" instead -- still exactly one warn, still zero failures, and
+    // every case here stayed green. Two warns that mean different things have
+    // to be told apart, or the guard can silently stop distinguishing them.
     ['warn boundary: an offer without a price warns, never fails (organiser data gap)',
       (() => {
         const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: { '@type': 'Offer' } }) }), { isEvent: true });
-        return r.failures.length === 0 && r.warns.length === 1;
+        return r.failures.length === 0
+          && offerWarns(r).length === 1
+          && offerWarns(r)[0].includes('no offer carries a price');
+      })()],
+    ['warn boundary: a PRESENT but priceless offers node is not reported as a MISSING one',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: { '@type': 'Offer' } }) }), { isEvent: true });
+        return !r.warns.some((w) => w.includes('no offers node'));
+      })()],
+    ['warn boundary: a priced offer warns about nothing at all',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd() }), { isEvent: true });
+        return r.failures.length === 0 && offerWarns(r).length === 0;
+      })()],
+    // ARRAY-shaped offers -- the ONLY shape production ever emits.
+    // buildEventJsonLd assigns `node.offers = realOffers.map(...)`, always an
+    // array, while every case above feeds a single object. So the
+    // `Array.isArray(...) ? ... : [ev.offers]` branch that runs on every real
+    // page had zero coverage: collapsing it to `[ev.offers]` survived the whole
+    // battery with zero fail lines, while making every live page report "no
+    // offer carries a price" regardless of its offers, and go blind to a
+    // genuinely priceless one. (No total is quoted: nothing maintains a count
+    // written into prose, and this battery has grown since.)
+    ['array boundary: a priced offer in an ARRAY warns about nothing',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: [{ '@type': 'Offer', price: '10' }] }) }), { isEvent: true });
+        return r.failures.length === 0 && offerWarns(r).length === 0;
+      })()],
+    ['array boundary: a priceless offer in an ARRAY warns',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: [{ '@type': 'Offer' }] }) }), { isEvent: true });
+        return r.failures.length === 0
+          && offerWarns(r).length === 1
+          && offerWarns(r)[0].includes('no offer carries a price');
+      })()],
+    ['array boundary: ONE priced offer among several priceless ones is enough',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: [{ '@type': 'Offer' }, { '@type': 'Offer', price: '10' }] }) }), { isEvent: true });
+        return offerWarns(r).length === 0;
+      })()],
+    ['array boundary: an EMPTY offers array carries no price and warns',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: [] }) }), { isEvent: true });
+        return offerWarns(r).length === 1 && offerWarns(r)[0].includes('no offer carries a price');
+      })()],
+    // An explicit JSON `"offers": null` is the MISSING case, not the priceless
+    // one. Every other case here reaches auditHtml with offers either absent or
+    // holding a real value, because the fixture strips only `undefined` -- so
+    // narrowing `ev.offers == null` to `=== undefined` survived the whole
+    // battery with zero fail lines (review round 3, mutation-run against this
+    // file). The mutant falls through to `[null].some(o => o && ...)`, reports
+    // "no offer carries a price", and names the wrong defect -- exactly the
+    // confusion the two message-checking cases above exist to prevent.
+    ['null boundary: an explicit null offers node reads as MISSING, not priceless',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ offers: null }) }), { isEvent: true });
+        return offerWarns(r).length === 1 && offerWarns(r)[0].includes('no offers node');
       })()],
     ['fires: one /event/ link short of the floor (the indexed "(0 events)" body)',
       fails(page({ links: 4 }), { minEventLinks: 5 }, '/event/ links in server HTML')],
