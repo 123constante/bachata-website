@@ -200,7 +200,7 @@ const BachataStyleParties = () => {
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
-            Current dates and door prices are on the{' '}
+            Current dates are on the{' '}
             <Link to="/parties" className="text-primary underline">Parties page</Link>.
           </p>
         </section>

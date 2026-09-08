@@ -91,7 +91,7 @@ const BachataPartiesLondon = () => {
             Sway Bar on Great Queen Street in Covent Garden (WC2B 5BZ) hosts several brands in the same room at different times: Latino Royal, Latino Sway, Todo Latino and London Loves BOS. It&rsquo;s central, late, and louder than a studio. If you&rsquo;re in Zone 1 and want to end an evening dancing, it&rsquo;s the most reliable address to check.
           </p>
           <p className="leading-relaxed">
-            Be At One on Beak Street in Soho (W1F 9RA) runs Bailando Sundays and FK Dance nights in a cocktail-bar setting, which suits people who&rsquo;d rather ease in than commit to a dance event. The Monthly Bachata Party at the Cocktail Club in Canary Wharf (Cabot Square, E14 4QS) does the same job for the east-London crowd. In the City, Forge on Cornhill (EC3V 3ND) carries a lot of brands (Makondo, Mojito Club, Wild Bachata, Latino Flava Wednesdays) and is the most consistent bachata address for the after-work crowd.
+            Be At One on Beak Street in Soho (W1F 9RA) runs Bailando Sundays in a cocktail-bar setting, which suits people who&rsquo;d rather ease in than commit to a dance event. The Monthly Bachata Party at the Cocktail Club in Canary Wharf (Cabot Square, E14 4QS) does the same job for the east-London crowd. In the City, Forge on Cornhill (EC3V 3ND) carries a lot of brands (Makondo, Mojito Club, Wild Bachata, Latino Flava Wednesdays) and is the most consistent bachata address for the after-work crowd.
           </p>
         </section>
 
@@ -130,7 +130,7 @@ const BachataPartiesLondon = () => {
         <section className="space-y-3">
           <h2 className="text-2xl font-bold">Prices, tickets and what to wear</h2>
           <p className="leading-relaxed">
-            Door prices change by night and by edition, so the event page is the place to check rather than anything written here. As a rough rule, studio socials are the cheapest, club nights cost more for the venue and production, and bar nights are often free or cheap to enter with you paying for drinks. Nights that fold a class into the ticket tend to be the best value per hour on the floor. Ticket links, where they exist, are on the{' '}
+            Door prices change by night and by edition. As a rough rule, studio socials are the cheapest, club nights cost more for the venue and production, and bar nights are often free or cheap to enter with you paying for drinks. Nights that fold a class into the ticket tend to be the best value per hour on the floor. Ticket links, where they exist, are on the{' '}
             <Link to="/parties" className="text-primary underline">Parties page</Link>.
           </p>
           <p className="leading-relaxed">
