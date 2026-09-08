@@ -64,6 +64,7 @@
  */
 
 import { resolveProjectId } from './lib/firewall-config.mjs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const API = 'https://api.vercel.com';
 const GB = 1000000000;
@@ -133,7 +134,17 @@ export function functionBytesFromBuilds(builds) {
     for (const out of build.output || []) {
       if (out.type !== 'lambda') continue;
       if (typeof out.size !== 'number' || out.size <= 0) continue;
-      if (!seen.has(out.digest)) seen.set(out.digest, out.size);
+      // A MISSING digest must not become a shared key. Without this a renamed or
+      // dropped field collapses every lambda onto undefined, keeps only the first
+      // size, and silently UNDERSTATES the pool -- inside the one function this
+      // file calls the measurement's whole correctness. Falling back to the
+      // route path (unique per entry) makes a shape change OVER-count, which is
+      // loud and fails the budget, rather than under-count, which reads healthy.
+      const key =
+        typeof out.digest === 'string' && out.digest
+          ? out.digest
+          : 'nodigest:' + out.path;
+      if (!seen.has(key)) seen.set(key, out.size);
     }
   }
   let total = 0;
@@ -191,6 +202,12 @@ async function countDeployments(api, projectId, teamQs) {
     }
     if (!body.pagination || !body.pagination.next) break;
     until = body.pagination.next;
+    // The cap is a runaway stop, not a sampling window. Falling out of the loop
+    // with a next cursor still in hand means the count is PARTIAL, and a partial
+    // count is the one under-measurement that would otherwise be returned as a
+    // number -- understating the pool and reading as healthy, which is the exact
+    // shape every other branch here refuses.
+    if (page === PAGE_CAP - 1) return { count, newestReady, truncated: true };
   }
   return { count, newestReady };
 }
@@ -199,7 +216,18 @@ export async function runCheck({ api, budget, projectId, teamQs, log = console.l
   const configError = assertBudget(budget);
   if (configError) return { code: 2, label: 'COULD NOT MEASURE', reason: configError };
 
-  const { count, newestReady } = await countDeployments(api, projectId, teamQs);
+  const { count, newestReady, truncated } = await countDeployments(api, projectId, teamQs);
+  if (truncated) {
+    return {
+      code: 2,
+      label: 'COULD NOT MEASURE',
+      reason:
+        'the deployment list did not end within ' + PAGE_CAP + ' pages (over ' +
+        PAGE_CAP * PER_PAGE +
+        ' deployments). The count is PARTIAL, so reporting it would understate the ' +
+        'pool and read as healthy. Raise PAGE_CAP once you know why there are that many.',
+    };
+  }
   if (!newestReady) {
     return {
       code: 2,
@@ -273,9 +301,15 @@ export async function main(argv, deps = {}) {
     },
   };
 
+  // Injectable so the canary can drive this COULD-NOT-MEASURE branch. Handed
+  // the global fetch it was the one documented failure shape the self-test
+  // could not reach without a real network call -- an unreachable arm is an
+  // untested arm.
+  const resolve = deps.resolveProjectId ?? resolveProjectId;
+  const fetchImpl = deps.fetch ?? fetch;
   let projectId;
   try {
-    projectId = deps.projectId ?? (await resolveProjectId(fetch, token, project, teamId));
+    projectId = deps.projectId ?? (await resolve(fetchImpl, token, project, teamId));
   } catch (error) {
     console.error(
       'deployment storage guard COULD NOT MEASURE: cannot resolve project id for ' +
@@ -447,6 +481,42 @@ async function selfTest() {
     return code === 2;
   });
 
+  // --- the three defects review found, each pinned so they cannot come back ---
+  add('a lambda with NO digest does not collapse onto one key', () => {
+    const builds = [
+      {
+        output: [
+          { type: 'lambda', size: 100, path: 'a' },
+          { type: 'lambda', size: 200, path: 'b' },
+        ],
+      },
+    ];
+    const { bytes, functions } = functionBytesFromBuilds(builds);
+    return bytes === 300 && functions === 2;
+  });
+  add('a truncated deployment list is exit 2, not a partial count', async () => {
+    const many = Array.from({ length: 100 }, (_, i) => ({ uid: 'd' + i, state: 'READY' }));
+    const code = await main([], {
+      token: 't',
+      projectId: 'prj_x',
+      budget: BUDGET,
+      // never stops paginating -- the runaway the cap exists for
+      api: { getJson: async () => ({ deployments: many, pagination: { next: 1 } }) },
+    });
+    return code === 2;
+  });
+  add('a failing project resolve is exit 2, and the canary can drive it', async () => {
+    const code = await main([], {
+      token: 't',
+      budget: BUDGET,
+      resolveProjectId: async () => {
+        throw new Error('404 project not found');
+      },
+      api: { getJson: async () => ({ deployments: [], pagination: null }) },
+    });
+    return code === 2;
+  });
+
   let pass = 0;
   for (const c of cases) {
     let ok = false;
@@ -463,8 +533,17 @@ async function selfTest() {
   return pass === cases.length;
 }
 
-// process.exitCode, never process.exit(): on Linux CI process.exit truncates
-// buffered stdout, and with fetch in flight it can abort the process outright
-// (measured in this account 2026-09-08 -- an until-loop poller spun forever
-// because process.exit raced a pending fetch).
-process.exitCode = await main(process.argv.slice(2));
+// Realpath-to-realpath (scripts/lib/entry-point.mjs), never the raw
+// import.meta.url === pathToFileURL(process.argv[1]).href idiom: that one FAILS
+// OPEN through a junction or symlink -- the module body ends having done nothing
+// and node exits 0, which for a CI check reads as "passed". Without any guard at
+// all it is worse: this module exports five functions and nine specs in tests/
+// import scripts/*.mjs, so a bare top-level dispatch would run the whole check
+// inside the importing process and set its exitCode to 2.
+if (isEntryPoint(import.meta.url)) {
+  // process.exitCode, never process.exit(): on Linux CI process.exit truncates
+  // buffered stdout, and with fetch in flight it can abort the process outright
+  // (measured in this account 2026-09-08 -- an until-loop poller spun forever
+  // because process.exit raced a pending fetch).
+  process.exitCode = await main(process.argv.slice(2));
+}

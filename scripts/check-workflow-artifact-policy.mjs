@@ -530,13 +530,13 @@ const INCIDENT_STEADY_STATE_COPIES = 7;
 const MATRIX_MAX_LEGS = 256;
 
 /** ci-budget-guard.yml must upload nothing. Asserted from outside that file. */
-const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
+const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml', 'deployment-storage-check.yml'];
 
 /**
  * Inclusion floors -- THREE, where there were four, and the change of job is
  * the point rather than the count.
  *
- * MEASURED on this repo, 2026-08-12: 21 workflow files, 28 jobs, 221 steps,
+ * MEASURED on this repo, 2026-09-08: 22 workflow files, 32 jobs, 280 steps,
  * 5 upload-artifact steps.
  *
  * The JOBS floor is gone outright, and the STEPS floor survives with a
@@ -549,7 +549,7 @@ const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
  * by itself -- then 120, which was low enough to survive that and therefore too
  * low to catch anything. MEASURED at 120: a walk that visited only the first
  * job of each file leaves 190 steps, clears every floor, and prints "policy
- * passed". Fourteen of the 21 workflows have exactly one job, so only 31 steps
+ * passed". Fourteen of the 22 workflows have exactly one job, so only 47 steps
  * live outside a first job. There is no number that is both high enough to
  * catch the bug and low enough to survive ordinary work, and three drafts spent
  * themselves discovering that. Counting what the document DECLARES and
@@ -559,7 +559,7 @@ const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
  *
  *   workflowFiles  the DIRECTORY read. Declared-versus-walked is per file, so
  *                  a readdir that returns three files agrees with itself
- *                  perfectly. Floor 16 against a measured 21; both edges are
+ *                  perfectly. Floor 16 against a measured 22; both edges are
  *                  pinned by canary cases, because an unpinned floor is what
  *                  produced the three drafts above. The upper edge (<= 19)
  *                  absorbs deleting two workflows; the lower (>= 11) keeps it
