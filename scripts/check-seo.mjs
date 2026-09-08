@@ -25,9 +25,10 @@
 //      page carrying a minEventLinks assertion went unfetched, i.e. while the
 //      July 2026 zero-links homepage and the prerender-era "(0 events)" body
 //      go unmeasured. A floor on the CLASS is what actually guards them.
-//   4. event pages asserted -- likewise for the Event JSON-LD assertions;
-//      greening on one hand-picked probe URL is the sampling lottery
-//      check-og-images.mjs was widened to kill.
+//   4. event pages asserted -- likewise for the Event JSON-LD assertions. It
+//      was once joined by a hand-picked probe URL, whose sampling lottery
+//      check-og-images.mjs was widened to kill; that probe is deleted and the
+//      sitemap sample is the whole supply now.
 //
 // Targets the DEPLOYED site (SSR/prerender output only exists post-deploy), so
 // this runs as a scheduled/post-deploy job, not a PR gate - same reasoning as
@@ -75,19 +76,42 @@ const GENERIC_TITLE = 'Bachata London'; // root fallback title prefix - landing 
 // redirect death does not prove which. Prod stays bypass-free: it is public.
 let BYPASS = null;
 
-// Sampled per prefix from the live sitemap. Event pages get 3 samples so a
-// festival-format event (which regressed to a skeleton in July 2026) is likely
-// in the pool even without type information in the sitemap.
+// Sampled per prefix from the live sitemap. Event pages get 4 samples, one more
+// than MIN_EVENT_PAGES, so that a run does not sit exactly on its floor.
+//
+// What that slack does and does NOT buy, stated exactly, because the loose
+// version of this sentence was wrong in review: a THROWN fetch (timeout, DNS,
+// socket) on one event page is a warn in the default non-STRICT mode, so the
+// run now measures 3 of 4, clears the floor and stays green where it used to
+// red. A 404 or any other non-200 is a hard failure in checkPage and reds the
+// run whatever the slack is; so does any auditHtml failure. The slack covers
+// the transient class ONLY.
+//
+// That the transient class is real is observed: on 2026-09-08 a run lost
+// /organisers/cumbaye to "This operation was aborted". That it reaches THIS
+// floor is projected from the mechanism, not observed -- cumbaye is not an
+// event page, so it cost the blanket `measured` floor (which has ~11 pages of
+// headroom) and touched eventsAsserted not at all. No recorded run has lost an
+// /event/ page this way. Said plainly because the loose version of this
+// paragraph was wrong in review once already.
+//
+// It also keeps a festival-format event (which regressed to a skeleton in July
+// 2026) likely in the pool without type information in the sitemap. "Likely" is
+// the honest word and always was: the sample is the most recently edited events
+// out of 68 live on 2026-09-08, so a run can legitimately contain none. A fixed
+// probe URL used to promise that coverage; it had been 404ing for weeks and is
+// deleted, and nothing here replaces the promise, because this guard reads
+// rendered HTML and cannot tell a festival from a weekly social. Queued rather
+// than invented: plans/queued-seo-guard-event-page-slack.md.
 //
 // WHICH pages these are is NOT stable between runs, and the mechanism is worth
 // knowing before you chase a gate that went green and red on identical code
 // (2026-09-08 cost a triage). parseSitemapSample takes `slice(0, n)` in sitemap
 // DOCUMENT ORDER, and app/routes/sitemap.tsx:98 orders events
-// `updated_at DESC`. So these three are always "the three most recently edited
-// events" -- any organiser edit in the admin rotates the sample, with no deploy
-// and no code change. Established by reading both ends, not inferred: on
-// 2026-09-08 the first three /event/ <loc> entries were exactly the three the
-// run sampled.
+// `updated_at DESC`. So these are always "the most recently edited events" --
+// any organiser edit in the admin rotates the sample, with no deploy and no
+// code change. Established by reading both ends, not inferred: on 2026-09-08
+// the first three /event/ <loc> entries were exactly the three the run sampled.
 //
 // This is left ROTATING on purpose. Pinning a fixed set would trade the
 // guard's best property -- it looks at whatever was touched most recently,
@@ -95,7 +119,7 @@ let BYPASS = null;
 // made the rotation feel like a flake was a hard assertion that shipped code
 // legitimately did not satisfy (see the offers block in auditHtml); that is
 // fixed at the assertion, which is where it belonged.
-const PREFIX_SAMPLE = { '/event/': 3, '/dancers/': 1, '/organisers/': 1 };
+const PREFIX_SAMPLE = { '/event/': 4, '/dancers/': 1, '/organisers/': 1 };
 
 // Static pages: [path, minEventLinks]
 //
@@ -135,17 +159,13 @@ const STATIC_PAGES = [
   ['/bachata-london-dominican-parties', 0],
 ];
 
-// Fixed probes, checked when they still 200 (skipped once retired):
-//   - a festival-format event at its /event/ canonical (the July 2026 skeleton
-//     regression - zero h1, zero JSON-LD)
-const FIXED_EVENT_PROBES = ['/event/london-sensual-days-summer-edition'];
-
 // Floor values, ABSOLUTE promises rather than fractions of the run: a floor
 // derived from what the run happened to collect shrinks exactly when coverage
 // shrinks, which is the failure these exist to catch. Measured against prod
-// 2026-08-10: 15 static + 5 sitemap + 1 probe = 21 pages, of which 10 carry a
-// minEventLinks assertion and 4 are event pages. They are NOT self-maintaining
-// -- growing STATIC_PAGES means raising these deliberately.
+// 2026-09-08: 15 static + 6 sitemap = 21 pages, of which 10 carry a
+// minEventLinks assertion and 4 are event pages -- and all 4 now ASSERT, where
+// the retired fixed probe made up the fourth and asserted nothing. They are NOT
+// self-maintaining -- growing STATIC_PAGES means raising these deliberately.
 const MIN_SITEMAP_PAGES = 3;   // "the sitemap clearly worked", not a per-prefix assertion:
                                // entity types legitimately come and go (same rationale as
                                // check-og-images' MIN_OG_PAGES). Still reds a sitemap that
@@ -156,12 +176,10 @@ const MIN_PAGES_MEASURED = 10; // blanket coverage: under half of today's 21 ans
 const MIN_LINK_PAGES = 8;      // of the 10 pages carrying minEventLinks > 0
 const MIN_EVENT_PAGES = 3;     // of the 4 event pages a healthy run asserts. >1 on purpose:
                                // at 1, three of four could time out and the run would green
-                               // on the single hand-picked probe URL. NOTE the slack this
-                               // floor has depends on the fixed probe still resolving: once
-                               // it 404s and is retired, the 3 sitemap-derived event pages
-                               // are the whole supply and a single blip reds the run. Retire
-                               // the probe and this floor together -- either replace the
-                               // probe or drop this to 2.
+                               // on whichever single page happened to answer. It sits one
+                               // BELOW PREFIX_SAMPLE['/event/'] so a full run is not on its
+                               // floor; the canary asserts that pairing, so change either
+                               // constant and the self-test says so at author time.
 
 // The floors as DATA, so the canary can prove all four exist and fire. A
 // missing counter key reads as 0 -- a typo in main() fails CLOSED (red), never
@@ -208,14 +226,23 @@ async function fetchText(url) {
 // never diverge only manufactures the look of an independent measurement.
 function parseSitemapSample(text, alreadySampled = []) {
   const seen = new Set(alreadySampled);
-  const locs = [...text.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  // The origin is stripped BEFORE bucketing, so a prefix is matched against the
+  // PATH and anchored at its start. This used to be `fullUrl.includes(prefix)`,
+  // which is a different rule from the one main() applies -- main derives
+  // isEvent with `path.startsWith('/event/')`. A <loc> whose path merely
+  // CONTAINED /event/ (say /guide/event/x, or any future nested route) was
+  // therefore bucketed as an event page, spent one of the four /event/ budget
+  // slots, got fetched and audited as a plain page, and never counted toward
+  // eventsAsserted -- silently spending the page of slack this sample size
+  // exists to provide. Producer and consumer now apply the same rule.
+  const locPaths = [...text.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map((m) => m[1].replace(/^https?:\/\/[^/]+/, ''));
   const paths = [];
   for (const [prefix, n] of Object.entries(PREFIX_SAMPLE)) {
     // slice BEFORE dedupe on purpose: the per-prefix budget is "look at the
     // first n entries", so a duplicate inside that window costs coverage and
     // must be visible as a lower count, not silently backfilled.
-    for (const u of locs.filter((x) => x.includes(prefix)).slice(0, n)) {
-      const p = u.replace(/^https?:\/\/[^/]+/, '');
+    for (const p of locPaths.filter((x) => x.startsWith(prefix)).slice(0, n)) {
       if (seen.has(p)) continue;
       seen.add(p);
       paths.push(p);
@@ -242,9 +269,6 @@ async function sampleUrls() {
   } else {
     sitemapPaths = parseSitemapSample(sitemap.text, urls);
     urls.push(...sitemapPaths);
-  }
-  for (const probe of FIXED_EVENT_PROBES) {
-    if (!urls.includes(probe)) urls.push(probe);
   }
   return { urls, sitemapPaths };
 }
@@ -392,17 +416,23 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
 }
 
 // `measured` means ASSERTIONS RAN on this page -- it is set on the auditHtml
-// path and nowhere else. A non-200 (including the fixed probe's forgiven 404)
-// returns measured:false: nothing about that page's SEO surface was checked,
-// so counting it toward the floors would certify coverage that does not
-// exist. Today a 503 is also a hard failure, but the floors must not depend on
-// that coincidence -- add one more forgiven status and a counter that counted
-// FETCHES would start passing on pages nothing was measured on.
+// path and nowhere else. A non-200 returns measured:false: nothing about that
+// page's SEO surface was checked, so counting it toward the floors would
+// certify coverage that does not exist. EVERY non-200 is also a hard failure
+// today, but the floors must not depend on that coincidence -- add a single
+// forgiven status and a counter that counted FETCHES would start passing on
+// pages nothing was measured on.
+//
+// There is no forgiven status any more. A fixed probe URL used to have its 404
+// downgraded to a warn once retired; the probe is deleted, so the arm went with
+// it rather than sitting unreachable. Note what that means for the sample's
+// slack: only a THROWN fetch becomes a warn (and only in non-STRICT mode), so
+// slack absorbs transients, never a 404.
 //
 // The fetcher is injectable so the canary can drive this mapping -- the single
-// assignment every floor rests on -- through all four outcomes without a
+// assignment every floor rests on -- through all three outcomes without a
 // network. Nothing else passes the third argument.
-async function checkPage(path, { isEvent = false, isFixedProbe = false, minEventLinks = 0 } = {}, fetcher = fetchText) {
+async function checkPage(path, { isEvent = false, minEventLinks = 0 } = {}, fetcher = fetchText) {
   const url = `${BASE}${path}`;
   const unmeasured = { path, measured: false, eventAsserted: false, linkPageChecked: false };
 
@@ -417,9 +447,6 @@ async function checkPage(path, { isEvent = false, isFixedProbe = false, minEvent
   }
 
   if (!res.ok) {
-    if (isFixedProbe && res.status === 404) {
-      return { ...unmeasured, failures: [], warns: ['fixed probe now 404s - retire it from FIXED_EVENT_PROBES'] };
-    }
     return { ...unmeasured, failures: [`HTTP ${res.status}`], warns: [] };
   }
 
@@ -453,17 +480,12 @@ async function main() {
   }
 
   const { urls, sitemapPaths } = await sampleUrls();
-  const fromSitemap = new Set(sitemapPaths);
   const results = [];
 
   for (const path of urls) {
     const staticEntry = STATIC_PAGES.find(([p]) => p === path);
     const result = await checkPage(path, {
       isEvent: path.startsWith('/event/'),
-      // Provenance, not membership: a probe path the LIVE sitemap is
-      // advertising is not a retired probe, so its 404 must stay a hard
-      // failure -- the sitemap is serving Google a dead URL.
-      isFixedProbe: FIXED_EVENT_PROBES.includes(path) && !fromSitemap.has(path),
       minEventLinks: staticEntry ? staticEntry[1] : 0,
     });
     results.push(result);
@@ -515,8 +537,8 @@ async function main() {
 //     shape and stay silent on the healthy one
 //   - parseSitemapSample: the coverage the sitemap floor is fed
 //   - checkPage: the outcome -> measured/eventAsserted/linkPageChecked
-//     mapping every floor rests on, driven through 200 / forgiven 404 /
-//     hard 404 / throw via an injected fetcher
+//     mapping every floor rests on, driven through 200 / hard non-200 / throw
+//     via an injected fetcher
 //   - tally + floorShortfalls: all four floors present and firing, so DELETING
 //     one is a canary failure rather than a silent loss of the guard
 // HONEST SCOPE: main() owns the network, so the canary cannot prove main
@@ -568,10 +590,9 @@ async function selfTest() {
   const res = (measured, eventAsserted, linkPageChecked = false) => ({ measured, eventAsserted, linkPageChecked });
   const serve = (r) => async () => r;
 
-  // checkPage's four outcomes, driven through the injected fetcher.
+  // checkPage's three outcomes, driven through the injected fetcher.
   const okEvent = await checkPage('/event/x', { isEvent: true }, serve({ ok: true, status: 200, text: page({ jsonLd: eventLd() }) }));
   const okStatic = await checkPage('/parties', { minEventLinks: 3 }, serve({ ok: true, status: 200, text: page({ links: 3 }) }));
-  const probe404 = await checkPage('/event/p', { isEvent: true, isFixedProbe: true }, serve({ ok: false, status: 404, text: '' }));
   const hard404 = await checkPage('/event/q', { isEvent: true }, serve({ ok: false, status: 404, text: '' }));
   const threw = await checkPage('/faq', {}, async () => { throw new Error('socket hang up'); });
 
@@ -736,14 +757,26 @@ async function selfTest() {
         && okEvent.linkPageChecked === false && okEvent.failures.length === 0],
     ['checkPage: a 200 link-bearing static page counts as measured and link-bearing, not as an event',
       okStatic.measured === true && okStatic.linkPageChecked === true && okStatic.eventAsserted === false],
-    ['checkPage: a forgiven fixed-probe 404 is NOT measured (nothing was asserted) and warns',
-      probe404.measured === false && probe404.eventAsserted === false
-        && probe404.failures.length === 0 && probe404.warns.length === 1],
     ['checkPage: a hard 404 is NOT measured and fails loud',
       hard404.measured === false && hard404.failures.some((f) => f.includes('HTTP 404'))],
     ['checkPage: a fetch that throws is NOT measured and reports exactly once',
       threw.measured === false && threw.linkPageChecked === false
         && threw.failures.length + threw.warns.length === 1],
+    // WHICH side it reports on, not just that it reports once. The case above
+    // counts failures+warns and so passes under EITHER arm of checkPage's catch;
+    // the arm matters, because "a thrown fetch is a WARN" is the entire reason
+    // the event sample was raised to 4. Deleting the retired probe's case took
+    // with it the only case that asserted an unmeasured page can be non-fatal.
+    //
+    // STRICT is read once at module scope, so a fixture cannot flip it. This
+    // asserts whichever arm is live rather than short-circuiting on it: a case
+    // that passes vacuously under STRICT would be unkillable, which is why two
+    // such cases were deleted from this battery already. Driving BOTH arms needs
+    // STRICT injectable on checkPage -- queued, not done here.
+    ['checkPage: a thrown fetch is a WARN by default and a FAILURE under STRICT -- the warn arm is what the sample slack rests on',
+      STRICT
+        ? (threw.failures.length === 1 && threw.warns.length === 0)
+        : (threw.failures.length === 0 && threw.warns.length === 1)],
 
     // --- parseSitemapSample: the coverage the sitemap floor is fed ---
     ['sitemap: samples per prefix, returning what it actually took',
@@ -754,6 +787,16 @@ async function selfTest() {
       parseSitemapSample(sitemap(`${HOST}/event/a`, `${HOST}/event/a`)).length === 1],
     ['sitemap: a URL already in the static sample is not re-counted',
       parseSitemapSample(sitemap(`${HOST}/event/a`), ['/event/a']).length === 0],
+    // Producer/consumer agreement, the mechanical version. main() derives
+    // isEvent with path.startsWith('/event/'); the sampler must bucket by the
+    // same rule or it spends /event/ budget slots on pages that will never be
+    // asserted as events -- silently costing the slack PREFIX_SAMPLE provides.
+    // The first case is the defect (an unanchored includes() bucketed it); the
+    // second is the control, so a fix that simply matched nothing would fail.
+    ['sitemap boundary: a path merely CONTAINING /event/ does not spend an /event/ slot',
+      parseSitemapSample(sitemap(`${HOST}/guide/event/x`)).length === 0],
+    ['sitemap control: a genuine /event/ path is still sampled',
+      parseSitemapSample(sitemap(`${HOST}/event/x`)).join(',') === '/event/x'],
 
     // --- tally: the counters the measured/link/event floors are fed ---
     ['tally: an unfetched page does not count as measured',
@@ -788,6 +831,26 @@ async function selfTest() {
     ['floor helper: assertMeasured throws below the floor, is silent at it',
       throws(() => assertMeasured(MIN_PAGES_MEASURED - 1, MIN_PAGES_MEASURED, 'pages fetched and measured'))
         && !throws(() => assertMeasured(MIN_PAGES_MEASURED, MIN_PAGES_MEASURED, 'pages fetched and measured'))],
+
+    // The CONFIG pairing, and nothing more than that. Read the label exactly:
+    // it says the two constants are written with a gap between them, which is
+    // arithmetic over two module values -- network-free, deterministic, and the
+    // one mechanical thing standing between this file and the way the slack was
+    // lost last time (a comment saying to keep it, which nobody read).
+    //
+    // It does NOT say a run HAS slack, and an earlier draft that claimed so was
+    // struck: real supply is min(distinct /event/ locs in the sampled window,
+    // PREFIX_SAMPLE['/event/']), so this is a ceiling on supply, asserted from
+    // the producer side only. A run can satisfy this case and still measure 3.
+    //
+    // Deliberately over live constants, against the rule that a canary stays on
+    // fixtures: the only edit that reds it -- closing the gap -- is the
+    // violation itself. Know the blast radius before relying on that: this
+    // canary is step 1 of BOTH jobs in seo-check.yml, ahead of "Run SEO guard",
+    // so reding it stops the guard running at all. That is the intended trade
+    // (the pairing is cheap to restore, silent decay is not), not an oversight.
+    ['config pairing: the event sample is written LARGER than the floor, so a full run is not on its floor',
+      PREFIX_SAMPLE['/event/'] > MIN_EVENT_PAGES],
   ];
   let failed = 0;
   for (const [name, ok] of cases) {
