@@ -254,21 +254,12 @@ CRLF auto-applied to source extensions. Override with `--lf` if needed.
 | `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
 | `ci-budget-guard.yml` | daily + dispatch (+ push on its own files) | What this account's CI **costs**: held Actions artifact pool and minutes, account-wide. Lives here because this repo is public and therefore never metered, so it keeps running when a $0 budget pauses the private repos. Needs the `CI_BUDGET_GITHUB_TOKEN` secret; a missing or expired one is **exit 2, never a green 0-byte report** |
 
-**The conflicting-PR trap.** GitHub cannot compute a merge ref for a conflicting
-PR, so it never queues that PR&rsquo;s `pull_request` workflows. The gates do not
-fail &mdash; they cease to exist, while Vercel (which deploys off the head commit
-through its own App) keeps reporting green. The board then reads as a few
-&ldquo;skipping&rdquo; entries plus Vercel passes, which looks fine. It bit #217 on
-2026-08-08 and auto-closed #138 in July; the usual cause is squash-merging a PR
-whose commits a sibling branch still carries individually. `check-pr-mergeable.mjs`
-asserts both halves independently, because a bad `paths:` filter or a disabled
-workflow empties the board with mergeability perfectly clean. &ldquo;A gate that
-ran&rdquo; is defined by INCLUSION (an Actions check run, not SKIPPED), never by
-excluding what we recognise &mdash; the exclusion form counted the guard&rsquo;s own
-published status as a gate and would have switched the check off after one sweep.
-Fixtures, both live:
-`--sha b567c8a2` (#217 pre-rebase, 4 skipped + 2 Vercel) reds the gates half;
-`--pr 138` reds the mergeable half. `npm run check:pr-mergeable`.
+**The conflicting-PR trap.** A conflicting PR's `pull_request` workflows never
+queue at all — the gates cease to exist rather than fail, while Vercel keeps
+reporting green, so the board looks fine when it isn't. Full mechanism, why
+`pr-mergeable-guard.yml` isn't a `pull_request` trigger, and the fixtures:
+[`docs/ci-guard-notes.md`](docs/ci-guard-notes.md#the-conflicting-pr-trap-pr-mergeable-guardyml).
+`npm run check:pr-mergeable`.
 
 **Key DB contract checks and the per-guard record: [`docs/ci-guard-notes.md`](docs/ci-guard-notes.md).**
 That file holds the numbered check list (#1&ndash;#69), the guards whose green is
@@ -285,102 +276,21 @@ not a DB connection); run it manually via `npm run check:og`.
 
 ## Testing
 
-### Unit / contract tests (Vitest)
+Full doctrine — lint-chain mechanics, canary/self-test rules, exit-code
+convention: [`docs/testing-doctrine.md`](docs/testing-doctrine.md).
 
 ```bash
-npm run test:unit                   # all unit tests
-npx vitest run tests/               # same
+npm run test:unit        # all unit tests (Vitest)
+npm run test:e2e         # curated smoke specs — the CI gate (e2e-smoke.yml)
+npm run lint             # node scripts/run-lint-chain.mjs
 ```
 
-Contract tests: `tests/eventViewCompat.contract.test.ts`,
-`tests/publicEventPageLineup.contract.test.ts`,
-`tests/occurrenceProgram.contract.test.ts`.
-
-### E2E (Playwright)
-
-```bash
-npm run test:e2e         # curated smoke specs — this is the CI gate (e2e-smoke.yml)
-npm run test:e2e:all     # everything under tests/e2e/ — no scheduled caller
-```
-
-`test:e2e` is an EXPLICIT spec list, not a glob, so a new spec does not silently
-join the PR gate. Admit one only after running it individually under the smoke
-environment (placeholder key), then add it to the list by name.
-
-Retired specs live in `tests/e2e-attic/`, which no runner collects — `testDir`
-pins `tests/e2e`. See that directory's README for why the nightly was retired
-2026-07-31 and what covers the ground now (`e2e-smoke`, `prod-smoke`,
-`synthetic-ssr-monitor`).
-
-Dev server must be running at port 8080 for Playwright. Vite dev: `npm run dev`.
-
-### Lint
-
-```bash
-npm run lint
-```
-
-Runs `node scripts/run-lint-chain.mjs`. **Every link runs; none can hide
-another.** It used to be one shell `&&` chain, which stopped at the first red
-&mdash; and since four links are `:self-test` canaries sitting immediately ahead
-of the check they prove, a canary that red for its own reasons reported "this
-guard is broken" and the guard never ran to name the actual defect. Four of the
-four canaries in the chain have held that defect. The runner removes the cause;
-the individual canaries are still worth cleaning up, but they are no longer
-load-bearing for whether a check gets to speak.
-
-`scripts/run-lint-chain.mjs`'s `LINKS` array is the chain. Read it, not a list
-in prose &mdash; nothing keeps prose in step:
-
-```bash
-node -e "import('./scripts/run-lint-chain.mjs').then(m=>console.log(m.LINKS.join(' -> ')))"
-```
-
-Exit codes follow the same 0 / 1 / 2 convention the guards themselves use:
-**0** all green, **1** something reported a violation, **2** nothing violated
-but a guard could not run. Exit 2 is reported as 2 rather than collapsed into
-"failed", because "the guard is broken" and "your tree is broken" are different
-facts. (`pre-ship.mjs`'s `runCheck` still collapses them &mdash; queued residual,
-not fixed here.)
-
-**The `eslint .` tail is INFORMATIONAL and does not gate.** It runs last, always,
-and prints `[WARN]`. Whole-tree eslint reports a few hundred pre-existing errors
-&mdash; measure the count, never quote one from prose; three copies in this tree
-disagreed the moment anyone checked (178 here, 189 in `pre-ship.mjs` "as of
-2026-07-30", 174 measured on 2026-08-26). **No workflow runs eslint**:
-`architecture-guard.yml` runs `lint:architecture`, a different script. So a red
-eslint has never meant "this branch broke something", and it no longer makes the
-tier red either. `pre-ship`'s ship-scoped ratchet is what actually gates eslint.
-**A non-zero `npm run lint` now means a guard failed or could not run &mdash;
-never merely that eslint is red.** The tail is also SKIPPED once any link is
-red, so a failing guard's remediation line is the last thing on your screen
-rather than the first of ~290 eslint problems.
-
-The `:self-test` links are canaries, each sitting immediately ahead of the check
-it proves &mdash; `tests/lintChain.test.ts` enforces that adjacency mechanically
-over `LINKS`. A guard that diffs against an allowlist stays GREEN when its
-DETECTORS silently stop matching, so the check alone cannot tell you the rule
-still fires; only the canary can.
-
-**Prove independence before pairing.** Inject the violation the check exists to
-catch, and require the canary to stay GREEN while the check goes RED. Keep a
-canary to injected fixtures and arithmetic; anything it asserts about the live
-subject can red on ordinary work. Three of the four still break that rule
-&mdash; `check:mojibake:self-test` (`.claude/settings.local.json` is collected),
-`check:script-conventions:self-test` (R5 over the live source of
-`check-ci-budget.mjs`), `check:workflow-artifact-policy:self-test` (A5 fan-out
-over the real `.github/workflows`) &mdash; and **eight of the chain's twelve
-checks have no canary in any tier.** `scripts/pre-ship.mjs` carries both lists
-with line numbers and is the maintained copy.
-
-`scripts/pre-ship.mjs` mirrors the chain link for link, but only its `CHECKS`
-band comment records where the mirrored prefix ends; `tests/reviewScope.test.ts`
-enforces set membership against `LINKS`, so a missing entry fails and a
-REORDERED one does not.
-
-If `check:legacy-tables` or `check:legacy-program-rpcs` fails, there is a
-reference to a table or RPC that has been retired from the DB. Fix the call
-site, not the check.
+The facts that survive the doc not being loaded: `test:e2e` is an **explicit
+spec list**, not a glob — a new spec joins the gate only when added by name.
+`npm run lint`'s chain runs **every link**, none hiding another; **the
+trailing `eslint .` is informational and does not gate** — `pre-ship`'s
+ship-scoped ratchet is what actually gates eslint. If `check:legacy-tables` or
+`check:legacy-program-rpcs` fails, fix the call site, not the check.
 
 ---
 
