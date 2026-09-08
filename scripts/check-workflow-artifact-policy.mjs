@@ -85,8 +85,8 @@
  *      once by the walk that actually does the work. The two must agree
  *      exactly, per file. This is an invariant rather than a calibrated number,
  *      and it exists because the floors below provably could not do it: a walk
- *      that visited only the first job of each file leaves 190 of this repo's
- *      221 steps intact -- fourteen of the 21 workflows have exactly one job --
+ *      that visited only the first job of each file leaves 233 of this repo's
+ *      280 steps intact -- fourteen of the 22 workflows have exactly one job --
  *      so no step floor low enough to survive an ordinary deletion could ever
  *      catch it. A guessed floor cannot; counting what you were supposed to
  *      visit can.
@@ -566,7 +566,7 @@ const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml'];
  *                  above half, so a directory read that returns half the files
  *                  is still caught.
  *   uploadSteps    the upload MATCHER. Every other gate is satisfied by a scan
- *                  that walks all 221 steps and recognises none of them as an
+ *                  that walks all 280 steps and recognises none of them as an
  *                  upload. Floor 3 against a measured 5, so retiring a monitor
  *                  is not a CI incident. Its LOWER edge is deliberately not
  *                  pinned: 0 is the correct value in bachata-admin, where this
@@ -596,12 +596,12 @@ const FLOORS = {
   // saw a tenth of the repo. Raised in review, and it is the one hole removing
   // these floors opened.
   //
-  // The band is measured, both edges: it must stay at or below 145 (221 minus
-  // db-contract-check.yml's 76, so deleting the largest workflow is not a CI
+  // The band is measured, both edges: it must stay at or below 198 (280 minus
+  // db-contract-check.yml's 82, so deleting the largest workflow is not a CI
   // incident) and comfortably above the ~22 that a catastrophic under-read
-  // leaves. 100 sits inside [23, 145] and away from both ends, because the two
+  // leaves. 100 sits inside [23, 198] and away from both ends, because the two
   // previous step floors each died by hugging one edge. (It is not the
-  // arithmetic midpoint, which is 84 -- an earlier draft of this line said it
+  // arithmetic midpoint, which is 110 -- an earlier draft of this line said it
   // was, and a number described wrongly is how the last gap stayed invisible.)
   //
   // It is NOT a traversal gate and must never be described as one again. Three
@@ -611,7 +611,7 @@ const FLOORS = {
 };
 
 /**
- * What this repo actually measured. RE-DERIVED 2026-08-14 by running this
+ * What this repo actually measured. RE-DERIVED 2026-09-08 by running this
  * file's own parser over .github/workflows rather than by copying the numbers
  * already written here -- all five agreed, which is a measurement rather than
  * the assumption it would have been.
@@ -636,12 +636,12 @@ const FLOORS = {
  * as an adjective before any of it was in the file as a number.
  */
 const MEASURED = {
-  workflowFiles: 21,
-  jobs: 28,
-  steps: 221,
+  workflowFiles: 22,
+  jobs: 32,
+  steps: 280,
   uploadSteps: 5,
   /** db-contract-check.yml, the largest single workflow, in steps. */
-  largestWorkflowSteps: 76,
+  largestWorkflowSteps: 82,
 };
 
 /**
