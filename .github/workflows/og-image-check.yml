@@ -219,7 +219,10 @@ jobs:
   og-preview:
     # Pre-merge run against the PR's Vercel preview. check-og-images.mjs +
     # previewProbe.mjs use only Node builtins + fetch, so no `npm ci`.
-    if: github.event_name == 'pull_request'
+    # vercel.json ignoreCommand skips builds for bot/* + dependabot/*, so no
+    # preview is ever published for them; previewProbe polls 600s then THROWS.
+    # Keep this list in sync with that ignoreCommand.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

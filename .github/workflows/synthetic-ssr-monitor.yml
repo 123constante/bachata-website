@@ -153,7 +153,10 @@ jobs:
     # regression before it ships. The preview is reached first-party via
     # previewProbe, and playwright.synthetic.config.ts attaches the protection-
     # bypass header to every request when the secret is present.
-    if: github.event_name == 'pull_request'
+    # vercel.json ignoreCommand skips builds for bot/* + dependabot/*, so no
+    # preview is ever published for them; previewProbe polls 600s then THROWS.
+    # Keep this list in sync with that ignoreCommand.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
