@@ -1,7 +1,7 @@
 // Server-side Sentry for SSR loader/render errors. The client SDK (src/lib/
 // sentry.ts) only sees the browser; before this, a throw in an RR7 loader or
 // during server render was invisible to Sentry (only reachable via Vercel
-// function logs). This module initialises @sentry/react-router's Node client
+// function logs). This module initialises the @sentry/node client
 // ONCE per function instance and exposes a capture helper wired into
 // entry.server's handleError.
 //
@@ -11,7 +11,7 @@
 // preset does not make straightforward — and error capture works without it.
 // Runtime capture should still be confirmed on a Vercel PREVIEW deploy, since
 // the serverless runtime differs from a local build.
-import * as Sentry from "@sentry/react-router";
+import * as Sentry from "@sentry/node";
 
 // Server env is process.env (not Vite's inlined import.meta.env). VITE_-prefixed
 // vars are present in the Vercel Node runtime too, so we accept either name.

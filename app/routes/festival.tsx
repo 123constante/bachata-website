@@ -193,8 +193,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // rendered at 23:20 on a multi-day festival's last day, served stale at
     // 00:40 the next morning, tells a reader -- or Googlebot, which indexes the
     // raw HTML -- that a finished festival is running. Nothing evicts it: time
-    // passing is not a content edit, so the tag purge never fires, and the
-    // 04:30 UTC daily redeploy leaves the whole midnight-to-04:30 window open.
+    // passing is not a content edit, so the tag purge never fires, and no
+    // periodic redeploy runs to rebuild it (the 04:30 cron was removed).
     // Bounding the TTL at the festival's own rollover makes the first request
     // of the new day revalidate and re-derive. Same fix covers the softer
     // errors: an "In 3 days" countdown off by one, and a schedule "today"

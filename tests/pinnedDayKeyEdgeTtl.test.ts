@@ -8,7 +8,7 @@
  * document is edge-cached. Under the default policy (s-maxage 3600 +
  * stale-while-revalidate 86400) ONE generation stays servable for 25 hours, and
  * nothing evicts it on a clock tick -- the tag purge fires on content edits, and
- * the 04:30 UTC daily redeploy leaves the whole midnight-to-04:30 window open.
+ * no periodic redeploy runs to rebuild it (the 04:30 cron was removed).
  * So a document rendered at 23:20 on a multi-day festival's last day could be
  * served at 00:40 the next morning still saying "Happening now" about a
  * finished event. A JS client self-corrects a tick after hydration; the crawled
