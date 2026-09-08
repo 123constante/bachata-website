@@ -69,28 +69,53 @@ describe('buildEventJsonLd — stress test', () => {
     expect(out.eventStatus).toBe('https://schema.org/EventCancelled');
   });
 
-  it('falls back to Bachata Calendar organizer when none provided', () => {
+  // INVERTED (honest-claims P5): was 'falls back to Bachata Calendar organizer'.
+  // Naming ourselves as organiser of a night we do not run was the single most
+  // repeated false statement the arc found -- 25 of 25 nodes on the home list.
+  it('omits organizer entirely when no organiser resolves', () => {
     const out = buildEventJsonLd({
       name: 'NoOrg',
       url: 'https://bachatacalendar.co.uk/event/n',
       startDate: '2026-06-01T19:00:00+01:00',
       organiser: null,
     });
-    const org = out.organizer as any;
-    expect(org.name).toBe('Bachata Calendar');
-    expect(org.url).toBe('https://bachatacalendar.co.uk');
+    expect(out.organizer).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('Bachata Calendar');
   });
 
-  it('uses generic PerformingGroup when no performers provided', () => {
+  it('omits organizer when the organiser name is blank or whitespace', () => {
+    const out = buildEventJsonLd({
+      name: 'BlankOrg',
+      url: 'https://bachatacalendar.co.uk/event/bo',
+      startDate: '2026-06-01T19:00:00+01:00',
+      organiser: { name: '   ', url: 'https://example.com/r' },
+    });
+    expect(out.organizer).toBeUndefined();
+  });
+
+  it('omits the organizer url when the organiser has no website', () => {
+    const out = buildEventJsonLd({
+      name: 'OrgNoUrl',
+      url: 'https://bachatacalendar.co.uk/event/onu',
+      startDate: '2026-06-01T19:00:00+01:00',
+      organiser: { name: 'Ritmo Latino', url: null },
+    });
+    expect((out.organizer as any).name).toBe('Ritmo Latino');
+    expect((out.organizer as any).url).toBeUndefined();
+  });
+
+  // INVERTED (honest-claims P5): was 'uses generic PerformingGroup'. The
+  // fallback named a group that does not exist on every event with no lineup
+  // on file, to keep a recommended field from reading as missing.
+  it('omits performer entirely when no performers provided', () => {
     const out = buildEventJsonLd({
       name: 'NoPerf',
       url: 'https://bachatacalendar.co.uk/event/p',
       startDate: '2026-06-01T19:00:00+01:00',
       performers: [],
     });
-    const perf = out.performer as any;
-    expect(perf['@type']).toBe('PerformingGroup');
-    expect(perf.name).toBe('Bachata Artists');
+    expect(out.performer).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('Bachata Artists');
   });
 
   it('falls back to event URL as Offer.url when no tickets provided', () => {
@@ -180,13 +205,15 @@ describe('buildEventJsonLd — stress test', () => {
       url: 'https://bachatacalendar.co.uk/event/m',
       startDate: '2026-06-01T19:00:00+01:00',
     });
-    // The five fields Google flagged as missing — all must be present now.
+    // The fields Google flagged as missing. organizer and performer are NO
+    // LONGER among them (honest-claims P5): they were being satisfied with a
+    // default organiser and an invented performing group, so a minimal event
+    // now omits both and takes the rich-result warning instead of lying.
     expect(out.location).toBeDefined();
     expect((out.location as any).address).toBeDefined();
-    expect(out.organizer).toBeDefined();
-    expect((out.organizer as any).url).toBeDefined();
-    expect(out.performer).toBeDefined();
     expect(out.offers).toBeDefined();
+    expect(out.organizer).toBeUndefined();
+    expect(out.performer).toBeUndefined();
     // description is optional — Google warning, not error
   });
 

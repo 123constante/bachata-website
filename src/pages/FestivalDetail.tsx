@@ -2984,9 +2984,13 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                     city: festivalDetail?.location.city?.name ?? festival.city,
                   }
                 : { city: festivalDetail?.location.city?.name ?? festival.city },
-              organiser: organiser
+              // A resolved organiser row with no displayName is not evidence
+              // that WE run the festival: naming ourselves here republished the
+              // same misattribution the builder's fallback was struck for, one
+              // level up. No name, no organizer node.
+              organiser: organiser?.displayName
                 ? {
-                    name: organiser.displayName ?? "Bachata Calendar",
+                    name: organiser.displayName,
                     url: organiser.href,
                   }
                 : null,

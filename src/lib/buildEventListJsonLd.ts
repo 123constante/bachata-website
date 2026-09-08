@@ -65,30 +65,45 @@ export const buildEventListJsonLd = ({
 
     const eventUrl = `${origin}${eventHref(e)}`;
     const locality = e.city_slug ? slugToLocality(e.city_slug) : 'London';
-    const description: string =
-      ((e.meta_data as unknown as { description?: string } | null)?.description) ||
-      `${e.name} — Bachata event in ${locality}`;
+    // Description: emit only what the row actually carries. The template this
+    // replaces was generated prose that described nothing -- and 0 of the 25
+    // rows this page emits today carry a real description, so every description
+    // in the ItemList was manufactured from the event's own title.
+    // meta_data is jsonb, so this can be a non-string (an object would land in
+    // the JSON-LD where schema.org wants Text), whitespace-only, or arbitrarily
+    // long -- and it is inlined x25 into the homepage's server HTML.
+    // buildEventJsonLd trims and caps at 5000 for exactly that reason; match it.
+    const rawDescription = (e.meta_data as unknown as { description?: unknown } | null)
+      ?.description;
+    const description =
+      typeof rawDescription === 'string' && rawDescription.trim()
+        ? rawDescription.trim().slice(0, 5000)
+        : null;
 
     const event: Record<string, unknown> = {
       '@type': 'Event',
       name: e.name,
       startDate,
       url: eventUrl,
-      eventStatus: 'https://schema.org/EventScheduled',
+      // is_cancelled rides on the wire and was previously unread: every node
+      // asserted EventScheduled, a cancelled occurrence included.
+      eventStatus: e.is_cancelled
+        ? 'https://schema.org/EventCancelled'
+        : 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-      description,
-      organizer: {
-        '@type': 'Organization',
-        name: 'Bachata Calendar',
-        url: origin,
-      },
-      performer: { '@type': 'PerformingGroup', name: 'Bachata Artists' },
-      offers: {
-        '@type': 'Offer',
-        url: eventUrl,
-        availability: 'https://schema.org/InStock',
-      },
     };
+    if (description) event.description = description;
+
+    // Organizer: the row carries primary_organiser_name and it was DISCARDED,
+    // so all 25 nodes named Bachata Calendar as the organiser of nights run by
+    // 19 different businesses. Emit the real name, or omit the field entirely.
+    // No performer and no offers node: this feed carries no lineup and no
+    // ticket data at all, so both were pure invention (a "Bachata Artists"
+    // PerformingGroup, and an Offer asserting InStock for a non-existent sale).
+    const organiserName = e.primary_organiser_name?.trim();
+    if (organiserName) {
+      event.organizer = { '@type': 'Organization', name: organiserName };
+    }
 
     const endDate = toInstantIso(e.occurrence_ends_at);
     if (endDate) event.endDate = endDate;

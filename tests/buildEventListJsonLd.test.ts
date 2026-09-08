@@ -77,3 +77,62 @@ describe('buildEventListJsonLd', () => {
     expect(renderEventListJsonLd({ events: [row()], origin: 'https://x.test' })).toContain('ItemList');
   });
 });
+
+// honest-claims P5. Every node this builder emitted carried the same four
+// invented values: Bachata Calendar as organiser of a night it does not run, a
+// "Bachata Artists" PerformingGroup that does not exist, an Offer asserting
+// InStock for an event with no ticket data, and a description generated from
+// the title. Measured on prod the day this was written: 25 of 25 nodes, each.
+describe('buildEventListJsonLd -- claims the data evidences', () => {
+  const build = (over: Record<string, unknown> = {}) =>
+    firstItem(buildEventListJsonLd({ events: [row(over)], origin: 'https://x.test' }));
+
+  it('names the row organiser, not Bachata Calendar', () => {
+    const item = build({ primary_organiser_name: 'Ritmo Latino' });
+    expect((item.organizer as any).name).toBe('Ritmo Latino');
+    expect(JSON.stringify(item)).not.toContain('Bachata Calendar');
+  });
+
+  it('omits organizer when the row carries no organiser', () => {
+    expect(build({ primary_organiser_name: null }).organizer).toBeUndefined();
+    expect(build({ primary_organiser_name: '  ' }).organizer).toBeUndefined();
+  });
+
+  it('emits no performer and no offers -- this feed carries neither', () => {
+    const item = build();
+    expect(item.performer).toBeUndefined();
+    expect(item.offers).toBeUndefined();
+    const serialised = JSON.stringify(item);
+    expect(serialised).not.toContain('Bachata Artists');
+    expect(serialised).not.toContain('InStock');
+  });
+
+  it('omits description rather than manufacturing one from the title', () => {
+    const item = build({ meta_data: {} });
+    expect(item.description).toBeUndefined();
+    expect(JSON.stringify(item)).not.toContain('Bachata event in');
+  });
+
+  it('uses the row description when there actually is one', () => {
+    expect(build({ meta_data: { description: 'Real copy' } }).description).toBe('Real copy');
+    expect(build({ meta_data: { description: '  padded  ' } }).description).toBe('padded');
+  });
+
+  it('drops a description that is not usable Text', () => {
+    // meta_data is jsonb: whitespace-only, and non-string shapes that would
+    // land in the JSON-LD where schema.org expects Text.
+    expect(build({ meta_data: { description: '   ' } }).description).toBeUndefined();
+    expect(build({ meta_data: { description: {} } }).description).toBeUndefined();
+    expect(build({ meta_data: { description: 42 } }).description).toBeUndefined();
+  });
+
+  it('caps a very long description, as the single-event builder does', () => {
+    const item = build({ meta_data: { description: 'x'.repeat(10000) } });
+    expect((item.description as string).length).toBe(5000);
+  });
+
+  it('reads is_cancelled instead of asserting EventScheduled for everything', () => {
+    expect(build({ is_cancelled: true }).eventStatus).toBe('https://schema.org/EventCancelled');
+    expect(build({ is_cancelled: false }).eventStatus).toBe('https://schema.org/EventScheduled');
+  });
+});
