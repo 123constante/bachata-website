@@ -24,6 +24,7 @@ import { type WallClock, formatWallClockLocalIntl, wallClockDateKey } from '@/li
 import { weekdayOfKey } from '@/lib/londonDate';
 import { SEO_LANDING_WINDOWS, useSeoLandingEvents } from '@/lib/seoLandingEvents';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 interface WeekdayMeta {
   slug: string;
@@ -112,7 +113,7 @@ const ItemListJsonLd = ({ events, canonicalBase }: ItemListJsonLdProps) => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      dangerouslySetInnerHTML={{ __html: serialiseJsonLd(payload) }}
     />
   );
 };

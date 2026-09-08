@@ -43,6 +43,7 @@ import VenueDescriptionCard from '@/components/venue/VenueDescriptionCard';
 import VenueFacilitiesCard from '@/components/venue/VenueFacilitiesCard';
 import VenueVideoEmbed from '@/components/venue/VenueVideoEmbed';
 import { venueGoldInvertTheme } from '@/components/venue/venuePageTheme';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 // ============================================================
 // Types & helpers
@@ -577,7 +578,7 @@ const VenueEntity = () => {
     >
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serialiseJsonLd(jsonLd) }}
       />
       <div
         className="min-h-screen pb-32 md:pb-16"

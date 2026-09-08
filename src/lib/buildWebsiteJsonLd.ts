@@ -9,6 +9,7 @@
  */
 
 import { SITE_NAME, SITE_ORIGIN } from './seo';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 export function buildWebsiteJsonLd() {
   return {
@@ -29,5 +30,5 @@ export function buildWebsiteJsonLd() {
 }
 
 export function renderWebsiteJsonLd(): string {
-  return JSON.stringify(buildWebsiteJsonLd());
+  return serialiseJsonLd(buildWebsiteJsonLd());
 }
