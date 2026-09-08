@@ -1,0 +1,151 @@
+name: Deployment Storage Check
+
+# Guards Vercel FUNCTION STORAGE against the free-tier allowance, the way
+# firewall-drift-check.yml guards the live WAF config and ci-budget-guard.yml
+# guards GitHub spend.
+#
+# WHY IT EXISTS. On 2026-09-07 Vercel emailed at 75% of the 10 GB Hobby Function
+# Storage allowance. Nothing here measured it, so the first detector was the
+# email -- and at 100% Vercel can return 503 DEPLOYMENT_PAUSED, which takes
+# bachatacalendar.co.uk DOWN. That makes this an availability guard, not a
+# tidiness one.
+#
+# WHY ITS OWN WORKFLOW rather than a job inside ci-budget-guard.yml. Not new
+# judgement -- firewall-drift-check.yml already wrote this reasoning down for
+# the identical shape: this measures ACCOUNT/EXTERNAL state through a live,
+# credentialed VERCEL call, not a diff of this repo. A Dependabot PR gets a
+# separate, narrower secret store, so VERCEL_TOKEN would be silently absent
+# there and every such PR would report a spurious "could not measure" instead of
+# the green a code-only diff deserves. Decoupled and separately named, a missing
+# or expired token reds THIS board, not every PR's.
+#
+# It is also NOT wired into pre-ship's CHECKS, for the same reason
+# check:ci-budget / check:og / check:gsc are already excluded: a live network
+# call has no business blocking a ship over unrelated code.
+#
+# IT UPLOADS NO ARTIFACTS, deliberately -- same rule as ci-budget-guard.yml.
+# There is no upload-artifact step here and there must never be one.
+#
+# HONEST LIMIT. The guard measures the POOL (retained deployments x bytes per
+# deployment), which is the LEADING indicator. Vercel bills in GB-months and its
+# own percentage lags by weeks; deletion is soft with a ~30-day recovery window.
+# So this can fire while the dashboard still looks fine, and -- more confusingly
+# -- it can stay red for up to ~48h AFTER a retention change, because Vercel's
+# deletion sweep is a background job. Read the count, not just the verdict.
+#
+# Requires the repo secret VERCEL_TOKEN. Read scope is enough (GET only).
+# Without it the measure job exits 2 and goes RED -- never a green report over
+# an unauthenticated read.
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # daily, 15 min after firewall-drift-check
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/check-deployment-storage.mjs'
+      - 'scripts/lib/firewall-config.mjs'
+      - 'ci-budgets.json'
+      - '.github/workflows/deployment-storage-check.yml'
+      - 'package.json'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # Needs no secret and no network, so it still reports when the token is the
+  # thing that broke -- and it is the proof that the rules below can actually
+  # fail, including the could-not-measure shapes that would otherwise read as
+  # a healthy zero.
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove the storage rules can fail
+        run: node scripts/check-deployment-storage.mjs --self-test
+
+  measure:
+    # The live sweep runs on the schedule, on demand, and on main -- not on
+    # every branch push. The canary above still runs on every push, which is
+    # what exercises a change to the rules.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One measurement at a time: every call is authenticated against a single
+    # token's rate limit, and the deployment list is paginated, so two
+    # overlapping runs would produce a 429 that reads like a dead token.
+    concurrency:
+      group: deployment-storage-measure
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # No npm install: check-deployment-storage.mjs imports only node built-ins
+      # and scripts/lib/firewall-config.mjs.
+      - name: Measure Vercel function storage against ci-budgets.json
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/check-deployment-storage.mjs
+
+      - name: Announce failure
+        if: (failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) || (cancelled() && github.event_name == 'schedule')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'deployment-storage';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '`deployment-storage-check` failed.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Vercel Function Storage is over a threshold in `ci-budgets.json`,',
+              'or the guard could not measure it -- read the run output either way,',
+              'because a COULD NOT MEASURE is exit 2 and is never a pass.',
+              '',
+              'The pool is `(retained deployments) x (bytes per deployment)`.',
+              'Move either factor:',
+              '',
+              '- **Retention** -- Vercel > Settings > Build and Deployment >',
+              '  Deployment Retention Policy. Hobby offers 30 days / 2 weeks /',
+              '  1 week / 1 day, independently per class. Note the sweep is a',
+              '  background job: a change takes up to ~48h to show here.',
+              '- **Deploy rate** -- `vercel.json` `ignoreCommand`, plus any cron',
+              '  or deploy hook creating deployments nobody asked for.',
+              '- **Bundle bytes** -- trace with `@vercel/nft` over',
+              '  `build/server/**/index.js` and group `fileList` by package.',
+              '  Build tooling reaching the lambda is the usual finding and is',
+              '  invisible to grep (see PR #374).',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: LABEL });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: 'deployment-storage-check red', body, labels: [LABEL] });
+            }
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'deployment-storage';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: LABEL });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+            }
