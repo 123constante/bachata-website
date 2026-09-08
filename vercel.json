@@ -163,6 +163,7 @@
     "qualities": [70]
   },
   "framework": "react-router",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in bot/*|dependabot/*) exit 0;; *) exit 1;; esac"
 }
 
