@@ -24,10 +24,6 @@ import LiveEventsSection from "@/components/seo/LiveEventsSection";
 import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
 
 const CANONICAL = `${SITE_ORIGIN}/london-bachata-guide`;
-// Bump this whenever the guide's facts are reviewed; surfaces both in the
-// visible "Last updated" line and the Article JSON-LD dateModified.
-const LAST_UPDATED_ISO = "2026-06-17";
-const LAST_UPDATED_LABEL = "June 2026";
 
 const WEEKDAYS = [
   { slug: "monday", label: "Monday" },
@@ -59,10 +55,6 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "Do I need a partner to start bachata in London?",
     a: "No. Beginner classes rotate partners every few minutes, so you can turn up alone and dance with the whole room. Coming solo is the norm, not the exception.",
-  },
-  {
-    q: "How much does bachata cost in London?",
-    a: "Drop-in classes are typically 10 to 18 pounds. Some nights, like Rogue Bachata at 10 pounds, include a free social afterwards, and block courses such as FK Dance's five weeks for 40 pounds work out cheaper per session.",
   },
   {
     q: "What should I wear to my first bachata class?",
@@ -107,7 +99,6 @@ const ArticleJsonLd = () => {
     inLanguage: "en-GB",
     mainEntityOfPage: { "@type": "WebPage", "@id": CANONICAL },
     url: CANONICAL,
-    dateModified: LAST_UPDATED_ISO,
     author: {
       "@type": "Organization",
       name: "Bachata Community UK",
@@ -159,9 +150,6 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           </h1>
           <p className="text-base text-muted-foreground">
             The styles, the venues, the weekly nights and the festivals &mdash; a working map of London&rsquo;s bachata scene, updated as the calendar moves.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Written and kept up to date by the Bachata Community UK team. Last updated: {LAST_UPDATED_LABEL}.
           </p>
         </header>
 
@@ -222,7 +210,7 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         <section className="space-y-3">
           <h2 className="text-2xl font-bold">Central: Soho, Covent Garden, the Strand</h2>
           <p className="leading-relaxed">
-            Central London is where the club-room nights live &mdash; bachata inside proper West End venues rather than studios, so come for the party rather than the deep technical class. Sway Bar on Great Queen Street in Covent Garden (WC2B 5BZ) is the busiest of them, a central club room that cycles through Latino Royal, Latino Sway, Todo Latino and London Loves BOS nights. Soho&rsquo;s Be At One on Beak Street (W1F 9RA) runs Bailando Sundays and FK Dance in a bar setting, and The Vault at Bush House on the Strand (WC2R 1AE) adds another central room to the mix. For something grander and more occasional, Setlist @ Somerset House &mdash; the open-air River Terrace over the Thames on the Strand (WC2R 1LA) &mdash; hosts day sessions during London Latin Fest, which is about as scenic as outdoor bachata gets in this city.
+            Central London is where the club-room nights live &mdash; bachata inside proper West End venues rather than studios, so come for the party rather than the deep technical class. Sway Bar on Great Queen Street in Covent Garden (WC2B 5BZ) is the busiest of them, a central club room that cycles through Latino Royal, Latino Sway, Todo Latino and London Loves BOS nights. Soho&rsquo;s Be At One on Beak Street (W1F 9RA) runs Bailando Sundays in a bar setting, and The Vault at Bush House on the Strand (WC2R 1AE) adds another central room to the mix. For something grander and more occasional, Setlist @ Somerset House &mdash; the open-air River Terrace over the Thames on the Strand (WC2R 1LA) &mdash; hosts day sessions during London Latin Fest, which is about as scenic as outdoor bachata gets in this city.
           </p>
         </section>
 
@@ -236,7 +224,7 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         <section className="space-y-3">
           <h2 className="text-2xl font-bold">West &amp; North: Fulham, Chelsea, Ealing, King&rsquo;s Cross</h2>
           <p className="leading-relaxed">
-            West London&rsquo;s teaching hub is Dance Attic Studios in Fulham (North End Road, by Fulham Broadway, SW6 1LY), with sprung wooden floors and mirrored studios &mdash; home to Alex Boneva&rsquo;s Thursday courses and a June styling course. Chelsea&rsquo;s Marlborough Primary School on Draycott Avenue (SW3 3AP) opens its sprung-floor hall for the monthly Mambo City x LLB two-room party, and Ealing and Chiswick host Pura Nights at The Drayton Court Hotel (W13 8PH) and The George IV (W4 2DR). North of the centre, King&rsquo;s Cross is the address for the big nights: Scala on Pentonville Road (N1 9JY) is the big-room music venue that stages El Grande, London&rsquo;s flagship Latin party, while Rogue Bachata runs a Wednesday class-and-social at Keystone Crescent off Caledonian Road (N1 9DX). Reach further north and you&rsquo;ll find Spring Fiesta at Victoria Stakes in Muswell Hill (N10 3TH) and the Bachata Musicality Method tucked into a small studio at Unit 3.4 in Archway (N19 4NF). Every active venue with its postcode and weekly schedule is on the{' '}
+            West London&rsquo;s teaching hub is Dance Attic Studios in Fulham (North End Road, by Fulham Broadway, SW6 1LY), with sprung wooden floors and mirrored studios &mdash; home to Alex Boneva&rsquo;s Thursday courses. Chelsea&rsquo;s Marlborough Primary School on Draycott Avenue (SW3 3AP) opens its sprung-floor hall for the monthly Mambo City x LLB two-room party, and Ealing and Chiswick host Pura Nights at The Drayton Court Hotel (W13 8PH) and The George IV (W4 2DR). North of the centre, King&rsquo;s Cross is the address for the big nights: Scala on Pentonville Road (N1 9JY) is the big-room music venue that stages El Grande, London&rsquo;s flagship Latin party, while Rogue Bachata runs a Wednesday class-and-social at Keystone Crescent off Caledonian Road (N1 9DX). Reach further north and you&rsquo;ll find Spring Fiesta at Victoria Stakes in Muswell Hill (N10 3TH) and the Bachata Musicality Method tucked into a small studio at Unit 3.4 in Archway (N19 4NF). Every active venue with its postcode and weekly schedule is on the{' '}
             <Link to="/venues" className="text-primary underline">Venues page</Link>.
           </p>
         </section>
@@ -247,7 +235,7 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
             If you&rsquo;ve never danced bachata, start with a structured course rather than a one-off drop-in &mdash; you&rsquo;ll build the basic step, the lead-and-follow frame and a little musicality over a few weeks instead of being thrown in cold. London&rsquo;s progressive courses run beginner classes back-to-back with higher levels so you can move up without changing school. Alex Boneva teaches a weekly Thursday progression at Dance Attic in Fulham, with Level 1 for absolute beginners from 7&ndash;8pm followed by higher levels in the same building. Sensual Wednesdays runs a four-week, three-level progressive course (beginner through advanced) at the Waterloo Action Centre on Baylis Road, and La F&aacute;brica runs a Wednesday partnerwork programme from beginners onward at Platform Studios East in Hackney.
           </p>
           <p className="leading-relaxed">
-            For a fixed block you can commit to, FK Dance runs a five-week course for beginners and improvers on Sundays, 4&ndash;6pm, at &pound;40 for the whole block &mdash; good value against drop-in pricing. There&rsquo;s also a June Styling Course running Sundays through June at Dance Attic for dancers who want to work on movement and presentation rather than patterns. Drop-in classes across the city typically run &pound;10&ndash;&pound;18; Rogue Bachata&rsquo;s one-hour class is &pound;10 with the social free afterwards. New to it all? Start with our{' '}
+            New to it all? Start with our{' '}
             <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide to learning bachata in London</Link>, or browse beginner-friendly options on the{' '}
             <Link to="/classes" className="text-primary underline">Classes page</Link>.
           </p>
@@ -283,10 +271,10 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         <section className="space-y-3" id="parties">
           <h2 className="text-2xl font-bold">Parties &amp; socials</h2>
           <p className="leading-relaxed">
-            Once you can hold a basic step you&rsquo;ll want to social-dance, and London&rsquo;s party brands cover every register. El Grande is the flagship big-room Latin party, run at Scala in King&rsquo;s Cross &mdash; a proper music-venue night rather than a studio social, and the closest London bachata gets to an arena night. Sensual Vibes runs themed sensual nights at Unit3 Studios in Kennington, with one-off concepts like Tropical Night and Ken vs Barbie and the occasional masterclass guest. Musketeers at Colab Tower near London Bridge bundles two classes plus the party for &pound;12 early bird or &pound;15 on the door, which makes it an easy first social if you want a lesson built in.
+            Once you can hold a basic step you&rsquo;ll want to social-dance, and London&rsquo;s party brands cover every register. El Grande is the flagship big-room Latin party, run at Scala in King&rsquo;s Cross &mdash; a proper music-venue night rather than a studio social, and the closest London bachata gets to an arena night. Sensual Vibes runs themed sensual nights at Unit3 Studios in Kennington, with one-off concepts like Tropical Night and Ken vs Barbie and the occasional masterclass guest. Musketeers at Colab Tower near London Bridge bundles two classes plus the party, which makes it an easy first social if you want a lesson built in.
           </p>
           <p className="leading-relaxed">
-            In the City, Forge hosts Makondo, Mojito Club and the Latino Flava Wednesdays. Sway Bar in Covent Garden runs Latino Royal, Latino Sway and Todo Latino. West London is covered by Pura Nights, which runs at both The George IV in Chiswick and The Drayton Court Hotel in Ealing, and there&rsquo;s a Monthly Bachata Party out at the Cocktail Club in Canary Wharf. See the full list, with dates and door prices, on the{' '}
+            In the City, Forge hosts Makondo, Mojito Club and the Latino Flava Wednesdays. Sway Bar in Covent Garden runs Latino Royal, Latino Sway and Todo Latino. West London is covered by Pura Nights, which runs at both The George IV in Chiswick and The Drayton Court Hotel in Ealing, and there&rsquo;s a Monthly Bachata Party out at the Cocktail Club in Canary Wharf. See the full list, with dates, on the{' '}
             <Link to="/parties" className="text-primary underline">Parties page</Link>{' '}&mdash; or check the{' '}
             <Link to="/tonight" className="text-primary underline">Tonight page</Link>{' '}for what&rsquo;s on this evening.
           </p>

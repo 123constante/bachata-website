@@ -18,8 +18,6 @@ import LiveEventsSection from "@/components/seo/LiveEventsSection";
 import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
 
 const CANONICAL = `${SITE_ORIGIN}/learn-bachata-london`;
-const LAST_UPDATED_ISO = "2026-06-17";
-const LAST_UPDATED_LABEL = "June 2026";
 
 // Beginner-focused Q&A -> rendered on-page AND emitted as FAQPage JSON-LD.
 const FAQS: { q: string; a: string }[] = [
@@ -34,10 +32,6 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "How many classes until I can social dance?",
     a: "Most beginners feel comfortable on a social floor after four to eight weeks of weekly classes. A short progressive course is usually enough to be confident at a beginner-friendly social, and staying for the social after class is the fastest way to improve.",
-  },
-  {
-    q: "How much do beginner bachata classes cost in London?",
-    a: "Drop-in classes are typically 10 to 18 pounds. Block courses of four to six weeks usually work out cheaper per class, and many schools include free entry to that night's social with a class ticket.",
   },
   {
     q: "What should I wear and bring to my first class?",
@@ -70,11 +64,10 @@ const ArticleJsonLd = () => {
     "@type": "Article",
     headline: "Learn Bachata in London - The Beginner's Guide",
     description:
-      "How to start bachata in London as a complete beginner: what the first class is like, what to wear, what it costs, and where to find beginner classes.",
+      "How to start bachata in London as a complete beginner: what the first class is like, what to wear, and where to find beginner classes.",
     inLanguage: "en-GB",
     mainEntityOfPage: { "@type": "WebPage", "@id": CANONICAL },
     url: CANONICAL,
-    dateModified: LAST_UPDATED_ISO,
     author: {
       "@type": "Organization",
       name: "Bachata Community UK",
@@ -97,7 +90,7 @@ const ArticleJsonLd = () => {
 export const SEO_INPUT: SeoInput = {
   title: "Learn Bachata in London - The Beginner's Guide",
   description:
-    "How to start bachata in London as a complete beginner: what the first class is like, what to wear, what it costs, and where to find beginner classes near you.",
+    "How to start bachata in London as a complete beginner: what the first class is like, what to wear, and where to find beginner classes near you.",
   canonical: CANONICAL,
   ogType: "article",
 };
@@ -126,9 +119,6 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
           </h1>
           <p className="text-base text-muted-foreground">
             Never danced before? Bachata is one of the easiest partner dances to start, and London has a beginner class running almost every night of the week. Here&rsquo;s exactly how to begin.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Written and kept up to date by the Bachata Community UK team. Last updated: {LAST_UPDATED_LABEL}.
           </p>
         </header>
 
@@ -164,7 +154,7 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
           }
         />
         <p className="text-sm text-muted-foreground -mt-4">
-          Classes are pulled live from the calendar. Look for ones marked as beginner or Level 1 &mdash; full details, prices and times are on each event page and the{' '}
+          Classes are pulled live from the calendar. Look for ones marked as beginner or Level 1 &mdash; full details and times are on each event page and the{' '}
           <Link to="/classes" className="text-primary underline">Classes page</Link>.
         </p>
 
@@ -174,7 +164,7 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
             If you&rsquo;ve never danced bachata, a structured course usually beats a one-off drop-in: you build the basic step, the lead-and-follow frame and a little musicality over a few weeks instead of being thrown in cold. London&rsquo;s progressive courses run beginner classes back-to-back with higher levels, so you can move up without changing school. A fixed block &mdash; say five weeks &mdash; also gives you a reason to keep coming back, which is what actually turns a curious first night into a habit.
           </p>
           <p className="leading-relaxed">
-            That said, a drop-in is the lowest-commitment way to try it once. If you&rsquo;re not sure bachata is for you, find a beginner-friendly drop-in this week, see how it feels, and commit to a course afterwards if you enjoyed it. Either way, prices are modest &mdash; see the costs question below.
+            That said, a drop-in is the lowest-commitment way to try it once. If you&rsquo;re not sure bachata is for you, find a beginner-friendly drop-in this week, see how it feels, and commit to a course afterwards if you enjoyed it.
           </p>
         </section>
 

@@ -53,18 +53,6 @@ const FAQS: Faq[] = [
     ),
   },
   {
-    q: 'How much do bachata classes in London cost?',
-    a: 'Drop-in classes typically run from 10 to 18 pounds in London. Course blocks (4-6 weeks) usually work out cheaper per class. Many schools include free entry to that night\'s social with a class ticket.',
-    body: (
-      <>
-        Drop-in classes typically run &pound;10-&pound;18. Course blocks of 4-6 weeks
-        usually work out cheaper per class. Many schools include free entry to that
-        night's social with a class ticket - look for the bundled events on the{' '}
-        <Link to="/classes" className="text-primary underline">Classes page</Link>.
-      </>
-    ),
-  },
-  {
     q: 'What should I wear to a bachata social?',
     a: 'Smart-casual is the norm. Comfortable clothes you can move and sweat in. Most dancers wear leather-soled shoes or dance trainers - sticky rubber soles make turns hard. No heels required for follows; most prefer 1-3 inch dance heels or low jazz shoes.',
     body: (

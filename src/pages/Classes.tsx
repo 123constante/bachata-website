@@ -21,8 +21,8 @@ const Classes = () => {
       <ListingIntro>
         Bachata classes for every level in London - beginners' courses,
         intermediate drops, sensual and Dominican specialisations, intensives and
-        workshops. Drop-ins typically run &pound;10-&pound;18 and most rooms
-        rotate partners so you can come on your own. Never danced before? Read our{' '}
+        workshops. Most rooms rotate partners so you can come on your own.
+        Never danced before? Read our{' '}
         <Link to="/learn-bachata-london" className="text-primary underline">
           beginner&rsquo;s guide to learning bachata in London
         </Link>
