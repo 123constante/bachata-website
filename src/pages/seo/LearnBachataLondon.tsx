@@ -16,6 +16,7 @@ import { SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import { buildOrganizationJsonLd } from "@/lib/buildOrganizationJsonLd";
 import LiveEventsSection from "@/components/seo/LiveEventsSection";
 import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
+import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 
 const CANONICAL = `${SITE_ORIGIN}/learn-bachata-london`;
 
@@ -52,7 +53,7 @@ const FaqJsonLd = () => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      dangerouslySetInnerHTML={{ __html: serialiseJsonLd(payload) }}
     />
   );
 };
@@ -79,7 +80,7 @@ const ArticleJsonLd = () => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      dangerouslySetInnerHTML={{ __html: serialiseJsonLd(payload) }}
     />
   );
 };

@@ -9,6 +9,7 @@
  */
 
 import { SITE_NAME, SITE_ORIGIN } from './seo';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 const SAME_AS: string[] = [
   // Official channels. Add WhatsApp / Facebook profile URLs here as they go live.
@@ -41,5 +42,5 @@ export function buildOrganizationJsonLd() {
 }
 
 export function renderOrganizationJsonLd(): string {
-  return JSON.stringify(buildOrganizationJsonLd());
+  return serialiseJsonLd(buildOrganizationJsonLd());
 }

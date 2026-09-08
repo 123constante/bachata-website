@@ -11,6 +11,7 @@
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { eventHref } from '@/lib/seo/eventHref';
 import { type WallClock, wallClockToInstant } from '@/lib/time/wallClock';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 // The stored clock is local-as-UTC; converting with Europe/London yields the
 // true instant Google needs (a raw stamp is +1h in BST AND invalid ISO 8601 --
@@ -142,5 +143,5 @@ export const buildEventListJsonLd = ({
 export const renderEventListJsonLd = (input: BuildEventListJsonLdInput): string | null => {
   const payload = buildEventListJsonLd(input);
   const items = payload.itemListElement as unknown[];
-  return items.length > 0 ? JSON.stringify(payload) : null;
+  return items.length > 0 ? serialiseJsonLd(payload) : null;
 };

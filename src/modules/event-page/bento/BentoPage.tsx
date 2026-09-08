@@ -49,6 +49,7 @@ import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 type BentoPageProps = {
   eventId: string | null;
@@ -636,7 +637,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(
+            __html: serialiseJsonLd(
               buildEventJsonLd({
                 name: pageModel.identity.title,
                 // Stable canonical slug URL, identical on server and client (the

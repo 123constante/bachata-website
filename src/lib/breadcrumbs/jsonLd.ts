@@ -1,4 +1,5 @@
 import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 /**
  * Schema.org BreadcrumbList JSON-LD payload.
@@ -75,5 +76,5 @@ export function buildBreadcrumbListJsonLd(input: BuildJsonLdInput): BreadcrumbLi
 
 /** Render the JSON-LD payload as a string suitable for a <script> tag. */
 export function renderBreadcrumbListJsonLd(input: BuildJsonLdInput): string {
-  return JSON.stringify(buildBreadcrumbListJsonLd(input));
+  return serialiseJsonLd(buildBreadcrumbListJsonLd(input));
 }

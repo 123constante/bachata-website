@@ -87,6 +87,7 @@ import type {
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
+import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 
 
 
@@ -2938,7 +2939,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: serialiseJsonLd(
             buildEventJsonLd({
               name: festivalDetail?.identity.name ?? festival.name,
               // Surface-aware URL: the same festival serves at /event/<slug>

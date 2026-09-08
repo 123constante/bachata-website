@@ -8,6 +8,7 @@
 import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { SITE_ORIGIN, type SeoInput } from '@/lib/seo';
+import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 interface Faq {
   q: string;
@@ -278,7 +279,7 @@ const FaqJsonLd = () => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      dangerouslySetInnerHTML={{ __html: serialiseJsonLd(payload) }}
     />
   );
 };

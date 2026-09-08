@@ -146,6 +146,3 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
 
   return node;
 };
-
-export const renderEventJsonLd = (input: EventJsonLdInput): string =>
-  JSON.stringify(buildEventJsonLd(input));
