@@ -2956,10 +2956,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
               // Series-termination arc W14. buildEventJsonLd returns BEFORE the
               // offers block when this is set, so `offers` below is passed and
               // then dropped -- deliberately, so the decision has one owner
-              // rather than a second copy of the rule at this call site. Both of
-              // that function's offer branches assert availability: InStock, so
-              // without this a finished festival told Google its passes were on
-              // sale from the same document whose record card says it has ended.
+              // rather than a second copy of the rule at this call site.
+              // The InStock fallback that made this urgent is gone (P5b), but
+              // the flag is not redundant: a finished festival with real ticket
+              // rows on file would otherwise still advertise them from the same
+              // document whose record card says the run has ended.
               isEnded,
               endDate: endIso,
               // W14: the rich result must not keep the sales pitch on a page

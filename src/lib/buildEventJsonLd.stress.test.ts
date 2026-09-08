@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { buildEventJsonLd } from './buildEventJsonLd';
 
+// The builder returns Record<string, unknown>, so a location node has to be
+// read through a shape. These name only the keys the cases below assert, and
+// the cast claims nothing: an absent location makes the read THROW rather than
+// pass vacuously, and every field is still checked by an expect().
+type PostalAddressNode = {
+  addressLocality?: string;
+  addressCountry?: string;
+  streetAddress?: string;
+};
+type PlaceNode = { name?: string; address?: PostalAddressNode };
+const placeOf = (out: Record<string, unknown>) => out.location as PlaceNode;
+
 describe('buildEventJsonLd — stress test', () => {
   it('emits all five Search Console required fields when fully populated', () => {
     const out = buildEventJsonLd({
@@ -29,7 +41,9 @@ describe('buildEventJsonLd — stress test', () => {
     expect(loc.address.streetAddress).toBe('1 High St');
     expect(loc.address.addressLocality).toBe('London');
     expect(loc.address.postalCode).toBe('SW1A 1AA');
-    expect(loc.address.addressCountry).toBe('GB');
+    // addressCountry is DELETED, not derived -- honest-claims P5b. It was the
+    // literal 'GB' on every event including four that are not in Britain.
+    expect(loc.address.addressCountry).toBeUndefined();
 
     const org = out.organizer as any;
     expect(org['@type']).toBe('Organization');
@@ -45,18 +59,71 @@ describe('buildEventJsonLd — stress test', () => {
     expect(offers[0].url).toBe('https://t.example.com');
     expect(offers[0].price).toBe('10');
     expect(offers[0].priceCurrency).toBe('GBP');
+    // A ticket row is a price and a link. Nothing in it records stock, so the
+    // Offer says nothing about availability (honest-claims P5b).
+    expect(offers[0].availability).toBeUndefined();
   });
 
-  it('still emits location.address when venue is null', () => {
+  // addressCountry was DELETED, not derived (honest-claims P5b). Deriving it
+  // from the city slug was built twice in this phase and reverted both times --
+  // it needs a country the SERVER can see, an ISO-validating contract check,
+  // and buildEventListJsonLd's Phase-Q gate leak closed first. What must hold
+  // now is simply that no event asserts a country it cannot evidence.
+  it('never asserts a country, for a UK event or a foreign one', () => {
+    for (const city of ['london', 'gammarth', 'barcelona']) {
+      const out = buildEventJsonLd({
+        name: 'Somewhere',
+        url: 'https://bachatacalendar.co.uk/event/s',
+        startDate: '2026-06-01T19:00:00+01:00',
+        venue: { name: 'A Venue', city },
+      });
+      const addr = placeOf(out).address;
+      expect(addr?.addressLocality).toBeDefined();
+      expect(addr?.addressCountry).toBeUndefined();
+      expect(JSON.stringify(out)).not.toContain('"GB"');
+    }
+  });
+
+  // The first draft of P5b emitted -- and pinned here as correct --
+  // `{'@type':'Place','address':{'@type':'PostalAddress'}}` for this input: an
+  // address object with no address in it, wrapped in a Place with no name. That
+  // is a container shaped like a claim, holding none, and Google requires
+  // location.address for an offline event. Omit the whole node instead.
+  it('omits location entirely when nothing about the place is known', () => {
     const out = buildEventJsonLd({
       name: 'Empty',
       url: 'https://bachatacalendar.co.uk/event/x',
       startDate: '2026-06-01T19:00:00+01:00',
       venue: null,
     });
-    const loc = out.location as any;
-    expect(loc.address['@type']).toBe('PostalAddress');
-    expect(loc.address.addressCountry).toBe('GB');
+    expect(out.location).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('United Kingdom');
+    expect(JSON.stringify(out)).not.toContain('PostalAddress');
+  });
+
+  it('emits a Place with an address as soon as ANY part of the place is known', () => {
+    const base = {
+      name: 'Partial',
+      url: 'https://bachatacalendar.co.uk/event/x',
+      startDate: '2026-06-01T19:00:00+01:00',
+    };
+    // A city alone is enough for an address worth emitting.
+    const cityOnly = buildEventJsonLd({ ...base, venue: { city: 'gammarth' } });
+    expect(placeOf(cityOnly).address?.addressLocality).toBe('Gammarth');
+    // A venue name alone gives a Place.name but no address to carry. This is
+    // the shape a hard `location.address` guard assertion would have rejected;
+    // that assertion was built in this phase and reverted for it.
+    const nameOnly = buildEventJsonLd({ ...base, venue: { name: 'The Hub' } });
+    expect(placeOf(nameOnly).name).toBe('The Hub');
+    expect(placeOf(nameOnly).address).toBeUndefined();
+    // A STREET ADDRESS alone -- no name, no city -- is the ONLY input on which
+    // the `|| hasAddress` arm decides anything: placeName is null, and the
+    // Place exists solely because the address does. Review round 3 mutated the
+    // condition to `if (placeName)` and all 24 cases stayed green, so the
+    // arm's only distinguishing input had no coverage at all. This is it.
+    const addressOnly = buildEventJsonLd({ ...base, venue: { address: '1 High St' } });
+    expect(placeOf(addressOnly).name).toBeUndefined();
+    expect(placeOf(addressOnly).address?.streetAddress).toBe('1 High St');
   });
 
   it('flips eventStatus to EventCancelled when isCancelled is true', () => {
@@ -118,16 +185,30 @@ describe('buildEventJsonLd — stress test', () => {
     expect(JSON.stringify(out)).not.toContain('Bachata Artists');
   });
 
-  it('falls back to event URL as Offer.url when no tickets provided', () => {
+  // Was 'falls back to event URL as Offer.url when no tickets provided'. That
+  // fallback asserted a sale nobody had evidenced -- an Offer marked InStock
+  // whose buy link pointed at our own event page -- and it fired on most
+  // /event/ pages, because most nights carry no ticket rows.
+  it('emits NO offers node when there are no tickets, rather than inventing one', () => {
     const out = buildEventJsonLd({
       name: 'NoOffers',
       url: 'https://bachatacalendar.co.uk/event/nf',
       startDate: '2026-06-01T19:00:00+01:00',
       offers: [],
     });
-    const o = out.offers as any;
-    expect(o['@type']).toBe('Offer');
-    expect(o.url).toBe('https://bachatacalendar.co.uk/event/nf');
+    expect(out.offers).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('InStock');
+    expect(JSON.stringify(out)).not.toContain('availability');
+  });
+
+  it('emits no offers node when offers is null or absent entirely', () => {
+    const base = {
+      name: 'NoOffers',
+      url: 'https://bachatacalendar.co.uk/event/nf2',
+      startDate: '2026-06-01T19:00:00+01:00',
+    };
+    expect(buildEventJsonLd({ ...base, offers: null }).offers).toBeUndefined();
+    expect(buildEventJsonLd(base).offers).toBeUndefined();
   });
 
   it('stringifies numeric offer prices and omits priceCurrency when absent', () => {
@@ -140,6 +221,7 @@ describe('buildEventJsonLd — stress test', () => {
     const offers = out.offers as any[];
     expect(offers[0].price).toBe('40');
     expect(offers[0].priceCurrency).toBeUndefined();
+    expect(offers[0].availability).toBeUndefined();
   });
 
   it('filters out blank/whitespace performer names', () => {
@@ -199,21 +281,31 @@ describe('buildEventJsonLd — stress test', () => {
     expect(out.endDate).toBeUndefined();
   });
 
-  it('emits all five Search Console required fields with minimal input', () => {
+  it('emits the REQUIRED fields with minimal input, and invents nothing else', () => {
     const out = buildEventJsonLd({
       name: 'Minimal',
       url: 'https://bachatacalendar.co.uk/event/m',
       startDate: '2026-06-01T19:00:00+01:00',
     });
-    // The fields Google flagged as missing. organizer and performer are NO
-    // LONGER among them (honest-claims P5): they were being satisfied with a
-    // default organiser and an invented performing group, so a minimal event
-    // now omits both and takes the rich-result warning instead of lying.
-    expect(out.location).toBeDefined();
-    expect((out.location as any).address).toBeDefined();
-    expect(out.offers).toBeDefined();
+    // name and startDate are the only required fields derivable from an input
+    // this bare. location is required by Google too -- and is OMITTED here,
+    // deliberately: with no venue, no city and no slug there is nothing true to
+    // put in it, and forfeiting the rich result beats inventing a place. That
+    // is unreachable on real data (all 67 published events resolve a city);
+    // the shape exists so the builder has an honest answer rather than a
+    // container shaped like one.
+    expect(out.name).toBeDefined();
+    expect(out.startDate).toBeDefined();
+    expect(out.location).toBeUndefined();
+    // organizer and performer went in honest-claims P5, offers in P5b. All
+    // three are RECOMMENDED, and all three were being satisfied by inventing
+    // the value: a default organiser (us, on other people's nights), a
+    // "Bachata Artists" performing group that does not exist, and an Offer
+    // asserting InStock for a sale that was never happening. A minimal event
+    // now takes three rich-result warnings rather than making three claims.
     expect(out.organizer).toBeUndefined();
     expect(out.performer).toBeUndefined();
+    expect(out.offers).toBeUndefined();
     // description is optional — Google warning, not error
   });
 
@@ -230,9 +322,14 @@ describe('buildEventJsonLd — stress test', () => {
 
   // Series-termination arc P4b. The page's banner and og:description say the run
   // has finished; the JSON-LD on the SAME page was telling Google a ticket was
-  // InStock. Both offers branches assert availability, including the fallback
-  // that fires when there are no tickets at all -- so passing an empty array was
-  // not enough and the suppression had to live here.
+  // InStock. Both offers branches used to assert availability, including a
+  // fallback that fired when there were no tickets at all -- so passing an empty
+  // array was not enough and the suppression had to live here.
+  //
+  // honest-claims P5b deleted both the fallback and the availability claim, so
+  // the ORIGINAL reason is gone. isEnded is still load-bearing for a different
+  // one, which the tests below now pin: an ended series with REAL ticket rows
+  // must not advertise them.
   describe('an ended series', () => {
     const ENDED = {
       name: 'June Styling Course',
@@ -251,15 +348,30 @@ describe('buildEventJsonLd — stress test', () => {
       ).toBeUndefined();
     });
 
-    // The other direction: a live event must still always carry one, which is
-    // what the fallback Offer branch exists for.
-    it('still emits the fallback offer for a live event with no tickets', () => {
-      const live = buildEventJsonLd({ ...ENDED, isEnded: false });
-      expect(live.offers).toEqual({
-        '@type': 'Offer',
-        url: ENDED.url,
-        availability: 'https://schema.org/InStock',
-      });
+    // The other direction. There is no longer a fallback Offer to compare
+    // against -- honest-claims P5b deleted it -- so with no tickets, ended and
+    // live now agree on emitting nothing. That makes the isEnded return look
+    // redundant, and this is the case proving it is NOT: give the ended series
+    // real ticket rows and it must STILL stay silent, while the same rows on a
+    // live event are published.
+    it('suppresses REAL ticket rows on an ended series, and publishes them when live', () => {
+      const tickets = [{ url: 'https://t.example.com', name: 'Standard', price: '10', currency: 'GBP' }];
+      expect(buildEventJsonLd({ ...ENDED, offers: tickets }).offers).toBeUndefined();
+
+      const live = buildEventJsonLd({ ...ENDED, isEnded: false, offers: tickets });
+      expect(live.offers).toEqual([
+        {
+          '@type': 'Offer',
+          url: 'https://t.example.com',
+          name: 'Standard',
+          price: '10',
+          priceCurrency: 'GBP',
+        },
+      ]);
+    });
+
+    it('emits nothing for a live event with no tickets either', () => {
+      expect(buildEventJsonLd({ ...ENDED, isEnded: false }).offers).toBeUndefined();
     });
 
     // eventStatus is deliberately NOT touched. schema.org has no "finished"

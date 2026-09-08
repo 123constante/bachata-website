@@ -16,11 +16,13 @@ export type EventJsonLdInput = {
   image?: string[] | null;
   isCancelled?: boolean | null;
   /** Series-termination arc P4b: the SERIES has stopped for good. Suppresses the
-   *  offers node entirely -- see the offers block for why that overrides the
-   *  otherwise-unconditional fallback Offer. NOT wired to eventStatus: schema.org
-   *  has no "finished" value, and an event that RAN is not EventCancelled. Google
-   *  reads past-ness off startDate/endDate, so the honest node is one with no
-   *  claim about availability at all. */
+   *  offers node entirely, INCLUDING real ticket rows still on file -- a run
+   *  that has finished must not advertise passes. (It used to also suppress an
+   *  unconditional fallback Offer; honest-claims P5b deleted that branch, so
+   *  this flag now earns its keep on the real-offers path alone.) NOT wired to
+   *  eventStatus: schema.org has no "finished" value, and an event that RAN is
+   *  not EventCancelled. Google reads past-ness off startDate/endDate, so the
+   *  honest node is one with no claim about availability at all. */
   isEnded?: boolean | null;
   venue?: {
     name?: string | null;
@@ -67,22 +69,71 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
     node.image = e.image.filter(Boolean);
   }
 
-  // Location: always emit a Place with at minimum a country, even when no
-  // venue detail is available. Satisfies Google's location.address warning.
+  // Location. Google requires `location` and `location.address` for an offline
+  // event and documents ONLY Place -- schema.org's wider range (a bare
+  // PostalAddress, Text, VirtualLocation) is a DIFFERENT document and is not
+  // what the crawler reads, so the node shape stays Place.
+  //
+  // We do NOT always satisfy that requirement any more, and saying so is the
+  // point. Deleting the 'GB' default removed the last field that guaranteed the
+  // address was non-empty, so a venue with a name but no street, postcode or
+  // city now emits a Place with no `address`, and an event with none of those
+  // emits no `location` at all. Both forfeit the rich result. That is the
+  // deliberate trade: a missing required field costs the rich result, an
+  // invented one is a false statement. check-seo still hard-requires
+  // `location`, so the second shape would red the PR gate on organiser data --
+  // the coupling this phase removed for `offers`, queued as
+  // queued-seo-location-address-assertion.md rather than half-fixed here.
+  //
+  // `placeName` used to fall back to the string 'United Kingdom', naming the
+  // country as if it were the venue. It bought nothing on an event that had a
+  // name or a city, and stood ready to mislabel the first event that lacked
+  // both. No name, no `name` field.
+  //
+  // `addressCountry` was the literal 'GB' on every event, and four published
+  // festivals are not in Great Britain: a Tunisian resort, two Spanish hotels
+  // (one street address literally ending "Barcelona, Spain") and a Budapest
+  // hotel all carried addressCountry GB on prod. The field is DELETED rather
+  // than derived. Deriving it from the city slug was built and reviewed twice
+  // in this phase and reverted: it needs a country the SERVER can see (the
+  // event-page compat payload has no city_slug key at all), an ISO-validating
+  // contract check that consumes this parser rather than re-implementing it,
+  // and a resolution of buildEventListJsonLd's Phase-Q gate leak, which pairs
+  // a real foreign country with a London-converted startDate. Those are a
+  // phase, not a line. queued-jsonld-addresscountry-derivation.md carries them.
+  //
+  // Deleting it loses the true GB claims along with the false ones. That is
+  // the honest trade while the derivation is unbuilt: Google documents no
+  // requirement for addressCountry, so nothing breaks, and an omitted field
+  // says nothing where a wrong one says something false.
   const venue = e.venue ?? null;
-  const placeName = venue?.name || venue?.city || 'United Kingdom';
-  const postal: Record<string, string> = {
-    '@type': 'PostalAddress',
-    addressCountry: 'GB',
-  };
+  const placeName = venue?.name || venue?.city || null;
+  const postal: Record<string, string> = { '@type': 'PostalAddress' };
   if (venue?.address) postal.streetAddress = venue.address;
   if (venue?.city) postal.addressLocality = capitalise(venue.city);
   if (venue?.postcode) postal.postalCode = venue.postcode;
-  node.location = {
-    '@type': 'Place',
-    name: placeName,
-    address: postal,
-  };
+
+  // An address object carrying nothing but its @type is not an address, and a
+  // Place carrying neither a name nor an address is not a location. Striking
+  // the 'GB' default and the 'United Kingdom' name together made both shapes
+  // reachable, and the first draft of this phase emitted them and pinned them
+  // in tests -- an empty container reads as "we know where this is" while
+  // stating nothing, which is the same class of claim the arc is removing.
+  // Emit only what has content; omit `location` entirely when there is none.
+  //
+  // The predicate names the three inputs that fill `postal`, rather than
+  // counting its keys. buildVenueJsonLd.ts:55 already solves this exact
+  // problem the same way, and the count form is a fail-open sentinel: it
+  // means "more keys than the @type I put there", so the day anything else
+  // is written unconditionally it reads TRUE forever and the empty container
+  // this block exists to suppress comes back, with every fixture still green.
+  const hasAddress = !!(venue?.address || venue?.city || venue?.postcode);
+  if (placeName || hasAddress) {
+    const place: Record<string, unknown> = { '@type': 'Place' };
+    if (placeName) place.name = placeName;
+    if (hasAddress) place.address = postal;
+    node.location = place;
+  }
 
   // Organizer: emit ONLY when a real organiser resolves. The default below
   // named Bachata Calendar as the organiser of every event it does not run --
@@ -113,35 +164,68 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
     }));
   }
 
-  // Offers: always emit at least one Offer pointing at the event URL -- EXCEPT
-  // for a series that has ended. Both branches below assert
-  // `availability: InStock`, so an ended run with no tickets still told Google a
-  // ticket was in stock, on the same page whose banner and og:description say it
-  // has finished. Omitting the node is the only honest option in the vocabulary:
-  // SoldOut is false (nothing sold out) and Discontinued describes a product
-  // line, not a run that simply reached its last night. `offers` is recommended
-  // for rich results, not required, and a finished event has nothing on sale.
+  // Offers: emit ONLY the tickets the organiser actually gave us.
+  //
+  // Two claims were struck here, and both were about a sale nobody had
+  // evidenced. The first was the fallback Offer: an event with no ticket rows
+  // still emitted `{ url: <our own event page>, availability: InStock }`, which
+  // told Google a ticket was on sale and pointed the buy link at a page that
+  // sells nothing. On prod that node was on 3 of the 4 non-UK festivals and on
+  // most /event/ pages, because most nights have no ticket rows at all.
+  //
+  // The second was `availability: InStock` on the REAL offers. Nothing in the
+  // ticket row records stock: an organiser's row is a price and a link, and
+  // whether it is still buyable lives on their site, not ours. url, name, price
+  // and currency are evidenced and stay; availability was inferred and goes.
+  // schema.org offers no "unknown" value, and omitting the property is how you
+  // say nothing -- SoldOut is false, and InStock was a guess that happened to
+  // be phrased as a fact.
+  //
+  // The isEnded early return (series-termination arc P4b) now costs nothing
+  // extra -- with no fallback there is nothing to suppress for an ended run
+  // that has no tickets -- but it stays, because an ended series WITH ticket
+  // rows on file must still not advertise them. `offers` is recommended for
+  // rich results, never required, so an event with no ticket data omits it.
   if (e.isEnded) return node;
 
+  // Left as truthiness DELIBERATELY -- but note what this filter does NOT buy,
+  // because an earlier draft of this comment claimed it and was wrong. Both
+  // call sites hand EVERY ticket the same non-null url, so every row clears
+  // the filter on the url arm and the price arm decides nothing. Whatever the
+  // price is, it reaches the map below.
+  //
+  // BentoPage: EventPageTicket.price is typed string and produced as `?? ''`,
+  // so a row with no price publishes `price: ""` -- invalid structured data,
+  // on a live ticket row (measured: "Bachazouk Bootcamp"). Loosening this
+  // filter would not cause that and tightening it does not prevent it.
+  //
+  // FestivalDetail is worse: useFestivalDetailQuery
+  // maps `price: asNumber(obj.price) ?? 0`, so a pass with NO price becomes
+  // numeric 0, and every pass gets the same non-null ticketUrl -- so it clears
+  // this filter on the url arm and publishes `price: "0"` with
+  // `priceCurrency: "GBP"`. An unpriced pass advertised as FREE. That is LIVE,
+  // not latent: 3 of 12 published passes carry no price (measured 2026-09-08,
+  // all on ab-international-congress-barcelona-2027). It predates this phase
+  // and the honest fix is at the source -- `?? 0` should be `?? null` -- which
+  // is a different file and a different owner. queued-jsonld-offer-price-
+  // default.md carries both.
   const realOffers = (e.offers ?? []).filter((o) => o && (o.url || o.price));
   if (realOffers.length > 0) {
     node.offers = realOffers.map((o) => {
-      const offer: Record<string, unknown> = {
-        '@type': 'Offer',
-        url: o.url || e.url,
-        availability: 'https://schema.org/InStock',
-      };
+      // url ONLY when the organiser gave us one. `o.url || e.url` pointed the
+      // buy link back at our own event page whenever a ticket row carried a
+      // price but no link -- the same self-referential Offer the fallback
+      // branch was struck for, surviving one level down on the real-offers
+      // path. Both call sites can produce it: FestivalDetail maps every pass to
+      // a single nullable `ticketUrl`, BentoPage to a nullable
+      // `pageModel.actions.ticketUrl`. Offer.url is not required by Google.
+      const offer: Record<string, unknown> = { '@type': 'Offer' };
+      if (o.url) offer.url = o.url;
       if (o.name) offer.name = o.name;
       if (o.price != null) offer.price = String(o.price);
       if (o.currency) offer.priceCurrency = o.currency;
       return offer;
     });
-  } else {
-    node.offers = {
-      '@type': 'Offer',
-      url: e.url,
-      availability: 'https://schema.org/InStock',
-    };
   }
 
   return node;
