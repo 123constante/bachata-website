@@ -33,9 +33,6 @@ describe('buildBreadcrumbs — top-level listings', () => {
   it('classes → [Classes]', () => {
     expect(buildBreadcrumbs('classes')).toEqual([{ label: 'Classes' }]);
   });
-  it('experience → [Experience]', () => {
-    expect(buildBreadcrumbs('experience')).toEqual([{ label: 'Experience' }]);
-  });
   it('venues → [Venues]', () => {
     expect(buildBreadcrumbs('venues')).toEqual([{ label: 'Venues' }]);
   });
@@ -60,9 +57,10 @@ describe('buildBreadcrumbs — nested listings', () => {
       { label: 'Teachers' },
     ]);
   });
-  it('festivals → [Experience (link), Festivals]', () => {
+  // Festivals is top-level since honest-claims P3 deleted /experience, which
+  // used to be its parent. A single-crumb chain is the correct shape here.
+  it('festivals → [Festivals]', () => {
     expect(buildBreadcrumbs('festivals')).toEqual([
-      { label: 'Experience', path: '/experience' },
       { label: 'Festivals' },
     ]);
   });
@@ -101,9 +99,8 @@ describe('buildBreadcrumbs — entity detail routes (non-event)', () => {
       { label: 'Velvet Room' },
     ]);
   });
-  it('festival.detail with name → [Experience, Festivals, name]', () => {
+  it('festival.detail with name → [Festivals, name]', () => {
     expect(buildBreadcrumbs('festival.detail', { entityName: 'BachataFest' })).toEqual([
-      { label: 'Experience', path: '/experience' },
       { label: 'Festivals', path: '/festivals' },
       { label: 'BachataFest' },
     ]);
@@ -151,14 +148,13 @@ describe('buildBreadcrumbs — event.detail (type-aware parent)', () => {
       }),
     ).toEqual([{ label: 'Footwork Workshop' }]);
   });
-  it('festival event → [Experience, Festivals (link), name]', () => {
+  it('festival event → [Festivals (link), name]', () => {
     expect(
       buildBreadcrumbs('event.detail', {
         entityName: 'BachataFest 2026',
         eventType: 'festival',
       }),
     ).toEqual([
-      { label: 'Experience', path: '/experience' },
       { label: 'Festivals', path: '/festivals' },
       { label: 'BachataFest 2026' },
     ]);

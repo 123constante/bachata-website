@@ -39,7 +39,12 @@ export const SITE_IA = {
   // -------- Top-level listings ------------------------------------------------
   parties:          { label: 'Parties',           path: '/parties' },
   classes:          { label: 'Classes',           path: '/classes' },
-  experience:       { label: 'Experience',        path: '/experience' },
+  // Deliberately parentless since honest-claims P3 retired the listing that
+  // used to sit above it. Do NOT give it a parent again unless that parent is
+  // a live route: these crumbs are published as Schema.org BreadcrumbList
+  // (PageBreadcrumb.tsx), so a dead parent becomes a 404 URL handed to search
+  // engines rather than a merely cosmetic breadcrumb.
+  festivals:        { label: 'Festivals',         path: '/festivals' },
   venues:           { label: 'Venues',            path: '/venues' },
   dancers:          { label: 'Dancers',           path: '/dancers' },
   videographers:    { label: 'Videographers',     path: '/videographers' },
@@ -62,7 +67,6 @@ export const SITE_IA = {
   djs:        { label: 'DJs',        path: '/djs',        parent: 'parties' },
   organisers: { label: 'Organisers', path: '/organisers', parent: 'parties' },
   teachers:   { label: 'Teachers',   path: '/teachers',   parent: 'classes' },
-  festivals:  { label: 'Festivals',  path: '/festivals',  parent: 'experience' },
   // /tonight is a parties-themed quick filter - sits under Parties.
   tonight:    { label: 'Tonight',    path: '/tonight',    parent: 'parties' },
   // /city/:slug/map. No `path`: the real one carries a city slug, and this is

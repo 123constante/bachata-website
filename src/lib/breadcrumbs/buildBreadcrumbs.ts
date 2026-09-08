@@ -165,7 +165,8 @@ export function buildBreadcrumbs(
  * events return null so the breadcrumb chain is just Home > [Event Name] —
  * the intermediate "Parties" / "Classes" crumb adds no navigation value when
  * most users arrive via search or shared links. Festival/congress still
- * chain through Experience > Festivals because that hierarchy is meaningful.
+ * chain through Festivals, which is now a top-level listing: honest-claims P3
+ * deleted the route that used to sit above it.
  */
 export function resolveEventParent(eventType: EventTypeInput): RouteId | null {
   switch (eventType) {

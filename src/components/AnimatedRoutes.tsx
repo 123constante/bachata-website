@@ -20,7 +20,6 @@ const CityMap = lazyWithRetry(() => import("../pages/CityMap"));
 const PracticePartners = lazyWithRetry(() => import("../pages/PracticePartners"));
 // EventPage + FestivalHub are framework routes now (app/routes/event.tsx,
 // festivals.tsx) — no longer referenced from the catchall tree.
-const Experience = lazyWithRetry(() => import("../pages/Experience"));
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
@@ -120,7 +119,6 @@ export const AnimatedRoutes = () => {
                 ? <PageTransition><Raffles /></PageTransition>
                 : <Navigate to="/" replace />
             } />
-            <Route path="/experience" element={<PageTransition><Experience /></PageTransition>} />
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />

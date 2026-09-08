@@ -29,16 +29,10 @@ const ALLOWED_BARE_AVATAR_FILES = [
   "src/components/auth/ProfileEntryFlow.tsx",
   "src/components/MagicLinkConfirmation.tsx",
   "src/pages/CreateProfile.tsx",
-  // Decorative / non-person uses — bottom nav, dock, brand assets.
+  // Decorative / non-person uses — bottom nav, brand assets.
   "src/components/BottomNav.tsx",
-  "src/components/experience/FloatingDock.tsx",
   "src/components/HeroCarousel.tsx",
   "src/components/FloatingElements.tsx",
-  // Marketing widgets — hardcoded "top teachers / top DJs / dancers" mock
-  // data on the landing page. No real navigation, no telemetry needed.
-  "src/components/MobileWidgets.tsx",
-  // Static testimonial author thumbnails — no profile destination.
-  "src/components/TestimonialsSection.tsx",
   // OrganiserCardBlock has its own bespoke pill/multi-target tile design and
   // wires `record_organiser_card_click_v1` directly; converting to PersonChip
   // would break the layout. Telemetry is already shipped here.

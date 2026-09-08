@@ -57,7 +57,12 @@
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/experience",
-      "destination": "/experience",
+      "destination": "/festivals",
+      "permanent": true
+    },
+    {
+      "source": "/experience",
+      "destination": "/festivals",
       "permanent": true
     },
     {
