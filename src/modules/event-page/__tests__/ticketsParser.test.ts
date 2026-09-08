@@ -59,6 +59,38 @@ describe('parseEventPageSnapshot - tickets parser', () => {
     ]);
   });
 
+  // What the removed '' default cost on prod, and why absence must not become
+  // it: the price comment in useEventPageQuery's tickets parser. Whitespace is
+  // covered alongside absence because asString -- not this parser -- is what
+  // folds '   ' to null, so a change there would land here.
+  it('records a missing or blank price as null, never the empty string', () => {
+    const snap = parseEventPageSnapshot(
+      minimalSnapshot([
+        { id: 't1', name: 'No price key at all', currency: 'GBP' },
+        { id: 't2', name: 'Empty price', price: '' },
+        { id: 't3', name: 'Whitespace price', price: '   ' },
+      ]),
+    );
+    // Whole objects, like the two cases above. Asserting only `.price` would
+    // discard the `currency: 'GBP'` that t1 sets up on purpose, so an
+    // over-correction that nulled the currency alongside the price -- a
+    // plausible reading of the invariant this change enforces -- would pass.
+    expect(snap?.event.tickets).toEqual([
+      { id: 't1', name: 'No price key at all', price: null, currency: 'GBP', quantity: '', description: '' },
+      { id: 't2', name: 'Empty price', price: null, currency: null, quantity: '', description: '' },
+      { id: 't3', name: 'Whitespace price', price: null, currency: null, quantity: '', description: '' },
+    ]);
+  });
+
+  // The control for the case above. Without it that case passes just as well
+  // against a parser that stopped reading `price` altogether.
+  it('still keeps a real string price', () => {
+    const snap = parseEventPageSnapshot(
+      minimalSnapshot([{ id: 't4', name: 'Real', price: '12' }]),
+    );
+    expect(snap?.event.tickets[0].price).toBe('12');
+  });
+
   it('still drops rows without an id', () => {
     const snap = parseEventPageSnapshot(
       minimalSnapshot([{ name: 'No id', price: 10 }, { id: 't2', name: 'Kept', price: '5' }]),
