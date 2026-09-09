@@ -39,7 +39,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-import { rpcWithRetry, isTransient } from './lib/rpc-retry.mjs';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 // Locked to prod snapshot 2026-06-12. Increase if roles are intentionally expanded;
 // never decrease without investigating why new unassigned rows appeared.
@@ -115,17 +115,11 @@ let data;
 try {
   data = await rpcWithRetry(sb, 'check_teacher_dj_assignment_integrity_v1');
 } catch (e) {
-  // A cold-instance timeout is infra noise, not a contract violation, even
-  // though this check gates on real drift below. `isTransient` reads the raw
-  // cause; a retry exhaustion still means "transient", so check the cause
-  // directly rather than e.transient.
-  if (isTransient(e.cause ?? e)) {
-    console.warn(
-      `WARN: check_teacher_dj_assignment_integrity_v1 timed out after ${e.attempts ?? 1} ` +
-      'attempt(s) (transient infrastructure failure). Soft-pass -- this check does not gate.',
-    );
-    process.exit(0);
-  }
+  // A cold-instance timeout is "could not verify", not "no drift" -- exit 2,
+  // never exit 0, now that this check gates on real drift below. Matches
+  // check-slug-column.mjs's convention: exitTransient no-ops on a
+  // NON-transient cause and falls through to the classification below.
+  exitTransient(e, 'teacher/DJ assignment integrity');
   // Tolerate the function not yet being on prod (admin migration is local-only).
   const error = e.cause ?? e;
   const msg = error.message || '';
@@ -198,6 +192,6 @@ if (tu <= BASELINE_TEACHERS_UNASSIGNED && du <= BASELINE_DJS_UNASSIGNED) {
 console.error(
   `\nFAIL: ${tu} teacher / ${du} DJ unassigned ` +
   `(baseline: ${BASELINE_TEACHERS_UNASSIGNED}/${BASELINE_DJS_UNASSIGNED}). ` +
-  `New drift introduced — investigate the sample profiles above.`,
+  `New drift introduced -- investigate the sample profiles above.`,
 );
 process.exit(1);

@@ -36,7 +36,7 @@ All in `scripts/check-*.mjs`, enforced by CI.
   (2026-09-04) did 32-&gt;36. A 2026-09-02 change briefly suspended gating
   (`process.exit(0)` unconditionally) on stale evidence from a branch that never
   merged (PR #330, closed unmerged 2026-09-09); #339 had already restored real
-  gating on main two days before that branch's stale patch got revived and
+  gating on main five days before that branch's stale patch got revived and
   merged anyway as PR #402 (2026-09-09), silently re-suspending it for a few
   hours until this entry and the script were corrected the same day. The real
   fix is a lost-assignment predicate, not a ceiling &mdash; plan
