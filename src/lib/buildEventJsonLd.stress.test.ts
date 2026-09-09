@@ -249,6 +249,7 @@ describe('buildEventJsonLd — stress test', () => {
     });
     const loc = out.location as any;
     expect(loc.address.addressLocality).toBe('Milton keynes');
+    expect(loc.name).toBe('Milton keynes');
   });
 
   it('truncates description over 5000 chars', () => {
