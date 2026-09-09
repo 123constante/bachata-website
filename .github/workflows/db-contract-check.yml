@@ -76,8 +76,9 @@ name: DB Contract Check
 #     must appear at least once in event_program_people in the matching
 #     capacity (profile_type or role). Drift means a canonical-role person
 #     is being shown on /teachers or /djs without any event attribution.
-#     Local-only at write time; soft-passes when the RPC is not yet on
-#     prod and when baselines are unset. Health-check RPC:
+#     Gates above a hand-maintained ceiling (baseline 36 teachers / 6 DJs
+#     unassigned); soft-passes only when the RPC is not yet on prod or
+#     baselines are unset. Health-check RPC:
 #     check_teacher_dj_assignment_integrity_v1 (admin migration
 #     20260513070000).
 # 18. Migration authority arc-closeout -- Website/supabase/migrations/ must
