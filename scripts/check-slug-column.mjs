@@ -67,6 +67,12 @@ const rangeEnd = dateStr(end);
 
 const NOT_FOUND = /PGRST202|could not find the function|schema cache|does not exist/i;
 
+// Set when either call hits an unclassified (non-transient, non-NOT_FOUND)
+// error, e.g. a permissions problem. That is "this guard could not run", not
+// "the slug column contract is violated" -- checked once both calls have
+// finished, so one RPC's unrelated failure never hides the other's status.
+let sawUnclassifiedError = false;
+
 async function checkRpc(rpcName, params) {
   let data;
   try {
@@ -79,13 +85,9 @@ async function checkRpc(rpcName, params) {
       console.error(`FAIL: ${rpcName} is not callable (${msg}).`);
       return null;
     }
-    // Not transient (already handled above) and not a missing function --
-    // an unclassified error, e.g. a permissions problem. That is "this guard
-    // could not run", not "the slug column contract is violated": exit 2
-    // directly rather than folding it into the exit-1 path below, which
-    // would misreport an unrelated transport failure as a slug regression.
     console.error(`RPC failed calling ${rpcName}: ${msg}`);
-    process.exit(2);
+    sawUnclassifiedError = true;
+    return null;
   }
   if (!Array.isArray(data)) {
     console.error(`FAIL: ${rpcName} did not return an array.`);
@@ -105,6 +107,13 @@ const mapData = await checkRpc('get_map_events_v1', {
   range_start: rangeStart,
   range_end: rangeEnd,
 });
+
+// Exit 2 (could not run) takes priority over exit 1 (contract violated): an
+// unclassified transport error on either call means at least one RPC's slug
+// contract was never actually checked this run.
+if (sawUnclassifiedError) {
+  process.exit(2);
+}
 
 if (calData === null || mapData === null) {
   process.exit(1);

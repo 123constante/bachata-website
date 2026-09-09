@@ -22,10 +22,15 @@
  *
  * Exit policy:
  *   • RPC missing on prod        → exit 0 (warn)
+ *   • RPC call transient (57014) → exit 0 (warn; this check never gates, below)
  *   • status = 'ok'              → exit 0 (pass)
  *   • baselines unset (null)     → exit 0 (warn, print payload)
  *   • both counts ≤ baselines    → exit 0 (warn, no regression)
- *   • any count >  baseline      → exit 1 (fail; new drift)
+ *   • any count >  baseline      → exit 0 (WARN NOT GATING -- see the block
+ *                                   above process.exit(0) at the foot of this
+ *                                   file for why hard-failing here was
+ *                                   suspended 2026-09-01, and
+ *                                   docs/ci-guard-notes.md #17)
  *
  * Local:  node scripts/check-teacher-dj-assignment-integrity.mjs   (reads .env)
  * CI:     same script, env vars supplied as repo secrets:
