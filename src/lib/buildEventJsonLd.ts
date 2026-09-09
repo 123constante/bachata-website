@@ -80,10 +80,10 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
   // city now emits a Place with no `address`, and an event with none of those
   // emits no `location` at all. Both forfeit the rich result. That is the
   // deliberate trade: a missing required field costs the rich result, an
-  // invented one is a false statement. check-seo still hard-requires
-  // `location`, so the second shape would red the PR gate on organiser data --
-  // the coupling this phase removed for `offers`, queued as
-  // queued-seo-location-address-assertion.md rather than half-fixed here.
+  // invented one is a false statement. check-seo now WARNS rather than
+  // hard-requires `location` and `location.address` (queued-seo-location-
+  // address-assertion.md, built), the same demotion `offers` already had --
+  // an organiser-data gap no longer reds the PR gate on code nobody changed.
   //
   // `placeName` used to fall back to the string 'United Kingdom', naming the
   // country as if it were the venue. It bought nothing on an event that had a
