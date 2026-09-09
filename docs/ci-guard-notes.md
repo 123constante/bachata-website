@@ -317,3 +317,30 @@ section in the same commit.
 
 ---
 
+## The conflicting-PR trap (`pr-mergeable-guard.yml`)
+
+GitHub cannot compute a merge ref for a conflicting PR, so it never queues that
+PR's `pull_request` workflows. The gates do not fail — they cease to exist,
+while Vercel (which deploys off the head commit through its own App) keeps
+reporting green. The board then reads as a few "skipping" entries plus Vercel
+passes, which looks fine. It bit #217 on 2026-08-08 and auto-closed #138 in
+July; the usual cause is squash-merging a PR whose commits a sibling branch
+still carries individually.
+
+`check-pr-mergeable.mjs` asserts both halves independently, because a bad
+`paths:` filter or a disabled workflow empties the board with mergeability
+perfectly clean. "A gate that ran" is defined by INCLUSION (an Actions check
+run, not SKIPPED), never by excluding what we recognise — the exclusion form
+counted the guard's own published status as a gate and would have switched the
+check off after one sweep.
+
+Fixtures, both live: `--sha b567c8a2` (#217 pre-rebase, 4 skipped + 2 Vercel)
+reds the gates half; `--pr 138` reds the mergeable half. `npm run
+check:pr-mergeable`.
+
+`pr-mergeable-guard.yml` runs on push to main + hourly + dispatch, deliberately
+**not** a `pull_request` workflow — that trigger is what fails to queue on a
+conflicting PR in the first place.
+
+---
+
