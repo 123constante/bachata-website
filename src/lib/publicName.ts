@@ -25,15 +25,9 @@
  * indexed `<title>` of a live page.
  */
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { fromRow, clean } from "@/lib/evidence";
 
-/** Trim, then treat whitespace-only as absent. `melvin` has `first_name = " "`
- *  in production, which is falsy for a human and truthy for JavaScript. */
-const clean = (value: unknown): string | null => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-};
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PublicNameSource = {
   id?: string | null;
@@ -56,24 +50,29 @@ export type PublicNameSource = {
  * `display_name` FIELD, so comparing against `source.id` alone would pass it
  * through on any row where the two ids differ (a joined person/profile split),
  * and the shape check alone would pass a non-UUID primary key.
+ *
+ * Re-expressed on `fromRow` (src/lib/evidence.ts) rather than hand-rolling the
+ * same try-in-order loop a second time -- this function's own 16 tests
+ * (tests/publicName.test.ts) are what proves fromRow correct, so the two
+ * cannot drift apart silently.
  */
 export function resolvePublicName(source: PublicNameSource): string | null {
+  // Computed once, not inside isInvalid -- that closure can run once per
+  // candidate (up to 4x for a row that falls through to first+surname).
   const rowId = clean(source.id);
-
-  const candidates = [
-    clean(source.display_name),
-    clean(source.dj_name),
-    clean(source.name),
-    [clean(source.first_name), clean(source.surname)].filter(Boolean).join(" ") || null,
-  ];
-
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (UUID_RE.test(candidate)) continue;
-    if (rowId && candidate.toLowerCase() === rowId.toLowerCase()) continue;
-    return candidate;
-  }
-  return null;
+  return fromRow(
+    source,
+    [
+      (s) => s.display_name,
+      (s) => s.dj_name,
+      (s) => s.name,
+      (s) => [clean(s.first_name), clean(s.surname)].filter(Boolean).join(" ") || null,
+    ],
+    (candidate) => {
+      if (UUID_RE.test(candidate)) return true;
+      return !!rowId && candidate.toLowerCase() === rowId.toLowerCase();
+    },
+  );
 }
 
 /**
