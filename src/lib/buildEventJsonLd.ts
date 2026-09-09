@@ -107,7 +107,7 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
   // requirement for addressCountry, so nothing breaks, and an omitted field
   // says nothing where a wrong one says something false.
   const venue = e.venue ?? null;
-  const placeName = venue?.name || venue?.city || null;
+  const placeName = venue?.name || (venue?.city ? capitalise(venue.city) : null);
   const postal: Record<string, string> = { '@type': 'PostalAddress' };
   if (venue?.address) postal.streetAddress = venue.address;
   if (venue?.city) postal.addressLocality = capitalise(venue.city);

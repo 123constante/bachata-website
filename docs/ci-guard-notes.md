@@ -144,6 +144,19 @@ It cannot prove Googlebot specifically is allowed &mdash; Vercel verifies that b
 reverse DNS and spoofing the UA would be less accurate, not more.
 `/robots.txt` 429'd in the same incident and still has no guard.
 
+`check-seo.mjs` (`npm run check:seo`, in `architecture-guard.yml`) samples
+live event/dancer/organiser pages and reads their `ld+json`. Since honest-claims
+P5b (2026-09-08/09) its green is narrower than it looks: `offers` and
+`location` were both demoted from hard failures to WARNs, because
+`buildEventJsonLd` can now legitimately omit either when no organiser data
+resolves. A green run no longer means "every sampled event page carries
+offers" and never meant "carries a usable address" &mdash; `location.address`
+gets a truthy/trim content check (queued-seo-location-address-assertion.md,
+PR #393), but a WARN does not fail the gate either way. What still fails the
+gate: a missing/empty name, startDate, or eventStatus on an event page, and
+structural fetch/parse failures. See buildEventJsonLd.ts's inline comment
+trail and queued-p5b-review-round3-deferred.md (F2) for the full history of
+why the demotion happened.
 
 ### The git hooks themselves have NO guard, and here is the defect they carry
 
