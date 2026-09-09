@@ -114,26 +114,48 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const fromDate = today.toISOString().split("T")[0];
   const toDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  // Typed call: no `as never`. Nullable filters become `undefined` so the RPC's
-  // own DEFAULT NULL applies (PostgREST omits the key) -- same resulting query.
-  const { data, error } = await supabase.rpc("get_public_events_list_v2", {
-    p_city_slug: citySlug ?? undefined,
-    p_from_date: fromDate ?? undefined,
-    p_to_date: toDate ?? undefined,
-    p_organiser_id: organiserId ?? undefined,
-    p_type: type ?? undefined,
-    p_limit: 200,
-    p_offset: 0,
-  });
+  // The RPC clamps p_limit to 100 server-side (LEAST(..., 100)) regardless of
+  // what we ask for, so a single call silently truncates any window holding
+  // more than 100 events -- the 90-day window currently holds 423. Page with
+  // p_offset until a page comes back short. PAGE_CAP bounds worst-case RPC
+  // calls per request if the population ever grows unexpectedly large.
+  const PAGE_SIZE = 100;
+  const PAGE_CAP = 20;
+  const events: FeedEvent[] = [];
+  for (let page = 0; page < PAGE_CAP; page++) {
+    // Typed call: no `as never`. Nullable filters become `undefined` so the
+    // RPC's own DEFAULT NULL applies (PostgREST omits the key) -- same
+    // resulting query.
+    const { data, error } = await supabase.rpc("get_public_events_list_v2", {
+      p_city_slug: citySlug ?? undefined,
+      p_from_date: fromDate ?? undefined,
+      p_to_date: toDate ?? undefined,
+      p_organiser_id: organiserId ?? undefined,
+      p_type: type ?? undefined,
+      p_limit: PAGE_SIZE,
+      p_offset: page * PAGE_SIZE,
+    });
 
-  if (error) {
-    console.error("[ics/calendar] rpc_error", { message: error.message });
-    return new Response("Could not load events", { status: 500 });
+    if (error) {
+      console.error("[ics/calendar] rpc_error", { message: error.message });
+      return new Response("Could not load events", { status: 500 });
+    }
+
+    const pageRows = (data ?? []).map(parsePublicEventsListRow);
+    events.push(...pageRows);
+    if (pageRows.length < PAGE_SIZE) break;
   }
 
-  const events: FeedEvent[] = (data ?? []).map(parsePublicEventsListRow);
-
-  const cityName = events[0]?.city_name ?? (citySlug ? citySlug.split("-")[0] : null);
+  // Only derive a per-city name from the DATA when the request was actually
+  // filtered to one city -- otherwise events[0] is an arbitrary sort-order
+  // pick and names the whole feed after whichever city happens to sort first.
+  // A filtered-but-currently-empty window (e.g. a quiet city with nothing in
+  // the next 90 days) still falls back to the REQUESTED slug -- the caller
+  // named a real city, so echoing it back is not a fabrication the way
+  // events[0] on an unfiltered feed would be.
+  const cityName = citySlug
+    ? events[0]?.city_name ?? citySlug.split("-")[0]
+    : null;
   const calName = cityName
     ? `Bachata Calendar — ${cityName.charAt(0).toUpperCase() + cityName.slice(1)}`
     : "Bachata Calendar";
@@ -148,7 +170,11 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     foldLine(`X-WR-CALNAME:${escapeIcsText(calName)}`),
-    "X-WR-TIMEZONE:Europe/London",
+    // VEVENT DTSTART/DTEND are already emitted as Z-suffixed absolute UTC
+    // instants (see naiveLocalToCompactUtc/compact above), so this label is
+    // cosmetic only -- but hardcoding a single city's zone here was actively
+    // wrong once the window spans events outside it (e.g. Africa/Tunis).
+    "X-WR-TIMEZONE:UTC",
     "REFRESH-INTERVAL;VALUE=DURATION:P1D",
     "X-PUBLISHED-TTL:P1D",
     ...vevents,
