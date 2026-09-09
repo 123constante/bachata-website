@@ -188,27 +188,28 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
   // rich results, never required, so an event with no ticket data omits it.
   if (e.isEnded) return node;
 
-  // Left as truthiness DELIBERATELY -- but note what this filter does NOT buy,
-  // because an earlier draft of this comment claimed it and was wrong. Both
-  // call sites hand EVERY ticket the same non-null url, so every row clears
-  // the filter on the url arm and the price arm decides nothing. Whatever the
-  // price is, it reaches the map below.
+  // Left as truthiness DELIBERATELY: an offer with neither a link nor a price
+  // states nothing, and dropping it keeps the node honest.
   //
-  // BentoPage: EventPageTicket.price is typed string and produced as `?? ''`,
-  // so a row with no price publishes `price: ""` -- invalid structured data,
-  // on a live ticket row (measured: "Bachazouk Bootcamp"). Loosening this
-  // filter would not cause that and tightening it does not prevent it.
+  // Both call sites used to substitute a falsy default for "no price on file"
+  // -- FestivalDetail `?? 0`, BentoPage `?? ''` -- so a priceless row arrived
+  // here already wearing a price. Both defaults are deleted at source
+  // (2026-09-08); a priceless row now arrives null and the `!= null` guard
+  // below omits the field.
   //
-  // FestivalDetail is worse: useFestivalDetailQuery
-  // maps `price: asNumber(obj.price) ?? 0`, so a pass with NO price becomes
-  // numeric 0, and every pass gets the same non-null ticketUrl -- so it clears
-  // this filter on the url arm and publishes `price: "0"` with
-  // `priceCurrency: "GBP"`. An unpriced pass advertised as FREE. That is LIVE,
-  // not latent: 3 of 12 published passes carry no price (measured 2026-09-08,
-  // all on ab-international-congress-barcelona-2027). It predates this phase
-  // and the honest fix is at the source -- `?? 0` should be `?? null` -- which
-  // is a different file and a different owner. queued-jsonld-offer-price-
-  // default.md carries both.
+  // Four claims that stood here have been STRUCK as false, not merely updated,
+  // and none should be reinstated from git history: that every row carries a
+  // non-null url (both call sites' ticketUrl are nullable), that the price arm
+  // therefore decides nothing, that the `?? 0` defect was LIVE (FestivalDetail
+  // filters passes by `amount > 0` before this map, so it never published), and
+  // that 3 Barcelona passes were priceless (they hold real money under
+  // `price_eur`/`label`, which the RPC does not read).
+  //
+  // Known gaps here, measured and queued rather than fixed: this arm reads
+  // numeric 0 as absence while the guard below reads it as a price, so a free
+  // offer with no ticket link is dropped; `priceCurrency` can still be emitted
+  // beside no price; and neither arm normalises a whitespace-only price or url.
+  // queued-jsonld-offer-price-default.md carries them, with repro output.
   const realOffers = (e.offers ?? []).filter((o) => o && (o.url || o.price));
   if (realOffers.length > 0) {
     node.offers = realOffers.map((o) => {

@@ -46,7 +46,10 @@ export type EventPageSnapshotOccurrence = {
 export type EventPageTicket = {
   id: string;
   name: string;
-  price: string;
+  /** Price as stored, stringified; null when the row carries none -- NOT ''.
+   *  An empty string cleared buildEventJsonLd's `price != null` guard and
+   *  published `price: ""`. See useEventPageQuery's tickets parser. */
+  price: string | null;
   /** ISO 4217 code as stored on the ticket row; null when absent (display/JSON-LD default to GBP). */
   currency: string | null;
   quantity: string;
@@ -391,7 +394,10 @@ export type FestivalCompetition = {
 export type FestivalPass = {
   id: string;
   name: string;
-  price: number;
+  /** null when the pass carries no price on file -- NOT 0. Zero is a claim
+   *  that the pass is free; null is the absence of a claim. See
+   *  useFestivalDetailQuery's parsePasses. */
+  price: number | null;
   earlyBirdPrice: number | null;
   currency: string | null;
   type: string;

@@ -205,7 +205,13 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
           acc.push({
             id,
             name: asString(t?.name) ?? '',
-            price: typeof t?.price === 'number' ? String(t.price) : asString(t?.price) ?? '',
+            // `price` alone has NO '' default, unlike name/quantity/description:
+            // it feeds buildEventJsonLd, and '' is not null, so it cleared the
+            // builder's `!= null` guard and published `price: ""` -- invalid
+            // structured data, live on prod until 2026-09-08
+            // (/event/bachazouk-bootcamp-leader-workshop). A row with no price
+            // is priceless; null is how the offer says so by omitting the field.
+            price: typeof t?.price === 'number' ? String(t.price) : asString(t?.price),
             currency: asString(t?.currency),
             quantity: typeof t?.quantity === 'number' ? String(t.quantity) : asString(t?.quantity) ?? '',
             description: asString(t?.description) ?? '',

@@ -137,7 +137,17 @@ const parsePasses = (raw: unknown): FestivalPass[] =>
     acc.push({
       id,
       name: asString(obj.name) ?? 'Pass',
-      price: asNumber(obj.price) ?? 0,
+      // No `?? 0`: a pass with no price on file is PRICELESS, not free. The
+      // default would have reached buildEventJsonLd as numeric 0 and published
+      // `price: "0"` -- an unpriced pass advertised as FREE.
+      //
+      // It never did, and the queued plan claiming otherwise is corrected:
+      // FestivalDetail filters its pass grid by `(earlyBirdPrice ?? price) > 0`
+      // BEFORE building offers, so a pass with neither price is dropped first.
+      // The shape that DOES reach the builder is a pass carrying an early-bird
+      // price and no regular one -- `amount > 0` clears the filter, and the
+      // offer took the 0.
+      price: asNumber(obj.price),
       earlyBirdPrice: asNumber(obj.early_bird_price),
       currency: asString(obj.currency),
       type: asString(obj.type) ?? 'full_pass',
