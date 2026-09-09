@@ -28,17 +28,20 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - event_attendees FK target (#13)
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
-- Teacher/DJ assignment integrity (#17) &mdash; **REPORT-ONLY since 2026-09-01;
-  its green means nothing.** It compared unassigned counts against a hand-kept
-  CEILING, and that total grows every time a teacher joins the directory before
-  their first booking &mdash; so it red-lit main on every run from 2026-08-28.
-  Verified against prod: four profiles added since the last re-baseline, and the
-  older cohort went 32 -> 31, so nobody LOST an assignment. Rather than
-  re-baseline a fourth time, the script warns and exits 0, printing
-  `WARN (NOT GATING)` on every run. Gating returns with the lost-assignment
-  detector &mdash; plan
+- Teacher/DJ assignment integrity (#17) &mdash; **GATES on a hand-kept CEILING**
+  (baseline 36 teachers / 6 DJs unassigned), a known-imperfect proxy for "nobody
+  lost an assignment": the ceiling counts a TOTAL that grows every time a
+  teacher joins the directory before their first booking, so ordinary roster
+  growth reds it too &mdash; fixed by a re-baseline commit, same as #339
+  (2026-09-04) did 32-&gt;36. A 2026-09-02 change briefly suspended gating
+  (`process.exit(0)` unconditionally) on stale evidence from a branch that never
+  merged (PR #330, closed unmerged 2026-09-09); #339 had already restored real
+  gating on main two days before that branch's stale patch got revived and
+  merged anyway as PR #402 (2026-09-09), silently re-suspending it for a few
+  hours until this entry and the script were corrected the same day. The real
+  fix is a lost-assignment predicate, not a ceiling &mdash; plan
   `~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md`, which carries
-  the restoration checklist.
+  the design.
 - Migration authority arc-closeout (#18)
 - Per-date program canonical / ADR-007 (#19)
 - Occurrence instance_time canonical / ADR-007 (#20)

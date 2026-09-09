@@ -7,30 +7,26 @@
  * any event_program_people row in their matching capacity (profile_type or
  * role).
  *
- * STATUS (today): the admin migration
+ * STATUS: the RPC is live on prod (migration
  *   bachata-admin-11april/supabase/migrations/
- *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql
- * is LOCAL-ONLY. Prod does NOT yet have the RPC, and Website attendance
- * readers have not migrated to canonical-person joins. Until both ship:
- *   - missing RPC on prod        → soft-pass (exit 0, warn)
- *   - baselines null below       → soft-pass on any drift (exit 0, warn)
- *
- * Once the admin migration is pushed AND Website readers cut over, bump
- * BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED to the values
- * captured by the migration's RAISE NOTICE baseline log to enable hard
- * fails on regression.
+ *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
+ * and this check GATES on a hand-maintained ceiling
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 36/6).
+ * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
+ * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
+ * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
+ * replacement (a lost-assignment predicate, not a ceiling) is queued but not
+ * built -- docs/ci-guard-notes.md #17,
+ * ~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md.
  *
  * Exit policy:
- *   • RPC missing on prod        → exit 0 (warn)
- *   • RPC call transient (57014) → exit 0 (warn; this check never gates, below)
+ *   • RPC missing on prod        → exit 0 (warn; tolerates an un-pushed migration)
+ *   • RPC call transient (57014) → exit 0 (warn; a cold-instance timeout is
+ *                                   infra noise, not a contract violation)
  *   • status = 'ok'              → exit 0 (pass)
  *   • baselines unset (null)     → exit 0 (warn, print payload)
  *   • both counts ≤ baselines    → exit 0 (warn, no regression)
- *   • any count >  baseline      → exit 0 (WARN NOT GATING -- see the block
- *                                   above process.exit(0) at the foot of this
- *                                   file for why hard-failing here was
- *                                   suspended 2026-09-01, and
- *                                   docs/ci-guard-notes.md #17)
+ *   • any count >  baseline      → exit 1 (FAIL -- see docs/ci-guard-notes.md #17)
  *
  * Local:  node scripts/check-teacher-dj-assignment-integrity.mjs   (reads .env)
  * CI:     same script, env vars supplied as repo secrets:
@@ -119,10 +115,10 @@ let data;
 try {
   data = await rpcWithRetry(sb, 'check_teacher_dj_assignment_integrity_v1');
 } catch (e) {
-  // This step is REPORT-ONLY (see the block below) -- its whole point is to
-  // never gate the job, so a cold-instance timeout is soft-pass noise, not a
-  // step failure. `isTransient` reads the raw cause; a retry exhaustion still
-  // means "transient", so check the cause directly rather than e.transient.
+  // A cold-instance timeout is infra noise, not a contract violation, even
+  // though this check gates on real drift below. `isTransient` reads the raw
+  // cause; a retry exhaustion still means "transient", so check the cause
+  // directly rather than e.transient.
   if (isTransient(e.cause ?? e)) {
     console.warn(
       `WARN: check_teacher_dj_assignment_integrity_v1 timed out after ${e.attempts ?? 1} ` +
@@ -178,31 +174,30 @@ if (tu <= BASELINE_TEACHERS_UNASSIGNED && du <= BASELINE_DJS_UNASSIGNED) {
   process.exit(0);
 }
 
-// GATING SUSPENDED 2026-09-01. Restored by the lost-assignment detector that
-// replaces this ceiling; until then this check REPORTS and does not GATE.
-// Plan (carries the restoration checklist and the prod evidence):
-//   ~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md
-// Recorded in docs/ci-guard-notes.md #17; the workflow step is named
-// REPORT-ONLY so the board does not imply a gate that is not there.
+// GATING RESTORED 2026-09-09. A "GATING SUSPENDED" block sat here briefly --
+// it was written 2026-09-02 against pre-#339 main (baseline 32/6, ceiling
+// reding on ordinary roster growth) and never merged on its original branch
+// (PR #330, closed unmerged). #339 (ef2487f, 2026-09-04) fixed the real
+// problem on main instead -- re-baselined to 36/6 AND kept real gating
+// (process.exit(1) below) -- and queued-teacher-dj-lost-assignment-detector.md
+// (2026-09-07) explicitly struck the "report-only" framing as false, verified
+// three ways against main at the time. When this file's transient-retry
+// branch (PR #402) was revived and merged 2026-09-09, it silently replayed
+// the stale 2026-09-02 patch on top of current main, re-suspending a gate
+// #339 had already restored five days earlier -- caught in review of an
+// UNRELATED diff (the honest-claims P7 guard), not by this branch's own
+// review, which instead reinforced it. See docs/ci-guard-notes.md #17.
 //
-// WHY SUSPENDED RATHER THAN RE-BASELINED. The ceiling counts a TOTAL, and the
-// total grows every time a teacher joins the directory before their first
-// booking. It has been red on main every run since 2026-08-28. Verified against
-// prod 2026-09-01: four profiles created since the last re-baseline have no
-// event_program_people row (York & Lisa 08-23, Gabriel Bravo and Mauricio Reyes
-// 08-27, Sarah 08-31), and the pre-re-baseline cohort went 32 -> 31 -- so
-// nobody LOST an assignment. Raising the ceiling to 35 would be the fourth
-// re-baseline in three months, would buy about two weeks, and a ratchet that
-// only ever loosens stops guarding anything.
-//
-// It says NOT GATING on every run on purpose. An ungated check that still looks
-// gated is worse than one that admits it.
-console.warn(
-  `
-WARN (NOT GATING): ${tu} teacher / ${du} DJ unassigned ` +
+// The underlying ceiling-on-a-growing-total problem this was trying to solve
+// is real and still open -- ~/.claude/plans/queued-teacher-dj-lost-assignment-
+// detector.md carries the actual fix (a lost-assignment predicate, not a
+// ceiling). Until that lands, a ceiling that gates is still the better of two
+// imperfect options: it reds on ordinary growth (a false positive, fixed by a
+// re-baseline commit), where an ungated check that LOOKS gated silently stops
+// catching a real dropped assignment (a false negative, fixed by nothing).
+console.error(
+  `\nFAIL: ${tu} teacher / ${du} DJ unassigned ` +
   `(baseline: ${BASELINE_TEACHERS_UNASSIGNED}/${BASELINE_DJS_UNASSIGNED}). ` +
-  `Above the ceiling, but a ceiling on a growing total reds on ordinary ` +
-  `directory growth, so this is report-only until the lost-assignment detector ` +
-  `lands. Investigate the sample profiles above if the jump looks large.`,
+  `New drift introduced — investigate the sample profiles above.`,
 );
-process.exit(0);
+process.exit(1);
