@@ -319,8 +319,19 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
         : null,
     },
 
+    // get_public_festival_detail_v2's organiser object carries no website/url
+    // field at all (id, display_name, avatar_url only) -- href is genuinely
+    // unknown here, not merely unread, unlike BentoPage's organiser.website
+    // which comes off a different RPC. href: null (never undefined) so this
+    // satisfies FestivalArtist structurally and the render site's `if (org?.url)`
+    // (buildEventJsonLd.ts) omits the JSON-LD url rather than emitting one.
     organiser: organiserRaw && asString(organiserRaw.id)
-      ? { id: asString(organiserRaw.id)!, displayName: asString(organiserRaw.display_name), avatarUrl: asString(organiserRaw.avatar_url) }
+      ? {
+          id: asString(organiserRaw.id)!,
+          displayName: asString(organiserRaw.display_name),
+          avatarUrl: asString(organiserRaw.avatar_url),
+          href: null,
+        }
       : null,
 
     lineup: {
