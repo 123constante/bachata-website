@@ -203,8 +203,12 @@ async function expectLabelOnlyWithServerKey(pinnedToday: string, expected: strin
 
 // renderToString of the full festival hero through the real provider stack is
 // the slow part; the 5s default put this at the mercy of parallel load, exactly
-// as documented on the sibling eventPageSsr spec.
-describe('SSR: festival hero days-away label', { timeout: 20_000 }, () => {
+// as documented on the sibling eventPageSsr spec. BUMPED 20s -> 40s: observed
+// timing out at 20s under real parallel load (the sibling eventPageSsr spec
+// needed 30s for a single render; this file's cases do TWO per case), never
+// under isolated runs -- so the number was resource contention, not a defect
+// in what is rendered.
+describe('SSR: festival hero days-away label', { timeout: 40_000 }, () => {
   it('renders "In 3 days" server-side when the loader pins the day, and not without it', async () => {
     // 2026-09-01 -> 2026-09-04 is 3 whole calendar days.
     await expectLabelOnlyWithServerKey('2026-09-01', 'In 3 days');
@@ -254,7 +258,7 @@ describe('SSR: festival hero days-away label', { timeout: 20_000 }, () => {
  * They now share one predicate with the hero -- these cases are what stops the
  * three drifting apart again.
  */
-describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
+describe('SSR: festival schedule today badges', { timeout: 40_000 }, () => {
   it('renders both today markers server-side when the loader pins the day', async () => {
     const withKey = await renderFestival('2026-09-05', SCHEDULE);
     const withoutKey = await renderFestival(undefined, SCHEDULE);
@@ -302,7 +306,7 @@ describe('SSR: festival schedule today badges', { timeout: 20_000 }, () => {
  * the whole point: every case in the badge suite above passes with the
  * disagreement in place, so none of them could be the gate for this.
  */
-describe('SSR: festival schedule default day tab', { timeout: 20_000 }, () => {
+describe('SSR: festival schedule default day tab', { timeout: 40_000 }, () => {
   // The grid's columns, derived from the SPAN -- the input festivalGridDays
   // actually reads -- and not from the session list.
   //

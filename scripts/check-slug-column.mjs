@@ -21,6 +21,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -66,15 +67,26 @@ const rangeEnd = dateStr(end);
 
 const NOT_FOUND = /PGRST202|could not find the function|schema cache|does not exist/i;
 
+// Set when either call hits an unclassified (non-transient, non-NOT_FOUND)
+// error, e.g. a permissions problem. That is "this guard could not run", not
+// "the slug column contract is violated" -- checked once both calls have
+// finished, so one RPC's unrelated failure never hides the other's status.
+let sawUnclassifiedError = false;
+
 async function checkRpc(rpcName, params) {
-  const { data, error } = await sb.rpc(rpcName, params);
-  if (error) {
+  let data;
+  try {
+    data = await rpcWithRetry(sb, rpcName, params);
+  } catch (e) {
+    exitTransient(e, `slug-column contract (${rpcName})`);
+    const error = e.cause ?? e;
     const msg = `${error.code || ''} ${error.message || ''}`.trim();
     if (NOT_FOUND.test(msg)) {
       console.error(`FAIL: ${rpcName} is not callable (${msg}).`);
       return null;
     }
-    console.error(`Transport error calling ${rpcName}: ${msg}`);
+    console.error(`RPC failed calling ${rpcName}: ${msg}`);
+    sawUnclassifiedError = true;
     return null;
   }
   if (!Array.isArray(data)) {
@@ -95,6 +107,13 @@ const mapData = await checkRpc('get_map_events_v1', {
   range_start: rangeStart,
   range_end: rangeEnd,
 });
+
+// Exit 2 (could not run) takes priority over exit 1 (contract violated): an
+// unclassified transport error on either call means at least one RPC's slug
+// contract was never actually checked this run.
+if (sawUnclassifiedError) {
+  process.exit(2);
+}
 
 if (calData === null || mapData === null) {
   process.exit(1);

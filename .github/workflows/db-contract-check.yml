@@ -393,7 +393,9 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-event-attendees-fk-target.mjs
 
-      - name: Run teacher/DJ event-program assignment integrity contract check
+      # REPORT-ONLY -- exits 0 on drift. Named so the board does not imply a
+      # gate that is not there. See docs/ci-guard-notes.md #17.
+      - name: Run teacher/DJ assignment integrity (REPORT-ONLY, does not gate)
         if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -452,8 +454,12 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-tracking-freshness.mjs
 
+      # BUDGET NOTE (see the surface time-agreement step's note below): ~12
+      # sequential rpcWithRetry calls, each retried up to 3x on a 57014. Capped
+      # so a cold run reds this step by name rather than the whole job.
       - name: Run search_public_v5 contract check
         if: always()
+        timeout-minutes: 2
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
@@ -733,8 +739,13 @@ jobs:
       #     and the OrgOccRow shape is intact. SOFT-PASSES until the admin
       #     migration ships (PGRST202), SKIPs if no organiser has past
       #     occurrences yet. Read path: get_organiser_calendar_events_v1.
+      # BUDGET NOTE (see the surface time-agreement step's note below): loops
+      # up to 60 organisers, one rpcWithRetry call each -- the same order of
+      # magnitude of latency-accumulation exposure. Capped so a cold run reds
+      # this step by name rather than the whole job.
       - name: Run organiser past-events inclusion check
         if: always()
+        timeout-minutes: 3
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
@@ -1071,8 +1082,15 @@ jobs:
       #     occurrence of a sample of live series. Calendar/map/venue-dto are NOT the
       #     reference: they re-derive from the program/default and can legitimately
       #     differ from a stale column (that is materialised drift, #43's job).
+      # BUDGET NOTE. This step loops ~81 RPC calls, each now retried up to 3x
+      # with exponential backoff on a 57014 (rpc-retry.mjs) -- a bad cold-instance
+      # minute here can burn minutes, not seconds, against the job's shared
+      # timeout-minutes: 5. Without a step cap, that shows up as the whole job
+      # cancelled with no named failure, taking every step queued behind it down
+      # too. timeout-minutes: 3 makes THIS step fail by name instead.
       - name: Run surface time-agreement check
         if: always()
+        timeout-minutes: 3
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}

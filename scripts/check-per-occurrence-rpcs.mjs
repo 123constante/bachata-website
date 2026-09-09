@@ -14,6 +14,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcOnce, exitTransient } from './lib/rpc-retry.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -57,9 +58,17 @@ let totalRun = 0;
 let totalFailed = 0;
 
 for (const suite of suites) {
-  const { data, error } = await sb.rpc(suite.rpc);
-  if (error) {
-    console.error(`[${suite.name}] RPC failed: ${error.message}`);
+  // rpcOnce, not rpcWithRetry: both suites DO roll back their fixtures via a
+  // sentinel exception (see the header comment), so a repeat would not double-
+  // apply data -- but a 57014 mid-suite gives no signal about how far the
+  // in-progress sub-transaction got, so retrying blind adds risk for no proven
+  // benefit here. Classification still routes a timeout to exit 2.
+  let data;
+  try {
+    data = await rpcOnce(sb, suite.rpc);
+  } catch (e) {
+    exitTransient(e, `[${suite.name}]`);
+    console.error(`[${suite.name}] RPC failed: ${e.message}`);
     process.exit(2);
   }
   const tests = Array.isArray(data?.tests) ? data.tests : [];
