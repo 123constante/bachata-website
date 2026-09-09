@@ -79,8 +79,13 @@ async function checkRpc(rpcName, params) {
       console.error(`FAIL: ${rpcName} is not callable (${msg}).`);
       return null;
     }
-    console.error(`Transport error calling ${rpcName}: ${msg}`);
-    return null;
+    // Not transient (already handled above) and not a missing function --
+    // an unclassified error, e.g. a permissions problem. That is "this guard
+    // could not run", not "the slug column contract is violated": exit 2
+    // directly rather than folding it into the exit-1 path below, which
+    // would misreport an unrelated transport failure as a slug regression.
+    console.error(`RPC failed calling ${rpcName}: ${msg}`);
+    process.exit(2);
   }
   if (!Array.isArray(data)) {
     console.error(`FAIL: ${rpcName} did not return an array.`);

@@ -58,8 +58,11 @@ let totalRun = 0;
 let totalFailed = 0;
 
 for (const suite of suites) {
-  // rpcOnce: these test_* suites write inside the RPC, so they are not safe to
-  // repeat blindly. Classification still routes a timeout to exit 2.
+  // rpcOnce, not rpcWithRetry: both suites DO roll back their fixtures via a
+  // sentinel exception (see the header comment), so a repeat would not double-
+  // apply data -- but a 57014 mid-suite gives no signal about how far the
+  // in-progress sub-transaction got, so retrying blind adds risk for no proven
+  // benefit here. Classification still routes a timeout to exit 2.
   let data;
   try {
     data = await rpcOnce(sb, suite.rpc);

@@ -1073,8 +1073,15 @@ jobs:
       #     occurrence of a sample of live series. Calendar/map/venue-dto are NOT the
       #     reference: they re-derive from the program/default and can legitimately
       #     differ from a stale column (that is materialised drift, #43's job).
+      # BUDGET NOTE. This step loops ~81 RPC calls, each now retried up to 3x
+      # with exponential backoff on a 57014 (rpc-retry.mjs) -- a bad cold-instance
+      # minute here can burn minutes, not seconds, against the job's shared
+      # timeout-minutes: 5. Without a step cap, that shows up as the whole job
+      # cancelled with no named failure, taking every step queued behind it down
+      # too. timeout-minutes: 3 makes THIS step fail by name instead.
       - name: Run surface time-agreement check
         if: always()
+        timeout-minutes: 3
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}

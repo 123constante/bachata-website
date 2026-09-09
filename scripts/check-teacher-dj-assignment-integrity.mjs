@@ -38,6 +38,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { rpcWithRetry, isTransient } from './lib/rpc-retry.mjs';
 
 // Locked to prod snapshot 2026-06-12. Increase if roles are intentionally expanded;
 // never decrease without investigating why new unassigned rows appeared.
@@ -109,10 +110,23 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const { data, error } = await sb.rpc('check_teacher_dj_assignment_integrity_v1');
-
-if (error) {
+let data;
+try {
+  data = await rpcWithRetry(sb, 'check_teacher_dj_assignment_integrity_v1');
+} catch (e) {
+  // This step is REPORT-ONLY (see the block below) -- its whole point is to
+  // never gate the job, so a cold-instance timeout is soft-pass noise, not a
+  // step failure. `isTransient` reads the raw cause; a retry exhaustion still
+  // means "transient", so check the cause directly rather than e.transient.
+  if (isTransient(e.cause ?? e)) {
+    console.warn(
+      `WARN: check_teacher_dj_assignment_integrity_v1 timed out after ${e.attempts ?? 1} ` +
+      'attempt(s) (transient infrastructure failure). Soft-pass -- this check does not gate.',
+    );
+    process.exit(0);
+  }
   // Tolerate the function not yet being on prod (admin migration is local-only).
+  const error = e.cause ?? e;
   const msg = error.message || '';
   const code = error.code || '';
   if (
