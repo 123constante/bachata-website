@@ -7,8 +7,9 @@
 //   - non-empty meta description
 //   - at least one <h1> (this assertion alone catches the festival-skeleton bug)
 //   - parseable JSON-LD; event pages must carry an Event node with
-//     name/startDate/location/eventStatus (offers is RECOMMENDED, not
-//     required: a missing node and a priceless offer are both WARNs)
+//     name/startDate/eventStatus (location and offers are RECOMMENDED, not
+//     required: a missing node, an addressless Place, and a priceless offer
+//     are all WARNs)
 //   - no unexpected noindex
 //   - homepage + the 9 event-bearing SEO landing pages: a minimum number of
 //     crawlable /event/ links in the server HTML (see STATIC_PAGES)
@@ -362,18 +363,32 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
       // a data gap. That is exactly what `offers` could not promise, and the
       // distinction -- not the required/recommended label -- is why offers
       // moved to a warn below and this did not.
-      for (const field of ['name', 'startDate', 'location', 'eventStatus']) {
+      for (const field of ['name', 'startDate', 'eventStatus']) {
         if (ev[field] == null) failures.push(`Event JSON-LD missing ${field}`);
       }
-      // A `location.address` assertion belongs here and is NOT being added.
-      // It was built in this phase as a hard failure and reverted at review:
-      // it reintroduced the exact defect this change removed from `offers` --
-      // a merge gate that reds on ORGANISER data rather than on code, on a
-      // rotating sitemap sample -- and it rejected a shape buildEventJsonLd is
-      // tested to emit (a Place with a venue name and nothing else resolvable).
-      // A WARN would be the honest strength, and `addr[k] != null` was the
-      // wrong content test besides ('' counted as content). Queued whole rather
-      // than shipped half-right: queued-seo-location-address-assertion.md.
+      // location: WARN, never a hard failure -- the same demotion `offers`
+      // already has, for the same reason. buildEventJsonLd can now omit
+      // `location` entirely (no name, no street, no postcode, no city all
+      // failed to resolve) and can emit a Place with a name but no `address`;
+      // both are organiser-data gaps, not code defects, and this guard reads
+      // a rotating sitemap sample -- reding the merge gate on one is the exact
+      // coupling P5b removed for offers. See queued-seo-location-address-
+      // assertion.md, which this replaces.
+      //
+      // The content test is truthiness-plus-trim, checked per address
+      // property with `@type` excluded, so `addressLocality: ''` does NOT
+      // count as content -- round 1's hard version used `addr[k] != null` and
+      // would have accepted exactly that empty-but-present shape.
+      if (ev.location == null) {
+        warns.push('no location node (recommended, not required -- an event with no venue data omits it)');
+      } else {
+        const addr = ev.location.address;
+        const hasAddressContent = !!addr && typeof addr === 'object'
+          && Object.entries(addr).some(([k, v]) => k !== '@type' && typeof v === 'string' && v.trim() !== '');
+        if (!hasAddressContent) {
+          warns.push('location.address missing, or carrying no non-empty address property');
+        }
+      }
       // offers: WARN, never a failure (honest-claims P5b).
       //
       // This was a hard failure, and that made the guard a merge gate INSISTING
@@ -585,6 +600,10 @@ async function selfTest() {
   const fails = (html, opts, needle) => auditHtml('/x', html, opts).failures.some((f) => f.includes(needle));
   // The offers-rule warns, isolated from any other warn auditHtml may grow.
   const offerWarns = (r) => r.warns.filter((w) => w.includes('offer'));
+  // Likewise for location. Neither substring collides with the other's warn
+  // text (checked: no 'offer' string mentions location, no 'location' string
+  // mentions offer).
+  const locationWarns = (r) => r.warns.filter((w) => w.includes('location'));
   const clean = (html, opts) => auditHtml('/x', html, opts).failures.length === 0;
   const throws = (fn) => { try { fn(); return false; } catch { return true; } };
   const res = (measured, eventAsserted, linkPageChecked = false) => ({ measured, eventAsserted, linkPageChecked });
@@ -634,10 +653,70 @@ async function selfTest() {
       fails(page({ jsonLd: eventLd({ name: undefined }) }), { isEvent: true }, 'Event JSON-LD missing name')],
     ['fires: Event JSON-LD missing startDate',
       fails(page({ jsonLd: eventLd({ startDate: undefined }) }), { isEvent: true }, 'Event JSON-LD missing startDate')],
-    ['fires: Event JSON-LD missing location',
-      fails(page({ jsonLd: eventLd({ location: undefined }) }), { isEvent: true }, 'Event JSON-LD missing location')],
     ['fires: Event JSON-LD missing eventStatus',
       fails(page({ jsonLd: eventLd({ eventStatus: undefined }) }), { isEvent: true }, 'Event JSON-LD missing eventStatus')],
+    // location moved from hard-required to WARN here (queued-seo-location-
+    // address-assertion.md): buildEventJsonLd can legitimately omit it, or emit
+    // a Place with no address, on organiser-data gaps rather than code defects.
+    // Same discrimination discipline as the offers battery below: assert the
+    // WARN, assert failures stays empty, and count only LOCATION warns so an
+    // unrelated future warn can't make these cases look broken.
+    ['warn boundary: a missing location node warns and does NOT fail',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: undefined }) }), { isEvent: true });
+        return r.failures.length === 0
+          && locationWarns(r).length === 1
+          && locationWarns(r)[0].includes('no location node');
+      })()],
+    // null boundary, mirroring the offers null case found in review round 3: an
+    // explicit JSON `"location": null` must read as MISSING (ev.location ==
+    // null), not fall through to the addressless-Place branch and report the
+    // wrong warn.
+    ['null boundary: an explicit null location reads as MISSING, not addressless',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: null }) }), { isEvent: true });
+        return locationWarns(r).length === 1 && locationWarns(r)[0].includes('no location node');
+      })()],
+    ['warn boundary: a Place with a name and no address warns about the address, not fails',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y' } }) }), { isEvent: true });
+        return r.failures.length === 0
+          && locationWarns(r).length === 1
+          && locationWarns(r)[0].includes('location.address missing');
+      })()],
+    // The content test's actual defect target: round 1's hard version used
+    // `addr[k] != null`, which counts an address object carrying only its own
+    // `@type` (or a blank string on any real property) as "content". Both must
+    // still warn under the WARN version, or the demotion just moved the same
+    // false claim from a failure to a silent pass.
+    ['warn boundary: an address object carrying only @type warns (no real content)',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y', address: { '@type': 'PostalAddress' } } }) }), { isEvent: true });
+        return r.failures.length === 0
+          && locationWarns(r).length === 1
+          && locationWarns(r)[0].includes('location.address missing');
+      })()],
+    ['warn boundary: an address whose only property is whitespace warns (trim, not just truthiness)',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y', address: { '@type': 'PostalAddress', addressLocality: '   ' } } }) }), { isEvent: true });
+        return r.failures.length === 0
+          && locationWarns(r).length === 1
+          && locationWarns(r)[0].includes('location.address missing');
+      })()],
+    ['silent boundary: a Place with real address content warns about nothing',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd() }), { isEvent: true });
+        return r.failures.length === 0 && locationWarns(r).length === 0;
+      })()],
+    // Parallel to the offers "PRESENT but priceless is not reported as MISSING"
+    // case: an addressless Place must not be lumped into the "no location node"
+    // message, or the two organiser-data gaps become indistinguishable in CI
+    // output the way the offers ones were before that case existed.
+    ['warn boundary: a PRESENT but addressless location is not reported as a MISSING one',
+      (() => {
+        const r = auditHtml('/event/x', page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y' } }) }), { isEvent: true });
+        return !r.warns.some((w) => w.includes('no location node'));
+      })()],
     // offers is RECOMMENDED, not required (honest-claims P5b). These three
     // cases are the whole rule, and the first two are the ones that matter:
     // the old canary asserted the hard failure, which is how a guard came to
@@ -671,8 +750,12 @@ async function selfTest() {
     //     buildEventJsonLd and is covered by its stress test; this guard reads
     //     rendered HTML and genuinely cannot see it. Saying so beats a case
     //     that looks like it can.
-    ['silent: a Place with a name and no address is NOT failed here (see auditHtml)',
-      clean(page({ jsonLd: eventLd({ location: { '@type': 'Place', name: 'Y' } }) }), { isEvent: true })],
+    // The old `clean(...)` case pinned here ("a Place with a name and no
+    // address is NOT failed") is superseded, not merely restated, by the
+    // location warn battery above: `clean()` only asserts failures.length ===
+    // 0, which the stronger "warn boundary: a Place with a name and no address
+    // warns about the address, not fails" case already asserts plus the warn
+    // itself. Keeping both would leave a weaker duplicate nobody re-derives.
     ['fires: unparseable JSON-LD block',
       fails(page({ jsonLd: '<script type="application/ld+json">{nope</script>' }), {}, 'unparseable JSON-LD')],
     ['survives: a JSON-LD block of literal null does not throw (it once killed the run)',
