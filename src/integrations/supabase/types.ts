@@ -12872,6 +12872,7 @@ export type Database = {
       get_public_venues_list_v1: { Args: never; Returns: Json[] }
       get_public_venues_list_v2: { Args: never; Returns: Json[] }
       get_public_venues_list_v3: { Args: never; Returns: Json[] }
+      get_public_venues_list_v4: { Args: never; Returns: Json[] }
       get_public_videographer_preview_v1: {
         Args: { p_entity_id: string }
         Returns: {

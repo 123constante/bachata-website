@@ -85,7 +85,7 @@ export interface PublicVenueListItem {
 }
 
 export async function fetchPublicVenuesList(): Promise<PublicVenueListItem[]> {
-  const { data, error } = await supabase.rpc('get_public_venues_list_v3' as never);
+  const { data, error } = await supabase.rpc('get_public_venues_list_v4' as never);
   // Throw instead of resolving []: a failed RPC must NOT render as an empty
   // directory. Throwing restores React Query's retry and routes the failure
   // to Sentry via the global QueryCache onError; the page renders a distinct

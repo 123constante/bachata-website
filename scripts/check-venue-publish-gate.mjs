@@ -9,6 +9,14 @@
  * (incl. both search gates, IN/ANY/reversed/IS-DISTINCT literal forms) and
  * behaviourally (executes each read path and asserts the gate holds).
  *
+ * KNOWN GAP (2026-09-10 M2 repoint): the Website's live directory read is now
+ * get_public_venues_list_v4, not v3 -- the static target list above still
+ * names only v3, which no caller reaches anymore. v4 carries the same
+ * `WHERE public.venue_is_public(v.publish_state)` predicate as v3 today, but a
+ * future v4-only drift would ship with this gate still green. Pre-acknowledged
+ * as deferred follow-up debt in the admin migration that shipped v4
+ * (20260909180000); not closed here.
+ *
  * The guard's behavioural leg executes search_public_v5 + the directory RPC; a
  * cold backend could transiently hit the anon 3s statement_timeout (57014). That
  * is infra flakiness, not gate drift, so we retry once before failing.

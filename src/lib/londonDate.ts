@@ -12,8 +12,9 @@
 //   dates. Compare them with londonDaysFromTodayForKey / weekdayOfKey —
 //   `new Date('YYYY-MM-DD')` parses as UTC midnight and shifts a day in
 //   western timezones.
-// - The public venue RPC (get_public_venues_list_v3) returns `next_event_iso`
-//   as `(first_start AT TIME ZONE 'UTC')::text` — a timezone-LESS UTC
+// - The public venue RPC (get_public_venues_list_v4, M2 repoint 2026-09-10 --
+//   successor to v3, same contract) returns `next_event_iso` as
+//   `(first_start AT TIME ZONE 'UTC')::text` — a timezone-LESS UTC
 //   wall-clock string like "2026-05-22 19:00:00". Parse it with parseUtcIso.
 // - RPC range params must be built with londonDayRangeUtc, not local midnight.
 // - For a reactive "today" that survives long-lived tabs crossing midnight,
