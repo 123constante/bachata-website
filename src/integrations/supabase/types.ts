@@ -12399,6 +12399,18 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_event_attendance_v2: {
+        Args: never
+        Returns: {
+          city_name: string
+          event_id: string
+          name: string
+          occurrence_date: string
+          status: string
+          type: string
+          updated_at: string
+        }[]
+      }
       get_occurrence_override_program_v1: {
         Args: { p_occurrence_id: string }
         Returns: Json
