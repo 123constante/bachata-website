@@ -37,7 +37,7 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
 //
 // `unmocked` is asserted BEFORE the header, because a missing method throws out
 // of the loader and would otherwise end the test before the name is reported.
-const ALLOWED = new Set(['select', 'eq', 'neq', 'order', 'limit', 'not']);
+const ALLOWED = new Set(['select', 'neq', 'order', 'limit', 'not']);
 const unmocked = new Set<string>();
 
 const emptyQuery: Record<string, unknown> = new Proxy(
@@ -56,8 +56,26 @@ const emptyQuery: Record<string, unknown> = new Proxy(
   },
 ) as Record<string, unknown>;
 
+// Top-level client surface: same closed-allowlist Proxy trick as emptyQuery
+// above, and the same reason -- fetchEvents now calls db.rpc(), not just
+// db.from(), and an unmocked top-level method must red here with its NAME
+// recorded in `unmocked`, not as the loader's opaque rethrown 500 (exactly how
+// `.not()` got past the query-builder mock before -- see #329 above).
+const mockClient: Record<string, unknown> = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      if (prop === 'from') return () => emptyQuery;
+      if (prop === 'rpc') return () => Promise.resolve({ data: [], error: null });
+      unmocked.add(prop);
+      return undefined;
+    },
+  },
+) as Record<string, unknown>;
+
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { from: () => emptyQuery },
+  supabase: mockClient,
 }));
 
 // Every flag ON, so all five fetchers actually run. Under the shipped defaults

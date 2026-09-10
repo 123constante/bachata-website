@@ -21,9 +21,10 @@ const BASE_URL = "https://www.bachatacalendar.co.uk";
 // cast issue as app/routes/event.tsx's entity-resolve), so the fetchers below
 // go through an untyped handle and shape their own rows.
 //
-// The query-builder methods called below are MIRRORED in the mock in
-// tests/sitemapEdgeTtl.test.ts (its ALLOWED set). Adding one here without
-// adding it there makes that spec throw; it will name the method for you.
+// The query-builder methods (and, since fetchEvents, the top-level db.rpc call)
+// used below are MIRRORED in the mock in tests/sitemapEdgeTtl.test.ts. Adding a
+// new one here without adding it there makes that spec throw; it will name the
+// method for you.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -89,14 +90,26 @@ type ProfileRow = { id: string; slug: string | null; updated_at: string | null }
 // never silently drop a section (Search Console reads a shrunken sitemap as
 // "those URLs are gone").
 
-// events: lifecycle_status = 'published', up to 2000 most recently updated.
+// events: every publicly-resolvable event/festival series, up to 2000 most
+// recently updated -- INCLUDING past (ended) ones, since this is a full URL
+// listing, not a date-scoped calendar query.
+//
+// Repointed off the legacy `events` table onto the P5-native
+// list_public_event_urls_v1 RPC (bachata-admin-11april repo,
+// docs/m2-site-verdicts.json, app/routes/sitemap.tsx, must_repoint).
+// event_series_p5 is NOT anon-selectable directly (its RLS self-serve policy is
+// dead behind the OFF FF_DB_SELF_SERVE_RLS flag -- only is_admin() can read it),
+// so unlike fetchVenues/fetchDancerProfiles/fetchOrganiserProfiles below this
+// goes through an RPC rather than `db.from(...)`. The RPC's visibility gate is
+// the EXACT predicate resolve_public_event_ref_v1 uses to decide whether
+// /event/<slug> resolves at all (live OR ended, bridged-to-legacy or pure-P5) --
+// no calendar RPC covers past events, which is why nothing already listed this.
+// id = COALESCE(legacy_event_id, series id), matching resolve_public_event_ref_v1
+// byte-for-byte -- this also closes the prior divergence where the sitemap
+// emitted legacy events.slug while that resolver canonicalises on
+// event_series_p5.slug.
 async function fetchEvents(): Promise<UrlRow[]> {
-  const { data, error } = await db
-    .from("events")
-    .select("id, slug, updated_at")
-    .eq("lifecycle_status", "published")
-    .order("updated_at", { ascending: false })
-    .limit(2000);
+  const { data, error } = await db.rpc("list_public_event_urls_v1", { p_limit: 2000 });
   if (error) throw error;
   return ((data ?? []) as ProfileRow[]).map((e) => ({
     loc: `${BASE_URL}/event/${e.slug || e.id}`,
