@@ -17,13 +17,9 @@ type AttendanceRow = {
   event_id: string;
   status: string;
   updated_at: string | null;
-};
-
-type EventRow = {
-  id: string;
   name: string | null;
-  date: string | null;
-  city: string | null;
+  occurrence_date: string | null;
+  city_name: string | null;
   type: string | null;
 };
 
@@ -72,37 +68,26 @@ const renderStatusLabel = (status: string) => {
 };
 
 const fetchMyAttendance = async (): Promise<AttendanceCard[]> => {
-  const { data: rows, error } = await supabase.rpc('get_my_event_attendance_v1');
+  // v2's card fields are P5-native (name/occurrence_date/city_name/type come from
+  // event_series_p5/event_occurrence_p5, not a legacy `events` join), so unlike v1
+  // this no longer needs -- or can silently drop rows via -- a second `events` query.
+  // Residual, accepted: if a series' legacy_event_id ever points at a hard-deleted
+  // legacy row, the card still renders (name/date/city resolve from P5) but its
+  // click-through 404s, instead of the row vanishing outright as v1's join did.
+  const { data: rows, error } = await supabase.rpc('get_my_event_attendance_v2');
   if (error) throw error;
 
   const attendance = (rows ?? []) as AttendanceRow[];
-  if (!attendance.length) return [];
 
-  const eventIds = Array.from(new Set(attendance.map((row) => row.event_id)));
-  const { data: eventRows, error: eventsError } = await supabase
-    .from('events')
-    .select('id, name, date, city, type')
-    .in('id', eventIds);
-
-  if (eventsError) throw eventsError;
-
-  const eventMap = new Map<string, EventRow>(((eventRows ?? []) as EventRow[]).map((row) => [row.id, row]));
-
-  return attendance
-    .map((row) => {
-      const event = eventMap.get(row.event_id);
-      if (!event) return null;
-      return {
-        event_id: row.event_id,
-        name: event.name ?? 'Untitled event',
-        date: event.date,
-        city: event.city,
-        type: event.type,
-        status: row.status,
-        updated_at: row.updated_at,
-      } satisfies AttendanceCard;
-    })
-    .filter((row): row is AttendanceCard => row !== null);
+  return attendance.map((row) => ({
+    event_id: row.event_id,
+    name: row.name ?? 'Untitled event',
+    date: row.occurrence_date,
+    city: row.city_name,
+    type: row.type,
+    status: row.status,
+    updated_at: row.updated_at,
+  }));
 };
 
 const MyAttendance = () => {
@@ -202,14 +187,14 @@ const MyAttendance = () => {
 
           {!showLoading && !isError && sorted.length > 0 && (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              {sorted.map((item) => {
+              {sorted.map((item, index) => {
                 const targetPath =
                   (item.type ?? '').toLowerCase() === 'festival'
                     ? `/festival/${item.event_id}`
                     : `/event/${item.event_id}`;
                 return (
                   <button
-                    key={item.event_id}
+                    key={`${item.event_id}-${item.date ?? 'no-date'}-${index}`}
                     type="button"
                     onClick={() => navigate(targetPath)}
                     className="text-left rounded-xl border border-slate-700 bg-slate-900/65 p-3 hover:border-cyan-300/45 hover:bg-slate-900/85 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
