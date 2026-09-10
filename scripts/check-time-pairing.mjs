@@ -13,6 +13,14 @@
  *      not lag more than 24h behind London wall-clock now (grace for in-progress
  *      overnight events). Its old `>= now()` pairing ran an hour late all BST.
  *
+ * KNOWN GAP (2026-09-10 M2 repoint): the Website's live caller is now
+ * get_public_venues_list_v4, not v3 -- check_public_time_pairing_contract_v1's
+ * arm 2 still only asserts v3, which no caller reaches anymore. v4 uses the
+ * same wall-clock composition as v3 (verified against prod at repoint time),
+ * but a future v4-only regression would ship with this gate still green.
+ * Pre-acknowledged as deferred follow-up debt in the admin migration that
+ * shipped v4 (20260909180000); not closed here.
+ *
  * Convention (admin CLAUDE.md "Time-pairing contract"): comparisons against
  * local-as-Z occurrence columns use (now() AT TIME ZONE 'Europe/London');
  * true-UTC columns compared to calendar dates must be projected into the

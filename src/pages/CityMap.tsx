@@ -172,7 +172,8 @@ export default function CityMap() {
 
   // THE VENUE LINK, and why it is a second query. get_map_events_v1 returns no
   // venue_id and no venue slug -- venue identity in the map layer is
-  // (coordinate, venue_name) and nothing else. get_public_venues_list_v3 has
+  // (coordinate, venue_name) and nothing else. get_public_venues_list_v4 (the
+  // P5-native successor to v3, M2 repoint 2026-09-10) has
   // the ids, so the heading row's destination is resolved by matching the one
   // field both sides carry: the name. A venue that does not match simply gets
   // no link and the panel degrades to nights-only, which is the same shape the

@@ -62,7 +62,7 @@
     "calendar_events_dto": 1
   },
   "src/services/venuePublicService.ts": {
-    "get_public_venues_list_v3": 1
+    "get_public_venues_list_v4": 1
   },
   "tests/eventViewCompat.contract.test.ts": {
     "event_view_p5": 9,
