@@ -13005,6 +13005,14 @@ export type Database = {
         Args: { p_city_id?: string; p_limit?: number }
         Returns: Json
       }
+      list_public_event_urls_v1: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+          slug: string | null
+          updated_at: string
+        }[]
+      }
       list_public_image_refs_v1: {
         Args: never
         Returns: {
