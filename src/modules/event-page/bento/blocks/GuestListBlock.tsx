@@ -7,15 +7,12 @@ import { triggerMicroConfetti } from '@/lib/confetti';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import {
-  entryStatus,
-  hasSpotAvailable,
   useEventGuestList,
   type GuestListConfig,
   type GuestListEntry,
 } from '@/modules/event-page/hooks/useEventGuestList';
 import { useSubmitGuestListEntry } from '@/modules/event-page/hooks/useSubmitGuestListEntry';
 import { CollisionCard } from '@/modules/event-page/components/CollisionCard';
-import { SeeAllGuestsDrawer } from '@/modules/event-page/bento/modals/SeeAllGuestsDrawer';
 import {
   formatSavingsRange,
   type GuestListPricing,
@@ -43,17 +40,6 @@ const CONFETTI_PARTICLE_COUNT = 35;
 const COLLISION_CARD_EXIT_MS = 220;
 const COUNTDOWN_TICK_MS = 60_000;
 const POST_SUBMIT_REMINDER_MS = 5_000;
-
-// Overflow rule for the pill stack. Each pill is its own row (~28px + 6px gap), so an
-// unbounded list grows the tile without limit: the real all-time peak for one night is 58
-// names, which measured at ~1,941px -- roughly five phone screens, with the join form
-// pushed below all of it. Past the threshold the stack truncates and the rest move into
-// the drawer.
-//
-// PILL_CAP < OVERFLOW_THRESHOLD on purpose. At exactly PILL_CAP + 1 the cap would hide a
-// single name behind a button taller than the name it hid.
-const PILL_CAP = 10;
-const OVERFLOW_THRESHOLD = 12;
 
 const MUTED_PRIMARY = 'rgba(240, 230, 233, 0.55)';
 const MUTED_SECONDARY = 'rgba(240, 230, 233, 0.4)';
@@ -124,7 +110,6 @@ export const GuestListBlock = ({
   const [collisionClosing, setCollisionClosing] = useState(false);
   const [postSubmitReminderVisible, setPostSubmitReminderVisible] = useState(false);
   const [explainerExpanded, setExplainerExpanded] = useState(false);
-  const [seeAllOpen, setSeeAllOpen] = useState(false);
 
   // Stable DOM id for aria-controls pairing between the accordion
   // trigger and its region panel. Safe across multiple instances of
@@ -147,7 +132,13 @@ export const GuestListBlock = ({
   const seenKeysRef = useRef<Set<string>>(new Set());
   const initialisedRef = useRef(false);
 
-  const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
+  const entries = useMemo(
+    () =>
+      [...(data?.entries ?? [])].sort(
+        (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+      ),
+    [data?.entries],
+  );
 
   useEffect(() => {
     entries.forEach((e) => seenKeysRef.current.add(entryKey(e)));
@@ -224,18 +215,11 @@ export const GuestListBlock = ({
 
   if (!data || !data.enabled) return null;
 
-  const { count, config, cutoff_passed: cutoffPassed, waitlist_count: waitlistCount } = data;
-  // P6: `count` is the ACTIVE count — the dancers who actually have a spot. Queued dancers
-  // get their own line rather than inflating the headline number.
-  const spotAvailable = hasSpotAvailable(data);
+  const { config, cutoff_passed: cutoffPassed } = data;
   const hasPrices = shouldRenderPrices(config);
   const hasArriveBefore = Boolean(config.discount_until && config.discount_until.trim());
   const hasDescription = Boolean(config.description && config.description.trim());
   const isEmpty = entries.length === 0;
-  // Truncation is derived, never stored: `entries` changes under realtime inserts, and a
-  // remembered slice would drift from it. Short lists stay whole -- see OVERFLOW_THRESHOLD.
-  const isOverflowing = entries.length > OVERFLOW_THRESHOLD;
-  const visibleEntries = isOverflowing ? entries.slice(0, PILL_CAP) : entries;
 
   // B1 headline — savings range derived from pricing tiers.
   const savingsLabel = hasPrices
@@ -257,10 +241,7 @@ export const GuestListBlock = ({
       return;
     }
 
-    // P6 — HONEST OPTIMISM: confetti only when there is a spot to celebrate. `spots_left` is
-    // the server's own door number, so on a full night the sign-up goes up amber as a
-    // waitlist entry and the page does not cheer for an outcome the dancer did not get.
-    if (spotAvailable) fireConfetti();
+    fireConfetti();
 
     try {
       const result = await submit.mutateAsync(trimmed);
@@ -295,16 +276,11 @@ export const GuestListBlock = ({
             className="text-3xl font-black leading-none tabular-nums tracking-[-0.02em]"
             style={{ color: 'hsl(var(--bento-fg))' }}
           >
-            {count}
+            {entries.length}
           </span>
           <span className="text-sm" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
-            {count === 1 ? 'dancer on the list' : 'dancers on the list'}
+            {entries.length === 1 ? 'dancer on the list' : 'dancers on the list'}
           </span>
-          {waitlistCount > 0 && (
-            <span className="text-xs" style={{ color: '#fcd34d' }}>
-              +{waitlistCount} waiting
-            </span>
-          )}
         </div>
 
         {/* B1 — savings headline. Subordinate to the count: text-xs,
@@ -371,19 +347,17 @@ export const GuestListBlock = ({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1.5">
-            {visibleEntries.map((entry) => {
+            {entries.map((entry) => {
               const k = entryKey(entry);
               const isFresh = freshKeys.has(k);
-              const queued = entryStatus(entry) === 'waitlist';
               return (
                 <span
                   key={k}
                   className={cn(
                     'gl-pill gl-pill--stacked rounded-full',
-                    queued && 'gl-pill--waitlist',
                     isFresh && 'gl-pill--entering',
                   )}
-                  title={queued ? `${entry.first_name} — on the waitlist` : entry.first_name}
+                  title={entry.first_name}
                 >
                   <span className="relative z-10">{entry.first_name}</span>
                 </span>
@@ -391,29 +365,6 @@ export const GuestListBlock = ({
             })}
           </div>
         )}
-
-        {/* Reveal for the truncated tail. Labelled with the TOTAL rather than the hidden
-            remainder so it reinforces the headline count instead of competing with it, and
-            so a realtime insert never makes it read as a stale "+N more". */}
-        {isOverflowing && (
-          <button
-            type="button"
-            onClick={() => setSeeAllOpen(true)}
-            className="mx-auto mt-1 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors"
-            style={{
-              border: '0.5px solid rgba(245, 213, 99, 0.28)',
-              color: 'rgba(245, 213, 99, 0.85)',
-            }}
-          >
-            See all {entries.length}
-          </button>
-        )}
-
-        <SeeAllGuestsDrawer
-          open={seeAllOpen}
-          onOpenChange={setSeeAllOpen}
-          entries={entries}
-        />
 
         {/* Collision card — slides in between pill list and input. */}
         {collidingName && (
