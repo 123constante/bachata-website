@@ -104,9 +104,69 @@ const EditEvent = () => {
   const { data: eventData, isLoading: eventLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
-      if (error) throw error;
-      return data;
+      // Try to read from P5 first
+      const { data: occurrence, error: occurrenceError } = await supabase
+        .from('event_occurrence_p5')
+        .select('id, occurrence_date, series_id, venue_id, description, lifecycle_status')
+        .eq('legacy_occurrence_id', id)
+        .single();
+
+      if (occurrence) {
+        // P5 event found, fetch series data
+        const { data: series, error: seriesError } = await supabase
+          .from('event_series_p5')
+          .select('id, name, description, organiser_ids')
+          .eq('id', occurrence.series_id)
+          .single();
+
+        if (seriesError) throw seriesError;
+
+        // Fetch override data if it exists
+        const { data: override } = await supabase
+          .from('event_occurrence_override_p5')
+          .select('title, description, venue_id, custom_local_start_time, custom_local_end_time')
+          .eq('occurrence_id', occurrence.id)
+          .single();
+
+        // Fetch legacy event for social URLs and key_times
+        const { data: legacyEvent } = await supabase
+          .from('events')
+          .select('key_times, poster_url, tickets, ticket_url, payment_methods, facebook_url, instagram_url, website, cover_image_url, created_by')
+          .eq('id', id)
+          .single();
+
+        // Merge P5 and legacy data
+        const mergedData = {
+          id: id,
+          name: override?.title || series?.name || '',
+          description: override?.description || series?.description || '',
+          date: occurrence.occurrence_date,
+          venue_id: override?.venue_id || occurrence.venue_id,
+          key_times: legacyEvent?.key_times || null,
+          poster_url: legacyEvent?.poster_url || legacyEvent?.cover_image_url,
+          tickets: legacyEvent?.tickets || '',
+          ticket_url: legacyEvent?.ticket_url || '',
+          payment_methods: legacyEvent?.payment_methods || '',
+          facebook_url: legacyEvent?.facebook_url || '',
+          instagram_url: legacyEvent?.instagram_url || '',
+          website: legacyEvent?.website || '',
+          created_by: legacyEvent?.created_by || null,
+          event_type: null,
+          series_id: occurrence.series_id,
+          occurrence_id: occurrence.id,
+        };
+        return mergedData;
+      }
+
+      // Fallback to legacy query if not in P5
+      const { data: legacyEvent, error: legacyError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (legacyError) throw legacyError;
+      return legacyEvent;
     },
     enabled: !!id
   });
