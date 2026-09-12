@@ -22,16 +22,14 @@ type AttendanceRow = {
   event_id: string;
   status: "going" | "interested";
   updated_at: string | null;
-};
-
-type AttendanceEvent = {
-  id: string;
-  name: string;
-  city: string | null;
+  name: string | null;
+  occurrence_date: string | null;
+  city_name: string | null;
   country: string | null;
-  date: string | null;
+  city_slug: string | null;
   start_time: string | null;
   type: "festival" | "standard";
+  is_active: boolean;
 };
 
 type AttendanceItem = {
@@ -95,13 +93,13 @@ const DancerProfile = () => {
   const dancerOwnerId = dancer?.id ?? null;
   const isSelfView = Boolean(user?.id && dancerOwnerId && user.id === dancerOwnerId);
 
-  // Attendance is private: get_my_event_attendance_v1 only returns the caller's own
+  // Attendance is private: get_my_event_attendance_v2 only returns the caller's own
   // rows. Only fetch when the viewer is the profile owner, otherwise we'd render
   // the viewer's attendance under someone else's profile.
   const { data: attendanceRows = [] } = useQuery({
     queryKey: ["dancer-public-attendance", dancerOwnerId, user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_my_event_attendance_v1");
+      const { data, error } = await supabase.rpc("get_my_event_attendance_v2");
       if (error) throw error;
       return (data || [])
         .filter((r: any) => r.status === "going" || r.status === "interested")
@@ -109,52 +107,35 @@ const DancerProfile = () => {
           event_id: r.event_id as string,
           status: r.status as "going" | "interested",
           updated_at: r.updated_at as string | null,
+          name: r.name as string | null,
+          occurrence_date: r.occurrence_date as string | null,
+          city_name: r.city_name as string | null,
+          country: r.country as string | null,
+          city_slug: r.city_slug as string | null,
+          start_time: r.start_time as string | null,
+          type: r.type as "festival" | "standard",
+          is_active: r.is_active as boolean,
         }));
     },
     enabled: isSelfView,
     staleTime: 1000 * 20,
   });
 
-  const { data: attendanceEvents = [] } = useQuery({
-    queryKey: ["dancer-public-attendance-events", attendanceRows.map((row) => row.event_id).join("|")],
-    queryFn: async () => {
-      if (!attendanceRows.length) return [] as AttendanceEvent[];
-      const eventIds = attendanceRows.map((row) => row.event_id);
-      // Phase 8 note: reads the legacy `events.type` proxy on purpose. The
-      // format/category axes live on event_series_p5, not the events table;
-      // events.type stays as a legacy proxy (= format-derived), so the
-      // festival-vs-standard split below remains correct without a join.
-      const { data, error } = await supabase
-        .from("events")
-        .select("id, name, city, country, date, start_time, type")
-        .in("id", eventIds);
-      if (error) throw error;
-      return (data || []) as AttendanceEvent[];
-    },
-    enabled: attendanceRows.length > 0,
-    staleTime: 1000 * 20,
-  });
-
   const attendanceItems = useMemo(() => {
-    if (!attendanceRows.length || !attendanceEvents.length) return [] as AttendanceItem[];
-    const eventMap = new Map(attendanceEvents.map((event) => [event.id, event]));
+    if (!attendanceRows.length) return [] as AttendanceItem[];
     return attendanceRows
-      .map((row) => {
-        const event = eventMap.get(row.event_id);
-        if (!event) return null;
-        return {
-          id: event.id,
-          name: event.name,
-          city: event.city,
-          country: event.country,
-          date: event.date,
-          start_time: event.start_time,
-          type: event.type,
-          status: row.status,
-        } satisfies AttendanceItem;
-      })
+      .map((row) => ({
+        id: row.event_id,
+        name: row.name ?? "Untitled event",
+        city: row.city_name,
+        country: row.country,
+        date: row.occurrence_date,
+        start_time: row.start_time,
+        type: row.type,
+        status: row.status,
+      } satisfies AttendanceItem))
       .filter(Boolean) as AttendanceItem[];
-  }, [attendanceEvents, attendanceRows]);
+  }, [attendanceRows]);
 
   const now = new Date();
   const toEventDate = (item: AttendanceItem) => {

@@ -20,7 +20,11 @@ type AttendanceRow = {
   name: string | null;
   occurrence_date: string | null;
   city_name: string | null;
+  country: string | null;
+  city_slug: string | null;
+  start_time: string | null;
   type: string | null;
+  is_active: boolean;
 };
 
 type AttendanceCard = {

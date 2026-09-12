@@ -87,6 +87,20 @@ interface DancerProfile {
 type AttendanceKind = 'events' | 'festivals';
 type AttendanceStatus = 'interested' | 'going';
 
+interface AttendanceRow {
+  event_id: string;
+  status: string;
+  updated_at: string | null;
+  name: string | null;
+  occurrence_date: string | null;
+  city_name: string | null;
+  country: string | null;
+  city_slug: string | null;
+  start_time: string | null;
+  type: string | null;
+  is_active: boolean;
+}
+
 interface AttendanceCard {
   event_id: string;
   name: string;
@@ -380,56 +394,37 @@ export const DancerDashboard = () => {
           photo_url: getPhotoUrl(normalized.photo_url) || '',
         });
 
-        const { data: rawAttendance, error: attendanceError } = await supabase.rpc('get_my_event_attendance_v1');
+        const { data: rawAttendance, error: attendanceError } = await supabase.rpc('get_my_event_attendance_v2');
 
         if (attendanceError) {
           throw attendanceError;
         }
 
-        const participantRows = (rawAttendance || []).map((r: any) => ({
-          event_id: r.event_id as string,
-          status: r.status as string,
-        }));
-        if (!participantRows.length) {
+        const attendanceRows = (rawAttendance || []) as AttendanceRow[];
+        const filtered = attendanceRows.filter(
+          (r) => r.status === 'going' || r.status === 'interested'
+        );
+
+        if (!filtered.length) {
           setSelectedEvents([]);
           setSelectedFestivals([]);
           return;
         }
 
-        const participantMap = new Map(participantRows.map((row) => [row.event_id, normalizeAttendanceStatus(row.status)]));
-        const eventIds = Array.from(new Set(participantRows.map((row) => row.event_id)));
-
-        let eventQuery = supabase
-          .from('events')
-          .select('id, name, date, city, type, city_slug, is_active')
-          .in('id', eventIds);
-
-        if (citySlug) {
-          eventQuery = eventQuery.eq('city_slug', citySlug);
-        }
-
-        const { data: eventRows, error: eventsError } = await eventQuery;
-        if (eventsError) {
-          throw eventsError;
-        }
-
-        const normalizedRows = ((eventRows || []) as Array<{
-          id: string;
-          name: string;
-          date: string | null;
-          city: string | null;
-          type: string | null;
-        }>).map((event) => {
-          const kind: AttendanceKind = isFestivalType(event.type) ? 'festivals' : 'events';
-          return {
-            event_id: event.id,
-            name: event.name,
-            date: event.date,
-            city: event.city,
-            status: participantMap.get(event.id) || 'interested',
-            kind,
-          } satisfies AttendanceCard;
-        });
+        // Client-side city filter: v2 provides city_slug, so we can filter on it
+        const normalizedRows = filtered
+          .filter((row) => !citySlug || row.city_slug === citySlug)
+          .map((row) => {
+            const kind: AttendanceKind = isFestivalType(row.type) ? 'festivals' : 'events';
+            return {
+              event_id: row.event_id,
+              name: row.name ?? 'Untitled event',
+              date: row.occurrence_date,
+              city: row.city_name,
+              status: normalizeAttendanceStatus(row.status),
+              kind,
+            } satisfies AttendanceCard;
+          });
 
         setSelectedEvents(normalizedRows.filter((item) => item.kind === 'events'));
         setSelectedFestivals(normalizedRows.filter((item) => item.kind === 'festivals'));
