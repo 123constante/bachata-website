@@ -21,4 +21,10 @@ describe('buildSeoForRoute noindex policy', () => {
   it('noindexes unresolved public detail pages', () => {
     expect(buildSeoForRoute('dancer.detail').noindex).toBe(true);
   });
+
+  it('emits og:type=profile for dancer, dj and organiser detail pages', () => {
+    expect(buildSeoForRoute('dancer.detail', { entityName: 'Alex' }).ogType).toBe('profile');
+    expect(buildSeoForRoute('dj.detail', { entityName: 'DJ Alex' }).ogType).toBe('profile');
+    expect(buildSeoForRoute('organiser.detail', { entityName: 'Org' }).ogType).toBe('profile');
+  });
 });

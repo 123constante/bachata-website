@@ -161,9 +161,8 @@ const SPECS: Record<string, Spec> = {
     // that branch on og:type=profile lose the profile card layout. The matcher
     // retirement note in middleware.ts checked og:image, canonical, 404 and
     // description field by field, but never og:type; this is that gap.
-    // NOTE: dancer.detail and dj.detail have the SAME gap from their own
-    // matcher retirement (2026-07-06) and are deliberately NOT changed here --
-    // pre-existing, out of this branch's scope, queued instead.
+    // dancer.detail and dj.detail had the same gap from their own matcher
+    // retirement (2026-07-06); fixed alongside this one below.
     ogType: 'profile',
   },
   'teacher.detail': {
@@ -175,11 +174,13 @@ const SPECS: Record<string, Spec> = {
     title: (c) => `${c.entityName ?? 'DJ'} - Bachata DJ, ${city(c)}`,
     description: (c) => `${c.entityName ?? 'This DJ'} plays bachata in ${city(c)}. Upcoming sets and where to hear them.`,
     path: (c) => `/djs/${c.entitySlug ?? ''}`,
+    ogType: 'profile',
   },
   'dancer.detail': {
     title: (c) => `${c.entityName ?? 'Dancer'} - Bachata Dancer, ${city(c)}`,
     description: (c) => `${c.entityName ?? 'This dancer'} - profile on Bachata Calendar ${city(c)}.`,
     path: (c) => `/dancers/${c.entitySlug ?? ''}`,
+    ogType: 'profile',
   },
   'festival.detail': {
     title: (c) => `${c.entityName ?? 'Festival'} - Bachata Festival`,
