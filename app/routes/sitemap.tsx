@@ -43,6 +43,7 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: "/practice-partners",                changefreq: "weekly",  priority: "0.5" },
   { path: "/choreography",                     changefreq: "weekly",  priority: "0.5" },
   { path: "/videographers",                    changefreq: "weekly",  priority: "0.5" },
+  { path: "/vendors",                          changefreq: "weekly",  priority: "0.5" },
   { path: "/cities",                           changefreq: "monthly", priority: "0.5" },
   { path: "/london-bachata-guide",             changefreq: "monthly", priority: "0.9" },
   { path: "/learn-bachata-london",             changefreq: "monthly", priority: "0.9" },
@@ -207,6 +208,7 @@ export async function loader() {
     // noindex". Same source of truth as the app (src/lib/featureFlags.ts).
     if (flags.teachersDirectory) staticRoutes.push({ path: "/teachers", changefreq: "weekly", priority: "0.7" });
     if (flags.organisersDirectory) staticRoutes.push({ path: "/organisers", changefreq: "weekly", priority: "0.7" });
+    if (flags.rafflesPage) staticRoutes.push({ path: "/raffles", changefreq: "weekly", priority: "0.5" });
 
     const [events, venueUrls, dancerRows, organiserUrls, teacherIds] = await Promise.all([
       fetchEvents(),
