@@ -19,6 +19,13 @@ export const festivalEventQueryKey = (eventId: string) => ['festival-event', eve
 export async function fetchFestivalEventRow(
   eventId: string,
 ): Promise<Record<string, unknown> | null> {
+  // M2: Try P5-native first (handles pure-P5 events which have no legacy row at all).
+  // Pure-P5 series are now the primary case; legacy-only bookmarks fall back below.
+  const p5Result = await fetchFestivalEventRowFromP5(eventId);
+  if (p5Result) return p5Result;
+
+  // Legacy fallback: handles old festival bookmarks during M2 cutover.
+  // Will be removed at Stage E when legacy events table is dropped.
   const { data, error } = await supabase
     .from('events')
     .select(FESTIVAL_EVENT_SELECT)
@@ -26,9 +33,7 @@ export async function fetchFestivalEventRow(
     .eq('type', 'festival')
     .maybeSingle();
   if (error) throw error;
-  if (data) return data as Record<string, unknown>;
-  // Legacy miss is NOT proof of absence any more -- see below.
-  return fetchFestivalEventRowFromP5(eventId);
+  return data as Record<string, unknown> | null;
 }
 
 // M2 fallback. A PURE-P5 series (event_series_p5.legacy_event_id IS NULL) has no

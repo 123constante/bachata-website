@@ -90,6 +90,41 @@ const VendorDetail = () => {
         return;
       }
 
+      // M2: Try P5-native event lookups first (handles pure-P5 events with no legacy row).
+      let mapped: Array<{ id: string; name: string }> = [];
+      
+      try {
+        // Attempt batch lookup via P5 (or fallback to individual RPC calls)
+        const p5Results = await Promise.all(
+          eventIds.map(async (eventId) => {
+            try {
+              const { data: p5Data } = await supabase.rpc('event_view_p5', {
+                p_target: { series_id: eventId },
+                p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+              });
+              const eventName = (p5Data as any)?.event?.name as string | undefined;
+              return {
+                id: eventId,
+                name: eventName || eventId,
+              };
+            } catch {
+              return { id: eventId, name: eventId };
+            }
+          })
+        );
+        
+        mapped = p5Results.filter((item): item is { id: string; name: string } => !!item?.id);
+        
+        // If P5 lookups produced results, use them
+        if (mapped.length > 0) {
+          setEventItems(mapped);
+          return;
+        }
+      } catch {
+        // P5 fallback below
+      }
+
+      // Legacy fallback: for old event IDs during M2 cutover.
       const { data, error: eventsError } = await supabase
         .from("events")
         .select("id, name")
@@ -100,14 +135,14 @@ const VendorDetail = () => {
         return;
       }
 
-      const mapped = data
+      const legacyMapped = data
         .filter((item: any) => item?.id)
         .map((item: any) => ({
           id: String(item.id),
           name: typeof item.name === "string" && item.name.trim().length > 0 ? item.name.trim() : String(item.id),
         }));
 
-      const mapById = new Map(mapped.map((item) => [item.id, item]));
+      const mapById = new Map(legacyMapped.map((item) => [item.id, item]));
       setEventItems(eventIds.map((eventId) => mapById.get(eventId) || { id: eventId, name: eventId }));
     };
 
