@@ -33,21 +33,10 @@ const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
 const Cities = lazyWithRetry(() => import("../pages/Cities"));
-const CreateProfile = lazyWithRetry(() => import("../pages/CreateProfile"));
-const CreateOrganiserProfile = lazyWithRetry(() => import("../pages/CreateOrganiserProfile"));
-const CreateVideographerProfile = lazyWithRetry(() => import("../pages/CreateVideographerProfile"));
-const VendorDashboardPage = lazyWithRetry(() => import("../pages/VendorDashboardPage"));
-const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
-const Onboarding = lazyWithRetry(() => import("../pages/Onboarding"));
-const Profile = lazyWithRetry(() => import("../pages/Profile"));
-const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
-const EditProfile = lazyWithRetry(() => import("../pages/EditProfile"));
-const EditEvent = lazyWithRetry(() => import("../pages/EditEvent"));
-const CreateEvent = lazyWithRetry(() => import("../pages/CreateEvent"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
@@ -163,65 +152,12 @@ export const AnimatedRoutes = () => {
                 Vibe F, compact density, strong-button treatment, RaffleBlock B,
                 CoverBlock) all promoted into the real /event/:id page. */}
 
-            {/* Protected Routes */}
-            <Route path="/create-dancers-profile" element={
-              <AuthGuard>
-                <PageTransition><CreateProfile /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/create-organiser-profile" element={
-              <AuthGuard>
-                <PageTransition><CreateOrganiserProfile /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/create-videographer-profile" element={
-              <AuthGuard>
-                <PageTransition><CreateVideographerProfile /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/profile" element={
-              <AuthGuard>
-                <PageTransition><Profile /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/my-attendance" element={
-              <AuthGuard>
-                <PageTransition><MyAttendance /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/dashboard/vendor" element={
-              <AuthGuard>
-                <PageTransition><Navigate to="/profile?role=vendor" replace /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/vendor-dashboard/edit" element={
-              <AuthGuard>
-                <PageTransition><VendorDashboardPage /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/edit-profile" element={
-              <AuthGuard>
-                <PageTransition><EditProfile /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/create-event" element={
-              <AuthGuard>
-                <PageTransition><CreateEvent /></PageTransition>
-              </AuthGuard>
-            } />
-            <Route path="/event/:id/edit" element={
-              <AuthGuard>
-                <PageTransition><EditEvent /></PageTransition>
-              </AuthGuard>
-            } />
+            {/* Website self-service routes (create-event, edit-event, create-profile,
+                edit-profile, onboarding, etc.) retired 2026-09-12. Public pages and
+                auth remain; use Admin editor (EventEditorV2) for organiser event creation. */}
 
             <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
             <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />
-            <Route path="/onboarding" element={
-              <AuthGuard>
-                <PageTransition><Onboarding /></PageTransition>
-              </AuthGuard>
-            } />
 
             <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
             <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />
