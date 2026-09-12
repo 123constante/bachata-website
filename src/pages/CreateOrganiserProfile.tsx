@@ -17,7 +17,15 @@ import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
+
 const CreateOrganiserProfile = () => {
+  useSeo({
+    title: 'Create organiser profile',
+    description: 'Create your organiser profile on Bachata Calendar.',
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();

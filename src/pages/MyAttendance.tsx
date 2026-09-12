@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 
 type AttendanceRow = {
   event_id: string;
@@ -98,6 +99,12 @@ const MyAttendance = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { citySlug } = useCity();
   const navigate = useNavigate();
+
+  useSeo({
+    title: 'My event attendance',
+    description: 'View the Bachata Calendar events you have marked as going or interested.',
+    noindex: true,
+  });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AttendanceCard[]>({
     queryKey: ['my-event-attendance', user?.id],

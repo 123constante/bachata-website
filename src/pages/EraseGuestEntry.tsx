@@ -20,6 +20,7 @@ import { useParams } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useSeo } from "@/lib/seo";
 
 type Phase = "loading" | "preview" | "consumed" | "invalid" | "erasing" | "done";
 
@@ -35,6 +36,12 @@ export default function EraseGuestEntry() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [entry, setEntry] = useState<EntryPreview | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useSeo({
+    title: "Erase guest entry data",
+    description: "Securely erase your data from a Bachata Calendar event sign-up.",
+    noindex: true,
+  });
 
   useEffect(() => {
     if (!token) {

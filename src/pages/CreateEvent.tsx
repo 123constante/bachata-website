@@ -27,6 +27,7 @@ import { ScrollReveal } from '@/components/ScrollReveal';
 import { validateImageFile } from '@/lib/upload-validation';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 
 const cleanString = (str: string | undefined | null) => {
   if (!str) return null;
@@ -91,6 +92,12 @@ const CreateEvent = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+
+  useSeo({
+    title: 'Create an event',
+    description: 'Create a Bachata Calendar event for your dance community.',
+    noindex: true,
+  });
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),

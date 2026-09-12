@@ -65,7 +65,7 @@ const WHATSAPP = 'WhatsApp/2.23.20.0';
 async function get(
   path: string,
   ua: string,
-): Promise<{ status: number; next: string | null; body: string }> {
+): Promise<{ status: number; next: string | null; robots: string | null; body: string }> {
   const res = await middleware(
     new Request(`https://www.bachatacalendar.co.uk${path}`, { headers: { 'user-agent': ua } }),
   );
@@ -73,7 +73,12 @@ async function get(
   // with a ZERO-LENGTH body (probed), so asserting only "no canonical in the
   // body" passes by ABSENCE -- it would hold just as well for an empty error
   // response. The header is the positive fact.
-  return { status: res.status, next: res.headers.get('x-middleware-next'), body: await res.text() };
+  return {
+    status: res.status,
+    next: res.headers.get('x-middleware-next'),
+    robots: res.headers.get('x-robots-tag'),
+    body: await res.text(),
+  };
 }
 
 const canonicalOf = (html: string): string | null => {
@@ -156,15 +161,17 @@ describe('the rest of the city rule is unchanged', () => {
     expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/');
   });
 
-  it('still puts an unknown city subpath on the homepage canonical', async () => {
-    // The bot-facing soft-404 this leaves open is queued, not fixed here.
-    const { body } = await get('/city/london-gb/not-a-route', GOOGLEBOT);
-    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/');
+  it('returns a noindex 404 for an unknown city subpath', async () => {
+    const { body, status, robots } = await get('/city/london-gb/not-a-route', GOOGLEBOT);
+    expect(status).toBe(404);
+    expect(robots).toBe('noindex');
+    expect(body).toContain('<title>Not found</title>');
   });
 
-  it('does not treat a deeper path as the map page', async () => {
-    const { body } = await get('/city/london-gb/map/anything', GOOGLEBOT);
-    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/');
-    expect(titleOf(body)).toBe('Bachata in London');
+  it('returns a noindex 404 for a deeper city path', async () => {
+    const { body, status, robots } = await get('/city/london-gb/map/anything', GOOGLEBOT);
+    expect(status).toBe(404);
+    expect(robots).toBe('noindex');
+    expect(body).toContain('<title>Not found</title>');
   });
 });

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { buildSeoForRoute, useSeo } from '@/lib/seo';
 
 
 const roleColors: Record<string, string> = {
@@ -16,6 +17,7 @@ const roleColors: Record<string, string> = {
 };
 
 export default function AllProfiles() {
+  useSeo(buildSeoForRoute('allProfiles'));
   const { data: profiles, isLoading, error } = useAllProfiles();
 
   if (isLoading) {

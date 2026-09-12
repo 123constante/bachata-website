@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { Upload, Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -83,6 +84,12 @@ const eventSchema = z.object({
 type EventFormData = z.infer<typeof eventSchema>;
 
 const EditEvent = () => {
+  useSeo({
+    title: 'Edit an event',
+    description: 'Edit a Bachata Calendar event for your dance community.',
+    noindex: true,
+  });
+
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

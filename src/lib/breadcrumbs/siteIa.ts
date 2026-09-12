@@ -58,6 +58,7 @@ export const SITE_IA = {
   profile:          { label: 'Profile',           path: '/profile' },
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
+  notFound:         { label: 'Page not found' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,

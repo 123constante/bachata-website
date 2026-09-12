@@ -46,6 +46,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 const VENDOR_DASHBOARD_BREADCRUMBS = buildBreadcrumbs('profile.vendorDashboard');
 
 const emptyForm: VendorDashboardFormState = {
@@ -180,6 +181,12 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
   const { toast } = useToast();
   const { citySlug } = useCity();
   const [searchParams] = useSearchParams();
+
+  useSeo({
+    title: 'Vendor dashboard',
+    description: 'Manage your Bachata Calendar vendor profile and listings.',
+    noindex: true,
+  });
 
   const [form, setForm] = useState<VendorDashboardFormState>(emptyForm);
   const [fetchingVendor, setFetchingVendor] = useState(true);

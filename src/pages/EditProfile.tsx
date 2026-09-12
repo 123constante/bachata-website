@@ -36,6 +36,7 @@ import {
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 const EDIT_PROFILE_BREADCRUMBS = buildBreadcrumbs('profile.edit');
 const PARTNER_ROLES = ['Leader', 'Follower', 'Both'];
 const SEARCH_ROLES = ['Leader', 'Follower', 'Both'];
@@ -51,6 +52,12 @@ const GOALS = ['Social Dancing', 'Drills & Technique', 'Choreography', 'Competit
 // row's real shape comes from the generated Database types.
 
 const EditProfile = () => {
+  useSeo({
+    title: 'Edit your profile',
+    description: 'Edit your Bachata Calendar profile and dance details.',
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();

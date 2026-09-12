@@ -4,9 +4,11 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { DiscountPartners } from '@/components/DiscountPartners';
 import { CommunitySpotlight } from '@/components/CommunitySpotlight';
+import { useCity } from '@/contexts/CityContext';
 
 const Discounts = () => {
-  useSeo(buildSeoForRoute('discounts'));
+  const { cityName } = useCity();
+  useSeo(buildSeoForRoute('discounts', { cityDisplay: cityName }));
 
   return (
     <GlobalLayout

@@ -210,9 +210,9 @@ async function fetchText(url) {
       // with this cancel, 6.123s without -- and that is localhost, where the
       // repo's "minutes" figure came from a real CDN.
       await r.body?.cancel();
-      return { ok: false, status: r.status, text: '' };
+      return { ok: false, status: r.status, text: '', headers: r.headers };
     }
-    return { ok: true, status: r.status, text: await r.text() };
+    return { ok: true, status: r.status, text: await r.text(), headers: r.headers };
   } finally {
     clearTimeout(t);
   }
@@ -334,17 +334,19 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
   const h1Count = (html.match(/<h1[\s>]/g) ?? []).length;
   if (h1Count < 1) failures.push('no <h1> in server HTML (skeleton/shell render?)');
 
-  // noindex: never expected on sampled pages. Deliberately the ORIGINAL loose
-  // form -- it matches "noindex" anywhere after name="robots", so it catches
-  // content='noindex' and bare content=noindex as well as the quoted case.
-  // A rewrite into a name/content attribute-order pair looked like a widening
-  // and was in fact a NARROWING (it required content="), measured in review:
-  // the two forms above started passing green. Reverted. The real gaps --
-  // reversed attribute order, content="none", name="googlebot", and the
-  // X-Robots-Tag response header, which fetchText discards entirely -- are
-  // queued as one widening in plans/queued-seo-og-guard-review-findings.md
-  // rather than patched in piecemeal here.
-  if (/<meta[^>]+name="robots"[^>]+noindex/i.test(html)) failures.push('unexpected noindex');
+  // noindex: never expected on sampled pages. Inspect each robots meta tag so
+  // attribute order and quote style cannot change the verdict. `none` is also
+  // equivalent to noindex,nofollow under the robots meta convention.
+  const hasNoindexRobotsMeta = [...html.matchAll(/<meta\b[^>]*>/gi)].some((m) => {
+    const tag = m[0];
+    const name = tag.match(/\bname\s*=\s*(["']?)([^\s"'>]+)\1/i)?.[2]?.toLowerCase();
+    if (name !== 'robots') return false;
+    const content = tag.match(/\bcontent\s*=\s*(["'])(.*?)\1/i)?.[2]
+      ?? tag.match(/\bcontent\s*=\s*([^\s>]+)/i)?.[1]
+      ?? '';
+    return /(?:^|[\s,])(?:noindex|none)(?:$|[\s,])/i.test(content);
+  });
+  if (hasNoindexRobotsMeta) failures.push('unexpected noindex');
 
   // JSON-LD. `b &&` is load-bearing: a block of literal `null` parses to null,
   // and reading .__parseError off it threw a TypeError that killed the whole
@@ -430,6 +432,13 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
   return { failures, warns };
 }
 
+function hasNoindexRobotsHeader(headers) {
+  const value = typeof headers?.get === 'function'
+    ? headers.get('x-robots-tag')
+    : headers?.['x-robots-tag'] ?? headers?.['X-Robots-Tag'];
+  return typeof value === 'string' && /(?:^|[\s,])(?:noindex|none)(?:$|[\s,])/i.test(value);
+}
+
 // `measured` means ASSERTIONS RAN on this page -- it is set on the auditHtml
 // path and nowhere else. A non-200 returns measured:false: nothing about that
 // page's SEO surface was checked, so counting it toward the floors would
@@ -447,7 +456,7 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
 // The fetcher is injectable so the canary can drive this mapping -- the single
 // assignment every floor rests on -- through all three outcomes without a
 // network. Nothing else passes the third argument.
-async function checkPage(path, { isEvent = false, minEventLinks = 0 } = {}, fetcher = fetchText) {
+async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = STRICT } = {}, fetcher = fetchText) {
   const url = `${BASE}${path}`;
   const unmeasured = { path, measured: false, eventAsserted: false, linkPageChecked: false };
 
@@ -456,7 +465,7 @@ async function checkPage(path, { isEvent = false, minEventLinks = 0 } = {}, fetc
     res = await fetcher(url);
   } catch (e) {
     const msg = `fetch failed: ${e?.message ?? e}`;
-    return STRICT
+    return strict
       ? { ...unmeasured, failures: [msg], warns: [] }
       : { ...unmeasured, failures: [], warns: [msg] };
   }
@@ -466,6 +475,7 @@ async function checkPage(path, { isEvent = false, minEventLinks = 0 } = {}, fetc
   }
 
   const { failures, warns } = auditHtml(path, res.text, { isEvent, minEventLinks });
+  if (hasNoindexRobotsHeader(res.headers)) failures.push('unexpected X-Robots-Tag noindex');
   return { path, measured: true, eventAsserted: isEvent, linkPageChecked: minEventLinks > 0, failures, warns };
 }
 
@@ -613,7 +623,14 @@ async function selfTest() {
   const okEvent = await checkPage('/event/x', { isEvent: true }, serve({ ok: true, status: 200, text: page({ jsonLd: eventLd() }) }));
   const okStatic = await checkPage('/parties', { minEventLinks: 3 }, serve({ ok: true, status: 200, text: page({ links: 3 }) }));
   const hard404 = await checkPage('/event/q', { isEvent: true }, serve({ ok: false, status: 404, text: '' }));
-  const threw = await checkPage('/faq', {}, async () => { throw new Error('socket hang up'); });
+  const threw = await checkPage('/faq', { strict: false }, async () => { throw new Error('socket hang up'); });
+  const threwStrict = await checkPage('/faq', { strict: true }, async () => { throw new Error('socket hang up'); });
+  const headerNoindex = await checkPage('/faq', {}, serve({
+    ok: true,
+    status: 200,
+    text: page(),
+    headers: new Headers({ 'X-Robots-Tag': 'noindex, nofollow' }),
+  }));
 
   const cases = [
     // --- auditHtml: the regressions this guard exists for ---
@@ -643,6 +660,12 @@ async function selfTest() {
       fails(page() + "<meta name=\"robots\" content='noindex'>", {}, 'unexpected noindex')],
     ['fires: noindex, unquoted content (likewise)',
       fails(page() + '<meta name="robots" content=noindex>', {}, 'unexpected noindex')],
+    ['fires: noindex with reversed attribute order',
+      fails(page() + '<meta content="noindex" name="robots">', {}, 'unexpected noindex')],
+    ['fires: robots content="none" is also noindex',
+      fails(page() + '<meta name="robots" content="none">', {}, 'unexpected noindex')],
+    ['fires: a 200 page with X-Robots-Tag noindex',
+      headerNoindex.failures.some((f) => f.includes('X-Robots-Tag noindex'))],
     ['silent boundary: an explicit index,follow robots tag',
       clean(page() + '<meta name="robots" content="index, follow">', {})],
     ['fires: event page with no Event JSON-LD node',
@@ -851,15 +874,9 @@ async function selfTest() {
     // the event sample was raised to 4. Deleting the retired probe's case took
     // with it the only case that asserted an unmeasured page can be non-fatal.
     //
-    // STRICT is read once at module scope, so a fixture cannot flip it. This
-    // asserts whichever arm is live rather than short-circuiting on it: a case
-    // that passes vacuously under STRICT would be unkillable, which is why two
-    // such cases were deleted from this battery already. Driving BOTH arms needs
-    // STRICT injectable on checkPage -- queued, not done here.
-    ['checkPage: a thrown fetch is a WARN by default and a FAILURE under STRICT -- the warn arm is what the sample slack rests on',
-      STRICT
-        ? (threw.failures.length === 1 && threw.warns.length === 0)
-        : (threw.failures.length === 0 && threw.warns.length === 1)],
+    ['checkPage: a thrown fetch is a WARN by default and a FAILURE under STRICT -- both arms are exercised',
+      threw.failures.length === 0 && threw.warns.length === 1
+        && threwStrict.failures.length === 1 && threwStrict.warns.length === 0],
 
     // --- parseSitemapSample: the coverage the sitemap floor is fed ---
     ['sitemap: samples per prefix, returning what it actually took',

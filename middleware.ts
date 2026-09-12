@@ -12,6 +12,7 @@ import { truncate } from './app/truncate';
 // can be imported by the Edge bundle AND covered by a spec (app/cityCanonical.test.ts).
 // Importing middleware.ts from a test is not an option -- it pulls in @vercel/edge.
 import {
+  CLEAN_LISTINGS,
   cityCanonicalPath,
   citySelfCanonicalListing,
   citySubpageSeo,
@@ -370,6 +371,23 @@ export default async function middleware(request: Request): Promise<Response> {
       // serves dist/index.html) rather than the thin city skeleton; social bots
       // still get the OG card so link previews keep working.
       if (isBareCity && isSearchBot) return next();
+      const listing = segments[2];
+      const knownCitySubpath = listing === 'calendar'
+        || CLEAN_LISTINGS.has(listing)
+        || citySelfCanonicalListing(segments) !== null;
+      if (!isBareCity && !knownCitySubpath) {
+        return new Response(
+          `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Not found</title><meta name="robots" content="noindex"></head><body><p>Not found.</p></body></html>`,
+          {
+            status: 404,
+            headers: {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Cache-Control': 'public, max-age=0, s-maxage=300',
+              'X-Robots-Tag': 'noindex',
+            },
+          },
+        );
+      }
       // /city/:slug/map is a DISTINCT page (src/pages/CityMap.tsx, routed at
       // AnimatedRoutes.tsx), not a city-prefixed duplicate of a clean listing,
       // and it already declares itself canonical client-side via useSeo. Until

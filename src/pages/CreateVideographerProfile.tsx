@@ -17,7 +17,15 @@ import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
+
 const CreateVideographerProfile = () => {
+  useSeo({
+    title: 'Create videographer profile',
+    description: 'Create your videographer profile on Bachata Calendar.',
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();

@@ -38,6 +38,7 @@ import { normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 import {
     FAVORITE_STYLE_OPTIONS,
     PARTNER_PRACTICE_GOAL_OPTIONS,
@@ -544,6 +545,12 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 const CreateProfile = () => {
+    useSeo({
+        title: 'Create your profile',
+        description: 'Create your Bachata Calendar dancer profile and dance details.',
+        noindex: true,
+    });
+
   const navigate = useNavigate();
     const location = useLocation();
   const { user } = useAuth();

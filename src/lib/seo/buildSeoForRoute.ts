@@ -29,6 +29,7 @@ interface Spec {
   description: (ctx: SeoContext) => string;
   path: (ctx: SeoContext) => string;
   ogType?: 'website' | 'article' | 'profile';
+  noindex?: boolean;
 }
 
 const SPECS: Record<string, Spec> = {
@@ -91,18 +92,7 @@ const SPECS: Record<string, Spec> = {
     path: () => '/dancers',
   },
   discounts: {
-    // Must not collide with the `organisers` spec above, which is the SAME
-    // two words -- two indexed pages competing on one title. /organisers is
-    // every organiser; this route is the subset with a date up.
-    //
-    // Deliberately NOT city-interpolated: Discounts.tsx passes no SeoContext,
-    // so `city(c)` resolves to the default on every route, including the live
-    // /city/:slug/discounts -- it would print "in London" for whatever city
-    // the URL actually names. The same limit applies to the description below,
-    // which is left as-is only because London is the one active city in the
-    // catalog today; both need the context threaded through before either can
-    // name a city truthfully. Flagged here rather than half-fixed.
-    title: () => `Bachata Organisers With Upcoming Events`,
+    title: (c) => `Bachata Organisers With Upcoming Events in ${city(c)}`,
     description: (c) => `Bachata organisers with events coming up in ${city(c)} - no membership or discount programme exists yet.`,
     path: () => '/discounts',
   },
@@ -110,6 +100,12 @@ const SPECS: Record<string, Spec> = {
     title: (c) => `Bachata Practice Partners in ${city(c)}`,
     description: (c) => `Find a bachata practice partner in ${city(c)} - between classes, between socials, between levels.`,
     path: () => '/practice-partners',
+    noindex: true,
+  },
+  raffles: {
+    title: () => `Win Your Next Night Free - Bachata Raffles`,
+    description: () => `Enter our raffles for a chance to win free bachata tickets and event passes. See who's entered, what's at stake, and when draws happen.`,
+    path: () => '/raffles',
   },
   videographers: {
     title: () => `Bachata Videographers`,
@@ -131,10 +127,17 @@ const SPECS: Record<string, Spec> = {
     description: () => `Bachata Calendar coverage by city - pick yours.`,
     path: () => '/cities',
   },
+  allProfiles: {
+    title: () => `All Bachata Profiles`,
+    description: () => `Browse bachata dancers, teachers, DJs, organisers, vendors and videographers.`,
+    path: () => '/all-profiles',
+    noindex: true,
+  },
   search: {
     title: () => `Search`,
     description: (c) => `Search Bachata Calendar - events, venues, teachers, organisers and DJs across ${city(c)}.`,
     path: () => '/search',
+    noindex: true,
   },
 
   'event.detail': {
@@ -211,6 +214,6 @@ export function buildSeoForRoute(routeId: string, ctx: SeoContext = {}): SeoInpu
     canonical: ctx.canonicalPath ? abs(ctx.canonicalPath) : abs(spec.path(ctx)),
     ogImage: ctx.ogImage ?? undefined,
     ogType: spec.ogType ?? 'website',
-    noindex,
+    noindex: spec.noindex || noindex,
   };
 }

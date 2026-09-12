@@ -7,9 +7,9 @@
 // only mounts when the page is live.
 // =============================================================================
 
-import { useEffect } from 'react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { useOpenRaffles, useRaffleStats } from '@/hooks/useOpenRaffles';
 import RaffleHero from '@/components/raffles/RaffleHero';
 import OpenRafflesGrid from '@/components/raffles/OpenRafflesGrid';
@@ -17,9 +17,7 @@ import { HowItWorks, JackpotCounter, OrganiserCTA } from '@/components/raffles/R
 import '@/pages/Raffles.css';
 
 const Raffles = () => {
-  useEffect(() => {
-    document.title = 'Raffles — Win your next night free | Bachata Calendar';
-  }, []);
+  useSeo(buildSeoForRoute('raffles'));
 
   const { data: raffles, isLoading, isError } = useOpenRaffles();
   const { data: stats } = useRaffleStats();

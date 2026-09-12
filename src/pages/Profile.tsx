@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { useSeo } from '@/lib/seo';
 const LAST_ACTIVE_ROLE_KEY = 'profile_last_active_role';
 
 const Profile = () => {
@@ -20,6 +21,12 @@ const Profile = () => {
     const [activeRole, setActiveRole] = useState<UserRole>('dancer');
     const [isSignOutOpen, setIsSignOutOpen] = useState(false);
     const [isSigningOut, setIsSigningOut] = useState(false);
+
+    useSeo({
+        title: 'Your profile',
+        description: 'Manage your Bachata Calendar profile and account settings.',
+        noindex: true,
+    });
     
     // Determine available roles. The dancer slot is gated on the profile being
     // SET UP, not merely present: the signup trigger mints a stub for everyone,

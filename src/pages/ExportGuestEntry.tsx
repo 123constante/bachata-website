@@ -13,6 +13,7 @@ import { useParams } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useSeo } from "@/lib/seo";
 
 interface EntryPayload {
   kind: "raffle" | "guest_list";
@@ -35,6 +36,12 @@ export default function ExportGuestEntry() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [entry, setEntry] = useState<EntryPayload | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useSeo({
+    title: "Export guest entry data",
+    description: "Securely view the data held for your Bachata Calendar event sign-up.",
+    noindex: true,
+  });
 
   useEffect(() => {
     if (!token) {

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { useSeo } from "@/lib/seo";
 
 const RECOVERY_LINKS = [
@@ -28,7 +29,7 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <GlobalLayout breadcrumbs={[{ label: "Page not found" }]}>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs("notFound")}>
       <div className="flex items-center justify-center min-h-[60vh] px-4 pb-24">
         <div className="text-center">
           <h1 className="mb-2 text-4xl font-bold">404</h1>
