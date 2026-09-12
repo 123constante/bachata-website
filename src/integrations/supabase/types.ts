@@ -2649,6 +2649,7 @@ export type Database = {
           music_styles: string[] | null
           occurrence_id: string
           organiser_ids: string[] | null
+          overridden_keys: string[]
           passes: Json | null
           promo_codes: Json | null
           ticket_url: string | null
@@ -2670,6 +2671,7 @@ export type Database = {
           music_styles?: string[] | null
           occurrence_id: string
           organiser_ids?: string[] | null
+          overridden_keys?: string[]
           passes?: Json | null
           promo_codes?: Json | null
           ticket_url?: string | null
@@ -2691,6 +2693,7 @@ export type Database = {
           music_styles?: string[] | null
           occurrence_id?: string
           organiser_ids?: string[] | null
+          overridden_keys?: string[]
           passes?: Json | null
           promo_codes?: Json | null
           ticket_url?: string | null
@@ -2716,6 +2719,8 @@ export type Database = {
           lifecycle_status: string
           materialised_end_utc: string | null
           materialised_start_utc: string | null
+          occurred_confirmed_at: string | null
+          occurred_source: string | null
           occurrence_date: string
           occurrence_index: number | null
           series_id: string
@@ -2730,6 +2735,8 @@ export type Database = {
           lifecycle_status?: string
           materialised_end_utc?: string | null
           materialised_start_utc?: string | null
+          occurred_confirmed_at?: string | null
+          occurred_source?: string | null
           occurrence_date: string
           occurrence_index?: number | null
           series_id: string
@@ -2744,6 +2751,8 @@ export type Database = {
           lifecycle_status?: string
           materialised_end_utc?: string | null
           materialised_start_utc?: string | null
+          occurred_confirmed_at?: string | null
+          occurred_source?: string | null
           occurrence_date?: string
           occurrence_index?: number | null
           series_id?: string
@@ -4859,6 +4868,32 @@ export type Database = {
           purge_reason?: string
         }
         Relationships: []
+      }
+      guest_list_close_notified_v1: {
+        Row: {
+          cutoff_dt: string
+          event_id: string
+          notified_at: string
+        }
+        Insert: {
+          cutoff_dt: string
+          event_id: string
+          notified_at?: string
+        }
+        Update: {
+          cutoff_dt?: string
+          event_id?: string
+          notified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_close_notified_v1_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guest_list_standing_exclusions: {
         Row: {
@@ -8681,6 +8716,9 @@ export type Database = {
         Returns: number
       }
       _arc_gates_internal_counts_v1: { Args: never; Returns: Json }
+      _arc_gates_mirror_lookalike_v1: { Args: never; Returns: string }
+      _arc_gates_prose_police_v1: { Args: { p_roots: Json }; Returns: string }
+      _arc_gates_vacuity_verdict_v1: { Args: { p_counts: Json }; Returns: Json }
       _assert_can_edit_occurrence_p5: {
         Args: { p_actor: string; p_occurrence_id: string }
         Returns: undefined
@@ -8744,6 +8782,10 @@ export type Database = {
       }
       _cmd_series_remove_date_p5: {
         Args: { p_actor_id: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
+      _cmd_series_restore_ended_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
       _cmd_series_set_lifecycle_p5: {
@@ -9064,6 +9106,27 @@ export type Database = {
         Args: { p_field: string; p_value: Json }
         Returns: string[]
       }
+      _occurrence_override_key_set_p5: {
+        Args: {
+          p_cancellation_reason_label: string
+          p_city_id: string
+          p_cover_image_url: string
+          p_custom_local_end_time: string
+          p_custom_local_start_time: string
+          p_description: string
+          p_featured: boolean
+          p_gallery: string[]
+          p_level: string
+          p_music_styles: string[]
+          p_organiser_ids: string[]
+          p_passes: Json
+          p_promo_codes: Json
+          p_ticket_url: string
+          p_title: string
+          p_venue_id: string
+        }
+        Returns: string[]
+      }
       _occurrence_override_owns_p5: {
         Args: {
           ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
@@ -9180,6 +9243,10 @@ export type Database = {
           headline_end: string
           headline_start: string
         }[]
+      }
+      _p5_occurrence_has_view_evidence_v1: {
+        Args: { p_legacy_occurrence_id: string; p_occurrence_id: string }
+        Returns: boolean
       }
       _p5_occurrence_program_end_v1: {
         Args: { p_occurrence_id: string }
@@ -9722,6 +9789,7 @@ export type Database = {
           incomplete_profiles_count: number
           last_event_audit_at: string
           published_events_count: number
+          today_events_count: number
           upcoming_events_count: number
         }[]
       }
@@ -12919,6 +12987,16 @@ export type Database = {
         }[]
       }
       get_venue_detail: { Args: { p_venue_id: string }; Returns: Json }
+      guest_list_claim_close_notify_candidates_v1: {
+        Args: never
+        Returns: {
+          cutoff_dt: string
+          entries: Json
+          event_id: string
+          event_name: string
+          start_local_date: string
+        }[]
+      }
       idempotency_claim: {
         Args: { p_key: string; p_request_hash: string }
         Returns: boolean
@@ -13010,7 +13088,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: {
           id: string
-          slug: string | null
+          slug: string
           updated_at: string
         }[]
       }
@@ -13692,6 +13770,7 @@ export type Database = {
         Args: { p_id: string; p_name: string }
         Returns: string
       }
+      stamp_occurrence_occurred_evidence_v1: { Args: never; Returns: Json }
       stash_local_as_utc: {
         Args: { p_date: string; p_time: string }
         Returns: string
