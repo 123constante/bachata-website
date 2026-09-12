@@ -786,25 +786,23 @@ export const DancerDashboard = () => {
     const timeoutId = setTimeout(async () => {
       setIsSearchingEvents(true);
       try {
-        let query = supabase
-          .from('events')
-          .select('id, name, date, city, type, city_slug')
-          .ilike('name', `%${term}%`)
-          .eq('lifecycle_status', 'published')
-          .order('date', { ascending: true })
-          .limit(8);
+        // M2: Use P5-native search_public_v4 RPC (handles both legacy and pure-P5 events)
+        const { data, error } = await supabase.rpc('search_public_v4', {
+          p_search_term: term,
+          p_limit: 8,
+        });
 
-        if (citySlug) {
-          query = query.eq('city_slug', citySlug);
-        }
-
-        const { data, error } = await query;
         if (error) throw error;
 
         const selectedIds = new Set(selectedEvents.map((item) => item.event_id));
-        const result = ((data || []) as AttendanceSearchResult[])
+        let result = ((data || []) as AttendanceSearchResult[])
           .filter((item) => !isFestivalType(item.type))
           .filter((item) => !selectedIds.has(item.id));
+
+        // Client-side city filtering (P5 RPC doesn't filter by city_slug)
+        if (citySlug) {
+          result = result.filter((item) => item.city_slug === citySlug);
+        }
 
         setEventSearchResults(result);
       } catch (error) {
@@ -827,24 +825,24 @@ export const DancerDashboard = () => {
     const timeoutId = setTimeout(async () => {
       setIsSearchingFestivals(true);
       try {
-        let query = supabase
-          .from('events')
-          .select('id, name, date, city, type, city_slug')
-          .ilike('name', `%${term}%`)
-          .eq('lifecycle_status', 'published')
-          .eq('type', 'festival')
-          .order('date', { ascending: true })
-          .limit(8);
+        // M2: Use P5-native search_public_v4 RPC (handles both legacy and pure-P5 festivals)
+        const { data, error } = await supabase.rpc('search_public_v4', {
+          p_search_term: term,
+          p_limit: 8,
+        });
 
-        if (citySlug) {
-          query = query.eq('city_slug', citySlug);
-        }
-
-        const { data, error } = await query;
         if (error) throw error;
 
         const selectedIds = new Set(selectedFestivals.map((item) => item.event_id));
-        const result = ((data || []) as AttendanceSearchResult[]).filter((item) => !selectedIds.has(item.id));
+        let result = ((data || []) as AttendanceSearchResult[])
+          .filter((item) => isFestivalType(item.type))
+          .filter((item) => !selectedIds.has(item.id));
+
+        // Client-side city filtering (P5 RPC doesn't filter by city_slug)
+        if (citySlug) {
+          result = result.filter((item) => item.city_slug === citySlug);
+        }
+
         setFestivalSearchResults(result);
       } catch (error) {
         captureException(error, { context: 'DancerDashboard.festivalSearch' });
