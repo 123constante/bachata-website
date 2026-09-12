@@ -33,6 +33,7 @@ const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
 const Cities = lazyWithRetry(() => import("../pages/Cities"));
+const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
