@@ -7,6 +7,8 @@
  * The caller stringifies and inlines via dangerouslySetInnerHTML.
  */
 
+import { EVENT_ATTENDANCE_MODE_OFFLINE } from './claims';
+
 export type EventJsonLdInput = {
   name: string;
   url: string;
@@ -56,7 +58,7 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
     eventStatus: e.isCancelled
       ? 'https://schema.org/EventCancelled'
       : 'https://schema.org/EventScheduled',
-    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventAttendanceMode: EVENT_ATTENDANCE_MODE_OFFLINE,
   };
 
   if (e.endDate) node.endDate = e.endDate;

@@ -1,5 +1,6 @@
 import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
+import { BREADCRUMB_HOME_LABEL } from '@/lib/claims';
 
 /**
  * Schema.org BreadcrumbList JSON-LD payload.
@@ -41,7 +42,7 @@ export interface BuildJsonLdInput {
 }
 
 export function buildBreadcrumbListJsonLd(input: BuildJsonLdInput): BreadcrumbListJsonLd {
-  const { crumbs, origin, currentUrl, homeLabel = 'Home' } = input;
+  const { crumbs, origin, currentUrl, homeLabel = BREADCRUMB_HOME_LABEL } = input;
   const itemListElement: BreadcrumbListJsonLd['itemListElement'] = [];
 
   // Position 1 — Home (always present, always the origin).

@@ -12,6 +12,7 @@ import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { eventHref } from '@/lib/seo/eventHref';
 import { type WallClock, wallClockToInstant } from '@/lib/time/wallClock';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
+import { EVENT_ATTENDANCE_MODE_OFFLINE } from '@/lib/claims';
 
 // The stored clock is local-as-UTC; converting with Europe/London yields the
 // true instant Google needs (a raw stamp is +1h in BST AND invalid ISO 8601 --
@@ -99,7 +100,7 @@ export const buildEventListJsonLd = ({
       eventStatus: e.is_cancelled
         ? 'https://schema.org/EventCancelled'
         : 'https://schema.org/EventScheduled',
-      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      eventAttendanceMode: EVENT_ATTENDANCE_MODE_OFFLINE,
     };
     if (description) event.description = description;
 
