@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
-import { captureException, isSentryEnabled, setSentryUser } from "@/lib/sentry";
 import {
   startAuthResolution,
   AUTH_RESOLVE_TIMEOUT_MS,
@@ -71,17 +70,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       onStatus: setAuthStatus,
       // The context is passed through rather than fixed, because these failures
       // are no longer one thing: a chunk that would not load and an auth
-      // endpoint that would not answer group separately in Sentry, and the
+      // endpoint that would not answer group separately, and the
       // reader needs to know which one is happening.
-      onError: (err, context) => captureException(err, { context }),
+      onError: (err, context) => {
+        // eslint-disable-next-line no-console
+        console.error('useAuth error:', err, { context });
+      },
     });
     return handle.cancel;
   }, [attempt]);
 
   useEffect(() => {
     if (!isSentryEnabled()) return;
-    setSentryUser(user ? { id: user.id } : null);
-  }, [user]);
+      }, [user]);
 
   const retryAuth = useCallback(() => {
     setAuthStatus("resolving");
@@ -110,8 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       // Nothing local changed and no request was sent: the user is still signed
       // in, and must be told so.
-      captureException(err, { context: "AuthProvider.signOut.getSupabase" });
-      return "failed";
+            return "failed";
     }
 
     /* BOTH failure shapes, one path. supabase-js normally RESOLVES with { error },
@@ -126,8 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       error = err;
     }
     if (!error) return "signed-out";
-    captureException(error, { context: "AuthProvider.signOut" });
-
+    
     /* The global revoke did not land. Clearing the LOCAL session is a different
      * operation -- storage, not network -- so it can still succeed, and on a
      * shared device it is the half that actually protects the user. Wrapped
@@ -137,12 +136,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { error: localError } = await supabase.auth.signOut({ scope: "local" });
       if (localError) {
-        captureException(localError, { context: "AuthProvider.signOut.local" });
-        return "failed";
+                return "failed";
       }
     } catch (err) {
-      captureException(err, { context: "AuthProvider.signOut.local" });
-      return "failed";
+            return "failed";
     }
     return "signed-out-locally";
   };

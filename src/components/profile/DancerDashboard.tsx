@@ -23,7 +23,6 @@ import { buildCityPath } from '@/lib/cityPath';
 import { useToast } from '@/hooks/use-toast';
 import { setAttendanceRpc } from '@/hooks/useAttendance';
 import { supabase } from '@/integrations/supabase/client';
-import { captureException } from '@/lib/sentry';
 import type { Json } from '@/integrations/supabase/types';
 import { getPhotoUrl, parsePartnerDetails, type PartnerDetailsValue } from '@/lib/utils';
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
@@ -378,7 +377,7 @@ export const DancerDashboard = () => {
       try {
         const { data: dancer } = await supabase
           .from('dancer_profiles')
-          .select('*, cities!based_city_id(name)')
+          .select('id, first_name, surname, based_city_id, dance_role, website_url, avatar_url, nationality, instagram, facebook, whatsapp, cities!based_city_id(name), dancing_role_details(*)')
           // OWNERSHIP, not authorship -- the full note is on AuthGuard.
           .eq('id', user.id)
           .maybeSingle();
@@ -388,7 +387,15 @@ export const DancerDashboard = () => {
           return;
         }
 
-        const normalized = normalizeDancerRecord(dancer);
+        const roleDetails = Array.isArray(dancer.dancing_role_details)
+          ? dancer.dancing_role_details[0] ?? null
+          : dancer.dancing_role_details;
+        const normalized = normalizeDancerRecord({
+          ...dancer,
+          ...roleDetails,
+          photo_url: dancer.avatar_url,
+          website: dancer.website_url,
+        });
         setProfile({
           ...normalized,
           photo_url: getPhotoUrl(normalized.photo_url) || '',
@@ -429,8 +436,7 @@ export const DancerDashboard = () => {
         setSelectedEvents(normalizedRows.filter((item) => item.kind === 'events'));
         setSelectedFestivals(normalizedRows.filter((item) => item.kind === 'festivals'));
       } catch (error) {
-        captureException(error, { context: 'DancerDashboard.fetchData' });
-      } finally {
+              } finally {
         setIsLoading(false);
       }
     };
@@ -531,8 +537,7 @@ export const DancerDashboard = () => {
       } catch (error: any) {
         // Was swallowed unless the caller opted in, so a failing autosave looked
         // exactly like a successful one -- the failure mode this arc exists to end.
-        captureException(error, { context: 'DancerDashboard.persistPartnerAutosave' });
-        // The success arm checks the ticket and this one did not, so a stale
+                // The success arm checks the ticket and this one did not, so a stale
         // failure rolled back state a LATER save had already committed: toggle on
         // during a blip, tap a badge, and run 1's onError closed the editor and
         // set looking_for_partner false while run 2's success repainted it true --
@@ -806,8 +811,7 @@ export const DancerDashboard = () => {
 
         setEventSearchResults(result);
       } catch (error) {
-        captureException(error, { context: 'DancerDashboard.eventSearch' });
-      } finally {
+              } finally {
         setIsSearchingEvents(false);
       }
     }, 250);
@@ -845,8 +849,7 @@ export const DancerDashboard = () => {
 
         setFestivalSearchResults(result);
       } catch (error) {
-        captureException(error, { context: 'DancerDashboard.festivalSearch' });
-      } finally {
+              } finally {
         setIsSearchingFestivals(false);
       }
     }, 250);
@@ -907,16 +910,14 @@ export const DancerDashboard = () => {
         });
 
         if (metadataError) {
-          captureException(metadataError, { context: 'DancerDashboard.syncAuthMetadata' });
-        }
+                  }
       }
 
       applySavedProfile(saved, savedCity);
       setActiveEditor(null);
       toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
     } catch (error: any) {
-      captureException(error, { context: 'DancerDashboard.saveEditor' });
-      toast({ title: 'Error saving profile', description: error.message, variant: 'destructive' });
+            toast({ title: 'Error saving profile', description: error.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { captureException } from "@/lib/sentry";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { CityPicker } from "@/components/ui/city-picker";
 import { useToast } from "@/hooks/use-toast";
@@ -107,8 +106,7 @@ const Onboarding = () => {
       localStorage.removeItem("auth_last_email");
       localStorage.removeItem("profile_last_active_role");
     } catch (err: any) {
-      captureException(err, { context: "Onboarding.save" });
-      toast({ title: "Something went wrong", description: err?.message || "Please try again.", variant: "destructive" });
+            toast({ title: "Something went wrong", description: err?.message || "Please try again.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

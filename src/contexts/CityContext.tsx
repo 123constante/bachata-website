@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { useLocation } from "react-router-dom";
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
-import { captureException } from "@/lib/sentry";
 
 type CityContextValue = {
   citySlug: string | null;
@@ -58,8 +57,7 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
-        captureException(error, { context: "CityContext.isValidCitySlug.rpc", slug: normalized });
-        cityValidityCache.set(normalized, true);
+                cityValidityCache.set(normalized, true);
         return true;
       }
 
@@ -67,8 +65,7 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
       cityValidityCache.set(normalized, isValid);
       return isValid;
     } catch (error) {
-      captureException(error, { context: "CityContext.isValidCitySlug.catch", slug: normalized });
-      cityValidityCache.set(normalized, true);
+            cityValidityCache.set(normalized, true);
       return true;
     }
   }, []);

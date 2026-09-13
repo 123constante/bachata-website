@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { buildFullName, getInitials } from "@/lib/name-utils";
 import { optimizedImageUrl } from '@/lib/imageCdn';
-import { captureException } from '@/lib/sentry';
 
 interface Dancer {
   id: string;
@@ -52,8 +51,7 @@ export const CommunitySpotlight = () => {
       // nothing, which is the whole reason this branch exists; the strip just
       // stays empty, so there is no failure state left to track in React.
       if (error) {
-        captureException(error, { context: 'CommunitySpotlight.fetchDancers' });
-        return;
+                return;
       }
 
       setDancers(data ?? []);

@@ -19,7 +19,6 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
-
 import { useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
 
 import { VideoEmbed } from "@/components/VideoEmbed";
@@ -89,8 +88,6 @@ import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 
-
-
 type FestivalEvent = {
 
   id: string;
@@ -119,8 +116,6 @@ type FestivalEvent = {
 
 };
 
-
-
 type FestivalDetailInnerProps = {
 
   snapshot?: EventPageSnapshot | null;
@@ -142,8 +137,6 @@ type FestivalDetailInnerProps = {
   serverTodayKey?: string;
 
 };
-
-
 
 // ---------------------------------------------------------------------------
 
@@ -189,8 +182,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival *{box-sizing:border-box}
 
-
-
 /* HERO */
 
 .cinematic-festival .hero{min-height:auto;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;text-align:center;padding:0 24px 40px;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 50%,rgba(236,72,153,0.15) 0%,transparent 35%),radial-gradient(circle at 80% 30%,rgba(251,146,60,0.18) 0%,transparent 40%),radial-gradient(circle at 50% 80%,rgba(168,85,247,0.12) 0%,transparent 35%),#000}
@@ -200,7 +191,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .hero::after{content:'';position:absolute;inset:0;background:radial-gradient(circle,transparent 80%,rgba(0,0,0,0.6) 100%);pointer-events:none}
 
 /* Floating polaroid -- cover image */
-
 
 .lf-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.93);display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif}
 .lf-lb-img{max-width:92vw;max-height:80vh;object-fit:contain;border-radius:4px;box-shadow:0 24px 64px rgba(0,0,0,0.6)}
@@ -215,14 +205,6 @@ const CINEMATIC_CSS = `
 .lf-lb-thumb.active{border-color:#fb923c}
 .lf-lb-thumb.active img,.lf-lb-thumb:hover img{opacity:1}
 @media (max-width:760px){.lf-lb-nav{width:40px;height:40px;font-size:24px}.lf-lb-thumb{width:44px;height:44px}}
-
-
-
-
-
-
-
-
 
 @media (max-width:760px){
 
@@ -240,8 +222,6 @@ const CINEMATIC_CSS = `
 
 }
 
-
-
 .cinematic-festival .hero-pre{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:8px;color:#fb923c;margin-bottom:16px;position:relative;z-index:1}
 
 .cinematic-festival .hero-pre::before,.cinematic-festival .hero-pre::after{content:'';display:inline-block;width:40px;height:1px;background:#fb923c;vertical-align:middle;margin:0 16px}
@@ -252,8 +232,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .hero-tag{font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,2.4vw,26px);letter-spacing:8px;color:rgba(255,255,255,0.8);margin-top:16px;position:relative;z-index:1}
 
-
-
 /* Date line + days-away (P2 -- replaces the date tiles). Full-opacity white
    over the black hero ground -- the old 50%-alpha month label washed out over
    light poster regions. Wraps rather than clips if it ever exceeds the
@@ -262,8 +240,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .hero-dateline{font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,2.4vw,26px);line-height:1.3;letter-spacing:3px;color:#fff;margin-top:20px;position:relative;z-index:1;text-transform:uppercase}
 
 .cinematic-festival .hero-days-away{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#fb923c;margin-top:10px;position:relative;z-index:1}
-
-
 
 /* Hero CTA */
 
@@ -322,8 +298,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .cal-menu a .cal-arr{margin-left:auto;color:rgba(255,255,255,0.4);transition:transform .15s ease}
 
-
-
 /* ABOUT -- collapsible description */
 
 .cinematic-festival .about{padding:40px 24px;background:#0a0a0a;border-top:1px solid rgba(251,146,60,0.15);border-bottom:1px solid rgba(251,146,60,0.15)}
@@ -346,8 +320,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .about-toggle{margin-top:16px;background:#fb923c;border:1px solid #fb923c;color:#1a0a10;padding:13px 34px;font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:13px;text-transform:uppercase;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 28px rgba(251,146,60,0.45)}
 
 .cinematic-festival .about-toggle:hover{background:#fff;border-color:#fff;color:#1a0a10;box-shadow:0 0 36px rgba(251,146,60,0.6)}
-
-
 
 /* LINEUP filmstrip */
 
@@ -408,8 +380,6 @@ const CINEMATIC_CSS = `
 .cinematic-festival .frame-style{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;color:#fb923c;text-transform:uppercase;margin-top:6px}
 
 .cinematic-festival .frame-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.2em;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-top:4px;padding:1px 6px;border:1px solid rgba(255,255,255,0.1)}
-
-
 
 /* PROGRAMME -- timeline grid */
 
@@ -558,8 +528,6 @@ const CINEMATIC_CSS = `
   .cinematic-festival .tl-ev:hover{transform:none;box-shadow:5px 5px 0 var(--tl-drop)}
 }
 
-
-
 /* VENUE + ORGANISER paired row */
 
 .cinematic-festival .vo{padding:40px 24px;background:#000;position:relative}
@@ -658,8 +626,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .o-stat:last-child::after{display:none}
 
-
-
 /* TICKETS */
 
 .cinematic-festival .tickets{padding:48px 24px;background:#000;text-align:center}
@@ -686,8 +652,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .end-cta .btn{font-size:14px;padding:16px 48px}
 
-
-
 .cinematic-festival footer{padding:32px 24px;background:#000;text-align:center;border-top:1px solid rgba(251,146,60,0.2)}
 
 .cinematic-festival footer .x{font-family:'Bebas Neue',sans-serif;color:rgba(255,255,255,0.4);text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -703,8 +667,6 @@ const CINEMATIC_CSS = `
   .cinematic-festival footer .x-name{letter-spacing:2px;font-size:12px}
 
 }
-
-
 
 /* Mobile breakpoints */
 
@@ -847,8 +809,6 @@ const CINEMATIC_CSS = `
 
 }
 
-
-
 /* === P6 hero subtitle (style + level) ==================== */
 
 .cinematic-festival .hero-subtitle{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.65);margin-top:14px;position:relative;z-index:1;text-align:center;line-height:1.6;padding:0 16px;max-width:680px}
@@ -860,19 +820,6 @@ const CINEMATIC_CSS = `
   .cinematic-festival .hero-subtitle{font-size:9px;letter-spacing:0.1em;padding:0 8px}
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .cinematic-festival .cal-cta{display:flex;justify-content:center;width:100%;margin-top:12px;position:relative;z-index:6}
 .cinematic-festival .cal-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.92);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.06em;padding:9px 16px;border-radius:99px;cursor:pointer;list-style:none;transition:border-color .2s,color .2s,background .2s}
@@ -889,9 +836,6 @@ const CINEMATIC_CSS = `
   
 
 }
-
-
-
 
 /* === Day picker ========================================== */
 
@@ -921,8 +865,6 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .day-tab:focus-visible{outline:3px solid #fb923c;outline-offset:3px}
 
-
-
 /* === P2 "What's included" bullets ======================== */
 
 .cinematic-festival .about-includes{margin:0 auto 18px;text-align:left;max-width:640px;display:grid;grid-template-columns:1fr;gap:8px 18px;padding:16px 18px;background:rgba(251,146,60,0.04);border:1px solid rgba(251,146,60,0.2)}
@@ -938,8 +880,6 @@ const CINEMATIC_CSS = `
   .cinematic-festival .about-includes{grid-template-columns:1fr 1fr}
 
 }
-
-
 
 /* === P10 FAQ ============================================= */
 
@@ -967,23 +907,9 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .faq details .faq-ans{padding:0 18px 16px;font-size:13px;line-height:1.65;color:rgba(255,255,255,0.72);white-space:pre-line}
 
-
-
 /* === Floating Add-to-Calendar FAB (Charcoal Stealth, P06 position) === */
 
-
-
-
-
-
-
-
-
-
-
 @media (max-width:760px){.cinematic-festival .cal-mobile-trigger{display:none}}
-
-
 
 /* Cal sheet portal: unscoped rules so a body-rendered portal still gets styled */
 
@@ -1016,8 +942,6 @@ const CINEMATIC_CSS = `
 .cal-sheet-cancel{margin-top:14px;width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer}
 
 .cal-sheet-cancel:hover{border-color:rgba(255,255,255,0.4);color:#fff}
-
-
 
 /* === Calendar bottom sheet (mobile) + desktop dropdown ============ */
 
@@ -1061,12 +985,9 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .cal-sheet-cancel:hover{border-color:rgba(255,255,255,0.4);color:#fff}
 
-
-
 /* === P11 venue extra photo strip ========================= */
 
 .cinematic-festival .v-photo-extra{height:72px;background-size:cover;background-position:center;border-top:1px solid rgba(251,146,60,0.2);background-color:#1a1a1a;filter:saturate(0.9)}
-
 
 /* === Neon Night: headliners grid + description rules (orange-recolored) === */
 .cinematic-festival .neon-rule{height:2px;border:0;margin:0;background:linear-gradient(90deg,transparent,#fb923c 30%,#f97316 70%,transparent);box-shadow:0 0 12px rgba(251,146,60,0.6)}
@@ -1221,15 +1142,11 @@ const CINEMATIC_CSS = `
 
 `;
 
-
-
 // ---------------------------------------------------------------------------
 
 // Helpers
 
 // ---------------------------------------------------------------------------
-
-
 
 // Generate an RFC 5545 .ics file for a single all-spanning event,
 // then trigger a download via blob URL.
@@ -1342,8 +1259,6 @@ const downloadIcsFile = (params: {
 
 };
 
-
-
 const formatGCalDate = (iso: string | null): string | null => {
 
   if (!iso) return null;
@@ -1364,14 +1279,10 @@ const formatGCalDate = (iso: string | null): string | null => {
 
 };
 
-
-
 // The range formatting, key validation and end-key clamping all live in
 // src/lib/londonDate.ts (the calendar-time authority) -- this page only
 // chooses the styles ('long' for the hero, 'short' for the share subtitle)
 // and the live-window policy in heroDayStatus below.
-
-
 
 // P2: parse "What's included:" bullets from a description blob.
 
@@ -1417,8 +1328,6 @@ const parseIncludedItems = (desc: string | null | undefined): string[] => {
 
 };
 
-
-
 const splitTitleIntoLines = (name: string): string[] => {
 
   // Strip dash-delimited suffix (e.g., "London Sensual Days - June 2026 Edition")
@@ -1441,11 +1350,7 @@ const splitTitleIntoLines = (name: string): string[] => {
 
 };
 
-
-
 // ---------------------------------------------------------------------------
-
-
 
 /**
  * The raw event_view_p5 payload as read on a standalone /festival/:id mount
@@ -1952,8 +1857,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // Poster/flyer gallery lightbox: index of the image being viewed, or null when closed.
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-
-
   // The URL param may be a slug OR a uuid. Entity queries below hit uuid
   // columns / RPCs (event_view_p5, get_public_festival_detail), so a raw slug
   // 400s. When rendered by EventPage the resolved snapshot is passed in and
@@ -1962,11 +1865,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   const { id: resolvedEventId, slug: resolvedSlug } = useEntitySlugOrId(id, "events");
   const festivalId = propSnapshot?.eventId ?? resolvedEventId ?? "";
 
-
-
   useRecordEventView(festivalId, "public_festival_page");
-
-
 
   const { data: festival, isLoading: isFestivalLoading } = useQuery({
 
@@ -1977,8 +1876,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     enabled: Boolean(festivalId),
 
   });
-
-
 
   const snapshotQueryEnabled = Boolean(festivalId) && !propSnapshot;
 
@@ -2009,8 +1906,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     enabled: snapshotQueryEnabled,
 
   });
-
-
 
   // Whole-festival cancelled state -- from the parsed snapshot (camelCase, via
   // EventPage) or the raw event_view_p5 payload (snake_case, standalone
@@ -2095,8 +1990,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // reading before you generalise from either file -- the catchall route does not
   // wrap, and useSeo is genuinely live on the pages it hosts.
 
-
-
   // Venue gallery (P11): second photo if the venue has more imagery
 
   const venueIdForGallery = festivalDetail?.location.primaryVenue?.id ?? null;
@@ -2130,8 +2023,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     staleTime: 5 * 60 * 1000,
 
   });
-
-
 
   // Organiser bio + event count -- augments the RPC's id/displayName/avatarUrl
 
@@ -2187,8 +2078,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   });
 
-
-
   // `mounted` is the fallback half of the clock-display gate: where no route
   // loader pinned the day, a clock-reading display (the days-away line, the
   // schedule's today badges) must wait for hydration or the server and first
@@ -2207,8 +2096,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     setMounted(true);
 
   }, []);
-
-
 
   // --- Derived values ---
 
@@ -2252,14 +2139,10 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     wallClockDateKey(festivalDetail?.dates.localEnd ?? null) ??
     (endInstant ? dateKeyInTz(endInstant, eventTz) : null);
 
-
-
   // The hero's single date line, complete in one read: weekday + day + month +
   // year, with no day cap and both months/years spelled out across a boundary.
 
   const heroDateLine = useMemo(() => formatKeyRange(startKey, endKey, "long"), [startKey, endKey]);
-
-
 
   // Calendar dropdown URLs
 
@@ -2297,8 +2180,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   }, [startIso, endIso, festival, festivalDetail]);
 
-
-
   // Schedule grid -- group by day, then by hour
 
   // `hours` is no longer a row list -- the timetable derives its own rows per
@@ -2316,8 +2197,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     // to string (new Date(day) compiled without error before this fix).
 
     if (schedule.length === 0) return { days: [] as WallClock[], hasTimedSession: false, sessionsByDay: {} as Record<string, typeof schedule> };
-
-
 
     // Columns come from the festival's SPAN, not from the sessions that happen
     // to exist -- see festivalGridDays for why that distinction is the whole
@@ -2358,8 +2237,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     return { days: uniqDays, hasTimedSession: hasTimed, sessionsByDay: byKey };
 
   }, [festivalDetail]);
-
-
 
   // Today's date key on the FESTIVAL's calendar (not the visitor's browser
   // zone and not London's): flips at the event's own midnight, re-anchors on
@@ -2648,8 +2525,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     // in that commit) -- the schedule would never be corrected off the seed.
   }, [festivalDetail?.eventId, dayKeys, sessionDayKeys, todayKey, mounted]);
 
-
-
   const venue = festivalDetail?.location.primaryVenue ?? null;
 
   const organiser = festivalDetail?.organiser ?? null;
@@ -2721,8 +2596,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIndex, galleryImages.length]);
 
-
-
   // Description preview -- first paragraph or first ~220 chars, whichever shorter
 
   const fullDescription = festivalDetail?.identity.description ?? festival?.description ?? null;
@@ -2741,13 +2614,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const hasMoreDescription = Boolean(fullDescription && descPreview && fullDescription.trim() !== descPreview.trim());
 
-
-
   // P2: structured "What's included" bullets parsed from description
 
   const includedItems = useMemo(() => parseIncludedItems(fullDescription), [fullDescription]);
-
-
 
   // Derive each teacher's primary style by tallying sessions they teach
 
@@ -2792,8 +2661,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     return result;
 
   }, [festivalDetail]);
-
-
 
   // Hero subtitle -- dance style(s) + audience level summary (P6)
 
@@ -2843,8 +2710,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   }, [festivalDetail]);
 
-
-
   // Title split -- break long names across lines
 
   const titleLines = useMemo(() => {
@@ -2854,8 +2719,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     return splitTitleIntoLines(name);
 
   }, [festivalDetail, festival]);
-
-
 
   if (isFestivalLoading) {
 
@@ -2887,8 +2750,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   }
 
-
-
   if (!festival) {
 
     return (
@@ -2913,8 +2774,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   }
 
-
-
   const venueStation = venue?.nearestStation ?? null;
 
   const venueCapacity = venue?.capacity ?? null;
@@ -2925,16 +2784,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const organiserEventCount = organiserStats?.eventCount ?? 0;
 
-
-
   return (
 
     <div className="cinematic-festival min-h-screen pb-24 pt-0">
 
       <style dangerouslySetInnerHTML={{ __html: CINEMATIC_CSS }} />
-
-
-
 
       <script
         type="application/ld+json"
@@ -3017,7 +2871,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         }}
       />
 
-
       {/* Series-termination arc P4b: the sticky wrapper is REQUIRED here.
           EventCancelledBanner used to carry `sticky top-[60px] z-30 w-full` on its
           own root; that moved to a wrapper in BentoPage so an ended banner could
@@ -3067,8 +2920,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
         )}
 
-
-
         {/* Hero subtitle: style + level (P6) */}
 
         {heroSubtitle && (
@@ -3082,8 +2933,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
           </div>
 
         )}
-
-
 
         {/* Date line + days-away (P2 -- the tile row is retired) */}
 
@@ -3107,8 +2956,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
           </>
 
         )}
-
-
 
         {/* CTAs -- or, for a series that has ended, the record card that REPLACES
             them (series-termination arc W14).
@@ -3158,8 +3005,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
           )}
 
-
-
         </div>
 
         )}
@@ -3201,9 +3046,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         {!isEnded && <FestivalPromoBanner codes={festivalDetail?.promoCodes ?? []} />}
 
       </section>
-
-
-
 
       {/* LINEUP */}
 
@@ -3592,8 +3434,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         </section>
       )}
 
-
-
       {/* VENUE + ORGANISER */}
 
       <section className="vo">
@@ -3601,8 +3441,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         <div className="vo-wrap">
 
           <div className="vo-grid">
-
-
 
             {venue && (
 
@@ -3708,8 +3546,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
             )}
 
-
-
             {organiser && (
 
               <div className="vo-col">
@@ -3774,15 +3610,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
             )}
 
-
-
           </div>
 
         </div>
 
       </section>
-
-
 
       {/* Community — "Join the group chat" band (renders only when a link is set).
           W14: not on an ended run. BentoPage hides its GroupChatBlock on the same
@@ -3861,8 +3693,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       })()}
 
-
-
       {/* ABOUT -- collapsible description */}
 
       {fullDescription && (
@@ -3892,8 +3722,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
       </section>
 
       )}
-
-
 
       {/* RAFFLE — festival-native slot-machine band (FestivalRaffleSection.tsx).
           W14: hidden on an ended run, exactly as BentoPage adds 'raffle' to its
@@ -3940,8 +3768,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         </section>
       )}
 
-
-
       {/* THE WAY OFF THE PAGE (arc W14, added after review).
           EventEndedRecord's copy ends "Have a look at what else is on below",
           and until this landed that promise was FALSE on this route: BentoPage
@@ -3982,8 +3808,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         </div>
 
       </footer>
-
-
 
       {/* Flyer gallery lightbox (poster + day flyers) */}
 
@@ -4031,11 +3855,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       )}
 
-
-
       {/* Add-to-Calendar lives in the CTA (.cal-cta); floating FAB removed. */}
-
-
 
       {/* Mobile bottom sheet: add event to calendar (portal so position:fixed escapes the framer-motion ancestor) */}
 
@@ -4178,8 +3998,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       )}
 
-
-
       <EventStickyActionBar
         eventId={festivalId || null}
         directionsUrl={directionsUrl}
@@ -4202,8 +4020,6 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
 };
 
-
-
 const FestivalDetail = ({ snapshot, serverTodayKey }: FestivalDetailInnerProps) => (
 
   <PageErrorBoundary>
@@ -4213,8 +4029,6 @@ const FestivalDetail = ({ snapshot, serverTodayKey }: FestivalDetailInnerProps) 
   </PageErrorBoundary>
 
 );
-
-
 
 export default FestivalDetail;
 

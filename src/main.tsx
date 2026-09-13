@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "@fontsource-variable/inter";
-import { initSentry } from "@/lib/sentry";
 import { attemptChunkReloadOnce } from "@/lib/staleChunk";
 import { AppRoot } from "./entry-client";
 
@@ -9,7 +8,6 @@ import { AppRoot } from "./entry-client";
 // initSentry, the top-level window listeners and non-blocking font loader). The
 // renderable tree itself is AppRoot, imported from ./entry-client so a future
 // server entry can render it without executing any of this. SSR/ISR Phase 2.
-initSentry();
 
 if (typeof window !== 'undefined') {
   // Stale-chunk guard: force a reload when Vite can't load a hashed asset after

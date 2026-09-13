@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { captureException } from '@/lib/sentry';
 import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,8 +47,6 @@ import {
 } from '@/components/profile/dancerConstants';
 
 // --- MOCK DATA FOR "SPOTIFY" SEARCH ---
-
-
 
 const GamifiedSongSelector = ({ value, onChange }: { value?: string, onChange: (val: string) => void }) => {
   const [songs, setSongs] = React.useState<string[]>((value || '').split('\n').filter(Boolean));
@@ -510,7 +507,6 @@ const AchievementWall = ({ value, onChange }: { value?: string, onChange: (val: 
   )
 }
 
-
 const formSchema = z.object({
     photo_url: z.string().optional(),
   is_public: z.boolean().default(true),
@@ -704,7 +700,10 @@ const CreateProfile = () => {
         // Logged HERE and kept rejected for the awaiting path. Nothing awaits this
         // on the ordinary signed-in visit, so a throw would otherwise surface as a
         // context-free unhandled rejection rather than a labelled prefill failure.
-        prefill.catch((error) => captureException(error, { context: 'CreateProfile.prefill' }));
+        prefill.catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error('CreateProfile.prefill error:', error);
+        });
         prefillPromiseRef.current = prefill;
         // Keyed on the user ID and latched to run ONCE. `useAuth` mints a new user
         // object on every auth event (a token refresh is enough), so a [user] dep
@@ -767,8 +766,7 @@ const CreateProfile = () => {
         try {
             await prefillPromiseRef.current;
         } catch (error) {
-            captureException(error, { context: 'CreateProfile.prefillBeforeSubmit' });
-            toast({
+                        toast({
                 title: 'Could not load your profile',
                 description: 'We could not read your existing profile, so nothing has been saved. Please try again.',
                 variant: 'destructive',
@@ -815,8 +813,7 @@ const CreateProfile = () => {
         .maybeSingle();
 
       if (existingError) {
-        captureException(existingError, { context: 'CreateProfile.readExistingBasics' });
-      }
+              }
       // A failed read must not celebrate. It never blocks the save either: this
       // decides a toast headline and nothing else.
       const didUpdate = existingError ? true : hasDancerProfileBasics(existing);
@@ -842,8 +839,7 @@ const CreateProfile = () => {
         } as any);
 
         if (claimError) {
-          captureException(claimError, { context: 'CreateProfile.claimEntity' });
-        }
+                  }
       }
 
       localStorage.removeItem(preAuthKey);
@@ -856,8 +852,7 @@ const CreateProfile = () => {
       navigated = true;
       navigate('/profile');
     } catch (error: any) {
-      captureException(error, { context: 'CreateProfile.save' });
-      toast({
+            toast({
         title: 'Error creating profile',
         description: error.message || 'Something went wrong.',
         variant: 'destructive',
@@ -1762,5 +1757,4 @@ const CreateProfile = () => {
 };
 
 export default CreateProfile;
-
 

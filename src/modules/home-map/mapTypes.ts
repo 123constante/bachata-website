@@ -314,7 +314,6 @@ export function todayStr(d = new Date()): string {
   return londonDateKey(d);
 }
 
-
 // ---- time-of-day + live status -------------------------------------------
 
 /** Parse a time-bearing string to minutes-from-midnight. Accepts 'HH:MM',

@@ -31,7 +31,7 @@ export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean 
     // basemaps-api = tiles + glyphs, cdn.arcgis = sprites. Miss one and the
     // map draws nothing at HTTP 200 with no failed IMAGE request, which is the
     // img-src failure mode above wearing a different hat.
-    "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com",
+    "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com",
     // MapLibre parses tiles in a Worker. This directive is a deliberate
     // NARROWING, not an enabler, and the difference matters to anyone deciding
     // whether it can go: worker-src falls back to child-src and then

@@ -263,7 +263,6 @@ describe('isRenderableTimelessItem -- suppress editor detritus', () => {
   });
 });
 
-
 describe('fromFestivalSchedule -- time-less rows (deferred review follow-up)', () => {
   const mkFest = (over: Partial<FestivalScheduleItem>): FestivalScheduleItem => ({
     id: null,

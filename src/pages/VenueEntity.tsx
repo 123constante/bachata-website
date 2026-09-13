@@ -114,7 +114,6 @@ const parseFromEventParam = (search: string): string | null => {
   return /^[0-9a-f-]{8,}$/i.test(value) ? value : null;
 };
 
-
 // ============================================================
 // Data extractors from PublicVenue
 // ============================================================
@@ -222,7 +221,6 @@ function extractPhotos(venue: PublicVenue): string[] {
   ].filter((u): u is string => typeof u === 'string' && u.length > 0);
   return Array.from(new Set(raw));
 }
-
 
 // ============================================================
 // Inline lightbox - fullscreen photo viewer
@@ -348,7 +346,6 @@ function useVenuePageFonts() {
 // Shared chip styling for the Band 1 at-a-glance facts under the hero.
 const FACT_CHIP =
   'inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white/80';
-
 
 // ============================================================
 // Page
@@ -513,7 +510,6 @@ const VenueEntity = () => {
     );
   }
 
-
   // Single display address: street + city + postcode joined with commas.
   const addressDisplay = [venue.address, venue.city_name, venue.postcode]
     .filter(Boolean)
@@ -530,7 +526,6 @@ const VenueEntity = () => {
   // Opening hours only earn a slot when there is nothing live on the calendar
   // - they are a fallback "the venue is real" signal, not a primary section.
   const showHoursFallback = whatsOn.length === 0 && hoursRows.length > 0;
-
 
   const copyAddress = async () => {
     try {
@@ -566,7 +561,6 @@ const VenueEntity = () => {
       typeof buildVenueJsonLd
     >[0]["opening_hours"],
   });
-
 
   return (
     <GlobalLayout

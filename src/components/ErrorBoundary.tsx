@@ -1,5 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { captureException } from "@/lib/sentry";
 import { isStaleChunkError, chunkReloadAttempted } from "@/lib/staleChunk";
 
 // Stale-chunk failures are healed by the once-per-session reload (main.tsx /
@@ -34,13 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
     if (shouldSkipCapture(error)) return;
-    // Third arg: the real event ID arrives via callback -- synchronously when
-    // Sentry is loaded, or after the deferred SDK replays the queued capture.
-    captureException(
-      error,
-      { boundary: "ErrorBoundary", componentStack: errorInfo.componentStack },
-      (eventId) => this.setState({ eventId }),
-    );
+    // Error logging only (no Sentry reporting).
+    this.setState({ eventId: null });
   }
 
   private handleRetry = () => {
@@ -90,11 +84,8 @@ export class PageErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("PageErrorBoundary caught:", error, errorInfo);
     if (shouldSkipCapture(error)) return;
-    captureException(
-      error,
-      { boundary: "PageErrorBoundary", componentStack: errorInfo.componentStack },
-      (eventId) => this.setState({ eventId }),
-    );
+    // Error logging only (no Sentry reporting).
+    this.setState({ eventId: null });
   }
 
   private handleRetry = () => {

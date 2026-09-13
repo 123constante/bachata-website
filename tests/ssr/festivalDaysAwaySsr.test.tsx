@@ -680,7 +680,6 @@ describe('SSR: festival schedule default day tab', { timeout: 40_000 }, () => {
     title: string,
   ): number | null => cards.find((c) => c.label?.split(',')[0] === title)?.column ?? null;
 
-
   /** How many hour rows the open day rendered -- one per hour it occupies. */
   const hourRows = (html: string): number =>
     tlBody(html).split(/<div [^>]*class="[^"]*\btl-hour\b/).length - 1;

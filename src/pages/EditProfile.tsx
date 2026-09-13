@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { captureException } from '@/lib/sentry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -42,7 +41,6 @@ const PARTNER_ROLES = ['Leader', 'Follower', 'Both'];
 const SEARCH_ROLES = ['Leader', 'Follower', 'Both'];
 const LEVELS = ['Beginner', 'Improver', 'Intermediate', 'Advanced', 'Professional'];
 const GOALS = ['Social Dancing', 'Drills & Technique', 'Choreography', 'Competition', 'Teaching Prep'];
-
 
 // NOTE: a `DancerData` interface used to sit here declaring `city`,
 // `years_dancing`, `partner_role` and `dancing_start_date` as if they were
@@ -150,8 +148,7 @@ const EditProfile = () => {
           setInitialFormSnapshot(JSON.stringify(loadedForm));
         }
       } catch (error) {
-        captureException(error, { context: 'EditProfile.fetchDancer' });
-        toast({
+                toast({
           title: 'Error loading profile',
           description: 'Could not load your profile data.',
           variant: 'destructive',
@@ -249,8 +246,7 @@ const EditProfile = () => {
       // saveMyDancerProfile self-reports only the missing-stub case; an
       // UnresolvedPersonError or a residual permission failure would otherwise
       // reach the user as a toast and Sentry as nothing at all.
-      captureException(error, { context: 'EditProfile.save' });
-      toast({
+            toast({
         title: 'Error saving',
         description: error.message,
         variant: 'destructive',

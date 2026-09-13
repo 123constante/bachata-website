@@ -46,7 +46,6 @@ import { focusRing } from './controls';
 
 type Coords = { lat: number; lng: number } | null;
 
-
 /** Cover thumbnail: real flyer when present, else a category gradient + monogram. */
 export function CoverThumb({
   event,
@@ -420,7 +419,6 @@ export const EventRow = memo(function EventRow({
     </a>
   );
 });
-
 
 /** Row for a festival outside the current city. Links directly to the festival
  *  page and shows a pin icon + city name so users know they'd be travelling. */

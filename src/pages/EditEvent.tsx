@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadToR2 } from '@/lib/uploadToR2';
-import { captureException } from '@/lib/sentry';
 import { useEventPermissions } from '@/hooks/useEventPermissions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -278,8 +277,7 @@ const EditEvent = () => {
       toast({ title: 'Event updated' });
       navigate(`/event/${id}`);
     } catch (error) {
-      captureException(error, { context: 'EditEvent.submit' });
-      toast({ title: 'Failed to update', variant: 'destructive' });
+            toast({ title: 'Failed to update', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

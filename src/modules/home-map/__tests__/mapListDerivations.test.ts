@@ -296,7 +296,6 @@ describe('buildMonthCells', () => {
   });
 });
 
-
 describe('homeStats', () => {
   const today = '2026-06-10';
 

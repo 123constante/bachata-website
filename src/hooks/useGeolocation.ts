@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { captureException } from '@/lib/sentry';
 
 export type GeolocationStatus = 'idle' | 'loading' | 'granted' | 'denied';
 
@@ -109,15 +108,7 @@ export function useGeolocation(): UseGeolocationResult {
       }
       // PERMISSION_DENIED (code 1) is user choice -- not an error worth reporting.
       if (err?.code !== 1) {
-        captureException(err, {
-          feature: 'tonight.gps',
-          code: err?.code ?? null,
-          message: err?.message,
-          mappedReason: mapped,
-          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-          isSecureContext: window.isSecureContext,
-        });
-      }
+              }
       setCoords(null);
       setStatus('denied');
       setReason(mapped);

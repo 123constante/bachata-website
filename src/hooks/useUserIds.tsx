@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { captureException } from '@/lib/sentry';
 import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -156,8 +155,7 @@ export const useUserIds = () => {
               if (!claimError && claimedVendorId) {
                 vendor = { id: claimedVendorId };
               } else if (claimError) {
-                captureException(claimError, { context: 'useUserIds.claimVendorProfile' });
-              }
+                              }
             }
           }
         } catch (vendorClaimErr) {
@@ -175,8 +173,7 @@ export const useUserIds = () => {
         });
 
       } catch (error) {
-        captureException(error, { context: 'useUserIds.fetchIds' });
-        setIds(prev => ({ ...prev, loading: false }));
+                setIds(prev => ({ ...prev, loading: false }));
       }
     };
 

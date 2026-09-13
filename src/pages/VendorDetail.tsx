@@ -79,7 +79,6 @@ const VendorDetail = () => {
     void fetchVendor();
   }, [id]);
 
-
   useEffect(() => {
     const loadEventItems = async () => {
       const eventIds = (vendor?.upcoming_events || []).filter(
@@ -250,7 +249,6 @@ const VendorDetail = () => {
       isLoading: loading,
     }),
   );
-
 
   if (loading) {
     return (

@@ -266,7 +266,6 @@ function useOccurrenceOverrideProgram(occurrenceId: string | null | undefined): 
   return data ?? null;
 }
 
-
 // Phase C — both useProgramItems (series) and useOccurrenceProgram
 // (occurrence-merged) consume the same jsonb shape from their respective
 // RPCs (get_event_program_v1 / get_occurrence_program_v1, Phase 2N). The

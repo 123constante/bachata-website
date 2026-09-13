@@ -72,12 +72,17 @@ const Dancers = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, display_name, first_name, surname, favorite_styles, dance_started_year, avatar_url, looking_for_partner, nationality, dance_role, cities!based_city_id(name)')
+          .select('id, display_name, first_name, surname, avatar_url, nationality, dance_role, cities!based_city_id(name), dancing_role_details(favorite_styles, dance_started_year, looking_for_partner)')
           .or('is_active.is.null,is_active.eq.true')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setDancers(data || []);
+        setDancers((data || []).map((row) => ({
+          ...row,
+          favorite_styles: row.dancing_role_details?.favorite_styles ?? null,
+          dance_started_year: row.dancing_role_details?.dance_started_year ?? null,
+          looking_for_partner: row.dancing_role_details?.looking_for_partner ?? null,
+        })));
       } catch (error: any) {
         toast({
           title: 'Error loading dancers',
@@ -489,7 +494,6 @@ const Dancers = () => {
         </div>
       </section>
 
-
       {/* Find A Dance Partner CTA */}
       <section id="find-partner" className="px-4 mb-16 max-w-4xl mx-auto">
         <ScrollReveal animation="fadeUp">
@@ -547,6 +551,4 @@ const Dancers = () => {
 };
 
 export default Dancers;
-
-
 

@@ -13,7 +13,6 @@ import {
 // by links() below to preload it (Inter is otherwise discovered only after the
 // blocking stylesheet parses, guaranteeing a visible font swap on the h1).
 import interLatinWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
-import { captureException } from "@/lib/sentry";
 import { AppProviders, createQueryClient, getBrowserQueryClient } from "@/App";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { CityProvider } from "@/contexts/CityContext";
@@ -151,8 +150,7 @@ export function ErrorBoundary() {
     // 404-style route responses are expected, not errors worth reporting.
     if (isRouteErrorResponse(error) && error.status < 500) return;
     const err = error instanceof Error ? error : new Error(String(error));
-    captureException(err, { boundary: "RootErrorBoundary" });
-  }, [error]);
+      }, [error]);
 
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   const heading = isNotFound ? "Page not found" : "Something went wrong";

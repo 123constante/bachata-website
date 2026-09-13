@@ -104,6 +104,3 @@ export const FloatingElements = ({ count = 10, className = '', emoji = null }: F
   );
 };
 
-
-
-

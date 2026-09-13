@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserIds, type UserRole } from "@/hooks/useUserIds";
 import { supabase } from "@/integrations/supabase/client";
-import { captureException } from "@/lib/sentry";
 import type {
   VendorDashboardProgressMap,
   VendorDashboardSavePayload,
@@ -132,8 +131,7 @@ export const VendorDashboard = () => {
       .maybeSingle();
 
     if (error) {
-      captureException(error, { context: "VendorDashboard.loadVendor" });
-      setIsLoading(false);
+            setIsLoading(false);
       return;
     }
 

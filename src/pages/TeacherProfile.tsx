@@ -198,8 +198,6 @@ const TeacherProfile = () => {
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
 
-
-
   /* ── loading ──── */
   if (isLoading) {
     return (

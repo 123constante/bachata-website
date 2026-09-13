@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadToR2 } from '@/lib/uploadToR2';
-import { captureException } from '@/lib/sentry';
 import { useAuth } from '@/hooks/useAuth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -177,8 +176,7 @@ const CreateEvent = () => {
       toast({ title: 'Event created' });
       navigate(`/event/${body.event_id}`);
     } catch (error: any) {
-      captureException(error, { context: 'CreateEvent.submit' });
-      toast({ title: 'Failed to create', description: error.message, variant: 'destructive' });
+            toast({ title: 'Failed to create', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

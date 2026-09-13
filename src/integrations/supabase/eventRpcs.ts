@@ -340,6 +340,26 @@ export interface FestivalPublish {
 // RPC Utilities
 // ============================================================================
 
+const SCHEMA_CACHE_RETRY_DELAYS_MS = [250, 750];
+
+function isSchemaCacheError(error: unknown): boolean {
+  const candidate = error as { code?: unknown; message?: unknown } | null;
+  const code = String(candidate?.code ?? '');
+  const message = String(candidate?.message ?? error ?? '').toLowerCase();
+  return code === 'PGRST002' || message.includes('schema cache');
+}
+
+async function readRpcWithSchemaCacheRetry<T>(
+  read: () => Promise<{ data: T | null; error: unknown }>,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { data, error } = await read();
+    if (!error) return data as T;
+    if (!isSchemaCacheError(error) || attempt >= SCHEMA_CACHE_RETRY_DELAYS_MS.length) throw error;
+    await new Promise((resolve) => setTimeout(resolve, SCHEMA_CACHE_RETRY_DELAYS_MS[attempt]));
+  }
+}
+
 /**
  * RPC 1: Fetch calendar events for a date range
  * Returns one row per occurrence. For festivals, returns ONE ROW PER DAY.
@@ -352,16 +372,13 @@ export async function getCalendarEvents(
   params: GetCalendarEventsParams,
 ): Promise<CalendarEventRow[]> {
   const supabase = await getSupabase();
-  const { data, error } = await supabase.rpc('get_calendar_events_v2', {
-    range_start: params.range_start,
-    range_end: params.range_end,
-    city_slug_param: params.city_slug_param ?? undefined,
-  });
-
-  if (error) {
-    console.error('getCalendarEvents RPC error:', error);
-    throw error;
-  }
+  const data = await readRpcWithSchemaCacheRetry(() =>
+    supabase.rpc('get_calendar_events_v2', {
+      range_start: params.range_start,
+      range_end: params.range_end,
+      city_slug_param: params.city_slug_param ?? undefined,
+    }),
+  );
 
   return (data ?? []).map(parseCalendarEventRow);
 }
@@ -493,19 +510,13 @@ export async function getMapEvents(
   params: GetMapEventsParams,
 ): Promise<MapEvent[]> {
   const supabase = await getSupabase();
-  const { data, error } = await supabase.rpc('get_map_events_v1' as never, {
-    city_slug_param: params.city_slug_param,
-    range_start: params.range_start,
-    range_end: params.range_end,
-  } as never);
-
-  if (error) {
-    // get_map_events_v1 is deployed; surface failures (incl. a future rename or
-    // regression) as a real error so the UI shows RetryNotice and the global
-    // QueryCache onError reports them to Sentry -- never a silently empty map.
-    console.error('getMapEvents RPC error:', error);
-    throw error;
-  }
+  const data = await readRpcWithSchemaCacheRetry(() =>
+    supabase.rpc('get_map_events_v1' as never, {
+      city_slug_param: params.city_slug_param,
+      range_start: params.range_start,
+      range_end: params.range_end,
+    } as never),
+  );
 
   return (data as unknown as MapEvent[]) ?? [];
 }

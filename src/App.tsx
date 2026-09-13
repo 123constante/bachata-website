@@ -3,7 +3,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
-import { captureException } from "@/lib/sentry";
 import { pack, unpack } from "@/lib/dehydrateCodec";
 import { BrowserRouter } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -33,12 +32,16 @@ import { SearchProvider } from "@/components/search/SearchProvider";
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     queryCache: new QueryCache({
-      onError: (err, query) =>
-        captureException(err, { queryKey: query.queryKey }),
+      onError: (err, query) => {
+        // eslint-disable-next-line no-console
+        console.error('Query error:', err, { queryKey: query.queryKey });
+      },
     }),
     mutationCache: new MutationCache({
-      onError: (err, _vars, _ctx, mutation) =>
-        captureException(err, { mutationKey: mutation.options.mutationKey }),
+      onError: (err, _vars, _ctx, mutation) => {
+        // eslint-disable-next-line no-console
+        console.error('Mutation error:', err, { mutationKey: mutation.options.mutationKey });
+      },
     }),
     defaultOptions: {
       queries: {

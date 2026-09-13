@@ -624,7 +624,6 @@ describe('client: the OVERRIDE half of the seed/override split', { timeout: 60_0
   });
 });
 
-
 describe('client: a refetch that SHORTENS the schedule', { timeout: 60_000 }, () => {
   // THE CLAMP'S GATE, and until this case the clamp had none.
   //

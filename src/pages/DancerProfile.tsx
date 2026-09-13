@@ -12,6 +12,7 @@ import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
   DANCER_PUBLIC_COLS,
   mapDancerPublicProfile,
+  type DancerPublicQueryRecord,
   type DancerPublicRecord,
 } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
@@ -68,7 +69,7 @@ const DancerProfile = () => {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Dancer not found.");
-      return data as DancerPublicRecord & { gallery_urls?: string[] | null };
+      return data as DancerPublicQueryRecord;
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
@@ -81,8 +82,6 @@ const DancerProfile = () => {
   // building the same buildSeoForRoute('dancer.detail', ...) input from the row it
   // already fetched. Which useSeo calls are inert and which are live is a census,
   // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
-
-
 
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
   // OWNERSHIP, not authorship. This was keyed on `created_by`, which records who
@@ -405,5 +404,4 @@ const DancerProfile = () => {
 };
 
 export default DancerProfile;
-
 

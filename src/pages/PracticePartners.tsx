@@ -12,7 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { buildFullName } from "@/lib/name-utils";
 import { useToast } from "@/hooks/use-toast";
-import { captureException } from "@/lib/sentry";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { hasDancerProfileBasics } from "@/lib/onboardingStatus";
 import { optimizedImageUrl } from "@/lib/imageCdn";
@@ -46,15 +45,18 @@ const PracticePartners = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, based_city_id, favorite_styles, dance_role, avatar_url, looking_for_partner, cities!based_city_id(name)')
-          .eq('looking_for_partner', true)
+          .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details!inner(favorite_styles, looking_for_partner)')
+          .eq('dancing_role_details.looking_for_partner', true)
           .order('created_at', { ascending: false });
         
         if (error) throw error;
-        setPartners(data || []);
+        setPartners((data || []).map((row) => ({
+          ...row,
+          favorite_styles: row.dancing_role_details?.favorite_styles ?? null,
+          looking_for_partner: row.dancing_role_details?.looking_for_partner ?? null,
+        })));
       } catch (error) {
-        captureException(error, { context: "PracticePartners.fetchPartners" });
-      } finally {
+              } finally {
         setLoading(false);
       }
     };
@@ -68,11 +70,17 @@ const PracticePartners = () => {
       
       const { data } = await supabase
         .from('dancer_profiles')
-        .select('*')
+        .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details(favorite_styles, looking_for_partner)')
         .eq('id', user.id)
         .maybeSingle();
       
-      if (data) setCurrentUserProfile(data);
+      if (data) {
+        setCurrentUserProfile({
+          ...data,
+          favorite_styles: data.dancing_role_details?.favorite_styles ?? null,
+          looking_for_partner: data.dancing_role_details?.looking_for_partner ?? null,
+        });
+      }
     };
 
     fetchUserProfile();
@@ -128,8 +136,7 @@ const PracticePartners = () => {
       // Was swallowed entirely. saveMyDancerProfile only self-reports the
       // missing-stub case, so an UnresolvedPersonError, a residual 42501 or a
       // network failure produced a four-word toast and nothing in Sentry.
-      captureException(error, { context: "PracticePartners.listSelf" });
-      toast({
+            toast({
         title: "Error updating profile",
         description: (error as Error)?.message,
         variant: "destructive"
@@ -348,5 +355,4 @@ const PracticePartners = () => {
 };
 
 export default PracticePartners;
-
 

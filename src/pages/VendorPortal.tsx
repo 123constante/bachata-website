@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadToR2 } from "@/lib/uploadToR2";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { captureException } from "@/lib/sentry";
 import { validateImageFile } from "@/lib/upload-validation";
 import type { VendorDashboardFormState, VendorProduct, VendorRow, VendorRowWithCity, VendorPromoDiscountType } from "@/modules/vendor/types";
 import {

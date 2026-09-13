@@ -3,6 +3,7 @@ import { resolvePublicName } from "@/lib/publicName";
 import { getPhotoUrl, parsePartnerDetails } from "@/lib/utils";
 
 type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
+type DancingRoleDetails = Database["public"]["Tables"]["dancing_role_details"]["Row"];
 
 export type DancerPublicRecord = Pick<
   DancerRow,
@@ -27,6 +28,24 @@ export type DancerPublicRecord = Pick<
   | "partner_details"
 > & { cities?: { name: string } | null; email?: string | null };
 
+export type DancerPublicQueryRecord = Pick<
+  DancerRow,
+  | "id"
+  | "display_name"
+  | "first_name"
+  | "surname"
+  | "nationality"
+  | "dance_role"
+  | "instagram"
+  | "facebook"
+  | "avatar_url"
+  | "website_url"
+> & {
+  gallery_urls?: string[] | null;
+  cities?: { name: string } | null;
+  dancing_role_details?: DancingRoleDetails | DancingRoleDetails[] | null;
+};
+
 /**
  * The ONE PostgREST column list for a public dancer profile.
  *
@@ -46,7 +65,7 @@ export type DancerPublicRecord = Pick<
 // it here rather than at each call site is the whole point -- the cast this
 // replaced is what let the two copies drift in the first place.
 export const DANCER_PUBLIC_COLS =
-  "id, display_name, first_name, surname, nationality, dance_started_year, favorite_styles, dance_role, looking_for_partner, instagram, facebook, avatar_url, website, achievements, favorite_songs, partner_search_role, partner_search_level, partner_practice_goals, partner_details, gallery_urls, cities!based_city_id(name)" as const;
+  "id, display_name, first_name, surname, nationality, dance_role, instagram, facebook, avatar_url, website_url, gallery_urls, cities!based_city_id(name), dancing_role_details(*)" as const;
 
 export type DancerPublicViewModel = {
   id: string;
@@ -115,8 +134,17 @@ const normalizeUrl = (value: string | null, kind: "instagram" | "facebook" | "we
   return `https://${trimmed}`;
 };
 
-export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublicViewModel => {
-  const rawPartnerDetails = record.partner_details;
+export const mapDancerPublicProfile = (record: DancerPublicRecord | DancerPublicQueryRecord): DancerPublicViewModel => {
+  const queryRecord = record as DancerPublicRecord & DancerPublicQueryRecord;
+  const roleDetails = Array.isArray(queryRecord.dancing_role_details)
+    ? queryRecord.dancing_role_details[0] ?? null
+    : queryRecord.dancing_role_details ?? null;
+  const canonicalRecord = {
+    ...queryRecord,
+    ...roleDetails,
+    website: queryRecord.website_url,
+  } as DancerPublicRecord;
+  const rawPartnerDetails = canonicalRecord.partner_details;
   const partnerDetailsText =
     typeof rawPartnerDetails === "string"
       ? parsePartnerDetails(rawPartnerDetails)
@@ -131,38 +159,38 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord): DancerPublic
   // names are in `display_name`. The placeholder ALSO defeated the noindex in
   // buildSeoForRoute (it only fires on a falsy entityName), so each one was
   // indexed as a duplicate-titled soft 404.
-  const displayName = resolvePublicName(record);
+  const displayName = resolvePublicName(canonicalRecord);
 
   const currentYear = new Date().getFullYear();
   const yearsDancing =
-    typeof record.dance_started_year === "number"
-      ? String(currentYear - record.dance_started_year)
+    typeof canonicalRecord.dance_started_year === "number"
+      ? String(currentYear - canonicalRecord.dance_started_year)
       : null;
 
   return {
-    id: record.id,
+    id: canonicalRecord.id,
     displayName,
-    avatarUrl: getPhotoUrl(record.avatar_url),
-    city: record.cities?.name || null,
-    nationality: record.nationality,
+    avatarUrl: getPhotoUrl(canonicalRecord.avatar_url),
+    city: canonicalRecord.cities?.name || null,
+    nationality: canonicalRecord.nationality,
     yearsDancing,
     dancingStartDate: null,
-    favoriteStyles: normalizeStringArray(record.favorite_styles),
-    partnerRole: record.dance_role,
-    lookingForPartner: Boolean(record.looking_for_partner),
-    achievements: normalizeStringArray(record.achievements),
-    favoriteSongs: normalizeStringArray(record.favorite_songs),
-    partnerSearchRole: record.partner_search_role,
-    partnerSearchLevel: normalizeStringArray(record.partner_search_level),
-    partnerPracticeGoals: normalizeStringArray(record.partner_practice_goals),
+    favoriteStyles: normalizeStringArray(canonicalRecord.favorite_styles),
+    partnerRole: canonicalRecord.dance_role,
+    lookingForPartner: Boolean(canonicalRecord.looking_for_partner),
+    achievements: normalizeStringArray(canonicalRecord.achievements),
+    favoriteSongs: normalizeStringArray(canonicalRecord.favorite_songs),
+    partnerSearchRole: canonicalRecord.partner_search_role,
+    partnerSearchLevel: normalizeStringArray(canonicalRecord.partner_search_level),
+    partnerPracticeGoals: normalizeStringArray(canonicalRecord.partner_practice_goals),
     partnerDetailsText,
     isVerified: false,
     goals: [],
     connectLinks: {
-      instagram: normalizeUrl(record.instagram, "instagram"),
-      facebook: normalizeUrl(record.facebook, "facebook"),
-      website: normalizeUrl(record.website, "website"),
-      email: (record as any).email || null,
+      instagram: normalizeUrl(canonicalRecord.instagram, "instagram"),
+      facebook: normalizeUrl(canonicalRecord.facebook, "facebook"),
+      website: normalizeUrl(canonicalRecord.website, "website"),
+      email: (canonicalRecord as any).email || null,
     },
   };
 };

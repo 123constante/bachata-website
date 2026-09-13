@@ -449,14 +449,14 @@ const OrganiserProfile = () => {
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, surname, display_name, avatar_url, photo_url')
+        .select('id, first_name, surname, display_name, avatar_url')
         .in('id', memberIds);
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null; photo_url: string | null };
+      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null };
       const dancerMap = new Map<string, DancerRow>((dancerRows as DancerRow[] | null ?? []).map((d) => [d.id, d]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
         const name = d?.display_name?.trim() || [d?.first_name, d?.surname].filter(Boolean).join(' ').trim() || 'Team member';
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? d?.photo_url ?? null, role: t.role, isHead: t.is_head, isLeader: t.is_leader };
+        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, role: t.role, isHead: t.is_head, isLeader: t.is_leader };
       });
     },
     enabled: !!id,

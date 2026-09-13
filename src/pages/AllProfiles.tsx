@@ -6,7 +6,6 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
 
-
 const roleColors: Record<string, string> = {
   dancer: 'bg-pink-100 text-pink-800',
   teacher: 'bg-blue-100 text-blue-800',

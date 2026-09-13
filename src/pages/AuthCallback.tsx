@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { captureException } from "@/lib/sentry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
@@ -176,8 +175,7 @@ const AuthCallback = () => {
             routeOnwards();
             return;
           } catch (profileErr) {
-            captureException(profileErr, { context: "AuthCallback.fillDancerProfile" });
-            navigateToOnboardingFallback("profile");
+                        navigateToOnboardingFallback("profile");
             return;
           }
         }
@@ -187,8 +185,7 @@ const AuthCallback = () => {
         // creates one. Both land on onboarding, which asks for these two fields.
         navigateToOnboardingFallback(dancer?.id ? "metadata" : "profile");
       } catch (err) {
-        captureException(err, { context: "AuthCallback.dancerCheck" });
-        navigateToOnboardingFallback("lookup");
+                navigateToOnboardingFallback("lookup");
       }
     };
 
