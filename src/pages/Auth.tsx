@@ -118,11 +118,6 @@ const AuthContent = () => {
       value
     );
 
-  const goToStep = (step: number) => {
-    setStepDirection(step > signupStep ? 1 : -1);
-    setSignupStep(step);
-  };
-
   const persistRoleSelection = (role: EntryRole) => {
     localStorage.setItem("profile_entry_role", role);
     const nextParams = new URLSearchParams(searchParams);
