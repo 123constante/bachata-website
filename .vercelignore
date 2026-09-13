@@ -1,0 +1,66 @@
+# Vercel Function Storage optimization
+# Prevent unnecessary files from being uploaded to Vercel Functions
+
+# Test suites and fixtures
+tests/
+test-results/
+.playwright/
+
+# Git and CI
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# Development and build artifacts
+dist/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment and config
+.env.local
+.env.*.local
+.DS_Store
+.vscode/
+.idea/
+
+# Configuration files not needed in runtime
+vitest.config.ts
+playwright.config.ts
+tsconfig.*.json
+eslint.config.js
+postcss.config.js
+tailwind.config.ts
+vite.config.ts
+react-router.config.ts
+
+# Documentation and guides
+CLAUDE.md
+README.md
+docs/
+PRODUCT.md
+*.md
+
+# Dependency cache (Vercel installs fresh on deploy)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-store/
+
+# Scripts and tooling (not needed at runtime)
+scripts/
+bin/
+.claude/
+.githooks/
+
+# Public assets (served via CDN)
+public/
+
+# Database and migrations (authority in admin repo)
+supabase/
+
+# Temporary and log files
+*.log
+.npmrc
