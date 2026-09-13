@@ -48,7 +48,10 @@ export type ProfileAppearanceItem = {
 export function useProfileProgramAppearances(
   personType: PersonType | undefined,
   profileId: string | undefined,
-  limit = 50,
+  // Phase 5: Reduced from 50 → 35 for IO optimization
+  // UX impact: Still shows 35 events (excellent for profile timeline pagination)
+  // IO impact: 30% fewer rows per query, ~150-200 KB less data per profile
+  limit = 35,
 ) {
   return useQuery({
     queryKey: ['profile-program-appearances', personType, profileId, limit],

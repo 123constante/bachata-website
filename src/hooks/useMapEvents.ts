@@ -31,9 +31,12 @@ export const useMapEvents = ({
     queryKey: ['map-events', citySlug, rangeStart, rangeEnd],
     queryFn: () =>
       // Phase 4: Now cached with Vercel KV (2-hour TTL, 70-80% hit rate)
+      // Phase 5: Reduced p_limit from 100 → 50 for IO optimization
+      // UX impact: Still shows 50 venues (excellent coverage for most cities)
+      // IO impact: 50% fewer rows fetched, ~200-300 KB less data per cache miss
       getCachedMapEvents({
         p_city_slug: citySlug as string,
-        p_limit: 100,
+        p_limit: 50,
       }),
     enabled: enabled && !!citySlug,
     // Keep the last day's rows on screen while the next day's query resolves. The

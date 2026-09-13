@@ -49,7 +49,8 @@ export const ProfileEventTimeline = ({
   personId,
   title = 'Event appearances',
   emptyText = 'No event appearances yet.',
-  limit = 50,
+  // Phase 5: Reduced from 50 → 35 to match useProfileProgramAppearances optimization
+  limit = 35,
 }: ProfileEventTimelineProps) => {
   const navigate = useNavigate();
 
