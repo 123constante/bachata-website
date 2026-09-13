@@ -1,7 +1,7 @@
 # Supabase Disk IO Optimization — Master Plan
 
-**Status:** Phase 1 ✅ Complete (Commit: `bd49d05`)  
-**Next:** Phase 2 (start after Phase 1 stabilizes for 24–48 hours)  
+**Status:** Phase 2 ✅ Complete (Commit: `6eda16d`)  
+**Next:** Deploy Phase 2 (after 24–48 hour Phase 1 stabilization)  
 **Timeline:** 6–8 weeks for full implementation
 
 ---
@@ -42,19 +42,28 @@ Your Supabase project was consuming excessive Disk IO due to:
 
 ---
 
-### Phase 2: Extract Analytics (Week 2–3)
+### Phase 2: Extract Analytics ✅ (DONE — Commit: `6eda16d`)
 **Timeline:** 2–3 days | **Impact:** Keep 70–85% reduction, restore tracking  
 **What:** Move tracking from Supabase → Vercel KV (external storage)
 
-**High-level:**
-- Create `/api/analytics/event-view` and `/api/analytics/profile-view` routes
-- Redirect `emitProfileView()` and `useRecordEventView()` to POST to these routes
-- KV stores analytics at $0.20/GB-month (vs $50–100/GB on Supabase)
-- Re-enable `VITE_ENABLE_EVENT_TRACKING` and `VITE_ENABLE_PROFILE_TRACKING`
+**Implementation Details:**
+- Created `/api/analytics/profile-view` route (Vercel KV storage, 30-day TTL)
+- Created `/api/analytics/event-view` route (Vercel KV storage, 30-day TTL)
+- Updated `emitProfileView()` to POST to `/api/analytics/profile-view`
+- Updated `useRecordEventView()` to POST to `/api/analytics/event-view`
+- Maintains session-per-day deduplication (same as Phase 1 Supabase RPC)
+- Dependencies: Added `@vercel/kv`
 
 **Cost:** ~$1–5/month for analytics (vs $100–500/month on Supabase)
 
-**Implementation Docs:** `PHASE-2-IMPLEMENTATION-PLAN.md`
+**Deployment:** See `DEPLOYMENT-PHASE-2.md` for step-by-step checklist
+
+**Files Modified:**
+- `app/routes/api.analytics.profile-view.tsx` (new)
+- `app/routes/api.analytics.event-view.tsx` (new)
+- `src/lib/profileViewEmit.ts`
+- `src/modules/event-page/useRecordEventView.ts`
+- `package.json` (@vercel/kv added)
 
 ---
 
@@ -144,16 +153,26 @@ Your Supabase project was consuming excessive Disk IO due to:
 - Files modified: 4
 - Tests passing: Yes
 - Pre-ship validated: Yes
-- Ready to deploy: Yes
+- Status: Deployed to production
+
+### ✅ Phase 2 Complete
+- Commit: `6eda16d`
+- Files modified: 4 (+ 2 new API routes)
+- Tests passing: Yes
+- Pre-ship validated: Yes
+- Status: Ready to deploy (awaiting Phase 1 stabilization)
+- Deployment docs: `DEPLOYMENT-PHASE-2.md`
 
 ### 📋 Next Steps
-1. **Deploy Phase 1** to production
-2. **Monitor** Supabase Disk IO for 24–48 hours (should drop 70–85%)
-3. **Start Phase 2** once Phase 1 is stable
+1. **Monitor** Phase 1 Supabase IO for 24–48 hours (should stay low)
+2. **Deploy** Phase 2 (set Vercel env vars + enable tracking flags)
+3. **Verify** analytics appear in Vercel KV
+4. **Monitor** Supabase IO (should stay low even with tracking re-enabled)
+5. **Start** Phase 3 after 48hrs stabilization
 
 ### 📅 Timeline
-- **Today:** Deploy Phase 1
-- **Week 2–3:** Phase 2 (Vercel KV setup)
+- **Today:** Phase 2 implementation complete (Commit: `6eda16d`)
+- **Next 24–48h:** Monitor Phase 1, then deploy Phase 2
 - **Week 3–4:** Phase 3 (Realtime subscriptions)
 - **Week 4–5:** Phase 4 (Caching layer)
 - **Week 5–6:** Phase 5 (Query optimization)
