@@ -97,7 +97,9 @@ export function useSearchResults(
     // between builds never serves a stale v4 envelope.
     queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5],
     enabled: term.length > 0,
-    staleTime: 60_000,
+    // Phase 3: Increased stale time for search results (60s → 3 min)
+    // User-initiated searches; data updates slowly enough for 3-min cache
+    staleTime: 3 * 60_000,
     queryFn: async () => {
       const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
       const args: Record<string, unknown> = flags.searchV5
