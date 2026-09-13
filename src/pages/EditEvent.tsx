@@ -121,7 +121,7 @@ const EditEvent = () => {
         // P5 event found, fetch series data
         const { data: series, error: seriesError } = await supabase
           .from('event_series_p5')
-          .select('id, name, description, organiser_ids')
+          .select('id, name, description')
           .eq('id', occurrence.series_id)
           .single();
 
