@@ -80,10 +80,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return handle.cancel;
   }, [attempt]);
 
-  useEffect(() => {
-    if (!isSentryEnabled()) return;
-      }, [user]);
-
   const retryAuth = useCallback(() => {
     setAuthStatus("resolving");
     setAttempt((n) => n + 1);
