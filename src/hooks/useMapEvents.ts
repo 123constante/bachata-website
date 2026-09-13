@@ -15,7 +15,7 @@ export interface UseMapEventsParams {
  *
  * Keyed by city + date range; 5-minute staleTime since event data moves on the
  * scale of days, not minutes. Mirrors useCalendarEvents conventions. RPC errors
- * surface as isError (the surfaces show RetryNotice) and route to Sentry.
+ * surface as isError (the surfaces show RetryNotice).
  */
 export const useMapEvents = ({
   citySlug,

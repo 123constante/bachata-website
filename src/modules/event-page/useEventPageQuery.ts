@@ -359,7 +359,7 @@ export const useEventPageQuery = (eventId?: string | null, occurrenceId?: string
         p_viewer: { role: 'anon', shape: 'snapshot_compat' },
       } as never);
       if (error) {
-        // Wrap raw PostgrestError so Sentry receives a real Error, not an object.
+        // Wrap raw PostgrestError so error message is properly typed and serializable.
         throw new Error(error.message ?? JSON.stringify(error));
       }
 

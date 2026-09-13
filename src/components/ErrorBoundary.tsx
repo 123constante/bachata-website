@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
     if (shouldSkipCapture(error)) return;
-    // Error logging only (no Sentry reporting).
+    // Error logging and state reset.
     this.setState({ eventId: null });
   }
 
