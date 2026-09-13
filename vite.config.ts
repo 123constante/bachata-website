@@ -23,7 +23,7 @@ export default defineConfig(({ isSsrBuild }) => ({
     // reactRouter() owns the React transform in framework mode. vitest cannot
     // load the RR plugin, so fall back to plugin-react-swc under VITEST.
     process.env.VITEST ? react() : reactRouter(),
-  ].filter(Boolean),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
