@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
 import { flags } from '@/lib/featureFlags';
 
@@ -26,15 +25,21 @@ export function useRecordEventView(
     // 3s delay filters bounced visits and most automated fetchers that do not
     // execute timers long enough to reach this point.
     const timer = setTimeout(() => {
-      void supabase
-        .rpc('record_event_view_v1', {
-          p_event_id: eventId,
-          p_viewer_session_id: sessionId,
-          p_source: source,
-          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-          ...(occurrenceId ? { p_occurrence_id: occurrenceId } : {}),
-        })
-        .then(() => undefined, () => undefined);
+      // Phase 2: POST to /api/analytics/event-view instead of Supabase RPC.
+      // Fire-and-forget; errors are swallowed (telemetry must never block).
+      void fetch('/api/analytics/event-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          source,
+          occurrenceId: occurrenceId ?? null,
+          sessionId,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        }),
+      }).catch(() => {
+        // Fail silently — telemetry errors must never reach the console
+      });
     }, 3000);
 
     return () => clearTimeout(timer);
