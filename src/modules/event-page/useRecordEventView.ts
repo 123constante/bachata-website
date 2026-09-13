@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
+import { flags } from '@/lib/featureFlags';
 
 export function useRecordEventView(
   eventId: string | null | undefined,
@@ -8,6 +9,10 @@ export function useRecordEventView(
   occurrenceId?: string | null,
 ): void {
   useEffect(() => {
+    // Event view tracking is disabled during Phase 1 IO optimization.
+    // Re-enable once analytics are moved to external storage (Phase 2).
+    if (!flags.enableEventTracking) return;
+
     if (!eventId) return;
 
     // Skip automated/headless agents. The build-time prerenderer (Playwright /

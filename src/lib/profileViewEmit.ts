@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
+import { flags } from '@/lib/featureFlags';
 
 // ─── emitProfileView ─────────────────────────────────────────────────────────
 //
@@ -49,6 +50,10 @@ const sanitiseProfileType = (raw: string | null | undefined): string => {
 };
 
 export function emitProfileView(args: EmitProfileViewArgs): void {
+  // Profile view tracking is disabled during Phase 1 IO optimization.
+  // Re-enable once analytics are moved to external storage (Phase 2).
+  if (!flags.enableProfileTracking) return;
+
   // SSR / non-browser contexts have no session; nothing to emit.
   if (typeof window === 'undefined') return;
 

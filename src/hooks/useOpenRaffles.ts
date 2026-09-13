@@ -71,8 +71,10 @@ export function useOpenRaffles() {
   return useQuery({
     queryKey: ['open-raffles'],
     queryFn: fetchOpenRaffles,
-    staleTime: 60_000,
-    refetchInterval: 60_000, // keep countdowns / entry counts fresh on a long-lived tab
+    // Phase 1 IO optimization: removed aggressive 60s polling.
+    // Raffles update only when user manually reloads or navigates.
+    // Real-time subscription planned for Phase 3.
+    staleTime: 30 * 60_000, // 30 minutes: raffles rarely change in real-time
   });
 }
 
@@ -91,6 +93,7 @@ export function useRaffleStats() {
   return useQuery({
     queryKey: ['raffle-stats'],
     queryFn: fetchRaffleStats,
-    staleTime: 5 * 60_000,
+    // Phase 1 IO optimization: increased stale time for non-critical stats
+    staleTime: 30 * 60_000, // 30 minutes: community stats don't change frequently
   });
 }

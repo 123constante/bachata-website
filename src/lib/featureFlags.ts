@@ -27,6 +27,12 @@ export const flags = {
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.
   rum:                 import.meta.env.VITE_ENABLE_RUM === 'true',
+  // Analytics: event and profile view tracking (Phase 1 IO optimization).
+  // Temporarily OFF to reduce Supabase Disk IO while analytics are moved to
+  // external storage (Vercel KV / S3). Re-enable after Phase 2 completes.
+  // Default: true in dev, false in prod until Phase 2 migration lands.
+  enableEventTracking: import.meta.env.VITE_ENABLE_EVENT_TRACKING !== 'false',
+  enableProfileTracking: import.meta.env.VITE_ENABLE_PROFILE_TRACKING !== 'false',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
