@@ -26,15 +26,16 @@ dist/
 .vscode/
 .idea/
 
-# Configuration files not needed in runtime
+# Configuration files not needed in runtime (build-time-required configs --
+# vite.config.ts, react-router.config.ts, postcss.config.js,
+# tailwind.config.ts -- must stay OUT of this list: `vercel build` runs
+# `react-router build` from source on Vercel's infra, so anything the build
+# step itself reads has to survive .vercelignore, not just anything needed
+# at request time)
 vitest.config.ts
 playwright.config.ts
 tsconfig.*.json
 eslint.config.js
-postcss.config.js
-tailwind.config.ts
-vite.config.ts
-react-router.config.ts
 
 # Documentation and guides
 CLAUDE.md
