@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
 import { flags } from '@/lib/featureFlags';
 
@@ -7,15 +8,15 @@ import { flags } from '@/lib/featureFlags';
 // useRecordEventView shape so both surfaces share the same anon-session
 // dedupe model on the server (one row per person+session+UTC-day).
 //
-// Phase 2: Moved from Supabase RPC → external Vercel KV storage ($0.20/GB vs $100+/GB).
-// Still enforces the same session-per-day deduplication, just faster and cheaper.
-//
 // Design rules:
 //   • Telemetry NEVER blocks navigation. All errors are swallowed.
 //   • SSR-safe — early-returns if window is unavailable.
-//   • Profile-type is normalised + sanitised so unknown values land as 'unknown'
-//     for later inspection (matches pre-Phase-2 server behavior).
-//   • POST to /api/analytics/profile-view (see app/routes/api.analytics.profile-view.tsx).
+//   • Server enforces bot-UA filter and admin-session skip; this util just
+//     forwards what the browser knows. See record_profile_view_v1 in
+//     migration 20260430170000.
+//   • Profile-type is normalised + sanitised against the server's CHECK
+//     constraint set so unknown values don't reject silently on the DB
+//     side; they land as 'unknown' for later inspection.
 //
 // See plan_person_discoverability.md (Bachata Calendar PM workspace).
 
@@ -44,7 +45,7 @@ const ALLOWED_PROFILE_TYPES = new Set([
 
 const sanitiseProfileType = (raw: string | null | undefined): string => {
   if (!raw) return 'unknown';
-  const lower = String(raw).toLowerCase().trim();
+  const lower = raw.toLowerCase().trim();
   return ALLOWED_PROFILE_TYPES.has(lower) ? lower : 'unknown';
 };
 
@@ -66,20 +67,19 @@ export function emitProfileView(args: EmitProfileViewArgs): void {
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const profileType = sanitiseProfileType(args.profileType);
 
-  // Fire-and-forget POST to /api/analytics/profile-view (Phase 2: Vercel KV).
-  // Errors are swallowed — telemetry must never block navigation.
-  void fetch('/api/analytics/profile-view', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      personId: args.personId,
-      profileType,
-      context: args.context,
-      eventId: args.eventId ?? null,
-      sessionId,
-      userAgent,
-    }),
-  }).catch(() => {
-    // Fail silently — telemetry errors must never reach the console
-  });
+  // Fire-and-forget. supabase.rpc returns a thenable; we discard the result
+  // and the error.  Swallowed errors are deliberate — never break navigation.
+  void supabase
+    .rpc('record_profile_view_v1', {
+      p_person_id: args.personId,
+      p_profile_type: profileType,
+      p_context: args.context,
+      p_event_id: args.eventId ?? null,
+      p_session_id: sessionId,
+      p_user_agent: userAgent,
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    );
 }
