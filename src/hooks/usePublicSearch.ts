@@ -25,9 +25,7 @@ export function usePublicSearch(rawQuery: string, citySlug?: string | null) {
       return results;
     },
     enabled,
-    // Phase 3: Increased stale time for search results (60s → 3 min)
-    // User-initiated searches; data updates slowly enough for 3-min cache
-    staleTime: 3 * 60_000,
+    staleTime: 60_000,
   });
 
   return {

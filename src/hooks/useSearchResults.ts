@@ -97,19 +97,14 @@ export function useSearchResults(
     // between builds never serves a stale v4 envelope.
     queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5],
     enabled: term.length > 0,
-    // Phase 3: Increased stale time for search results (60s → 3 min)
-    // User-initiated searches; data updates slowly enough for 3-min cache
-    staleTime: 3 * 60_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
-      // Phase 5: Reduced p_section_limit from 12 → 8 for IO optimization
-      // UX impact: Still shows 8 results per section (good coverage for most queries)
-      // IO impact: 33% fewer rows per section, multi-section queries save 20-30% IO
       const args: Record<string, unknown> = flags.searchV5
         ? {
             p_query: term,
             p_city_slug: city,
-            p_section_limit: 8,
+            p_section_limit: 12,
             p_include_past: includePast,
             p_event_type: etype,
             p_styles: styles,
@@ -118,7 +113,7 @@ export function useSearchResults(
             p_format: formats,
             p_category: categories,
           }
-        : { p_query: term, p_city_slug: city, p_section_limit: 8, p_include_past: includePast };
+        : { p_query: term, p_city_slug: city, p_section_limit: 12, p_include_past: includePast };
 
       const { data, error } = await (supabase.rpc as never as RpcCaller)(fn, args);
       if (error) throw new Error(error.message);

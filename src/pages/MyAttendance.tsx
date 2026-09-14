@@ -110,9 +110,7 @@ const MyAttendance = () => {
     queryKey: ['my-event-attendance', user?.id],
     queryFn: fetchMyAttendance,
     enabled: Boolean(user?.id),
-    // Phase 3: Increased stale time for personal attendance data (60s → 5 min)
-    // User's own attendance doesn't change frequently; reduce refetch frequency
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
   });
 
   const sorted = useMemo(() => {
