@@ -28,13 +28,14 @@ dist/
 
 # Configuration files not needed in runtime (build-time-required configs --
 # vite.config.ts, react-router.config.ts, postcss.config.js,
-# tailwind.config.ts -- must stay OUT of this list: `vercel build` runs
-# `react-router build` from source on Vercel's infra, so anything the build
-# step itself reads has to survive .vercelignore, not just anything needed
-# at request time)
+# tailwind.config.ts, tsconfig.*.json -- must stay OUT of this list:
+# `vercel build` runs `react-router build` from source on Vercel's infra, so
+# anything the build step itself reads has to survive .vercelignore, not
+# just anything needed at request time. tsconfig.*.json specifically: react-
+# router.config.ts is parsed via tsconfck, which resolves and parses
+# tsconfig.app.json even though nothing in the build calls tsc directly)
 vitest.config.ts
 playwright.config.ts
-tsconfig.*.json
 eslint.config.js
 
 # Documentation and guides
