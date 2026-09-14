@@ -67,10 +67,7 @@ const LiveEventsSection = ({
   windowDays = SEO_LANDING_WINDOWS.guide,
   classesOnly = false,
   partiesOnly = false,
-  // Phase 5: Reduced from 12 → 8 for IO optimization & SEO page density
-  // UX impact: Still shows 8 events (good for SEO landing pages)
-  // IO impact: 33% fewer rows per page, ~100-150 KB less data cached
-  limit = 8,
+  limit = 12,
   emptyText,
   id,
   serverTodayKey,
