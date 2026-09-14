@@ -51,7 +51,11 @@ pnpm-lock.yaml
 
 # Scripts and tooling (not needed at runtime)
 scripts/
-bin/
+# bin/ is glob-excluded rather than dir-excluded so this one entry can be
+# un-ignored -- postinstall (package.json) requires it during `npm install`,
+# before build even starts, so it can't just be built/copied in later.
+bin/*
+!bin/install-hooks.cjs
 .claude/
 .githooks/
 
