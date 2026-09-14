@@ -127,6 +127,22 @@ const heroBg = (r: number, g: number, b: number) =>
   `radial-gradient(circle at 62% 88%,rgba(${r},${g},${b},0.32),transparent 52%),` +
   `linear-gradient(155deg,#2a1622,#0c0a0d 72%)`;
 
+// Relative bar heights for the hero's sound-floor motif -- a nod to the DJ set
+// or live band every bachata night runs on, not a decorative flourish.
+const HERO_EQ_HEIGHTS = [
+  0.35, 0.62, 0.9, 0.5, 0.78, 0.42, 0.68, 0.95, 0.55, 0.3, 0.72, 0.48, 0.85,
+  0.6, 0.38, 0.92, 0.5, 0.7, 0.44, 0.8, 0.58, 0.34, 0.88, 0.62, 0.46, 0.75,
+  0.4, 0.66,
+];
+
+// Static -- hoisted so it isn't re-created as a new string on every render.
+const HERO_EQ_STYLE = `
+  @keyframes organiserHeroEq { 0%, 100% { transform: scaleY(0.55); } 50% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .organiser-hero-eq-bar { animation: none !important; transform: scaleY(0.8) !important; }
+  }
+`;
+
 // --- Helpers ---
 
 const initials = (name: string | null | undefined): string => {
@@ -275,6 +291,32 @@ const AvatarCircle = ({
   </div>
 );
 
+const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
+  const iconPx = size === 'sm' ? 10 : 12;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: size === 'sm' ? 4 : 5,
+        fontSize: size === 'sm' ? 10 : 12,
+        fontWeight: 700,
+        color: D.cream,
+        padding: size === 'sm' ? '2px 7px' : '3px 9px',
+        borderRadius: 100,
+        background: 'rgba(231,190,110,0.16)',
+        border: '1px solid rgba(231,190,110,0.35)',
+      }}
+    >
+      <svg width={iconPx} height={iconPx} viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+      Verified
+    </span>
+  );
+};
+
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
     <div className="text-center">
@@ -296,28 +338,38 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
 
 // Builds EventRow props for a single occurrence. EventRow itself stays
 // time-library-agnostic; all WallClock formatting happens here.
+//
+// A series summary row (one card standing in for a whole run of dates) also
+// goes through this: it needs the SERIES's name/poster rather than its first
+// date's, and a date-count meta line instead of a time, so those fields take
+// an override while the day/mon extraction and href fallback stay shared.
 const buildEventRowProps = (
   event: OrgEvent,
   todayKey: string,
   fallbackIndex: number,
-  chip?: string,
-  onClick?: () => void,
+  overrides?: {
+    chip?: string;
+    onClick?: () => void;
+    name?: string;
+    posterUrl?: string | null;
+    meta?: string;
+  },
 ): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
   const time = eventTime(event.displayStart);
   const venue = event.location?.trim() || event.city?.trim() || '';
-  const meta = [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
+  const meta = overrides?.meta ?? [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
   return {
     href,
-    name: event.name,
-    posterUrl: event.poster_url,
+    name: overrides?.name ?? event.name,
+    posterUrl: overrides?.posterUrl ?? event.poster_url,
     dateDay: day,
     dateMon: mon,
     meta,
     fallbackIndex,
-    chip,
-    onClick,
+    chip: overrides?.chip,
+    onClick: overrides?.onClick,
   };
 };
 
@@ -819,11 +871,18 @@ const OrganiserProfile = () => {
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
   const foundedYear = (ep.founded_year as number | null | undefined) ?? null;
-  const estYear     = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
-  const yearsActive = estYear !== null ? new Date().getFullYear() - estYear : null;
+  // estYear falls back to the earliest listed event's year when the organiser
+  // hasn't told us when they started -- that's an estimate, not a fact, so it
+  // carries its own flag through to the stat display below.
+  const estYear         = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
+  const estYearInferred = foundedYear === null && estYear !== null;
+  const yearsActive     = estYear !== null ? new Date().getFullYear() - estYear : null;
 
-  const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive ?? '--');
-  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive ? 'Yrs active' : 'Since';
+  const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive !== null ? `${estYearInferred ? '~' : ''}${yearsActive}` : '--');
+  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive !== null ? 'Yrs active' : 'Since';
+  const thirdStatTitle = orderedTeam.length === 0 && yearsActive !== null && estYearInferred
+    ? `Estimated from the earliest listed event (${estYear}) -- not a confirmed founding date`
+    : undefined;
 
   // --- Render ---
   return (
@@ -841,9 +900,29 @@ const OrganiserProfile = () => {
               gradient -- using it here regressed every organiser's hero to the
               wrong colour, since ready never flips true today). */}
           <div aria-hidden style={{ position: 'absolute', inset: 0, background: HERO_BG, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '18%', left: '34%', width: 5, height: 5, borderRadius: '50%', background: D.lightGold, boxShadow: '0 0 14px 3px rgba(251,239,196,0.8)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '42%', left: '68%', width: 4, height: 4, borderRadius: '50%', background: '#FFD89A', boxShadow: '0 0 12px 3px rgba(255,216,154,0.7)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '64%', left: '22%', width: 3, height: 3, borderRadius: '50%', background: '#fff', boxShadow: '0 0 10px 2px rgba(255,255,255,0.6)', pointerEvents: 'none' }} />
+
+          {/* Sound-floor motif: a low, still EQ visualiser along the hero's
+              base, like a paused DJ meter -- grounds the hero in a bachata
+              night's music rather than generic hero-shine sparkle. Reduced
+              motion keeps it still. */}
+          <style>{HERO_EQ_STYLE}</style>
+          <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 44, display: 'flex', alignItems: 'flex-end', gap: 3, padding: '0 4px', opacity: 0.16, pointerEvents: 'none' }}>
+            {HERO_EQ_HEIGHTS.map((h, i) => (
+              <div
+                key={i}
+                className="organiser-hero-eq-bar"
+                style={{
+                  flex: 1,
+                  minWidth: 2,
+                  borderRadius: '2px 2px 0 0',
+                  background: 'linear-gradient(180deg,#FBEFC4,#E7BE6E 55%,#FF6A2C)',
+                  height: `${h * 100}%`,
+                  transformOrigin: 'bottom',
+                  animation: `organiserHeroEq ${1.6 + (i % 4) * 0.25}s ease-in-out ${(i % 6) * 0.09}s infinite`,
+                }}
+              />
+            ))}
+          </div>
 
           <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
             {isClaimedByUser && (
@@ -863,16 +942,18 @@ const OrganiserProfile = () => {
             <AvatarCircle avatarUrl={entity.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
-              {ep.is_verified && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)', color: D.cream }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                  Verified
-                </span>
-              )}
+              {ep.is_verified && <VerifiedBadge size="sm" />}
             </div>
-            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+            {/* Static gold gradient, no shimmer sweep -- that mechanical
+                highlight-scroll is the generic premium-SaaS hero tell; the
+                sound-floor motif and wave mark below carry this hero's
+                personality instead. */}
+            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
               {entity.name}
             </h1>
+            <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
+              <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+            </svg>
             {entity.bio && (
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.72)', fontWeight: 500, lineHeight: 1.4 }}>
                 {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
@@ -887,16 +968,14 @@ const OrganiserProfile = () => {
               <div style={{ flex: 1, paddingBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
-                  {ep.is_verified && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: D.cream, padding: '3px 9px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                      Verified
-                    </span>
-                  )}
+                  {ep.is_verified && <VerifiedBadge size="md" />}
                 </div>
-                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                   {entity.name}
                 </h1>
+                <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
+                  <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
+                </svg>
                 {entity.bio && (
                   <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.72)', fontWeight: 500 }}>
                     {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
@@ -920,11 +999,11 @@ const OrganiserProfile = () => {
         {/* Stats strip */}
         <div className="flex justify-around py-4 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
-            { value: upcomingEvents.length, label: 'Upcoming events', gold: false },
-            { value: pastEvents.length,     label: 'Past events',     gold: false },
-            { value: thirdStatValue,         label: thirdStatLabel, gold: true },
+            { value: upcomingEvents.length, label: 'Upcoming events', title: undefined },
+            { value: pastEvents.length,     label: 'Past events',     title: undefined },
+            { value: thirdStatValue,        label: thirdStatLabel,    title: thirdStatTitle },
           ].map((s) => (
-            <div key={s.label} style={{ textAlign: 'center' }}>
+            <div key={s.label} style={{ textAlign: 'center' }} title={s.title}>
               <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{s.label}</div>
             </div>
@@ -1068,15 +1147,13 @@ const OrganiserProfile = () => {
                 ) : (
                   <EventRowCard
                     key={item.eventId}
-                    href={`/event/${item.eventId}`}
-                    name={item.name}
-                    posterUrl={item.posterUrl}
-                    dateDay={dateParts(item.dates[0].displayStart).day}
-                    dateMon={dateParts(item.dates[0].displayStart).mon}
-                    meta={[countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · ')}
-                    fallbackIndex={i}
-                    chip={`${item.dates.length} dates`}
-                    onClick={() => setOpenSeriesEventId(item.eventId)}
+                    {...buildEventRowProps(item.dates[0], todayKey, i, {
+                      name: item.name,
+                      posterUrl: item.posterUrl,
+                      meta: [countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · '),
+                      chip: `${item.dates.length} dates`,
+                      onClick: () => setOpenSeriesEventId(item.eventId),
+                    })}
                   />
                 ),
               )}
