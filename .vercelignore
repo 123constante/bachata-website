@@ -26,15 +26,17 @@ dist/
 .vscode/
 .idea/
 
-# Configuration files not needed in runtime
+# Configuration files not needed in runtime (build-time-required configs --
+# vite.config.ts, react-router.config.ts, postcss.config.js,
+# tailwind.config.ts, tsconfig.*.json -- must stay OUT of this list:
+# `vercel build` runs `react-router build` from source on Vercel's infra, so
+# anything the build step itself reads has to survive .vercelignore, not
+# just anything needed at request time. tsconfig.*.json specifically: react-
+# router.config.ts is parsed via tsconfck, which resolves and parses
+# tsconfig.app.json even though nothing in the build calls tsc directly)
 vitest.config.ts
 playwright.config.ts
-tsconfig.*.json
 eslint.config.js
-postcss.config.js
-tailwind.config.ts
-vite.config.ts
-react-router.config.ts
 
 # Documentation and guides
 CLAUDE.md
@@ -51,15 +53,25 @@ pnpm-lock.yaml
 
 # Scripts and tooling (not needed at runtime)
 scripts/
-bin/
+# bin/ is glob-excluded rather than dir-excluded so this one entry can be
+# un-ignored -- postinstall (package.json) requires it during `npm install`,
+# before build even starts, so it can't just be built/copied in later.
+bin/*
+!bin/install-hooks.cjs
 .claude/
 .githooks/
 
 # Public assets (served via CDN)
 public/
 
-# Database and migrations (authority in admin repo)
-supabase/
+# Database and migrations (authority in admin repo). Anchored to the repo
+# root (/supabase/) -- an unanchored "supabase/" is a gitignore-semantics
+# footgun: it matches a directory of that name at ANY depth, so it was also
+# stripping src/integrations/supabase/ (10 files) from the uploaded source,
+# causing `vercel build` to fail on a random missing module each run
+# depending on parallel-transform ordering (whichever file under that
+# directory got hit first).
+/supabase/
 
 # Temporary and log files
 *.log
