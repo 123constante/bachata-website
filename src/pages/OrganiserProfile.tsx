@@ -323,10 +323,41 @@ const buildEventRowProps = (
 
 // --- Colour extraction ---
 
-function useAverageColor(url: string | null): [number, number, number] {
-  const [rgb, setRgb] = React.useState<[number, number, number]>([255, 106, 44]);
+const DEFAULT_HERO_RGB: [number, number, number] = [255, 106, 44];
+
+// Sampling result per avatar URL, kept for the life of the tab. The R2 bucket
+// currently sends no CORS headers (see below), so every attempt fails at
+// getImageData and would otherwise re-run the same doomed decode+draw+catch
+// on every mount of this page (including a StrictMode double-invoke and every
+// back/forward nav between organisers) for no visual gain. Caching both the
+// success AND the failure means a given avatar URL is ever sampled once per
+// tab, not once per view.
+const heroColourCache = new Map<string, [number, number, number] | null>();
+
+function useAverageColor(url: string | null): { rgb: [number, number, number]; ready: boolean } {
+  const cached = url ? heroColourCache.get(url) : undefined;
+  const [rgb, setRgb] = React.useState<[number, number, number]>(cached ?? DEFAULT_HERO_RGB);
+  const [ready, setReady] = React.useState<boolean>(!!cached);
+
   React.useEffect(() => {
-    if (!url) return;
+    if (!url) { setRgb(DEFAULT_HERO_RGB); setReady(false); return; }
+    const cachedForUrl = heroColourCache.get(url);
+    if (cachedForUrl !== undefined) {
+      // A same-instance url change (no remount) must resync rgb/ready to
+      // THIS url's cached verdict, not leave a previous url's state behind --
+      // a positive cache hit sets colour+ready, a cached failure must reset
+      // to the default rather than silently keep an unrelated organiser's
+      // sampled colour on screen.
+      if (cachedForUrl) { setRgb(cachedForUrl); setReady(true); } else { setRgb(DEFAULT_HERO_RGB); setReady(false); }
+      return;
+    }
+    setRgb(DEFAULT_HERO_RGB);
+    setReady(false);
+    // A url change on the same mounted instance (e.g. the profile owner saves
+    // a new avatar and the entity query refetches, with no route/id change to
+    // remount this component) must not let a late callback for the OLD url
+    // land after this effect has already moved on to the new one.
+    let cancelled = false;
     // No crossOrigin: the cover CDN (Cloudflare R2) sends no CORS headers, so a
     // crossOrigin='anonymous' request fails with net::ERR_FAILED -- a console
     // error for every organiser page (and the colour sample fell back to default
@@ -334,9 +365,12 @@ function useAverageColor(url: string | null): [number, number, number] {
     // fetch (no second request, no error); the canvas then taints and
     // getImageData throws below, caught -> same default colour. To actually
     // enable colour theming, add CORS headers to the R2 bucket and restore
-    // crossOrigin here.
+    // crossOrigin here. Whenever that lands, the cache above still holds and
+    // the ready-gated opacity fade below (see HERO_BG usage) keeps the reveal
+    // a crossfade instead of a pop.
     const img = new Image();
     img.onload = () => {
+      let sampled: [number, number, number] | null = null;
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 16; canvas.height = 16;
@@ -351,13 +385,19 @@ function useAverageColor(url: string | null): [number, number, number] {
           r += data[i]; g += data[i+1]; b += data[i+2]; count++;
         }
         if (count === 0) return;
-        setRgb([Math.round(r/count), Math.round(g/count), Math.round(b/count)]);
-      } catch { /* CORS block ??? stay on default */ }
+        sampled = [Math.round(r/count), Math.round(g/count), Math.round(b/count)];
+      } catch { /* CORS block -- stay on default */ }
+      finally {
+        heroColourCache.set(url, sampled);
+        if (sampled && !cancelled) { setRgb(sampled); setReady(true); }
+      }
     };
-    img.onerror = () => { /* stay on default */ };
+    img.onerror = () => { heroColourCache.set(url, null); /* stay on default */ };
     img.src = url;
+    return () => { cancelled = true; };
   }, [url]);
-  return rgb;
+
+  return { rgb, ready };
 }
 
 // --- Main component ---
@@ -404,7 +444,7 @@ const OrganiserProfile = () => {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [cr, cg, cb] = useAverageColor((entity as any)?.avatar_url ?? null);
+  const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
   const HERO_BG = heroBg(cr, cg, cb);
 
   const { data: allEvents = [] } = useQuery({
@@ -772,7 +812,16 @@ const OrganiserProfile = () => {
       <article style={{ fontFamily: BODY, background: D.black, color: D.cream, minHeight: '100vh' }}>
 
         {/* HERO */}
-        <header className="relative overflow-hidden" style={{ background: HERO_BG }}>
+        <header className="relative overflow-hidden" style={{ background: heroBg(...DEFAULT_HERO_RGB) }}>
+          {/* Sampled-colour layer, faded in only once useAverageColor has a real
+              answer -- this is what keeps a future CORS fix (see the comment on
+              useAverageColor) a crossfade instead of a pop; today it never
+              becomes visible because sampling always fails without CORS. Base
+              layer above MUST stay heroBg(DEFAULT_HERO_RGB), not HERO_BG_DEFAULT
+              (that constant is the loading-skeleton's own, differently-tinted
+              gradient -- using it here regressed every organiser's hero to the
+              wrong colour, since ready never flips true today). */}
+          <div aria-hidden style={{ position: 'absolute', inset: 0, background: HERO_BG, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: '18%', left: '34%', width: 5, height: 5, borderRadius: '50%', background: D.lightGold, boxShadow: '0 0 14px 3px rgba(251,239,196,0.8)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: '42%', left: '68%', width: 4, height: 4, borderRadius: '50%', background: '#FFD89A', boxShadow: '0 0 12px 3px rgba(255,216,154,0.7)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: '64%', left: '22%', width: 3, height: 3, borderRadius: '50%', background: '#fff', boxShadow: '0 0 10px 2px rgba(255,255,255,0.6)', pointerEvents: 'none' }} />
@@ -791,7 +840,7 @@ const OrganiserProfile = () => {
           </div>
 
           {/* Mobile */}
-          {(isMobile !== false) && <div style={{ height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
+          {(isMobile !== false) && <div style={{ position: 'relative', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
             <AvatarCircle avatarUrl={entity.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
@@ -840,8 +889,14 @@ const OrganiserProfile = () => {
           </div>}
         </header>
 
-        {/* Brand colour fade ??? bleeds the hero tint into the body */}
-        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, zIndex: 0 }} />
+        {/* Brand colour fade &mdash; bleeds the hero tint into the body. Two
+            stacked layers (default + sampled) so this crossfades the same way
+            the hero overlay above does, instead of popping the moment a
+            colour sample lands. */}
+        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', zIndex: 0 }}>
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
+        </div>
 
         {/* Stats strip */}
         <div className="flex justify-around py-4 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
