@@ -331,8 +331,24 @@ const DEFAULT_HERO_RGB: [number, number, number] = [255, 106, 44];
 // on every mount of this page (including a StrictMode double-invoke and every
 // back/forward nav between organisers) for no visual gain. Caching both the
 // success AND the failure means a given avatar URL is ever sampled once per
-// tab, not once per view.
+// tab, not once per view. Only a DETERMINISTIC failure (the canvas-taint catch
+// below) is cached as a negative -- a transient img.onerror (a mobile network
+// blip on ~95% of this site's traffic) is deliberately NOT cached, so it can
+// retry on the next mount instead of permanently blacklisting an organiser
+// whose avatar merely failed to load once.
+const HERO_COLOUR_CACHE_MAX = 500;
 const heroColourCache = new Map<string, [number, number, number] | null>();
+
+function cacheHeroColour(url: string, value: [number, number, number] | null): void {
+  // Insertion-order eviction: this Map lives for the tab's lifetime with no
+  // other cleanup, so bound it rather than let it grow with every distinct
+  // organiser browsed in one long session.
+  if (heroColourCache.size >= HERO_COLOUR_CACHE_MAX && !heroColourCache.has(url)) {
+    const oldest = heroColourCache.keys().next().value;
+    if (oldest !== undefined) heroColourCache.delete(oldest);
+  }
+  heroColourCache.set(url, value);
+}
 
 function useAverageColor(url: string | null): { rgb: [number, number, number]; ready: boolean } {
   const cached = url ? heroColourCache.get(url) : undefined;
@@ -388,11 +404,14 @@ function useAverageColor(url: string | null): { rgb: [number, number, number]; r
         sampled = [Math.round(r/count), Math.round(g/count), Math.round(b/count)];
       } catch { /* CORS block -- stay on default */ }
       finally {
-        heroColourCache.set(url, sampled);
+        // Only reachable via drawImage succeeding and either getImageData
+        // throwing (CORS taint) or resolving -- both deterministic outcomes
+        // for this url, safe to cache either way.
+        cacheHeroColour(url, sampled);
         if (sampled && !cancelled) { setRgb(sampled); setReady(true); }
       }
     };
-    img.onerror = () => { heroColourCache.set(url, null); /* stay on default */ };
+    img.onerror = () => { /* transient network failure -- do not cache, retry next mount; stay on default for now */ };
     img.src = url;
     return () => { cancelled = true; };
   }, [url]);
@@ -447,14 +466,14 @@ const OrganiserProfile = () => {
   const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
   const HERO_BG = heroBg(cr, cg, cb);
 
-  const { data: allEvents = [] } = useQuery({
+  const { data: allEvents = [], isLoading: allEventsLoading } = useQuery({
     queryKey: organiserEventsQueryKey(id),
     queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: futureOccs = [] } = useQuery({
+  const { data: futureOccs = [], isLoading: futureOccsLoading } = useQuery({
     queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -468,14 +487,14 @@ const OrganiserProfile = () => {
   // we keep only is_past rows so today's already-ended events count as past.
   // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
   // with app/routes/organiser.tsx's loader prefetch.
-  const { data: pastOccs = [] } = useQuery({
+  const { data: pastOccs = [], isLoading: pastOccsLoading } = useQuery({
     queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [] } = useQuery({
+  const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery({
     queryKey: ['organiser-team', id],
     queryFn: async (): Promise<TeamMember[]> => {
       if (!id) return [];
@@ -991,6 +1010,47 @@ const OrganiserProfile = () => {
                 </a>
               )}
             </div>}
+          </section>
+        )}
+
+        {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
+            realistic case: a freshly claimed profile with nothing added yet.
+            The claimant CTA can only point at the Edit-profile dialog -- the
+            self-service create-event/edit-event flows were retired 2026-09-12
+            (see AnimatedRoutes.tsx); organiser event creation now happens only
+            in the admin app's EventEditorV2, so there is no public route to
+            send a claimant to for "add your first event".
+
+            Gated on all four content queries having settled (not just the
+            `entity` query, which resolves first as a single-row fetch) --
+            otherwise a well-populated organiser flashes this on every cold
+            load, before allEvents/futureOccs/pastOccs/teamMembers (four
+            independent, slower queries) have had a chance to come back. */}
+        {!allEventsLoading && !futureOccsLoading && !pastOccsLoading && !teamMembersLoading &&
+          !entity.bio && !hasContact && upcomingListItems.length === 0 && orderedTeam.length === 0 && pastEvents.length === 0 && (
+          <section className="px-5 md:px-12 py-14 md:py-20 text-center">
+            {isClaimedByUser ? (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
+                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+                  Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+                </p>
+                <button onClick={openEditModal} style={{ padding: '12px 28px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                  Complete your profile
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Nothing here yet</h2>
+                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+                  {entity.name} hasn&rsquo;t listed any nights yet. Check back soon, or see what&rsquo;s on elsewhere in London.
+                </p>
+                <Link to="/parties" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                  Browse upcoming nights
+                </Link>
+              </>
+            )}
           </section>
         )}
 
