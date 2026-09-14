@@ -64,8 +64,14 @@ bin/*
 # Public assets (served via CDN)
 public/
 
-# Database and migrations (authority in admin repo)
-supabase/
+# Database and migrations (authority in admin repo). Anchored to the repo
+# root (/supabase/) -- an unanchored "supabase/" is a gitignore-semantics
+# footgun: it matches a directory of that name at ANY depth, so it was also
+# stripping src/integrations/supabase/ (10 files) from the uploaded source,
+# causing `vercel build` to fail on a random missing module each run
+# depending on parallel-transform ordering (whichever file under that
+# directory got hit first).
+/supabase/
 
 # Temporary and log files
 *.log
