@@ -128,6 +128,22 @@ const heroBg = (r: number, g: number, b: number) =>
   `radial-gradient(circle at 62% 88%,rgba(${r},${g},${b},0.32),transparent 52%),` +
   `linear-gradient(155deg,#2a1622,#0c0a0d 72%)`;
 
+// Relative bar heights for the hero's sound-floor motif -- a nod to the DJ set
+// or live band every bachata night runs on, not a decorative flourish.
+const HERO_EQ_HEIGHTS = [
+  0.35, 0.62, 0.9, 0.5, 0.78, 0.42, 0.68, 0.95, 0.55, 0.3, 0.72, 0.48, 0.85,
+  0.6, 0.38, 0.92, 0.5, 0.7, 0.44, 0.8, 0.58, 0.34, 0.88, 0.62, 0.46, 0.75,
+  0.4, 0.66,
+];
+
+// Static -- hoisted so it isn't re-created as a new string on every render.
+const HERO_EQ_STYLE = `
+  @keyframes organiserHeroEq { 0%, 100% { transform: scaleY(0.55); } 50% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .organiser-hero-eq-bar { animation: none !important; transform: scaleY(0.8) !important; }
+  }
+`;
+
 // --- Helpers ---
 
 const initials = (name: string | null | undefined): string => {
@@ -182,6 +198,53 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
   return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
+// Normalizes a protocol-optional URL fragment for validating, rendering, AND
+// the extract*Handle/extractDomain helpers below, so no two of them can
+// independently drift on what counts as "already has a scheme/domain".
+// Lowercases only the scheme (never the path/query) and prepends https://
+// when neither a scheme nor the given domain is present -- this is what
+// makes a bare "instagram.com/foo" resolve to a real link instead of being
+// glued onto another https://instagram.com/ prefix.
+const lowercaseScheme = (v: string): string => v.replace(/^https?:\/\//i, (m) => m.toLowerCase());
+
+// Hostname-anchored domain check -- NEVER a substring/`.includes()` test.
+// A substring match treats "https://bit.ly/promo?ref=instagram.com" or a
+// typosquat host "instagram.com.evil.tk" as "is an instagram.com URL" (the
+// substring appears in the query string / as a subdomain prefix of a
+// different real domain), which would validate and render an arbitrary or
+// look-alike URL under the "Instagram" label. Parsing the hostname and
+// requiring an exact match or a real subdomain (`.instagram.com` suffix)
+// closes both.
+const hostMatchesDomain = (trimmed: string, domain: string): boolean => {
+  try {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const hostname = new URL(withScheme).hostname.toLowerCase();
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+};
+
+const withNormalizedProtocol = (trimmed: string, domain?: string): string => {
+  if (/^https?:\/\//i.test(trimmed)) {
+    return lowercaseScheme(trimmed);
+  }
+  if (domain && hostMatchesDomain(trimmed, domain)) {
+    return `https://${trimmed}`;
+  }
+  return domain ? trimmed : `https://${trimmed}`;
+};
+
+// A resolved hostname must look like a real domain -- containing a dot AND
+// a letter -- before a website URL is accepted. Without this, placeholder
+// text like "TBA"/"N/A" (hostname "tba", no dot) and purely numeric input
+// like "12345" (the URL parser reads it as the IPv4 "0.0.48.57" -- has dots
+// but no letters) both validate and save as a live, dead link. Checking the
+// PARSED hostname rather than the raw input closes this for both the bare
+// "tba" and the scheme-prefixed "https://tba" spellings alike.
+const hostnameLooksLikeDomain = (hostname: string): boolean =>
+  hostname.includes('.') && /[a-z]/i.test(hostname);
+
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
   'home.php', 'events',
@@ -222,12 +285,82 @@ const extractDomain = (raw: string | null): string => {
   const trimmed = raw.trim();
   if (!trimmed) return 'Website';
   try {
-    const withProto = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
-    const url = new URL(withProto);
+    const url = new URL(withNormalizedProtocol(trimmed));
     return url.hostname.replace(/^www\./i, '') || 'Website';
   } catch {
     return 'Website';
   }
+};
+
+// --- Validation helpers ---
+
+const isValidEmail = (email: string | null | undefined): boolean => {
+  if (!email) return true;
+  const trimmed = email.trim();
+  if (!trimmed) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
+};
+
+const isValidPhone = (phone: string | null | undefined): boolean => {
+  if (!phone) return true;
+  const trimmed = phone.trim();
+  if (!trimmed) return true;
+  if (!/^[\d\s\-+()]+$/.test(trimmed)) return false;
+  const digitCount = (trimmed.match(/\d/g) || []).length;
+  return digitCount >= 7;
+};
+
+const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  try {
+    const hostname = new URL(withNormalizedProtocol(trimmed)).hostname;
+    return hostnameLooksLikeDomain(hostname);
+  } catch {
+    return false;
+  }
+};
+
+const isValidInstagramUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9._]+$/.test(trimmed);
+  }
+  // hostMatchesDomain, not a substring test -- an arbitrary URL that merely
+  // mentions "instagram.com" in its query string or path must NOT validate
+  // as an Instagram entry.
+  if (hostMatchesDomain(trimmed, 'instagram.com')) {
+    try {
+      new URL(withNormalizedProtocol(trimmed, 'instagram.com'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  return /^[a-zA-Z0-9._]+$/.test(trimmed);
+};
+
+const isValidFacebookUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
+  }
+  if (hostMatchesDomain(trimmed, 'facebook.com')) {
+    try {
+      new URL(withNormalizedProtocol(trimmed, 'facebook.com'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
 };
 
 // --- Sub-components ---
@@ -268,7 +401,7 @@ const AvatarCircle = ({
       }}
     >
       {avatarUrl ? (
-        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} width={sizePx} height={sizePx} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       ) : (
         <span style={{ fontFamily: SERIF, fontSize, color: 'rgba(251,239,196,0.85)' }}>{initials(name)}</span>
       )}
@@ -276,19 +409,45 @@ const AvatarCircle = ({
   </div>
 );
 
+const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
+  const iconPx = size === 'sm' ? 10 : 12;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: size === 'sm' ? 4 : 5,
+        fontSize: size === 'sm' ? 10 : 12,
+        fontWeight: 700,
+        color: D.cream,
+        padding: size === 'sm' ? '2px 7px' : '3px 9px',
+        borderRadius: 100,
+        background: 'rgba(231,190,110,0.16)',
+        border: '1px solid rgba(231,190,110,0.35)',
+      }}
+    >
+      <svg width={iconPx} height={iconPx} viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+      Verified
+    </span>
+  );
+};
+
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
     <div className="text-center">
       <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} width={88} height={88} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2 }}>{member.name}</div>
+      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
     </div>
   );
@@ -297,37 +456,94 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
 
 // Builds EventRow props for a single occurrence. EventRow itself stays
 // time-library-agnostic; all WallClock formatting happens here.
+//
+// A series summary row (one card standing in for a whole run of dates) also
+// goes through this: it needs the SERIES's name/poster rather than its first
+// date's, and a date-count meta line instead of a time, so those fields take
+// an override while the day/mon extraction and href fallback stay shared.
 const buildEventRowProps = (
   event: OrgEvent,
   todayKey: string,
   fallbackIndex: number,
-  chip?: string,
-  onClick?: () => void,
+  overrides?: {
+    chip?: string;
+    onClick?: () => void;
+    name?: string;
+    posterUrl?: string | null;
+    meta?: string;
+  },
 ): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
   const time = eventTime(event.displayStart);
   const venue = event.location?.trim() || event.city?.trim() || '';
-  const meta = [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
+  const meta = overrides?.meta ?? [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
   return {
     href,
-    name: event.name,
-    posterUrl: event.poster_url,
+    name: overrides?.name ?? event.name,
+    posterUrl: overrides?.posterUrl ?? event.poster_url,
     dateDay: day,
     dateMon: mon,
     meta,
     fallbackIndex,
-    chip,
-    onClick,
+    chip: overrides?.chip,
+    onClick: overrides?.onClick,
   };
 };
 
 // --- Colour extraction ---
 
-function useAverageColor(url: string | null): [number, number, number] {
-  const [rgb, setRgb] = React.useState<[number, number, number]>([255, 106, 44]);
+const DEFAULT_HERO_RGB: [number, number, number] = [255, 106, 44];
+
+// Sampling result per avatar URL, kept for the life of the tab. The R2 bucket
+// currently sends no CORS headers (see below), so every attempt fails at
+// getImageData and would otherwise re-run the same doomed decode+draw+catch
+// on every mount of this page (including a StrictMode double-invoke and every
+// back/forward nav between organisers) for no visual gain. Caching both the
+// success AND the failure means a given avatar URL is ever sampled once per
+// tab, not once per view. Only a DETERMINISTIC failure (the canvas-taint catch
+// below) is cached as a negative -- a transient img.onerror (a mobile network
+// blip on ~95% of this site's traffic) is deliberately NOT cached, so it can
+// retry on the next mount instead of permanently blacklisting an organiser
+// whose avatar merely failed to load once.
+const HERO_COLOUR_CACHE_MAX = 500;
+const heroColourCache = new Map<string, [number, number, number] | null>();
+
+function cacheHeroColour(url: string, value: [number, number, number] | null): void {
+  // Insertion-order eviction: this Map lives for the tab's lifetime with no
+  // other cleanup, so bound it rather than let it grow with every distinct
+  // organiser browsed in one long session.
+  if (heroColourCache.size >= HERO_COLOUR_CACHE_MAX && !heroColourCache.has(url)) {
+    const oldest = heroColourCache.keys().next().value;
+    if (oldest !== undefined) heroColourCache.delete(oldest);
+  }
+  heroColourCache.set(url, value);
+}
+
+function useAverageColor(url: string | null): { rgb: [number, number, number]; ready: boolean } {
+  const cached = url ? heroColourCache.get(url) : undefined;
+  const [rgb, setRgb] = React.useState<[number, number, number]>(cached ?? DEFAULT_HERO_RGB);
+  const [ready, setReady] = React.useState<boolean>(!!cached);
+
   React.useEffect(() => {
-    if (!url) return;
+    if (!url) { setRgb(DEFAULT_HERO_RGB); setReady(false); return; }
+    const cachedForUrl = heroColourCache.get(url);
+    if (cachedForUrl !== undefined) {
+      // A same-instance url change (no remount) must resync rgb/ready to
+      // THIS url's cached verdict, not leave a previous url's state behind --
+      // a positive cache hit sets colour+ready, a cached failure must reset
+      // to the default rather than silently keep an unrelated organiser's
+      // sampled colour on screen.
+      if (cachedForUrl) { setRgb(cachedForUrl); setReady(true); } else { setRgb(DEFAULT_HERO_RGB); setReady(false); }
+      return;
+    }
+    setRgb(DEFAULT_HERO_RGB);
+    setReady(false);
+    // A url change on the same mounted instance (e.g. the profile owner saves
+    // a new avatar and the entity query refetches, with no route/id change to
+    // remount this component) must not let a late callback for the OLD url
+    // land after this effect has already moved on to the new one.
+    let cancelled = false;
     // No crossOrigin: the cover CDN (Cloudflare R2) sends no CORS headers, so a
     // crossOrigin='anonymous' request fails with net::ERR_FAILED -- a console
     // error for every organiser page (and the colour sample fell back to default
@@ -335,9 +551,12 @@ function useAverageColor(url: string | null): [number, number, number] {
     // fetch (no second request, no error); the canvas then taints and
     // getImageData throws below, caught -> same default colour. To actually
     // enable colour theming, add CORS headers to the R2 bucket and restore
-    // crossOrigin here.
+    // crossOrigin here. Whenever that lands, the cache above still holds and
+    // the ready-gated opacity fade below (see HERO_BG usage) keeps the reveal
+    // a crossfade instead of a pop.
     const img = new Image();
     img.onload = () => {
+      let sampled: [number, number, number] | null = null;
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 16; canvas.height = 16;
@@ -352,13 +571,22 @@ function useAverageColor(url: string | null): [number, number, number] {
           r += data[i]; g += data[i+1]; b += data[i+2]; count++;
         }
         if (count === 0) return;
-        setRgb([Math.round(r/count), Math.round(g/count), Math.round(b/count)]);
-      } catch { /* CORS block ??? stay on default */ }
+        sampled = [Math.round(r/count), Math.round(g/count), Math.round(b/count)];
+      } catch { /* CORS block -- stay on default */ }
+      finally {
+        // Only reachable via drawImage succeeding and either getImageData
+        // throwing (CORS taint) or resolving -- both deterministic outcomes
+        // for this url, safe to cache either way.
+        cacheHeroColour(url, sampled);
+        if (sampled && !cancelled) { setRgb(sampled); setReady(true); }
+      }
     };
-    img.onerror = () => { /* stay on default */ };
+    img.onerror = () => { /* transient network failure -- do not cache, retry next mount; stay on default for now */ };
     img.src = url;
+    return () => { cancelled = true; };
   }, [url]);
-  return rgb;
+
+  return { rgb, ready };
 }
 
 // --- Main component ---
@@ -405,17 +633,17 @@ const OrganiserProfile = () => {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [cr, cg, cb] = useAverageColor((entity as any)?.avatar_url ?? null);
+  const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
   const HERO_BG = heroBg(cr, cg, cb);
 
-  const { data: allEvents = [] } = useQuery({
+  const { data: allEvents = [], isLoading: allEventsLoading } = useQuery({
     queryKey: organiserEventsQueryKey(id),
     queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: futureOccs = [] } = useQuery({
+  const { data: futureOccs = [], isLoading: futureOccsLoading } = useQuery({
     queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -429,14 +657,14 @@ const OrganiserProfile = () => {
   // we keep only is_past rows so today's already-ended events count as past.
   // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
   // with app/routes/organiser.tsx's loader prefetch.
-  const { data: pastOccs = [] } = useQuery({
+  const { data: pastOccs = [], isLoading: pastOccsLoading } = useQuery({
     queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [] } = useQuery({
+  const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery({
     queryKey: ['organiser-team', id],
     queryFn: async (): Promise<TeamMember[]> => {
       if (!id) return [];
@@ -446,7 +674,8 @@ const OrganiserProfile = () => {
         .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
-      if (error || !teamRows?.length) return [];
+      if (error) { console.error('Organiser team fetch error:', error); return []; }
+      if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
@@ -537,15 +766,16 @@ const OrganiserProfile = () => {
   const totalEventsCount = allEvents.length;
 
   const sinceYear = useMemo(() => {
-    let earliest: number | null = null;
+    // Wall-clock strings sort lexically same as chronologically (yyyy-MM-dd...),
+    // so the earliest key is found by string comparison -- no Date math, no TZ.
+    let earliestKey: string | null = null;
     for (const e of allEvents) {
-      const raw = e.start_time ?? e.date;
-      if (!raw) continue;
-      const ts = new Date(raw).getTime();
-      if (Number.isNaN(ts)) continue;
-      if (earliest === null || ts < earliest) earliest = ts;
+      const wc = asWallClockOrNull(e.start_time ?? e.date);
+      const key = formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
+      if (!key) continue;
+      if (earliestKey === null || key < earliestKey) earliestKey = key;
     }
-    return earliest === null ? null : new Date(earliest).getFullYear();
+    return earliestKey === null ? null : Number(earliestKey.slice(0, 4));
   }, [allEvents]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
@@ -601,16 +831,36 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
-    const canonicalCity = await resolveCanonicalCity(city);
-    if (!canonicalCity) {
-      toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
+    if (!isValidEmail(editForm.contact_email)) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidPhone(editForm.contact_phone)) {
+      toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidInstagramUrl(editForm.instagram)) {
+      toast({ title: 'Invalid Instagram', description: 'Please enter a valid Instagram handle or URL.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidFacebookUrl(editForm.facebook)) {
+      toast({ title: 'Invalid Facebook', description: 'Please enter a valid Facebook handle or URL.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidWebsiteUrl(editForm.website)) {
+      toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
     try {
-      const ig = editForm.instagram.trim() || null;
-      const fb = editForm.facebook.trim() || null;
-      const web = editForm.website.trim() || null;
+      const canonicalCity = await resolveCanonicalCity(city);
+      if (!canonicalCity) {
+        toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
+        return;
+      }
+      const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
+      const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
+      const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
       const existingSocials = ((entity as EntityProfile).socials as Record<string, unknown> | null) ?? {};
       const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
       const { error } = await supabase.from('organiser_profiles').update({
@@ -619,6 +869,7 @@ const OrganiserProfile = () => {
         bio: editForm.bio.trim() || null,
         city_id: canonicalCity.cityId,
         instagram: ig,
+        facebook: fb,
         website: web,
         contact_email: editForm.contact_email.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
@@ -745,10 +996,26 @@ const OrganiserProfile = () => {
   const contactEmail     = ep.contact_email || null;
   const organisationCategory = ep.organisation_category || null;
 
-  const instagramUrl = instagramRaw ? (instagramRaw.startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
-  const websiteUrl   = websiteRaw   ? (websiteRaw.startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
+  // Reuses withNormalizedProtocol (defined above with the validators) so the
+  // rendered href can never disagree with what isValidInstagramUrl /
+  // isValidFacebookUrl / isValidWebsiteUrl accepted at save time.
+  // hostMatchesDomain, never a substring test -- a stored value that only
+  // MENTIONS "instagram.com"/"facebook.com" (a query string, a look-alike
+  // subdomain) must not render as a live link under that platform's label.
+  const instagramUrl = instagramRaw
+    ? (hostMatchesDomain(instagramRaw, 'instagram.com')
+        ? withNormalizedProtocol(instagramRaw, 'instagram.com')
+        : /^https?:\/\//i.test(instagramRaw)
+          ? null
+          : `https://instagram.com/${instagramRaw.replace('@', '')}`)
+    : null;
+  const websiteUrl   = websiteRaw ? withNormalizedProtocol(websiteRaw) : null;
   const facebookUrl  = facebookRaw
-    ? (facebookRaw.startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
+    ? (hostMatchesDomain(facebookRaw, 'facebook.com')
+        ? withNormalizedProtocol(facebookRaw, 'facebook.com')
+        : /^https?:\/\//i.test(facebookRaw)
+          ? null
+          : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
   const whatsappUrl = buildWhatsAppHref(contactPhone);
   const mailtoHref = buildMailtoHref(contactEmail);
@@ -762,11 +1029,18 @@ const OrganiserProfile = () => {
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
   const foundedYear = (ep.founded_year as number | null | undefined) ?? null;
-  const estYear     = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
-  const yearsActive = estYear !== null ? new Date().getFullYear() - estYear : null;
+  // estYear falls back to the earliest listed event's year when the organiser
+  // hasn't told us when they started -- that's an estimate, not a fact, so it
+  // carries its own flag through to the stat display below.
+  const estYear         = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
+  const estYearInferred = foundedYear === null && estYear !== null;
+  const yearsActive     = estYear !== null ? new Date().getFullYear() - estYear : null;
 
-  const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive ?? '--');
-  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive ? 'Yrs active' : 'Since';
+  const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive !== null ? `${estYearInferred ? '~' : ''}${yearsActive}` : '--');
+  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive !== null ? 'Yrs active' : 'Since';
+  const thirdStatTitle = orderedTeam.length === 0 && yearsActive !== null && estYearInferred
+    ? `Estimated from the earliest listed event (${estYear}) -- not a confirmed founding date`
+    : undefined;
 
   // --- Render ---
   return (
@@ -774,10 +1048,39 @@ const OrganiserProfile = () => {
       <article style={{ fontFamily: BODY, background: D.black, color: D.cream, minHeight: '100vh' }}>
 
         {/* HERO */}
-        <header className="relative overflow-hidden" style={{ background: HERO_BG }}>
-          <div style={{ position: 'absolute', top: '18%', left: '34%', width: 5, height: 5, borderRadius: '50%', background: D.lightGold, boxShadow: '0 0 14px 3px rgba(251,239,196,0.8)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '42%', left: '68%', width: 4, height: 4, borderRadius: '50%', background: '#FFD89A', boxShadow: '0 0 12px 3px rgba(255,216,154,0.7)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '64%', left: '22%', width: 3, height: 3, borderRadius: '50%', background: '#fff', boxShadow: '0 0 10px 2px rgba(255,255,255,0.6)', pointerEvents: 'none' }} />
+        <header className="relative overflow-hidden" style={{ background: heroBg(...DEFAULT_HERO_RGB) }}>
+          {/* Sampled-colour layer, faded in only once useAverageColor has a real
+              answer -- this is what keeps a future CORS fix (see the comment on
+              useAverageColor) a crossfade instead of a pop; today it never
+              becomes visible because sampling always fails without CORS. Base
+              layer above MUST stay heroBg(DEFAULT_HERO_RGB), not HERO_BG_DEFAULT
+              (that constant is the loading-skeleton's own, differently-tinted
+              gradient -- using it here regressed every organiser's hero to the
+              wrong colour, since ready never flips true today). */}
+          <div aria-hidden style={{ position: 'absolute', inset: 0, background: HERO_BG, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out', pointerEvents: 'none' }} />
+
+          {/* Sound-floor motif: a low, still EQ visualiser along the hero's
+              base, like a paused DJ meter -- grounds the hero in a bachata
+              night's music rather than generic hero-shine sparkle. Reduced
+              motion keeps it still. */}
+          <style>{HERO_EQ_STYLE}</style>
+          <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 44, display: 'flex', alignItems: 'flex-end', gap: 3, padding: '0 4px', opacity: 0.16, pointerEvents: 'none' }}>
+            {HERO_EQ_HEIGHTS.map((h, i) => (
+              <div
+                key={i}
+                className="organiser-hero-eq-bar"
+                style={{
+                  flex: 1,
+                  minWidth: 2,
+                  borderRadius: '2px 2px 0 0',
+                  background: 'linear-gradient(180deg,#FBEFC4,#E7BE6E 55%,#FF6A2C)',
+                  height: `${h * 100}%`,
+                  transformOrigin: 'bottom',
+                  animation: `organiserHeroEq ${1.6 + (i % 4) * 0.25}s ease-in-out ${(i % 6) * 0.09}s infinite`,
+                }}
+              />
+            ))}
+          </div>
 
           <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
             {isClaimedByUser && (
@@ -793,20 +1096,22 @@ const OrganiserProfile = () => {
           </div>
 
           {/* Mobile */}
-          {(isMobile !== false) && <div style={{ height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
+          {(isMobile !== false) && <div style={{ position: 'relative', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
             <AvatarCircle avatarUrl={entity.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
-              {ep.is_verified && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)', color: D.cream }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                  Verified
-                </span>
-              )}
+              {ep.is_verified && <VerifiedBadge size="sm" />}
             </div>
-            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+            {/* Static gold gradient, no shimmer sweep -- that mechanical
+                highlight-scroll is the generic premium-SaaS hero tell; the
+                sound-floor motif and wave mark below carry this hero's
+                personality instead. */}
+            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
               {entity.name}
             </h1>
+            <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
+              <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+            </svg>
             {entity.bio && (
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.72)', fontWeight: 500, lineHeight: 1.4 }}>
                 {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
@@ -821,16 +1126,14 @@ const OrganiserProfile = () => {
               <div style={{ flex: 1, paddingBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
-                  {ep.is_verified && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: D.cream, padding: '3px 9px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                      Verified
-                    </span>
-                  )}
+                  {ep.is_verified && <VerifiedBadge size="md" />}
                 </div>
-                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                   {entity.name}
                 </h1>
+                <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
+                  <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
+                </svg>
                 {entity.bio && (
                   <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.72)', fontWeight: 500 }}>
                     {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
@@ -842,17 +1145,23 @@ const OrganiserProfile = () => {
           </div>}
         </header>
 
-        {/* Brand colour fade ??? bleeds the hero tint into the body */}
-        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, zIndex: 0 }} />
+        {/* Brand colour fade &mdash; bleeds the hero tint into the body. Two
+            stacked layers (default + sampled) so this crossfades the same way
+            the hero overlay above does, instead of popping the moment a
+            colour sample lands. */}
+        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', zIndex: 0 }}>
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
+        </div>
 
         {/* Stats strip */}
         <div className="flex justify-around py-4 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
-            { value: upcomingEvents.length, label: 'Upcoming events', gold: false },
-            { value: pastEvents.length,     label: 'Past events',     gold: false },
-            { value: thirdStatValue,         label: thirdStatLabel, gold: true },
+            { value: upcomingEvents.length, label: 'Upcoming events', title: undefined },
+            { value: pastEvents.length,     label: 'Past events',     title: undefined },
+            { value: thirdStatValue,        label: thirdStatLabel,    title: thirdStatTitle },
           ].map((s) => (
-            <div key={s.label} style={{ textAlign: 'center' }}>
+            <div key={s.label} style={{ textAlign: 'center' }} title={s.title}>
               <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{s.label}</div>
             </div>
@@ -946,6 +1255,47 @@ const OrganiserProfile = () => {
           </section>
         )}
 
+        {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
+            realistic case: a freshly claimed profile with nothing added yet.
+            The claimant CTA can only point at the Edit-profile dialog -- the
+            self-service create-event/edit-event flows were retired 2026-09-12
+            (see AnimatedRoutes.tsx); organiser event creation now happens only
+            in the admin app's EventEditorV2, so there is no public route to
+            send a claimant to for "add your first event".
+
+            Gated on all four content queries having settled (not just the
+            `entity` query, which resolves first as a single-row fetch) --
+            otherwise a well-populated organiser flashes this on every cold
+            load, before allEvents/futureOccs/pastOccs/teamMembers (four
+            independent, slower queries) have had a chance to come back. */}
+        {!allEventsLoading && !futureOccsLoading && !pastOccsLoading && !teamMembersLoading &&
+          !entity.bio && !hasContact && upcomingListItems.length === 0 && orderedTeam.length === 0 && pastEvents.length === 0 && (
+          <section className="px-5 md:px-12 py-14 md:py-20 text-center">
+            {isClaimedByUser ? (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
+                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+                  Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+                </p>
+                <button onClick={openEditModal} style={{ padding: '12px 28px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                  Complete your profile
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Nothing here yet</h2>
+                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+                  {entity.name} hasn&rsquo;t listed any nights yet. Check back soon, or see what&rsquo;s on elsewhere in London.
+                </p>
+                <Link to="/parties" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                  Browse upcoming nights
+                </Link>
+              </>
+            )}
+          </section>
+        )}
+
         {/* UPCOMING EVENTS */}
         {upcomingListItems.length > 0 && (
           <section className="px-5 md:px-12 py-8 md:py-10" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
@@ -960,15 +1310,13 @@ const OrganiserProfile = () => {
                 ) : (
                   <EventRowCard
                     key={item.eventId}
-                    href={`/event/${item.eventId}`}
-                    name={item.name}
-                    posterUrl={item.posterUrl}
-                    dateDay={dateParts(item.dates[0].displayStart).day}
-                    dateMon={dateParts(item.dates[0].displayStart).mon}
-                    meta={[countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · ')}
-                    fallbackIndex={i}
-                    chip={`${item.dates.length} dates`}
-                    onClick={() => setOpenSeriesEventId(item.eventId)}
+                    {...buildEventRowProps(item.dates[0], todayKey, i, {
+                      name: item.name,
+                      posterUrl: item.posterUrl,
+                      meta: [countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · '),
+                      chip: `${item.dates.length} dates`,
+                      onClick: () => setOpenSeriesEventId(item.eventId),
+                    })}
                   />
                 ),
               )}

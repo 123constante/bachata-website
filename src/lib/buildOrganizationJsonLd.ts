@@ -4,17 +4,13 @@
  * Helps Google build a brand knowledge panel and disambiguate the site
  * from other "Bachata Calendar" hits. Emit once, on the homepage only.
  *
- * sameAs surfaces our social presence — update these whenever a new
- * official channel goes live.
+ * sameAs surfaces our social presence — add new official channels to
+ * ORG_SAME_AS in src/lib/claims.ts as they go live, not here.
  */
 
 import { SITE_NAME, SITE_ORIGIN } from './seo';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
-
-const SAME_AS: string[] = [
-  // Official channels. Add WhatsApp / Facebook profile URLs here as they go live.
-  'https://www.instagram.com/bachata.community.uk/',
-];
+import { ORG_AREA_SERVED_CITY, ORG_AREA_SERVED_COUNTRY, ORG_DESCRIPTION, ORG_SAME_AS } from './claims';
 
 export function buildOrganizationJsonLd() {
   return {
@@ -30,14 +26,13 @@ export function buildOrganizationJsonLd() {
       width: 180,
       height: 180,
     },
-    description:
-      "London's bachata community calendar - classes, socials, festivals, teachers and venues in one place.",
+    description: ORG_DESCRIPTION,
     areaServed: {
       '@type': 'City',
-      name: 'London',
-      addressCountry: 'GB',
+      name: ORG_AREA_SERVED_CITY,
+      addressCountry: ORG_AREA_SERVED_COUNTRY,
     },
-    sameAs: SAME_AS,
+    sameAs: ORG_SAME_AS,
   };
 }
 
