@@ -16,6 +16,7 @@ import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
+import { buildMailtoHref, buildWhatsAppHref } from '@/lib/contactValidation';
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
 type EventLinkItem = {
@@ -179,9 +180,7 @@ const VendorDetail = () => {
       })
       .filter((item): item is TeamLinkItem => Boolean(item));
   }, [vendor?.team]);
-  const whatsappHref = vendor?.whatsapp?.trim()
-    ? `https://wa.me/${vendor.whatsapp.replace(/[^\d]/g, "")}`
-    : null;
+  const whatsappHref = buildWhatsAppHref(vendor?.whatsapp);
   const contactActions = useMemo(() => {
     const actions: Array<{ label: string; href: string; external?: boolean; linkType: VendorLinkType }> = [];
     if (vendor?.website) {
@@ -193,8 +192,9 @@ const VendorDetail = () => {
     if (vendor?.facebook) {
       actions.push({ label: "Facebook", href: normalizeLink(vendor.facebook), external: true, linkType: "facebook" });
     }
-    if (vendor?.public_email) {
-      actions.push({ label: "Email", href: `mailto:${vendor.public_email}`, linkType: "public_email" });
+    const mailtoHref = buildMailtoHref(vendor?.public_email);
+    if (mailtoHref) {
+      actions.push({ label: "Email", href: mailtoHref, linkType: "public_email" });
     }
     if (whatsappHref) {
       actions.push({ label: "WhatsApp", href: whatsappHref, external: true, linkType: "whatsapp" });

@@ -18,6 +18,7 @@ import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
+import { buildMailtoHref, buildTelHref } from '@/lib/contactValidation';
 
 type TeacherRow = {
   id: string;
@@ -252,7 +253,9 @@ const TeacherProfile = () => {
   const websiteUrl = normalizeUrl(teacher.website);
   const hasExperience = typeof teacher.years_teaching === 'number' && teacher.years_teaching >= 0;
   const expLevel = hasExperience ? getExperienceLevel(teacher.years_teaching!) : null;
-  const hasConnect = instagramUrl || teacher.facebook || websiteUrl || teacher.public_email || teacher.phone;
+  const mailtoHref = buildMailtoHref(teacher.public_email);
+  const telHref = buildTelHref(teacher.phone);
+  const hasConnect = instagramUrl || teacher.facebook || websiteUrl || mailtoHref || telHref;
   const hasLessons = teacher.offers_group || teacher.offers_private;
   const hasLanguages = teacher.languages && teacher.languages.length > 0;
   const hasAchievements = teacher.achievements && teacher.achievements.length > 0;
@@ -333,13 +336,13 @@ const TeacherProfile = () => {
                     <Globe className="w-5 h-5" />
                   </a>
                 )}
-                {teacher.public_email && (
-                  <a href={`mailto:${teacher.public_email}`} className="bg-emerald-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                {mailtoHref && (
+                  <a href={mailtoHref} className="bg-emerald-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Mail className="w-5 h-5" />
                   </a>
                 )}
-                {teacher.phone && (
-                  <a href={`tel:${teacher.phone}`} className="bg-blue-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                {telHref && (
+                  <a href={telHref} className="bg-blue-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Phone className="w-5 h-5" />
                   </a>
                 )}

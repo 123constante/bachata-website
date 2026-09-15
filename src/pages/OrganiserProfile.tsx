@@ -22,6 +22,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
+import {
+  buildMailtoHref,
+  buildWhatsAppHref,
+  isValidEmail as sharedIsValidEmail,
+  normalizePhoneDigits,
+} from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
@@ -293,20 +299,19 @@ const extractDomain = (raw: string | null): string => {
 
 // --- Validation helpers ---
 
+// Delegates to contactValidation.ts's own isValidEmail/normalizePhoneDigits
+// (already imported below for buildMailtoHref/buildWhatsAppHref) so save-time
+// validation can't diverge from what render-time link-building accepts --
+// an earlier version of this file had two separate regexes for the same
+// thing and that's exactly the drift contactValidation.ts exists to stop.
 const isValidEmail = (email: string | null | undefined): boolean => {
-  if (!email) return true;
-  const trimmed = email.trim();
-  if (!trimmed) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
+  if (!email || !email.trim()) return true;
+  return sharedIsValidEmail(email);
 };
 
 const isValidPhone = (phone: string | null | undefined): boolean => {
-  if (!phone) return true;
-  const trimmed = phone.trim();
-  if (!trimmed) return true;
-  if (!/^[\d\s\-+()]+$/.test(trimmed)) return false;
-  const digitCount = (trimmed.match(/\d/g) || []).length;
-  return digitCount >= 7;
+  if (!phone || !phone.trim()) return true;
+  return normalizePhoneDigits(phone) !== null;
 };
 
 const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
@@ -1015,10 +1020,10 @@ const OrganiserProfile = () => {
           ? null
           : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
-  const whatsappDigits = contactPhone ? String(contactPhone).replace(/\D/g, '') : '';
-  const whatsappUrl = whatsappDigits ? `https://wa.me/${whatsappDigits}` : null;
+  const whatsappUrl = buildWhatsAppHref(contactPhone);
+  const mailtoHref = buildMailtoHref(contactEmail);
 
-  const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || contactEmail);
+  const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
   const isClaimedByUser = entity.claimed_by === user?.id;
   const canClaim        = !!user && !entity.claimed_by;
@@ -1207,6 +1212,11 @@ const OrganiserProfile = () => {
                     WhatsApp
                   </a>
                 )}
+                {mailtoHref && !whatsappUrl && (
+                  <a href={mailtoHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
+                    {contactEmail}
+                  </a>
+                )}
             </div>}
 
             {/* Mobile pills */}
@@ -1239,8 +1249,8 @@ const OrganiserProfile = () => {
                   Message on WhatsApp
                 </a>
               )}
-              {contactEmail && !whatsappUrl && (
-                <a href={`mailto:${contactEmail}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
+              {mailtoHref && !whatsappUrl && (
+                <a href={mailtoHref} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
                   {contactEmail}
                 </a>
               )}
