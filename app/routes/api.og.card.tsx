@@ -16,6 +16,7 @@
 // Query params: kind=event|festival|image, id, occ, v (cache-buster), src (kind=image)
 import { createHash } from "node:crypto";
 import {
+  buildCoverCard,
   buildFallbackCard,
   buildImageCard,
   fetchEventCardData,
@@ -175,7 +176,10 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
         hasCoverUrl ? "cover-unfetchable" : "cover-absent",
       );
     }
-    return imageResponse(await buildImageCard(coverBytes), etag);
+    // Branded card or raw letterbox -- buildCoverCard owns that choice for both
+    // this route and the bake. kind=image above keeps buildImageCard: it has a
+    // source URL and no entity, so there are no facts to draw on the card.
+    return imageResponse(await buildCoverCard(coverBytes, cardData), etag);
   } catch (err) {
     console.error("[og/card] render_failed", err);
     return redirectToStatic("render-error");
