@@ -116,11 +116,12 @@ const MyAttendance = () => {
     // planned 5min -- no RSVP mutation invalidates this key (useAttendance.ts
     // only invalidates the per-event status/engagement keys), so a user who
     // RSVPs on an event page and immediately navigates here in the same tab
-    // relies entirely on this staleTime to see the update. 2min keeps that
-    // window short while still halving the old 60s poll's request rate via
-    // refetchInterval below.
+    // relies entirely on this staleTime to see the update. No refetchInterval:
+    // round 2 of review found that a periodic timer here is a net IO INCREASE
+    // over the true pre-PR baseline for any continuously-focused tab (there
+    // was never a poll at all); the app-wide refetchOnWindowFocus default
+    // (src/App.tsx) already covers tab-return refreshes, gated by staleTime.
     staleTime: 2 * 60_000,
-    refetchInterval: 2 * 60_000,
   });
 
   const sorted = useMemo(() => {

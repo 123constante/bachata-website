@@ -73,14 +73,15 @@ export function useOpenRaffles() {
   return useQuery({
     queryKey: OPEN_RAFFLES_QUERY_KEY,
     queryFn: fetchOpenRaffles,
+    // Phase 3 (IO optimization arc, resumed): NO periodic timer. Round 2 of
+    // review found that adding refetchInterval here was a genuine IO
+    // INCREASE over the true baseline (which never polled at all) for any
+    // tab left open and focused -- e.g. 12 requests/hour instead of ~1 for a
+    // continuously-visible tab, the opposite of this arc's goal. The
+    // app-wide refetchOnWindowFocus:true default (src/App.tsx) already
+    // refetches on tab-return, gated by staleTime, with zero background or
+    // steady-state foreground cost.
     staleTime: 5 * 60_000,
-    // Phase 3 (IO optimization arc, resumed): native poll-while-visible
-    // replaces the old flat 60s poll AND a hand-rolled visibility hook that
-    // review found force-invalidated on every focus event regardless of
-    // staleTime (colliding with the app-wide refetchOnWindowFocus contract
-    // in src/App.tsx). refetchIntervalInBackground defaults to false, so
-    // this idles completely while the tab is hidden.
-    refetchInterval: 5 * 60_000,
   });
 }
 
@@ -101,8 +102,8 @@ export function useRaffleStats() {
   return useQuery({
     queryKey: RAFFLE_STATS_QUERY_KEY,
     queryFn: fetchRaffleStats,
+    // Phase 3 (IO optimization arc, resumed): see useOpenRaffles above --
+    // no periodic timer, relies on the app-wide refetchOnWindowFocus default.
     staleTime: 10 * 60_000,
-    // Phase 3 (IO optimization arc, resumed): see useOpenRaffles above.
-    refetchInterval: 10 * 60_000,
   });
 }
