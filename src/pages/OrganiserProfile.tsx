@@ -384,7 +384,7 @@ const AvatarCircle = ({
       }}
     >
       {avatarUrl ? (
-        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} width={sizePx} height={sizePx} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       ) : (
         <span style={{ fontFamily: SERIF, fontSize, color: 'rgba(251,239,196,0.85)' }}>{initials(name)}</span>
       )}
@@ -398,13 +398,13 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
       <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} width={88} height={88} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2 }}>{member.name}</div>
+      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
     </div>
   );
@@ -562,7 +562,8 @@ const OrganiserProfile = () => {
         .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
-      if (error || !teamRows?.length) return [];
+      if (error) { console.error('Organiser team fetch error:', error); return []; }
+      if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
@@ -737,13 +738,13 @@ const OrganiserProfile = () => {
       toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
       return;
     }
-    const canonicalCity = await resolveCanonicalCity(city);
-    if (!canonicalCity) {
-      toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
-      return;
-    }
     setIsSaving(true);
     try {
+      const canonicalCity = await resolveCanonicalCity(city);
+      if (!canonicalCity) {
+        toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
+        return;
+      }
       const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
       const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
       const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
@@ -955,7 +956,7 @@ const OrganiserProfile = () => {
                 </span>
               )}
             </div>
-            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', overflowWrap: 'break-word', wordBreak: 'break-word', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
               {entity.name}
             </h1>
             {entity.bio && (
@@ -979,7 +980,7 @@ const OrganiserProfile = () => {
                     </span>
                   )}
                 </div>
-                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
+                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', overflowWrap: 'break-word', wordBreak: 'break-word', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'shimmer 7s linear infinite' }}>
                   {entity.name}
                 </h1>
                 {entity.bio && (
