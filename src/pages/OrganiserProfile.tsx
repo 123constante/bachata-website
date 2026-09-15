@@ -238,7 +238,7 @@ const isValidEmail = (email: string): boolean => {
 
 const isValidPhone = (phone: string): boolean => {
   if (!phone.trim()) return true;
-  return /^[\d\s\-+()]*$/.test(phone.trim());
+  return /^(?=.*\d)[\d\s\-+()]+$/.test(phone.trim());
 };
 
 const isValidWebsiteUrl = (url: string): boolean => {
@@ -783,7 +783,7 @@ const OrganiserProfile = () => {
   const instagramUrl = instagramRaw ? (instagramRaw.toLowerCase().startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
   const websiteUrl   = websiteRaw   ? (websiteRaw.toLowerCase().startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
   const facebookUrl  = facebookRaw
-    ? (facebookRaw.startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
+    ? (facebookRaw.toLowerCase().startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
   const whatsappUrl = contactPhone ? `https://wa.me/${String(contactPhone).replace(/\D/g, '')}` : null;
 
