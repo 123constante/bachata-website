@@ -13,6 +13,7 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh';
 
 type AttendanceRow = {
   event_id: string;
@@ -106,11 +107,21 @@ const MyAttendance = () => {
     noindex: true,
   });
 
+  const attendanceQueryKey = ['my-event-attendance', user?.id];
+
+  // Phase 3 (IO optimization arc, resumed): visibility-gated refetch replaces
+  // reliance on a short staleTime for freshness after tab switches.
+  useVisibilityRefresh({
+    queryKey: attendanceQueryKey,
+    intervalMs: 5 * 60_000,
+    enabled: Boolean(user?.id),
+  });
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AttendanceCard[]>({
-    queryKey: ['my-event-attendance', user?.id],
+    queryKey: attendanceQueryKey,
     queryFn: fetchMyAttendance,
     enabled: Boolean(user?.id),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const sorted = useMemo(() => {

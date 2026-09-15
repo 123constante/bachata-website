@@ -14,6 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { rpcLoose as callRpc } from '@/integrations/supabase/rpcLoose';
+import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh';
 
 /** One event whose raffle is currently open for entries. */
 export interface OpenRaffle {
@@ -67,14 +68,19 @@ export async function fetchOpenRaffles(): Promise<OpenRaffle[]> {
   }));
 }
 
+const OPEN_RAFFLES_QUERY_KEY = ['open-raffles'];
+
 export function useOpenRaffles() {
+  // Phase 3 (IO optimization arc, resumed): visibility-gated refetch
+  // replaces the old 60s poll -- refetches on focus/visible, idles in the
+  // background. staleTime tightened from 30min since the hook now refreshes
+  // itself instead of relying purely on remount.
+  useVisibilityRefresh({ queryKey: OPEN_RAFFLES_QUERY_KEY, intervalMs: 5 * 60_000 });
+
   return useQuery({
-    queryKey: ['open-raffles'],
+    queryKey: OPEN_RAFFLES_QUERY_KEY,
     queryFn: fetchOpenRaffles,
-    // Phase 1 IO optimization: removed aggressive 60s polling.
-    // Raffles update only when user manually reloads or navigates.
-    // Real-time subscription planned for Phase 3.
-    staleTime: 30 * 60_000, // 30 minutes: raffles rarely change in real-time
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -89,11 +95,15 @@ export async function fetchRaffleStats(): Promise<RaffleCommunityStats> {
   };
 }
 
+const RAFFLE_STATS_QUERY_KEY = ['raffle-stats'];
+
 export function useRaffleStats() {
+  // Phase 3 (IO optimization arc, resumed): visibility-gated refetch.
+  useVisibilityRefresh({ queryKey: RAFFLE_STATS_QUERY_KEY, intervalMs: 10 * 60_000 });
+
   return useQuery({
-    queryKey: ['raffle-stats'],
+    queryKey: RAFFLE_STATS_QUERY_KEY,
     queryFn: fetchRaffleStats,
-    // Phase 1 IO optimization: increased stale time for non-critical stats
-    staleTime: 30 * 60_000, // 30 minutes: community stats don't change frequently
+    staleTime: 10 * 60_000,
   });
 }
