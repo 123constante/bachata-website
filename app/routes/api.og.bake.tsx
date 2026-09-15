@@ -20,6 +20,7 @@ import {
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
+  ogFactsTag,
   resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
@@ -152,17 +153,28 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // and /api/og/card makes it the same way, so a bake can never persist a
     // card shaped differently from the live render of the same entity.
     //
-    // The R2 key is unchanged (it keys on the cover URL, not the card design),
-    // so flipping OG_BRANDED_CARD_ENABLED does NOT invalidate already-baked
-    // objects: existing rows keep serving the old card until something re-bakes
-    // them. That is a backfill (scripts/backfill-og-images.mjs), not a redeploy.
+    // With OG_BRANDED_CARD_ENABLED off, ogFactsTag is "" and the key below is
+    // byte-identical to before it existed: flipping the flag off never
+    // invalidates already-baked objects, and a bake that runs dark changes
+    // nothing about where its object lands. With the flag ON, the key also
+    // folds in the facts tag (below), which is the fix this file exists for:
+    // a renamed or rescheduled event whose cover did not change now bakes to
+    // a NEW key instead of silently overwriting the old card's object under
+    // the old title. That is by design, not a side effect -- see
+    // queued_og_branded_card_etag_cache_key_work.md for the defect this
+    // closes. A stale object at the OLD key is simply orphaned, not deleted;
+    // get_og_image_v1 only ever returns the row's current image_url, so
+    // nothing serves it once this bake completes.
     const jpeg = await buildCoverCard(coverBytes as Buffer, cardData as OgCardData);
 
     // No "fallback" tag any more, and its absence is load-bearing: the object
     // key is now, by construction, always <id>-<occ|default>-<16 hex of the
-    // cover URL>. check-og-images.mjs asserts exactly that shape on the live
-    // og:image. Measured against all 253 live og_render rows on 2026-08-11:
-    // 248 match, and the 5 that do not are the 5 persisted fallback cards.
+    // cover URL>, optionally followed by -<12 hex facts tag> when
+    // OG_BRANDED_CARD_ENABLED is on (see ogFactsTag below). check-og-images.mjs
+    // asserts exactly that shape on the live og:image. Measured against all
+    // 253 live og_render rows on 2026-08-11: 248 match, and the 5 that do not
+    // are the 5 persisted fallback cards -- all measured with the flag off,
+    // so none of them exercise the facts suffix.
     //
     // HOW FAR that external check reaches, and it is much less far than a
     // first draft of this comment claimed. Round-2 review measured it:
@@ -184,7 +196,13 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // that defence.
     const coverTag = createHash("sha1").update(coverUrl as string).digest("hex").slice(0, 16);
     const occTag = occurrenceId ?? "default";
-    const path = `og/${entityType}/${id}-${occTag}-${coverTag}.jpg`;
+    // factsTag is "" with the flag off, so the key shape below collapses to
+    // exactly the old `<id>-<occ>-<coverTag>.jpg` -- check-og-images.mjs's
+    // HEALTHY_BAKED_KEY_RE accepts the extra `-<factsTag>` segment as
+    // optional for exactly this reason. Update that regex's fixtures if this
+    // shape ever changes again.
+    const factsTag = ogFactsTag(cardData as OgCardData);
+    const path = `og/${entityType}/${id}-${occTag}-${coverTag}${factsTag ? `-${factsTag}` : ""}.jpg`;
 
     const publicUrl = await uploadJpeg(path, jpeg);
     if (!publicUrl) throw new Error("R2 upload failed");

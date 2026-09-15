@@ -48,6 +48,16 @@ vi.mock('../app/lib/ogCardRender', () => ({
     if (io.throwOnResolve) throw new Error('boom');
     return io.resolveId === null ? null : io.resolveId || param;
   },
+  // A real stand-in, not a stub -- the loader now folds this into the etag it
+  // conditionally checks, so a stub that ignored `data` would make every
+  // facts-dependent 304 case in this file pass for the wrong reason (any
+  // cardData would hash the same, so a change to title could never be
+  // observed to bust the cache). OG_BRANDED_CARD_ENABLED is unset in this
+  // test process, matching the real function's off-by-default no-op.
+  ogFactsTag: (data: Record<string, unknown> | null) => {
+    if (process.env.OG_BRANDED_CARD_ENABLED !== 'true' || !data) return '';
+    return `facts-${data.title}-${data.dateLine}-${data.venueLine}-${data.eventType}`;
+  },
 }));
 
 // STATIC import, not `await import`. vi.mock is hoisted above imports by

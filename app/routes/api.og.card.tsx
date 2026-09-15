@@ -22,6 +22,7 @@ import {
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
+  ogFactsTag,
   resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
@@ -29,8 +30,10 @@ import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
 
-function makeEtag(kind: string, idParam: string, src: string, occ = "", v = ""): string {
-  const h = createHash("sha1").update(`${kind}:${idParam}:${src}:${occ}:${v}`).digest("base64url").slice(0, 24);
+// `facts` is "" unless OG_BRANDED_CARD_ENABLED, so with the flag off this
+// etag is byte-identical to before ogFactsTag existed (see ogCardRender.ts).
+function makeEtag(kind: string, idParam: string, src: string, occ = "", v = "", facts = ""): string {
+  const h = createHash("sha1").update(`${kind}:${idParam}:${src}:${occ}:${v}:${facts}`).digest("base64url").slice(0, 24);
   return `"${h}"`;
 }
 
@@ -132,14 +135,17 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const src = q.get("src") ?? "";
   const occ = q.get("occ") ?? "";
   const v = q.get("v") ?? "";
-
-  const etag = makeEtag(kind, idParam, src, occ, v);
-  if (request.headers.get("if-none-match") === etag) {
-    return new Response(null, { status: 304 });
-  }
+  const ifNoneMatch = request.headers.get("if-none-match");
 
   try {
     if (kind === "image") {
+      // No entity here, so no facts to fold in -- the etag is a pure
+      // function of the query params and the 304 short-circuit stays free
+      // of any RPC read, per the cache-key redo's rule that this route must
+      // not gain an unconditional early read (queued_og_branded_card_etag_
+      // cache_key_work.md).
+      const etag = makeEtag(kind, idParam, src, occ, v);
+      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
       if (!src) return redirectToStatic("image-missing-src");
       const bytes = await fetchImageBytes(src);
       if (!bytes) return redirectToStatic("image-source-unfetchable");
@@ -149,7 +155,19 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     const id = await resolveOgEventId(idParam);
     if (!id) return redirectToStatic("unresolvable-id");
     const cardData = kind === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occ || null);
-    if (!cardData) return imageResponse(await buildFallbackCard(null, null, null), etag, "card-data-unavailable");
+    if (!cardData) return imageResponse(await buildFallbackCard(null, null, null), makeEtag(kind, idParam, src, occ, v), "card-data-unavailable");
+
+    // Facts are known only now, so the conditional check moves here for
+    // entity kinds: an earlier, params-only etag would let a title/date/
+    // venue/type edit 304 forever against a crawler's cached preview
+    // whenever the cover (and so `v=`) had not also changed. The cost is a
+    // guaranteed RPC read on every conditional GET for this kind, traded
+    // deliberately for that correctness -- a degraded response below never
+    // carries this etag anyway (see imageResponse's "NO ETag" comment), so
+    // nothing here weakens that invariant.
+    const facts = ogFactsTag(cardData);
+    const etag = makeEtag(kind, idParam, src, occ, v, facts);
+    if (ifNoneMatch === etag) return new Response(null, { status: 304 });
     // Hybrid: a flyer becomes the preview itself (no text/fonts); the branded
     // card is only the fallback for entities with no flyer.
     // Hoisted so the fetch and the reason below cannot drift apart. They are
