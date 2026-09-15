@@ -33,36 +33,47 @@ const io = vi.hoisted(() => ({
   throwOnResolve: false,
 }));
 
-vi.mock('../app/lib/ogCardRender', () => ({
-  buildFallbackCard: async () => Buffer.from('branded-fallback-jpeg'),
-  // buildImageCard is still imported by the kind=image branch; buildCoverCard
-  // is the entity branch's selector (branded vs raw, per OG_BRANDED_CARD_ENABLED).
-  // This file asserts the X-OG-Fallback marker and cache tiers, which are the
-  // same whichever card the selector picks, so one stand-in byte string serves.
-  buildImageCard: async () => Buffer.from('cover-jpeg'),
-  buildCoverCard: async () => Buffer.from('cover-jpeg'),
-  fetchImageBytes: async () => io.imageBytes,
-  fetchEventCardData: async () => io.cardData,
-  fetchFestivalCardData: async () => io.cardData,
-  resolveOgEventId: async (param: string) => {
-    if (io.throwOnResolve) throw new Error('boom');
-    return io.resolveId === null ? null : io.resolveId || param;
-  },
-  // The loader also branches on this directly (the flag-off fast path
-  // ahead of any RPC read); false matches the real module's default, since
-  // this test process never sets OG_BRANDED_CARD_ENABLED.
-  OG_BRANDED_CARD_ENABLED: false,
-  // A real stand-in, not a stub -- the loader now folds this into the etag it
-  // conditionally checks, so a stub that ignored `data` would make every
-  // facts-dependent 304 case in this file pass for the wrong reason (any
-  // cardData would hash the same, so a change to title could never be
-  // observed to bust the cache). OG_BRANDED_CARD_ENABLED is unset in this
-  // test process, matching the real function's off-by-default no-op.
-  ogFactsTag: (data: Record<string, unknown> | null) => {
-    if (process.env.OG_BRANDED_CARD_ENABLED !== 'true' || !data) return '';
-    return `facts-${data.title}-${data.dateLine}-${data.venueLine}-${data.eventType}`;
-  },
-}));
+vi.mock('../app/lib/ogCardRender', () => {
+  // ONE read, at mock-factory-eval time -- mirrors the real module's own
+  // `export const OG_BRANDED_CARD_ENABLED = process.env...` (ogCardRender.ts
+  // line 169), which both `buildCoverCard` and `ogFactsTag` read from a
+  // single evaluation. Two independent `process.env` reads here (one baked
+  // into a literal, one live inside ogFactsTag) let a future flag-on test
+  // case flip only the read ogFactsTag sees -- a combination the real
+  // module's single boolean can never produce -- and silently prove
+  // nothing. Set OG_BRANDED_CARD_ENABLED in the environment BEFORE this
+  // file's static import runs (vi.mock factories eval at import time) to
+  // exercise the flag-on path from both sides at once.
+  const brandedCardEnabled = process.env.OG_BRANDED_CARD_ENABLED === 'true';
+  return {
+    buildFallbackCard: async () => Buffer.from('branded-fallback-jpeg'),
+    // buildImageCard is still imported by the kind=image branch; buildCoverCard
+    // is the entity branch's selector (branded vs raw, per OG_BRANDED_CARD_ENABLED).
+    // This file asserts the X-OG-Fallback marker and cache tiers, which are the
+    // same whichever card the selector picks, so one stand-in byte string serves.
+    buildImageCard: async () => Buffer.from('cover-jpeg'),
+    buildCoverCard: async () => Buffer.from('cover-jpeg'),
+    fetchImageBytes: async () => io.imageBytes,
+    fetchEventCardData: async () => io.cardData,
+    fetchFestivalCardData: async () => io.cardData,
+    resolveOgEventId: async (param: string) => {
+      if (io.throwOnResolve) throw new Error('boom');
+      return io.resolveId === null ? null : io.resolveId || param;
+    },
+    // The loader also branches on this directly (the flag-off fast path
+    // ahead of any RPC read).
+    OG_BRANDED_CARD_ENABLED: brandedCardEnabled,
+    // A real stand-in, not a stub -- the loader now folds this into the etag it
+    // conditionally checks, so a stub that ignored `data` would make every
+    // facts-dependent 304 case in this file pass for the wrong reason (any
+    // cardData would hash the same, so a change to title could never be
+    // observed to bust the cache).
+    ogFactsTag: (data: Record<string, unknown> | null) => {
+      if (!brandedCardEnabled || !data) return '';
+      return `facts-${data.title}-${data.dateLine}-${data.venueLine}-${data.eventType}`;
+    },
+  };
+});
 
 // STATIC import, not `await import`. vi.mock is hoisted above imports by
 // vitest's transform, so the dynamic form bought nothing -- and top-level

@@ -718,11 +718,22 @@ function selfTest() {
     ['silent: a healthy key WITH the optional facts-tag suffix (flag-on shape)',
       bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f6.jpg`) === null],
     // 11 hex, one short of the 12 ogFactsTag always emits. The boundary case
-    // for the optional group, the same way the 15-hex case above pins the
+    // for the optional group, the same way the 15-hex case below pins the
     // mandatory cover tag: a {11,12} widening of the suffix would pass this
     // silently while the name claimed otherwise.
     ['FIRES: an 11-hex facts suffix is not the shape ogFactsTag writes',
       bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f.jpg`) !== null],
+    // Two adversarial shapes the {12} boundary case above does not reach: a
+    // doubled suffix (proves the group is not accidentally repeatable), and
+    // a suffix glued on with no separating dash (proves the `-` is part of
+    // the pattern, not just visual). Both are correctly rejected today; the
+    // fixtures exist so a future loosening of the optional group -- e.g.
+    // `(?:-[0-9a-f]{12})*` for "*" instead of "?", or dropping the leading
+    // dash requirement -- fails here instead of shipping unnoticed.
+    ['FIRES: a doubled facts suffix is not a shape ogFactsTag can ever write',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f6-a1b2c3d4e5f6.jpg`) !== null],
+    ['FIRES: a facts suffix glued on with no separating dash',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdba1b2c3d4e5f6.jpg`) !== null],
     // The mutation that motivated [.] over an escaped dot: one backslash eaten
     // in transit makes the extension "any character + jpg". The fixture is
     // otherwise a PERFECTLY healthy key -- id, "default", 16 hex -- and differs

@@ -190,8 +190,13 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // OG_BRANDED_CARD_ENABLED is on (see ogFactsTag below). check-og-images.mjs
     // asserts exactly that shape on the live og:image. Measured against all
     // 253 live og_render rows on 2026-08-11: 248 match, and the 5 that do not
-    // are the 5 persisted fallback cards -- all measured with the flag off,
-    // so none of them exercise the facts suffix.
+    // are the 5 persisted fallback cards. That measurement predates ogFactsTag
+    // and OG_BRANDED_CARD_ENABLED entirely, and og_render carries no column
+    // recording which flag-state baked a row -- so "none of them carry the
+    // facts suffix" is an INFERENCE from the flag having always defaulted to
+    // false in this codebase's history, not something the 2026-08-11 count
+    // itself recorded. Re-verify against live data, don't just trust this
+    // line, the day the flag is ever flipped on and then off again.
     //
     // HOW FAR that external check reaches, and it is much less far than a
     // first draft of this comment claimed. Round-2 review measured it:

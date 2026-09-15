@@ -532,7 +532,17 @@ export function buildCoverCard(coverBuf: Buffer, data: OgCardData): Promise<Buff
  *  data -- a deliberate no-op so the flag stays a true dark-ship lever: with
  *  it off, every cache key this feeds is byte-identical to before this
  *  existed. Do not widen it to run unconditionally "for future-proofing";
- *  that would move the flag's dark half live without a review round. */
+ *  that would move the flag's dark half live without a review round.
+ *
+ *  The \u0000 join is collision-safe ONLY given an unstated precondition:
+ *  none of these four fields can contain an embedded NUL byte -- true for
+ *  every caller today, since both fetchers below read them straight out of
+ *  Postgres text columns, which reject \0 at INSERT time. This function does
+ *  not itself enforce that; a future caller assembling an OgCardData-shaped
+ *  object from a source that CAN carry a NUL (a manual script, a scraped
+ *  field) could produce a genuine hash collision -- e.g. title="A\0B" with
+ *  dateLine="" hashing identically to title="A" with dateLine="B" -- which
+ *  would silently defeat the whole point of this function for that entity. */
 export function ogFactsTag(data: Pick<OgCardData, "title" | "dateLine" | "venueLine" | "eventType"> | null): string {
   if (!OG_BRANDED_CARD_ENABLED || !data) return "";
   return createHash("sha1")

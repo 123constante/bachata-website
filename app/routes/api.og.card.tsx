@@ -169,19 +169,20 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     // conditional GET cannot clobber a client's valid cached etag with a
     // blank fallback card while the flag is off (see the card-data-unavailable
     // branch below, which has no such protection once the flag is on and
-    // this check can no longer run early).
-    if (!OG_BRANDED_CARD_ENABLED) {
-      const etag = makeEtag(kind, idParam, src, occ, v);
-      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
-    }
+    // this check can no longer run early). `etag` is declared here, not
+    // recomputed below, so the flag-off state never hashes the same string
+    // twice for one request.
+    let etag = makeEtag(kind, idParam, src, occ, v);
+    if (!OG_BRANDED_CARD_ENABLED && ifNoneMatch === etag) return new Response(null, { status: 304 });
 
     const id = await resolveOgEventId(idParam);
     if (!id) return redirectToStatic("unresolvable-id");
     const cardData = kind === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occ || null);
     if (!cardData) {
       // No etag arg here on purpose: imageResponse ignores it whenever a
-      // fallback reason is passed (see its "NO ETag" comment), so computing
-      // one just to discard it would be a wasted SHA1 per degraded response.
+      // fallback reason is passed (see its "NO ETag" comment), so the params-
+      // only `etag` above -- already computed, never a fresh hash -- is
+      // simply discarded.
       return imageResponse(await buildFallbackCard(null, null, null), "", "card-data-unavailable");
     }
 
@@ -193,10 +194,15 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     // is on, traded deliberately for that correctness; the flag-off fast
     // path above is what keeps that cost from applying today. A degraded
     // response below never carries this etag anyway (see imageResponse's
-    // "NO ETag" comment), so nothing here weakens that invariant.
-    const facts = ogFactsTag(cardData);
-    const etag = makeEtag(kind, idParam, src, occ, v, facts);
-    if (ifNoneMatch === etag) return new Response(null, { status: 304 });
+    // "NO ETag" comment), so nothing here weakens that invariant. Recomputed
+    // (not reused) ONLY when the flag is on, since `facts` is unknown until
+    // cardData exists -- while the flag is off this is a no-op re-hash of
+    // the same string, which the branch above already returned on.
+    if (OG_BRANDED_CARD_ENABLED) {
+      const facts = ogFactsTag(cardData);
+      etag = makeEtag(kind, idParam, src, occ, v, facts);
+      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
+    }
     // Hybrid: a flyer becomes the preview itself (no text/fonts); the branded
     // card is only the fallback for entities with no flyer.
     // Hoisted so the fetch and the reason below cannot drift apart. They are
