@@ -22,7 +22,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
-import { buildMailtoHref, buildWhatsAppHref } from '@/lib/contactValidation';
+import {
+  buildMailtoHref,
+  buildWhatsAppHref,
+  isValidEmail as sharedIsValidEmail,
+  normalizePhoneDigits,
+} from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
@@ -294,20 +299,19 @@ const extractDomain = (raw: string | null): string => {
 
 // --- Validation helpers ---
 
+// Delegates to contactValidation.ts's own isValidEmail/normalizePhoneDigits
+// (already imported below for buildMailtoHref/buildWhatsAppHref) so save-time
+// validation can't diverge from what render-time link-building accepts --
+// an earlier version of this file had two separate regexes for the same
+// thing and that's exactly the drift contactValidation.ts exists to stop.
 const isValidEmail = (email: string | null | undefined): boolean => {
-  if (!email) return true;
-  const trimmed = email.trim();
-  if (!trimmed) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
+  if (!email || !email.trim()) return true;
+  return sharedIsValidEmail(email);
 };
 
 const isValidPhone = (phone: string | null | undefined): boolean => {
-  if (!phone) return true;
-  const trimmed = phone.trim();
-  if (!trimmed) return true;
-  if (!/^[\d\s\-+()]+$/.test(trimmed)) return false;
-  const digitCount = (trimmed.match(/\d/g) || []).length;
-  return digitCount >= 7;
+  if (!phone || !phone.trim()) return true;
+  return normalizePhoneDigits(phone) !== null;
 };
 
 const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
@@ -869,7 +873,6 @@ const OrganiserProfile = () => {
         bio: editForm.bio.trim() || null,
         city_id: canonicalCity.cityId,
         instagram: ig,
-        facebook: fb,
         website: web,
         contact_email: editForm.contact_email.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
