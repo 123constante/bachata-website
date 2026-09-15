@@ -170,7 +170,10 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           heading="Bachata events in London this week"
           windowDays={SEO_LANDING_WINDOWS.guide}
           serverTodayKey={serverTodayKey}
-          limit={10}
+          // Phase 5 (IO optimization arc, resumed): 10 -> 8, matching the
+          // component's own default (previously dead code here since this
+          // explicit override shadowed it).
+          limit={8}
           emptyText={
             <>
               Nothing in the next seven days is listed yet &mdash; see the full{' '}

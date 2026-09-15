@@ -13,7 +13,7 @@ export interface UseMapEventsParams {
  * React Query hook over get_map_events_v1 -- one row per occurrence-day for the
  * Festival Map homepage (coords, cover, times, category flags, freshness).
  *
- * Keyed by city + date range; 5-minute staleTime since event data moves on the
+ * Keyed by city + date range; 2-hour staleTime since event data moves on the
  * scale of days, not minutes. Mirrors useCalendarEvents conventions. RPC errors
  * surface as isError (the surfaces show RetryNotice).
  */

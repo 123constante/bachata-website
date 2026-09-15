@@ -13,7 +13,6 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh';
 
 type AttendanceRow = {
   event_id: string;
@@ -109,19 +108,19 @@ const MyAttendance = () => {
 
   const attendanceQueryKey = ['my-event-attendance', user?.id];
 
-  // Phase 3 (IO optimization arc, resumed): visibility-gated refetch replaces
-  // reliance on a short staleTime for freshness after tab switches.
-  useVisibilityRefresh({
-    queryKey: attendanceQueryKey,
-    intervalMs: 5 * 60_000,
-    enabled: Boolean(user?.id),
-  });
-
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AttendanceCard[]>({
     queryKey: attendanceQueryKey,
     queryFn: fetchMyAttendance,
     enabled: Boolean(user?.id),
-    staleTime: 5 * 60_000,
+    // Phase 3 (IO optimization arc, resumed): 60s -> 2min, not the originally
+    // planned 5min -- no RSVP mutation invalidates this key (useAttendance.ts
+    // only invalidates the per-event status/engagement keys), so a user who
+    // RSVPs on an event page and immediately navigates here in the same tab
+    // relies entirely on this staleTime to see the update. 2min keeps that
+    // window short while still halving the old 60s poll's request rate via
+    // refetchInterval below.
+    staleTime: 2 * 60_000,
+    refetchInterval: 2 * 60_000,
   });
 
   const sorted = useMemo(() => {
