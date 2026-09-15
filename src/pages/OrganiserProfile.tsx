@@ -444,6 +444,9 @@ function useAverageColor(url: string | null): [number, number, number] {
   const [rgb, setRgb] = React.useState<[number, number, number]>([255, 106, 44]);
   React.useEffect(() => {
     if (!url) return;
+    // Guards against a slower earlier load resolving after a newer `url`
+    // has already been requested and overwriting its sampled colour.
+    let cancelled = false;
     // No crossOrigin: the cover CDN (Cloudflare R2) sends no CORS headers, so a
     // crossOrigin='anonymous' request fails with net::ERR_FAILED -- a console
     // error for every organiser page (and the colour sample fell back to default
@@ -454,6 +457,7 @@ function useAverageColor(url: string | null): [number, number, number] {
     // crossOrigin here.
     const img = new Image();
     img.onload = () => {
+      if (cancelled) return;
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 16; canvas.height = 16;
@@ -468,11 +472,13 @@ function useAverageColor(url: string | null): [number, number, number] {
           r += data[i]; g += data[i+1]; b += data[i+2]; count++;
         }
         if (count === 0) return;
+        if (cancelled) return;
         setRgb([Math.round(r/count), Math.round(g/count), Math.round(b/count)]);
       } catch { /* CORS block ??? stay on default */ }
     };
     img.onerror = () => { /* stay on default */ };
     img.src = url;
+    return () => { cancelled = true; };
   }, [url]);
   return rgb;
 }
@@ -654,15 +660,16 @@ const OrganiserProfile = () => {
   const totalEventsCount = allEvents.length;
 
   const sinceYear = useMemo(() => {
-    let earliest: number | null = null;
+    // Wall-clock strings sort lexically same as chronologically (yyyy-MM-dd...),
+    // so the earliest key is found by string comparison -- no Date math, no TZ.
+    let earliestKey: string | null = null;
     for (const e of allEvents) {
-      const raw = e.start_time ?? e.date;
-      if (!raw) continue;
-      const ts = new Date(raw).getTime();
-      if (Number.isNaN(ts)) continue;
-      if (earliest === null || ts < earliest) earliest = ts;
+      const wc = asWallClockOrNull(e.start_time ?? e.date);
+      const key = formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
+      if (!key) continue;
+      if (earliestKey === null || key < earliestKey) earliestKey = key;
     }
-    return earliest === null ? null : new Date(earliest).getFullYear();
+    return earliestKey === null ? null : Number(earliestKey.slice(0, 4));
   }, [allEvents]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
@@ -904,7 +911,8 @@ const OrganiserProfile = () => {
           ? null
           : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
-  const whatsappUrl = contactPhone ? `https://wa.me/${String(contactPhone).replace(/\D/g, '')}` : null;
+  const whatsappDigits = contactPhone ? String(contactPhone).replace(/\D/g, '') : '';
+  const whatsappUrl = whatsappDigits ? `https://wa.me/${whatsappDigits}` : null;
 
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || contactEmail);
 
