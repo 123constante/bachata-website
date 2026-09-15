@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CityPicker } from '@/components/ui/city-picker';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
+import { buildMailtoHref, buildWhatsAppHref } from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
@@ -749,9 +750,10 @@ const OrganiserProfile = () => {
   const facebookUrl  = facebookRaw
     ? (facebookRaw.startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
-  const whatsappUrl = contactPhone ? `https://wa.me/${String(contactPhone).replace(/\D/g, '')}` : null;
+  const whatsappUrl = buildWhatsAppHref(contactPhone);
+  const mailtoHref = buildMailtoHref(contactEmail);
 
-  const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || contactEmail);
+  const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
   const isClaimedByUser = entity.claimed_by === user?.id;
   const canClaim        = !!user && !entity.claimed_by;
@@ -898,6 +900,11 @@ const OrganiserProfile = () => {
                     WhatsApp
                   </a>
                 )}
+                {mailtoHref && !whatsappUrl && (
+                  <a href={mailtoHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
+                    {contactEmail}
+                  </a>
+                )}
             </div>}
 
             {/* Mobile pills */}
@@ -930,8 +937,8 @@ const OrganiserProfile = () => {
                   Message on WhatsApp
                 </a>
               )}
-              {contactEmail && !whatsappUrl && (
-                <a href={`mailto:${contactEmail}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
+              {mailtoHref && !whatsappUrl && (
+                <a href={mailtoHref} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
                   {contactEmail}
                 </a>
               )}
