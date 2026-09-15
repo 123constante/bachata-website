@@ -232,13 +232,15 @@ const extractDomain = (raw: string | null): string => {
 // --- Validation helpers ---
 
 const isValidEmail = (email: string): boolean => {
-  if (!email.trim()) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const trimmed = email.trim();
+  if (!trimmed) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
 };
 
 const isValidPhone = (phone: string): boolean => {
-  if (!phone.trim()) return true;
-  return /^(?=.*\d)[\d\s\-+()]+$/.test(phone.trim());
+  const trimmed = phone.trim();
+  if (!trimmed) return true;
+  return /^(?=.*\d)[\da-zA-Z\s\-+()]+$/.test(trimmed);
 };
 
 const isValidWebsiteUrl = (url: string): boolean => {
@@ -251,6 +253,42 @@ const isValidWebsiteUrl = (url: string): boolean => {
   } catch {
     return false;
   }
+};
+
+const isValidInstagramUrl = (url: string): boolean => {
+  if (!url.trim()) return true;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9._]+$/.test(trimmed);
+  }
+  if (trimmed.toLowerCase().includes('instagram.com')) {
+    try {
+      const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
+      new URL(withProto);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return /^[a-zA-Z0-9._]+$/.test(trimmed);
+};
+
+const isValidFacebookUrl = (url: string): boolean => {
+  if (!url.trim()) return true;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
+  }
+  if (trimmed.toLowerCase().includes('facebook.com')) {
+    try {
+      const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
+      new URL(withProto);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
 };
 
 // --- Sub-components ---
@@ -630,6 +668,14 @@ const OrganiserProfile = () => {
     }
     if (!isValidPhone(editForm.contact_phone)) {
       toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidInstagramUrl(editForm.instagram)) {
+      toast({ title: 'Invalid Instagram', description: 'Please enter a valid Instagram handle or URL.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidFacebookUrl(editForm.facebook)) {
+      toast({ title: 'Invalid Facebook', description: 'Please enter a valid Facebook handle or URL.', variant: 'destructive' });
       return;
     }
     if (!isValidWebsiteUrl(editForm.website)) {
