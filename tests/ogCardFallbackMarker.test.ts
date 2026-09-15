@@ -48,6 +48,10 @@ vi.mock('../app/lib/ogCardRender', () => ({
     if (io.throwOnResolve) throw new Error('boom');
     return io.resolveId === null ? null : io.resolveId || param;
   },
+  // The loader also branches on this directly (the flag-off fast path
+  // ahead of any RPC read); false matches the real module's default, since
+  // this test process never sets OG_BRANDED_CARD_ENABLED.
+  OG_BRANDED_CARD_ENABLED: false,
   // A real stand-in, not a stub -- the loader now folds this into the etag it
   // conditionally checks, so a stub that ignored `data` would make every
   // facts-dependent 304 case in this file pass for the wrong reason (any
@@ -108,6 +112,21 @@ describe('healthy responses carry no marker', () => {
     expect(res.headers.get(HEADER)).toBeNull();
     expect(res.headers.get('etag')).toBeTruthy();
     expect(res.headers.get('cache-control')).toMatch(LONG_CACHE);
+  });
+
+  // Pinned to the EXACT pre-ogFactsTag formula
+  // (`sha1("event:evt-1:::abc").base64url.slice(0,24)`), not just "truthy" or
+  // "stable across two calls" -- either of those would stay green even if
+  // makeEtag's hash input had silently changed shape (e.g. gained a trailing
+  // separator) while OG_BRANDED_CARD_ENABLED stayed off. That exact class of
+  // bug shipped in an earlier draft of this file's own loader change: an
+  // unconditional `:${facts}` append made every etag on this route differ
+  // from its pre-existing value even with facts === "".
+  it('the flag-off etag is byte-identical to the pre-ogFactsTag formula', async () => {
+    const { createHash } = await import('node:crypto');
+    const expected = `"${createHash('sha1').update('event:evt-1:::abc').digest('base64url').slice(0, 24)}"`;
+    const res = await get('kind=event&id=evt-1&v=abc');
+    expect(res.headers.get('etag')).toBe(expected);
   });
 
   // kind=image is the og:image of every teacher/dancer/dj/venue page. A
@@ -194,6 +213,24 @@ describe('a degrade is never allowed to become permanent', () => {
     } as unknown as Parameters<typeof loader>[0]);
     expect(res.status).toBe(304);
     expect(res.headers.get(HEADER)).toBeNull();
+  });
+
+  // The flag-off fast path's real payoff, not just its cost: with the flag
+  // off, a matching conditional GET must 304 WITHOUT ever calling
+  // resolveOgEventId/fetchEventCardData -- so a transient RPC blip at
+  // revalidation time cannot clobber a client's valid cached etag with a
+  // fresh degraded card. Proven structurally (the mock throws if reached),
+  // not just by asserting the status code, so a future refactor that moved
+  // the check back below the RPC call fails HERE even if it happened to
+  // return 304 by some other path.
+  it('a flag-off 304 never touches resolveOgEventId, even mid RPC-blip', async () => {
+    const first = await get('kind=event&id=evt-1&v=abc');
+    const etag = first.headers.get('etag') as string;
+    io.throwOnResolve = true; // any RPC touch on the next call throws
+    const res = await loader({
+      request: new Request(`${BASE}?kind=event&id=evt-1&v=abc`, { headers: { 'if-none-match': etag } }),
+    } as unknown as Parameters<typeof loader>[0]);
+    expect(res.status).toBe(304);
   });
 });
 

@@ -14,6 +14,23 @@
 //
 // Auth: Bearer OG_BAKE_SECRET (shared with the DB trigger via Vault).
 // POST body: { entity_type: 'event'|'festival', entity_id: uuid, occurrence_id?: uuid|null }
+//
+// SCOPE LIMIT of the factsTag fold-in below (once OG_BRANDED_CARD_ENABLED is
+// on): this route only RUNS when something enqueues it, and
+// _og_events_cover_trg / _og_occ_cover_trg (admin repo) enqueue on
+// poster_url/cover_image_url/is_active changes ONLY -- never on a
+// title/date/venue-only edit. So an already-baked entity that is renamed or
+// rescheduled with its cover unchanged does NOT get a bake enqueued, this
+// route never runs, and get_og_image_v1 keeps serving the OLD R2 object
+// under the OLD facts indefinitely -- the exact staleness this fold-in
+// exists to close, for exactly the steady-state (already-baked) case this
+// route's own header comment above says IS the steady state. The fold-in
+// fully closes the gap for /api/og/card's own live-render fallback (an
+// entity not yet baked) and for anything re-baked by hand
+// (scripts/backfill-og-images.mjs); it does NOT self-heal an already-baked
+// entity's facts-only edit. Closing that requires a trigger change in
+// bachata-admin-11april (this repo owns no migrations -- see this repo's
+// CLAUDE.md, Migration authority), queued rather than built here.
 import { createHash } from "node:crypto";
 import {
   buildCoverCard,
@@ -201,7 +218,10 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // HEALTHY_BAKED_KEY_RE accepts the extra `-<factsTag>` segment as
     // optional for exactly this reason. Update that regex's fixtures if this
     // shape ever changes again.
-    const factsTag = ogFactsTag(cardData as OgCardData);
+    // No cast: ogFactsTag's own parameter type already accepts cardData's
+    // un-narrowed OgCardData | null, unlike buildCoverCard above which needs
+    // the non-null assertion because IT has no null-tolerant signature.
+    const factsTag = ogFactsTag(cardData);
     const path = `og/${entityType}/${id}-${occTag}-${coverTag}${factsTag ? `-${factsTag}` : ""}.jpg`;
 
     const publicUrl = await uploadJpeg(path, jpeg);

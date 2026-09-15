@@ -22,6 +22,7 @@ import {
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
+  OG_BRANDED_CARD_ENABLED,
   ogFactsTag,
   resolveOgEventId,
   type OgCardData,
@@ -32,8 +33,16 @@ const SITE_URL = "https://www.bachatacalendar.co.uk";
 
 // `facts` is "" unless OG_BRANDED_CARD_ENABLED, so with the flag off this
 // etag is byte-identical to before ogFactsTag existed (see ogCardRender.ts).
+// The ternary, not a bare `:${facts}` append, is load-bearing: an
+// unconditional append changes the hashed STRING (an extra trailing colon)
+// even when facts is "", which would change every ETag on this route the
+// moment this ships regardless of the flag -- exactly the invariant this
+// comment claims. Mirrors the same guard in api.og.bake.tsx's R2 key.
 function makeEtag(kind: string, idParam: string, src: string, occ = "", v = "", facts = ""): string {
-  const h = createHash("sha1").update(`${kind}:${idParam}:${src}:${occ}:${v}:${facts}`).digest("base64url").slice(0, 24);
+  const h = createHash("sha1")
+    .update(`${kind}:${idParam}:${src}:${occ}:${v}${facts ? `:${facts}` : ""}`)
+    .digest("base64url")
+    .slice(0, 24);
   return `"${h}"`;
 }
 
@@ -152,19 +161,39 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
       return imageResponse(await buildImageCard(bytes), etag);
     }
     if (!idParam) return redirectToStatic("missing-id");
+
+    // While the flag is off, ogFactsTag always returns "" (its own guard),
+    // so this params-only etag IS the eventual full etag -- check it before
+    // any RPC and restore the original free 304 fast path exactly, for the
+    // state this ships in. Doing this ALSO means a transient RPC blip on a
+    // conditional GET cannot clobber a client's valid cached etag with a
+    // blank fallback card while the flag is off (see the card-data-unavailable
+    // branch below, which has no such protection once the flag is on and
+    // this check can no longer run early).
+    if (!OG_BRANDED_CARD_ENABLED) {
+      const etag = makeEtag(kind, idParam, src, occ, v);
+      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
+    }
+
     const id = await resolveOgEventId(idParam);
     if (!id) return redirectToStatic("unresolvable-id");
     const cardData = kind === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occ || null);
-    if (!cardData) return imageResponse(await buildFallbackCard(null, null, null), makeEtag(kind, idParam, src, occ, v), "card-data-unavailable");
+    if (!cardData) {
+      // No etag arg here on purpose: imageResponse ignores it whenever a
+      // fallback reason is passed (see its "NO ETag" comment), so computing
+      // one just to discard it would be a wasted SHA1 per degraded response.
+      return imageResponse(await buildFallbackCard(null, null, null), "", "card-data-unavailable");
+    }
 
     // Facts are known only now, so the conditional check moves here for
-    // entity kinds: an earlier, params-only etag would let a title/date/
-    // venue/type edit 304 forever against a crawler's cached preview
-    // whenever the cover (and so `v=`) had not also changed. The cost is a
-    // guaranteed RPC read on every conditional GET for this kind, traded
-    // deliberately for that correctness -- a degraded response below never
-    // carries this etag anyway (see imageResponse's "NO ETag" comment), so
-    // nothing here weakens that invariant.
+    // entity kinds with the flag ON: an earlier, params-only etag would let
+    // a title/date/venue/type edit 304 forever against a crawler's cached
+    // preview whenever the cover (and so `v=`) had not also changed. The
+    // cost is a guaranteed RPC read on every conditional GET once the flag
+    // is on, traded deliberately for that correctness; the flag-off fast
+    // path above is what keeps that cost from applying today. A degraded
+    // response below never carries this etag anyway (see imageResponse's
+    // "NO ETag" comment), so nothing here weakens that invariant.
     const facts = ogFactsTag(cardData);
     const etag = makeEtag(kind, idParam, src, occ, v, facts);
     if (ifNoneMatch === etag) return new Response(null, { status: 304 });
