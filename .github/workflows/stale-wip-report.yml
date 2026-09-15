@@ -1,0 +1,84 @@
+name: Stale WIP Report
+
+# Report-only surface for stalled work-in-progress: branches with no commits
+# in 14+ days and PRs open 21+ days. Modeled on ci-budget-guard.yml's
+# schedule/dispatch/report pattern -- it INFORMS, it never gates, and it
+# uploads no artifacts. Exists because the 2026-09-15 manual audit found 104
+# local branches and 356 plan files accumulated with no periodic checkpoint
+# to surface them as a decision point. See feedback_wip_exit_ritual (project
+# memory) for the doctrine this closes the detection half of.
+#
+# Deliberately NOT a pull_request workflow: this measures repo-wide branch/PR
+# age, not a diff.
+#
+# Inline bash/node, not a scripts/check-*.mjs + canary: this is report-only
+# (no exit-code contract to prove), so the R1-R6 guard-script conventions in
+# docs/ci-guard-notes.md don't apply the way they do to an enforcing check.
+# Accepted tradeoff: no local self-test entrypoint for this logic.
+#
+# gh pr list --limit 200: default ordering is newest-first, so a truncation
+# would drop the OLDEST (most relevant) PRs first. 200 is headroom well past
+# current open-PR count; revisit if the repo's open-PR count approaches it.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: List branches with no commits in 14+ days
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Stale branches (no commits in 14+ days)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cutoff=$(date -d '14 days ago' +%s)
+          found=0
+          while IFS= read -r b; do
+            [ -z "$b" ] && continue
+            name="${b#origin/}"
+            ts=$(git log -1 --format=%ct "$b" 2>/dev/null || echo 0)
+            if [ "$ts" -lt "$cutoff" ] && [ "$ts" -gt 0 ]; then
+              age_days=$(( ( $(date +%s) - ts ) / 86400 ))
+              echo "- \`$name\` -- ${age_days}d since last commit" >> "$GITHUB_STEP_SUMMARY"
+              found=$((found+1))
+            fi
+          done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -vE '^origin/HEAD$|^origin/main$')
+          if [ "$found" -eq 0 ]; then
+            echo "None." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: List PRs open 21+ days
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## PRs open 21+ days" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cutoff_epoch=$(date -d '21 days ago' +%s)
+          gh pr list --state open --json number,title,createdAt,url --limit 200 | \
+            node -e '
+              const cutoff = new Date(process.argv[1] * 1000);
+              const prs = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const stale = prs.filter(p => new Date(p.createdAt) < cutoff);
+              if (stale.length === 0) {
+                console.log("None.");
+              } else {
+                for (const p of stale) {
+                  const days = Math.floor((Date.now() - new Date(p.createdAt)) / 86400000);
+                  console.log(`- #${p.number} ${p.title} -- ${days}d old (${p.url})`);
+                }
+              }
+            ' "$cutoff_epoch" >> "$GITHUB_STEP_SUMMARY"
