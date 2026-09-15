@@ -145,7 +145,10 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
           windowDays={SEO_LANDING_WINDOWS.learn}
           serverTodayKey={serverTodayKey}
           classesOnly
-          limit={12}
+          // Phase 5 (IO optimization arc, resumed): 12 -> 8, matching the
+          // component's own default (previously dead code here since this
+          // explicit override shadowed it).
+          limit={8}
           emptyText={
             <>
               No classes listed in the next few weeks just now &mdash; browse the full{' '}

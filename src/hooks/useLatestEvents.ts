@@ -21,12 +21,16 @@ export interface LatestEventCard {
   hasParty: boolean;
 }
 
-export const LATEST_EVENTS_LIMIT = 6;
+// Phase 5 (IO optimization arc, resumed): reduced from 6 -> 4. Still a good
+// carousel size; ~33% fewer rows fetched/cached per city.
+export const LATEST_EVENTS_LIMIT = 4;
 
 /**
- * Newest uploads for the active city. Mirrors the React Query conventions of
- * useCalendarEvents: gated on citySlug, 5-minute staleTime. Returns [] (and the
- * caller hides the section) when there is no city or no data.
+ * Newest uploads for the active city. Gated on citySlug, 15-minute staleTime
+ * (widened from 5min -- new uploads aren't urgent enough to need a tighter
+ * window; this does NOT mirror useCalendarEvents, whose callers keep a
+ * deliberately tighter 5min for cancellation/re-time visibility). Returns []
+ * (and the caller hides the section) when there is no city or no data.
  */
 export const useLatestEvents = (limit: number = LATEST_EVENTS_LIMIT) => {
   const { citySlug } = useCity();
@@ -50,6 +54,8 @@ export const useLatestEvents = (limit: number = LATEST_EVENTS_LIMIT) => {
       }));
     },
     enabled: !!citySlug,
-    staleTime: 5 * 60_000,
+    // Phase 4-lite (IO optimization arc, resumed): 5min -> 15min. New uploads
+    // are not urgent enough to need a 5-minute cache window.
+    staleTime: 15 * 60_000,
   });
 };

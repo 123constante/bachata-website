@@ -106,11 +106,22 @@ const MyAttendance = () => {
     noindex: true,
   });
 
+  const attendanceQueryKey = ['my-event-attendance', user?.id];
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AttendanceCard[]>({
-    queryKey: ['my-event-attendance', user?.id],
+    queryKey: attendanceQueryKey,
     queryFn: fetchMyAttendance,
     enabled: Boolean(user?.id),
-    staleTime: 60_000,
+    // Phase 3 (IO optimization arc, resumed): 60s -> 2min, not the originally
+    // planned 5min -- no RSVP mutation invalidates this key (useAttendance.ts
+    // only invalidates the per-event status/engagement keys), so a user who
+    // RSVPs on an event page and immediately navigates here in the same tab
+    // relies entirely on this staleTime to see the update. No refetchInterval:
+    // round 2 of review found that a periodic timer here is a net IO INCREASE
+    // over the true pre-PR baseline for any continuously-focused tab (there
+    // was never a poll at all); the app-wide refetchOnWindowFocus default
+    // (src/App.tsx) already covers tab-return refreshes, gated by staleTime.
+    staleTime: 2 * 60_000,
   });
 
   const sorted = useMemo(() => {

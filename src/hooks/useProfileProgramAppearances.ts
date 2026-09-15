@@ -48,7 +48,8 @@ export type ProfileAppearanceItem = {
 export function useProfileProgramAppearances(
   personType: PersonType | undefined,
   profileId: string | undefined,
-  limit = 50,
+  // Phase 5 (IO optimization arc, resumed): 50 -> 35.
+  limit = 35,
 ) {
   return useQuery({
     queryKey: ['profile-program-appearances', personType, profileId, limit],
