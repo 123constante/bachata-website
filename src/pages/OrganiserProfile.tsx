@@ -756,6 +756,7 @@ const OrganiserProfile = () => {
         bio: editForm.bio.trim() || null,
         city_id: canonicalCity.cityId,
         instagram: ig,
+        facebook: fb,
         website: web,
         contact_email: editForm.contact_email.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
