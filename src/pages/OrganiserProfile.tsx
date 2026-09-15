@@ -181,6 +181,53 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
   return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
+// Normalizes a protocol-optional URL fragment for validating, rendering, AND
+// the extract*Handle/extractDomain helpers below, so no two of them can
+// independently drift on what counts as "already has a scheme/domain".
+// Lowercases only the scheme (never the path/query) and prepends https://
+// when neither a scheme nor the given domain is present -- this is what
+// makes a bare "instagram.com/foo" resolve to a real link instead of being
+// glued onto another https://instagram.com/ prefix.
+const lowercaseScheme = (v: string): string => v.replace(/^https?:\/\//i, (m) => m.toLowerCase());
+
+// Hostname-anchored domain check -- NEVER a substring/`.includes()` test.
+// A substring match treats "https://bit.ly/promo?ref=instagram.com" or a
+// typosquat host "instagram.com.evil.tk" as "is an instagram.com URL" (the
+// substring appears in the query string / as a subdomain prefix of a
+// different real domain), which would validate and render an arbitrary or
+// look-alike URL under the "Instagram" label. Parsing the hostname and
+// requiring an exact match or a real subdomain (`.instagram.com` suffix)
+// closes both.
+const hostMatchesDomain = (trimmed: string, domain: string): boolean => {
+  try {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const hostname = new URL(withScheme).hostname.toLowerCase();
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+};
+
+const withNormalizedProtocol = (trimmed: string, domain?: string): string => {
+  if (/^https?:\/\//i.test(trimmed)) {
+    return lowercaseScheme(trimmed);
+  }
+  if (domain && hostMatchesDomain(trimmed, domain)) {
+    return `https://${trimmed}`;
+  }
+  return domain ? trimmed : `https://${trimmed}`;
+};
+
+// A resolved hostname must look like a real domain -- containing a dot AND
+// a letter -- before a website URL is accepted. Without this, placeholder
+// text like "TBA"/"N/A" (hostname "tba", no dot) and purely numeric input
+// like "12345" (the URL parser reads it as the IPv4 "0.0.48.57" -- has dots
+// but no letters) both validate and save as a live, dead link. Checking the
+// PARSED hostname rather than the raw input closes this for both the bare
+// "tba" and the scheme-prefixed "https://tba" spellings alike.
+const hostnameLooksLikeDomain = (hostname: string): boolean =>
+  hostname.includes('.') && /[a-z]/i.test(hostname);
+
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
   'home.php', 'events',
@@ -221,8 +268,7 @@ const extractDomain = (raw: string | null): string => {
   const trimmed = raw.trim();
   if (!trimmed) return 'Website';
   try {
-    const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
-    const url = new URL(withProto);
+    const url = new URL(withNormalizedProtocol(trimmed));
     return url.hostname.replace(/^www\./i, '') || 'Website';
   } catch {
     return 'Website';
@@ -231,63 +277,72 @@ const extractDomain = (raw: string | null): string => {
 
 // --- Validation helpers ---
 
-const isValidEmail = (email: string): boolean => {
+const isValidEmail = (email: string | null | undefined): boolean => {
+  if (!email) return true;
   const trimmed = email.trim();
   if (!trimmed) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
 };
 
-const isValidPhone = (phone: string): boolean => {
+const isValidPhone = (phone: string | null | undefined): boolean => {
+  if (!phone) return true;
   const trimmed = phone.trim();
   if (!trimmed) return true;
-  return /^(?=.*\d)[\da-zA-Z\s\-+()]+$/.test(trimmed);
+  if (!/^[\d\s\-+()]+$/.test(trimmed)) return false;
+  const digitCount = (trimmed.match(/\d/g) || []).length;
+  return digitCount >= 7;
 };
 
-const isValidWebsiteUrl = (url: string): boolean => {
-  if (!url.trim()) return true;
+const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
   try {
-    const trimmed = url.trim();
-    const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
-    new URL(withProto);
-    return true;
+    const hostname = new URL(withNormalizedProtocol(trimmed)).hostname;
+    return hostnameLooksLikeDomain(hostname);
   } catch {
     return false;
   }
 };
 
-const isValidInstagramUrl = (url: string): boolean => {
-  if (!url.trim()) return true;
+const isValidInstagramUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
   const trimmed = url.trim();
+  if (!trimmed) return true;
   if (trimmed.startsWith('@')) {
     return /^@[a-zA-Z0-9._]+$/.test(trimmed);
   }
-  if (trimmed.toLowerCase().includes('instagram.com')) {
+  // hostMatchesDomain, not a substring test -- an arbitrary URL that merely
+  // mentions "instagram.com" in its query string or path must NOT validate
+  // as an Instagram entry.
+  if (hostMatchesDomain(trimmed, 'instagram.com')) {
     try {
-      const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
-      new URL(withProto);
+      new URL(withNormalizedProtocol(trimmed, 'instagram.com'));
       return true;
     } catch {
       return false;
     }
   }
+  if (/^https?:\/\//i.test(trimmed)) return false;
   return /^[a-zA-Z0-9._]+$/.test(trimmed);
 };
 
-const isValidFacebookUrl = (url: string): boolean => {
-  if (!url.trim()) return true;
+const isValidFacebookUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
   const trimmed = url.trim();
+  if (!trimmed) return true;
   if (trimmed.startsWith('@')) {
     return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
   }
-  if (trimmed.toLowerCase().includes('facebook.com')) {
+  if (hostMatchesDomain(trimmed, 'facebook.com')) {
     try {
-      const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
-      new URL(withProto);
+      new URL(withNormalizedProtocol(trimmed, 'facebook.com'));
       return true;
     } catch {
       return false;
     }
   }
+  if (/^https?:\/\//i.test(trimmed)) return false;
   return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
 };
 
@@ -689,9 +744,9 @@ const OrganiserProfile = () => {
     }
     setIsSaving(true);
     try {
-      const ig = editForm.instagram.trim() || null;
-      const fb = editForm.facebook.trim() || null;
-      const web = editForm.website.trim() || null;
+      const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
+      const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
+      const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
       const existingSocials = ((entity as EntityProfile).socials as Record<string, unknown> | null) ?? {};
       const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
       const { error } = await supabase.from('organiser_profiles').update({
@@ -826,10 +881,26 @@ const OrganiserProfile = () => {
   const contactEmail     = ep.contact_email || null;
   const organisationCategory = ep.organisation_category || null;
 
-  const instagramUrl = instagramRaw ? (instagramRaw.toLowerCase().startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
-  const websiteUrl   = websiteRaw   ? (websiteRaw.toLowerCase().startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
+  // Reuses withNormalizedProtocol (defined above with the validators) so the
+  // rendered href can never disagree with what isValidInstagramUrl /
+  // isValidFacebookUrl / isValidWebsiteUrl accepted at save time.
+  // hostMatchesDomain, never a substring test -- a stored value that only
+  // MENTIONS "instagram.com"/"facebook.com" (a query string, a look-alike
+  // subdomain) must not render as a live link under that platform's label.
+  const instagramUrl = instagramRaw
+    ? (hostMatchesDomain(instagramRaw, 'instagram.com')
+        ? withNormalizedProtocol(instagramRaw, 'instagram.com')
+        : /^https?:\/\//i.test(instagramRaw)
+          ? null
+          : `https://instagram.com/${instagramRaw.replace('@', '')}`)
+    : null;
+  const websiteUrl   = websiteRaw ? withNormalizedProtocol(websiteRaw) : null;
   const facebookUrl  = facebookRaw
-    ? (facebookRaw.toLowerCase().startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
+    ? (hostMatchesDomain(facebookRaw, 'facebook.com')
+        ? withNormalizedProtocol(facebookRaw, 'facebook.com')
+        : /^https?:\/\//i.test(facebookRaw)
+          ? null
+          : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
   const whatsappUrl = contactPhone ? `https://wa.me/${String(contactPhone).replace(/\D/g, '')}` : null;
 
