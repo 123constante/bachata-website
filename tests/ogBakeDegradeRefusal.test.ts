@@ -43,7 +43,13 @@ vi.mock('../app/lib/ogCardRender', () => ({
   // buildFallbackCard is deliberately ABSENT. If the route ever imports it
   // again -- the whole defect -- this mock throws on the missing export
   // instead of quietly rendering a card nobody asked for.
-  buildImageCard: async () => Buffer.from('cover-jpeg'),
+  //
+  // buildCoverCard replaced buildImageCard at the call site; it selects the
+  // branded or raw card behind OG_BRANDED_CARD_ENABLED. Which of the two it
+  // returns is NOT this file's subject -- persist-or-refuse is -- so it stands
+  // in for both, and buildImageCard stays absent for the same reason
+  // buildFallbackCard does: the route must not reach past the selector.
+  buildCoverCard: async () => Buffer.from('cover-jpeg'),
   fetchImageBytes: async () => io.imageBytes,
   fetchEventCardData: async () => io.cardData,
   fetchFestivalCardData: async () => io.cardData,

@@ -35,7 +35,12 @@ const io = vi.hoisted(() => ({
 
 vi.mock('../app/lib/ogCardRender', () => ({
   buildFallbackCard: async () => Buffer.from('branded-fallback-jpeg'),
+  // buildImageCard is still imported by the kind=image branch; buildCoverCard
+  // is the entity branch's selector (branded vs raw, per OG_BRANDED_CARD_ENABLED).
+  // This file asserts the X-OG-Fallback marker and cache tiers, which are the
+  // same whichever card the selector picks, so one stand-in byte string serves.
   buildImageCard: async () => Buffer.from('cover-jpeg'),
+  buildCoverCard: async () => Buffer.from('cover-jpeg'),
   fetchImageBytes: async () => io.imageBytes,
   fetchEventCardData: async () => io.cardData,
   fetchFestivalCardData: async () => io.cardData,

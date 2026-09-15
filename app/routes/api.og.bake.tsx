@@ -16,11 +16,12 @@
 // POST body: { entity_type: 'event'|'festival', entity_id: uuid, occurrence_id?: uuid|null }
 import { createHash } from "node:crypto";
 import {
-  buildImageCard,
+  buildCoverCard,
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
   resolveOgEventId,
+  type OgCardData,
 } from "../lib/ogCardRender";
 import { decideBakePersist } from "../lib/ogBakePolicy";
 import type { Route } from "./+types/api.og.bake";
@@ -147,7 +148,15 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     }
 
     // Non-null by the decision above; the casts state that rather than re-test.
-    const jpeg = await buildImageCard(coverBytes as Buffer);
+    // buildCoverCard, not buildImageCard: the branded/raw choice has ONE owner
+    // and /api/og/card makes it the same way, so a bake can never persist a
+    // card shaped differently from the live render of the same entity.
+    //
+    // The R2 key is unchanged (it keys on the cover URL, not the card design),
+    // so flipping OG_BRANDED_CARD_ENABLED does NOT invalidate already-baked
+    // objects: existing rows keep serving the old card until something re-bakes
+    // them. That is a backfill (scripts/backfill-og-images.mjs), not a redeploy.
+    const jpeg = await buildCoverCard(coverBytes as Buffer, cardData as OgCardData);
 
     // No "fallback" tag any more, and its absence is load-bearing: the object
     // key is now, by construction, always <id>-<occ|default>-<16 hex of the
