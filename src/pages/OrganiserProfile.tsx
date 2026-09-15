@@ -221,11 +221,35 @@ const extractDomain = (raw: string | null): string => {
   const trimmed = raw.trim();
   if (!trimmed) return 'Website';
   try {
-    const withProto = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
+    const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
     const url = new URL(withProto);
     return url.hostname.replace(/^www\./i, '') || 'Website';
   } catch {
     return 'Website';
+  }
+};
+
+// --- Validation helpers ---
+
+const isValidEmail = (email: string): boolean => {
+  if (!email.trim()) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+};
+
+const isValidPhone = (phone: string): boolean => {
+  if (!phone.trim()) return true;
+  return /^[\d\s\-+()]*$/.test(phone.trim());
+};
+
+const isValidWebsiteUrl = (url: string): boolean => {
+  if (!url.trim()) return true;
+  try {
+    const trimmed = url.trim();
+    const withProto = trimmed.toLowerCase().startsWith('http') ? trimmed : `https://${trimmed}`;
+    new URL(withProto);
+    return true;
+  } catch {
+    return false;
   }
 };
 
@@ -600,6 +624,18 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
+    if (!isValidEmail(editForm.contact_email)) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidPhone(editForm.contact_phone)) {
+      toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidWebsiteUrl(editForm.website)) {
+      toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
+      return;
+    }
     const canonicalCity = await resolveCanonicalCity(city);
     if (!canonicalCity) {
       toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
@@ -744,8 +780,8 @@ const OrganiserProfile = () => {
   const contactEmail     = ep.contact_email || null;
   const organisationCategory = ep.organisation_category || null;
 
-  const instagramUrl = instagramRaw ? (instagramRaw.startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
-  const websiteUrl   = websiteRaw   ? (websiteRaw.startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
+  const instagramUrl = instagramRaw ? (instagramRaw.toLowerCase().startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
+  const websiteUrl   = websiteRaw   ? (websiteRaw.toLowerCase().startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
   const facebookUrl  = facebookRaw
     ? (facebookRaw.startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
     : null;
