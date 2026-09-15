@@ -7,7 +7,6 @@ import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid
 import type { EventPagePerson, EventPageSnapshot } from '@/modules/event-page/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
-import { normalizePhoneDigits } from '@/lib/contactValidation';
 
 // Phase 2 organiser card block (2026-04-28).
 //
@@ -111,7 +110,7 @@ const getSlotValue = (organiser: EventPagePerson, slotKey: string | null): strin
     case 'website':       return organiser.website ?? null;
     case 'instagram':     return organiser.instagram ?? null;
     case 'facebook':      return organiser.facebook ?? null;
-    case 'contact_phone': return normalizePhoneDigits(organiser.contactPhone) ? organiser.contactPhone ?? null : null;
+    case 'contact_phone': return organiser.contactPhone ?? null;
     default: return null;
   }
 };
