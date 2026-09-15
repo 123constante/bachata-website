@@ -197,6 +197,53 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
   return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
+// Normalizes a protocol-optional URL fragment for validating, rendering, AND
+// the extract*Handle/extractDomain helpers below, so no two of them can
+// independently drift on what counts as "already has a scheme/domain".
+// Lowercases only the scheme (never the path/query) and prepends https://
+// when neither a scheme nor the given domain is present -- this is what
+// makes a bare "instagram.com/foo" resolve to a real link instead of being
+// glued onto another https://instagram.com/ prefix.
+const lowercaseScheme = (v: string): string => v.replace(/^https?:\/\//i, (m) => m.toLowerCase());
+
+// Hostname-anchored domain check -- NEVER a substring/`.includes()` test.
+// A substring match treats "https://bit.ly/promo?ref=instagram.com" or a
+// typosquat host "instagram.com.evil.tk" as "is an instagram.com URL" (the
+// substring appears in the query string / as a subdomain prefix of a
+// different real domain), which would validate and render an arbitrary or
+// look-alike URL under the "Instagram" label. Parsing the hostname and
+// requiring an exact match or a real subdomain (`.instagram.com` suffix)
+// closes both.
+const hostMatchesDomain = (trimmed: string, domain: string): boolean => {
+  try {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const hostname = new URL(withScheme).hostname.toLowerCase();
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+};
+
+const withNormalizedProtocol = (trimmed: string, domain?: string): string => {
+  if (/^https?:\/\//i.test(trimmed)) {
+    return lowercaseScheme(trimmed);
+  }
+  if (domain && hostMatchesDomain(trimmed, domain)) {
+    return `https://${trimmed}`;
+  }
+  return domain ? trimmed : `https://${trimmed}`;
+};
+
+// A resolved hostname must look like a real domain -- containing a dot AND
+// a letter -- before a website URL is accepted. Without this, placeholder
+// text like "TBA"/"N/A" (hostname "tba", no dot) and purely numeric input
+// like "12345" (the URL parser reads it as the IPv4 "0.0.48.57" -- has dots
+// but no letters) both validate and save as a live, dead link. Checking the
+// PARSED hostname rather than the raw input closes this for both the bare
+// "tba" and the scheme-prefixed "https://tba" spellings alike.
+const hostnameLooksLikeDomain = (hostname: string): boolean =>
+  hostname.includes('.') && /[a-z]/i.test(hostname);
+
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
   'home.php', 'events',
@@ -237,12 +284,82 @@ const extractDomain = (raw: string | null): string => {
   const trimmed = raw.trim();
   if (!trimmed) return 'Website';
   try {
-    const withProto = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
-    const url = new URL(withProto);
+    const url = new URL(withNormalizedProtocol(trimmed));
     return url.hostname.replace(/^www\./i, '') || 'Website';
   } catch {
     return 'Website';
   }
+};
+
+// --- Validation helpers ---
+
+const isValidEmail = (email: string | null | undefined): boolean => {
+  if (!email) return true;
+  const trimmed = email.trim();
+  if (!trimmed) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@.]+$/.test(trimmed);
+};
+
+const isValidPhone = (phone: string | null | undefined): boolean => {
+  if (!phone) return true;
+  const trimmed = phone.trim();
+  if (!trimmed) return true;
+  if (!/^[\d\s\-+()]+$/.test(trimmed)) return false;
+  const digitCount = (trimmed.match(/\d/g) || []).length;
+  return digitCount >= 7;
+};
+
+const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  try {
+    const hostname = new URL(withNormalizedProtocol(trimmed)).hostname;
+    return hostnameLooksLikeDomain(hostname);
+  } catch {
+    return false;
+  }
+};
+
+const isValidInstagramUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9._]+$/.test(trimmed);
+  }
+  // hostMatchesDomain, not a substring test -- an arbitrary URL that merely
+  // mentions "instagram.com" in its query string or path must NOT validate
+  // as an Instagram entry.
+  if (hostMatchesDomain(trimmed, 'instagram.com')) {
+    try {
+      new URL(withNormalizedProtocol(trimmed, 'instagram.com'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  return /^[a-zA-Z0-9._]+$/.test(trimmed);
+};
+
+const isValidFacebookUrl = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith('@')) {
+    return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
+  }
+  if (hostMatchesDomain(trimmed, 'facebook.com')) {
+    try {
+      new URL(withNormalizedProtocol(trimmed, 'facebook.com'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (/^https?:\/\//i.test(trimmed)) return false;
+  return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
 };
 
 // --- Sub-components ---
@@ -283,7 +400,7 @@ const AvatarCircle = ({
       }}
     >
       {avatarUrl ? (
-        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <img src={optimizedImageUrl(avatarUrl, srcWidthFor(sizePx))} alt={name} width={sizePx} height={sizePx} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
       ) : (
         <span style={{ fontFamily: SERIF, fontSize, color: 'rgba(251,239,196,0.85)' }}>{initials(name)}</span>
       )}
@@ -323,13 +440,13 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
       <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} width={88} height={88} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2 }}>{member.name}</div>
+      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
     </div>
   );
@@ -556,7 +673,8 @@ const OrganiserProfile = () => {
         .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
-      if (error || !teamRows?.length) return [];
+      if (error) { console.error('Organiser team fetch error:', error); return []; }
+      if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
@@ -647,15 +765,16 @@ const OrganiserProfile = () => {
   const totalEventsCount = allEvents.length;
 
   const sinceYear = useMemo(() => {
-    let earliest: number | null = null;
+    // Wall-clock strings sort lexically same as chronologically (yyyy-MM-dd...),
+    // so the earliest key is found by string comparison -- no Date math, no TZ.
+    let earliestKey: string | null = null;
     for (const e of allEvents) {
-      const raw = e.start_time ?? e.date;
-      if (!raw) continue;
-      const ts = new Date(raw).getTime();
-      if (Number.isNaN(ts)) continue;
-      if (earliest === null || ts < earliest) earliest = ts;
+      const wc = asWallClockOrNull(e.start_time ?? e.date);
+      const key = formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
+      if (!key) continue;
+      if (earliestKey === null || key < earliestKey) earliestKey = key;
     }
-    return earliest === null ? null : new Date(earliest).getFullYear();
+    return earliestKey === null ? null : Number(earliestKey.slice(0, 4));
   }, [allEvents]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
@@ -711,16 +830,36 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
-    const canonicalCity = await resolveCanonicalCity(city);
-    if (!canonicalCity) {
-      toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
+    if (!isValidEmail(editForm.contact_email)) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidPhone(editForm.contact_phone)) {
+      toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidInstagramUrl(editForm.instagram)) {
+      toast({ title: 'Invalid Instagram', description: 'Please enter a valid Instagram handle or URL.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidFacebookUrl(editForm.facebook)) {
+      toast({ title: 'Invalid Facebook', description: 'Please enter a valid Facebook handle or URL.', variant: 'destructive' });
+      return;
+    }
+    if (!isValidWebsiteUrl(editForm.website)) {
+      toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
     try {
-      const ig = editForm.instagram.trim() || null;
-      const fb = editForm.facebook.trim() || null;
-      const web = editForm.website.trim() || null;
+      const canonicalCity = await resolveCanonicalCity(city);
+      if (!canonicalCity) {
+        toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
+        return;
+      }
+      const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
+      const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
+      const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
       const existingSocials = ((entity as EntityProfile).socials as Record<string, unknown> | null) ?? {};
       const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
       const { error } = await supabase.from('organiser_profiles').update({
@@ -729,6 +868,7 @@ const OrganiserProfile = () => {
         bio: editForm.bio.trim() || null,
         city_id: canonicalCity.cityId,
         instagram: ig,
+        facebook: fb,
         website: web,
         contact_email: editForm.contact_email.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
@@ -855,12 +995,29 @@ const OrganiserProfile = () => {
   const contactEmail     = ep.contact_email || null;
   const organisationCategory = ep.organisation_category || null;
 
-  const instagramUrl = instagramRaw ? (instagramRaw.startsWith('http') ? instagramRaw : `https://instagram.com/${instagramRaw.replace('@', '')}`) : null;
-  const websiteUrl   = websiteRaw   ? (websiteRaw.startsWith('http')   ? websiteRaw   : `https://${websiteRaw}`)   : null;
-  const facebookUrl  = facebookRaw
-    ? (facebookRaw.startsWith('http') ? facebookRaw : facebookRaw.includes('facebook.com') ? `https://${facebookRaw}` : `https://facebook.com/${facebookRaw.replace('@', '')}`)
+  // Reuses withNormalizedProtocol (defined above with the validators) so the
+  // rendered href can never disagree with what isValidInstagramUrl /
+  // isValidFacebookUrl / isValidWebsiteUrl accepted at save time.
+  // hostMatchesDomain, never a substring test -- a stored value that only
+  // MENTIONS "instagram.com"/"facebook.com" (a query string, a look-alike
+  // subdomain) must not render as a live link under that platform's label.
+  const instagramUrl = instagramRaw
+    ? (hostMatchesDomain(instagramRaw, 'instagram.com')
+        ? withNormalizedProtocol(instagramRaw, 'instagram.com')
+        : /^https?:\/\//i.test(instagramRaw)
+          ? null
+          : `https://instagram.com/${instagramRaw.replace('@', '')}`)
     : null;
-  const whatsappUrl = contactPhone ? `https://wa.me/${String(contactPhone).replace(/\D/g, '')}` : null;
+  const websiteUrl   = websiteRaw ? withNormalizedProtocol(websiteRaw) : null;
+  const facebookUrl  = facebookRaw
+    ? (hostMatchesDomain(facebookRaw, 'facebook.com')
+        ? withNormalizedProtocol(facebookRaw, 'facebook.com')
+        : /^https?:\/\//i.test(facebookRaw)
+          ? null
+          : `https://facebook.com/${facebookRaw.replace('@', '')}`)
+    : null;
+  const whatsappDigits = contactPhone ? String(contactPhone).replace(/\D/g, '') : '';
+  const whatsappUrl = whatsappDigits ? `https://wa.me/${whatsappDigits}` : null;
 
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || contactEmail);
 
