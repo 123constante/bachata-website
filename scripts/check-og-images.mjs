@@ -398,7 +398,12 @@ const UUID_SEG = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 // through the FUSE mount -- which quietly turned the extension into "any
 // character followed by jpg" and let `<key>Xjpg` pass as healthy. A character
 // class needs no escape and so cannot be silently downgraded by transport.
-const HEALTHY_BAKED_KEY_RE = new RegExp(`^${UUID_SEG}-(?:default|${UUID_SEG})-[0-9a-f]{16}[.]jpg$`, 'i');
+// The trailing `-<12 hex>` is the optional ogFactsTag suffix
+// (app/lib/ogCardRender.ts): "" and therefore absent from the key while
+// OG_BRANDED_CARD_ENABLED is off, present once a bake runs with it on. Both
+// shapes are a real-cover bake; only their presence differs by flag state,
+// so both stay healthy here.
+const HEALTHY_BAKED_KEY_RE = new RegExp(`^${UUID_SEG}-(?:default|${UUID_SEG})-[0-9a-f]{16}(?:-[0-9a-f]{12})?[.]jpg$`, 'i');
 
 /**
  * A baked OG object whose key is not the shape a real-cover bake produces.
@@ -706,6 +711,29 @@ function selfTest() {
       (bakedDegradedFailure(`${R2}/events/og/festival/e8af3f11-59f3-4d70-b22f-d0644ea4dbff-default-fallback.jpg`) ?? '').includes('fallback')],
     ['FIRES: a degrade tag invented after this rule was written (inclusion-shaped)',
       bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-placeholder.jpg`) !== null],
+    // Not yet reachable live -- OG_BRANDED_CARD_ENABLED is off everywhere as
+    // of this fixture, so no baked key carries this suffix today. Written so
+    // the day the flag flips on, a healthy facts-suffixed key does not red
+    // this rule on its very first bake.
+    ['silent: a healthy key WITH the optional facts-tag suffix (flag-on shape)',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f6.jpg`) === null],
+    // 11 hex, one short of the 12 ogFactsTag always emits. The boundary case
+    // for the optional group, the same way the 15-hex case below pins the
+    // mandatory cover tag: a {11,12} widening of the suffix would pass this
+    // silently while the name claimed otherwise.
+    ['FIRES: an 11-hex facts suffix is not the shape ogFactsTag writes',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f.jpg`) !== null],
+    // Two adversarial shapes the {12} boundary case above does not reach: a
+    // doubled suffix (proves the group is not accidentally repeatable), and
+    // a suffix glued on with no separating dash (proves the `-` is part of
+    // the pattern, not just visual). Both are correctly rejected today; the
+    // fixtures exist so a future loosening of the optional group -- e.g.
+    // `(?:-[0-9a-f]{12})*` for "*" instead of "?", or dropping the leading
+    // dash requirement -- fails here instead of shipping unnoticed.
+    ['FIRES: a doubled facts suffix is not a shape ogFactsTag can ever write',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdb-a1b2c3d4e5f6-a1b2c3d4e5f6.jpg`) !== null],
+    ['FIRES: a facts suffix glued on with no separating dash',
+      bakedDegradedFailure(`${R2}/events/og/event/0000e780-3fa7-40b2-bbb8-59b66feb8324-default-9ee0e92173641fdba1b2c3d4e5f6.jpg`) !== null],
     // The mutation that motivated [.] over an escaped dot: one backslash eaten
     // in transit makes the extension "any character + jpg". The fixture is
     // otherwise a PERFECTLY healthy key -- id, "default", 16 hex -- and differs

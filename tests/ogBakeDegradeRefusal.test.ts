@@ -54,6 +54,14 @@ vi.mock('../app/lib/ogCardRender', () => ({
   fetchEventCardData: async () => io.cardData,
   fetchFestivalCardData: async () => io.cardData,
   resolveOgEventId: async (param: string) => param,
+  // The bake route folds this into the R2 key; a real stand-in (not a stub
+  // returning '') so this file's key-shape assertions exercise the same
+  // no-op-when-off behaviour the real function has (OG_BRANDED_CARD_ENABLED
+  // is unset in this test process).
+  ogFactsTag: (data: Record<string, unknown> | null) => {
+    if (process.env.OG_BRANDED_CARD_ENABLED !== 'true' || !data) return '';
+    return `facts-${data.title}-${data.dateLine}-${data.venueLine}-${data.eventType}`;
+  },
 }));
 
 import { action } from '../app/routes/api.og.bake';

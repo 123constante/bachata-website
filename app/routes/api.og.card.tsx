@@ -22,6 +22,8 @@ import {
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
+  OG_BRANDED_CARD_ENABLED,
+  ogFactsTag,
   resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
@@ -29,8 +31,18 @@ import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
 
-function makeEtag(kind: string, idParam: string, src: string, occ = "", v = ""): string {
-  const h = createHash("sha1").update(`${kind}:${idParam}:${src}:${occ}:${v}`).digest("base64url").slice(0, 24);
+// `facts` is "" unless OG_BRANDED_CARD_ENABLED, so with the flag off this
+// etag is byte-identical to before ogFactsTag existed (see ogCardRender.ts).
+// The ternary, not a bare `:${facts}` append, is load-bearing: an
+// unconditional append changes the hashed STRING (an extra trailing colon)
+// even when facts is "", which would change every ETag on this route the
+// moment this ships regardless of the flag -- exactly the invariant this
+// comment claims. Mirrors the same guard in api.og.bake.tsx's R2 key.
+function makeEtag(kind: string, idParam: string, src: string, occ = "", v = "", facts = ""): string {
+  const h = createHash("sha1")
+    .update(`${kind}:${idParam}:${src}:${occ}:${v}${facts ? `:${facts}` : ""}`)
+    .digest("base64url")
+    .slice(0, 24);
   return `"${h}"`;
 }
 
@@ -132,24 +144,65 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const src = q.get("src") ?? "";
   const occ = q.get("occ") ?? "";
   const v = q.get("v") ?? "";
-
-  const etag = makeEtag(kind, idParam, src, occ, v);
-  if (request.headers.get("if-none-match") === etag) {
-    return new Response(null, { status: 304 });
-  }
+  const ifNoneMatch = request.headers.get("if-none-match");
 
   try {
     if (kind === "image") {
+      // No entity here, so no facts to fold in -- the etag is a pure
+      // function of the query params and the 304 short-circuit stays free
+      // of any RPC read, per the cache-key redo's rule that this route must
+      // not gain an unconditional early read (queued_og_branded_card_etag_
+      // cache_key_work.md).
+      const etag = makeEtag(kind, idParam, src, occ, v);
+      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
       if (!src) return redirectToStatic("image-missing-src");
       const bytes = await fetchImageBytes(src);
       if (!bytes) return redirectToStatic("image-source-unfetchable");
       return imageResponse(await buildImageCard(bytes), etag);
     }
     if (!idParam) return redirectToStatic("missing-id");
+
+    // While the flag is off, ogFactsTag always returns "" (its own guard),
+    // so this params-only etag IS the eventual full etag -- check it before
+    // any RPC and restore the original free 304 fast path exactly, for the
+    // state this ships in. Doing this ALSO means a transient RPC blip on a
+    // conditional GET cannot clobber a client's valid cached etag with a
+    // blank fallback card while the flag is off (see the card-data-unavailable
+    // branch below, which has no such protection once the flag is on and
+    // this check can no longer run early). `etag` is declared here, not
+    // recomputed below, so the flag-off state never hashes the same string
+    // twice for one request.
+    let etag = makeEtag(kind, idParam, src, occ, v);
+    if (!OG_BRANDED_CARD_ENABLED && ifNoneMatch === etag) return new Response(null, { status: 304 });
+
     const id = await resolveOgEventId(idParam);
     if (!id) return redirectToStatic("unresolvable-id");
     const cardData = kind === "festival" ? await fetchFestivalCardData(id) : await fetchEventCardData(id, occ || null);
-    if (!cardData) return imageResponse(await buildFallbackCard(null, null, null), etag, "card-data-unavailable");
+    if (!cardData) {
+      // No etag arg here on purpose: imageResponse ignores it whenever a
+      // fallback reason is passed (see its "NO ETag" comment), so the params-
+      // only `etag` above -- already computed, never a fresh hash -- is
+      // simply discarded.
+      return imageResponse(await buildFallbackCard(null, null, null), "", "card-data-unavailable");
+    }
+
+    // Facts are known only now, so the conditional check moves here for
+    // entity kinds with the flag ON: an earlier, params-only etag would let
+    // a title/date/venue/type edit 304 forever against a crawler's cached
+    // preview whenever the cover (and so `v=`) had not also changed. The
+    // cost is a guaranteed RPC read on every conditional GET once the flag
+    // is on, traded deliberately for that correctness; the flag-off fast
+    // path above is what keeps that cost from applying today. A degraded
+    // response below never carries this etag anyway (see imageResponse's
+    // "NO ETag" comment), so nothing here weakens that invariant. Recomputed
+    // (not reused) ONLY when the flag is on, since `facts` is unknown until
+    // cardData exists -- while the flag is off this is a no-op re-hash of
+    // the same string, which the branch above already returned on.
+    if (OG_BRANDED_CARD_ENABLED) {
+      const facts = ogFactsTag(cardData);
+      etag = makeEtag(kind, idParam, src, occ, v, facts);
+      if (ifNoneMatch === etag) return new Response(null, { status: 304 });
+    }
     // Hybrid: a flyer becomes the preview itself (no text/fonts); the branded
     // card is only the fallback for entities with no flyer.
     // Hoisted so the fetch and the reason below cannot drift apart. They are
