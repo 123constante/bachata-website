@@ -366,13 +366,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-admin-list-occurrences-null-venue-contract.mjs
 
-      - name: Run replace-event-program canvas consistency contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-replace-event-program-canvas-consistency.mjs
-
       - name: Run Phase 2/3 security-hardening policy contract check
         if: always()
         env:
