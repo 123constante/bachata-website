@@ -26,9 +26,11 @@ export interface LatestEventCard {
 export const LATEST_EVENTS_LIMIT = 4;
 
 /**
- * Newest uploads for the active city. Mirrors the React Query conventions of
- * useCalendarEvents: gated on citySlug, 15-minute staleTime. Returns [] (and
- * the caller hides the section) when there is no city or no data.
+ * Newest uploads for the active city. Gated on citySlug, 15-minute staleTime
+ * (widened from 5min -- new uploads aren't urgent enough to need a tighter
+ * window; this does NOT mirror useCalendarEvents, whose callers keep a
+ * deliberately tighter 5min for cancellation/re-time visibility). Returns []
+ * (and the caller hides the section) when there is no city or no data.
  */
 export const useLatestEvents = (limit: number = LATEST_EVENTS_LIMIT) => {
   const { citySlug } = useCity();

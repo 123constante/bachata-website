@@ -170,9 +170,10 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           heading="Bachata events in London this week"
           windowDays={SEO_LANDING_WINDOWS.guide}
           serverTodayKey={serverTodayKey}
-          // Phase 5 (IO optimization arc, resumed): 10 -> 8, matching the
-          // component's own default (previously dead code here since this
-          // explicit override shadowed it).
+          // Phase 5 (IO optimization arc, resumed): 10 -> 8. Unlike the
+          // LearnBachataLondon call site, this override was NOT dead code --
+          // the component's old default was 12, so this page's 10 was a real,
+          // deliberately lower count. Matching the new default (8) here too.
           limit={8}
           emptyText={
             <>
