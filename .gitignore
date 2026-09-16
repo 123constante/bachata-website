@@ -124,3 +124,10 @@ whatson-shipped.md
 # NOT flag one, so that half of the old comment was wrong in the other
 # direction.)
 /scripts/.mutant-*.mjs
+
+# Playwright browser_snapshot output has landed here by accident before (saved
+# with a .yml extension despite being an accessibility-tree dump, not a
+# workflow file -- .github/workflows/ is the only legitimate .yml location).
+# Root-only pattern: doesn't touch .github/workflows/*.yml or config files.
+/*.yml
+/*.yaml

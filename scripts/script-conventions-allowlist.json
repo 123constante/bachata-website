@@ -182,9 +182,6 @@
   "scripts/check-raffle-winners.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-replace-event-program-canvas-consistency.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-reverse-orphan-occurrence.mjs": {
     "R4:no-canary": 1
   },

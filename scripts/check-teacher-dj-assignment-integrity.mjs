@@ -75,8 +75,16 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 // red streak and fell back to 6 on 2026-09-03 when one DJ picked up a lineup:
 // drift moving DOWN on unchanged code is what roster churn looks like, and it
 // is why this ceiling is not raised to the streak's high-water mark.
+//
+// 2026-09-15: DJ ceiling 6 -> 8. Measured live: 8 active DJs hold no
+// event_program_people row. Five of them (Kal, Roberta, Anna Galenda, Brandy
+// Colores, Sergio Suavez) have djing roles created 2026-08-14 through
+// 2026-09-14, all strictly after the 2026-07-24 re-baseline -- the same
+// "listed before first booking" pattern as every prior re-baseline. The
+// three from the old baseline (Carbonero, Davids, Sobolewska) are still
+// present and unmoved. Nothing dropped an assignment.
 const BASELINE_TEACHERS_UNASSIGNED = 36; // active teachers with no epp row
-const BASELINE_DJS_UNASSIGNED = 6;       // active DJs with no epp row
+const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no epp row
 
 function loadEnv() {
   const env = { ...process.env };

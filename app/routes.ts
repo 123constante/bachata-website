@@ -55,5 +55,6 @@ export default [
   route("api/embed/calendar", "routes/api.embed.calendar.tsx"),
   route("api/og/card", "routes/api.og.card.tsx"),
   route("api/og/bake", "routes/api.og.bake.tsx"),
+  route("api/io-health", "routes/api.io-health.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

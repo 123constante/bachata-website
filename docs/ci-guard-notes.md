@@ -29,11 +29,11 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
 - Teacher/DJ assignment integrity (#17) &mdash; **GATES on a hand-kept CEILING**
-  (baseline 36 teachers / 6 DJs unassigned), a known-imperfect proxy for "nobody
+  (baseline 36 teachers / 8 DJs unassigned), a known-imperfect proxy for "nobody
   lost an assignment": the ceiling counts a TOTAL that grows every time a
   teacher joins the directory before their first booking, so ordinary roster
   growth reds it too &mdash; fixed by a re-baseline commit, same as #339
-  (2026-09-04) did 32-&gt;36. A 2026-09-02 change briefly suspended gating
+  (2026-09-04) did 32-&gt;36. The DJ side did 6-&gt;8 on 2026-09-15. A 2026-09-02 change briefly suspended gating
   (`process.exit(0)` unconditionally) on stale evidence from a branch that never
   merged (PR #330, closed unmerged 2026-09-09); #339 had already restored real
   gating on main five days before that branch's stale patch got revived and
