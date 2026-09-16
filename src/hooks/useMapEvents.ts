@@ -13,7 +13,7 @@ export interface UseMapEventsParams {
  * React Query hook over get_map_events_v1 -- one row per occurrence-day for the
  * Festival Map homepage (coords, cover, times, category flags, freshness).
  *
- * Keyed by city + date range; 5-minute staleTime since event data moves on the
+ * Keyed by city + date range; 2-hour staleTime since event data moves on the
  * scale of days, not minutes. Mirrors useCalendarEvents conventions. RPC errors
  * surface as isError (the surfaces show RetryNotice).
  */
@@ -45,8 +45,10 @@ export const useMapEvents = ({
     // the UI would admit it was showing the wrong city. Only the day may slide.
     placeholderData: (prev, prevQuery) =>
       prevQuery && prevQuery.queryKey[1] === citySlug ? prev : undefined,
-    // Matches the ISR edge window (s-maxage=3600) -- the /city/:slug loader
-    // dehydrates this key; see useEventPageQuery for the full rationale.
-    staleTime: 1000 * 60 * 60,
+    // Phase 4-lite (IO optimization arc, resumed): 1h -> 2h. Event data moves
+    // on the scale of days; the ISR edge window (s-maxage=3600) still governs
+    // how fast a NEW document reaches a fresh visitor, this only widens how
+    // long an already-hydrated client trusts its own copy.
+    staleTime: 1000 * 60 * 60 * 2,
   });
 };

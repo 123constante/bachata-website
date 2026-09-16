@@ -32,7 +32,7 @@ export interface LiveEventsSectionProps {
   classesOnly?: boolean;
   /** Only show events that include a party (has_party). */
   partiesOnly?: boolean;
-  /** Cap the number of events rendered. Default 12. */
+  /** Cap the number of events rendered. Default 8. */
   limit?: number;
   /** Empty-state copy shown when no events match. */
   emptyText?: React.ReactNode;
@@ -67,7 +67,8 @@ const LiveEventsSection = ({
   windowDays = SEO_LANDING_WINDOWS.guide,
   classesOnly = false,
   partiesOnly = false,
-  limit = 12,
+  // Phase 5 (IO optimization arc, resumed): 12 -> 8.
+  limit = 8,
   emptyText,
   id,
   serverTodayKey,

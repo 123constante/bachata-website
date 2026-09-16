@@ -25,7 +25,10 @@ export function usePublicSearch(rawQuery: string, citySlug?: string | null) {
       return results;
     },
     enabled,
-    staleTime: 60_000,
+    // Phase 3 (IO optimization arc, resumed): 60s -> 3min. Live typed search;
+    // a 3-minute window is invisible to the user (each keystroke rebuilds the
+    // query key anyway) and cuts repeat-query IO for common terms.
+    staleTime: 3 * 60_000,
   });
 
   return {
