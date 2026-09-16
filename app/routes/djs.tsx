@@ -1,5 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import DJProfile from "@/pages/DJProfile";
@@ -12,13 +12,18 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { resolvePublicName } from "@/lib/publicName";
 import { stampDj } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/djs";
 
-export async function loader({ params, request }: Route.LoaderArgs) {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("dj-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("DJ");
   redirectUuidToSlug(ref, request, "/djs");
@@ -57,7 +62,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     stampDj(ref.id),
   );
-}
+});
 
 // Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {

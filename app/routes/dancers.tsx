@@ -1,5 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
@@ -14,12 +14,17 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampDancer } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
 
-export async function loader({ params, request }: Route.LoaderArgs) {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("dancer-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Dancer");
   redirectUuidToSlug(ref, request, "/dancers");
@@ -66,7 +71,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     stampDancer(ref.id),
   );
-}
+});
 
 // Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {

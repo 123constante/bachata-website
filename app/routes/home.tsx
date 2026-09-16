@@ -1,5 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { getCalendarEvents, getMapEvents, type CalendarEventRow } from "@/integrations/supabase/eventRpcs";
 import { soonestLiveStatusChangeMs, type MapEvent } from "@/modules/home-map/mapTypes";
 import { eventHref } from "@/lib/seo/eventHref";
@@ -15,6 +15,7 @@ import Index from "@/pages/Index";
 import { stampHome } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/home";
 
@@ -48,11 +49,16 @@ function homeQueryKeys(citySlug: string, todayKey: string) {
 // midnight-straddle retry below can re-run the identical fetch under a new key
 // rather than restate it -- a second copy would be the thing that drifts.
 async function fetchHomeDay(
-  qc: ReturnType<typeof createQueryClient>,
+  qc: ReturnType<typeof createServerQueryClient>,
   citySlug: string,
   todayKey: string,
 ) {
   const keys = homeQueryKeys(citySlug, todayKey);
+  // Deadline is the OUTER withSsrLoaderTimeout wrap on the exported loader below
+  // -- #425 review: this used to be its own raceSsrLoaderTimeout with an 8s
+  // budget, and the midnight-straddle retry called this fn a second time under a
+  // second independent 8s budget, for an undocumented ~16s worst case. Both
+  // calls now share ONE outer deadline.
   await Promise.all([
     // This week's events -> the JSON-LD ItemList (useCalendarEvents key). Use
     // fetchQuery (NOT prefetchQuery) for this SEO-critical query so a transient
@@ -95,9 +101,15 @@ async function fetchHomeDay(
 // event/festival write via the `home-feed` cache tag (see api.revalidate tagsFor
 // + the Supabase revalidation webhook). ISR also unfreezes the
 // build-time-frozen London `todayKey` below. The Leaflet map itself is client-only.
-export async function loader({ params }: Route.LoaderArgs) {
+// See app/lib/ssrLoaderTimeout.ts -- #425: a stalled Supabase call anywhere in
+// this loader (including the midnight-straddle retry's second fetchHomeDay
+// call) previously hung the whole /city/:slug response indefinitely instead of
+// failing into the route ErrorBoundary. ONE deadline covers both.
+export const loader = withSsrLoaderTimeout("home-loader", async function loaderImpl({
+  params,
+}: Route.LoaderArgs) {
   const citySlug = (params.slug ?? "").toLowerCase();
-  const qc = createQueryClient();
+  const qc = createServerQueryClient();
 
   // The instant this document was rendered at. It ships to the client and pins
   // the first render's time-derived output (the London "today" grouping, the
@@ -279,7 +291,7 @@ export async function loader({ params }: Route.LoaderArgs) {
     // let the header and the directive drift apart.
     { edgeTtlBoundSeconds: boundSeconds },
   );
-}
+});
 
 export const meta: Route.MetaFunction = ({ data }) =>
   seoInputToMeta(buildSeoForRoute("home", { cityDisplay: data?.cityDisplay }));

@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { fetchPublicVenue } from "@/services/venuePublicService";
 import VenueEntity from "@/pages/VenueEntity";
@@ -14,18 +14,23 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampVenue, VENUES } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/venue-entity";
 
 // Gated detail route (flags.venueDetail — off in prod). Mirrors VenueEntity's
 // ['public-venue', id] query (fetchPublicVenue) + dehydrates → content SSRs.
-export async function loader({ params, request }: Route.LoaderArgs) {
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("venue-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy.
   // Cache it with a coarse group tag only.
   if (!flags.venueDetail) return taggedData({ locked: true as const }, VENUES);
 
-  const qc = createQueryClient();
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "venues", params.id);
   if (!ref.id) throwDetailNotFound("Venue");
   redirectUuidToSlug(ref, request, "/venue-entity");
@@ -59,7 +64,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // must match this id (see the plan's venue entity_id-vs-id open item).
     stampVenue(ref.id),
   );
-}
+});
 
 // Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {

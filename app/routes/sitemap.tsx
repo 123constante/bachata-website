@@ -3,6 +3,7 @@ import { flags } from "@/lib/featureFlags";
 import { edgeCacheControl } from "../detailLoader";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
 // dead build-time scripts/generate-sitemap.mjs, which `react-router build`
@@ -197,7 +198,7 @@ async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   }));
 }
 
-export async function loader() {
+export const loader = withSsrLoaderTimeout("sitemap-loader", async function loaderImpl() {
   let xml: string;
   try {
     const today = new Date().toISOString().split("T")[0];
@@ -280,4 +281,4 @@ export async function loader() {
       "Vercel-CDN-Cache-Control": edgeCacheControl(),
     },
   });
-}
+});

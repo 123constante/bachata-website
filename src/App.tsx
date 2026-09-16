@@ -63,6 +63,23 @@ export function createQueryClient(): QueryClient {
   });
 }
 
+// Server-loader variant of createQueryClient(): same factory, retry DISABLED.
+// #425 review: `retry: 1` (below) races against raceSsrLoaderTimeout/
+// withSsrLoaderTimeout's flat deadline on a per-request client used ONLY by
+// loaders -- a transient error that would have succeeded on its one retry can
+// have that retry's latency eaten by the SSR timeout instead, turning a
+// slow-but-fine response into a hard failure. The browser's shared client (one
+// retry, real interactive UI) is unaffected -- this only overrides the loader's
+// own per-request instance. See app/lib/ssrLoaderTimeout.ts.
+export function createServerQueryClient(): QueryClient {
+  const qc = createQueryClient();
+  qc.setDefaultOptions({
+    ...qc.getDefaultOptions(),
+    queries: { ...qc.getDefaultOptions().queries, retry: false },
+  });
+  return qc;
+}
+
 // The browser's single shared client, built lazily on first access. Lazy (not a
 // module-level const) so importing this module on the server never constructs a
 // client at module-eval — a per-request server render calls createQueryClient()

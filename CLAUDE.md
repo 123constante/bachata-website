@@ -1,5 +1,9 @@
 # CLAUDE.md — Website (Bachata Calendar public site)
 
+*Loaded in full every session — budget: stay under 19 KB. New material goes
+to `docs/` with a pointer here, per the pattern already used for CI guards
+(`docs/ci-guard-notes.md`) and testing doctrine (`docs/testing-doctrine.md`).*
+
 **Public-facing Bachata Calendar** — React + TypeScript + Vite + Supabase +
 Vercel. Mobile-first. ~95% of users are on mobile. This repo owns zero
 migrations; all schema authority lives in `bachata-admin-11april`.

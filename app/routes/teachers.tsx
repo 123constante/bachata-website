@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { resolvePublicName } from "@/lib/publicName";
 import TeacherProfile from "@/pages/TeacherProfile";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
   resolveEntityInLoader,
@@ -15,6 +15,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampTeacher, TEACHERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/teachers";
@@ -25,12 +26,16 @@ import type { Route } from "./+types/teachers";
 // dancers/djs this does NOT dehydrate the teacher-profile query — TeacherProfile
 // maps the RPC row inline (a ~30-line transform), so the page re-fetches
 // client-side rather than risk the loader's copy drifting from that map.
-export async function loader({ params, request }: Route.LoaderArgs) {
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("teacher-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy (the
   // cache key includes the deployment). Cache it with a coarse group tag only.
   if (!flags.teacherDetail) return taggedData({ locked: true as const }, TEACHERS);
 
-  const qc = createQueryClient();
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Teacher");
   redirectUuidToSlug(ref, request, "/teachers");
@@ -71,7 +76,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     stampTeacher(ref.id),
   );
-}
+});
 
 // Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {

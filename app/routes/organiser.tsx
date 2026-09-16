@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import {
@@ -24,6 +24,7 @@ import {
   redirectUuidToSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampOrganiser, ORGANISERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
@@ -48,12 +49,16 @@ import type { Route } from "./+types/organiser";
 // OrganiserProfile.tsx's own client queries also call. See that module's
 // header comment for why (this used to be four hand-copied implementations).
 
-export async function loader({ params, request }: Route.LoaderArgs) {
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("organiser-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
   // Locked: flag-derived, identical for every id, busts on the next deploy.
   // Coarse group tag only (mirrors venue-entity).
   if (!flags.organiserDetail) return taggedData({ locked: true as const }, ORGANISERS);
 
-  const qc = createQueryClient();
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "organiser_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Organiser");
   redirectUuidToSlug(ref, request, "/organisers");
@@ -167,7 +172,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // until an emit exists; raise it in the same change that adds one.
     { edgeTtlBoundSeconds: 0 },
   );
-}
+});
 
 // Phase 4a ISR -- forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
