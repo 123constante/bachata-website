@@ -128,6 +128,28 @@ jobs:
               });
             }
 
+      # #425 sat open 2026-09-15 to 2026-09-16 unread: a GitHub issue alone is
+      # not a page. Slack is the actual notification; the issue above stays as
+      # the durable record + auto-close-on-green. Silently skipped (not failed)
+      # when the secret is absent, so a fork/missing-secret run doesn't red on
+      # top of the real failure.
+      - name: Notify Slack
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not set -- skipping Slack notification."
+            exit 0
+          fi
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # RUN_URL is built only from GitHub-runner-provided vars (server URL, owner/repo,
+          # numeric run id) -- none can contain a quote or backslash, so a literal JSON
+          # string is safe here without a JSON.stringify round-trip.
+          PAYLOAD="{\"text\":\":rotating_light: Synthetic SSR Monitor failed on production -- ${RUN_URL}\"}"
+          curl -sf -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL"
+        continue-on-error: true
+
       - name: Close failure issue when green again
         if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v9

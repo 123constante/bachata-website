@@ -1,0 +1,57 @@
+name: IO Health Poll
+
+# Phase 6 Step 2 of the Supabase IO Optimization arc (see
+# ~/.claude/plans/phase-6-io-health-check-auto-degradation.md). CI-only
+# consumer of /api/io-health: polls it and reports the raw candidate series.
+# There is deliberately no pass/fail threshold here -- Step 1 left "which
+# series to key off" undecided, so this is a visibility poll, not a gate.
+# Step 3 (auto-degradation) is separate scope, reviewed on its own.
+#
+# Requires the repo secret IO_HEALTH_SECRET, matching the Vercel production
+# env var the deployed /api/io-health route checks. A missing secret is
+# exit 2 -- never a green run over a call that was never authenticated.
+
+on:
+  schedule:
+    - cron: '15 6 * * *'   # daily
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL (defaults to production)'
+        required: false
+        default: 'https://www.bachatacalendar.co.uk'
+  push:
+    branches: [main, master]
+    paths:
+      - 'scripts/check-io-health.mjs'
+      - 'app/routes/api.io-health.tsx'
+      - '.github/workflows/io-health-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove the poll can fail
+        run: node scripts/check-io-health.mjs --self-test
+
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Poll /api/io-health
+        env:
+          IO_HEALTH_SECRET: ${{ secrets.IO_HEALTH_SECRET }}
+          IO_HEALTH_BASE_URL: ${{ inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+        run: node scripts/check-io-health.mjs
