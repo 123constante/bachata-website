@@ -12,21 +12,23 @@ export type DancerPublicRecord = Pick<
   | "first_name"
   | "surname"
   | "nationality"
-  | "dance_started_year"
-  | "favorite_styles"
   | "dance_role"
-  | "looking_for_partner"
   | "instagram"
   | "facebook"
   | "avatar_url"
-  | "website"
-  | "achievements"
-  | "favorite_songs"
-  | "partner_search_role"
-  | "partner_search_level"
-  | "partner_practice_goals"
-  | "partner_details"
-> & { cities?: { name: string } | null; email?: string | null };
+> &
+  Pick<
+    DancingRoleDetails,
+    | "dance_started_year"
+    | "favorite_styles"
+    | "looking_for_partner"
+    | "achievements"
+    | "favorite_songs"
+    | "partner_search_role"
+    | "partner_search_level"
+    | "partner_practice_goals"
+    | "partner_details"
+  > & { website?: string | null; cities?: { name: string } | null; email?: string | null };
 
 export type DancerPublicQueryRecord = Pick<
   DancerRow,

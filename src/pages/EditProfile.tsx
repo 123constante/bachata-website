@@ -103,7 +103,7 @@ const EditProfile = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('*')
+          .select('*, dancing_role_details(achievements, dance_started_year, favorite_songs, favorite_styles, looking_for_partner, partner_details, partner_practice_goals, partner_search_level, partner_search_role)')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -117,30 +117,50 @@ const EditProfile = () => {
           // every single time -- nobody could edit their profile from this
           // screen. The city picker takes a city ID as its value, so
           // `based_city_id` feeds it directly.
+          //
+          // achievements/favorite_songs/favorite_styles/looking_for_partner/
+          // partner_* / dance_started_year are no longer columns on
+          // dancer_profiles -- m3-people phase7b dropped them from prod. They
+          // now live only on the dancing_role_details sidecar (1:1 on
+          // person_id = dancer_profiles.id), joined above. Reading them off
+          // `data` directly silently loaded every dancer's saved
+          // achievements/favourite songs/partner-search fields as empty, and
+          // because saveMyDancerProfile's sidecar write is unconditional
+          // (overwrites the sidecar arrays from whatever the form holds), the
+          // next save from this screen would have WIPED that data.
+          // dancing_role_details_person_id_fkey is isOneToOne in the generated
+          // types, so PostgREST embeds a single object -- but that inference
+          // depends on a unique constraint the generated types can't prove
+          // still holds (this repo's own types-drift check exists because
+          // that file goes stale). Guard the array shape defensively, the same
+          // way mapDancerPublicProfile does for this identical join.
+          const rawSidecar = data.dancing_role_details as
+            | typeof data.dancing_role_details
+            | typeof data.dancing_role_details[];
+          const sidecar = Array.isArray(rawSidecar) ? rawSidecar[0] ?? null : rawSidecar;
           const loadedForm = {
             first_name: data.first_name || '',
             surname: data.surname || '',
             city: data.based_city_id || '',
             nationality: data.nationality || '',
-            dancing_start_date: dateStringFromDanceStartedYear(data.dance_started_year),
-            favorite_styles: data.favorite_styles || [],
+            dancing_start_date: dateStringFromDanceStartedYear(sidecar?.dance_started_year ?? null),
+            favorite_styles: sidecar?.favorite_styles || [],
             // The DB spells "Both" as "Lead and Follow", which matches no badge,
             // so the raw read left the role looking unset on a profile that had one.
             partner_role: dancerRoleFromStored(data.dance_role),
-            looking_for_partner: data.looking_for_partner || false,
+            looking_for_partner: sidecar?.looking_for_partner || false,
             instagram: data.instagram || '',
             facebook: data.facebook || '',
-            // avatar_url is the writable column and photo_url only its mirror, so
-            // a row seeded outside this function can have one and not the other.
-            photo_url: normalizePhotoValue(data.avatar_url || data.photo_url),
-            achievements: data.achievements || [],
-            favorite_songs: data.favorite_songs || [],
-            partner_search_role: data.partner_search_role || '',
-            partner_search_level: data.partner_search_level || [],
-            partner_practice_goals: data.partner_practice_goals || [],
-            partner_details: parsePartnerDetails(data.partner_details as any),
-            // website_url is the writable column; `website` is its mirror.
-            website: data.website_url || data.website || '',
+            // photo_url/website were pure legacy mirrors with no sidecar
+            // replacement -- avatar_url/website_url are the only source now.
+            photo_url: normalizePhotoValue(data.avatar_url),
+            achievements: sidecar?.achievements || [],
+            favorite_songs: sidecar?.favorite_songs || [],
+            partner_search_role: sidecar?.partner_search_role || '',
+            partner_search_level: sidecar?.partner_search_level || [],
+            partner_practice_goals: sidecar?.partner_practice_goals || [],
+            partner_details: parsePartnerDetails(sidecar?.partner_details as any),
+            website: data.website_url || '',
           };
 
           setDancerId(data.id);
