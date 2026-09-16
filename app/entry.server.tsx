@@ -7,6 +7,7 @@ import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "reac
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
 import { contentSecurityPolicy } from "./csp";
+import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
 
 // Custom streaming server entry. Faithful to @vercel/react-router/entry.server
 // (isbot onAllReady, skew-protection cookie, streamTimeout abort) with the CSP
@@ -61,6 +62,10 @@ export function handleError(
   console.error(
     JSON.stringify({
       tag: "ssr-error",
+      // Explicit field, not just `name === "SsrLoaderTimeoutError"` left for a
+      // log query to infer -- survives a minified/renamed class where the
+      // constructor-assigned `name` string does not (see isSsrLoaderTimeoutError).
+      kind: isSsrLoaderTimeoutError(err) ? "ssr_loader_timeout" : "ssr_error",
       release: RELEASE_ID,
       url: request.url,
       method: request.method,

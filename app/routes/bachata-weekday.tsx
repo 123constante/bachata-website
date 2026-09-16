@@ -1,10 +1,11 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { SEO_LANDING_WINDOWS, loadSeoLandingDay } from "@/lib/seoLandingEvents";
 import BachataWeekday, { weekdaySeoInput } from "@/pages/seo/BachataWeekday";
 import { stampSeoLanding } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/bachata-weekday";
 
@@ -21,8 +22,9 @@ import type { Route } from "./+types/bachata-weekday";
 // (@/lib/seoLandingEvents), so the dehydrated entry is by construction the entry
 // the client hook reads. All seven paths share one query key (the same 28-day
 // London window) and one cache tag, so a single event write refreshes the set.
-export async function loader() {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("bachata-weekday-loader", async function loaderImpl() {
+  const qc = createServerQueryClient();
 
   // The London day this document was rendered on. It ships to the client and
   // pins the first render's window -- see BachataWeekday's serverTodayKey doc.
@@ -45,7 +47,7 @@ export async function loader() {
   return taggedData({ dehydratedState: dehydrate(qc), todayKey }, stampSeoLanding(), {
     edgeTtlBoundSeconds,
   });
-}
+});
 
 export const meta: Route.MetaFunction = ({ location }) =>
   seoInputToMeta(weekdaySeoInput(location.pathname));

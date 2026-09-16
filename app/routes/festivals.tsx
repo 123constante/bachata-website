@@ -1,11 +1,12 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
 import { buildSeoForRoute } from "@/lib/seo";
 import FestivalHub from "@/pages/FestivalHub";
 import { stampFestivalsList } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/festivals";
 
@@ -17,8 +18,9 @@ import type { Route } from "./+types/festivals";
 // s-maxage and purged on any festival write via the `festivals-list` cache tag (see
 // api.revalidate tagsFor + the Supabase webhook). Secondary attendance queries stay
 // client-only.
-export async function loader() {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("festivals-loader", async function loaderImpl() {
+  const qc = createServerQueryClient();
 
   // fetchQuery (NOT prefetchQuery) so a transient error THROWS out of the loader
   // → 500 with no Vercel-Cache-Tag → cacheHeaders leaves it uncached, instead of
@@ -30,7 +32,7 @@ export async function loader() {
   });
 
   return taggedData({ dehydratedState: dehydrate(qc) }, stampFestivalsList());
-}
+});
 
 export const meta: Route.MetaFunction = () => seoInputToMeta(buildSeoForRoute("festivals"));
 

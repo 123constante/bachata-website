@@ -2,13 +2,14 @@
 import { redirect } from "react-router";
 import { stampEvent } from "../cacheTags";
 import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
 import { festivalDetailQueryKey, fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import type { EventPageSnapshot, FestivalDetail } from "@/modules/event-page/types";
 import { festivalEventQueryKey, fetchFestivalEventRow, sniffIsFestival } from "@/modules/event-page/festivalEventQuery";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
@@ -29,7 +30,15 @@ const OG_FALLBACK = `${SITE_ORIGIN}/og-image.jpg`;
 // Both queryFns MIRROR the hooks byte-for-byte (same keys, same parser) so the
 // cache entries are identical. Phase 3 extracts these into a shared fetcher; the
 // spike duplicates them to keep the change surface small.
-export async function loader({ params, request }: Route.LoaderArgs) {
+// See app/lib/ssrLoaderTimeout.ts -- #425: a stalled Supabase call anywhere in
+// this loader previously hung the whole /event/:id response indefinitely instead
+// of failing into the route ErrorBoundary. ONE deadline wraps every await below
+// (the ref resolve, both prefetches, resolveOgCardImage, festivalPrefetch) --
+// the prior per-call-site draft left the last two reachable unguarded.
+export const loader = withSsrLoaderTimeout("event-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
   const routeParam = params.id;
   const isUuid = UUID_RE.test(routeParam);
 
@@ -39,7 +48,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     throw new Response("Event not found", { status: 404, headers: { "X-Robots-Tag": "noindex" } });
   }
 
-  const qc = createQueryClient();
+  const qc = createServerQueryClient();
 
   // 1. Resolve slug -> uuid (mirrors useEntitySlugOrId, idColumn 'id'). Identity
   //    comes from P5 via the SHARED resolvePublicEventRef (src/lib/seo), which
@@ -175,7 +184,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
     stampEvent(eventId),
   );
-}
+});
 
 // Phase 4a ISR — edge-cache the SSR response + forward the loader's cache tag
 // (see ../detailLoader). A thrown 404/500 carries no tag and stays uncached.

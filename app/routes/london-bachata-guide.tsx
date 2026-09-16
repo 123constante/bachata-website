@@ -1,10 +1,11 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { SEO_LANDING_WINDOWS, loadSeoLandingDay } from "@/lib/seoLandingEvents";
 import BachataInLondon, { SEO_INPUT } from "@/pages/seo/BachataInLondon";
 import { stampSeoLanding } from "../cacheTags";
 import { cacheHeaders, taggedData } from "../detailLoader";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/london-bachata-guide";
 
@@ -15,8 +16,9 @@ import type { Route } from "./+types/london-bachata-guide";
 // empty. The loader and LiveEventsSection share ONE key + fetcher
 // (@/lib/seoLandingEvents), so the dehydrated entry is by construction the entry
 // the client hook reads.
-export async function loader() {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("london-bachata-guide-loader", async function loaderImpl() {
+  const qc = createServerQueryClient();
 
   // The London day this document was rendered on. It ships to the client and
   // pins the first render's window -- see LiveEventsSectionProps.serverTodayKey.
@@ -39,7 +41,7 @@ export async function loader() {
   return taggedData({ dehydratedState: dehydrate(qc), todayKey }, stampSeoLanding(), {
     edgeTtlBoundSeconds,
   });
-}
+});
 
 export const meta: Route.MetaFunction = () => seoInputToMeta(SEO_INPUT);
 

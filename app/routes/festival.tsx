@@ -1,5 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { createQueryClient } from "@/App";
+import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { pinDayAndBound } from "@/lib/londonDate";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
@@ -18,6 +18,7 @@ import {
   redirectUuidToSlug,
   resolveOgCardImage,
 } from "../detailLoader";
+import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampFestival } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
@@ -27,8 +28,12 @@ import type { Route } from "./+types/festival";
 // FestivalDetail mounts (festival-event basic row, festival-snapshot event_view_p5,
 // and the parsed festival-detail via the shared exported key + parser), so the
 // cinematic page SSRs with content. 404+noindex when the id isn't a live festival.
-export async function loader({ params, request }: Route.LoaderArgs) {
-  const qc = createQueryClient();
+// See app/lib/ssrLoaderTimeout.ts -- #425.
+export const loader = withSsrLoaderTimeout("festival-loader", async function loaderImpl({
+  params,
+  request,
+}: Route.LoaderArgs) {
+  const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "events", params.id);
   if (!ref.id) throwDetailNotFound("Festival");
   redirectUuidToSlug(ref, request, "/festival");
@@ -202,7 +207,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     //
     { edgeTtlBoundSeconds },
   );
-}
+});
 
 // Phase 4a ISR — edge-cache + forward the loader's cache tag (see ../detailLoader).
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
