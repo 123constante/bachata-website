@@ -1,28 +1,28 @@
-// /api/io-health — RESOURCE ROUTE (loader only, no component). Phase 6 Step 2
+// /api/io-health -- RESOURCE ROUTE (loader only, no component). Phase 6 Step 2
 // of the Supabase IO Optimization arc (see
 // ~/.claude/plans/phase-6-io-health-check-auto-degradation.md). Cheap,
-// pollable signal for current Supabase read/IO pressure — CI-only consumer
+// pollable signal for current Supabase read/IO pressure -- CI-only consumer
 // for now; nothing in the app auto-acts on this yet (that's Step 3, out of
 // scope here and reviewed separately).
 //
-// Delivered as a framework resource route, NOT a /api/*.ts function — see
+// Delivered as a framework resource route, NOT a /api/*.ts function -- see
 // app/routes/api.revalidate.tsx for the full diagnosis of why.
 //
-// Auth: Bearer IO_HEALTH_SECRET (CI-only; not for public/browser use — the
+// Auth: Bearer IO_HEALTH_SECRET (CI-only; not for public/browser use -- the
 // underlying scrape returns internal platform metrics).
 //
 // Queries Supabase's per-project Prometheus scrape
 // (`/customer/v1/privileged/metrics`, HTTP Basic Auth with the service-role
-// key — see Step 1 in the plan for why this endpoint and not the Management
+// key -- see Step 1 in the plan for why this endpoint and not the Management
 // API). Result is cached in-memory for CACHE_TTL_MS so repeated polls within
-// a function instance's lifetime don't re-hit Supabase on every request —
+// a function instance's lifetime don't re-hit Supabase on every request --
 // the endpoint's own cost must not offset the savings it's meant to protect.
 //
 // CANDIDATE_SERIES is PROVISIONAL: plan Step 1 explicitly left "which series
 // to key off" undecided (candidates: pg_stat disk I/O counters, Supavisor
 // connection-pool saturation). This returns raw values for the candidates so
 // a human/CI can observe real drift; it does not compute a health verdict or
-// threshold — that's part of the still-open design in Step 1/Step 3.
+// threshold -- that's part of the still-open design in Step 1/Step 3.
 import { timingSafeEqual } from "node:crypto";
 
 import type { Route } from "./+types/api.io-health";
@@ -40,6 +40,7 @@ const SUPABASE_SERVICE_KEY =
 const IO_HEALTH_SECRET = process.env.IO_HEALTH_SECRET ?? "";
 
 const CACHE_TTL_MS = 60_000;
+const SCRAPE_TIMEOUT_MS = 8_000;
 
 const CANDIDATE_SERIES = [
   "pg_stat_database_blks_read",
@@ -71,7 +72,7 @@ function parseCandidates(text: string): SeriesSample[] {
     const [, metric, labels = "", rawValue] = match;
     if (!CANDIDATE_SERIES.includes(metric as (typeof CANDIDATE_SERIES)[number])) continue;
     const value = Number(rawValue);
-    if (Number.isNaN(value)) continue;
+    if (!Number.isFinite(value)) continue;
     out.push({ metric, labels, value });
   }
   return out;
@@ -93,10 +94,21 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   let text: string;
   try {
     const auth = Buffer.from(`service_role:${SUPABASE_SERVICE_KEY}`).toString("base64");
-    const res = await fetch(`${SUPABASE_URL}/customer/v1/privileged/metrics`, {
-      headers: { Authorization: `Basic ${auth}` },
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${SUPABASE_URL}/customer/v1/privileged/metrics`, {
+        headers: { Authorization: `Basic ${auth}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
+      // Unconsumed undici bodies keep the event loop alive for minutes
+      // (measured in scripts/lib/previewProbe.mjs) -- drain before returning.
+      await res.body?.cancel();
       return json({ ok: false, reason: `metrics scrape returned ${res.status}` }, 502);
     }
     text = await res.text();

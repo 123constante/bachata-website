@@ -50,10 +50,10 @@ function getRepoSlug() {
 export class InvalidPrNumberError extends Error {}
 
 export function checkPrMergeStatus(prNumber) {
-  const n = Number(prNumber);
-  if (!Number.isInteger(n) || n <= 0) {
+  if (!/^[1-9][0-9]*$/.test(String(prNumber))) {
     throw new InvalidPrNumberError(`Expected a positive integer PR number, got: ${prNumber}`);
   }
+  const n = Number(prNumber);
 
   const repoSlug = getRepoSlug();
 

@@ -11,7 +11,7 @@
  *   bachata-admin-11april/supabase/migrations/
  *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
  * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 36/6).
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 36/8).
  * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
  * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
  * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct

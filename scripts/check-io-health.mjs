@@ -74,6 +74,9 @@ export async function pollIoHealth({ baseUrl, secret, fetchImpl = fetch, timeout
     clearTimeout(timer);
   }
   if (!res.ok) {
+    // Unconsumed undici bodies keep the event loop alive for minutes (measured
+    // in scripts/lib/previewProbe.mjs's previewIsWalled) -- drain before throwing.
+    await res.body?.cancel();
     cannot('GET /api/io-health -> HTTP ' + res.status);
   }
   let body;
@@ -101,10 +104,16 @@ export async function runCheck({ baseUrl, secret, api = pollIoHealth, log = cons
 
 function makeFixtureFetch(spec) {
   return async () => {
+    if (spec.timeout) {
+      const error = new Error('The operation was aborted.');
+      error.name = 'AbortError';
+      throw error;
+    }
     if (spec.networkError) throw new Error(spec.networkError);
     return {
       ok: spec.status === undefined || spec.status < 400,
       status: spec.status ?? 200,
+      body: { cancel: async () => {} },
       json: async () => {
         if (spec.badJson) throw new Error('unexpected token');
         return spec.body;
@@ -119,8 +128,8 @@ function selfTest() {
 
   const KINDS = [
     ['IO_HEALTH_SECRET is not set', 'missing-secret'],
-    ['could not reach', 'unreachable'],
     ['timed out', 'timeout'],
+    ['could not reach', 'unreachable'],
     ['HTTP ', 'http-error'],
     ['did not parse as JSON', 'bad-json'],
     ['did not parse to an object', 'bad-body'],
@@ -193,6 +202,11 @@ function selfTest() {
     () => outcomeError({ networkError: 'fetch failed' }),
     'unreachable',
   );
+  add(
+    'a timed-out scrape is exit 2, classified as timeout not unreachable',
+    () => outcomeError({ timeout: true }),
+    'timeout',
+  );
   add('a non-2xx status is exit 2', () => outcomeError({ status: 401, body: {} }), 'http-error');
   add('an unparseable body is exit 2', () => outcomeError({ status: 200, badJson: true }), 'bad-json');
   add('ok=false in the body is exit 2, not read as healthy', () =>
@@ -259,5 +273,8 @@ async function main(argv, deps = {}) {
 if (isEntryPoint(import.meta.url)) {
   main(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
+  }).catch((error) => {
+    console.error('check-io-health: unhandled: ' + error.message);
+    process.exitCode = 2;
   });
 }
