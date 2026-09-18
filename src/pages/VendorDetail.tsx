@@ -90,60 +90,31 @@ const VendorDetail = () => {
         return;
       }
 
-      // M2: Try P5-native event lookups first (handles pure-P5 events with no legacy row).
-      let mapped: Array<{ id: string; name: string }> = [];
-      
-      try {
-        // Attempt batch lookup via P5 (or fallback to individual RPC calls)
-        const p5Results = await Promise.all(
-          eventIds.map(async (eventId) => {
-            try {
-              const { data: p5Data } = await supabase.rpc('event_view_p5', {
-                p_target: { series_id: eventId },
-                p_viewer: { role: 'anon', shape: 'snapshot_compat' },
-              });
-              const eventName = (p5Data as any)?.event?.name as string | undefined;
-              return {
-                id: eventId,
-                name: eventName || eventId,
-              };
-            } catch {
-              return { id: eventId, name: eventId };
-            }
-          })
-        );
-        
-        mapped = p5Results.filter((item): item is { id: string; name: string } => !!item?.id);
-        
-        // If P5 lookups produced results, use them
-        if (mapped.length > 0) {
-          setEventItems(mapped);
-          return;
-        }
-      } catch {
-        // P5 fallback below
-      }
+      // P5-native event lookups. event_view_p5 resolves both legacy and P5 ids
+      // (legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)), and
+      // every legacy event now has a P5 twin (measured 2026-09-18, M5 caller-zero
+      // audit: 0 events without one), so this no longer needs a legacy-table
+      // fallback -- removed as part of that audit's caller-zero work. Any lookup
+      // failure degrades gracefully to showing the raw id instead of a name.
+      const p5Results = await Promise.all(
+        eventIds.map(async (eventId) => {
+          try {
+            const { data: p5Data } = await supabase.rpc('event_view_p5', {
+              p_target: { series_id: eventId },
+              p_viewer: { role: 'anon', shape: 'snapshot_compat' },
+            });
+            const eventName = (p5Data as any)?.event?.name as string | undefined;
+            return {
+              id: eventId,
+              name: eventName || eventId,
+            };
+          } catch {
+            return { id: eventId, name: eventId };
+          }
+        })
+      );
 
-      // Legacy fallback: for old event IDs during M2 cutover.
-      const { data, error: eventsError } = await supabase
-        .from("events")
-        .select("id, name")
-        .in("id", eventIds);
-
-      if (eventsError || !Array.isArray(data)) {
-        setEventItems(eventIds.map((eventId) => ({ id: eventId, name: eventId })));
-        return;
-      }
-
-      const legacyMapped = data
-        .filter((item: any) => item?.id)
-        .map((item: any) => ({
-          id: String(item.id),
-          name: typeof item.name === "string" && item.name.trim().length > 0 ? item.name.trim() : String(item.id),
-        }));
-
-      const mapById = new Map(legacyMapped.map((item) => [item.id, item]));
-      setEventItems(eventIds.map((eventId) => mapById.get(eventId) || { id: eventId, name: eventId }));
+      setEventItems(p5Results.filter((item): item is { id: string; name: string } => !!item?.id));
     };
 
     void loadEventItems();
