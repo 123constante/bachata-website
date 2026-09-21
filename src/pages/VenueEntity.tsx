@@ -321,28 +321,6 @@ function VenueLightbox({ photos, index, onClose, onStep }: VenueLightboxProps) {
   ), document.body);
 }
 
-// ============================================================
-// Font injection (page-scoped)
-// ============================================================
-const FONT_LINK_ID = 'venue-page-fonts';
-const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400..800&display=swap';
-
-function useVenuePageFonts() {
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById(FONT_LINK_ID)) return;
-    const link = document.createElement('link');
-    link.id = FONT_LINK_ID;
-    link.rel = 'stylesheet';
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-    return () => {
-      document.getElementById(FONT_LINK_ID)?.remove();
-    };
-  }, []);
-}
-
 // Shared chip styling for the Band 1 at-a-glance facts under the hero.
 const FACT_CHIP =
   'inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white/80';
@@ -351,7 +329,6 @@ const FACT_CHIP =
 // Page
 // ============================================================
 const VenueEntity = () => {
-  useVenuePageFonts();
   const { id: rawId } = useParams<{ id: string }>();
   const location = useLocation();
   const resolved = useEntitySlugOrId(rawId, 'venues');

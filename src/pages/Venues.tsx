@@ -141,7 +141,7 @@ const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; chi
         : { backgroundColor: '#ffffff08', borderColor: LINE, color: '#cbbf9f' }
     }
     className={cn(
-      'shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors',
+      'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-semibold transition-colors',
       on ? 'shadow-md shadow-amber-500/25' : 'hover:!border-amber-400/50 hover:!text-white',
     )}
   >
@@ -162,28 +162,45 @@ interface FilterBarProps {
   onClear: () => void;
 }
 
+// Fades the trailing edge of a horizontally-scrollable chip row so "more
+// chips off-screen" is visible instead of just cutting off mid-chip.
+const ScrollFadeRight = ({ children }: { children: ReactNode }) => (
+  <div className="relative">
+    {children}
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 right-0 w-6"
+      style={{ background: 'linear-gradient(90deg, transparent, rgba(13,10,6,0.9))' }}
+    />
+  </div>
+);
+
 const FilterBarInner = ({ area, day, days, count, onArea, onDay, onClear }: FilterBarProps) => (
   <div className="mx-auto max-w-6xl px-4 py-2">
     <div className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: MUTED }}>
       Area
     </div>
-    <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
-      {(['All', ...AREA_ORDER] as const).map((a) => (
-        <Chip key={a} on={area === a} onClick={() => onArea(a)}>
-          {a}
-        </Chip>
-      ))}
-    </div>
+    <ScrollFadeRight>
+      <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+        {(['All', ...AREA_ORDER] as const).map((a) => (
+          <Chip key={a} on={area === a} onClick={() => onArea(a)}>
+            {a}
+          </Chip>
+        ))}
+      </div>
+    </ScrollFadeRight>
     <div className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: MUTED }}>
       Day
     </div>
-    <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
-      {days.map((d, i) => (
-        <Chip key={d} on={day === d} onClick={() => onDay(d)}>
-          {i === 0 ? <>{d} &middot; today</> : d}
-        </Chip>
-      ))}
-    </div>
+    <ScrollFadeRight>
+      <div className="mt-1 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+        {days.map((d, i) => (
+          <Chip key={d} on={day === d} onClick={() => onDay(d)}>
+            {i === 0 ? <>{d} &middot; today</> : d}
+          </Chip>
+        ))}
+      </div>
+    </ScrollFadeRight>
     <div className="mt-1.5 flex items-center justify-between text-[11px]" style={{ color: MUTED }}>
       <span>
         <span className="font-bold" style={{ color: CREAM }}>{count}</span>{' '}
@@ -207,6 +224,7 @@ const FilterBarInner = ({ area, day, days, count, onArea, onDay, onClear }: Filt
 const FilterBar = (props: FilterBarProps) => {
   const [pinned, setPinned] = useState(false);
   const ioRef = useRef<IntersectionObserver | null>(null);
+  const inFlowRef = useRef<HTMLDivElement | null>(null);
 
   const setSentinel = useCallback((node: HTMLDivElement | null) => {
     if (ioRef.current) {
@@ -223,10 +241,24 @@ const FilterBar = (props: FilterBarProps) => {
     }
   }, []);
 
+  // `inert` isn't in this project's JSX.IntrinsicElements typings yet, so set
+  // it as a DOM property rather than a prop.
+  useEffect(() => {
+    if (inFlowRef.current) inFlowRef.current.inert = pinned;
+  }, [pinned]);
+
   return (
     <>
       <div ref={setSentinel} aria-hidden className="-mb-px h-px" />
-      <div style={BAR_STYLE} className="border-y backdrop-blur-md">
+      {/* Once the portalled copy below is pinned, this in-flow copy is scrolled
+          out of view but still in the tab order -- hide it from focus and
+          assistive tech so there is only ever one reachable filter bar. */}
+      <div
+        ref={inFlowRef}
+        style={BAR_STYLE}
+        className="border-y backdrop-blur-md"
+        aria-hidden={pinned}
+      >
         <FilterBarInner {...props} />
       </div>
       {pinned &&
@@ -290,9 +322,15 @@ const TonightRail = ({ items }: { items: VenueVm[] }) => {
   );
 };
 
-const VenueRow = ({ vm }: { vm: VenueVm }) => {
+const VenueRow = ({ vm, activeDay }: { vm: VenueVm; activeDay: string | null }) => {
   const { v } = vm;
   const dormant = vm.nextLabel === null;
+  // The day chip matches a venue by its recurring pattern OR its next actual
+  // event; when only the pattern matches, the venue's next real date can be
+  // on a different day entirely. Say so, or the chip's promise ("Fridays")
+  // doesn't match what's shown ("next event Tuesday").
+  const patternOnlyMatch =
+    !dormant && activeDay !== null && vm.nextWeekday !== activeDay && v.day_pattern.includes(activeDay);
   return (
     <Link to={`/venue-entity/${v.slug ?? v.id}`} className="block">
       <div
@@ -304,7 +342,7 @@ const VenueRow = ({ vm }: { vm: VenueVm }) => {
             src={v.cover_image}
             alt={v.name}
             loading="lazy"
-            className={cn('h-14 w-14 shrink-0 rounded-xl object-cover', dormant && 'opacity-60 grayscale')}
+            className={cn('h-14 w-14 shrink-0 rounded-xl object-cover', dormant && 'opacity-80 grayscale')}
           />
         ) : (
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: '#0d0a06' }}>
@@ -315,7 +353,7 @@ const VenueRow = ({ vm }: { vm: VenueVm }) => {
           <div className="truncate">
             <span
               className="text-sm font-bold"
-              style={{ color: dormant ? '#78716c' : CREAM }}
+              style={{ color: dormant ? '#a39a86' : CREAM }}
             >
               {v.name}
             </span>
@@ -350,6 +388,11 @@ const VenueRow = ({ vm }: { vm: VenueVm }) => {
               {v.next_event_name ?? 'Upcoming event'}
             </div>
           )}
+          {patternOnlyMatch && (
+            <div className="mt-0.5 truncate text-[10px] font-medium" style={{ color: MUTED }}>
+              Usually dances {activeDay}s &middot; next up {vm.nextLabel}
+            </div>
+          )}
         </div>
         {dormant ? (
           <span className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold" style={{ color: QUIET }}>
@@ -377,11 +420,13 @@ const AreaPanel = ({
   rows,
   open,
   onToggle,
+  activeDay,
 }: {
   areaKey: string;
   rows: VenueVm[];
   open: boolean;
   onToggle: () => void;
+  activeDay: string | null;
 }) => (
   <div>
     <button
@@ -407,7 +452,7 @@ const AreaPanel = ({
     {open && (
       <div className="space-y-0 lg:mb-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:px-3 xl:grid-cols-3">
         {rows.map((vm) => (
-          <VenueRow key={vm.v.id} vm={vm} />
+          <VenueRow key={vm.v.id} vm={vm} activeDay={activeDay} />
         ))}
       </div>
     )}
@@ -575,6 +620,7 @@ const Venues = () => {
                   rows={g.rows}
                   open={groups.length === 1 || openArea === g.key}
                   onToggle={() => setOpenArea((prev) => (prev === g.key ? null : g.key))}
+                  activeDay={day}
                 />
               ))
             )}

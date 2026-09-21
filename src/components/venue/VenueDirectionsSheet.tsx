@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Copy as CopyIcon,
@@ -76,6 +76,12 @@ export default function VenueDirectionsSheet({
   // as VenueStickyBar / EventStickyActionBar.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  // `inert` isn't in this project's JSX.IntrinsicElements typings yet, so set
+  // it as a DOM property rather than a prop.
+  useEffect(() => {
+    if (sheetRef.current) sheetRef.current.inert = !open;
+  }, [open, mounted]);
   if (!mounted || typeof document === 'undefined') return null;
   const apps = buildApps(fullAddress, venueName);
 
@@ -91,7 +97,12 @@ export default function VenueDirectionsSheet({
         }}
         aria-hidden="true"
       />
+      {/* Stays mounted (translated off-screen) for the close transition, so it
+          must be explicitly hidden from focus/AT while closed -- otherwise its
+          four links and Copy button sit in the tab order and the screen-reader
+          tree at all times, "open" or not. */}
       <div
+        ref={sheetRef}
         className="fixed inset-x-0 bottom-0 z-[81] px-4 pb-7 pt-2.5 transition-transform duration-300"
         style={{
           background: 'var(--va-surface)',
@@ -107,6 +118,7 @@ export default function VenueDirectionsSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Get directions"
+        aria-hidden={!open}
       >
         <div
           className="mx-auto mb-3.5 h-[5px] w-[38px] rounded-full"
