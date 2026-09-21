@@ -26,11 +26,12 @@ import {
 // Pinned deliberately rather than derived from the type: a literal list is what makes
 // "someone added a reason and forgot the message" a test failure instead of a type that
 // quietly widened. Transcribed from the installed body of public.submit_guest_list_entry
-// on 2026-08-27 (migration 20260827210000).
+// on 2026-09-21 (migration 20261101090000, which added event_archived).
 const SERVER_REASONS = [
   'name_required',
   'name_too_long',
   'event_not_found',
+  'event_archived',
   'guest_list_not_enabled',
   'cutoff_passed',
   'capacity_full',
@@ -95,6 +96,7 @@ describe('guest list reason map', () => {
     expect(GUEST_LIST_REASON_MESSAGES.capacity_full.invalidates).toBe(true);
     expect(GUEST_LIST_REASON_MESSAGES.cutoff_passed.invalidates).toBe(true);
     expect(GUEST_LIST_REASON_MESSAGES.guest_list_not_enabled.invalidates).toBe(true);
+    expect(GUEST_LIST_REASON_MESSAGES.event_archived.invalidates).toBe(true);
     expect(GUEST_LIST_REASON_MESSAGES.name_too_long.invalidates).toBe(false);
     expect(GUEST_LIST_REASON_MESSAGES.name_required.invalidates).toBe(false);
     // rate_limited is a client-side throttle, not a stale cache — refetching would just

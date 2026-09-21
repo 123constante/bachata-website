@@ -20,6 +20,7 @@ export const SUBMIT_GUEST_LIST_REASONS = [
   'name_required',
   'name_too_long',
   'event_not_found',
+  'event_archived',
   'guest_list_not_enabled',
   'cutoff_passed',
   'capacity_full',
@@ -65,6 +66,12 @@ export const GUEST_LIST_REASON_MESSAGES: Record<SubmitGuestListReason, GuestList
   event_not_found: {
     ...base,
     title: 'Event not found',
+  },
+  event_archived: {
+    ...base,
+    title: 'Guest list is not available',
+    description: 'This event has been archived and is no longer accepting sign-ups.',
+    invalidates: true,
   },
   guest_list_not_enabled: {
     ...base,
