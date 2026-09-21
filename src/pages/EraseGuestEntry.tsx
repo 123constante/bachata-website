@@ -93,10 +93,27 @@ export default function EraseGuestEntry() {
       setPhase("preview");
       return;
     }
-    const payload = (data ?? {}) as { ok?: boolean; reason?: string };
+    const payload = (data ?? {}) as { ok?: boolean; reason?: string; already_consumed?: boolean };
+    // reason=entry_already_removed: the token's target entry no longer
+    // exists (e.g. a second erasure link for the same entry, clicked after
+    // the first already erased it). Nothing was freshly erased here, so
+    // this must not fall through to phase "preview" with a raw error string
+    // and a still-clickable erase button -- a retry would then find the
+    // token already marked consumed and get ok=true/already_consumed=true,
+    // which previously rendered the same "Erased" success banner as a real
+    // erasure. Route both cases to the existing "consumed" (nothing more to
+    // do) messaging instead.
     if (!payload.ok) {
+      if (payload.reason === "entry_already_removed") {
+        setPhase("consumed");
+        return;
+      }
       setErrorMsg(payload.reason ?? "erase_failed");
       setPhase("preview");
+      return;
+    }
+    if (payload.already_consumed) {
+      setPhase("consumed");
       return;
     }
     setPhase("done");
