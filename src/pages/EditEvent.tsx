@@ -121,7 +121,7 @@ const EditEvent = () => {
         // P5 event found, fetch series data
         const { data: series, error: seriesError } = await supabase
           .from('event_series_p5')
-          .select('id, name, description')
+          .select('id, name, description, created_by, website, facebook_url, instagram_url')
           .eq('id', occurrence.series_id)
           .single();
 
@@ -134,12 +134,14 @@ const EditEvent = () => {
           .eq('occurrence_id', occurrence.id)
           .single();
 
-        // Fetch legacy event for social URLs and key_times
-        const { data: legacyEvent } = await supabase
+        // Fetch legacy event for fields with no P5 home yet (poster/tickets/payment)
+        const { data: legacyEvent, error: legacyEventError } = await supabase
           .from('events')
-          .select('key_times, poster_url, tickets, ticket_url, payment_methods, facebook_url, instagram_url, website, cover_image_url, created_by')
+          .select('poster_url, tickets, ticket_url, payment_methods')
           .eq('id', id)
           .single();
+
+        if (legacyEventError) throw legacyEventError;
 
         // Merge P5 and legacy data
         const mergedData = {
@@ -148,15 +150,15 @@ const EditEvent = () => {
           description: override?.description || series?.description || '',
           date: occurrence.occurrence_date,
           venue_id: override?.venue_id || occurrence.venue_id,
-          key_times: legacyEvent?.key_times || null,
-          poster_url: legacyEvent?.poster_url || legacyEvent?.cover_image_url,
+          key_times: null,
+          poster_url: legacyEvent?.poster_url,
           tickets: legacyEvent?.tickets || '',
           ticket_url: legacyEvent?.ticket_url || '',
           payment_methods: legacyEvent?.payment_methods || '',
-          facebook_url: legacyEvent?.facebook_url || '',
-          instagram_url: legacyEvent?.instagram_url || '',
-          website: legacyEvent?.website || '',
-          created_by: legacyEvent?.created_by || null,
+          facebook_url: series?.facebook_url || '',
+          instagram_url: series?.instagram_url || '',
+          website: series?.website || '',
+          created_by: series?.created_by || null,
           event_type: null,
           series_id: occurrence.series_id,
           occurrence_id: occurrence.id,
