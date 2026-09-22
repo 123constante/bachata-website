@@ -135,17 +135,50 @@ export const STAMP_ONLY_KINDS: string[] = [
   cityTag(STAMP_PLACEHOLDER_SLUG),
 ];
 
+// The city the SEO landing pages (/london-bachata-guide, /learn-bachata-london,
+// /bachata-london-{weekday}) are about — mirrors
+// src/lib/seoLandingEvents.ts's SEO_LANDING_CITY_SLUG. Duplicated as a literal
+// (not imported) because cacheTags.ts must stay import-light: it's read by
+// api.revalidate.tsx, a resource route, and by cacheTags.test.ts's conformance
+// check, and pulling in the SEO landing module here would make an unrelated
+// change to that module's dependency graph a candidate for breaking the purge
+// path. cacheTags.test.ts asserts these two literals stay equal.
+export const SEO_LANDING_CITY_SLUG = "london-gb";
+
 // ── PURGE side: the tags a content write invalidates ─────────────────────────
 // A festival edit hits its /festival/:id + its /event/:id twin; event/festival
 // writes also purge the listing/home pages via the DEDICATED HOME_FEED /
 // FESTIVALS_LIST tags — NOT the shared EVENTS tag every event page stamps (that
 // would invalidate every event detail page on one edit).
-export function purgeTagsFor(t: EntityType, id: string): string[] {
+//
+// citySlug (optional, 3rd arg): when the DB webhook resolved the write's city
+// (event_series_p5.default_city_id / the occurrence override, see the admin
+// migration's _emit_cache_revalidation_v1 call), scope the home-feed purge to
+// that one city's `city-<slug>` tag (stamped by every home.tsx response, see
+// stampHome) instead of the global HOME_FEED tag that every city's home page
+// shares. SEO_LANDING only comes along when the resolved city IS the SEO
+// pages' city — those 9 pages are London-only, so a Berlin edit purging them
+// would be pure waste. citySlug omitted/unresolved falls back to today's
+// global purge — correctness over precision when the city is unknown.
+export function purgeTagsFor(t: EntityType, id: string, citySlug?: string | null): string[] {
   switch (t) {
     case "festival":
-      return [festivalTag(id), eventTag(id), FESTIVALS_LIST, HOME_FEED, SEO_LANDING];
+      return [
+        festivalTag(id),
+        eventTag(id),
+        FESTIVALS_LIST,
+        ...(citySlug
+          ? [cityTag(citySlug), ...(citySlug === SEO_LANDING_CITY_SLUG ? [SEO_LANDING] : [])]
+          : [HOME_FEED, SEO_LANDING]),
+      ];
     case "event":
-      return [eventTag(id), HOME_FEED, SEO_LANDING];
+      return citySlug
+        ? [
+            eventTag(id),
+            cityTag(citySlug),
+            ...(citySlug === SEO_LANDING_CITY_SLUG ? [SEO_LANDING] : []),
+          ]
+        : [eventTag(id), HOME_FEED, SEO_LANDING];
     case "dancer":
       return [dancerTag(id)];
     case "dj":

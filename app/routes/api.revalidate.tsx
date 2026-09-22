@@ -15,8 +15,12 @@
 // environment's cache (preview→preview, prod→prod).
 //
 // Auth: Bearer REVALIDATE_SECRET (shared with the DB webhook via Supabase Vault).
-// POST body: { entityType|entity_type, entityId|entity_id, tags? }
+// POST body: { entityType|entity_type, entityId|entity_id, citySlug?, tags? }
 //   - entityType + entityId (a UUID) → the tags are derived (mirrors the routes).
+//   - citySlug (optional): when the DB webhook resolved the write's city
+//     (event_series_p5.default_city_id / occurrence override), scope an
+//     event/festival purge to that city's tag instead of the site-wide
+//     HOME_FEED/SEO_LANDING tags — see purgeTagsFor in ../cacheTags.
 //   - tags: string[] — explicit tags, overrides the derived list (bulk/manual).
 import { invalidateByTag } from "@vercel/functions";
 import { isEntityType, purgeTagsFor } from "../cacheTags";
@@ -51,6 +55,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
 
   const entityType = (body.entityType ?? body.entity_type) as string | undefined;
   const entityId = (body.entityId ?? body.entity_id) as string | undefined;
+  const citySlug = (body.citySlug ?? body.city_slug) as string | undefined;
   const explicitTags = Array.isArray(body.tags)
     ? (body.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.length > 0)
     : null;
@@ -66,7 +71,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     if (!entityId || !UUID_RE.test(entityId)) {
       return json({ ok: false, reason: "invalid or missing entityId (expected UUID)" }, 400);
     }
-    tags = purgeTagsFor(entityType, entityId);
+    tags = purgeTagsFor(entityType, entityId, citySlug);
   }
   if (!tags.length) return json({ ok: false, reason: "no tags to invalidate" }, 400);
   tags = tags.slice(0, 128); // Vercel allows up to 128 tags per cached response.
