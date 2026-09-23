@@ -11,63 +11,38 @@ import type { EventPageSnapshot, FestivalDetail } from '@/modules/event-page/typ
 // this module fixes comes back).
 // ---------------------------------------------------------------------------
 
-export const FESTIVAL_EVENT_SELECT =
-  'id, name, city, date, start_time, poster_url, description, ticket_url, faq, meta_data';
-
 export const festivalEventQueryKey = (eventId: string) => ['festival-event', eventId] as const;
 
 export async function fetchFestivalEventRow(
   eventId: string,
 ): Promise<Record<string, unknown> | null> {
-  // M2: Try P5-native first (handles pure-P5 events which have no legacy row at all).
-  // Pure-P5 series are now the primary case; legacy-only bookmarks fall back below.
-  const p5Result = await fetchFestivalEventRowFromP5(eventId);
-  if (p5Result) return p5Result;
-
-  // Legacy fallback: handles old festival bookmarks during M2 cutover.
-  // Will be removed at Stage E when legacy events table is dropped.
-  const { data, error } = await supabase
-    .from('events')
-    .select(FESTIVAL_EVENT_SELECT)
-    .eq('id', eventId)
-    .eq('type', 'festival')
-    .maybeSingle();
-  if (error) throw error;
-  return data as Record<string, unknown> | null;
+  // P5-native only. The legacy `events` fallback was removed 2026-09-22 (M5
+  // caller-zero audit): measured 0 legacy-only festival bookmarks on prod
+  // (every type='festival' row in legacy `events` has an event_series_p5.legacy_event_id
+  // twin), so the branch was provably unreachable.
+  return fetchFestivalEventRowFromP5(eventId);
 }
 
-// M2 fallback. A PURE-P5 series (event_series_p5.legacy_event_id IS NULL) has no
-// row in legacy `events` at all, so the read above misses and the festival hub
-// dies: FestivalDetail renders "Festival not found", and /festival/:id throws a
-// hard 404+noindex (app/routes/festival.tsx gates on this query). The public URL
-// id resolvePublicEventRef hands us for such a series IS the series id, so ask
-// event_view_p5 instead.
+// Resolves both bridged series (legacy_event_id set) and PURE-P5 series
+// (event_series_p5.legacy_event_id IS NULL, no row in legacy `events` at
+// all) via event_view_p5. The public URL id resolvePublicEventRef hands us
+// for either case IS the series id.
 //
-// Why that RPC and not a direct event_series_p5 read: it is anon-callable
+// Why this RPC and not a direct event_series_p5 read: it is anon-callable
 // SECURITY DEFINER, its snapshot_compat branch resolves
-// `legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)` -- exactly
-// the pure-P5 case -- and it filters lifecycle_status IN ('live','paused','ended'),
-// returning NULL otherwise, so it IS the visibility gate. A direct table read
-// would not be one: event_series_p5's anon RLS is still behind
-// FF_DB_SELF_SERVE_RLS.
+// `legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)` --
+// covering both cases -- and it filters lifecycle_status IN
+// ('live','paused','ended'), returning NULL otherwise, so it IS the
+// visibility gate. A direct table read would not be one: event_series_p5's
+// anon RLS is still behind FF_DB_SELF_SERVE_RLS.
 //
-// That list said ('live','paused') until 2026-09-04. It was true when written and
-// the series-termination arc's P4a migration widened it; measured against the
-// live function body that day. The correction matters: read the old version and
-// a pure-P5 festival that has ENDED looks like a hard 404, so the ended treatment
-// on this page would read as unreachable code. It is reachable on both branches
-// -- a bridged series arrives through the legacy read above, whose lifecycle
-// filter is `events.lifecycle_status = 'published'`, which is what 'ended' mirrors
-// to.
-//
-// The returned object carries the SAME ten keys as FESTIVAL_EVENT_SELECT so the
-// `as FestivalEvent` cast in FestivalDetail and the dehydrated
-// ['festival-event', id] entry stay identical whichever path produced them. The
-// four legacy-only columns are null: `date`/`start_time` because the real dates
-// come from get_public_festival_detail_v2 (and events.start_time may never be
-// consumed -- see the FestivalEvent type's note on its unbrandable mix of
-// instants and wall clocks), `faq`/`meta_data` because the compat payload has no
-// equivalent.
+// The returned object carries the same shape the removed legacy-table read
+// used to produce, so the `as FestivalEvent` cast in FestivalDetail and the
+// dehydrated ['festival-event', id] entry stay identical. `date`/`start_time`
+// are null because the real dates come from get_public_festival_detail_v2
+// (and events.start_time may never be consumed -- see the FestivalEvent
+// type's note on its unbrandable mix of instants and wall clocks),
+// `faq`/`meta_data` are null because the compat payload has no equivalent.
 async function fetchFestivalEventRowFromP5(
   eventId: string,
 ): Promise<Record<string, unknown> | null> {
