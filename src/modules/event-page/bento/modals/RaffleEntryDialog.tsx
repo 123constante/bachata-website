@@ -97,6 +97,10 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [phoneE164, setPhoneE164] = useState('');
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);
+  // D5: unticked by default -- a pre-ticked box is not valid consent under UK
+  // PECR/GDPR. Separate from `consent` (which just permits storing the number
+  // for THIS entry); this one asks to be messaged about future prizes/events.
+  const [futurePrizesOptIn, setFuturePrizesOptIn] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [phase, setPhase] = useState<Phase>('form');
   const [waFailed, setWaFailed] = useState(false);
@@ -118,6 +122,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setPhoneE164('');
         setPhoneValid(false);
         setConsent(false);
+        setFuturePrizesOptIn(false);
         setHoneypot('');
         setPhase('form');
         setWaFailed(false);
@@ -161,6 +166,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
       p_consent_version: consentVersion ?? 'v1',
       p_honeypot: honeypot || null,
       p_session_id: sessionId,
+      p_future_prizes_opt_in: futurePrizesOptIn,
     });
     if (generation !== generationRef.current) return; // dialog closed mid-flight
 
@@ -366,6 +372,18 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 I agree my phone number will be stored for raffle entry.{' '}
                 <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[#F5D563] hover:text-[#ffd700]">See privacy policy</a>.
               </span>
+            </label>
+
+            <label className="flex items-start gap-2 text-[11px] leading-snug text-[#D8CCB0] select-none cursor-pointer">
+              <input
+                type="checkbox"
+                data-testid="raffle-future-prizes-opt-in"
+                checked={futurePrizesOptIn}
+                onChange={(e) => setFuturePrizesOptIn(e.target.checked)}
+                disabled={phase !== 'form'}
+                className="mt-0.5 accent-[#B38A4E]"
+              />
+              <span>Message me on WhatsApp about future prizes and events.</span>
             </label>
 
             <div className="flex items-center justify-end gap-2 pt-1">

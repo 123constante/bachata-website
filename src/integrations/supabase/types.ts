@@ -13714,6 +13714,7 @@ export type Database = {
           p_consent_version: string
           p_event_id: string
           p_first_name: string
+          p_future_prizes_opt_in?: boolean
           p_honeypot?: string
           p_phone_e164: string
           p_session_id?: string
