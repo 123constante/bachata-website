@@ -83,8 +83,18 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 // "listed before first booking" pattern as every prior re-baseline. The
 // three from the old baseline (Carbonero, Davids, Sobolewska) are still
 // present and unmoved. Nothing dropped an assignment.
+// 2026-09-16: DJ ceiling 8 -> 9. Measured live: 9 active DJs hold no
+// event_program_people row -- the same 8 from the 2026-09-15 re-baseline
+// (Kal, Roberta, Anna Galenda, Brandy Colores, Sergio Suavez, Carbonero,
+// Davids, Sobolewska) plus one new profile ("Mauricio", person_id
+// 28d444d1-5c3e-4e53-9e88-1299cc09eb0d). That profile has held an active
+// teaching role since 2026-05-26 and just picked up a djing role at
+// 2026-09-16T11:32 UTC -- hours after this morning's 06:05 UTC scheduled
+// run that first saw this red. Same "listed before first booking" pattern
+// as every prior re-baseline; teacher count is unmoved at 36 (== baseline,
+// not over it).
 const BASELINE_TEACHERS_UNASSIGNED = 36; // active teachers with no epp row
-const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no epp row
+const BASELINE_DJS_UNASSIGNED = 9;       // active DJs with no epp row
 
 function loadEnv() {
   const env = { ...process.env };
