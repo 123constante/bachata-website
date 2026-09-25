@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -442,20 +443,32 @@ const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
     <div className="text-center">
-      <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 10 }}>
+      <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(88))} alt={member.name} width={88} height={88} className="w-full h-full object-cover" loading="lazy" />
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
       </div>
       <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
     </div>
   );
   return member.dancerId ? <Link to={`/dancers/${member.dancerId}`}>{inner}</Link> : <div>{inner}</div>;
+};
+
+// 44px past rows make a busy year very tall; show the latest few per year.
+const PAST_ROWS_PER_YEAR = 8;
+// Rows / years shown before the "Show all" toggles.
+const UPCOMING_VISIBLE = 3;
+const PAST_YEARS_VISIBLE = 3;
+
+// Scrolls a section's top into view without touching the URL hash (a hash
+// link adds a history entry and cannot target a section that renders late).
+const scrollToId = (id: string) => {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 // Builds EventRow props for a single occurrence. EventRow itself stays
@@ -615,6 +628,8 @@ const OrganiserProfile = () => {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
+  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
   const [editForm, setEditForm] = useState({
     name: '',
     avatar_url: '',
@@ -915,8 +930,7 @@ const OrganiserProfile = () => {
     });
   }, [upcomingEvents]);
 
-  const visibleItems = showAllUpcoming ? upcomingListItems : upcomingListItems.slice(0, 3);
-  const hiddenItems = upcomingListItems.slice(visibleItems.length);
+  const visibleItems = showAllUpcoming ? upcomingListItems : upcomingListItems.slice(0, UPCOMING_VISIBLE);
   // "dates" counts individual occurrences, not list rows -- a collapsed
   // series row counts for all of its dates, not just 1, so this matches what
   // "Show all" actually reveals.
@@ -947,7 +961,7 @@ const OrganiserProfile = () => {
   // Only the most recent 3 years mount by default -- a decade-old organiser's
   // full history is fetched (for the "since <year>" stat) but doesn't need to
   // render 500+ DOM rows on a mobile-first page just because they're collapsed.
-  const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, 3);
+  const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, PAST_YEARS_VISIBLE);
   const hiddenPastYears = pastByYear.slice(visiblePastYears.length);
 
   // --- Loading ---
@@ -1045,6 +1059,59 @@ const OrganiserProfile = () => {
     ? `Estimated from the earliest listed event (${estYear}) -- not a confirmed founding date`
     : undefined;
 
+
+  // First sentence of the bio for the hero tagline (original behaviour).
+  const bioParts = entity.bio ? entity.bio.split(/\.\s+/) : [];
+  const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
+  // A long bio is clamped to 3 lines in About with a More toggle.
+  const aboutIsLong = (entity.bio?.length ?? 0) > 180;
+
+  // Contact sits under the stats as one row of quiet 44px icon buttons; WhatsApp
+  // is the single accent. Email is always offered -- it used to vanish on
+  // desktop whenever a WhatsApp number existed.
+  const iconBtn: React.CSSProperties = { width: 44, height: 44, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,10,13,0.45)', border: '1px solid rgba(246,241,234,0.18)', color: D.cream, textDecoration: 'none', flexShrink: 0 };
+  // The extract* helpers return the platform name when no handle is found;
+  // avoid announcing "Instagram Instagram".
+  const labelWithHandle = (platform: string, handle: string | null | undefined) =>
+    handle && handle !== platform ? `${platform} ${handle}` : platform;
+  const igHandle = instagramUrl ? extractIgHandle(instagramRaw) : null;
+  const fbHandle = facebookUrl ? extractFbHandle(facebookRaw) : null;
+  const siteDomain = websiteUrl ? extractDomain(websiteRaw) : null;
+  const contactRow = hasContact ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {whatsappUrl && (
+        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ height: 44, display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0 16px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: '#fff', background: '#117D42', textDecoration: 'none' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg>
+          WhatsApp
+        </a>
+      )}
+      {instagramUrl && (
+        <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Instagram', igHandle)} title={igHandle ?? undefined} style={iconBtn}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+        </a>
+      )}
+      {facebookUrl && (
+        <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Facebook', fbHandle)} title={fbHandle ?? undefined} style={iconBtn}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
+        </a>
+      )}
+      {websiteUrl && (
+        <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Website', siteDomain)} title={siteDomain ?? undefined} style={iconBtn}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
+        </a>
+      )}
+      {mailtoHref && (
+        <a href={mailtoHref} aria-label={`Email ${contactEmail}`} title={contactEmail ?? undefined} style={iconBtn}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+        </a>
+      )}
+    </div>
+  ) : null;
+
+  const sectionH2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: 0, color: D.cream };
+  const sectionCount: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600 };
+  const moreBtn: React.CSSProperties = { display: 'block', width: '100%', minHeight: 44, padding: '10px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' };
+
   // --- Render ---
   return (
     <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
@@ -1087,12 +1154,12 @@ const OrganiserProfile = () => {
 
           <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
             {isClaimedByUser && (
-              <button onClick={openEditModal} aria-label="Edit profile" style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.cream, cursor: 'pointer' }}>
+              <button onClick={openEditModal} aria-label="Edit profile" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.cream, cursor: 'pointer' }}>
                 <Pencil className="w-4 h-4" />
               </button>
             )}
             {canClaim && (
-              <button onClick={handleClaim} style={{ padding: '8px 14px', borderRadius: 100, background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', color: D.gold, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={handleClaim} style={{ height: 44, padding: '0 16px', borderRadius: 100, background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', color: D.gold, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 Claim
               </button>
             )}
@@ -1115,9 +1182,9 @@ const OrganiserProfile = () => {
             <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
               <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
             </svg>
-            {entity.bio && (
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.72)', fontWeight: 500, lineHeight: 1.4 }}>
-                {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
+            {heroTagline && (
+              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4 }}>
+                {heroTagline}
               </p>
             )}
           </div>}
@@ -1137,9 +1204,9 @@ const OrganiserProfile = () => {
                 <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
                   <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
                 </svg>
-                {entity.bio && (
-                  <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.72)', fontWeight: 500 }}>
-                    {entity.bio.split(/\.\s+/)[0]}{entity.bio.split(/\.\s+/).length > 1 ? '.' : ''}
+                {heroTagline && (
+                  <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500 }}>
+                    {heroTagline}
                   </p>
                 )}
               </div>
@@ -1158,104 +1225,34 @@ const OrganiserProfile = () => {
         </div>
 
         {/* Stats strip */}
-        <div className="flex justify-around py-4 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <div className="flex justify-around py-3 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
-            { value: upcomingEvents.length, label: 'Upcoming events', title: undefined },
-            { value: pastEvents.length,     label: 'Past events',     title: undefined },
-            { value: thirdStatValue,        label: thirdStatLabel,    title: thirdStatTitle },
-          ].map((s) => (
-            <div key={s.label} style={{ textAlign: 'center' }} title={s.title}>
-              <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{s.label}</div>
-            </div>
-          ))}
+            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
+            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },
+            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined },
+          ].map((s) => {
+            const body = (
+              <>
+                <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 4 }}>{s.label}</div>
+              </>
+            );
+            return s.href ? (
+              <button key={s.label} type="button" onClick={() => scrollToId(s.href!)} style={{ textAlign: 'center', minHeight: 44, padding: '2px 6px', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{body}</button>
+            ) : (
+              <div key={s.label} style={{ textAlign: 'center', padding: '2px 6px' }} title={s.title}>{body}</div>
+            );
+          })}
         </div>
 
-        {/* ABOUT */}
-        {entity.bio && (
-          <section className="px-5 md:px-12 py-8 md:py-12" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 14px' }}>About</p>
-            <p style={{ fontFamily: SERIF, fontSize: 'clamp(18px,2.5vw,27px)', lineHeight: 1.5, color: D.cream, margin: 0, fontWeight: 500, maxWidth: 760 }}>
-              {entity.bio}
-            </p>
-          </section>
-        )}
-
-        {/* CONTACT */}
-        {hasContact && (
-          <section className="px-5 md:px-12 py-8 md:py-10" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 16px' }}>Contact the organiser</p>
-
-            {/* Desktop bar */}
-            {(isMobile === false) && <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {instagramUrl && (
-                  <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#F58529,#DD2A7B 55%,#8134AF)', textDecoration: 'none' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-                    {extractIgHandle(instagramRaw)}
-                  </a>
-                )}
-                {facebookUrl && (
-                  <a href={facebookUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: '#fff', background: '#1877F2', textDecoration: 'none' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
-                    {extractFbHandle(facebookRaw)}
-                  </a>
-                )}
-                {websiteUrl && (
-                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: D.black, background: D.gold, textDecoration: 'none' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={D.black} strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
-                    {extractDomain(websiteRaw)}
-                  </a>
-                )}
-                {whatsappUrl && (
-                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '12px 24px', borderRadius: 100, fontSize: 14, fontWeight: 800, color: '#fff', background: '#25D366', boxShadow: '0 8px 24px rgba(37,211,102,0.32)', textDecoration: 'none' }}>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg>
-                    WhatsApp
-                  </a>
-                )}
-                {mailtoHref && !whatsappUrl && (
-                  <a href={mailtoHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
-                    {contactEmail}
-                  </a>
-                )}
-            </div>}
-
-            {/* Mobile pills */}
-            {(isMobile !== false) && <div className="flex flex-col gap-2.5">
-              {(instagramUrl || facebookUrl || websiteUrl) && (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {instagramUrl && (
-                    <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 13, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#F58529,#DD2A7B 55%,#8134AF)', textDecoration: 'none' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
-                      Instagram
-                    </a>
-                  )}
-                  {facebookUrl && (
-                    <a href={facebookUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 13, fontSize: 12.5, fontWeight: 700, color: '#fff', background: '#1877F2', textDecoration: 'none' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
-                      Facebook
-                    </a>
-                  )}
-                  {websiteUrl && (
-                    <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 13, fontSize: 12.5, fontWeight: 700, color: D.black, background: D.gold, textDecoration: 'none' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={D.black} strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
-                      Website
-                    </a>
-                  )}
-                </div>
-              )}
-              {whatsappUrl && (
-                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '14px 0', borderRadius: 13, fontSize: 14, fontWeight: 800, color: '#fff', background: '#25D366', boxShadow: '0 8px 24px rgba(37,211,102,0.28)', textDecoration: 'none' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg>
-                  Message on WhatsApp
-                </a>
-              )}
-              {mailtoHref && !whatsappUrl && (
-                <a href={mailtoHref} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '13px 0', borderRadius: 13, fontSize: 13, fontWeight: 700, color: D.cream, background: 'rgba(246,241,234,0.08)', border: '1px solid rgba(246,241,234,0.15)', textDecoration: 'none' }}>
-                  {contactEmail}
-                </a>
-              )}
-            </div>}
-          </section>
+        {/* CONTACT -- one quiet row under the stats */}
+        {contactRow && (
+          <div className="flex flex-col items-center gap-2 px-5 py-3 md:items-start md:px-12" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+            {contactRow}
+            {mailtoHref && contactEmail && !whatsappUrl && (
+              <a href={mailtoHref} className="max-w-full truncate text-xs no-underline" style={{ color: 'rgba(246,241,234,0.75)' }}>{contactEmail}</a>
+            )}
+          </div>
         )}
 
         {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
@@ -1273,7 +1270,7 @@ const OrganiserProfile = () => {
             independent, slower queries) have had a chance to come back. */}
         {!allEventsLoading && !futureOccsLoading && !pastOccsLoading && !teamMembersLoading &&
           !entity.bio && !hasContact && upcomingListItems.length === 0 && orderedTeam.length === 0 && pastEvents.length === 0 && (
-          <section className="px-5 md:px-12 py-14 md:py-20 text-center">
+          <section className="px-5 md:px-12 py-8 md:py-10 text-center">
             {isClaimedByUser ? (
               <>
                 <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
@@ -1281,7 +1278,7 @@ const OrganiserProfile = () => {
                 <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
                   Add a bio, photo and your social links so dancers know who you are before your first night goes up.
                 </p>
-                <button onClick={openEditModal} style={{ padding: '12px 28px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
                   Complete your profile
                 </button>
               </>
@@ -1291,7 +1288,7 @@ const OrganiserProfile = () => {
                 <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
                   {entity.name} hasn&rsquo;t listed any nights yet. Check back soon, or see what&rsquo;s on elsewhere in London.
                 </p>
-                <Link to="/parties" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                   Browse upcoming nights
                 </Link>
               </>
@@ -1301,10 +1298,10 @@ const OrganiserProfile = () => {
 
         {/* UPCOMING EVENTS */}
         {upcomingListItems.length > 0 && (
-          <section className="px-5 md:px-12 py-8 md:py-10" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
-              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>Upcoming events</h2>
-              <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{upcomingListItems.length} {upcomingListItems.length === 1 ? 'event' : 'events'}</span>
+          <section id="upcoming" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={sectionH2}>Upcoming events</h2>
+              <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
             </div>
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
@@ -1324,9 +1321,27 @@ const OrganiserProfile = () => {
                 ),
               )}
             </div>
-            {!showAllUpcoming && hiddenItems.length > 0 && (
-              <button onClick={() => setShowAllUpcoming(true)} style={{ display: 'block', width: '100%', padding: '14px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>
-                Show all {totalUpcomingDateCount} dates
+            {upcomingListItems.length > UPCOMING_VISIBLE && (
+              <button onClick={() => { if (showAllUpcoming) scrollToId('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
+                {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
+              </button>
+            )}
+          </section>
+        )}
+
+        {/* ABOUT -- below the events: a regular came for dates, not the bio */}
+        {entity.bio && (
+          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About</h2>
+            <p
+              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3')}
+              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
+            >
+              {entity.bio}
+            </p>
+            {aboutIsLong && (
+              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
+                {aboutExpanded ? 'Show less' : 'More'}
               </button>
             )}
           </section>
@@ -1334,61 +1349,70 @@ const OrganiserProfile = () => {
 
         {/* TEACHERS & DJs */}
         {orderedTeam.length > 0 && (
-          <section className="px-5 md:px-12 py-8 md:py-12" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 22 }}>
-              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>Teachers &amp; DJs</h2>
-              <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
+          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={sectionH2}>Teachers &amp; DJs</h2>
+              <span style={sectionCount}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: orderedTeam.length <= 3 ? 'center' : 'flex-start' }}>
-              {orderedTeam.map((m) => <div key={m.id} style={{ width: 88, flexShrink: 0 }}><TeamCircle member={m} /></div>)}
+            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3' : 'grid grid-cols-3 gap-3 lg:grid-cols-8'}>
+              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} /></div>)}
             </div>
           </section>
         )}
 
         {/* PAST EVENTS */}
         {pastEvents.length > 0 && (
-          <section className="px-5 md:px-12 py-8 md:py-12">
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,32px)', margin: 0, color: D.cream }}>Past nights</h2>
-              <span style={{ fontSize: 12, color: 'rgba(246,241,234,0.5)', fontWeight: 600 }}>{pastEvents.length} hosted</span>
+          <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={sectionH2}>Past nights</h2>
+              <span style={sectionCount}>{pastEvents.length} hosted</span>
             </div>
-            <div className="flex flex-col gap-2">
-              {visiblePastYears.map((group, gi) => (
-                <details key={group.year} open={gi === 0} className="rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '10px 12px' }}>
+            <div className="flex max-w-3xl flex-col gap-2">
+              {visiblePastYears.map((group, gi) => { const shown = expandedPastYears.has(group.year) ? group.events : group.events.slice(0, PAST_ROWS_PER_YEAR); return (
+                <details key={group.year} id={`past-${group.year}`} open={gi === 0} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
                   <summary
-                    className="flex cursor-pointer list-none items-center justify-between"
-                    style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.5)' }}
+                    className="flex min-h-[44px] cursor-pointer list-none items-center justify-between"
+                    style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.7)' }}
                   >
                     <span>{group.year} &middot; {group.events.length} {group.events.length === 1 ? 'night' : 'nights'}</span>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                   </summary>
-                  <div className="mt-2 flex flex-col">
-                    {group.events.map((e, i) => {
+                  <div className="flex flex-col pb-1">
+                    {shown.map((e, i) => {
                       const href = e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`;
                       const label = formatWallClockLocal(e.displayStart, 'EEEE d MMM') ?? 'TBA';
                       return (
                         <Link
                           key={stableRowKey(e.occurrenceId, e.id, i)}
                           to={href}
-                          className="flex items-center gap-2 py-1.5 no-underline"
-                          style={{ borderBottom: i < group.events.length - 1 ? '1px solid rgba(246,241,234,0.05)' : undefined }}
+                          className="flex min-h-[44px] items-center gap-2 no-underline"
+                          style={{ borderBottom: i < shown.length - 1 ? '1px solid rgba(246,241,234,0.05)' : undefined }}
                         >
                           <span
-                            className="h-[22px] w-[22px] flex-shrink-0 rounded-md"
-                            style={{ background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, srcWidthFor(22)), backgroundSize: 'cover', backgroundPosition: 'center' }}
+                            className="h-7 w-7 flex-shrink-0 rounded-md"
+                            style={{ background: e.poster_url ? undefined : PAST_GRADS[i % PAST_GRADS.length], backgroundImage: cssUrl(e.poster_url, srcWidthFor(28)), backgroundSize: 'cover', backgroundPosition: 'center' }}
                           />
-                          <span className="flex-shrink-0" style={{ width: 96, fontSize: 11.5, color: D.cream }}>{label}</span>
-                          <span className="min-w-0 flex-1 truncate text-right" style={{ fontSize: 11.5, color: 'rgba(246,241,234,0.6)' }}>{e.name}</span>
+                          <span className="flex-shrink-0 whitespace-nowrap text-sm" style={{ width: 132, color: D.cream }}>{label}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'rgba(246,241,234,0.75)' }}>{e.name}</span>
                         </Link>
                       );
                     })}
+                    {group.events.length > PAST_ROWS_PER_YEAR && (
+                      <button
+                        onClick={() => { if (expandedPastYears.has(group.year)) scrollToId(`past-${group.year}`); setExpandedPastYears((prev) => { const next = new Set(prev); if (next.has(group.year)) next.delete(group.year); else next.add(group.year); return next; }); }}
+                        aria-expanded={expandedPastYears.has(group.year)}
+                        style={{ ...moreBtn, fontSize: 12 }}
+                      >
+                        {expandedPastYears.has(group.year) ? 'Show fewer' : `Show all ${group.events.length} nights in ${group.year}`}
+                      </button>
+                    )}
                   </div>
                 </details>
-              ))}
+              ); })}
             </div>
-            {!showAllPastYears && hiddenPastYears.length > 0 && (
-              <button onClick={() => setShowAllPastYears(true)} style={{ display: 'block', width: '100%', padding: '14px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>
-                Show earlier years ({hiddenPastYears.length})
+            {pastByYear.length > PAST_YEARS_VISIBLE && (
+              <button onClick={() => { if (showAllPastYears) scrollToId('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
+                {showAllPastYears ? 'Show fewer years' : `Show earlier years (${hiddenPastYears.length})`}
               </button>
             )}
           </section>
