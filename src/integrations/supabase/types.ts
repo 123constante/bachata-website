@@ -388,6 +388,33 @@ export type Database = {
         }
         Relationships: []
       }
+      arc_gates_narrative: {
+        Row: {
+          body: string
+          created_at: string
+          key: string
+          policed: boolean
+          template: boolean
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          key: string
+          policed?: boolean
+          template?: boolean
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          key?: string
+          policed?: boolean
+          template?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       backend_closure_records: {
         Row: {
           closure_key: string
@@ -1201,7 +1228,6 @@ export type Database = {
       }
       dancer_profiles: {
         Row: {
-          achievements: string[]
           archived_at: string | null
           avatar_url: string | null
           based_city_id: string | null
@@ -1210,13 +1236,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           dance_role: string | null
-          dance_started_year: number | null
           description: string | null
           display_name: string | null
           email: string | null
           facebook: string | null
-          favorite_songs: string[]
-          favorite_styles: string[]
           first_name: string | null
           gallery_urls: string[]
           id: string
@@ -1224,27 +1247,19 @@ export type Database = {
           instagram_normalized: string | null
           is_active: boolean | null
           languages: string[] | null
-          looking_for_partner: boolean
           meta_data: Json
           nationality: string | null
-          partner_details: string | null
-          partner_practice_goals: string[]
-          partner_search_level: string[]
-          partner_search_role: string | null
           person_entity_id: string | null
           person_id: string | null
           phone: string | null
-          photo_url: string | null
           profile_source: string | null
           slug: string
           surname: string | null
           updated_at: string
-          website: string | null
           website_url: string | null
           whatsapp: string | null
         }
         Insert: {
-          achievements?: string[]
           archived_at?: string | null
           avatar_url?: string | null
           based_city_id?: string | null
@@ -1253,13 +1268,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dance_role?: string | null
-          dance_started_year?: number | null
           description?: string | null
           display_name?: string | null
           email?: string | null
           facebook?: string | null
-          favorite_songs?: string[]
-          favorite_styles?: string[]
           first_name?: string | null
           gallery_urls?: string[]
           id: string
@@ -1267,27 +1279,19 @@ export type Database = {
           instagram_normalized?: string | null
           is_active?: boolean | null
           languages?: string[] | null
-          looking_for_partner?: boolean
           meta_data?: Json
           nationality?: string | null
-          partner_details?: string | null
-          partner_practice_goals?: string[]
-          partner_search_level?: string[]
-          partner_search_role?: string | null
           person_entity_id?: string | null
           person_id?: string | null
           phone?: string | null
-          photo_url?: string | null
           profile_source?: string | null
           slug: string
           surname?: string | null
           updated_at?: string
-          website?: string | null
           website_url?: string | null
           whatsapp?: string | null
         }
         Update: {
-          achievements?: string[]
           archived_at?: string | null
           avatar_url?: string | null
           based_city_id?: string | null
@@ -1296,13 +1300,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dance_role?: string | null
-          dance_started_year?: number | null
           description?: string | null
           display_name?: string | null
           email?: string | null
           facebook?: string | null
-          favorite_songs?: string[]
-          favorite_styles?: string[]
           first_name?: string | null
           gallery_urls?: string[]
           id?: string
@@ -1310,22 +1311,15 @@ export type Database = {
           instagram_normalized?: string | null
           is_active?: boolean | null
           languages?: string[] | null
-          looking_for_partner?: boolean
           meta_data?: Json
           nationality?: string | null
-          partner_details?: string | null
-          partner_practice_goals?: string[]
-          partner_search_level?: string[]
-          partner_search_role?: string | null
           person_entity_id?: string | null
           person_id?: string | null
           phone?: string | null
-          photo_url?: string | null
           profile_source?: string | null
           slug?: string
           surname?: string | null
           updated_at?: string
-          website?: string | null
           website_url?: string | null
           whatsapp?: string | null
         }
@@ -1373,7 +1367,7 @@ export type Database = {
           favorite_styles: string[] | null
           first_name: string | null
           gallery_urls: string[] | null
-          id: string | null
+          id: string
           instagram: string | null
           instagram_normalized: string | null
           is_active: boolean | null
@@ -1416,7 +1410,7 @@ export type Database = {
           favorite_styles?: string[] | null
           first_name?: string | null
           gallery_urls?: string[] | null
-          id?: string | null
+          id: string
           instagram?: string | null
           instagram_normalized?: string | null
           is_active?: boolean | null
@@ -1459,7 +1453,7 @@ export type Database = {
           favorite_styles?: string[] | null
           first_name?: string | null
           gallery_urls?: string[] | null
-          id?: string | null
+          id?: string
           instagram?: string | null
           instagram_normalized?: string | null
           is_active?: boolean | null
@@ -1687,13 +1681,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "dancing_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       dancing_role_details_archive_20260720050000: {
@@ -1703,7 +1690,7 @@ export type Database = {
           dance_started_year: number | null
           favorite_songs: string[] | null
           favorite_styles: string[] | null
-          id: string | null
+          id: string
           looking_for_partner: boolean | null
           partner_details: string | null
           partner_practice_goals: string[] | null
@@ -1718,7 +1705,7 @@ export type Database = {
           dance_started_year?: number | null
           favorite_songs?: string[] | null
           favorite_styles?: string[] | null
-          id?: string | null
+          id: string
           looking_for_partner?: boolean | null
           partner_details?: string | null
           partner_practice_goals?: string[] | null
@@ -1733,7 +1720,7 @@ export type Database = {
           dance_started_year?: number | null
           favorite_songs?: string[] | null
           favorite_styles?: string[] | null
-          id?: string | null
+          id?: string
           looking_for_partner?: boolean | null
           partner_details?: string | null
           partner_practice_goals?: string[] | null
@@ -1829,13 +1816,6 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: true
             referencedRelation: "dancer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dj_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -2142,14 +2122,7 @@ export type Database = {
             foreignKeyName: "event_attendance_occurrence_id_fkey"
             columns: ["occurrence_id"]
             isOneToOne: false
-            referencedRelation: "calendar_feed"
-            referencedColumns: ["row_id"]
-          },
-          {
-            foreignKeyName: "event_attendance_occurrence_id_fkey"
-            columns: ["occurrence_id"]
-            isOneToOne: false
-            referencedRelation: "calendar_occurrences"
+            referencedRelation: "event_occurrence_p5"
             referencedColumns: ["id"]
           },
           {
@@ -2166,18 +2139,21 @@ export type Database = {
           created_at: string | null
           dancer_id: string
           event_id: string
+          event_id_p5: string | null
           status: string | null
         }
         Insert: {
           created_at?: string | null
           dancer_id: string
           event_id: string
+          event_id_p5?: string | null
           status?: string | null
         }
         Update: {
           created_at?: string | null
           dancer_id?: string
           event_id?: string
+          event_id_p5?: string | null
           status?: string | null
         }
         Relationships: [
@@ -2189,17 +2165,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_attendees_dancer_id_fkey"
-            columns: ["dancer_id"]
-            isOneToOne: false
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "event_attendees_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_attendees_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -2295,7 +2271,7 @@ export type Database = {
           discarded_at: string | null
           editor_user_id: string | null
           event_id: string | null
-          id: string | null
+          id: string
           payload: Json | null
           published_at: string | null
           status: string | null
@@ -2307,7 +2283,7 @@ export type Database = {
           discarded_at?: string | null
           editor_user_id?: string | null
           event_id?: string | null
-          id?: string | null
+          id: string
           payload?: Json | null
           published_at?: string | null
           status?: string | null
@@ -2319,7 +2295,7 @@ export type Database = {
           discarded_at?: string | null
           editor_user_id?: string | null
           event_id?: string | null
-          id?: string | null
+          id?: string
           payload?: Json | null
           published_at?: string | null
           status?: string | null
@@ -2332,6 +2308,7 @@ export type Database = {
           created_at: string
           entity_id: string
           event_id: string
+          event_id_p5: string | null
           organiser_profile_id: string | null
           role: Database["public"]["Enums"]["event_entity_role"]
         }
@@ -2339,6 +2316,7 @@ export type Database = {
           created_at?: string
           entity_id: string
           event_id: string
+          event_id_p5?: string | null
           organiser_profile_id?: string | null
           role: Database["public"]["Enums"]["event_entity_role"]
         }
@@ -2346,6 +2324,7 @@ export type Database = {
           created_at?: string
           entity_id?: string
           event_id?: string
+          event_id_p5?: string | null
           organiser_profile_id?: string | null
           role?: Database["public"]["Enums"]["event_entity_role"]
         }
@@ -2355,6 +2334,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_entities_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -2378,11 +2364,11 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           deleted_reason: string | null
-          event_id: string
+          event_id: string | null
+          event_id_p5: string | null
           first_name: string
           id: string
           is_permanent: boolean
-          occurrence_id: string | null
           occurrence_p5_id: string | null
           qr_token: string | null
           status: string
@@ -2391,11 +2377,11 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           deleted_reason?: string | null
-          event_id: string
+          event_id?: string | null
+          event_id_p5?: string | null
           first_name: string
           id?: string
           is_permanent?: boolean
-          occurrence_id?: string | null
           occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
@@ -2404,11 +2390,11 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           deleted_reason?: string | null
-          event_id?: string
+          event_id?: string | null
+          event_id_p5?: string | null
           first_name?: string
           id?: string
           is_permanent?: boolean
-          occurrence_id?: string | null
           occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
@@ -2422,17 +2408,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_guest_list_entries_occurrence_id_fkey"
-            columns: ["occurrence_id"]
+            foreignKeyName: "event_guest_list_entries_event_id_p5_fkey"
+            columns: ["event_id_p5"]
             isOneToOne: false
-            referencedRelation: "calendar_feed"
-            referencedColumns: ["row_id"]
-          },
-          {
-            foreignKeyName: "event_guest_list_entries_occurrence_id_fkey"
-            columns: ["occurrence_id"]
-            isOneToOne: false
-            referencedRelation: "calendar_occurrences"
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -2481,6 +2460,7 @@ export type Database = {
         Row: {
           clicked_at: string
           event_id: string
+          event_id_p5: string | null
           id: string
           link_type: string
           source: string | null
@@ -2491,6 +2471,7 @@ export type Database = {
         Insert: {
           clicked_at?: string
           event_id: string
+          event_id_p5?: string | null
           id?: string
           link_type: string
           source?: string | null
@@ -2501,6 +2482,7 @@ export type Database = {
         Update: {
           clicked_at?: string
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           link_type?: string
           source?: string | null
@@ -2514,6 +2496,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_link_clicks_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -2577,6 +2566,13 @@ export type Database = {
           venue_room_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_occurrence_added_session_p5_legacy_added_session_id_fkey"
+            columns: ["legacy_added_session_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_occurrence_added_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_occurrence_added_session_p5_occurrence_id_fkey"
             columns: ["occurrence_id"]
@@ -2649,6 +2645,7 @@ export type Database = {
           music_styles: string[] | null
           occurrence_id: string
           organiser_ids: string[] | null
+          overridden_keys: string[]
           passes: Json | null
           promo_codes: Json | null
           ticket_url: string | null
@@ -2670,6 +2667,7 @@ export type Database = {
           music_styles?: string[] | null
           occurrence_id: string
           organiser_ids?: string[] | null
+          overridden_keys: string[]
           passes?: Json | null
           promo_codes?: Json | null
           ticket_url?: string | null
@@ -2691,6 +2689,7 @@ export type Database = {
           music_styles?: string[] | null
           occurrence_id?: string
           organiser_ids?: string[] | null
+          overridden_keys?: string[]
           passes?: Json | null
           promo_codes?: Json | null
           ticket_url?: string | null
@@ -2716,6 +2715,8 @@ export type Database = {
           lifecycle_status: string
           materialised_end_utc: string | null
           materialised_start_utc: string | null
+          occurred_confirmed_at: string | null
+          occurred_source: string | null
           occurrence_date: string
           occurrence_index: number | null
           series_id: string
@@ -2730,6 +2731,8 @@ export type Database = {
           lifecycle_status?: string
           materialised_end_utc?: string | null
           materialised_start_utc?: string | null
+          occurred_confirmed_at?: string | null
+          occurred_source?: string | null
           occurrence_date: string
           occurrence_index?: number | null
           series_id: string
@@ -2744,6 +2747,8 @@ export type Database = {
           lifecycle_status?: string
           materialised_end_utc?: string | null
           materialised_start_utc?: string | null
+          occurred_confirmed_at?: string | null
+          occurred_source?: string | null
           occurrence_date?: string
           occurrence_index?: number | null
           series_id?: string
@@ -2904,6 +2909,7 @@ export type Database = {
         Row: {
           created_at: string | null
           event_id: string
+          event_id_p5: string | null
           id: string
           role: string
           user_id: string
@@ -2911,6 +2917,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           event_id: string
+          event_id_p5?: string | null
           id?: string
           role?: string
           user_id: string
@@ -2918,6 +2925,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           role?: string
           user_id?: string
@@ -2928,6 +2936,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_permissions_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -2968,6 +2983,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           event_id: string
+          event_id_p5: string | null
           id: string
           is_primary: boolean
           notes: string | null
@@ -2980,6 +2996,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           event_id: string
+          event_id_p5?: string | null
           id?: string
           is_primary?: boolean
           notes?: string | null
@@ -2992,6 +3009,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           is_primary?: boolean
           notes?: string | null
@@ -3005,6 +3023,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_profile_connections_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -3216,13 +3241,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_program_people_profile_id_dancer_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "event_program_people_program_item_id_fkey"
             columns: ["program_item_id"]
             isOneToOne: false
@@ -3315,6 +3333,7 @@ export type Database = {
           day_id: string | null
           event_date: string | null
           event_id: string
+          event_id_p5: string | null
           id: string
           item_legacy_id: string | null
           section_id: string | null
@@ -3328,6 +3347,7 @@ export type Database = {
           day_id?: string | null
           event_date?: string | null
           event_id: string
+          event_id_p5?: string | null
           id?: string
           item_legacy_id?: string | null
           section_id?: string | null
@@ -3341,6 +3361,7 @@ export type Database = {
           day_id?: string | null
           event_date?: string | null
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           item_legacy_id?: string | null
           section_id?: string | null
@@ -3354,6 +3375,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_program_trigger_audit_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -3416,7 +3444,7 @@ export type Database = {
           drawn_at: string | null
           drawn_by: string | null
           entries_snapshot: Json | null
-          event_id: string
+          event_id_p5: string
           id: string
           is_active: boolean
           pick_method: string
@@ -3430,7 +3458,7 @@ export type Database = {
           drawn_at?: string | null
           drawn_by?: string | null
           entries_snapshot?: Json | null
-          event_id: string
+          event_id_p5: string
           id?: string
           is_active?: boolean
           pick_method?: string
@@ -3444,7 +3472,7 @@ export type Database = {
           drawn_at?: string | null
           drawn_by?: string | null
           entries_snapshot?: Json | null
-          event_id?: string
+          event_id_p5?: string
           id?: string
           is_active?: boolean
           pick_method?: string
@@ -3454,10 +3482,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "event_raffle_draws_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "event_raffle_draws_event_id_p5_fkey"
+            columns: ["event_id_p5"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -3488,13 +3516,16 @@ export type Database = {
           eligibility_override_at: string | null
           eligibility_override_by: string | null
           eligibility_override_reason: string | null
-          event_id: string
+          event_id_p5: string
           first_name: string | null
           id: string
           ineligible_at: string | null
           ineligible_by: string | null
           ineligible_notes: string | null
           ineligible_reason: string | null
+          outreach_at: string | null
+          outreach_by: string | null
+          outreach_state: string | null
           phone_e164: string | null
           qr_token: string | null
           session_id: string | null
@@ -3516,13 +3547,16 @@ export type Database = {
           eligibility_override_at?: string | null
           eligibility_override_by?: string | null
           eligibility_override_reason?: string | null
-          event_id: string
+          event_id_p5: string
           first_name?: string | null
           id?: string
           ineligible_at?: string | null
           ineligible_by?: string | null
           ineligible_notes?: string | null
           ineligible_reason?: string | null
+          outreach_at?: string | null
+          outreach_by?: string | null
+          outreach_state?: string | null
           phone_e164?: string | null
           qr_token?: string | null
           session_id?: string | null
@@ -3544,13 +3578,16 @@ export type Database = {
           eligibility_override_at?: string | null
           eligibility_override_by?: string | null
           eligibility_override_reason?: string | null
-          event_id?: string
+          event_id_p5?: string
           first_name?: string | null
           id?: string
           ineligible_at?: string | null
           ineligible_by?: string | null
           ineligible_notes?: string | null
           ineligible_reason?: string | null
+          outreach_at?: string | null
+          outreach_by?: string | null
+          outreach_state?: string | null
           phone_e164?: string | null
           qr_token?: string | null
           session_id?: string | null
@@ -3563,10 +3600,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "event_raffle_entries_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "event_raffle_entries_event_id_p5_fkey"
+            columns: ["event_id_p5"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -3625,6 +3662,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           event_id: string | null
+          event_id_p5: string | null
           first_name: string | null
           id: string
           last_name: string | null
@@ -3636,6 +3674,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           event_id?: string | null
+          event_id_p5?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -3647,6 +3686,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           event_id?: string | null
+          event_id_p5?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -3661,6 +3701,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_registrations_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_rooms: {
@@ -3668,6 +3715,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           event_id: string
+          event_id_p5: string | null
           id: string
           sort_order: number
           venue_room_id: string
@@ -3676,6 +3724,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           event_id: string
+          event_id_p5?: string | null
           id?: string
           sort_order?: number
           venue_room_id: string
@@ -3684,6 +3733,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           sort_order?: number
           venue_room_id?: string
@@ -3694,6 +3744,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_rooms_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -3711,6 +3768,7 @@ export type Database = {
           diff_summary: Json
           error_code: string | null
           event_id: string
+          event_id_p5: string | null
           id: string
           idempotency_token: string
           outcome: string
@@ -3725,6 +3783,7 @@ export type Database = {
           diff_summary?: Json
           error_code?: string | null
           event_id: string
+          event_id_p5?: string | null
           id?: string
           idempotency_token: string
           outcome: string
@@ -3739,6 +3798,7 @@ export type Database = {
           diff_summary?: Json
           error_code?: string | null
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           idempotency_token?: string
           outcome?: string
@@ -3754,6 +3814,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_save_audit_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -3830,6 +3897,7 @@ export type Database = {
           format: string | null
           gallery: string[] | null
           group_chat_url: string | null
+          has_raffle: boolean | null
           id: string
           instagram_url: string | null
           is_template: boolean
@@ -3841,11 +3909,16 @@ export type Database = {
           organiser_card_slot_2: string | null
           organiser_ids: string[] | null
           passes: Json | null
+          payment_methods: string | null
+          poster_url: string | null
           promo_codes: Json | null
           promotion_touch_override: number | null
+          raffle_preset_id: string | null
           recurrence_rule: Json | null
           removed_dates: string[]
           slug: string | null
+          ticket_url: string | null
+          tickets: string | null
           tiktok_url: string | null
           timezone: string | null
           type: string | null
@@ -3877,6 +3950,7 @@ export type Database = {
           format?: string | null
           gallery?: string[] | null
           group_chat_url?: string | null
+          has_raffle?: boolean | null
           id?: string
           instagram_url?: string | null
           is_template?: boolean
@@ -3888,11 +3962,16 @@ export type Database = {
           organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
+          payment_methods?: string | null
+          poster_url?: string | null
           promo_codes?: Json | null
           promotion_touch_override?: number | null
+          raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          ticket_url?: string | null
+          tickets?: string | null
           tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
@@ -3924,6 +4003,7 @@ export type Database = {
           format?: string | null
           gallery?: string[] | null
           group_chat_url?: string | null
+          has_raffle?: boolean | null
           id?: string
           instagram_url?: string | null
           is_template?: boolean
@@ -3935,11 +4015,16 @@ export type Database = {
           organiser_card_slot_2?: string | null
           organiser_ids?: string[] | null
           passes?: Json | null
+          payment_methods?: string | null
+          poster_url?: string | null
           promo_codes?: Json | null
           promotion_touch_override?: number | null
+          raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
           slug?: string | null
+          ticket_url?: string | null
+          tickets?: string | null
           tiktok_url?: string | null
           timezone?: string | null
           type?: string | null
@@ -3949,7 +4034,22 @@ export type Database = {
           video_urls?: string[] | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_series_p5_legacy_event_id_fkey"
+            columns: ["legacy_event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_series_p5_raffle_preset_id_fkey"
+            columns: ["raffle_preset_id"]
+            isOneToOne: false
+            referencedRelation: "raffle_presets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_series_program_day_p5: {
         Row: {
@@ -4203,6 +4303,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           event_id: string | null
+          event_id_p5: string | null
           id: string
           legacy_id: string | null
           name: string
@@ -4213,6 +4314,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           event_id?: string | null
+          event_id_p5?: string | null
           id?: string
           legacy_id?: string | null
           name: string
@@ -4223,6 +4325,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           event_id?: string | null
+          event_id_p5?: string | null
           id?: string
           legacy_id?: string | null
           name?: string
@@ -4236,6 +4339,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_tracks_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_vendor_booths: {
@@ -4244,6 +4354,7 @@ export type Database = {
           booth_number: string | null
           created_at: string
           event_id: string
+          event_id_p5: string | null
           exhibit_hours: Json | null
           id: string
           notes: string | null
@@ -4255,6 +4366,7 @@ export type Database = {
           booth_number?: string | null
           created_at?: string
           event_id: string
+          event_id_p5?: string | null
           exhibit_hours?: Json | null
           id?: string
           notes?: string | null
@@ -4266,6 +4378,7 @@ export type Database = {
           booth_number?: string | null
           created_at?: string
           event_id?: string
+          event_id_p5?: string | null
           exhibit_hours?: Json | null
           id?: string
           notes?: string | null
@@ -4281,6 +4394,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_vendor_booths_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_vendor_booths_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
@@ -4292,8 +4412,10 @@ export type Database = {
       event_views: {
         Row: {
           event_id: string
+          event_id_p5: string | null
           id: string
           occurrence_id: string | null
+          occurrence_id_p5: string | null
           source: string | null
           user_agent: string | null
           viewed_at: string
@@ -4301,8 +4423,10 @@ export type Database = {
         }
         Insert: {
           event_id: string
+          event_id_p5?: string | null
           id?: string
           occurrence_id?: string | null
+          occurrence_id_p5?: string | null
           source?: string | null
           user_agent?: string | null
           viewed_at?: string
@@ -4310,8 +4434,10 @@ export type Database = {
         }
         Update: {
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           occurrence_id?: string | null
+          occurrence_id_p5?: string | null
           source?: string | null
           user_agent?: string | null
           viewed_at?: string
@@ -4323,6 +4449,20 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_views_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_views_occurrence_id_p5_fkey"
+            columns: ["occurrence_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -4365,7 +4505,6 @@ export type Database = {
           pricing: Json | null
           promo_codes: string | null
           raffle_capacity_max: number | null
-          raffle_preset_id: string | null
           recurrence: Json | null
           schedule_type: string | null
           series_key: string | null
@@ -4420,7 +4559,6 @@ export type Database = {
           pricing?: Json | null
           promo_codes?: string | null
           raffle_capacity_max?: number | null
-          raffle_preset_id?: string | null
           recurrence?: Json | null
           schedule_type?: string | null
           series_key?: string | null
@@ -4475,7 +4613,6 @@ export type Database = {
           pricing?: Json | null
           promo_codes?: string | null
           raffle_capacity_max?: number | null
-          raffle_preset_id?: string | null
           recurrence?: Json | null
           schedule_type?: string | null
           series_key?: string | null
@@ -4513,13 +4650,6 @@ export type Database = {
             columns: ["parent_event_id"]
             isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_raffle_preset_id_fkey"
-            columns: ["raffle_preset_id"]
-            isOneToOne: false
-            referencedRelation: "raffle_presets"
             referencedColumns: ["id"]
           },
           {
@@ -4667,13 +4797,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "filming_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       floor_type_options: {
@@ -4770,6 +4893,7 @@ export type Database = {
           entry_table: string
           erased_at: string | null
           event_id: string
+          event_id_p5: string | null
           issued_at: string
           issued_by: string | null
           token: string
@@ -4780,6 +4904,7 @@ export type Database = {
           entry_table: string
           erased_at?: string | null
           event_id: string
+          event_id_p5?: string | null
           issued_at?: string
           issued_by?: string | null
           token?: string
@@ -4790,6 +4915,7 @@ export type Database = {
           entry_table?: string
           erased_at?: string | null
           event_id?: string
+          event_id_p5?: string | null
           issued_at?: string
           issued_by?: string | null
           token?: string
@@ -4802,6 +4928,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guest_entry_erasure_tokens_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
         ]
       }
       guest_entry_phone_view_audit_v1: {
@@ -4809,6 +4942,7 @@ export type Database = {
           client_ip: unknown
           entry_id: string
           event_id: string
+          event_id_p5: string | null
           id: string
           viewed_at: string
           viewed_by: string
@@ -4817,6 +4951,7 @@ export type Database = {
           client_ip?: unknown
           entry_id: string
           event_id: string
+          event_id_p5?: string | null
           id?: string
           viewed_at?: string
           viewed_by: string
@@ -4825,6 +4960,7 @@ export type Database = {
           client_ip?: unknown
           entry_id?: string
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           viewed_at?: string
           viewed_by?: string
@@ -4835,6 +4971,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_entry_phone_view_audit_v1_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -4860,19 +5003,58 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_list_close_notified_v1: {
+        Row: {
+          cutoff_dt: string
+          event_id: string
+          event_id_p5: string | null
+          notified_at: string
+        }
+        Insert: {
+          cutoff_dt: string
+          event_id: string
+          event_id_p5?: string | null
+          notified_at?: string
+        }
+        Update: {
+          cutoff_dt?: string
+          event_id?: string
+          event_id_p5?: string | null
+          notified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_close_notified_v1_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_list_close_notified_v1_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_list_standing_exclusions: {
         Row: {
           event_id: string
+          event_id_p5: string | null
           excluded_at: string
           excluded_by: string | null
         }
         Insert: {
           event_id: string
+          event_id_p5?: string | null
           excluded_at?: string
           excluded_by?: string | null
         }
         Update: {
           event_id?: string
+          event_id_p5?: string | null
           excluded_at?: string
           excluded_by?: string | null
         }
@@ -4882,6 +5064,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: true
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_list_standing_exclusions_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -4995,13 +5184,6 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: true
             referencedRelation: "dancer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hosting_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -5140,6 +5322,7 @@ export type Database = {
           phone: string
           published_at: string | null
           published_event_id: string | null
+          published_event_id_p5: string | null
           section: Database["public"]["Enums"]["listing_request_section"]
           source_url: string | null
           status: Database["public"]["Enums"]["listing_request_status"]
@@ -5156,6 +5339,7 @@ export type Database = {
           phone: string
           published_at?: string | null
           published_event_id?: string | null
+          published_event_id_p5?: string | null
           section: Database["public"]["Enums"]["listing_request_section"]
           source_url?: string | null
           status?: Database["public"]["Enums"]["listing_request_status"]
@@ -5172,6 +5356,7 @@ export type Database = {
           phone?: string
           published_at?: string | null
           published_event_id?: string | null
+          published_event_id_p5?: string | null
           section?: Database["public"]["Enums"]["listing_request_section"]
           source_url?: string | null
           status?: Database["public"]["Enums"]["listing_request_status"]
@@ -5192,6 +5377,13 @@ export type Database = {
             columns: ["published_event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_requests_published_event_id_p5_fkey"
+            columns: ["published_event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -5256,6 +5448,48 @@ export type Database = {
           trigger_op?: string
           txid?: number
           violation_kind?: string
+        }
+        Relationships: []
+      }
+      m3_guest_list_occurrence_quarantine: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          deleted_reason: string | null
+          entry_id: string
+          event_id: string
+          first_name: string
+          is_permanent: boolean
+          legacy_occurrence_id: string
+          quarantine_reason: string
+          quarantined_at: string
+          status: string
+        }
+        Insert: {
+          created_at: string
+          deleted_at?: string | null
+          deleted_reason?: string | null
+          entry_id: string
+          event_id: string
+          first_name: string
+          is_permanent: boolean
+          legacy_occurrence_id: string
+          quarantine_reason: string
+          quarantined_at?: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_reason?: string | null
+          entry_id?: string
+          event_id?: string
+          first_name?: string
+          is_permanent?: boolean
+          legacy_occurrence_id?: string
+          quarantine_reason?: string
+          quarantined_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -5473,6 +5707,7 @@ export type Database = {
           cover_source_url: string | null
           created_at: string
           entity_id: string
+          entity_id_p5: string | null
           entity_type: string
           error: string | null
           image_url: string | null
@@ -5490,6 +5725,7 @@ export type Database = {
           cover_source_url?: string | null
           created_at?: string
           entity_id: string
+          entity_id_p5?: string | null
           entity_type: string
           error?: string | null
           image_url?: string | null
@@ -5507,6 +5743,7 @@ export type Database = {
           cover_source_url?: string | null
           created_at?: string
           entity_id?: string
+          entity_id_p5?: string | null
           entity_type?: string
           error?: string | null
           image_url?: string | null
@@ -5523,6 +5760,13 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "og_render_entity_id_p5_fkey"
+            columns: ["entity_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -5656,6 +5900,7 @@ export type Database = {
         Row: {
           clicked_at: string
           event_id: string
+          event_id_p5: string | null
           id: string
           organiser_id: string
           source: string | null
@@ -5666,6 +5911,7 @@ export type Database = {
         Insert: {
           clicked_at?: string
           event_id: string
+          event_id_p5?: string | null
           id?: string
           organiser_id: string
           source?: string | null
@@ -5676,6 +5922,7 @@ export type Database = {
         Update: {
           clicked_at?: string
           event_id?: string
+          event_id_p5?: string | null
           id?: string
           organiser_id?: string
           source?: string | null
@@ -5692,10 +5939,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "organiser_card_clicks_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "organiser_card_clicks_organiser_id_fkey"
             columns: ["organiser_id"]
             isOneToOne: false
-            referencedRelation: "entities"
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_card_clicks_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5898,13 +6159,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "organising_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       override_payload_strip_audit_v1: {
@@ -5987,6 +6241,7 @@ export type Database = {
           resolved_by: string | null
           source: string | null
           source_event_id: string | null
+          source_event_id_p5: string | null
           status: string
           suggested_room_id: string | null
           venue_id: string
@@ -6001,6 +6256,7 @@ export type Database = {
           resolved_by?: string | null
           source?: string | null
           source_event_id?: string | null
+          source_event_id_p5?: string | null
           status?: string
           suggested_room_id?: string | null
           venue_id: string
@@ -6015,6 +6271,7 @@ export type Database = {
           resolved_by?: string | null
           source?: string | null
           source_event_id?: string | null
+          source_event_id_p5?: string | null
           status?: string
           suggested_room_id?: string | null
           venue_id?: string
@@ -6025,6 +6282,13 @@ export type Database = {
             columns: ["source_event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_venue_rooms_source_event_id_p5_fkey"
+            columns: ["source_event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -6088,13 +6352,6 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: true
             referencedRelation: "dancer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "performing_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -6167,13 +6424,6 @@ export type Database = {
             columns: ["primary_persona_id"]
             isOneToOne: false
             referencedRelation: "dancer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "person_primary_persona_id_fkey"
-            columns: ["primary_persona_id"]
-            isOneToOne: false
-            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -6380,13 +6630,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "person_roles_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       phase4_tmp_occurrence_write_city_compat_audit: {
@@ -6480,13 +6723,6 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: true
             referencedRelation: "dancer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "photographing_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
             referencedColumns: ["id"]
           },
         ]
@@ -6717,13 +6953,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "pm_talent_pipeline_talent_id_fkey"
-            columns: ["talent_id"]
-            isOneToOne: false
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       pm_work_items: {
@@ -6819,6 +7048,7 @@ export type Database = {
       profile_view_events: {
         Row: {
           event_id: string | null
+          event_id_p5: string | null
           id: string
           person_id: string
           profile_type: string
@@ -6829,6 +7059,7 @@ export type Database = {
         }
         Insert: {
           event_id?: string | null
+          event_id_p5?: string | null
           id?: string
           person_id: string
           profile_type: string
@@ -6839,6 +7070,7 @@ export type Database = {
         }
         Update: {
           event_id?: string | null
+          event_id_p5?: string | null
           id?: string
           person_id?: string
           profile_type?: string
@@ -6853,6 +7085,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_view_events_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -6912,6 +7151,7 @@ export type Database = {
           discount_type: string
           discount_value: number | null
           event_id: string | null
+          event_id_p5: string | null
           external_url: string | null
           id: string
           is_featured: boolean
@@ -6935,6 +7175,7 @@ export type Database = {
           discount_type?: string
           discount_value?: number | null
           event_id?: string | null
+          event_id_p5?: string | null
           external_url?: string | null
           id?: string
           is_featured?: boolean
@@ -6958,6 +7199,7 @@ export type Database = {
           discount_type?: string
           discount_value?: number | null
           event_id?: string | null
+          event_id_p5?: string | null
           external_url?: string | null
           id?: string
           is_featured?: boolean
@@ -6984,6 +7226,93 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_codes_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      raffle_contacts: {
+        Row: {
+          consent_text_version: string
+          last_entry_id: string | null
+          last_event_id_p5: string | null
+          opted_in_at: string
+          phone_e164: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          consent_text_version: string
+          last_entry_id?: string | null
+          last_event_id_p5?: string | null
+          opted_in_at?: string
+          phone_e164: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          consent_text_version?: string
+          last_entry_id?: string | null
+          last_event_id_p5?: string | null
+          opted_in_at?: string
+          phone_e164?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_contacts_last_entry_id_fkey"
+            columns: ["last_entry_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffle_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_contacts_last_event_id_p5_fkey"
+            columns: ["last_event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      raffle_cutoff_rules: {
+        Row: {
+          created_at: string
+          cutoff_local: string
+          event_id_p5: string
+          id: string
+          local_date: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          cutoff_local: string
+          event_id_p5: string
+          id?: string
+          local_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          cutoff_local?: string
+          event_id_p5?: string
+          id?: string
+          local_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_cutoff_rules_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -7074,6 +7403,7 @@ export type Database = {
           draw_id: string | null
           entry_id: string | null
           event_id: string
+          event_id_p5: string
           first_name: string | null
           id: string
           logged_by: string | null
@@ -7088,6 +7418,7 @@ export type Database = {
           draw_id?: string | null
           entry_id?: string | null
           event_id: string
+          event_id_p5: string
           first_name?: string | null
           id?: string
           logged_by?: string | null
@@ -7102,6 +7433,7 @@ export type Database = {
           draw_id?: string | null
           entry_id?: string | null
           event_id?: string
+          event_id_p5?: string
           first_name?: string | null
           id?: string
           logged_by?: string | null
@@ -7132,6 +7464,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_winners_event_id_p5_fkey"
+            columns: ["event_id_p5"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
           {
@@ -7489,13 +7828,6 @@ export type Database = {
             referencedRelation: "dancer_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "teacher_role_details_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "public_visible_dancers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       trigger_layer_manifest: {
@@ -7588,18 +7920,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      v_is_admin: {
-        Row: {
-          coalesce: boolean | null
-        }
-        Insert: {
-          coalesce?: boolean | null
-        }
-        Update: {
-          coalesce?: boolean | null
-        }
-        Relationships: []
       }
       vendor_link_clicks: {
         Row: {
@@ -8550,7 +8870,15 @@ export type Database = {
           id?: string | null
           local_timezone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_series_p5_legacy_event_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       member_profiles_directory: {
         Row: {
@@ -8603,44 +8931,6 @@ export type Database = {
         }
         Relationships: []
       }
-      public_visible_dancers: {
-        Row: {
-          avatar_url: string | null
-          based_city_id: string | null
-          dance_role: string | null
-          dance_started_year: number | null
-          first_name: string | null
-          id: string | null
-          nationality: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          based_city_id?: string | null
-          dance_role?: string | null
-          dance_started_year?: number | null
-          first_name?: string | null
-          id?: string | null
-          nationality?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          based_city_id?: string | null
-          dance_role?: string | null
-          dance_started_year?: number | null
-          first_name?: string | null
-          id?: string | null
-          nationality?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dancer_profiles_based_city_id_fkey"
-            columns: ["based_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       search_result_click_counts_30d: {
         Row: {
           clicks_30d: number | null
@@ -8681,6 +8971,17 @@ export type Database = {
         Returns: number
       }
       _arc_gates_internal_counts_v1: { Args: never; Returns: Json }
+      _arc_gates_mirror_lookalike_v1: { Args: never; Returns: string }
+      _arc_gates_narrative_read_v1: {
+        Args: {
+          p_expected_policed: boolean
+          p_expected_template: boolean
+          p_key: string
+        }
+        Returns: string
+      }
+      _arc_gates_prose_police_v1: { Args: { p_roots: Json }; Returns: string }
+      _arc_gates_vacuity_verdict_v1: { Args: { p_counts: Json }; Returns: Json }
       _assert_can_edit_occurrence_p5: {
         Args: { p_actor: string; p_occurrence_id: string }
         Returns: undefined
@@ -8744,6 +9045,10 @@ export type Database = {
       }
       _cmd_series_remove_date_p5: {
         Args: { p_actor_id: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
+      _cmd_series_restore_ended_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
       _cmd_series_set_lifecycle_p5: {
@@ -8923,6 +9228,20 @@ export type Database = {
           section_rooms: number
         }[]
       }
+      _gated_inherited_room_v1: {
+        Args: {
+          p_base_room: string
+          p_base_venue_room_id: string
+          p_gate_ok: boolean
+          p_override_room: string
+          p_override_room_name: string
+          p_override_venue_room_id: string
+        }
+        Returns: {
+          room: string
+          venue_room_id: string
+        }[]
+      }
       _get_occurrence_program_p5_native_v1: {
         Args: { p_occurrence_id: string }
         Returns: Json
@@ -9024,6 +9343,7 @@ export type Database = {
         Args: { p_profile_type: string; p_role: string }
         Returns: string
       }
+      _occurred_stamp_job_health_v1: { Args: { p_now: string }; Returns: Json }
       _occurrence_date_has_bookings_v1: {
         Args: {
           p_legacy_event_id: string
@@ -9062,6 +9382,27 @@ export type Database = {
       }
       _occurrence_override_json_text_array_v1: {
         Args: { p_field: string; p_value: Json }
+        Returns: string[]
+      }
+      _occurrence_override_key_set_p5: {
+        Args: {
+          p_cancellation_reason_label: string
+          p_city_id: string
+          p_cover_image_url: string
+          p_custom_local_end_time: string
+          p_custom_local_start_time: string
+          p_description: string
+          p_featured: boolean
+          p_gallery: string[]
+          p_level: string
+          p_music_styles: string[]
+          p_organiser_ids: string[]
+          p_passes: Json
+          p_promo_codes: Json
+          p_ticket_url: string
+          p_title: string
+          p_venue_id: string
+        }
         Returns: string[]
       }
       _occurrence_override_owns_p5: {
@@ -9181,6 +9522,10 @@ export type Database = {
           headline_start: string
         }[]
       }
+      _p5_occurrence_has_view_evidence_v1: {
+        Args: { p_legacy_occurrence_id: string; p_occurrence_id: string }
+        Returns: boolean
+      }
       _p5_occurrence_program_end_v1: {
         Args: { p_occurrence_id: string }
         Returns: string
@@ -9256,6 +9601,15 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _public_person_name_v1: {
+        Args: {
+          p_display_name: string
+          p_dj_name: string
+          p_first_name: string
+          p_surname: string
+        }
+        Returns: string
+      }
       _public_time_agreement_sample_v1: {
         Args: { p_limit?: number }
         Returns: {
@@ -9266,6 +9620,31 @@ export type Database = {
         }[]
       }
       _purge_person_stub_v1: { Args: { p_person_id: string }; Returns: Json }
+      _raffle_cutoff_for_night_v1: {
+        Args: {
+          p_event_id: string
+          p_start_local: string
+          p_start_utc?: string
+          p_tz: string
+          p_use_rules?: boolean
+        }
+        Returns: {
+          cutoff_at: string
+          cutoff_local: string
+          cutoff_source: string
+        }[]
+      }
+      _raffle_cutoff_instant_v1: {
+        Args: { p_cutoff_local: string; p_start_local: string; p_tz: string }
+        Returns: string
+      }
+      _raffle_cutoff_rule_v1: {
+        Args: { p_event_id: string; p_local_date: string }
+        Returns: {
+          cutoff_local: string
+          rule_source: string
+        }[]
+      }
       _raffle_drawable_entries_v1: {
         Args: { p_event_id: string; p_exclude_entry_id?: string }
         Returns: {
@@ -9290,6 +9669,23 @@ export type Database = {
         Returns: boolean
       }
       _raffle_event_venue_v1: { Args: { p_event_id: string }; Returns: string }
+      _raffle_night_date_v1: { Args: { p_local: string }; Returns: string }
+      _raffle_night_v1: {
+        Args: { p_event_id: string }
+        Returns: {
+          closed: boolean
+          cutoff_at: string
+          cutoff_local: string
+          cutoff_source: string
+          legacy_occurrence_id: string
+          p5_occurrence_id: string
+          source: string
+          start_at_utc: string
+          start_local_date: string
+          start_local_hhmm: string
+          timezone: string
+        }[]
+      }
       _raffle_pepper_v1: { Args: never; Returns: string }
       _raffle_phone_pseudonym_key_v1: {
         Args: { p_pepper: string; p_phone: string }
@@ -9313,7 +9709,7 @@ export type Database = {
           drawn_at: string | null
           drawn_by: string | null
           entries_snapshot: Json | null
-          event_id: string
+          event_id_p5: string
           id: string
           is_active: boolean
           pick_method: string
@@ -9340,6 +9736,14 @@ export type Database = {
           p_window: string
         }
         Returns: boolean
+      }
+      _raffle_upcoming_nights_v1: {
+        Args: { p_event_id: string; p_limit: number; p_tz: string }
+        Returns: {
+          legacy_occurrence_id: string
+          p5_occurrence_id: string
+          start_local: string
+        }[]
       }
       _recompute_occurrence_headline_time_from_sessions_v1: {
         Args: { p_occurrence_id: string }
@@ -9561,14 +9965,6 @@ export type Database = {
             Args: { p_idempotency_key?: string; p_occurrence_id: string }
             Returns: Json
           }
-      admin_clear_occurrence_override_v1: {
-        Args: {
-          p_apply_to?: string
-          p_idempotency_key?: string
-          p_occurrence_id: string
-        }
-        Returns: Json
-      }
       admin_clear_session_overrides_v1:
         | {
             Args: { p_occurrence_id: string; p_program_item_id: string }
@@ -9722,6 +10118,7 @@ export type Database = {
           incomplete_profiles_count: number
           last_event_audit_at: string
           published_events_count: number
+          today_events_count: number
           upcoming_events_count: number
         }[]
       }
@@ -10114,10 +10511,6 @@ export type Database = {
         }[]
       }
       admin_get_person_v1: { Args: { p_person_id: string }; Returns: Json }
-      admin_get_prev_raffle_config_v1: {
-        Args: { p_before_date?: string; p_series_key: string }
-        Returns: Json
-      }
       admin_get_program_tree_v1: { Args: { p_event_id: string }; Returns: Json }
       admin_get_session_overrides_v1: {
         Args: { p_occurrence_id: string }
@@ -10582,20 +10975,24 @@ export type Database = {
           valid_until: string
         }[]
       }
+      admin_list_raffle_contacts_v1: { Args: never; Returns: Json }
+      admin_list_raffle_cutoff_rules_v1: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       admin_list_raffle_draws_v1: {
         Args: { p_event_id: string }
+        Returns: Json
+      }
+      admin_list_raffle_entrant_history_v1: {
+        Args: { p_phone_e164: string }
         Returns: Json
       }
       admin_list_raffle_entries_v1: {
         Args: { p_event_id: string }
         Returns: Json
       }
-      admin_list_raffle_events_v1: { Args: never; Returns: Json }
       admin_list_raffle_picker_events_v1: {
-        Args: { p_days_ahead?: number }
-        Returns: Json
-      }
-      admin_list_raffle_picker_events_v2: {
         Args: { p_days_ahead?: number }
         Returns: Json
       }
@@ -10833,6 +11230,7 @@ export type Database = {
         Returns: Json
       }
       admin_normalize_name: { Args: { p_name: string }; Returns: string }
+      admin_occurred_stamp_job_health_v1: { Args: never; Returns: Json }
       admin_organiser_card_clicks_summary_v1: {
         Args: { p_days?: number; p_organiser_id: string }
         Returns: Json
@@ -11170,10 +11568,6 @@ export type Database = {
         }
         Returns: Json
       }
-      admin_save_occurrence_identity_p5_v1: {
-        Args: { p_occurrence_id: string; p_patch: Json }
-        Returns: Json
-      }
       admin_save_occurrence_v1: {
         Args: {
           p_apply_to?: string
@@ -11244,6 +11638,10 @@ export type Database = {
           valid_from: string
           valid_until: string
         }[]
+      }
+      admin_save_raffle_outreach_v1: {
+        Args: { p_entry_id: string; p_state: string }
+        Returns: Json
       }
       admin_save_raffle_preset_v1: {
         Args: {
@@ -11487,25 +11885,6 @@ export type Database = {
         }
         Returns: Json
       }
-      admin_set_occurrence_time_v1: {
-        Args: {
-          p_apply_to?: string
-          p_idempotency_key?: string
-          p_instance_end: string
-          p_instance_start: string
-          p_occurrence_id: string
-        }
-        Returns: Json
-      }
-      admin_set_occurrence_venue_v1: {
-        Args: {
-          p_apply_to?: string
-          p_idempotency_key?: string
-          p_occurrence_id: string
-          p_venue_id: string
-        }
-        Returns: Json
-      }
       admin_set_organiser_lifecycle_v1: {
         Args: { p_organiser_id: string; p_status: string }
         Returns: Json
@@ -11515,6 +11894,14 @@ export type Database = {
           p_event_id: string
           p_legacy_ids: string[]
           p_parallel_group_id: string
+        }
+        Returns: Json
+      }
+      admin_set_raffle_cutoff_v1: {
+        Args: {
+          p_cutoff_local?: string
+          p_event_id: string
+          p_local_date?: string
         }
         Returns: Json
       }
@@ -11615,10 +12002,6 @@ export type Database = {
         Args: { p_person_id: string }
         Returns: Json
       }
-      admin_undo_action_v1: {
-        Args: { p_audit_id: number; p_idempotency_key?: string }
-        Returns: Json
-      }
       admin_unlink_event_from_organiser_v1: {
         Args: { p_event_id: string; p_organiser_id: string }
         Returns: undefined
@@ -11663,10 +12046,6 @@ export type Database = {
           p_reauth_window_minutes?: number
           p_target_user_id: string
         }
-        Returns: Json
-      }
-      admin_update_series_fields_v1: {
-        Args: { p_legacy_event_id: string; p_updates: Json }
         Returns: Json
       }
       admin_update_session_person_role_v1: {
@@ -11742,6 +12121,10 @@ export type Database = {
         Returns: Json
       }
       admin_venue_snapshot_v1: { Args: { p_venue_id: string }; Returns: Json }
+      admin_withdraw_raffle_contact_v1: {
+        Args: { p_phone_e164: string }
+        Returns: Json
+      }
       apply_4tier_rls: {
         Args: {
           p_city_col: string
@@ -11782,21 +12165,6 @@ export type Database = {
       calendar_occurrence_has_overrides_v1: {
         Args: { p_occurrence_id: string }
         Returns: boolean
-      }
-      calendar_occurrences_prune: { Args: never; Returns: number }
-      calendar_occurrences_upsert_protected: {
-        Args: {
-          p_city_id: string
-          p_city_slug: string
-          p_event_id: string
-          p_instance_end: string
-          p_instance_start: string
-          p_is_override: boolean
-          p_lifecycle_status: string
-          p_override_payload: Json
-          p_source: string
-        }
-        Returns: undefined
       }
       can_current_user_manage_event_graph: {
         Args: { p_event_id: string }
@@ -11951,10 +12319,6 @@ export type Database = {
       check_raffle_capacity_contract_v1: { Args: never; Returns: Json }
       check_raffle_draw_snapshot_contract_v1: { Args: never; Returns: Json }
       check_raffle_winners_contract_v1: { Args: never; Returns: Json }
-      check_replace_event_program_canvas_consistency_v1: {
-        Args: never
-        Returns: Json
-      }
       check_reverse_orphan_occurrence_v1: { Args: never; Returns: Json }
       check_rpc_body_v1: { Args: { p_name: string }; Returns: Json }
       check_search_public_v4_parity_v1: {
@@ -12017,7 +12381,6 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json[]
       }
-      debug_delete_test: { Args: { p_event_id: string }; Returns: Json }
       debug_name_test: { Args: { p_payload: Json }; Returns: Json }
       delete_venue_admin: {
         Args: { actor_user_id: string; p_entity_id: string }
@@ -12279,10 +12642,6 @@ export type Database = {
           venue: Json
         }[]
       }
-      get_event_page_snapshot: {
-        Args: { p_event_id: string; p_occurrence_id?: string }
-        Returns: Json
-      }
       get_event_page_snapshot_v2: {
         Args: { p_event_id: string; p_occurrence_id?: string }
         Returns: Json
@@ -12403,9 +12762,13 @@ export type Database = {
         Args: never
         Returns: {
           city_name: string
+          city_slug: string
+          country: string
           event_id: string
+          is_active: boolean
           name: string
           occurrence_date: string
+          start_time: string
           status: string
           type: string
           updated_at: string
@@ -12576,6 +12939,10 @@ export type Database = {
       }
       get_public_dj_v1: { Args: { p_dj_id: string }; Returns: Json }
       get_public_event_detail: {
+        Args: { p_event_id: string; p_occurrence_id?: string }
+        Returns: Json
+      }
+      get_public_event_detail_v2: {
         Args: { p_event_id: string; p_occurrence_id?: string }
         Returns: Json
       }
@@ -12919,6 +13286,16 @@ export type Database = {
         }[]
       }
       get_venue_detail: { Args: { p_venue_id: string }; Returns: Json }
+      guest_list_claim_close_notify_candidates_v1: {
+        Args: never
+        Returns: {
+          cutoff_dt: string
+          entries: Json
+          event_id: string
+          event_name: string
+          start_local_date: string
+        }[]
+      }
       idempotency_claim: {
         Args: { p_key: string; p_request_hash: string }
         Returns: boolean
@@ -13010,7 +13387,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: {
           id: string
-          slug: string | null
+          slug: string
           updated_at: string
         }[]
       }
@@ -13278,14 +13655,6 @@ export type Database = {
         Args: { p_event_start: string; p_item_start: string }
         Returns: string
       }
-      propagate_event_venue_to_future_occurrences: {
-        Args: {
-          _event_id: string
-          _from_occurrence_id: string
-          _new_venue_id: string
-        }
-        Returns: number
-      }
       public_api_check_rate_limit_v1: {
         Args: { p_consumer_id: string; p_limit: number }
         Returns: Json
@@ -13443,6 +13812,7 @@ export type Database = {
           draw_id: string | null
           entry_id: string | null
           event_id: string
+          event_id_p5: string
           first_name: string | null
           id: string
           logged_by: string | null
@@ -13500,10 +13870,6 @@ export type Database = {
       }
       remove_favourite_venue_v1: {
         Args: { p_venue_id: string }
-        Returns: undefined
-      }
-      replace_event_program: {
-        Args: { p_event_id: string; p_meta_data: Json }
         Returns: undefined
       }
       replace_or_patch_occurrences: {
@@ -13564,10 +13930,6 @@ export type Database = {
           city_id: string
           city_slug: string
         }[]
-      }
-      save_event_core: {
-        Args: { p_event_core: Json; p_event_id: string }
-        Returns: undefined
       }
       save_my_dancer_profile_v1: { Args: { p_payload: Json }; Returns: Json }
       save_my_organiser_profile_v1: { Args: { p_payload: Json }; Returns: Json }
@@ -13668,14 +14030,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      set_calendar_occurrence_venue: {
-        Args: {
-          _occurrence_id: string
-          _propagate?: boolean
-          _venue_id: string
-        }
-        Returns: undefined
-      }
       set_og_image_v1: {
         Args: {
           p_cover_source_url: string
@@ -13692,6 +14046,7 @@ export type Database = {
         Args: { p_id: string; p_name: string }
         Returns: string
       }
+      stamp_occurrence_occurred_evidence_v1: { Args: never; Returns: Json }
       stash_local_as_utc: {
         Args: { p_date: string; p_time: string }
         Returns: string
