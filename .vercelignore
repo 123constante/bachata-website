@@ -61,8 +61,16 @@ bin/*
 .claude/
 .githooks/
 
-# Public assets (served via CDN)
-public/
+# public/ must NOT be ignored -- the same footgun as the build-time configs
+# above. `vercel build` runs `react-router build` from source on Vercel's
+# infra, and Vite copies public/ into build/client/ as a BUILD INPUT, not a
+# runtime-served directory. Ignoring it uploaded a source tree with no
+# public/, so the build emitted no favicon, apple-touch-icon, og-image,
+# site.webmanifest or robots.txt, and every one of those paths fell through
+# to the SPA catchall as 200 text/html: broken social previews, and a
+# robots.txt that silently stopped applying the crawl-volume limits this arc
+# added to keep bots off the Vercel meter. Local builds have public/ on
+# disk, so it reproduced nowhere but production. Shipping it costs 213 KB.
 
 # Database and migrations (authority in admin repo). Anchored to the repo
 # root (/supabase/) -- an unanchored "supabase/" is a gitignore-semantics
