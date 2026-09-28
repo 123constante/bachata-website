@@ -8691,10 +8691,6 @@ export type Database = {
         Args: { p_anchor_date?: string; p_series_id: string }
         Returns: string[]
       }
-      _derive_event_organiser_ids: {
-        Args: { p_event_id: string }
-        Returns: string[]
-      }
       _effective_occurrence_boolean_p5: {
         Args: {
           ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
@@ -9334,18 +9330,6 @@ export type Database = {
         Args: { p_old_rule: Json; p_series_id: string }
         Returns: Json
       }
-      _resolve_event_program_day_section_v1: {
-        Args: {
-          p_event_date: string
-          p_event_id: string
-          p_kind: Database["public"]["Enums"]["event_program_section_kind"]
-          p_legacy_id?: string
-        }
-        Returns: {
-          day_id: string
-          section_id: string
-        }[]
-      }
       _resolve_primary_organiser_v1: {
         Args: { p_event_id: string }
         Returns: {
@@ -9426,10 +9410,6 @@ export type Database = {
           p_is_primary?: boolean
           p_member_role: string
         }
-        Returns: Json
-      }
-      admin_add_series_program_item_v1: {
-        Args: { p_item_data: Json; p_section_id: string }
         Returns: Json
       }
       admin_alias_pending_facility_v1: {
@@ -9725,14 +9705,6 @@ export type Database = {
       }
       admin_delete_person_v1: { Args: { p_person_id: string }; Returns: Json }
       admin_delete_promo_code: { Args: { p_id: string }; Returns: undefined }
-      admin_delete_series_program_item_v1: {
-        Args: { p_item_id: string }
-        Returns: Json
-      }
-      admin_delete_standard_class_session_v1: {
-        Args: { p_session_id: string }
-        Returns: boolean
-      }
       admin_delete_vendor_v1: { Args: { p_entity_id: string }; Returns: Json }
       admin_delete_videographer_v1: {
         Args: { p_entity_id: string }
@@ -9887,16 +9859,6 @@ export type Database = {
       }
       admin_event_workspace_p5: { Args: { p_series_id: string }; Returns: Json }
       admin_get_app_settings_v1: { Args: never; Returns: Json }
-      admin_get_broken_reference_queue: {
-        Args: { p_limit?: number }
-        Returns: {
-          broken_profile_id: string
-          detail: string
-          event_id: string
-          role: string
-          source: string
-        }[]
-      }
       admin_get_connectivity_health_metrics: {
         Args: { p_city?: string; p_city_id?: string; p_city_slug?: string }
         Returns: {
@@ -10063,15 +10025,6 @@ export type Database = {
           name: string
         }[]
       }
-      admin_get_person_event_history_v1: {
-        Args: { p_limit?: number; p_person_entity_id: string }
-        Returns: {
-          event_id: string
-          event_name: string
-          role: string
-          start_time: string
-        }[]
-      }
       admin_get_person_roles_v1: {
         Args: { p_person_entity_id: string }
         Returns: {
@@ -10081,24 +10034,10 @@ export type Database = {
           role_type: string
         }[]
       }
-      admin_get_person_roles_v2: {
-        Args: { p_person_entity_id: string }
-        Returns: {
-          avatar_url: string
-          event_count: number
-          label: string
-          role_id: string
-          role_type: string
-        }[]
-      }
       admin_get_person_v1: { Args: { p_person_id: string }; Returns: Json }
       admin_get_program_tree_v1: { Args: { p_event_id: string }; Returns: Json }
       admin_get_session_overrides_v1: {
         Args: { p_occurrence_id: string }
-        Returns: Json
-      }
-      admin_get_session_people_v1: {
-        Args: { p_event_id: string }
         Returns: Json
       }
       admin_get_suspected_duplicate_profiles: {
@@ -10113,41 +10052,6 @@ export type Database = {
           city_key: string
           normalized_name: string
           profile_ids: string[]
-          profile_type: string
-        }[]
-      }
-      admin_get_unlinked_events_queue: {
-        Args: {
-          p_city?: string
-          p_city_id?: string
-          p_city_slug?: string
-          p_limit?: number
-        }
-        Returns: {
-          city: string
-          city_id_text: string
-          city_slug: string
-          event_id: string
-          event_name: string
-          missing_organiser: boolean
-          missing_venue: boolean
-          reason: string
-          start_time: string
-        }[]
-      }
-      admin_get_unlinked_profiles_queue: {
-        Args: {
-          p_city?: string
-          p_city_id?: string
-          p_city_slug?: string
-          p_limit?: number
-        }
-        Returns: {
-          city: string
-          city_id_text: string
-          city_slug: string
-          display_name: string
-          profile_id: string
           profile_type: string
         }[]
       }
@@ -10287,17 +10191,6 @@ export type Database = {
         Args: { p_event_id: string; p_organiser_id: string }
         Returns: undefined
       }
-      admin_link_program_item_person_v1: {
-        Args: {
-          p_op: string
-          p_profile_id: string
-          p_profile_type: string
-          p_program_item_id: string
-          p_role?: string
-          p_sort_order?: number
-        }
-        Returns: Json
-      }
       admin_link_role_to_person_v1: {
         Args: {
           p_person_entity_id: string
@@ -10427,14 +10320,6 @@ export type Database = {
           updated_by: string
           usage_count: number
         }[]
-      }
-      admin_list_future_occurrences_v1: {
-        Args: {
-          p_event_id: string
-          p_from_occurrence_id?: string
-          p_limit?: number
-        }
-        Returns: Json
       }
       admin_list_guest_list_entries_v1: {
         Args: { p_event_id: string; p_occurrence_id?: string }
@@ -10934,10 +10819,6 @@ export type Database = {
           venue_name: string
         }[]
       }
-      admin_publish_custom_date_series_v1: {
-        Args: { p_occurrences: Json; p_series_id: string }
-        Returns: Json
-      }
       admin_recent_program_people_v1: {
         Args: { p_limit?: number; p_profile_type: string }
         Returns: Json
@@ -10992,10 +10873,6 @@ export type Database = {
       }
       admin_rename_person_v1: {
         Args: { p_name: string; p_person_entity_id: string }
-        Returns: Json
-      }
-      admin_reorder_program_item_v1: {
-        Args: { p_direction: number; p_program_item_id: string }
         Returns: Json
       }
       admin_reset_occurrence_v1: {
@@ -11570,10 +11447,6 @@ export type Database = {
       }
       admin_start_onboarding_v1: { Args: { p_id: string }; Returns: Json }
       admin_success: { Args: { p_data?: Json }; Returns: Json }
-      admin_suggest_event_teachers_v1: {
-        Args: { p_event_title: string; p_limit?: number }
-        Returns: Json
-      }
       admin_sync_event_links_to_event_row: {
         Args: { p_event_id: string }
         Returns: Json
@@ -11614,10 +11487,6 @@ export type Database = {
             Args: { p_id: string; p_idempotency_key?: string; p_patch: Json }
             Returns: Json
           }
-      admin_update_program_item_v1: {
-        Args: { p_item_id: string; p_updates: Json }
-        Returns: Json
-      }
       admin_update_sensitive_settings: {
         Args: {
           p_new_city_ids?: string[]
@@ -11626,15 +11495,6 @@ export type Database = {
           p_reason?: string
           p_reauth_window_minutes?: number
           p_target_user_id: string
-        }
-        Returns: Json
-      }
-      admin_update_session_person_role_v1: {
-        Args: {
-          p_profile_id: string
-          p_profile_type: string
-          p_program_item_id: string
-          p_role: string
         }
         Returns: Json
       }
@@ -11663,19 +11523,6 @@ export type Database = {
           valid_from: string
           valid_until: string
         }[]
-      }
-      admin_upsert_standard_class_session_v1: {
-        Args: {
-          p_end_time: string
-          p_event_id: string
-          p_legacy_id: string
-          p_levels: string[]
-          p_session_id: string
-          p_start_time: string
-          p_title: string
-          p_type: string
-        }
-        Returns: string
       }
       admin_vendor_link_clickout_top_v1: {
         Args: { p_limit?: number; p_window?: string }
@@ -11775,7 +11622,6 @@ export type Database = {
       check_epp_avatar_url_drift_v1: { Args: never; Returns: Json }
       check_epp_display_name_drift_v1: { Args: never; Returns: Json }
       check_epp_resolver_parity_v1: { Args: never; Returns: Json }
-      check_event_attendees_fk_target_v1: { Args: never; Returns: Json }
       check_event_detail_organiser_resolves_v1: { Args: never; Returns: Json }
       check_event_editor_surface_drift_v1: { Args: never; Returns: Json }
       check_event_link_canonical_v1: { Args: never; Returns: Json }
@@ -12207,22 +12053,6 @@ export type Database = {
         }[]
       }
       get_event_guest_list: { Args: { p_event_id: string }; Returns: Json }
-      get_event_page_detail: {
-        Args: { p_event_id: string }
-        Returns: {
-          attendance: Json
-          attendee_preview: Json
-          balance: Json
-          description: Json
-          djs: Json
-          event: Json
-          occurrence: Json
-          organiser: Json
-          schedule: Json
-          teachers: Json
-          venue: Json
-        }[]
-      }
       get_event_page_snapshot_v2: {
         Args: { p_event_id: string; p_occurrence_id?: string }
         Returns: Json
@@ -12363,23 +12193,6 @@ export type Database = {
         Args: { p_occurrence_id: string }
         Returns: Json
       }
-      get_occurrences_by_canonical_venue: {
-        Args: {
-          _end_at: string
-          _limit?: number
-          _offset?: number
-          _start_at: string
-          _venue_id: string
-        }
-        Returns: {
-          canonical_venue_id: string
-          canonical_venue_source: string
-          event_id: string
-          instance_end: string
-          instance_start: string
-          occurrence_id: string
-        }[]
-      }
       get_og_image_v1: {
         Args: {
           p_cover_token: string
@@ -12445,20 +12258,6 @@ export type Database = {
         Returns: {
           query: string
           search_count: number
-        }[]
-      }
-      get_profile_event_appearances: {
-        Args: { p_profile_id: string }
-        Returns: {
-          event_id: string
-          item_day: string
-          item_end_time: string
-          item_start_time: string
-          item_title: string
-          item_type: string
-          link_table: string
-          program_item_id: string
-          role: string
         }[]
       }
       get_profile_event_timeline: {
@@ -12818,7 +12617,6 @@ export type Database = {
         }[]
       }
       get_public_venues_list_v1: { Args: never; Returns: Json[] }
-      get_public_venues_list_v2: { Args: never; Returns: Json[] }
       get_public_venues_list_v3: { Args: never; Returns: Json[] }
       get_public_venues_list_v4: { Args: never; Returns: Json[] }
       get_public_videographer_preview_v1: {
@@ -13012,10 +12810,6 @@ export type Database = {
           entity_type: string
           occurrence_id: string
         }[]
-      }
-      organiser_event_workspace_v1: {
-        Args: { p_cursor?: string; p_limit?: number; p_series_id: string }
-        Returns: Json
       }
       organiser_get_event_snapshot_v1: {
         Args: { p_event_id: string }
@@ -13472,14 +13266,6 @@ export type Database = {
           profile_type: string
         }[]
       }
-      resolve_guest_assignments: {
-        Args: { p_assignments: Json; p_event_id: string; p_timezone: string }
-        Returns: {
-          guest_profile_id: string
-          occurrence_id: string
-          role: string
-        }[]
-      }
       resolve_my_person_id_v1: { Args: never; Returns: string }
       resolve_person_v1: {
         Args: { p_id: string; p_kind: string }
@@ -13644,10 +13430,6 @@ export type Database = {
           p_session_id?: string
         }
         Returns: Json
-      }
-      sync_standard_event_sessions: {
-        Args: { p_event_id: string; p_key_times: Json }
-        Returns: undefined
       }
       test_per_date_program_sync_mutation_v1: { Args: never; Returns: Json }
       test_per_occurrence_actor_kind_v1: { Args: never; Returns: Json }
