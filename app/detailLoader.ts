@@ -138,6 +138,34 @@ export function cacheHeaders(loaderHeaders: Headers): Record<string, string> {
   };
 }
 
+/** Route `headers()` body for a route whose SSR output is DEPLOYMENT-CONSTANT:
+ *  the server renders the same bytes for a given URL until the next deploy, so
+ *  there is no content edit a tag purge could need to reach.
+ *
+ *  WHY NO TAG, since every other edge-cached route in this file carries one.
+ *  A tag exists to let a WRITE invalidate a document. These routes have no
+ *  loader and fetch nothing, so no write can change what they emit -- the only
+ *  input is the build. A deploy gives Vercel a new cache scope, which is the
+ *  purge. Attaching a tag here would be apparatus with no writer behind it.
+ *
+ *  WHY IT TAKES NO ARGUMENTS. cacheHeaders() reads the loader's side channel
+ *  for the tag and the TTL bound; a route with no loader has neither, and
+ *  passing it an empty Headers would take the untagged branch and emit NO edge
+ *  caching -- the exact behaviour this function exists to replace. The two are
+ *  deliberately separate entry points rather than one with a fallback, so a
+ *  route that LOSES its loader by accident goes uncached (safe) instead of
+ *  silently inheriting a constant-output policy it no longer satisfies.
+ *
+ *  Same EDGE_S_MAXAGE/EDGE_SWR convention as everything else here: routed
+ *  through edgeCacheControl() rather than restating its literal, so a retune
+ *  there cannot leave this caller behind. */
+export function staticShellCacheHeaders(): Record<string, string> {
+  return {
+    "Cache-Control": BROWSER_NO_STORE,
+    "Vercel-CDN-Cache-Control": edgeCacheControl(),
+  };
+}
+
 /** Wrap a loader payload so the SSR document AND the client-nav `.data` response
  *  carry a Vercel-Cache-Tag (comma-separated tags). The component and meta()
  *  still receive the unwrapped payload.
