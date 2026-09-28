@@ -34,24 +34,24 @@ name: DB Contract Check
 #     meta_data.program session count must match its event_program_items count.
 #     Drift baseline is 0 after Phase F backfill (2026-05-07)
 #     (admin migrations 20260510030000 / 20260510040000 / 20260510050000).
-# 11. The Phase 2/3 security-hardening policy contract - the nine policies
+# 11. The Phase 2/3 security-hardening policy contract - the eight policies
 #     applied by admin migration 20260511010000 (Admin read on
 #     event_program_items / organiser_team_members; Public read on
 #     calendar_occurrences; Service role all on those three; Insert for
-#     published events only on event_views; Admin insert on event_attendees /
-#     songs) must all remain present. Catches raw-SQL drift outside the
+#     published events only on event_views; Admin insert on songs) must all
+#     remain present (nine until admin 20261105820000 dropped event_attendees). Catches raw-SQL drift outside the
 #     migration channel. Health-check RPC: check_security_phase2_3_policies_v1
 #     (admin migration 20260511030000).
-# 12. The Phase 1 FK-index contract - the five FK indexes added by admin
+# 12. The Phase 1 FK-index contract - the four FK indexes added by admin
 #     migration 20260512000000 (cities.country_code, djs.user_id,
-#     event_attendees.dancer_id, event_raffle_draws.prior_draw_id,
-#     guest_dancer_profiles.city_id) must remain present. Health-check RPC:
+#     event_raffle_draws.prior_draw_id, guest_dancer_profiles.city_id) must
+#     remain present (five until event_attendees was dropped). Health-check RPC:
 #     check_fk_indexes_v1 (admin migration 20260512030000).
-# 13. The event_attendees FK-target contract - the dancer_id FK must
-#     reference public.dancer_profiles, never the archived
-#     dancers_archive_april2026 table. Health-check RPC:
-#     check_event_attendees_fk_target_v1 (admin migrations 20260512020000 /
-#     20260512030000).
+# 13. RETIRED 2026-09-28: the event_attendees FK-target contract. Admin
+#     migration 20261105820000 dropped event_attendees (M5 dead tables arc),
+#     so there is no FK left to guard; its step and script are removed and
+#     check_event_attendees_fk_target_v1 retires in the admin repo after this.
+#     Number kept so the later items keep theirs.
 # 14. The epp.display_name drift contract - no public routine body may
 #     reference event_program_people.display_name (column dropped Phase A.5,
 #     replaced by display_name_override + canonical resolution from
@@ -379,13 +379,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-fk-indexes.mjs
-
-      - name: Run event_attendees FK-target contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-event-attendees-fk-target.mjs
 
       # Gates on a hand-maintained ceiling (baseline 36 teachers / 6 DJs
       # unassigned) -- a real but known-imperfect proxy for "nobody lost an

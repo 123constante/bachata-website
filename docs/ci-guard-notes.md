@@ -25,7 +25,8 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - Canvas consistency (#10)
 - Security-hardening policy (#11)
 - FK-index contract (#12)
-- event_attendees FK target (#13)
+- ~~event_attendees FK target (#13)~~ &mdash; RETIRED 2026-09-28: admin `20261105820000` dropped
+  `event_attendees`, so the step and its script are gone (number kept).
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
 - Teacher/DJ assignment integrity (#17) &mdash; **GATES on a hand-kept CEILING**

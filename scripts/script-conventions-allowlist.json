@@ -35,9 +35,6 @@
   "scripts/check-epp-display-name-drift.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-event-attendees-fk-target.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-event-program-duration.mjs": {
     "R4:no-canary": 1
   },
