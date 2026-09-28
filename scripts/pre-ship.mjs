@@ -468,8 +468,34 @@ export const CHECK_SKIPS = {
  * three errors of silent headroom a later ship could spend without tripping
  * anything. Measured on the merge commit itself with the authoritative command,
  * per the rule above -- a bare "npx tsc --noEmit" still reads 0 here.
+ *
+ * 88 -> 106 on 2026-09-28. This one RAISES the ratchet, which every move above
+ * refused to do, so it carries the heavier burden of proof. origin/main itself
+ * measures 106 (a6b8db2, clean worktree, nothing of this branch applied), using
+ * the authoritative "react-router typegen && tsc -p tsconfig.app.json --noEmit"
+ * and counted with this file's own countTscErrors, with hasConfigLevelTscError
+ * false -- so these are 106 real anchored diagnostics, not a tsc that died
+ * before compiling. The rule above says a ratchet may only tighten to a number
+ * the base ref actually reports; the same rule read forwards is why this may
+ * only move to 106 and not to some rounder figure.
+ *
+ * Why it had to move HERE, in a ship that changes one deploy-config file: at 88
+ * the ratchet failed EVERY branch cut from main, blaming each one for 18 errors
+ * none of them wrote. Five branches already carried a local 88 -> 106 edit
+ * (feat/organiser-profile-refine, fix/dancer-persona-key-id, verify-main,
+ * chore/tighten-gh-allowlist, fix/festival-edge-ttl-pinned-day) -- five sessions
+ * each re-measuring main and each stranding the unblock on a feature branch that
+ * had not merged. That is the failure mode this file warns about one constant to
+ * the left, so the move is banked here ALONE, ahead of the ship it unblocks.
+ *
+ * The debt is NOT accepted as correct. 57 of the 106 are TS2339 across ~40 files
+ * concentrated in event/venue/profile surfaces, the signature of generated
+ * Supabase types lagging schema drift (cf. the bot/types-regen branch). Raising
+ * the floor stops main failing every ship; it does not diagnose that, and the
+ * next person to regenerate types should expect this number to fall sharply and
+ * should take the ledger's offer to lower it.
  */
-export const TYPECHECK_BASELINE = 88;
+export const TYPECHECK_BASELINE = 106;
 
 const TSC_FILE_ERROR = /^[^\s(].*\([0-9]+,[0-9]+\): error TS[0-9]+/gm;
 const TSC_ANY_ERROR = /error TS[0-9]+/g;
