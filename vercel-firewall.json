@@ -17,39 +17,8 @@
     "sqli": { "active": true, "action": "log" },
     "xss": { "active": true, "action": "log" }
   },
+  "_retired": "rule_rate_limit_city_and_teachers_LOG (committed 2026-09-22, never applied live -- check:firewall-drift was red on it) was removed 2026-09-28: the site is now fronted by Cloudflare, so every request Vercel sees carries a Cloudflare egress IP. Any rule keyed on [\"ip\"] therefore keys on a handful of shared addresses and would fire on ALL traffic at once; flipped to deny it is a self-DoS. Per-IP rate limiting now belongs at Cloudflare (which sees the real client IP), never here. Bot-classification rules (bot_protection) are unaffected.",
   "rules": [
-    {
-      "id": "rule_rate_limit_city_and_teachers_LOG",
-      "name": "Rate limit /city/:slug and /teachers/:path* (LOG only)",
-      "active": true,
-      "description": "Vercel Hobby usage fix item #4: caps requests/min per IP on the two busiest route groups to cut Edge Request COUNT directly (the other items in this plan cut cache-miss compute, not request count). LOG-only per the plan's own instruction -- test that Vercel actually honours a non-blocking rate-limit action before ever flipping this to deny/challenge. Distinct lever from bot_protection, which stays LOG-only by prior decision (a past incident blocked legitimate internal pg_net callers) -- this rule targets request VOLUME per IP, not traffic classification, so it does not reintroduce that risk.",
-      "conditionGroup": [
-        {
-          "conditions": [
-            { "type": "path", "op": "pre", "value": "/city/" }
-          ]
-        },
-        {
-          "conditions": [
-            { "type": "path", "op": "pre", "value": "/teachers/" }
-          ]
-        }
-      ],
-      "action": {
-        "mitigate": {
-          "action": "log",
-          "redirect": null,
-          "rateLimit": {
-            "algo": "fixed_window",
-            "window": 60,
-            "limit": 300,
-            "keys": ["ip"],
-            "action": "log"
-          },
-          "actionDuration": null
-        }
-      }
-    },
     {
       "id": "rule_bypass_revalidate_webhook_ddNB3U",
       "name": "Bypass revalidate webhook",
