@@ -23,17 +23,16 @@ const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const BOGUS_UUID = '00000000-0000-0000-0000-000000000000';
 
 async function pickFixture(): Promise<{ eventId: string; occurrenceId: string } | null> {
-  // get_calendar_events is anon-callable and surfaces both event_id and
-  // occurrence_id in one row. Walks +-30 days around now to find a published
-  // event with a real occurrence; returns the first hit.
+  // calendar_events_dto (P5-only) is anon-callable and surfaces both event_id and
+  // occurrence_id in one row. Walks -30/+60 days around now to find a published
+  // event with a real occurrence; returns the first hit. (Was get_calendar_events,
+  // the legacy calendar reader M5 retires.)
   const now = new Date();
   const start = new Date(now); start.setDate(now.getDate() - 30);
   const end = new Date(now); end.setDate(now.getDate() + 60);
-  const { data, error } = await anon.rpc('get_calendar_events', {
-    range_start: start.toISOString(),
-    range_end: end.toISOString(),
-    city_slug_param: null,
-    p_include_past: true,
+  const { data, error } = await anon.rpc('calendar_events_dto' as never, {
+    p_from: start.toISOString(),
+    p_to: end.toISOString(),
   } as never);
   if (error || !Array.isArray(data) || data.length === 0) return null;
   const row = (data as Array<{ event_id?: string; occurrence_id?: string }>)
