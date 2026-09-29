@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { Fragment, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
@@ -1298,7 +1298,17 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                 // slots (alphabetical), so the user reads top-to-bottom in
                 // each room. Mobile collapses to single-column stacking via
                 // Tailwind's responsive grid (sm:grid-cols-N).
-                if (isMultiRoom && orderedRooms.length >= 2) {
+                // A session can carry no room at all (e.g. the effective-venue room
+                // gate in _compute_effective_occurrence_p5 clears an inherited room
+                // that no longer fits the occurrence's venue) while sibling sessions
+                // elsewhere in the event still resolve a room, keeping isMultiRoom
+                // true. Gate the room-grid layout per-slot, not just per-event: a
+                // slot with ZERO roomed sessions falls through to the plain
+                // single-room layout below instead of rendering a full row of
+                // "No session in <room>" placeholders above the real session.
+                const slotHasRoomedSession = slot.sessions.some((s) => s.room);
+
+                if (isMultiRoom && orderedRooms.length >= 2 && slotHasRoomedSession) {
                   const startStr = slot.startMins !== null ? fmtMins12(slot.startMins) : 'Time TBC';
                   const endStr = slot.endMins !== null ? fmtMins12(slot.endMins) : '';
                   const durStr =
@@ -1306,9 +1316,15 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                       ? fmtDuration(slot.startMins, slot.endMins)
                       : '';
                   const isPartyish = format === 'range';
+                  // A session in this slot can still individually have no room
+                  // (mixed with roomed siblings) -- it matches no column below, so
+                  // it renders as a full-width row spanning every room column
+                  // instead of being silently dropped. Same 64px time gutter as
+                  // the grid above it, so times stay aligned between the two rows.
+                  const unroomedSessions = slot.sessions.filter((s) => !s.room);
                   return (
+                    <Fragment key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}>
                     <div
-                      key={`slot-${slot.startMins}-${slot.sessions[0]?.id ?? 'x'}`}
                       className="grid items-start gap-[6px]"
                       style={{ gridTemplateColumns: `64px repeat(${orderedRooms.length}, 1fr)` }}
                     >
@@ -1388,10 +1404,33 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
                         );
                       })}
                     </div>
+                    {unroomedSessions.length > 0 && (
+                      <div
+                        className="grid items-start gap-[6px]"
+                        style={{ gridTemplateColumns: `64px repeat(${orderedRooms.length}, 1fr)` }}
+                      >
+                        <div aria-hidden="true" />
+                        <div
+                          className="flex flex-col gap-[6px]"
+                          style={{ gridColumn: `2 / span ${orderedRooms.length}` }}
+                        >
+                          {unroomedSessions.map((s) =>
+                            s.type === 'party' || s.type === 'performance' || s.type === 'show' ? (
+                              <PartyCard key={s.id} session={s} isMultiRoom={isMultiRoom} eventId={eventId} />
+                            ) : (
+                              <RankCard key={s.id} session={s} inGrid={true} isMultiRoom={isMultiRoom} eventId={eventId} />
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    </Fragment>
                   );
                 }
 
                 // Single-room (or zero-room) layout — horizontal list rows.
+                // Also used per-slot when the event is multi-room overall but this
+                // particular slot has no roomed session at all.
                 // Time column on the left, avatar in the middle, pill+name on
                 // the right. No TimeSection band — each row carries its own time.
                 return (
