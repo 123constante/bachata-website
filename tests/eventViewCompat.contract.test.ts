@@ -30,7 +30,7 @@ async function pickFixture(): Promise<{ eventId: string; occurrenceId: string } 
   const now = new Date();
   const start = new Date(now); start.setDate(now.getDate() - 30);
   const end = new Date(now); end.setDate(now.getDate() + 60);
-  const { data, error } = await anon.rpc('calendar_events_dto' as never, {
+  const { data, error } = await anon.rpc('calendar_events_dto', {
     p_from: start.toISOString(),
     p_to: end.toISOString(),
   } as never);
