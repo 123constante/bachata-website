@@ -21,7 +21,7 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - Program editor schema (#6)
 - Program save idempotency (#7)
 - Day-rollover consistency (#8)
-- Admin_list_occurrences null-venue tolerance (#9)
+- ~~Admin_list_occurrences null-venue tolerance (#9)~~ &mdash; RETIRED 2026-09-29: the RPC had no caller; admin drops it and `check_admin_list_occurrences_null_venue_tolerance_v1` (M5 caller-zero)
 - Canvas consistency (#10)
 - Security-hardening policy (#11)
 - FK-index contract (#12)

@@ -2,9 +2,6 @@
   "scripts/check-added-session-room-contract.mjs": {
     "R5:unproven-exit-contract": 1
   },
-  "scripts/check-admin-list-occurrences-null-venue-contract.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-anon-grants.mjs": {
     "R4:no-canary": 1
   },
