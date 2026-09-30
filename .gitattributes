@@ -23,5 +23,11 @@
 *.sh text eol=lf
 *.py text eol=lf
 
+# Node scripts: most start with a `#!` line, and a CRLF shebang makes vitest throw
+# "SyntaxError: Invalid or unexpected token" when a test imports the script
+# (tests/ownerApprovalAudit.test.ts -> scripts/owner-approval-audit.mjs). CI on
+# Linux gets LF, so it only fails locally, in the pre-push unit gate.
+scripts/**/*.mjs text eol=lf
+
 # Git hooks must be LF for git itself
 .githooks/* text eol=lf
