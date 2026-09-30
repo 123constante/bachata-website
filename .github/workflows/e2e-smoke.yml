@@ -7,6 +7,13 @@ on:
       - main
       - master
 
+# These jobs hit the PRODUCTION database (Micro compute). A new push to a PR
+# cancels that PR's superseded run so two runs never load prod at once; main,
+# schedule and dispatch runs are never cancelled (their result is the record).
+concurrency:
+  group: e2e-smoke-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e-smoke:
     runs-on: ubuntu-latest
