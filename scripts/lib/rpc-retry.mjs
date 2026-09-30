@@ -24,8 +24,8 @@
  *   - `rpcWithRetry` is for reads. Use it by default.
  *   - `rpcOnce` is for writes -- same classification, ZERO retries, because a
  *     timeout on a mutating RPC does not tell you whether the write landed.
- *     Retrying it can double-apply. check-per-date-program-sync-mutation.mjs is
- *     the live example.
+ *     Retrying it can double-apply. (Its one caller,
+ *     check-per-date-program-sync-mutation.mjs, retired in M5 2026-09-30.)
  *   - Neither calls process.exit. They throw an error carrying `.transient`,
  *     and the caller decides. `exitTransient` is the one-liner most callers
  *     want, kept separate so a script with cleanup to do can still catch first.

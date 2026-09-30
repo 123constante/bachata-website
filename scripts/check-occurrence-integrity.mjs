@@ -4,11 +4,12 @@
  * 2026-06-05). Calls public.check_occurrence_integrity_v1(), which folds every
  * occurrence date/time/program/mirror sub-check into one verdict:
  *   p5_legacy_date_sync, instance_time_canonical, instance_end_canonical,
- *   program_day_integrity, per_date_program, program_format, session_override_mirror.
+ *   program_day_integrity, program_format, session_override_mirror
+ *   (per_date_program retired with its guard, M5 2026-09-30).
  *
  * status='ok' means no invariant drifted above its baseline (currently 0 for all —
  * the arc cleared the 29 P5<->legacy date drifts). Any regression reds this gate.
- * This step is a backstop over the individual #19/#20/#25/#26 steps; it can never be
+ * This step is a backstop over the individual #20/#25/#26 steps; it can never be
  * forgotten when a new sub-check is added to the aggregator.
  *
  * Local:  node scripts/check-occurrence-integrity.mjs

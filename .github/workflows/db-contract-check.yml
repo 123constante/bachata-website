@@ -83,14 +83,14 @@ name: DB Contract Check
 #     not exist. Folder was deleted May 2026; its re-appearance indicates a
 #     migration authority violation (admin commit b0c8c4f5 is canonical).
 #     No Supabase credentials required -- pure filesystem guard.
-# 19. The per-date program canonical-vs-JSON-shadow contract (ADR-007).
-#     calendar_occurrences.override_payload.program[] is a trigger-maintained
-#     mirror of the canonical join (event_program_items +
-#     calendar_occurrence_session_overrides + calendar_occurrence_added_sessions).
-#     Any drift means a write bypassed the canonical layer or the trigger
-#     silently failed. Health-check RPC:
-#     check_per_date_program_canonical_consistency_v1 (admin migrations
-#     20260623020000 / 20260623030000 / 20260623060000).
+# 19. RETIRED (M5 guard remediation, 2026-09-30): the per-date program
+#     canonical-vs-JSON-shadow contract and its sync-mutation test both
+#     measured the LEGACY per-date overlay (calendar_occurrences.override_payload
+#     vs calendar_occurrence_* tables). The P5 overlay is canonical; its mirror
+#     is still covered by the aggregator's session_override_mirror arm and the
+#     P5 legacy program parity step below. The mutation test also INSERTed
+#     legacy events rows nightly. Both RPCs are dropped by the admin migration
+#     that follows this PR.
 # 20. The occurrence instance_start/end vs canonical program contract
 #     (ADR-007 Phase 5). instance_start/end is a UTC mirror of the canonical
 #     program shifted into the occurrence's local date via series timezone.
@@ -374,13 +374,6 @@ jobs:
       # ADR-007 checks run even if earlier (pre-existing) gates failed -
       # they monitor an independent invariant and we need their signal
       # regardless of upstream noise.
-      - name: Run per-date program canonical consistency contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-per-date-program-canonical.mjs
-
       - name: Run occurrence instance_time canonical contract check
         if: always()
         env:
@@ -394,13 +387,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-program-format.mjs
-
-      - name: Run per-date program sync mutation contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-per-date-program-sync-mutation.mjs
 
       - name: Run latest-events (Just added feed) ordering contract check
         if: always()
@@ -473,8 +459,9 @@ jobs:
 
       # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
       #     2026-06-05). One rollup over date-sync, instance start/end, program-day,
-      #     per-date shadow, program format, and the NEW P5->legacy session-override
-      #     mirror parity. Backstops #19/#20/#25/#26 and the new mirror invariant in a
+      #     program format, and the NEW P5->legacy session-override mirror parity
+      #     (the per-date shadow arm retired with #19). Backstops #20/#25/#26 and the
+      #     new mirror invariant in a
       #     single gate that can't be forgotten. Mechanical drift is repairable via
       #     self_heal_occurrence_integrity_v1(); date direction is a human call.
       - name: Run occurrence integrity aggregator check
