@@ -2053,15 +2053,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
           .maybeSingle(),
 
-        supabase
-
-          .from("event_entities")
-
-          .select("event_id", { count: "exact", head: true })
-
-          .eq("organiser_profile_id", organiserId)
-
-          .eq("role", "organiser"),
+        // M5: P5 organiser links (live + ended series), not legacy event_entities.
+        supabase.rpc("get_organiser_public_events_v1", { p_organiser_id: organiserId }),
 
       ]);
 
@@ -2071,7 +2064,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
         createdAt: (profileRes.data?.created_at as string | null) ?? null,
 
-        eventCount: countRes.count ?? 0,
+        eventCount: Array.isArray(countRes.data) ? countRes.data.length : 0,
 
       };
 

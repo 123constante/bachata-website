@@ -4,7 +4,7 @@ import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 
 /**
  * Shared query keys + queryFns for an organiser's public profile data: the
- * entity row and its three feed queries (event_entities, and the future/past
+ * entity row and its three feed queries (organiser events, and the future/past
  * occurrence-backed calendars). app/routes/organiser.tsx's SSR loader and
  * src/pages/OrganiserProfile.tsx's client queries both read these -- they
  * used to be four hand-copied implementations, the exact drift class
@@ -74,17 +74,12 @@ export async function fetchOrganiserEntity(id: string) {
 
 export async function fetchOrganiserEvents(id: string): Promise<EventRow[]> {
   if (!id) return [];
-  const { data, error } = await supabase
-    .from('event_entities')
-    .select('event_id, events(id, name, date, start_time, is_active, poster_url, location, city)')
-    .eq('entity_id', id)
-    .eq('role', 'organiser');
+  // M5: P5 organiser links (live + ended series), not legacy event_entities.
+  // `id` keeps the legacy event id where one exists so the occurrence feeds
+  // below still join on event_id.
+  const { data, error } = await supabase.rpc('get_organiser_public_events_v1', { p_organiser_id: id });
   if (error) return [];
-  type Row = { event_id: string; events: EventRow | null };
-  return ((data ?? []) as unknown as Row[])
-    .map((r) => r.events)
-    .filter((e): e is EventRow => Boolean(e))
-    .filter((e) => e.is_active !== false);
+  return (data ?? []) as unknown as EventRow[];
 }
 
 // No `as never` on the name or the args: get_organiser_calendar_events_v1 IS
