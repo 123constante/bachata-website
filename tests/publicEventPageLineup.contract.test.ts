@@ -13,7 +13,11 @@
  * snapshot_compat mode; the underlying RPC is byte-equal by delegation.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+// Live-DB round trips: CI runners see cold-connection latency that blows
+// vitest's 5s default (unit-tests.yml was red 11/30 on "Test timed out in
+// 5000ms", never on an assertion). Scoped to this file so unit tests keep 5s.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL!;

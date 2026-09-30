@@ -11,7 +11,11 @@
  * function-not-found error and the assertions soft-skip with a warning rather
  * than failing the suite. Once live, it enforces the contract.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+// Live-DB round trips: CI runners see cold-connection latency that blows
+// vitest's 5s default (unit-tests.yml was red 11/30 on "Test timed out in
+// 5000ms", never on an assertion). Scoped to this file so unit tests keep 5s.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
