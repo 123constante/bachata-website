@@ -135,12 +135,6 @@
   "scripts/check-people-public-read-contract.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-per-date-program-canonical.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-per-date-program-sync-mutation.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-pgproc-materialised-cast.mjs": {
     "R4:no-canary": 1
   },
