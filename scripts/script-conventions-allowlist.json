@@ -141,9 +141,6 @@
   "scripts/check-per-date-program-sync-mutation.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-per-occurrence-rpcs.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-pgproc-materialised-cast.mjs": {
     "R4:no-canary": 1
   },
@@ -247,9 +244,6 @@
   },
   "scripts/check-upcoming-event-cover.mjs": {
     "R5:unproven-exit-contract": 1
-  },
-  "scripts/check-venue-contract.mjs": {
-    "R4:no-canary": 1
   },
   "scripts/check-venue-coords.mjs": {
     "R4:no-canary": 1

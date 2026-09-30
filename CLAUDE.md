@@ -159,8 +159,7 @@ Read paths must use `COALESCE(co.venue_id, e.venue_id)`. All shipped public
 RPCs already do this. Any new public read path touching venue MUST use the same
 pattern.
 
-Health check: `check_occurrence_venue_contract_v1()` (anon-callable).
-CI: `db-contract-check.yml` check #1. Local: `node scripts/check-venue-contract.mjs`.
+Health check: none. `check_occurrence_venue_contract_v1()` and its CI step were retired with the legacy mirror (admin `20261107020000`).
 
 ---
 
