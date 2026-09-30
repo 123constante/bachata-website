@@ -135,6 +135,10 @@ jobs:
       # top of the real failure.
       - name: Notify Slack
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        # soft-signal: a notification channel, not a gate. It only runs after the
+        # monitor has already failed (the job is red either way), and a Slack
+        # outage must not hide the real failure or stop the issue record above.
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
@@ -148,7 +152,6 @@ jobs:
           # string is safe here without a JSON.stringify round-trip.
           PAYLOAD="{\"text\":\":rotating_light: Synthetic SSR Monitor failed on production -- ${RUN_URL}\"}"
           curl -sf -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL"
-        continue-on-error: true
 
       - name: Close failure issue when green again
         if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
