@@ -1,0 +1,71 @@
+name: Owner approval audit
+
+# AUDIT ALARM, not a gate. Feature-branch pushes skip the review-receipt gate
+# (.githooks/pre-push): the owner's PR approval is the review. GitHub Free cannot
+# enforce "requires approval", so this is the after-the-fact net: any commit landing on
+# main that touches a HARD-tier path (scripts/lib/review-scope.mjs riskTier) must belong
+# to a PR the owner approved at that PR's head. If not, the run goes red AND an issue is
+# opened. GITHUB_TOKEN only reads reviews and opens the issue; it cannot approve.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit sha to audit (default: the workflow's sha)"
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: owner-approval-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Audit the landed commit
+        id: audit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.inputs.sha || github.sha }}
+          # Empty on workflow_dispatch (audit the one sha); the push's old tip otherwise,
+          # so every commit in the push is audited, not just the newest.
+          BEFORE: ${{ github.event_name == 'push' && github.event.before || '' }}
+        run: |
+          set +e
+          node scripts/owner-approval-audit.mjs "$SHA" "$BEFORE" 2>&1 | tee audit.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      # RED (1) and INFRA (2) both open an issue: an alarm that goes quiet when it cannot
+      # run is the failure this net exists to prevent.
+      - name: Open an issue on RED or infra
+        if: steps.audit.outputs.code != '0'
+        uses: actions/github-script@v9
+        env:
+          SHA: ${{ github.event.inputs.sha || github.sha }}
+          CODE: ${{ steps.audit.outputs.code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const kind = process.env.CODE === '1'
+              ? 'Risky change on main without owner approval'
+              : 'Owner-approval audit could not run';
+            await github.rest.issues.create({
+              ...context.repo,
+              title: `${kind} (${process.env.SHA.slice(0, 8)})`,
+              body: fs.readFileSync('audit.txt', 'utf8') +
+                `\n\nCommit: ${process.env.SHA}. Review it, or approve/revert. Raised by .github/workflows/owner-approval.yml.`,
+            });
+      - name: Fail the run on RED or infra
+        if: steps.audit.outputs.code != '0'
+        run: exit 1
