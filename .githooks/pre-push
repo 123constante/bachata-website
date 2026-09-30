@@ -75,6 +75,8 @@ HEAD_SHA=$(git rev-parse HEAD 2>/dev/null)
 total=0
 deletions=0
 unscoped=""
+to_main=0
+branch_refs=0
 while read -r local_ref local_sha remote_ref remote_sha; do
     total=$((total + 1))
     case "$local_sha" in
@@ -85,6 +87,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     # to HEAD is meaningless. A tag also introduces no review surface of its own.
     case "$local_ref" in
         refs/tags/*) continue ;;
+    esac
+    # Where it lands decides who reviews it: a push to main needs the stamp (or goes
+    # through a PR instead); any other branch is reviewed as the owner's PR approval.
+    case "$remote_ref" in
+        refs/heads/main | refs/heads/master) to_main=1 ;;
+        refs/heads/*) branch_refs=$((branch_refs + 1)) ;;
+        *) to_main=1 ;;                          # unknown target -> gate it
     esac
     if [ -n "$HEAD_SHA" ] && [ "$local_sha" != "$HEAD_SHA" ]; then
         unscoped="$unscoped $local_ref"
@@ -118,6 +127,15 @@ if ! npm run test:unit -- --reporter=dot; then
 fi
 
 # -- 2. Review-receipt gate ----------------------------------------------------
+# FEATURE-BRANCH PUSHES SKIP THIS GATE. The review for a feature branch is the owner's
+# PR approval, which cannot exist before the push. A push to main (or to an unknown
+# target, or with empty stdin) still runs it. The after-the-fact net for a risky change
+# merged without approval is .github/workflows/owner-approval.yml, which opens an issue.
+if [ "$total" -gt 0 ] && [ "$to_main" -eq 0 ] && [ "$branch_refs" -gt 0 ]; then
+    echo "> pre-push: feature-branch push -- review-receipt gate deferred to merge (owner PR approval)."
+    exit 0
+fi
+
 # A MISSING gate script is a hard failure, not a skip. The previous form wrapped this
 # whole block in `if [ -f ... ]`, so the one ship that most needs gating -- the one
 # that deletes or moves scripts/ship-gate.mjs -- turned the guard off and exited 0.
