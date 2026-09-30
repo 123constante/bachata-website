@@ -87,6 +87,7 @@ import type {
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
+import { formatPassAmount } from "@/modules/event-page/formatPassAmount";
 
 type FestivalEvent = {
 
@@ -644,7 +645,9 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .tix .p{font-family:'Bebas Neue',sans-serif;font-size:48px;line-height:1;color:#fff;letter-spacing:-0.02em;margin:10px 0 4px}
 
-.cinematic-festival .tix .p::before{content:'\\a3 ';color:#fb923c;font-size:0.6em;margin-right:2px}
+.cinematic-festival .tix .p .cur{color:#fb923c;font-size:0.6em;margin-right:2px}
+
+.cinematic-festival .tix .was{font-size:12px;color:rgba(255,255,255,0.4);text-decoration:line-through;margin-bottom:4px}
 
 .cinematic-festival .tix .d{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.05em}
 
@@ -3741,6 +3744,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
             <div className="ticket-grid">
               {passes.map((pass) => {
                 const amount = pass.earlyBirdPrice ?? pass.price;
+                const shown = formatPassAmount(amount, pass.currency);
+                const was =
+                  pass.earlyBirdPrice != null && pass.price != null && pass.price > pass.earlyBirdPrice
+                    ? formatPassAmount(pass.price, pass.currency)
+                    : null;
                 const sub = pass.description ?? pass.tier;
                 return (
                   <a
@@ -3751,7 +3759,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                     className="tix"
                   >
                     <div className="n">{pass.name}</div>
-                    <div className="p">{amount}</div>
+                    <div className="p">
+                      {shown.symbol && <span className="cur">{shown.symbol}</span>}
+                      {shown.value}
+                    </div>
+                    {was && <div className="was">{was.symbol}{was.value}</div>}
                     {sub && <div className="d">{sub}</div>}
                   </a>
                 );
