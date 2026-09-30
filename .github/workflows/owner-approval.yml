@@ -39,9 +39,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.event.inputs.sha || github.sha }}
+          # Empty on workflow_dispatch (audit the one sha); the push's old tip otherwise,
+          # so every commit in the push is audited, not just the newest.
+          BEFORE: ${{ github.event_name == 'push' && github.event.before || '' }}
         run: |
           set +e
-          node scripts/owner-approval-audit.mjs "$SHA" 2>&1 | tee audit.txt
+          node scripts/owner-approval-audit.mjs "$SHA" "$BEFORE" 2>&1 | tee audit.txt
           echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
       # RED (1) and INFRA (2) both open an issue: an alarm that goes quiet when it cannot
       # run is the failure this net exists to prevent.

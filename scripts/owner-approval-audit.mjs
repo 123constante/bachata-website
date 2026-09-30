@@ -61,28 +61,58 @@ async function paginate(path) {
   return out;
 }
 
-async function main() {
-  const sha = process.argv[2];
-  const repo = process.env.GITHUB_REPOSITORY;
-  if (!sha || !repo || !process.env.GH_TOKEN) {
-    console.log("INFRA: need <sha>, GITHUB_REPOSITORY and GH_TOKEN");
-    return 2;
-  }
+/** Audit ONE commit: its own files, the merged PRs it belongs to. */
+async function auditCommit(repo, sha) {
   const commit = await gh(`/repos/${repo}/commits/${sha}`);
-  const files = (commit.files || []).map((f) => f.filename);
   if ((commit.files || []).length >= 300) {
-    console.log("INFRA: commit lists 300+ files (API cap) - cannot prove the hard-tier set");
-    return 2;
+    return { code: 2, reason: `${sha.slice(0, 8)} lists 300+ files (API cap) - cannot prove the hard-tier set` };
   }
+  const files = (commit.files || []).map((f) => f.filename);
   const assoc = await gh(`/repos/${repo}/commits/${sha}/pulls`);
   const prs = [];
   for (const p of assoc.filter((x) => x.merged_at)) {
     const reviews = await paginate(`/repos/${repo}/pulls/${p.number}/reviews`);
     prs.push({ number: p.number, headSha: p.head.sha, reviews });
   }
-  const v = decideAudit({ files, prs });
-  console.log(`${v.code === 0 ? "OK" : "RED"}: ${v.reason}`);
-  return v.code;
+  return decideAudit({ files, prs });
+}
+
+const ZERO = /^0+$/;
+
+async function main() {
+  // <sha> [<before>]: with <before> (a push event), EVERY commit in before..sha is
+  // audited -- github.sha alone is only the newest commit of a multi-commit push.
+  const [sha, before] = process.argv.slice(2);
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!sha || !repo || !process.env.GH_TOKEN) {
+    console.log("INFRA: need <sha>, GITHUB_REPOSITORY and GH_TOKEN");
+    return 2;
+  }
+  let shas = [sha];
+  if (before !== undefined && before !== "") {
+    if (ZERO.test(before)) {
+      console.log("INFRA: push has no 'before' commit (new branch) - cannot bound the range");
+      return 2;
+    }
+    const cmp = await gh(`/repos/${repo}/compare/${before}...${sha}`);
+    if ((cmp.total_commits || 0) > (cmp.commits || []).length) {
+      console.log(`INFRA: push carries ${cmp.total_commits} commits, compare listed ${cmp.commits.length}`);
+      return 2;
+    }
+    shas = (cmp.commits || []).map((c) => c.sha);
+    if (shas.length === 0) {
+      console.log(`INFRA: compare ${before.slice(0, 8)}...${sha.slice(0, 8)} listed no commits (force push?)`);
+      return 2;
+    }
+  }
+  let worst = 0;
+  for (const c of shas) {
+    const v = await auditCommit(repo, c);
+    console.log(`${v.code === 0 ? "OK" : v.code === 1 ? "RED" : "INFRA"} ${c.slice(0, 8)}: ${v.reason}`);
+    // RED outranks INFRA: a proven unapproved change is the stronger alarm.
+    if (v.code === 1 || (v.code === 2 && worst === 0)) worst = v.code;
+  }
+  return worst;
 }
 
 if (isEntryPoint(import.meta.url)) {
