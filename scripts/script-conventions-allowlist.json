@@ -79,12 +79,6 @@
   "scripts/check-no-social-word.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-occurrence-instance-end-canonical.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-occurrence-instance-time-canonical.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-occurrence-integrity.mjs": {
     "R4:no-canary": 1
   },

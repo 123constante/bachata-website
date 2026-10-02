@@ -338,8 +338,8 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-fk-indexes.mjs
 
-      # Gates on a hand-maintained ceiling (baseline 36 teachers / 6 DJs
-      # unassigned) -- a real but known-imperfect proxy for "nobody lost an
+      # Gates on a hand-maintained ceiling (baseline 33 teachers / 7 DJs
+      # unassigned, the P5 reading since admin M5 C7b) -- a real but known-imperfect proxy for "nobody lost an
       # assignment": it reds on ordinary roster growth too, fixed by a
       # re-baseline commit. The correct replacement (a lost-assignment
       # predicate, not a ceiling) is queued, not yet built. See
@@ -354,13 +354,6 @@ jobs:
       # ADR-007 checks run even if earlier (pre-existing) gates failed -
       # they monitor an independent invariant and we need their signal
       # regardless of upstream noise.
-      - name: Run occurrence instance_time canonical contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-occurrence-instance-time-canonical.mjs
-
       - name: Run occurrence program format contract check
         if: always()
         env:
@@ -413,18 +406,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-cancelled-occurrence-passthrough.mjs
-
-      # 25. Occurrence instance_END canonical (Occurrence Date Integrity arc,
-      #     2026-06-05). instance_end must equal the program-canonical latest
-      #     session end re-anchored to the occurrence local date — sibling of the
-      #     instance_time (start) check above. Catches the start+24h span class of
-      #     bug that produced a spurious multi-day flag on the public event page.
-      - name: Run occurrence instance_END canonical contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-occurrence-instance-end-canonical.mjs
 
       # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
       #     2026-06-05). One rollup over date-sync, instance start/end, program-day,
