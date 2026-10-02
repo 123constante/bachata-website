@@ -130,7 +130,9 @@ name: DB Contract Check
 #     silently filtered cancelled rows, leaving every Website-side
 #     cancellation UI inert (DateBlock pill, DatesBlock badge,
 #     ScheduleBlock chip, StickyTicketButton hide, EventActionBar disable,
-#     EventCancelledBanner).
+#     EventCancelledBanner). Since admin M5 Stage E C8b this is checked from
+#     P5 by check_cancelled_occurrence_visibility_v1 (step #39); the
+#     legacy-probing passthrough step is retired.
 #
 # Catches operator error from outside the app (e.g. raw SQL admin work)
 # that could re-introduce regressions.
@@ -400,13 +402,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-search-telemetry-v1.mjs
 
-      - name: Run cancelled-occurrence passthrough contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-cancelled-occurrence-passthrough.mjs
-
       # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
       #     2026-06-05). One rollup over the occurrence sub-checks; since admin M5
       #     Stage E C6-C8b only program format remains (date-sync, instance start/end,
@@ -486,8 +481,10 @@ jobs:
         run: node scripts/check-slug-column.mjs
 
       # 39. Cancelled-occurrence VISIBILITY on the default detail page (centralized
-      #     occurrence-policy arc, 2026-06-17). Sibling of #24 (passthrough, which
-      #     covers the explicitly-requested occurrence). This covers the DEFAULT /
+      #     occurrence-policy arc, 2026-06-17). Since admin M5 Stage E C8b the RPC
+      #     also carries the #24 passthrough arm (explicitly-requested cancelled
+      #     occurrence), read from P5; the legacy-probing passthrough step and its
+      #     script are retired. This covers the DEFAULT /
       #     slug-only case: a public event-detail page must lead with the next
       #     chronological occurrence INCLUDING a cancelled imminent date, so the
       #     cancellation is visible — not silently skipped to the next live date.
