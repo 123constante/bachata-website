@@ -66,8 +66,7 @@ if (data?.status !== 'ok') {
   console.error(
     `\nINSTANCE_END DRIFT: ${drift}/${total} occurrence(s) have instance_end ` +
     `that disagrees with the canonical program span (start+24h or stale-day ` +
-    `smell).\nFix: re-file any misfiled program day (see ` +
-    `check_program_day_integrity_v1), then run ` +
+    `smell).\nFix: re-file any misfiled program day, then run ` +
     `public.recompute_occurrence_times_v1(<occurrence_id>) on each affected row.`,
   );
   process.exit(1);

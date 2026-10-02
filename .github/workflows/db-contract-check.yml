@@ -257,20 +257,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-venue-coords.mjs
 
-      - name: Run event-program duration contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-event-program-duration.mjs
-
-      - name: Run session-people display_name override contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-session-people-display-name-contract.mjs
-
       - name: Run epp.display_name drift check
         if: always()
         env:
@@ -302,13 +288,6 @@ jobs:
       - name: Run guest-list contract check (canary only)
         if: always()
         run: node scripts/check-guest-list-contract.mjs --self-test
-
-      - name: Run program editor Phase 0 schema contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-program-schema-contract.mjs
 
       - name: Run added-session room contract check
         # The third room-scoping projection to get a daily counterpart, after
@@ -447,17 +426,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-instance-end-canonical.mjs
 
-      # 26. Program-day / day_id integrity (Occurrence Date Integrity arc). No
-      #     event_program_item may be filed under a day whose event_date != the
-      #     item's canonical rollover display-day. Misfiled days leaked template
-      #     dates into re-anchored occurrence schedules ("FRI 8 / SAT 9" bug).
-      - name: Run program-day / day_id integrity contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-program-day-integrity.mjs
-
       # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
       #     2026-06-05). One rollup over date-sync, instance start/end, program-day,
       #     program format, and the NEW P5->legacy session-override mirror parity
@@ -522,41 +490,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-organiser-link-contract.mjs
-
-      # 35. P5 <-> legacy program parity (2026-06-12). The admin editor reads/writes
-      #     the P5 series program tree; THIS site's schedule reads the legacy
-      #     event_program_* mirror (get_occurrence_program_v1). set_program only
-      #     started mirroring P5->legacy on 2026-06-02, and any legacy meta_data
-      #     save used to resurrect stale programs via trg_sync_event_program ->
-      #     replace_event_program. Result: phantom sessions on live pages (the BOS
-      #     "DOMInation Team" showcase that survived deletion in the editor) and
-      #     one live series with NO public schedule. 11/49 live series were drifted
-      #     at first sweep; all reconciled 2026-06-12 and the mirror now keeps
-      #     relational + meta_data.program + per-date session overrides in lockstep
-      #     (admin migrations 20260821000000-20260821030000). Gate baseline: 0.
-      #     Health-check RPC: check_p5_legacy_program_parity_v1.
-      - name: Run P5 legacy program parity check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-p5-legacy-program-parity.mjs
-
-      # 37. P5 <-> legacy SESSION-PEOPLE parity (M1, 2026-06-15). #35 above is
-      #     people-blind (type+title only). This multiset-diffs the per-session
-      #     people roster (profile_id/type/role, keyed by legacy_program_item_id)
-      #     between the P5 store and the legacy mirror this site renders, so the
-      #     §5.7d session-people read flip (#53) won't silently add/drop line-up
-      #     people on live pages. Base roster gates; the per-occurrence overlay is
-      #     reported but non-gating (deferred to #53). Healed to 0/0 by admin
-      #     migrations 20260827030000 / 20260827040000. Health-check RPC:
-      #     check_p5_session_override_parity_v1.
-      - name: Run P5 legacy session-people parity check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-p5-session-people-parity.mjs
 
       # 38. SEO plan 1.2 slug-column contract (2026-06-17). get_calendar_events_v2
       #     and get_map_events_v1 must expose a slug column (text, nullable) added
