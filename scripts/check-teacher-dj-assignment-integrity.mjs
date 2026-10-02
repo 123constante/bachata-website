@@ -11,7 +11,7 @@
  *   bachata-admin-11april/supabase/migrations/
  *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
  * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 36/8).
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/7).
  * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
  * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
  * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
@@ -83,8 +83,15 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 // "listed before first booking" pattern as every prior re-baseline. The
 // three from the old baseline (Carbonero, Davids, Sobolewska) are still
 // present and unmoved. Nothing dropped an assignment.
-const BASELINE_TEACHERS_UNASSIGNED = 36; // active teachers with no epp row
-const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no epp row
+//
+// 2026-10-02: re-baselined 36/8 -> 33/7 to the P5 reading. Since admin M5 Stage E
+// step C7b the guard reads the P5 programme (event_series_program_people_p5 +
+// event_occurrence_added_session_people_p5) instead of the frozen legacy
+// event_program_people mirror. Measured live after the C7b apply: 33 teachers /
+// 7 DJs unassigned (legacy read 36/7). The P5 line-up credits more people, so the
+// ceiling falls; nothing gained or lost an assignment.
+const BASELINE_TEACHERS_UNASSIGNED = 33; // active teachers with no P5 line-up credit
+const BASELINE_DJS_UNASSIGNED = 7;       // active DJs with no P5 line-up credit
 
 function loadEnv() {
   const env = { ...process.env };
