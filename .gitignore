@@ -134,3 +134,6 @@ whatson-shipped.md
 # `.codecov.yml`/`.releaserc.yaml` still tracks normally.
 /[!.]*.yml
 /[!.]*.yaml
+
+# impeccable local critique snapshots
+.impeccable/
