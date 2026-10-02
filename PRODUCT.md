@@ -10,7 +10,7 @@ London bachata dancers, ~95% on mobile. They arrive wanting to find events tonig
 
 ## Product Purpose
 
-Bachata Calendar (bachata.community.uk) is the public directory and event calendar for the UK bachata scene. It lists events, venues, teachers, DJs, and organisers. Success looks like a dancer opening the app, finding what they need in under 10 seconds, and showing up to the right place.
+Bachata Calendar (Instagram @bachata.calendar) is the public directory and event calendar for the UK bachata scene. It lists events, venues, teachers, DJs, and organisers. Success looks like a dancer opening the app, finding what they need in under 10 seconds, and showing up to the right place.
 
 ## Brand Personality
 

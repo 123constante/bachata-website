@@ -106,7 +106,7 @@ _The other ~28 published venues have no website on file &mdash; nothing to link 
 
 ## Owned channels (do immediately &mdash; free + drives brand search)
 
-- Instagram @bachata.community.uk bio link &rarr; `https://www.bachatacalendar.co.uk/` (not a Linktree).
+- Instagram @bachata.calendar bio link &rarr; `https://www.bachatacalendar.co.uk/` (not a Linktree).
 - Weekly IG "what's on" story &rarr; `/tonight` or the relevant weekday page.
 - WhatsApp community weekly digest &rarr; that week's weekday page (engaged clicks + brand searches).
 
