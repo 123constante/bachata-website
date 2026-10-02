@@ -448,24 +448,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-map-events-rpc.mjs
 
-      # 34. Organiser-link contract (P5 <-> event_entities), 2026-06-11. Every ACTIVE
-      #     event whose organiser is set in event_series_p5.organiser_ids MUST have a
-      #     matching event_entities role='organiser' row, because the public organiser
-      #     page (src/pages/OrganiserProfile.tsx) + MoreEventsSection + FestivalDetail
-      #     read event_entities EXCLUSIVELY. The editor-v2 save path
-      #     (_cmd_series_upsert_p5) writes organisers ONLY to the P5 array, so organiser
-      #     pages silently render "No upcoming events". anon cannot read event_series_p5
-      #     (RLS event_series_p5_ss_select gated by FF_DB_SELF_SERVE_RLS, off in prod),
-      #     so detection needs the anon-exec SECURITY DEFINER RPC
-      #     check_organiser_link_contract_v1 (admin migration, pending). SOFT-PASSES
-      #     until that RPC ships. Full write-through fix: docs/organiser-link-fix-plan.md.
-      - name: Run organiser-link contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-organiser-link-contract.mjs
-
       # 38. SEO plan 1.2 slug-column contract (2026-06-17). get_calendar_events_v2
       #     and get_map_events_v1 must expose a slug column (text, nullable) added
       #     by admin migrations 20260829074000 / 20260829075000. Without it every
@@ -808,11 +790,8 @@ jobs:
       #     enforce-don't-repair sequencing: report first, soak, let runtime truth
       #     produce any missed-writer worklist, THEN promote slug to a hard NOT NULL /
       #     DEFERRABLE constraint (migration C). So this WARNS and stays green.
-      #     NB #56 is NOT a backstop for the P5-native population:
-      #     check_slug_resolver_p5_parity_v1 drives its loops FROM public.events, so a
-      #     series with legacy_event_id IS NULL is never probed there and can never turn
-      #     it red. For those rows - the shape every self-serve writer produces - this
-      #     report-only step is the ONLY signal until migration C lands.
+      #     Once admin M5 Stage E C9 (20261107720000) applies, #56 drives its loops from
+      #     event_series_p5, so it probes P5-native series (legacy_event_id IS NULL) too.
       #     Soft-passes until admin migration 20260725100000 ships. Health-check RPC:
       #     check_event_series_p5_slug_presence_v1.
       - name: Run event_series_p5 slug presence check
