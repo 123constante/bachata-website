@@ -35,26 +35,18 @@ budgets and the puller ratchet are what enforce the result.
 
 ---
 
-## Design density (mandatory — do not deviate without explicit request)
+## Scoped rules (`.claude/rules/` &mdash; load only when matching files are touched)
 
-This project prefers COMPACT, information-dense layouts.
+Still mandatory; they just stay out of sessions that never touch those files.
+Read the file directly if you need one before touching a match.
 
-- Mobile (>=375px): default to **3-column grids** for card lists (venues,
-  events, teachers, DJs, dancers, organisers). Never 1-column unless the
-  card legitimately needs full width.
-- Tablet: 3 columns. Desktop: 4+ columns.
-- Card padding: p-3 (not p-4/p-6). Gap between cards: gap-3 (not gap-4/gap-6).
-- Card images: 16:9 or 4:3 aspect, not 1:1 squares taking half the screen.
-- Typography: text-sm for body, text-base for card titles. Reserve text-lg+
-  for page headers only.
-- Buttons: py-2 px-3 default. Never py-4 unless it's a primary page CTA.
-- Vertical rhythm: prefer space-y-3 over space-y-6.
-- Icons: w-4 h-4 inline, w-5 h-5 for prominent. Not w-8+ unless decorative.
-
-When in doubt, make it MORE compact. If a design feels too dense, Ricky will
-ask to loosen it — assume compact until told otherwise.
-
-Do NOT produce "Apple-style" generous-whitespace mobile layouts.
+- `design-density.md` (`src/**/*.tsx`, `*.css`): COMPACT layouts &mdash; 3-column
+  mobile grids, `p-3`, `text-sm`; never Apple-style whitespace.
+- `breadcrumbs.md` (`src/**/*.tsx`): every `<GlobalLayout>` page passes
+  `buildBreadcrumbs(routeId, ctx)`; never hand-roll.
+- `data-contracts.md` (`src/**`, `app/**`, `scripts/**`): venue reads use
+  `COALESCE(co.venue_id, e.venue_id)`; `emitProfileView` on clickable profiles;
+  `record_event_view_v1`; day-rollover must mirror admin exactly (CI #8).
 
 ---
 
@@ -79,54 +71,6 @@ anything in them.
 
 ---
 
-## Breadcrumbs (mandatory)
-
-Every page that uses `<GlobalLayout>` MUST pass `breadcrumbs={buildBreadcrumbs(routeId, ctx)}`
-from `@/lib/breadcrumbs`. Do NOT hand-roll breadcrumb arrays.
-
-```tsx
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-
-// Listing
-<GlobalLayout breadcrumbs={buildBreadcrumbs('parties')}>
-
-// Detail page
-<GlobalLayout breadcrumbs={buildBreadcrumbs('dancer.detail', {
-  entityName: dancer?.first_name,
-  isLoading,
-})}>
-
-// Event page
-<GlobalLayout breadcrumbs={buildBreadcrumbs('event.detail', {
-  entityName: pageModel.identity.title,
-  eventType: pageModel.identity.eventType,
-  isLoading: state !== 'ready',
-})}>
-```
-
-Adding a new page:
-1. Add a one-line entry to `src/lib/breadcrumbs/siteIa.ts`.
-2. Use `buildBreadcrumbs('newRouteId', ctx)` on the page.
-3. Breadcrumb unit tests in `src/lib/breadcrumbs/__tests__/` auto-cover it.
-
-Pages with no breadcrumb (Index, Auth, AuthCallback, Onboarding) must pass
-`showSubheader={false}`.
-
----
-
-## Calendar occurrence venue/city contract (mandatory)
-
-`calendar_occurrences.venue_id`, `city_id`, and `city_slug` are NULL by default.
-They may be set ONLY when `is_override = true`.
-
-Read paths must use `COALESCE(co.venue_id, e.venue_id)`. All shipped public
-RPCs already do this. Any new public read path touching venue MUST use the same
-pattern.
-
-Health check: none. `check_occurrence_venue_contract_v1()` and its CI step were retired with the legacy mirror (admin `20261107020000`).
-
----
-
 ## Migration authority (mandatory)
 
 This repo does **NOT** own `supabase/migrations/*.sql` &mdash; that folder must
@@ -142,11 +86,8 @@ from there (CLI-only, per admin's CLAUDE.md).
 **What this repo owns instead:**
 - Contract-check scripts (`scripts/check-*.mjs`), run from
   `db-contract-check.yml` &mdash; these validate that the live DB matches our
-  expectations. New contracts go here. No count is pinned, for the same reason
-  none is pinned on the guard-script count: a number copied into prose has no
-  writer maintaining it. This one had drifted twice over &mdash; it read "66"
-  while the workflow held 72 check steps and its own comments had reached #67.
-  Count them when you need the figure:
+  expectations. New contracts go here. Never pin their count in prose (it has
+  drifted before); count them:
   `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml`
 - The `supabase/config.toml` `project_id` pin (so other tooling knows which
   project to point at)
@@ -157,10 +98,8 @@ admin working tree, author the migration there, push, then return here.
 Enforced by `scripts/check-migration-stamps.mjs` (the migration-authority
 arc-closeout step in `db-contract-check.yml`, prose-numbered #18): it fails if
 `supabase/migrations/` exists. Re-creating that folder will red the workflow.
-
-History: rule introduced May 2026 after collapsing 139 Website-origin
-migrations into admin (97 ported, 42 dispositioned). Admin commit b0c8c4f5;
-rollback tags `pre-migration-collapse-website` / `pre-migration-collapse-admin`.
+History (the May 2026 collapse, rollback tags):
+[`docs/ci-guard-notes.md`](docs/ci-guard-notes.md#migration-authority-history).
 
 
 ## File-write safety (mandatory for agents)
@@ -230,24 +169,6 @@ ship-scoped ratchet is what actually gates eslint. If `check:legacy-tables` or
 Cowork→FUSE→Windows pipeline corrupts em-dash, ellipsis, smart quotes via
 cp1252 round-trip → visible mojibake on prod. Use `&mdash;`, `&hellip;`,
 `&rsquo;` in JSX. Never paste Unicode punctuation directly into source files.
-
-### Profile view telemetry
-
-Use `emitProfileView(profileId, type)` from `lib/profileViewEmit.ts` on
-any surface that renders a clickable profile. This is the mandate, not
-`PersonChip` (which is one packaging of the same call for schedule densities).
-
-### Event view tracking
-
-`lib/analytics.ts` → `record_event_view_v1` RPC. Session-deduped per UTC day.
-Bot-UA filtered, admin sessions skipped.
-
-### Day-rollover logic
-
-`src/lib/programDayRollover.ts` — sessions starting 00:00–08:00 of the day
-after event start belong to the prior day. This logic must mirror
-`admin/lib/programDayRollover.ts` exactly. A CI check (#8) validates the
-fixture parity between repos.
 
 ---
 

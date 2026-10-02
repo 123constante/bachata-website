@@ -385,3 +385,15 @@ Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every
 | `workflow-lint.yml` | push/PR | Workflow file validation |
 | `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
 | `ci-budget-guard.yml` | daily + dispatch (+ push on its own files) | What this account's CI **costs**: held Actions artifact pool and minutes, account-wide. Lives here because this repo is public and therefore never metered, so it keeps running when a $0 budget pauses the private repos. Needs the `CI_BUDGET_GITHUB_TOKEN` secret; a missing or expired one is **exit 2, never a green 0-byte report** |
+
+## Migration authority history
+
+Moved from the root CLAUDE.md (2026-10-02).
+
+The rule was introduced in May 2026 after collapsing 139 Website-origin migrations
+into admin (97 ported, 42 dispositioned). Admin commit b0c8c4f5; rollback tags
+`pre-migration-collapse-website` / `pre-migration-collapse-admin`.
+
+Why the contract-check count is never pinned in prose: it drifted twice over
+&mdash; CLAUDE.md read "66" while the workflow held 72 check steps and its own
+comments had reached #67. A number copied into prose has no writer maintaining it.
