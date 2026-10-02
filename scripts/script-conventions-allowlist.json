@@ -134,9 +134,6 @@
   "scripts/check-raffle-winners.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-reverse-orphan-occurrence.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-route-error-boundaries.mjs": {
     "R2:swallowing-catch": 2,
     "R4:no-canary": 1
